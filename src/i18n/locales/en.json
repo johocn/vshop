@@ -1,0 +1,49 @@
+{
+    "common": {
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "loading": "Loading...",
+        "noMore": "No more",
+        "retry": "Retry",
+        "submit": "Submit",
+        "save": "Save",
+        "delete": "Delete",
+        "edit": "Edit",
+        "back": "Back",
+        "search": "Search",
+        "share": "Share"
+    },
+    "home": {
+        "title": "Home",
+        "flashSale": "Flash Sale",
+        "groupBuy": "Group Buy",
+        "coupons": "Coupons",
+        "recharge": "Recharge",
+        "recommend": "Recommended",
+        "newArrival": "New Arrivals"
+    },
+    "cart": {
+        "title": "Cart",
+        "empty": "Cart is empty",
+        "goShopping": "Go Shopping",
+        "selectAll": "Select All",
+        "total": "Total",
+        "checkout": "Checkout",
+        "quantity": "Qty"
+    },
+    "order": {
+        "title": "My Orders",
+        "empty": "No orders",
+        "all": "All",
+        "pending": "Pending",
+        "paid": "Paid",
+        "shipped": "Shipped",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+    },
+    "auth": {
+        "login": "Login",
+        "phoneLogin": "Phone Login",
+        "wechatLogin": "WeChat Login"
+    }
+}

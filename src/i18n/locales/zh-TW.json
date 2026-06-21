@@ -1,0 +1,155 @@
+{
+    "common": {
+        "confirm": "确认",
+        "cancel": "取消",
+        "loading": "加载中...",
+        "noMore": "没有更多了",
+        "retry": "重试",
+        "submit": "提交",
+        "save": "保存",
+        "delete": "删除",
+        "edit": "编辑",
+        "back": "返回",
+        "search": "搜索",
+        "share": "分享"
+    },
+    "home": {
+        "title": "首页",
+        "flashSale": "限时秒杀",
+        "groupBuy": "拼团",
+        "coupons": "优惠券",
+        "recharge": "充值",
+        "recommend": "推荐商品",
+        "newArrival": "新品上架"
+    },
+    "category": {
+        "title": "分类",
+        "all": "全部"
+    },
+    "cart": {
+        "title": "购物车",
+        "empty": "购物车是空的",
+        "goShopping": "去逛逛",
+        "selectAll": "全选",
+        "total": "合计",
+        "checkout": "去结算",
+        "quantity": "数量"
+    },
+    "product": {
+        "addToCart": "加入购物车",
+        "buyNow": "立即购买",
+        "spec": "规格",
+        "detail": "详情",
+        "reviews": "评价",
+        "sold": "已售",
+        "stock": "库存"
+    },
+    "order": {
+        "title": "我的订单",
+        "empty": "暂无订单",
+        "all": "全部",
+        "pending": "待付款",
+        "paid": "待发货",
+        "shipped": "待收货",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "orderNo": "订单号",
+        "totalAmount": "订单金额",
+        "createTime": "下单时间",
+        "payNow": "去支付",
+        "cancelOrder": "取消订单",
+        "confirmReceive": "确认收货",
+        "applyAfterSale": "申请售后",
+        "viewLogistics": "查看物流"
+    },
+    "checkout": {
+        "title": "确认订单",
+        "address": "收货地址",
+        "shipping": "配送方式",
+        "payment": "支付方式",
+        "submitOrder": "提交订单",
+        "processing": "处理中...",
+        "shippingFee": "运费",
+        "totalPayable": "应付"
+    },
+    "payment": {
+        "wechatpay": "微信支付",
+        "alipay": "支付宝",
+        "cod": "货到付款",
+        "balancePay": "余额支付",
+        "balance": "余额",
+        "paySuccess": "支付成功",
+        "payPending": "等待支付确认",
+        "payFailed": "支付失败"
+    },
+    "afterSale": {
+        "title": "售后",
+        "apply": "申请售后",
+        "list": "售后记录",
+        "reason": "售后原因",
+        "description": "问题描述",
+        "evidence": "凭证图片",
+        "refundAmount": "退款金额",
+        "returnShipping": "退货物流",
+        "trackingNo": "快递单号",
+        "carrier": "快递公司",
+        "status": {
+            "pending": "待处理",
+            "approved": "已批准",
+            "rejected": "已拒绝",
+            "returning": "退货中",
+            "received": "已收货",
+            "refunded": "已退款",
+            "closed": "已关闭"
+        }
+    },
+    "promotion": {
+        "flashSale": "限时秒杀",
+        "groupBuy": "拼团",
+        "coupons": "优惠券",
+        "countdown": "距结束",
+        "groupPrice": "团购价",
+        "originalPrice": "原价",
+        "joinGroup": "参与拼团",
+        "startGroup": "发起拼团",
+        "peopleJoined": "人已参团",
+        "claimCoupon": "领取",
+        "useCoupon": "使用"
+    },
+    "user": {
+        "profile": "个人中心",
+        "addresses": "地址管理",
+        "recharge": "充值卡",
+        "balanceHistory": "余额明细",
+        "distribution": "分销中心",
+        "logistics": "物流跟踪",
+        "logout": "退出登录",
+        "myOrders": "我的订单"
+    },
+    "auth": {
+        "login": "登录",
+        "phoneLogin": "手机号登录",
+        "wechatLogin": "微信登录",
+        "phonePlaceholder": "请输入手机号",
+        "codePlaceholder": "验证码",
+        "sendCode": "发送验证码",
+        "resendCode": "{n}s后重新发送"
+    },
+    "recharge": {
+        "title": "充值卡",
+        "cardCode": "卡号",
+        "cardPin": "密码",
+        "redeem": "充值",
+        "currentBalance": "当前余额",
+        "redeemSuccess": "充值成功"
+    },
+    "address": {
+        "add": "新增地址",
+        "name": "收货人",
+        "phone": "手机号",
+        "region": "所在地区",
+        "detail": "详细地址",
+        "default": "默认地址",
+        "setDefault": "设为默认"
+    }
+}

@@ -1,0 +1,42 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+
+export const useAuthStore = defineStore('auth', () => {
+    const token = ref('');
+    const userId = ref('');
+    const userInfo = ref<any>(null);
+    const inviteCode = ref('');
+
+    function setAuth(newToken: string, newUserId: string) {
+        token.value = newToken;
+        userId.value = newUserId;
+        uni.setStorageSync('auth_token', newToken);
+        uni.setStorageSync('auth_userId', newUserId);
+    }
+
+    function setInviteCode(code: string) {
+        if (!code) return;
+        inviteCode.value = code;
+        uni.setStorageSync('auth_inviteCode', code);
+    }
+
+    function restoreSession() {
+        token.value = uni.getStorageSync('auth_token') || '';
+        userId.value = uni.getStorageSync('auth_userId') || '';
+        inviteCode.value = uni.getStorageSync('auth_inviteCode') || '';
+    }
+
+    function logout() {
+        token.value = '';
+        userId.value = '';
+        userInfo.value = null;
+        uni.removeStorageSync('auth_token');
+        uni.removeStorageSync('auth_userId');
+    }
+
+    function setUserInfo(info: any) {
+        userInfo.value = info;
+    }
+
+    return { token, userId, userInfo, inviteCode, setAuth, setInviteCode, restoreSession, logout, setUserInfo };
+});

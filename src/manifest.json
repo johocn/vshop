@@ -1,0 +1,60 @@
+{
+    "name": "vshop",
+    "appid": "__UNI__VSHOP",
+    "description": "Vendure C-End Storefront",
+    "versionName": "1.0.0",
+    "versionCode": "100",
+    "transformPx": false,
+    "app-plus": {
+        "usingComponents": true,
+        "nvueStyleCompiler": "uni-app",
+        "compilerVersion": 3,
+        "splashscreen": {
+            "alwaysShowBeforeRender": true,
+            "waiting": true,
+            "autoclose": true,
+            "delay": 0
+        },
+        "modules": {},
+        "distribute": {
+            "android": {
+                "permissions": [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>"
+                ],
+                "minSdkVersion": 21
+            },
+            "ios": {
+                "dSYMs": false
+            },
+            "sdkConfigs": {}
+        }
+    },
+    "quickapp": {},
+    "mp-weixin": {
+        "appid": "",
+        "setting": {
+            "urlCheck": false
+        },
+        "usingComponents": true,
+        "optimization": {
+            "subPackages": true
+        },
+        "permission": {
+            "scope.userLocation": {
+                "desc": "用于显示附近门店和配送距离"
+            }
+        },
+        "requiredPrivateInfos": [
+            "getLocation",
+            "chooseAddress"
+        ],
+        "lazyCodeLoading": "requiredComponents"
+    },
+    "mp-alipay": {
+        "usingComponents": true
+    },
+    "uniStatistics": {
+        "enable": false
+    },
+    "vueVersion": "3"
+}
