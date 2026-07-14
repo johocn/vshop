@@ -26,6 +26,12 @@
             }
         },
         {
+            "path": "pages/register/index",
+            "style": {
+                "navigationBarTitleText": "注册"
+            }
+        },
+        {
             "path": "pages/profile/index",
             "style": {
                 "navigationBarTitleText": "我的"

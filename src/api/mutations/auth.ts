@@ -97,6 +97,25 @@ export async function sendPhoneVerificationCode(phoneNumber: string): Promise<bo
     return data?.sendPhoneVerificationCode ?? false;
 }
 
+export async function registerCustomer(input: {
+    phoneNumber: string;
+    code: string;
+    password: string;
+    emailAddress?: string;
+}): Promise<any> {
+    const { data } = await authRequest(
+        `mutation Register($input: RegisterCustomerInput!) {
+            registerCustomer(input: $input) {
+                ... on RegisterSuccess { success }
+                ... on InvalidCredentialsError { errorCode message }
+                ... on PasswordValidationError { errorCode message }
+            }
+        }`,
+        { input }
+    );
+    return data;
+}
+
 export async function logout(): Promise<void> {
     const { data } = await authRequest(`mutation { logout { success } }`);
 }
