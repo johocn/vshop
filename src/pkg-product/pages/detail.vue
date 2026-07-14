@@ -6,7 +6,7 @@
       </swiper-item>
     </swiper>
     <view class="product-detail__info">
-      <PriceTag :price="selectedVariant?.priceWithTax?.value || 0" :large="true" />
+      <PriceTag :price="selectedVariant?.priceWithTax || 0" :large="true" />
       <text class="product-detail__name">{{ product.name }}</text>
       <view class="product-detail__specs" v-if="product.optionGroups?.length">
         <view v-for="group in product.optionGroups" :key="group.id" class="spec-group">

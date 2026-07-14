@@ -19,13 +19,12 @@ export const PRODUCT_DETAIL_FRAGMENT = `
         id name slug description
         assets { id preview source }
         variants {
-            id name priceWithTax { value } currencyCode stockLevel
+            id name priceWithTax currencyCode stockLevel
             options { id name code }
         }
         optionGroups { id name code options { id name code } }
         facetValues { id name facet { id name } }
         collections { id name slug }
-        customFields
     }
 `;
 
