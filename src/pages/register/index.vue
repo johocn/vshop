@@ -1,14 +1,43 @@
 <template>
     <view class="register-page">
-        <view class="form-group">
-            <input v-model="form.phoneNumber" type="number" placeholder="请输入手机号" maxlength="11" />
+        <view class="tabs">
+            <view
+                :class="['tab', mode === 'phone' ? 'active' : '']"
+                @click="switchMode('phone')"
+                >手机注册</view
+            >
+            <view
+                :class="['tab', mode === 'email' ? 'active' : '']"
+                @click="switchMode('email')"
+                >邮箱注册</view
+            >
         </view>
-        <view class="form-group code-group">
-            <input v-model="form.code" type="number" placeholder="验证码" maxlength="6" />
-            <button :disabled="countdown > 0" @click="sendCode" class="code-btn">
-                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
-            </button>
-        </view>
+
+        <!-- 手机号注册 -->
+        <template v-if="mode === 'phone'">
+            <view class="form-group">
+                <input
+                    v-model="form.phoneNumber"
+                    type="number"
+                    placeholder="请输入手机号"
+                    maxlength="11"
+                />
+            </view>
+            <view class="form-group code-group">
+                <input v-model="form.code" type="number" placeholder="验证码" maxlength="6" />
+                <button :disabled="countdown > 0" @click="sendCode" class="code-btn">
+                    {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+                </button>
+            </view>
+        </template>
+
+        <!-- 邮箱注册 -->
+        <template v-else>
+            <view class="form-group">
+                <input v-model="form.emailAddress" type="text" placeholder="请输入邮箱地址" />
+            </view>
+        </template>
+
         <view class="form-group">
             <input v-model="form.password" type="password" placeholder="设置密码（6-20位）" />
         </view>
@@ -23,13 +52,21 @@
 import { ref, reactive } from 'vue';
 import { sendPhoneVerificationCode, registerCustomer } from '@/api/mutations/auth';
 
+type RegisterMode = 'phone' | 'email';
+
+const mode = ref<RegisterMode>('phone');
 const form = reactive({
     phoneNumber: '',
     code: '',
+    emailAddress: '',
     password: '',
 });
 const countdown = ref(0);
 const loading = ref(false);
+
+function switchMode(m: RegisterMode) {
+    mode.value = m;
+}
 
 async function sendCode() {
     if (!/^1\d{10}$/.test(form.phoneNumber)) {
@@ -50,9 +87,20 @@ async function sendCode() {
 }
 
 async function handleRegister() {
-    if (!form.phoneNumber || !form.code || !form.password) {
-        uni.showToast({ title: '请填写完整信息', icon: 'none' });
-        return;
+    if (mode.value === 'phone') {
+        if (!form.phoneNumber || !form.code || !form.password) {
+            uni.showToast({ title: '请填写完整信息', icon: 'none' });
+            return;
+        }
+    } else {
+        if (!form.emailAddress || !form.password) {
+            uni.showToast({ title: '请填写完整信息', icon: 'none' });
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.emailAddress)) {
+            uni.showToast({ title: '邮箱格式错误', icon: 'none' });
+            return;
+        }
     }
     if (form.password.length < 6 || form.password.length > 20) {
         uni.showToast({ title: '密码长度6-20位', icon: 'none' });
@@ -60,11 +108,18 @@ async function handleRegister() {
     }
     loading.value = true;
     try {
-        const result = await registerCustomer({
-            phoneNumber: form.phoneNumber,
-            code: form.code,
-            password: form.password,
-        });
+        const payload =
+            mode.value === 'phone'
+                ? {
+                      phoneNumber: form.phoneNumber,
+                      code: form.code,
+                      password: form.password,
+                  }
+                : {
+                      emailAddress: form.emailAddress,
+                      password: form.password,
+                  };
+        const result = await registerCustomer(payload);
         if (result?.registerCustomer?.success) {
             uni.showToast({ title: '注册成功', icon: 'success' });
             setTimeout(() => goLogin(), 1500);
@@ -85,6 +140,9 @@ function goLogin() {
 
 <style scoped>
 .register-page { padding: 40rpx; }
+.tabs { display: flex; margin-bottom: 40rpx; border-bottom: 1px solid #ddd; }
+.tab { flex: 1; text-align: center; padding: 20rpx 0; color: #666; font-size: 30rpx; }
+.tab.active { color: #007aff; border-bottom: 2px solid #007aff; }
 .form-group { margin-bottom: 30rpx; }
 .form-group input { border: 1px solid #ddd; border-radius: 8rpx; padding: 20rpx; width: 100%; }
 .code-group { display: flex; align-items: center; }

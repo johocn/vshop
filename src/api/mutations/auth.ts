@@ -130,10 +130,10 @@ export async function sendPhoneVerificationCode(phoneNumber: string): Promise<bo
 }
 
 export async function registerCustomer(input: {
-    phoneNumber: string;
-    code: string;
-    password: string;
+    phoneNumber?: string;
+    code?: string;
     emailAddress?: string;
+    password: string;
 }): Promise<any> {
     const { data } = await authRequest(
         `mutation Register($input: PhoneRegisterInput!) {
