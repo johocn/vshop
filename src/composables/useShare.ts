@@ -1,3 +1,10 @@
+// #ifdef H5
+import { useH5Share, useH5ProductShare } from './useH5Share';
+// #endif
+// #ifdef MP-WEIXIN
+import { onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app';
+// #endif
+
 interface ShareOptions {
     title?: string;
     path?: string;
@@ -7,7 +14,6 @@ interface ShareOptions {
 /** WeChat share composable - call in page setup */
 export function useShare(options: ShareOptions = {}) {
     // #ifdef MP-WEIXIN
-    const { onShareAppMessage, onShareTimeline } = require('@dcloudio/uni-app');
     const defaultTitle = 'VShop - 精选好物';
     const defaultPath = '/pages/home/index';
     onShareAppMessage(() => ({
@@ -22,7 +28,6 @@ export function useShare(options: ShareOptions = {}) {
     }));
     // #endif
     // #ifdef H5
-    const { useH5Share } = require('./useH5Share');
     useH5Share({
         title: options.title,
         link: options.path ? window.location.origin + '/#' + options.path : undefined,
@@ -41,7 +46,6 @@ export function useProductShare(productName: string, slug: string, imageUrl?: st
     });
     // #endif
     // #ifdef H5
-    const { useH5ProductShare } = require('./useH5Share');
     useH5ProductShare(productName, slug, imageUrl);
     // #endif
 }

@@ -37,7 +37,7 @@ export const ORDER_FRAGMENT = `
         lines {
             id quantity linePriceWithTax unitPriceWithTax
             featuredAsset { preview }
-            productVariant { id name options { name value } }
+            productVariant { id name options { name } }
         }
         shippingAddress { fullName streetLine1 streetLine2 city province postalCode country phoneNumber }
         billingAddress { fullName streetLine1 streetLine2 city province postalCode country phoneNumber }
@@ -55,7 +55,7 @@ export const CART_FRAGMENT = `
         lines {
             id quantity linePriceWithTax unitPriceWithTax
             featuredAsset { preview }
-            productVariant { id name options { name value } }
+            productVariant { id name options { name } }
         }
         couponCodes
         discounts { description amountWithTax }
