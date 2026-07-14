@@ -1,6 +1,6 @@
 /** Platform detection and adaptation utilities */
 
-export type PlatformType = "mp-weixin" | "h5" | "app";
+export type PlatformType = "mp-weixin" | "mp-alipay" | "h5" | "app";
 
 export function getPlatform(): PlatformType {
     // #ifdef MP-WEIXIN

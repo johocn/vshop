@@ -26,8 +26,15 @@
       <!-- #ifdef H5 -->
       <button class="login-btn login-btn--wechat" v-if="isWechatBrowser && wechatAppId" @click="loginWithWechatH5('snsapi_userinfo')">微信登录</button>
       <!-- #endif -->
+      <!-- #ifdef H5 || MP-ALIPAY -->
+      <button class="login-btn login-btn--alipay" @click="loginWithAlipayH5">支付宝登录</button>
+      <!-- #endif -->
+      <!-- #ifdef H5 || MP-TOUTIAO -->
+      <button class="login-btn login-btn--douyin" @click="loginWithDouyinH5">抖音登录</button>
+      <!-- #endif -->
       <button class="login-btn login-btn--phone" @click="mode = 'phone'">手机号登录</button>
       <button class="login-btn login-btn--local" @click="mode = 'local'">账号密码登录</button>
+      <view class="register-link" @click="goRegister">没有账号？去注册</view>
     </view>
     <view class="login-page__agreement">
       <text class="agreement-text">登录即表示同意</text>
@@ -42,7 +49,8 @@ import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
-import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, login } from '../../api/mutations/auth';
+import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login } from '../../api/mutations/auth';
+import { detectPlatform } from '../../utils/detect-env';
 
 const authStore = useAuthStore();
 const ui = useUIStore();
@@ -55,6 +63,8 @@ const countdown = ref(0);
 const redirectUrl = ref('');
 
 const wechatAppId = import.meta.env.VITE_WECHAT_APP_ID || '';
+const alipayAppId = import.meta.env.VITE_ALIPAY_APP_ID || '';
+const douyinAppId = import.meta.env.VITE_DOUYIN_APP_ID || '';
 
 const isWechatBrowser = computed(() => {
     // #ifdef H5
@@ -82,9 +92,32 @@ onMounted(() => {
         }
     }
 
-    // Auto silent login in WeChat browser if not logged in
-    if (!authStore.token && isWechatBrowser.value && wechatAppId) {
-        loginWithWechatH5('snsapi_base');
+    // 处理支付宝回调
+    const alipayAuthCode = url.searchParams.get('alipay_auth_code');
+    if (alipayAuthCode) {
+        window.history.replaceState({}, '', window.location.pathname);
+        handleAlipayH5Callback(alipayAuthCode);
+        return;
+    }
+
+    // 处理抖音回调
+    const douyinCode = url.searchParams.get('douyin_code');
+    if (douyinCode) {
+        window.history.replaceState({}, '', window.location.pathname);
+        handleDouyinH5Callback(douyinCode);
+        return;
+    }
+
+    // 环境侦测：自动触发对应三方登录
+    if (!authStore.token) {
+        const platform = detectPlatform();
+        if (platform === 'wechat' && wechatAppId) {
+            loginWithWechatH5('snsapi_base');
+        } else if (platform === 'alipay') {
+            loginWithAlipayH5();
+        } else if (platform === 'douyin') {
+            loginWithDouyinH5();
+        }
     }
     // #endif
 });
@@ -180,6 +213,94 @@ async function handleWechatH5Callback(oauthCode: string) {
     } catch (e: any) { ui.showToast('微信登录失败: ' + e.message); }
     // #endif
 }
+
+function loginWithAlipayH5() {
+    // #ifdef H5
+    if (!alipayAppId) {
+        ui.showToast('支付宝登录未配置');
+        return;
+    }
+    const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
+    window.location.href = `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${alipayAppId}&scope=auth_user&redirect_uri=${redirectUri}`;
+    // #endif
+    // #ifdef MP-ALIPAY
+    my.getAuthCode({
+        scopes: ['auth_user'],
+        success: async (res: any) => {
+            try {
+                const result = await authenticateWithAlipay(res.authCode, 'mini');
+                if (result.userId) {
+                    authStore.setAuth(result.token, result.userId);
+                    navigateAfterLogin();
+                }
+            } catch (e: any) { ui.showToast(e.message); }
+        },
+        fail: () => { ui.showToast('支付宝登录失败'); }
+    });
+    // #endif
+}
+
+function loginWithDouyinH5() {
+    // #ifdef H5
+    if (!douyinAppId) {
+        ui.showToast('抖音登录未配置');
+        return;
+    }
+    const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
+    window.location.href = `https://developer.toutiao.com/openapi/oauth2/auth/v2/?app_id=${douyinAppId}&response_type=code&scope=user_info&redirect_uri=${redirectUri}`;
+    // #endif
+    // #ifdef MP-TOUTIAO
+    uni.login({
+        provider: 'toutiao',
+        success: async (loginRes: any) => {
+            try {
+                const result = await authenticateWithDouyin(loginRes.code, 'mini');
+                if (result.userId) {
+                    authStore.setAuth(result.token, result.userId);
+                    navigateAfterLogin();
+                }
+            } catch (e: any) { ui.showToast(e.message); }
+        },
+        fail: (err: any) => { ui.showToast('抖音登录失败: ' + err.errMsg); }
+    });
+    // #endif
+}
+
+async function handleAlipayH5Callback(authCode: string) {
+    // #ifdef H5
+    try {
+        const result = await authenticateWithAlipay(authCode, 'h5');
+        if (result.userId) {
+            authStore.setAuth(result.token, result.userId);
+            ui.showToast('登录成功', 'success');
+            navigateAfterLogin();
+        } else {
+            ui.showToast('登录失败');
+            mode.value = 'select';
+        }
+    } catch (e: any) { ui.showToast(e.message); mode.value = 'select'; }
+    // #endif
+}
+
+async function handleDouyinH5Callback(code: string) {
+    // #ifdef H5
+    try {
+        const result = await authenticateWithDouyin(code, 'h5');
+        if (result.userId) {
+            authStore.setAuth(result.token, result.userId);
+            ui.showToast('登录成功', 'success');
+            navigateAfterLogin();
+        } else {
+            ui.showToast('登录失败');
+            mode.value = 'select';
+        }
+    } catch (e: any) { ui.showToast(e.message); mode.value = 'select'; }
+    // #endif
+}
+
+function goRegister() {
+    uni.navigateTo({ url: '/pages/register/index' });
+}
 </script>
 <style lang="scss" scoped>
 .login-page {
@@ -197,9 +318,12 @@ async function handleWechatH5Callback(oauthCode: string) {
 .login-logo-text { font-size: 40rpx; font-weight: bold; margin-top: 16rpx; color: $brand-color; }
 .login-btn { height: 96rpx; font-size: 30rpx; border-radius: $radius-md; border: none; display: flex; align-items: center; justify-content: center;
     &--wechat { background: #07c160; color: #fff; }
+    &--alipay { background: #1677ff; color: #fff; }
+    &--douyin { background: #000; color: #fff; }
     &--phone { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
     &--local { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
 }
+.register-link { font-size: 26rpx; color: $brand-color; text-align: center; margin-top: 20rpx; }
 .agreement-text { font-size: 22rpx; color: #999; }
 .agreement-link { font-size: 22rpx; color: $brand-color; }
 </style>

@@ -89,6 +89,38 @@ export async function authenticateWithWechat(code: string, type: string = 'mp'):
     return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
 }
 
+export async function authenticateWithAlipay(authCode: string, type: string = 'h5'): Promise<AuthResult> {
+    const { data, authToken } = await authRequest(
+        `mutation Authenticate($input: AuthenticationInput!) {
+            authenticate(input: $input) {
+                ... on CurrentUser { id identifier }
+                ... on ErrorResult { errorCode message }
+            }
+        }`,
+        { input: { alipay: { authCode, type } } }
+    );
+    if (data?.authenticate?.errorCode) {
+        throw new Error(data.authenticate.message);
+    }
+    return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
+}
+
+export async function authenticateWithDouyin(code: string, type: string = 'h5'): Promise<AuthResult> {
+    const { data, authToken } = await authRequest(
+        `mutation Authenticate($input: AuthenticationInput!) {
+            authenticate(input: $input) {
+                ... on CurrentUser { id identifier }
+                ... on ErrorResult { errorCode message }
+            }
+        }`,
+        { input: { douyin: { code, type } } }
+    );
+    if (data?.authenticate?.errorCode) {
+        throw new Error(data.authenticate.message);
+    }
+    return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
+}
+
 export async function sendPhoneVerificationCode(phoneNumber: string): Promise<boolean> {
     const { data } = await authRequest(
         `mutation SendPhoneCode($phoneNumber: String!) { sendPhoneVerificationCode(phoneNumber: $phoneNumber) }`,
