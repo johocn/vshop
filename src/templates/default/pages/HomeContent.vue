@@ -9,7 +9,12 @@
       <view class="nav-item" @click="navTo('/pkg-promotion/pages/coupons')"><text class="nav-icon">🎫</text><text>优惠券</text></view>
       <view class="nav-item" @click="navTo('/pkg-user/pages/recharge')"><text class="nav-icon">💳</text><text>充值</text></view>
     </view>
-    <view class="default-home__section">
+    <FloorSection
+      v-for="floor in floors"
+      :key="floor.id"
+      :floor="floor"
+    />
+    <view v-if="floors.length === 0" class="default-home__section">
       <text class="section-title">推荐商品</text>
       <view class="product-grid">
         <view v-for="p in products" :key="p.productId" class="product-mini" @click="goDetail(p.slug)">
@@ -24,12 +29,29 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { searchProducts } from '../../../api/queries/product';
+import { getEnabledFloors, filterActiveFloors, type FloorCollection } from '../../../api/queries/collection';
 import VImage from '../../../components/VImage.vue';
 import PriceTag from '../../../components/PriceTag.vue';
+import FloorSection from '../../../components/FloorSection.vue';
+
 const products = ref<any[]>([]);
+const floors = ref<FloorCollection[]>([]);
+
 onMounted(async () => {
-    try { const res: any = await searchProducts({ take: 10 }); products.value = res.search?.items || []; } catch (e) {}
+    try {
+        const res: any = await searchProducts({ take: 10 });
+        products.value = res.search?.items || [];
+    } catch (e) {}
+
+    try {
+        const res: any = await getEnabledFloors();
+        const allFloors = res.collections?.items || [];
+        floors.value = filterActiveFloors(allFloors).slice(0, 3);
+    } catch (e) {
+        console.error('加载楼层失败', e);
+    }
 });
+
 function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
 function navTo(url: string) { uni.navigateTo({ url }); }
 function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/detail?slug=' + slug }); }
