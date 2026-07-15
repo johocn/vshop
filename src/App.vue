@@ -4,7 +4,7 @@ import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
 import { setupRouteGuard } from './composables/useAuthGuard';
 
-onLaunch(() => {
+onLaunch((options: any) => {
     console.log('App Launch');
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
@@ -22,6 +22,21 @@ onLaunch(() => {
         const refCode = url.searchParams.get('ref');
         if (refCode) {
             authStore.setInviteCode(refCode);
+        }
+    } catch (e) {}
+    // #endif
+
+    // 小程序: 从 scene 参数解析 r=邀请码
+    // #ifdef MP-WEIXIN
+    try {
+        const scene = options?.query?.scene || options?.scene;
+        if (scene) {
+            const decoded = decodeURIComponent(scene);
+            const params = new URLSearchParams(decoded);
+            const refCode = params.get('r');
+            if (refCode) {
+                authStore.setInviteCode(refCode);
+            }
         }
     } catch (e) {}
     // #endif

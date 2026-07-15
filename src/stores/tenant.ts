@@ -58,6 +58,7 @@ export const useTenantStore = defineStore('tenant', () => {
     const employeePickupMode = ref<'disabled' | 'loose' | 'strict'>('disabled');
     const defaultLocation = ref<{ lat: number; lng: number } | null>(null);
     const authMethods = ref<string[]>([]);
+    const wechatAppId = ref('');
     const ssoProviders = ref<SsoProviderInfo[]>([]);
 
     const currentConfig = computed(() => TENANT_CONFIGS[tenantCode.value] || TENANT_CONFIGS.default);
@@ -114,9 +115,12 @@ export const useTenantStore = defineStore('tenant', () => {
     async function loadAuthMethods() {
         try {
             const res: any = await getAuthMethods();
-            authMethods.value = res?.authMethods || ['native'];
+            const data = res?.authMethods || {};
+            authMethods.value = data.methods || ['native'];
+            wechatAppId.value = data.wechatAppId || '';
         } catch (e) {
             authMethods.value = ['native'];
+            wechatAppId.value = '';
         }
     }
 
@@ -131,7 +135,7 @@ export const useTenantStore = defineStore('tenant', () => {
 
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
-        employeePickupMode, defaultLocation, authMethods, ssoProviders,
+        employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
         currentConfig, initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };
