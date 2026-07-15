@@ -17,7 +17,12 @@
 import { ref, onMounted } from 'vue';
 import { getActiveFlashSaleActivities } from '../../api/queries/promotion';
 import EmptyState from '../../components/EmptyState.vue';
+import { useShare } from '../../composables/useShare';
 const activities = ref<any[]>([]);
+useShare({
+    title: '限时秒杀 - 精选好物',
+    path: '/pkg-promotion/pages/flash-sale',
+});
 onMounted(async () => {
     try {
         const res: any = await getActiveFlashSaleActivities();

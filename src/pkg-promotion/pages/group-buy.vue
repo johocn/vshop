@@ -16,8 +16,13 @@ import { getActiveGroupBuyActivities } from '../../api/queries/promotion';
 import { getGraphQLClient } from '../../api/client';
 import { useUIStore } from '../../stores/ui';
 import EmptyState from '../../components/EmptyState.vue';
+import { useShare } from '../../composables/useShare';
 const activities = ref<any[]>([]);
 const ui = useUIStore();
+useShare({
+    title: '拼团 - 精选好物',
+    path: '/pkg-promotion/pages/group-buy',
+});
 onMounted(async () => {
     const res: any = await getActiveGroupBuyActivities();
     activities.value = res.activeGroupBuyActivities || [];

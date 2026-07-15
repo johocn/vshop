@@ -28,6 +28,12 @@ onLaunch(() => {
 
     // Setup route guard for authenticated pages
     setupRouteGuard();
+
+    // #ifdef H5
+    uni.addInterceptor('switchTab', { complete: () => { import('./utils/wechat').then(m => m.resetWxReady()); } });
+    uni.addInterceptor('navigateTo', { complete: () => { import('./utils/wechat').then(m => m.resetWxReady()); } });
+    uni.addInterceptor('redirectTo', { complete: () => { import('./utils/wechat').then(m => m.resetWxReady()); } });
+    // #endif
 });
 </script>
 

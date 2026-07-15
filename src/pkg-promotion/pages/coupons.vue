@@ -30,8 +30,13 @@ import { getActiveOrder } from '../../api/queries/order';
 import { useUIStore } from '../../stores/ui';
 import { useCartStore } from '../../stores/cart';
 import EmptyState from '../../components/EmptyState.vue';
+import { useShare } from '../../composables/useShare';
 const ui = useUIStore();
 const cart = useCartStore();
+useShare({
+    title: '优惠券 - 精选好物',
+    path: '/pkg-promotion/pages/coupons',
+});
 const tab = ref('apply');
 const couponCode = ref('');
 const activeCoupons = ref<string[]>([]);
