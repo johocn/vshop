@@ -34,7 +34,14 @@ function authRequest(query: string, variables?: Record<string, any>): Promise<{ 
             data: { query, variables },
             success: (res: any) => {
                 const authToken = res.header['vendure-auth-token'] || res.header['Vendure-Auth-Token'] || '';
-                resolve({ data: res.data, authToken });
+                // res.data 是完整 GraphQL 响应体 { data: {...}, errors?: [...] }
+                // 解包返回 data 字段（GraphQL 查询结果），与 graphql-request 行为一致
+                const body = res.data || {};
+                if (body.errors && body.errors.length > 0) {
+                    reject(new Error(body.errors[0].message));
+                    return;
+                }
+                resolve({ data: body.data, authToken });
             },
             fail: (err: any) => reject(err),
         });
@@ -114,6 +121,22 @@ export async function authenticateWithDouyin(code: string, type: string = 'h5'):
             }
         }`,
         { input: { douyin: { code, type } } }
+    );
+    if (data?.authenticate?.errorCode) {
+        throw new Error(data.authenticate.message);
+    }
+    return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
+}
+
+export async function ssoLogin(providerKey: string, code: string): Promise<AuthResult> {
+    const { data, authToken } = await authRequest(
+        `mutation Authenticate($input: AuthenticationInput!) {
+            authenticate(input: $input) {
+                ... on CurrentUser { id identifier }
+                ... on ErrorResult { errorCode message }
+            }
+        }`,
+        { input: { sso: { providerKey, code } } }
     );
     if (data?.authenticate?.errorCode) {
         throw new Error(data.authenticate.message);
