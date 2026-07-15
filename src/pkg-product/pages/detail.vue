@@ -20,9 +20,11 @@
       </view>
     </view>
     <view class="product-detail__bar">
+      <button class="product-detail__poster-btn" @click="showPoster = true">海报</button>
       <button class="product-detail__cart-btn" @click="addToCart">加入购物车</button>
       <button class="product-detail__buy-btn" @click="buyNow">立即购买</button>
     </view>
+    <ProductPoster v-if="showPoster" :product="product" @close="showPoster = false" />
   </view>
 </template>
 
@@ -36,11 +38,13 @@ import { useUIStore } from '../../stores/ui';
 import { getActiveOrder } from '../../api/queries/order';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
+import ProductPoster from '../../components/product-poster/product-poster.vue';
 
 const product = ref<any>(null);
 const selectedOptions = ref<Record<string, string>>({});
 const cart = useCartStore();
 const ui = useUIStore();
+const showPoster = ref(false);
 
 const selectedVariant = computed(() => {
     if (!product.value?.variants?.length) return null;
