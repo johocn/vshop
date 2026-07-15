@@ -10,11 +10,23 @@
 <script setup lang="ts">
 import { getGraphQLClient } from '../../api/client';
 import { useUIStore } from '../../stores/ui';
+import { useAuthStore } from '../../stores/auth';
+
 const ui = useUIStore();
+const authStore = useAuthStore();
+
 async function applyDist() {
     try {
         const client = getGraphQLClient();
-        await client.request(`mutation { applyDistributor { id status } }`);
+        const referredByCode = authStore.inviteCode || null;
+        await client.request(
+            `mutation ApplyDistributor($referredByCode: String) {
+                applyDistributor(referredByCode: $referredByCode) {
+                    id status
+                }
+            }`,
+            { referredByCode }
+        );
         ui.showToast('申请成功', 'success');
     } catch (e: any) { ui.showToast(e.message); }
 }
