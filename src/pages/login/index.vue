@@ -59,6 +59,7 @@ import { useAuthStore } from '../../stores/auth';
 import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
 import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login, ssoLogin } from '../../api/mutations/auth';
+import { getGraphQLClient } from '../../api/client';
 import { detectPlatform } from '../../utils/detect-env';
 
 const authStore = useAuthStore();
@@ -71,8 +72,9 @@ const username = ref('');
 const password = ref('');
 const countdown = ref(0);
 const redirectUrl = ref('');
+const lastWechatAuthFailed = ref(false);
 
-const wechatAppId = import.meta.env.VITE_WECHAT_APP_ID || '';
+const wechatAppId = computed(() => tenantStore.wechatAppId || import.meta.env.VITE_WECHAT_APP_ID || '');
 const alipayAppId = import.meta.env.VITE_ALIPAY_APP_ID || '';
 const douyinAppId = import.meta.env.VITE_DOUYIN_APP_ID || '';
 
@@ -129,9 +131,9 @@ onMounted(async () => {
     }
 
     // 环境侦测：自动触发对应三方登录（受 authMethods 控制）
-    if (!authStore.token) {
+    if (!authStore.token && !lastWechatAuthFailed.value) {
         const platform = detectPlatform();
-        if (platform === 'wechat' && wechatAppId && authMethods.value.includes('wechat')) {
+        if (platform === 'wechat' && wechatAppId.value && authMethods.value.includes('wechat')) {
             loginWithWechatH5('snsapi_base');
         } else if (platform === 'alipay' && authMethods.value.includes('alipay')) {
             loginWithAlipayH5();
@@ -166,6 +168,7 @@ async function loginWithPhone() {
         const result = await authenticateWithPhone(phone.value, code.value);
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
+            if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
             ui.showToast('登录成功', 'success');
             navigateAfterLogin();
         }
@@ -178,6 +181,7 @@ async function loginWithLocal() {
         const result = await login(username.value, password.value);
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
+            if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
             ui.showToast('登录成功', 'success');
             navigateAfterLogin();
         }
@@ -204,14 +208,14 @@ async function loginWithWechat() {
 
 function loginWithWechatH5(scope: 'snsapi_base' | 'snsapi_userinfo' = 'snsapi_base') {
     // #ifdef H5
-    if (!wechatAppId) {
+    if (!wechatAppId.value) {
         ui.showToast('微信登录未配置');
         return;
     }
     const redirectUri = encodeURIComponent(window.location.href.split('?')[0]);
     const state = scope === 'snsapi_base' ? 'wechat_base' : 'wechat_userinfo';
     const oauthUrl = 'https://open.weixin.qq.com/connect/oauth2/authorize'
-        + '?appid=' + wechatAppId
+        + '?appid=' + wechatAppId.value
         + '&redirect_uri=' + redirectUri
         + '&response_type=code'
         + '&scope=' + scope
@@ -227,10 +231,19 @@ async function handleWechatH5Callback(oauthCode: string) {
         const result = await authenticateWithWechat(oauthCode, 'mp');
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
+            if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
             ui.showToast('登录成功', 'success');
             navigateAfterLogin();
+        } else {
+            lastWechatAuthFailed.value = true;
+            ui.showToast('微信登录失败，请重试', 'none');
+            mode.value = 'select';
         }
-    } catch (e: any) { ui.showToast('微信登录失败: ' + e.message); }
+    } catch (e: any) {
+        lastWechatAuthFailed.value = true;
+        ui.showToast('微信登录失败: ' + e.message);
+        mode.value = 'select';
+    }
     // #endif
 }
 
@@ -292,6 +305,7 @@ async function handleAlipayH5Callback(authCode: string) {
         const result = await authenticateWithAlipay(authCode, 'h5');
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
+            if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
             ui.showToast('登录成功', 'success');
             navigateAfterLogin();
         } else {
@@ -308,6 +322,7 @@ async function handleDouyinH5Callback(code: string) {
         const result = await authenticateWithDouyin(code, 'h5');
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
+            if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
             ui.showToast('登录成功', 'success');
             navigateAfterLogin();
         } else {
@@ -382,6 +397,24 @@ async function handleSsoCallback(): Promise<boolean> {
     }
     // #endif
     return false;
+}
+
+async function tryUpdateReferredBy(inviteCode: string) {
+    try {
+        const client = getGraphQLClient();
+        const res: any = await client.request(`query {
+            activeCustomer { id customFields { referredBy } }
+        }`);
+        if (res?.activeCustomer?.customFields?.referredBy) return;
+        await client.request(`mutation UpdateCustomerReferredBy($referredBy: String!) {
+            updateCustomer(input: { customFields: { referredBy: $referredBy } }) {
+                ...on Customer { id }
+                ...on ErrorResult { errorCode }
+            }
+        }`, { referredBy: inviteCode });
+    } catch (e) {
+        console.error('补写 referredBy 失败', e);
+    }
 }
 
 function goRegister() {
