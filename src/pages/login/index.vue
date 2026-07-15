@@ -21,19 +21,27 @@
     </view>
     <view class="login-page__actions" v-if="mode === 'select'">
       <!-- #ifdef MP-WEIXIN -->
-      <button class="login-btn login-btn--wechat" @click="loginWithWechat">微信一键登录</button>
+      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat')" @click="loginWithWechat">微信一键登录</button>
       <!-- #endif -->
       <!-- #ifdef H5 -->
-      <button class="login-btn login-btn--wechat" v-if="isWechatBrowser && wechatAppId" @click="loginWithWechatH5('snsapi_userinfo')">微信登录</button>
+      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat') && isWechatBrowser && wechatAppId" @click="loginWithWechatH5('snsapi_userinfo')">微信登录</button>
       <!-- #endif -->
       <!-- #ifdef H5 || MP-ALIPAY -->
-      <button class="login-btn login-btn--alipay" @click="loginWithAlipayH5">支付宝登录</button>
+      <button class="login-btn login-btn--alipay" v-if="authMethods.includes('alipay')" @click="loginWithAlipayH5">支付宝登录</button>
       <!-- #endif -->
       <!-- #ifdef H5 || MP-TOUTIAO -->
-      <button class="login-btn login-btn--douyin" @click="loginWithDouyinH5">抖音登录</button>
+      <button class="login-btn login-btn--douyin" v-if="authMethods.includes('douyin')" @click="loginWithDouyinH5">抖音登录</button>
       <!-- #endif -->
-      <button class="login-btn login-btn--phone" @click="mode = 'phone'">手机号登录</button>
-      <button class="login-btn login-btn--local" @click="mode = 'local'">账号密码登录</button>
+      <!-- #ifdef H5 -->
+      <button
+        v-for="p in ssoProviders"
+        :key="p.providerKey"
+        class="login-btn login-btn--sso"
+        @click="loginWithSso(p)"
+      >{{ p.name }}登录</button>
+      <!-- #endif -->
+      <button class="login-btn login-btn--phone" v-if="authMethods.includes('phone')" @click="mode = 'phone'">手机号登录</button>
+      <button class="login-btn login-btn--local" v-if="authMethods.includes('native')" @click="mode = 'local'">账号密码登录</button>
       <view class="register-link" @click="goRegister">没有账号？去注册</view>
     </view>
     <view class="login-page__agreement">
@@ -48,11 +56,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/auth';
+import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
-import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login } from '../../api/mutations/auth';
+import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login, ssoLogin } from '../../api/mutations/auth';
 import { detectPlatform } from '../../utils/detect-env';
 
 const authStore = useAuthStore();
+const tenantStore = useTenantStore();
 const ui = useUIStore();
 const mode = ref<'select' | 'phone' | 'local'>('select');
 const phone = ref('');
@@ -66,6 +76,9 @@ const wechatAppId = import.meta.env.VITE_WECHAT_APP_ID || '';
 const alipayAppId = import.meta.env.VITE_ALIPAY_APP_ID || '';
 const douyinAppId = import.meta.env.VITE_DOUYIN_APP_ID || '';
 
+const authMethods = computed<string[]>(() => tenantStore.authMethods);
+const ssoProviders = computed(() => tenantStore.ssoProviders);
+
 const isWechatBrowser = computed(() => {
     // #ifdef H5
     try { return /MicroMessenger/i.test(navigator.userAgent); } catch (e) { return false; }
@@ -77,8 +90,15 @@ onLoad((query: any) => {
     if (query?.redirect) redirectUrl.value = decodeURIComponent(query.redirect);
 });
 
-onMounted(() => {
+onMounted(async () => {
     // #ifdef H5
+    await tenantStore.loadAuthMethods();
+    await tenantStore.loadSsoProviders();
+
+    // 处理 SSO 回调（靠 sessionStorage 的 sso_provider 标识，与现有 OAuth 回调区分）
+    const ssoHandled = await handleSsoCallback();
+    if (ssoHandled) return;
+
     const url = new URL(window.location.href);
     const oauthCode = url.searchParams.get('code');
     const oauthState = url.searchParams.get('state');
@@ -108,14 +128,14 @@ onMounted(() => {
         return;
     }
 
-    // 环境侦测：自动触发对应三方登录
+    // 环境侦测：自动触发对应三方登录（受 authMethods 控制）
     if (!authStore.token) {
         const platform = detectPlatform();
-        if (platform === 'wechat' && wechatAppId) {
+        if (platform === 'wechat' && wechatAppId && authMethods.value.includes('wechat')) {
             loginWithWechatH5('snsapi_base');
-        } else if (platform === 'alipay') {
+        } else if (platform === 'alipay' && authMethods.value.includes('alipay')) {
             loginWithAlipayH5();
-        } else if (platform === 'douyin') {
+        } else if (platform === 'douyin' && authMethods.value.includes('douyin')) {
             loginWithDouyinH5();
         }
     }
@@ -298,6 +318,72 @@ async function handleDouyinH5Callback(code: string) {
     // #endif
 }
 
+function loginWithSso(provider: any) {
+    // #ifdef H5
+    const redirectUri = `${window.location.origin}/pages/login/index`;
+    const state = Math.random().toString(36).substring(2);
+    sessionStorage.setItem('sso_state', state);
+    sessionStorage.setItem('sso_provider', provider.providerKey);
+
+    let authorizeUrl: string;
+    let params: Record<string, string>;
+
+    if (provider.protocol === 'zhao-sso') {
+        authorizeUrl = `${provider.baseUrl.replace(/\/$/, '')}/v1/auth/authorize`;
+        params = {
+            app_code: provider.clientId,
+            redirect_uri: redirectUri,
+            response_type: 'code',
+            state,
+        };
+        if (provider.channelCode) params.channel_code = provider.channelCode;
+    } else {
+        authorizeUrl = provider.authorizeUrl;
+        params = {
+            client_id: provider.clientId,
+            redirect_uri: redirectUri,
+            response_type: 'code',
+            scope: (provider.scopes || []).join(' '),
+            state,
+        };
+    }
+
+    const query = new URLSearchParams(params).toString();
+    window.location.href = `${authorizeUrl}?${query}`;
+    // #endif
+}
+
+// 处理 SSO 回调：靠 sessionStorage 的 sso_provider 标识区分于现有 OAuth 回调
+async function handleSsoCallback(): Promise<boolean> {
+    // #ifdef H5
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const providerKey = sessionStorage.getItem('sso_provider');
+    if (code && providerKey) {
+        try {
+            const result = await ssoLogin(providerKey, code);
+            if (result.userId) {
+                sessionStorage.removeItem('sso_provider');
+                sessionStorage.removeItem('sso_state');
+                authStore.setAuth(result.token, result.userId);
+                ui.showToast('登录成功', 'success');
+                window.history.replaceState({}, '', window.location.pathname);
+                navigateAfterLogin();
+                return true;
+            }
+        } catch (e: any) {
+            sessionStorage.removeItem('sso_provider');
+            sessionStorage.removeItem('sso_state');
+            window.history.replaceState({}, '', window.location.pathname);
+            ui.showToast('SSO 登录失败: ' + e.message);
+            mode.value = 'select';
+            return true;
+        }
+    }
+    // #endif
+    return false;
+}
+
 function goRegister() {
     uni.navigateTo({ url: '/pages/register/index' });
 }
@@ -322,6 +408,7 @@ function goRegister() {
     &--douyin { background: #000; color: #fff; }
     &--phone { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
     &--local { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
+    &--sso { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
 }
 .register-link { font-size: 26rpx; color: $brand-color; text-align: center; margin-top: 20rpx; }
 .agreement-text { font-size: 22rpx; color: #999; }
