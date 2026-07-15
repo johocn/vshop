@@ -15,7 +15,12 @@ export async function getActiveChannelConfig() {
 
 export async function getAuthMethods() {
     const client = getGraphQLClient();
-    return client.request(`query { authMethods }`);
+    return client.request(`query {
+        authMethods {
+            methods
+            wechatAppId
+        }
+    }`);
 }
 
 export async function getSsoProviders() {

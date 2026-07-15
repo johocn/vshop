@@ -18,12 +18,14 @@
         "@dcloudio/uni-components": "3.0.0-4060620250520001",
         "@dcloudio/uni-h5": "3.0.0-4060620250520001",
         "@dcloudio/uni-mp-weixin": "3.0.0-4060620250520001",
-        "vue": "^3.5.13",
-        "vue-i18n": "^11.1.3",
-        "pinia": "^3.0.2",
         "graphql": "^16.11.0",
         "graphql-request": "^7.2.0",
-        "graphql-tag": "^2.12.6"
+        "graphql-tag": "^2.12.6",
+        "html-to-image": "^1.11.13",
+        "pinia": "^3.0.2",
+        "qrcode": "^1.5.4",
+        "vue": "^3.5.13",
+        "vue-i18n": "^11.1.3"
     },
     "devDependencies": {
         "@dcloudio/types": "^3.4.14",
@@ -31,7 +33,8 @@
         "@dcloudio/uni-cli-shared": "3.0.0-4060620250520001",
         "@dcloudio/uni-stacktracey": "3.0.0-4060620250520001",
         "@dcloudio/vite-plugin-uni": "3.0.0-4060620250520001",
-        "typescript": "~5.8.3",
-        "sass": "^1.89.0"
+        "@types/qrcode": "^1.5.6",
+        "sass": "^1.89.0",
+        "typescript": "~5.8.3"
     }
 }
