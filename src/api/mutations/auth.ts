@@ -157,11 +157,15 @@ export async function registerCustomer(input: {
     code?: string;
     emailAddress?: string;
     password: string;
+    referredBy?: string;
 }): Promise<any> {
     const { data } = await authRequest(
-        `mutation Register($input: PhoneRegisterInput!) {
-            registerCustomer(input: $input) {
-                success
+        `mutation Register($input: RegisterCustomerAccountInput!) {
+            registerCustomerAccount(input: $input) {
+                ...on Success { success }
+                ...on MissingPasswordError { errorCode message }
+                ...on PasswordValidationError { errorCode message }
+                ...on NativeAuthStrategyError { errorCode message }
             }
         }`,
         { input }
