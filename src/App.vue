@@ -4,16 +4,17 @@ import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
 import { setupRouteGuard } from './composables/useAuthGuard';
 
-onLaunch((options: any) => {
+onLaunch(async (options: any) => {
     console.log('App Launch');
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
 
-    // Initialize tenant from config or URL
-    tenantStore.initTenant();
+    // Initialize tenant from domain or URL (async)
+    await tenantStore.initTenant();
 
-    // Restore auth token from storage
-    authStore.restoreSession();
+    // Restore auth token from storage (must be after initTenant sets token)
+    await authStore.restoreSession();
+    tenantStore.tenantReady = true;
 
     // Capture invite code from URL ref parameter
     // #ifdef H5
