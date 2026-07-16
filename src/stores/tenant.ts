@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getActiveChannelConfig, getAuthMethods, getSsoProviders } from '../api/queries/channel';
+import { resolveChannelByDomain } from '../api/queries/channel';
 
 // Tenant configuration registry
 interface TenantConfig {
@@ -60,20 +61,58 @@ export const useTenantStore = defineStore('tenant', () => {
     const authMethods = ref<string[]>([]);
     const wechatAppId = ref('');
     const ssoProviders = ref<SsoProviderInfo[]>([]);
+    const tenantReady = ref(false);
 
     const currentConfig = computed(() => TENANT_CONFIGS[tenantCode.value] || TENANT_CONFIGS.default);
 
-    function initTenant() {
-        // 优先级：URL ?tenant=xxx > storage > default
+    async function initTenant() {
+        // 1. 尝试域名解析（仅 H5）
+        // #ifdef H5
+        try {
+            const host = window.location.hostname;
+            if (host && host !== 'localhost' && host !== '127.0.0.1') {
+                const cacheKey = `domain_resolve_${host}`;
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) {
+                    try {
+                        const result = JSON.parse(cached);
+                        tenantCode.value = result.code;
+                        token.value = result.token;
+                        uni.setStorageSync('tenant_code', result.code);
+                        return;
+                    } catch {}
+                }
+                const res: any = await resolveChannelByDomain(host);
+                if (res?.resolveChannelByDomain) {
+                    const result = res.resolveChannelByDomain;
+                    sessionStorage.setItem(cacheKey, JSON.stringify(result));
+                    tenantCode.value = result.code;
+                    token.value = result.token;
+                    uni.setStorageSync('tenant_code', result.code);
+                    return;
+                }
+            }
+        } catch {}
+        // #endif
+
+        // 2. 回退：?tenant= URL 参数
         const fromUrl = resolveTenantFromUrl();
         if (fromUrl && TENANT_CONFIGS[fromUrl]) {
             tenantCode.value = fromUrl;
-        } else {
-            const stored = uni.getStorageSync('tenant_code');
-            if (stored && TENANT_CONFIGS[stored]) {
-                tenantCode.value = stored;
-            }
+            applyConfig();
+            return;
         }
+
+        // 3. 回退：localStorage
+        const stored = uni.getStorageSync('tenant_code');
+        if (stored && TENANT_CONFIGS[stored]) {
+            tenantCode.value = stored;
+            applyConfig();
+            return;
+        }
+
+        // 4. 默认
+        tenantCode.value = 'default';
         applyConfig();
     }
 
@@ -136,7 +175,7 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        currentConfig, initTenant, switchTenant, listTenants,
+        tenantReady, currentConfig, initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };
 });
