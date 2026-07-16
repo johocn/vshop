@@ -31,3 +31,13 @@ export async function getSsoProviders() {
         }
     }`);
 }
+
+export async function resolveChannelByDomain(host: string) {
+    const client = getGraphQLClient();
+    return client.request(`query ResolveChannelByDomain($host: String!) {
+        resolveChannelByDomain(host: $host) {
+            token
+            code
+        }
+    }`, { host });
+}
