@@ -1,0 +1,27 @@
+{
+    "checkout": {
+        "title": "주문 확인",
+        "address": "배송 주소",
+        "shipping": "배송 방법",
+        "payment": "결제 방법",
+        "submitOrder": "주문 제출",
+        "processing": "처리 중...",
+        "shippingFee": "배송비",
+        "totalPayable": "결제 금액",
+        "shippingMethod": {
+            "store": "매장 수거",
+            "point": "수거 포인트",
+            "employee": "직원 수거",
+            "shipping": "배송"
+        },
+        "pickupLocation": {
+            "select": "수거 장소를 선택하세요",
+            "empty": "이용 가능한 수거 장소가 없습니다",
+            "employeeEmpty": "직원 바인딩이 없습니다",
+            "employeeEmptyHint": "고객 서비스에 연락하여 바인딩하세요",
+            "address": "주소",
+            "businessHours": "영업시간"
+        },
+        "addressRequired": "배송 주소를 입력해주세요"
+    }
+}

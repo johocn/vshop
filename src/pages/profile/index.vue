@@ -35,9 +35,11 @@
 import { ref, onMounted } from 'vue';
 import { getActiveCustomer } from '../../api/queries/user';
 import { useAuthStore } from '../../stores/auth';
+import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
 
 const authStore = useAuthStore();
+const cartStore = useCartStore();
 const customer = ref<any>(null);
 
 onMounted(async () => {
@@ -49,6 +51,7 @@ function navTo(url: string) { uni.navigateTo({ url }); }
 async function doLogout() {
     try { await logout(); } catch (e) {}
     authStore.logout();
+    cartStore.clearCart();
     uni.reLaunch({ url: '/pages/login/index' });
 }
 </script>

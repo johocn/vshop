@@ -70,7 +70,22 @@
         "submitOrder": "提交订单",
         "processing": "处理中...",
         "shippingFee": "运费",
-        "totalPayable": "应付"
+        "totalPayable": "应付",
+        "shippingMethod": {
+            "store": "门店自提",
+            "point": "菜鸟驿站自提",
+            "employee": "企业职工自提",
+            "shipping": "邮寄"
+        },
+        "pickupLocation": {
+            "select": "请选择自提点",
+            "empty": "暂无可用自提点",
+            "employeeEmpty": "您尚未绑定企业职工身份",
+            "employeeEmptyHint": "请联系客服绑定企业自提点",
+            "address": "地址",
+            "businessHours": "营业时间"
+        },
+        "addressRequired": "请填写收货地址"
     },
     "payment": {
         "wechatpay": "微信支付",

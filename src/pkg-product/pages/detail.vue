@@ -29,11 +29,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
 import { getProduct } from '../../api/queries/product';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { useCartStore } from '../../stores/cart';
+import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
 import { getActiveOrder } from '../../api/queries/order';
 import VImage from '../../components/VImage.vue';
@@ -43,8 +44,12 @@ import ProductPoster from '../../components/product-poster/product-poster.vue';
 const product = ref<any>(null);
 const selectedOptions = ref<Record<string, string>>({});
 const cart = useCartStore();
+const auth = useAuthStore();
 const ui = useUIStore();
 const showPoster = ref(false);
+
+let pendingAction: 'cart' | 'buy' | null = null;
+let offLogin: (() => void) | null = null;
 
 const selectedVariant = computed(() => {
     if (!product.value?.variants?.length) return null;
@@ -88,9 +93,37 @@ async function addToCart() {
 }
 
 async function buyNow() {
+    if (!selectedVariant.value) return;
+    if (!auth.isLoggedIn) {
+        pendingAction = 'buy';
+        uni.navigateTo({ url: '/pages/login/index' });
+        return;
+    }
     await addToCart();
     uni.navigateTo({ url: '/pkg-order/pages/checkout' });
 }
+
+onMounted(async () => {
+    offLogin = auth.onLogin(async () => {
+        if (pendingAction === 'cart') {
+            pendingAction = null;
+            await addToCart();
+        } else if (pendingAction === 'buy') {
+            pendingAction = null;
+            await addToCart();
+            uni.navigateTo({ url: '/pkg-order/pages/checkout' });
+        } else {
+            try {
+                const res: any = await getActiveOrder();
+                if (res.activeOrder) cart.setOrder(res.activeOrder);
+            } catch (e) {}
+        }
+    });
+});
+
+onUnmounted(() => {
+    if (offLogin) offLogin();
+});
 </script>
 
 <style lang="scss" scoped>

@@ -6,6 +6,9 @@ const uni = typeof uniPlugin === 'function' ? uniPlugin : (uniPlugin as any)?.de
 export default defineConfig({
     plugins: [uni()],
     server: {
+        port: 5180,
+        strictPort: true,
+        host: '0.0.0.0',
         proxy: {
             '/shop-api': {
                 target: process.env.VITE_API_URL || 'http://localhost:3000',

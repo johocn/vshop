@@ -1,0 +1,27 @@
+{
+    "checkout": {
+        "title": "注文確認",
+        "address": "配送先住所",
+        "shipping": "配送方法",
+        "payment": "支払い方法",
+        "submitOrder": "注文を送信",
+        "processing": "処理中...",
+        "shippingFee": "送料",
+        "totalPayable": "お支払い額",
+        "shippingMethod": {
+            "store": "店頭受取",
+            "point": "受取ポイント",
+            "employee": "従業員受取",
+            "shipping": "配送"
+        },
+        "pickupLocation": {
+            "select": "受取場所を選択してください",
+            "empty": "利用可能な受取場所がありません",
+            "employeeEmpty": "従業員バインドがありません",
+            "employeeEmptyHint": "カスタマーサービスに連絡してバインドしてください",
+            "address": "住所",
+            "businessHours": "営業時間"
+        },
+        "addressRequired": "配送先住所を入力してください"
+    }
+}

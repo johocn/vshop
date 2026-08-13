@@ -7,7 +7,7 @@ export async function getActiveChannelConfig() {
             id code token
             customFields {
                 employeePickupMode
-                defaultLocation
+                defaultLocation { lat lng }
             }
         }
     }`);

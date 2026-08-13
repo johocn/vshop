@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
+const CART_TAB_INDEX = 2;
+
 export const useCartStore = defineStore('cart', () => {
     const order = ref<any>(null);
     const loading = ref(false);
@@ -10,12 +12,27 @@ export const useCartStore = defineStore('cart', () => {
     const lines = computed(() => order.value?.lines || []);
     const isEmpty = computed(() => totalQuantity.value === 0);
 
-    function setOrder(newOrder: any) { order.value = newOrder; }
-    function clearCart() { order.value = null; }
+    function updateBadge() {
+        const qty = totalQuantity.value;
+        if (qty > 0) {
+            uni.setTabBarBadge({ index: CART_TAB_INDEX, text: String(qty) });
+        } else {
+            uni.removeTabBarBadge({ index: CART_TAB_INDEX });
+        }
+    }
+
+    function setOrder(newOrder: any) {
+        order.value = newOrder;
+        updateBadge();
+    }
+    function clearCart() {
+        order.value = null;
+        updateBadge();
+    }
 
     function formatPrice(cents: number): string {
         return (cents / 100).toFixed(2);
     }
 
-    return { order, loading, totalQuantity, totalPrice, lines, isEmpty, setOrder, clearCart, formatPrice };
+    return { order, loading, totalQuantity, totalPrice, lines, isEmpty, setOrder, clearCart, formatPrice, updateBadge };
 });

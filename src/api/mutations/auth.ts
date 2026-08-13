@@ -1,4 +1,6 @@
 import { useTenantStore } from '../../stores/tenant';
+import { useAuthStore } from '../../stores/auth';
+import { getSessionToken, setSessionToken } from '../client';
 
 const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:3000') + '/shop-api';
 
@@ -15,11 +17,18 @@ interface GraphQLError {
 
 function getAuthHeaders(): Record<string, string> {
     const tenantStore = useTenantStore();
+    const authStore = useAuthStore();
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'vendure-channel-token': tenantStore.token,
     };
-    if (tenantStore.token) {
-        headers['vendure-token'] = tenantStore.token;
+    if (authStore.token) {
+        headers['Authorization'] = 'Bearer ' + authStore.token;
+    } else {
+        const sessionToken = getSessionToken();
+        if (sessionToken) {
+            headers['Authorization'] = 'Bearer ' + sessionToken;
+        }
     }
     return headers;
 }
@@ -34,6 +43,10 @@ function authRequest(query: string, variables?: Record<string, any>): Promise<{ 
             data: { query, variables },
             success: (res: any) => {
                 const authToken = res.header['vendure-auth-token'] || res.header['Vendure-Auth-Token'] || '';
+                // Persist session token from response (covers anonymous session creation & reissue)
+                if (authToken) {
+                    setSessionToken(authToken);
+                }
                 // res.data 是完整 GraphQL 响应体 { data: {...}, errors?: [...] }
                 // 解包返回 data 字段（GraphQL 查询结果），与 graphql-request 行为一致
                 const body = res.data || {};
@@ -160,11 +173,11 @@ export async function registerCustomer(input: {
     referredBy?: string;
 }): Promise<any> {
     const { data } = await authRequest(
-        `mutation Register($input: RegisterCustomerAccountInput!) {
+        `mutation Register($input: RegisterCustomerInput!) {
             registerCustomerAccount(input: $input) {
                 ...on Success { success }
                 ...on MissingPasswordError { errorCode message }
-                ...on PasswordValidationError { errorCode message }
+                ...on PasswordValidationError { errorCode message validationErrorMessage }
                 ...on NativeAuthStrategyError { errorCode message }
             }
         }`,

@@ -15,6 +15,7 @@
       :items="validItems"
       :item-config="floor.customFields?.floorItemConfig || []"
       @click-item="goDetail"
+      @add-cart="$emit('add-cart', $event)"
     />
   </view>
 </template>
@@ -28,6 +29,8 @@ import HeroWithList from './floor/HeroWithList.vue';
 import type { FloorCollection } from '../api/queries/collection';
 
 const props = defineProps<{ floor: FloorCollection }>();
+
+defineEmits<{ 'add-cart': [item: any] }>();
 
 const layoutMap: Record<string, any> = {
     single_scroll: SingleScroll,

@@ -31,6 +31,7 @@ export async function applyCouponCode(couponCode: string) {
 
 export async function removeCouponCode(couponCode: string) {
     const client = getGraphQLClient();
+    // removeCouponCode 返回 Order（非 union），不能使用 inline fragments
     const mutation = `${CART_FRAGMENT}
         mutation RemoveCoupon($couponCode: String!) { removeCouponCode(couponCode: $couponCode) { ...CartInfo } }`;
     return client.request(mutation, { couponCode });

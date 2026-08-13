@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+
+const LOGIN_EVENT = 'auth:login';
+const LOGOUT_EVENT = 'auth:logout';
 
 export const useAuthStore = defineStore('auth', () => {
     const token = ref('');
@@ -7,11 +10,14 @@ export const useAuthStore = defineStore('auth', () => {
     const userInfo = ref<any>(null);
     const inviteCode = ref('');
 
+    const isLoggedIn = computed(() => !!token.value);
+
     function setAuth(newToken: string, newUserId: string) {
         token.value = newToken;
         userId.value = newUserId;
         uni.setStorageSync('auth_token', newToken);
         uni.setStorageSync('auth_userId', newUserId);
+        uni.$emit(LOGIN_EVENT);
     }
 
     function setInviteCode(code: string) {
@@ -32,11 +38,31 @@ export const useAuthStore = defineStore('auth', () => {
         userInfo.value = null;
         uni.removeStorageSync('auth_token');
         uni.removeStorageSync('auth_userId');
+        uni.$emit(LOGOUT_EVENT);
     }
 
     function setUserInfo(info: any) {
         userInfo.value = info;
     }
 
-    return { token, userId, userInfo, inviteCode, setAuth, setInviteCode, restoreSession, logout, setUserInfo };
+    function onLogin(callback: () => void) {
+        uni.$on(LOGIN_EVENT, callback);
+        return () => uni.$off(LOGIN_EVENT, callback);
+    }
+
+    function onLogout(callback: () => void) {
+        uni.$on(LOGOUT_EVENT, callback);
+        return () => uni.$off(LOGOUT_EVENT, callback);
+    }
+
+    function requireLogin(redirect?: string): boolean {
+        if (token.value) return true;
+        const url = redirect
+            ? '/pages/login/index?redirect=' + encodeURIComponent(redirect)
+            : '/pages/login/index';
+        uni.navigateTo({ url });
+        return false;
+    }
+
+    return { token, userId, userInfo, inviteCode, isLoggedIn, setAuth, setInviteCode, restoreSession, logout, setUserInfo, onLogin, onLogout, requireLogin };
 });

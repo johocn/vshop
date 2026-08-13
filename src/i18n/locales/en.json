@@ -41,6 +41,31 @@
         "completed": "Completed",
         "cancelled": "Cancelled"
     },
+    "checkout": {
+        "title": "Checkout",
+        "address": "Shipping Address",
+        "shipping": "Shipping Method",
+        "payment": "Payment Method",
+        "submitOrder": "Submit Order",
+        "processing": "Processing...",
+        "shippingFee": "Shipping Fee",
+        "totalPayable": "Total",
+        "shippingMethod": {
+            "store": "Store Pickup",
+            "point": "Pickup Point",
+            "employee": "Employee Pickup",
+            "shipping": "Shipping"
+        },
+        "pickupLocation": {
+            "select": "Select pickup location",
+            "empty": "No pickup locations available",
+            "employeeEmpty": "You have no employee binding",
+            "employeeEmptyHint": "Please contact customer service to bind",
+            "address": "Address",
+            "businessHours": "Business Hours"
+        },
+        "addressRequired": "Please fill in shipping address"
+    },
     "auth": {
         "login": "Login",
         "phoneLogin": "Phone Login",

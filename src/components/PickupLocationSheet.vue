@@ -3,7 +3,10 @@
     <view class="sheet">
       <view class="sheet__head">
         <text class="sheet__title">{{ title }}</text>
-        <text class="sheet__close" @click="close">✕</text>
+        <view class="sheet__head-actions">
+          <text class="sheet__close" @click="close">✕</text>
+          <text class="sheet__top-confirm" :class="{ disabled: !tempSelectedId }" @click="confirm">确定</text>
+        </view>
       </view>
       <input
         class="sheet__search"
@@ -147,8 +150,14 @@ function confirm() {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 20rpx;
   }
+  &__head-actions { display: flex; align-items: center; gap: 24rpx; }
   &__title { font-size: 32rpx; font-weight: bold; }
   &__close { font-size: 36rpx; color: #999; padding: 0 10rpx; }
+  &__top-confirm {
+    font-size: 30rpx; color: #fff; background: #6b4fff;
+    padding: 8rpx 28rpx; border-radius: 32rpx; font-weight: 500;
+    &.disabled { opacity: 0.4; }
+  }
   &__search {
     height: 72rpx; border: 1rpx solid #e8e8ea; border-radius: 8rpx;
     padding: 0 20rpx; font-size: 28rpx; margin-bottom: 20rpx;

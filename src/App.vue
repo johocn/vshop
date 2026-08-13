@@ -2,12 +2,16 @@
 import { onLaunch } from '@dcloudio/uni-app';
 import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
+import { useCartStore } from './stores/cart';
 import { setupRouteGuard } from './composables/useAuthGuard';
+import { getActiveOrder } from './api/queries/order';
+import { setSessionToken } from './api/client';
 
 onLaunch(async (options: any) => {
     console.log('App Launch');
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
+    const cartStore = useCartStore();
 
     // Initialize tenant from domain or URL (async)
     await tenantStore.initTenant();
@@ -44,6 +48,26 @@ onLaunch(async (options: any) => {
 
     // Setup route guard for authenticated pages
     setupRouteGuard();
+
+    // Initialize cart badge (both logged-in and guest)
+    try {
+        const res: any = await getActiveOrder();
+        if (res.activeOrder) cartStore.setOrder(res.activeOrder);
+        else cartStore.updateBadge();
+    } catch (e) {}
+
+    authStore.onLogin(async () => {
+        setSessionToken(''); // clear guest session token, JWT takes over
+        try {
+            const res: any = await getActiveOrder();
+            if (res.activeOrder) cartStore.setOrder(res.activeOrder);
+        } catch (e) {}
+    });
+
+    authStore.onLogout(() => {
+        setSessionToken(''); // clear session token, new anonymous session will be created
+        cartStore.clearCart();
+    });
 
     // #ifdef H5
     uni.addInterceptor('switchTab', { complete: () => { import('./utils/wechat').then(m => m.resetWxReady()); } });

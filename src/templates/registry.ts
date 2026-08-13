@@ -15,7 +15,7 @@ const configs: Record<string, TemplateConfig> = {
 
 export function getTemplateConfig(tenantCode: string): TemplateConfig {
     const tenantTemplates: Record<string, string> = {
-        'tenant-a': 'fresh',
+        'shop-a': 'fresh',
     };
     const templateKey = tenantTemplates[tenantCode] || 'default';
     return configs[templateKey] || configs.default;

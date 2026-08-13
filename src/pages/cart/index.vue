@@ -130,7 +130,7 @@ function goCheckout() {
 }
 </script>
 <style lang="scss" scoped>
-.cart-page { min-height: 100vh; padding-bottom: 120rpx; background: $bg-color; }
+.cart-page { min-height: 100vh; padding-bottom: calc(120rpx + 50px); background: $bg-color; }
 .cart-list { padding: 20rpx; }
 .cart-item {
     display: flex; align-items: flex-start; gap: 16rpx; background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 16rpx; position: relative;
@@ -147,7 +147,7 @@ function goCheckout() {
 .qty-btn { width: 56rpx; height: 48rpx; text-align: center; line-height: 48rpx; font-size: 28rpx; background: #f5f5f5; }
 .qty-num { width: 64rpx; height: 48rpx; text-align: center; line-height: 48rpx; font-size: 26rpx; border-left: 1rpx solid $border-color; border-right: 1rpx solid $border-color; }
 .cart-footer {
-    position: fixed; bottom: 0; left: 0; right: 0; height: 100rpx; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20rpx; box-shadow: $shadow;
+    position: fixed; bottom: 50px; left: 0; right: 0; height: 100rpx; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20rpx; box-shadow: $shadow;
     &__left { display: flex; align-items: center; gap: 12rpx; font-size: 28rpx; }
     &__right { display: flex; align-items: center; gap: 20rpx; }
     &__total { font-size: 26rpx; .price { font-size: 32rpx; color: $price-color; font-weight: bold; } }

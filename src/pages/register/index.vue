@@ -86,6 +86,19 @@ async function sendCode() {
     }
 }
 
+const ERROR_CODE_MAP: Record<string, string> = {
+    MISSING_PASSWORD_ERROR: '请设置密码',
+    PASSWORD_VALIDATION_ERROR: '密码不符合要求',
+    NATIVE_AUTH_STRATEGY_ERROR: '账号注册方式不可用',
+};
+
+const ERROR_MSG_MAP: Record<string, string> = {
+    'EMAIL_ADDRESS_CONFLICT_ERROR': '该邮箱已注册',
+    'MISSING_PASSWORD_ERROR': '请设置密码',
+    'PASSWORD_VALIDATION_ERROR': '密码不符合要求',
+    'NATIVE_AUTH_STRATEGY_ERROR': '账号注册方式不可用',
+};
+
 async function handleRegister() {
     if (mode.value === 'phone') {
         if (!form.phoneNumber || !form.code || !form.password) {
@@ -120,14 +133,17 @@ async function handleRegister() {
                       password: form.password,
                   };
         const result = await registerCustomer(payload);
-        if (result?.registerCustomer?.success) {
+        const res = result?.registerCustomerAccount;
+        if (res?.success) {
             uni.showToast({ title: '注册成功', icon: 'success' });
             setTimeout(() => goLogin(), 1500);
         } else {
-            uni.showToast({ title: result?.registerCustomer?.message || '注册失败', icon: 'none' });
+            const msg = ERROR_CODE_MAP[res?.errorCode] || ERROR_MSG_MAP[res?.message] || res?.message || '注册失败';
+            uni.showToast({ title: msg, icon: 'none' });
         }
-    } catch (e) {
-        uni.showToast({ title: '注册失败', icon: 'none' });
+    } catch (e: any) {
+        const msg = ERROR_MSG_MAP[e?.message] || e?.message || '注册失败';
+        uni.showToast({ title: msg, icon: 'none' });
     } finally {
         loading.value = false;
     }

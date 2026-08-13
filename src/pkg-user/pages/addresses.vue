@@ -23,8 +23,10 @@
         <text class="modal-title">{{ editingId ? '编辑地址' : '新增地址' }}</text>
         <input v-model="form.fullName" placeholder="收货人姓名" class="input" />
         <input v-model="form.phoneNumber" placeholder="手机号" type="number" class="input" />
-        <input v-model="form.province" placeholder="省份" class="input" />
-        <input v-model="form.city" placeholder="城市" class="input" />
+        <view class="region-row" @click="showRegionPicker = true">
+          <text :class="{ 'region-row__placeholder': !regionText() }">{{ regionText() || '请选择省/市/区' }}</text>
+          <text class="region-row__arrow">▸</text>
+        </view>
         <input v-model="form.streetLine1" placeholder="详细地址" class="input" />
         <input v-model="form.streetLine2" placeholder="补充地址(可选)" class="input" />
         <input v-model="form.postalCode" placeholder="邮编(可选)" class="input" />
@@ -42,6 +44,15 @@
     <view class="addresses-page__fab" @click="addNew">
       <text class="fab-text">+ 新增地址</text>
     </view>
+
+    <!-- 省市区联动选择器 -->
+    <RegionPicker
+      v-model:visible="showRegionPicker"
+      :init-province="form.province"
+      :init-city="form.city"
+      :init-district="form.district"
+      @confirm="onRegionConfirm"
+    />
   </view>
 </template>
 
@@ -51,15 +62,17 @@ import { getActiveCustomer } from '../../api/queries/user';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { useUIStore } from '../../stores/ui';
 import EmptyState from '../../components/EmptyState.vue';
+import RegionPicker from '../../components/RegionPicker.vue';
 
 const ui = useUIStore();
 const addresses = ref<any[]>([]);
 const loading = ref(true);
 const showForm = ref(false);
+const showRegionPicker = ref(false);
 const editingId = ref('');
 
 const emptyForm = () => ({
-    fullName: '', phoneNumber: '', province: '', city: '',
+    fullName: '', phoneNumber: '', province: '', city: '', district: '',
     streetLine1: '', streetLine2: '', postalCode: '', countryCode: 'CN',
     defaultShippingAddress: false,
 });
@@ -84,12 +97,21 @@ function addNew() {
 
 function editAddress(addr: any) {
     editingId.value = addr.id;
+    // Try to extract district from streetLine1 (format: "区名 详细地址")
+    let district = '';
+    let detailLine = addr.streetLine1 || '';
+    const streetParts = detailLine.split(' ');
+    if (streetParts.length > 1 && streetParts[0].endsWith('区')) {
+        district = streetParts[0];
+        detailLine = streetParts.slice(1).join(' ');
+    }
     form.value = {
         fullName: addr.fullName || '',
         phoneNumber: addr.phoneNumber || '',
         province: addr.province || '',
         city: addr.city || '',
-        streetLine1: addr.streetLine1 || '',
+        district,
+        streetLine1: detailLine,
         streetLine2: addr.streetLine2 || '',
         postalCode: addr.postalCode || '',
         countryCode: addr.country?.code || 'CN',
@@ -98,16 +120,38 @@ function editAddress(addr: any) {
     showForm.value = true;
 }
 
+function regionText(): string {
+    if (form.value.province) {
+        return [form.value.province, form.value.city, form.value.district].filter(Boolean).join(' ');
+    }
+    return '';
+}
+
+function onRegionConfirm(region: { province: string; city: string; district: string }) {
+    form.value.province = region.province;
+    form.value.city = region.city;
+    form.value.district = region.district;
+}
+
+function buildStreetLine1(): string {
+    if (form.value.district) {
+        return `${form.value.district} ${form.value.streetLine1}`.trim();
+    }
+    return form.value.streetLine1;
+}
+
 async function saveAddress() {
     if (!form.value.fullName || !form.value.phoneNumber || !form.value.streetLine1) {
         ui.showToast('请填写必要信息');
         return;
     }
     try {
+        const payload = { ...form.value, streetLine1: buildStreetLine1() };
+        delete (payload as any).district;
         if (editingId.value) {
-            await updateCustomerAddress({ id: editingId.value, ...form.value });
+            await updateCustomerAddress({ id: editingId.value, ...payload });
         } else {
-            await createCustomerAddress(form.value);
+            await createCustomerAddress(payload);
         }
         ui.showToast('保存成功', 'success');
         showForm.value = false;
@@ -161,6 +205,13 @@ async function setDefault(addr: any) {
 .modal-content { background: #fff; width: 100%; border-radius: 24rpx 24rpx 0 0; padding: 40rpx 30rpx; }
 .modal-title { font-size: 32rpx; font-weight: bold; text-align: center; margin-bottom: 30rpx; display: block; }
 .input { height: 88rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx; margin-bottom: 4rpx; }
+.region-row {
+    height: 88rpx; border-bottom: 1rpx solid $border-color;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 28rpx; color: #333;
+    &__placeholder { color: #999; }
+    &__arrow { color: #ccc; font-size: 24rpx; }
+}
 .modal-check { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 0; font-size: 28rpx; }
 .modal-actions { display: flex; gap: 20rpx; margin-top: 30rpx; }
 .btn-cancel { flex: 1; height: 88rpx; background: #f5f5f5; color: #666; border: none; border-radius: $radius-md; font-size: 28rpx; }

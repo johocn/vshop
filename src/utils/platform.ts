@@ -27,17 +27,26 @@ export function isApp(): boolean {
     return getPlatform() === "app";
 }
 
-/** WeChat JSAPI payment (mini-program) */
-export function wxRequestPayment(prepayId: string): Promise<void> {
+/** WeChat JSAPI payment parameters (signed by backend) */
+export interface WxPayParams {
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: string;
+    paySign: string;
+}
+
+/** WeChat JSAPI payment (mini-program) - 接收后端生成的完整签名参数 */
+export function wxRequestPayment(params: WxPayParams): Promise<void> {
     return new Promise((resolve, reject) => {
         // #ifdef MP-WEIXIN
         uni.requestPayment({
             provider: "wxpay",
-            timeStamp: String(Math.floor(Date.now() / 1000)),
-            nonceStr: generateNonceStr(),
-            package: "prepay_id=" + prepayId,
-            signType: "MD5",
-            paySign: "", // Sign is done server-side
+            timeStamp: params.timeStamp,
+            nonceStr: params.nonceStr,
+            package: params.package,
+            signType: params.signType as "MD5" | "HMAC-SHA256" | "RSA",
+            paySign: params.paySign,
             success: () => resolve(),
             fail: (err: any) => reject(err),
         });

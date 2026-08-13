@@ -32,3 +32,15 @@ export async function setCustomerForOrder(input: any) {
     return client.request(`${ORDER_FRAGMENT}
         mutation SetCustomer($input: CreateCustomerInput!) { setCustomerForOrder(input: $input) { ... on Order { ...OrderDetail } ... on ErrorResult { errorCode message } } }`, { input });
 }
+
+export async function setOrderPickupLocation(pickupLocationId: string, pickupType: string) {
+    const client = getGraphQLClient();
+    // setOrderPickupLocation 返回 Order!（非 union），不能使用 inline fragments
+    const mutation = `${ORDER_FRAGMENT}
+        mutation SetPickup($pickupLocationId: ID!, $pickupType: String!) {
+            setOrderPickupLocation(pickupLocationId: $pickupLocationId, pickupType: $pickupType) {
+                ...OrderDetail
+            }
+        }`;
+    return client.request(mutation, { pickupLocationId, pickupType });
+}
