@@ -2,7 +2,12 @@
 node_modules/
 
 # Build output
-dist/
+# 部署铁律：本地构建产物需提交到 git（服务器只 git pull，禁止服务器构建）
+# 仅纳入 H5 静态站产物 dist/build/h5，其余 dist 目录（dev/mp 等）保持忽略
+dist/*
+!dist/build/
+dist/build/*
+!dist/build/h5/
 .hbuilderx/
 
 # IDE
