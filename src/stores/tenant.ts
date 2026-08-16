@@ -37,6 +37,12 @@ const TENANT_CONFIGS: Record<string, TenantConfig> = {
         name: '生鲜优选',
         features: { distribution: true, recharge: true, groupBuy: true, flashSale: true, afterSales: true },
     },
+    marketplace: {
+        token: 'default-token',
+        template: 'marketplace',
+        name: '市场聚合',
+        features: { distribution: false, recharge: false, groupBuy: false, flashSale: false, afterSales: false },
+    },
 };
 
 function resolveTenantFromUrl(): string | null {

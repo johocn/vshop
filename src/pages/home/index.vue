@@ -12,6 +12,7 @@ import { useAuthStore } from '../../stores/auth';
 import { useShare } from '../../composables/useShare';
 import DefaultHome from '../../templates/default/pages/HomeContent.vue';
 import FreshHome from '../../templates/fresh/pages/HomeContent.vue';
+import MarketplaceHome from '../../templates/marketplace/pages/HomeContent.vue';
 import TenantBar from '../../components/TenantBar.vue';
 
 const tenantStore = useTenantStore();
@@ -19,7 +20,7 @@ const authStore = useAuthStore();
 const { templateCode } = tenantStore;
 const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
-const templateMap: Record<string, any> = { default: DefaultHome, fresh: FreshHome };
+const templateMap: Record<string, any> = { default: DefaultHome, fresh: FreshHome, marketplace: MarketplaceHome };
 const currentHome = computed(() => templateMap[templateCode.value] || DefaultHome);
 
 useShare({

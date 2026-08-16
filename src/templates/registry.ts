@@ -11,11 +11,17 @@ const configs: Record<string, TemplateConfig> = {
         theme: { primaryColor: '#07c160', accentColor: '#e6f7ee' },
         features: { distribution: false, recharge: true, groupBuy: true, flashSale: true, afterSales: true },
     },
+    marketplace: {
+        name: '市场模板',
+        theme: { primaryColor: '#ff6600', accentColor: '#fff3e6' },
+        features: { distribution: false, recharge: false, groupBuy: false, flashSale: false, afterSales: false },
+    },
 };
 
 export function getTemplateConfig(tenantCode: string): TemplateConfig {
     const tenantTemplates: Record<string, string> = {
         'shop-a': 'fresh',
+        'marketplace': 'marketplace',
     };
     const templateKey = tenantTemplates[tenantCode] || 'default';
     return configs[templateKey] || configs.default;

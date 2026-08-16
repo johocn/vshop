@@ -1,1 +1,0 @@
-import{an as a,k as n,ab as o,ac as t,L as s}from"./index-BXl4xbRe.js";const i=a("ui",()=>{const a=n(!1),i=n("");return{loading:a,toastMessage:i,showLoading:function(){a.value=!0,o({title:"加载中..."})},hideLoading:function(){a.value=!1,t()},showToast:function(a,n="none"){s({title:a,icon:n,duration:2e3})}}});export{i as u};

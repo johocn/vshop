@@ -1,1 +1,0 @@
-import{d as a,c as s,w as e,i as t,o as n,a as l,e as o,f as p}from"./index-BXl4xbRe.js";const u=a({__name:"payment",setup:a=>(a,u)=>{const d=o,f=t;return n(),s(f,{class:"payment-page"},{default:e(()=>[l(d,null,{default:e(()=>[p("请在结算页面选择支付方式")]),_:1})]),_:1})}});export{u as default};

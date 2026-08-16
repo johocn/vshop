@@ -1,24 +1,30 @@
 <template>
   <view class="cart-page">
     <view v-if="cartLines.length > 0" class="cart-list">
-      <view v-for="line in cartLines" :key="line.id" class="cart-item">
-        <view class="cart-item__check" @click="toggleSelect(line.id)">
-          <text class="check-icon">{{ isSelected(line.id) ? '☑' : '☐' }}</text>
+      <view v-for="group in cartGroups" :key="group.key" class="cart-group">
+        <view class="cart-group__header">
+          <text class="cart-group__name">{{ group.name }}</text>
+          <text class="cart-group__count">{{ group.lines.length }} 件</text>
         </view>
-        <VImage :src="line.featuredAsset?.preview || ''" width="160rpx" height="160rpx" class="cart-item__img" />
-        <view class="cart-item__info">
-          <text class="cart-item__name">{{ line.productVariant?.name }}</text>
-          <text class="cart-item__spec">{{ line.productVariant?.options?.map((o:any)=>o.name).join(' ') }}</text>
-          <view class="cart-item__bottom">
-            <PriceTag :price="line.unitPriceWithTax" />
-            <view class="qty-control">
-              <text class="qty-btn" @click="changeQty(line, -1)">-</text>
-              <text class="qty-num">{{ line.quantity }}</text>
-              <text class="qty-btn" @click="changeQty(line, 1)">+</text>
+        <view v-for="line in group.lines" :key="line.id" class="cart-item">
+          <view class="cart-item__check" @click="toggleSelect(line.id)">
+            <text class="check-icon">{{ isSelected(line.id) ? '☑' : '☐' }}</text>
+          </view>
+          <VImage :src="line.featuredAsset?.preview || ''" width="160rpx" height="160rpx" class="cart-item__img" />
+          <view class="cart-item__info">
+            <text class="cart-item__name">{{ line.productVariant?.name }}</text>
+            <text class="cart-item__spec">{{ line.productVariant?.options?.map((o:any)=>o.name).join(' ') }}</text>
+            <view class="cart-item__bottom">
+              <PriceTag :price="line.unitPriceWithTax" />
+              <view class="qty-control">
+                <text class="qty-btn" @click="changeQty(line, -1)">-</text>
+                <text class="qty-num">{{ line.quantity }}</text>
+                <text class="qty-btn" @click="changeQty(line, 1)">+</text>
+              </view>
             </view>
           </view>
+          <text class="cart-item__del" @click="removeLine(line.id)">×</text>
         </view>
-        <text class="cart-item__del" @click="removeLine(line.id)">×</text>
       </view>
     </view>
     <EmptyState v-else-if="!loading" text="购物车是空的" />
@@ -54,6 +60,7 @@ const loading = ref(true);
 const selectedIds = ref<Set<string>>(new Set());
 
 const cartLines = computed(() => cart.lines);
+const cartGroups = computed(() => cart.groupedLines);
 const allSelected = computed(() => cartLines.value.length > 0 && selectedIds.value.size === cartLines.value.length);
 const selectedCount = computed(() => selectedIds.value.size);
 const totalYuan = computed(() => {
@@ -132,8 +139,13 @@ function goCheckout() {
 <style lang="scss" scoped>
 .cart-page { min-height: 100vh; padding-bottom: calc(120rpx + 50px); background: $bg-color; }
 .cart-list { padding: 20rpx; }
+.cart-group { background: #fff; border-radius: $radius-md; padding: 20rpx; margin-bottom: 20rpx;
+    &__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; }
+    &__name { font-size: 30rpx; font-weight: bold; }
+    &__count { font-size: 24rpx; color: #999; }
+}
 .cart-item {
-    display: flex; align-items: flex-start; gap: 16rpx; background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 16rpx; position: relative;
+    display: flex; align-items: flex-start; gap: 16rpx; background: $bg-color; padding: 20rpx; border-radius: $radius-md; margin-bottom: 16rpx; position: relative;
     &__check { padding: 10rpx; }
     &__img { border-radius: $radius-sm; flex-shrink: 0; }
     &__info { flex: 1; display: flex; flex-direction: column; gap: 8rpx; }
