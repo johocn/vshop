@@ -31,7 +31,7 @@ export const PRODUCT_DETAIL_FRAGMENT = `
 
 export const ORDER_FRAGMENT = `
     fragment OrderDetail on Order {
-        id code state active totalQuantity
+        id code state active totalQuantity type
         subTotalWithTax totalWithTax shippingWithTax
         taxSummary { description taxRate taxTotal }
         currencyCode createdAt updatedAt

@@ -43,6 +43,18 @@
                 "navigationBarTitleText": "支付",
                 "navigationStyle": "custom"
             }
+        },
+        {
+            "path": "pages/admin/merchant-submit",
+            "style": {
+                "navigationBarTitleText": "商家上架"
+            }
+        },
+        {
+            "path": "pages/admin/platform-approve",
+            "style": {
+                "navigationBarTitleText": "平台上架审批"
+            }
         }
     ],
     "subPackages": [

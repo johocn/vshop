@@ -1,1 +1,0 @@
-import{d as s,k as e,J as n,c as a,Q as o,o as r}from"./index-CYNukuND.js";const t=s({__name:"index",setup(s){const t=e("");return n(s=>{t.value=decodeURIComponent((null==s?void 0:s.url)||"")}),(s,e)=>{const n=o;return r(),a(n,{src:t.value},null,8,["src"])}}});export{t as default};

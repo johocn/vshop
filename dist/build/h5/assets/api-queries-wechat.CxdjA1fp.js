@@ -1,0 +1,1 @@
+import{g as t}from"./index-DcUc7JgO.js";async function n(n){const r=t();return(await r.request("query WechatJsapiSignature($url: String!) {\n        wechatJsapiSignature(url: $url) {\n            appId timestamp nonceStr signature\n        }\n    }",{url:n})).wechatJsapiSignature}export{n as getJsapiSignature};

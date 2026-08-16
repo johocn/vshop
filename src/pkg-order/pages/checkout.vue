@@ -269,6 +269,7 @@ import { useCartStore } from '../../stores/cart';
 import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
 import { getActiveOrder, getEligibleShippingMethods, getEligibleShippingMethodsByProfile, getEligiblePaymentMethodsByProfile, getEligiblePickupLocationsByProfile, checkPickupLocationConstraint } from '../../api/queries/order';
+import { getMyMarketplaceSellerOrders, payMarketplaceSellerOrder } from '../../api/queries/marketplace';
 import { getEligiblePaymentMethods, getActiveCustomer } from '../../api/queries/user';
 import { getPickupLocations, getEmployeePickupLocations } from '../../api/queries/pickup';
 import { setOrderShippingAddress, setOrderShippingMethod, transitionOrderToState, addPaymentToOrder, setOrderPickupLocation } from '../../api/mutations/checkout';
@@ -1047,6 +1048,32 @@ async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
     return orderCodes;
 }
 
+/**
+ * 逐单支付 marketplace 商家子单。
+ * 在聚合单支付完成后调用：拉取当前顾客所有 saleSource=marketplace 的子单，
+ * 对处于 ArrangingPayment（未支付）的子单，用指定支付方式逐一调用 payMarketplaceSellerOrder。
+ * 返回所有成功支付的子单订单号。
+ */
+async function payMarketplaceSellerSubOrders(method: string): Promise<string[]> {
+    const codes: string[] = [];
+    try {
+        const res: any = await getMyMarketplaceSellerOrders();
+        const subOrders = (res?.myMarketplaceSellerOrders || [])
+            .filter((o: any) => o.state === 'ArrangingPayment');
+        for (const sub of subOrders) {
+            const metadata: Record<string, any> = {};
+            if (method === 'wechatpay') {
+                const openid = uni.getStorageSync('auth_openid');
+                if (openid) metadata.openid = openid;
+            }
+            const payRes: any = await payMarketplaceSellerOrder(sub.id, method, metadata);
+            const result = payRes?.payMarketplaceSellerOrder;
+            if (result?.code) codes.push(result.code);
+        }
+    } catch (e) { console.warn('[checkout] payMarketplaceSellerSubOrders failed', e); }
+    return codes;
+}
+
 async function submitOrder() {
     if (submitting.value) return;
     submitting.value = true;
@@ -1056,6 +1083,20 @@ async function submitOrder() {
         // 是否需要拆单：支付档案数 > 1 时拆分
         const groups = groupLinesByPaymentProfile();
         const needSplit = groups.length > 1;
+
+        // marketplace 聚合单：先复用主流程支付聚合单，再逐单支付各商家子单
+        if ((cart.order as any)?.type === 'Aggregate') {
+            const ok = await prepareOrderAddressAndShipping();
+            if (!ok) return;
+            await transitionOrderToState('ArrangingPayment');
+            const aggregateCode = await payCurrentOrder(selectedPayment.value);
+            const sellerCodes = await payMarketplaceSellerSubOrders(selectedPayment.value);
+            const allCodes = [aggregateCode, ...sellerCodes].filter(Boolean);
+            if (allCodes.length > 0) {
+                uni.redirectTo({ url: '/pkg-order/pages/pay-result?codes=' + encodeURIComponent(allCodes.join(',')) + '&status=success' });
+            }
+            return;
+        }
 
         if (!needSplit) {
             // 单笔订单：沿用原有逻辑
