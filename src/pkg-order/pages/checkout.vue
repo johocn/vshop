@@ -243,6 +243,10 @@
       </view>
     </view>
 
+    <view v-if="paymentGroupCount > 1" class="split-notice">
+      <text>购物车商品分属 {{ paymentGroupCount }} 种支付方式，将拆分为 {{ paymentGroupCount }} 笔订单分别支付</text>
+    </view>
+
     <view class="checkout-page__summary" v-if="cart.order">
       <view class="summary-row"><text>商品总额</text><text>¥{{ originalSubTotalYuan }}</text></view>
       <view v-if="appliedCouponCode" class="summary-row"><text>优惠券</text><text class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text></view>
@@ -268,6 +272,7 @@ import { getActiveOrder, getEligibleShippingMethods, getEligibleShippingMethodsB
 import { getEligiblePaymentMethods, getActiveCustomer } from '../../api/queries/user';
 import { getPickupLocations, getEmployeePickupLocations } from '../../api/queries/pickup';
 import { setOrderShippingAddress, setOrderShippingMethod, transitionOrderToState, addPaymentToOrder, setOrderPickupLocation } from '../../api/mutations/checkout';
+import { addItemToOrder, removeAllOrderLines } from '../../api/mutations/cart';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyCoupons } from '../../api/queries/coupon';
@@ -327,6 +332,45 @@ function extractProfileIds() {
     orderShippingProfileIds.value = [...spSet];
     orderPaymentProfileIds.value = [...ppSet];
 }
+
+// 拆单：按支付档案分组购物车商品
+// 返回 { profileId -> lines[] }，保留插入顺序
+interface PayGroup {
+    profileId: string;      // 无支付档案时为空字符串
+    lines: any[];
+    paymentMethod: string;  // 该组使用的支付方式
+}
+
+/**
+ * 将购物车商品按支付档案分组。同一档案下的商品属于同一支付方式组。
+ * 无支付档案的商品归入 '' 组（使用当前选中的支付方式）。
+ */
+function groupLinesByPaymentProfile(): PayGroup[] {
+    const lines = cart.order?.lines || [];
+    const map = new Map<string, any[]>();
+    for (const line of lines) {
+        const cf = (line.productVariant as any)?.customFields;
+        const key = cf?.paymentProfileId || '';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(line);
+    }
+    const groups: PayGroup[] = [];
+    for (const [profileId, profileLines] of map) {
+        groups.push({ profileId, lines: profileLines, paymentMethod: '' });
+    }
+    return groups;
+}
+
+// 需要拆分的组数（支付档案数 > 1 时拆分）
+const paymentGroupCount = computed(() => {
+    const lines = cart.order?.lines || [];
+    const ppSet = new Set<string>();
+    for (const line of lines) {
+        const cf = (line.productVariant as any)?.customFields;
+        ppSet.add(cf?.paymentProfileId || '');
+    }
+    return ppSet.size;
+});
 
 // 优惠券相关
 const showCouponPicker = ref(false);
@@ -857,73 +901,173 @@ function formatCouponCondition(mc: any): string {
     return cond;
 }
 
+/**
+ * 为当前 active order 设置地址/自提点 + 配送方式（供单订单与拆单复用）
+ * 返回是否成功（校验失败时为 false）
+ */
+async function prepareOrderAddressAndShipping(): Promise<boolean> {
+    if (shippingCategory.value === 'shipping') {
+        // 邮寄方式：设置收货地址
+        if (!selectedAddress.value) {
+            // 没有已选地址，尝试用内嵌表单数据
+            if (!address.value.fullName || !address.value.phoneNumber || !address.value.streetLine1) {
+                ui.showToast('请填写收货地址');
+                return false;
+            }
+            await setOrderShippingAddress({ ...address.value, streetLine1: buildStreetLine1(address.value) });
+        } else {
+            // 已有地址，传 id 让后端关联
+            await setOrderShippingAddress({
+                id: selectedAddress.value.id,
+                fullName: selectedAddress.value.fullName,
+                phoneNumber: selectedAddress.value.phoneNumber,
+                streetLine1: selectedAddress.value.streetLine1,
+                streetLine2: selectedAddress.value.streetLine2 || '',
+                city: selectedAddress.value.city,
+                province: selectedAddress.value.province,
+                postalCode: selectedAddress.value.postalCode || '',
+                countryCode: selectedAddress.value.country?.code || 'CN',
+            });
+        }
+    } else {
+        // 自提方式：设置自提点
+        if (!selectedPickupLocation.value) {
+            ui.showToast('请选择自提点');
+            return false;
+        }
+        await setOrderPickupLocation(selectedPickupLocation.value.id, shippingCategory.value);
+    }
+    // Set shipping method
+    if (selectedShipping.value) await setOrderShippingMethod([selectedShipping.value]);
+    return true;
+}
+
+/**
+ * 对当前 active order 提交支付（单笔订单的支付落单逻辑）
+ * 返回跳转用的订单号（在线支付前最后一笔订单号）
+ */
+async function payCurrentOrder(method: string): Promise<string> {
+    // Build payment metadata (wechatpay JSAPI requires openid)
+    const paymentMetadata: Record<string, any> = {};
+    if (method === 'wechatpay') {
+        const openid = uni.getStorageSync('auth_openid');
+        if (openid) paymentMetadata.openid = openid;
+    }
+    // Add payment
+    const payRes: any = await addPaymentToOrder(method, paymentMetadata);
+    const order = payRes.addPaymentToOrder;
+    if (order?.state === 'PaymentSettled' || order?.state === 'PaymentAuthorized') {
+        return order.code;
+    }
+    // 从最新一笔 payment 取 metadata（后端在 payment.metadata 中返回支付参数）
+    const lastPayment = order?.payments?.[order.payments.length - 1];
+    const result = await handlePayment(method as PaymentMethod, {
+        ...lastPayment,
+        orderCode: order?.code,
+        orderState: order?.state,
+    });
+    return result.success ? order?.code : '';
+}
+
+/**
+ * 单笔订单提交（无拆单时）
+ * @param method 支付方式
+ * @param targetUrl 支付成功后的跳转地址（默认 pay-result）
+ */
+async function submitSingleOrder(method: string, targetUrl?: string) {
+    const ok = await prepareOrderAddressAndShipping();
+    if (!ok) return;
+    // Transition to ArrangingPayment
+    await transitionOrderToState('ArrangingPayment');
+    const code = await payCurrentOrder(method);
+    const url = targetUrl || '/pkg-order/pages/pay-result';
+    uni.redirectTo({ url: `${url}?code=${encodeURIComponent(code)}&status=success` });
+}
+
+/**
+ * 拆单提交：将购物车按支付档案分组，顺序生成多个独立订单。
+ * 顺序：先处理 COD/即时结算组，最后处理在线支付（微信/支付宝）组。
+ * 返回所有子订单号
+ */
+async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
+    // 为每组解析支付方式：先按档案过滤出该组允许的支付方式，取第一个；无则用当前选中
+    const resolved: PayGroup[] = [];
+    for (const g of groups) {
+        let method = '';
+        if (g.profileId) {
+            try {
+                const res: any = await getEligiblePaymentMethodsByProfile([g.profileId]);
+                const allowed = (res?.eligiblePaymentMethodsByProfile || []).map((m: any) => m.code);
+                method = allowed[0] || '';
+                // 若该档案允许在线支付，优先用在线支付；否则用第一个
+                const onlineOrder = ['wechatpay', 'alipay', 'douyinpay', 'balance-pay'];
+                const foundOnline = allowed.find((c: string) => onlineOrder.includes(c));
+                if (foundOnline) method = foundOnline;
+            } catch (e) { console.warn('[checkout] resolve group payment method failed', e); }
+        }
+        if (!method) method = selectedPayment.value;
+        resolved.push({ ...g, paymentMethod: method });
+    }
+
+    // 排序：即时结算（cod/balance-pay）在前，在线支付在后
+    const isOnline = (m: string) => m === 'wechatpay' || m === 'alipay' || m === 'douyinpay';
+    resolved.sort((a, b) => {
+        const aOnline = isOnline(a.paymentMethod) ? 1 : 0;
+        const bOnline = isOnline(b.paymentMethod) ? 1 : 0;
+        return aOnline - bOnline;
+    });
+
+    const orderCodes: string[] = [];
+    for (let i = 0; i < resolved.length; i++) {
+        const group = resolved[i];
+        const isLastOnlineGroup = isOnline(group.paymentMethod) && resolved.slice(i + 1).every(g => !isOnline(g.paymentMethod));
+        // 清空购物车，加入该组商品生成独立订单
+        await removeAllOrderLines();
+        for (const line of group.lines) {
+            await addItemToOrder(line.productVariant.id, line.quantity);
+        }
+        // 重新加载订单以同步运费/配送
+        try {
+            const orderRes: any = await getActiveOrder();
+            if (orderRes.activeOrder) cart.setOrder(orderRes.activeOrder);
+        } catch (e) { console.warn('[checkout] reload order for split failed', e); }
+
+        const ok = await prepareOrderAddressAndShipping();
+        if (!ok) throw new Error('下单信息不完整');
+        await transitionOrderToState('ArrangingPayment');
+        const code = await payCurrentOrder(group.paymentMethod);
+        if (code) orderCodes.push(code);
+
+        // 在线支付组：跳转一次支付（最后一笔在线支付跳转后不在本页）
+        if (isLastOnlineGroup && isOnline(group.paymentMethod)) {
+            // payCurrentOrder 已触发 handlePayment 跳转，直接结束
+            break;
+        }
+    }
+    return orderCodes;
+}
+
 async function submitOrder() {
     if (submitting.value) return;
     submitting.value = true;
     try {
         ui.showLoading();
-        if (shippingCategory.value === 'shipping') {
-            // 邮寄方式：设置收货地址
-            if (!selectedAddress.value) {
-                // 没有已选地址，尝试用内嵌表单数据
-                if (!address.value.fullName || !address.value.phoneNumber || !address.value.streetLine1) {
-                    ui.showToast('请填写收货地址');
-                    ui.hideLoading();
-                    submitting.value = false;
-                    return;
-                }
-                await setOrderShippingAddress({ ...address.value, streetLine1: buildStreetLine1(address.value) });
-            } else {
-                // 已有地址，传 id 让后端关联
-                await setOrderShippingAddress({
-                    id: selectedAddress.value.id,
-                    fullName: selectedAddress.value.fullName,
-                    phoneNumber: selectedAddress.value.phoneNumber,
-                    streetLine1: selectedAddress.value.streetLine1,
-                    streetLine2: selectedAddress.value.streetLine2 || '',
-                    city: selectedAddress.value.city,
-                    province: selectedAddress.value.province,
-                    postalCode: selectedAddress.value.postalCode || '',
-                    countryCode: selectedAddress.value.country?.code || 'CN',
-                });
-            }
+
+        // 是否需要拆单：支付档案数 > 1 时拆分
+        const groups = groupLinesByPaymentProfile();
+        const needSplit = groups.length > 1;
+
+        if (!needSplit) {
+            // 单笔订单：沿用原有逻辑
+            await submitSingleOrder(selectedPayment.value);
         } else {
-            // 自提方式：设置自提点
-            if (!selectedPickupLocation.value) {
-                ui.showToast('请选择自提点');
-                ui.hideLoading();
-                submitting.value = false;
-                return;
-            }
-            await setOrderPickupLocation(selectedPickupLocation.value.id, shippingCategory.value);
-        }
-        // Set shipping method
-        if (selectedShipping.value) await setOrderShippingMethod([selectedShipping.value]);
-        // Transition to ArrangingPayment
-        await transitionOrderToState('ArrangingPayment');
-        // Build payment metadata (wechatpay JSAPI requires openid)
-        const paymentMetadata: Record<string, any> = {};
-        if (selectedPayment.value === 'wechatpay') {
-            const openid = uni.getStorageSync('auth_openid');
-            if (openid) paymentMetadata.openid = openid;
-        }
-        // Add payment
-        const payRes: any = await addPaymentToOrder(selectedPayment.value, paymentMetadata);
-        const order = payRes.addPaymentToOrder;
-        if (order?.state === 'PaymentSettled' || order?.state === 'PaymentAuthorized') {
-            uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + order.code + '&status=success' });
-        } else {
-            // 从最新一笔 payment 取 metadata（后端在 payment.metadata 中返回支付参数）
-            const lastPayment = order?.payments?.[order.payments.length - 1];
-            const result = await handlePayment(selectedPayment.value as PaymentMethod, {
-                ...lastPayment,
-                orderCode: order?.code,
-                orderState: order?.state,
-            });
-            if (result.success) {
-                uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + (order?.code || '') + '&status=success' });
-            } else {
-                uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + (order?.code || '') + '&status=pending' });
+            // 拆单：先取可用支付方式全集（用于解析每组支付方式时的兜底）
+            const payRes: any = await getEligiblePaymentMethods();
+            const availableMethods = (payRes.eligiblePaymentMethods || []).filter((p: any) => p.isEligible);
+            const codes = await submitSplitOrders(groups, availableMethods);
+            // 全部即时结算（无在线支付跳转）时，统一跳转结果页
+            if (codes.length > 0) {
+                uni.redirectTo({ url: '/pkg-order/pages/pay-result?codes=' + encodeURIComponent(codes.join(',')) + '&status=success' });
             }
         }
     } catch (e: any) { ui.showToast(e.message); }
@@ -943,6 +1087,10 @@ async function submitOrder() {
 .section {
     background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 20rpx;
     &__title { font-size: 30rpx; font-weight: bold; margin-bottom: 16rpx; display: block; }
+}
+.split-notice {
+    background: #fff8e6; border: 1rpx solid $brand-color; border-radius: $radius-md;
+    padding: 18rpx 20rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #b8860b;
 }
 .address-block {
     padding: 16rpx 0; position: relative;

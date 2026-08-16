@@ -22,6 +22,13 @@ export async function removeOrderLine(orderLineId: string) {
     return client.request(mutation, { orderLineId });
 }
 
+export async function removeAllOrderLines() {
+    const client = getGraphQLClient();
+    const mutation = `${CART_FRAGMENT}
+        mutation RemoveAllLines { removeAllOrderLines { ... on Order { ...CartInfo } ... on ErrorResult { errorCode message } } }`;
+    return client.request(mutation);
+}
+
 export async function applyCouponCode(couponCode: string) {
     const client = getGraphQLClient();
     const mutation = `${CART_FRAGMENT}
