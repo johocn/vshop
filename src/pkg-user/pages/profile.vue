@@ -7,7 +7,7 @@
     <view class="profile-page__menu">
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>地址管理</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')"><text>充值卡</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')"><text>我的钱包</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')"><text>余额明细</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')"><text>售后记录</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')"><text>优惠券</text><text>></text></view>
