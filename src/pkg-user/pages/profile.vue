@@ -5,6 +5,8 @@
       <text class="profile-page__email">{{ customer?.emailAddress }}</text>
     </view>
     <view class="profile-page__menu">
+      <view class="menu-item" @click="navTo('/pkg-user/pages/member-center')"><text>会员中心</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/points-history')"><text>积分明细</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>地址管理</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')"><text>我的钱包</text><text>></text></view>
