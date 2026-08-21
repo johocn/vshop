@@ -1,21 +1,57 @@
 <template>
   <view class="history-page">
-    <view v-for="card in history" :key="card.id" class="history-item">
-      <text>{{ card.code }}</text>
-      <text class="history-item__value">+¥{{ (card.faceValue / 100).toFixed(2) }}</text>
-      <text class="history-item__date">{{ card.redeemedAt || card.createdAt }}</text>
+    <view v-for="tx in items" :key="tx.id" class="history-item">
+      <view class="history-item__left">
+        <text class="history-item__type">{{ typeLabel(tx.type) }}</text>
+        <text class="history-item__remark">{{ tx.remark || '' }}</text>
+      </view>
+      <view class="history-item__right">
+        <text class="history-item__value" :class="signClass(tx.amount)">{{ signed(tx.amount) }}</text>
+        <text class="history-item__date">{{ fmtTime(tx.createdAt) }}</text>
+      </view>
     </view>
-    <EmptyState v-if="history.length === 0" text="暂无充值记录" />
+    <EmptyState v-if="items.length === 0 && !loading" text="暂无余额流水" />
+    <view v-if="loading" class="history-page__loading">加载中...</view>
   </view>
 </template>
+
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { getMyRechargeHistory } from '../../api/mutations/recharge';
+import { getMyBalanceTransactions } from '../../api/mutations/recharge';
+import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
-const history = ref<any[]>([]);
-onMounted(async () => { try { const r: any = await getMyRechargeHistory(); history.value = r.myRechargeHistory || []; } catch (e) {} });
+import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
+
+// type → 文案
+const TYPE_LABEL: Record<string, string> = {
+    recharge: '充值',
+    consumption: '消费',
+    refund: '退款',
+    adjustment: '调账',
+};
+function typeLabel(t: string): string { return TYPE_LABEL[t] || t; }
+// 余额流水 amount 语义：消费存负值，充值/退款存正值；「+/-」以 amount 符号为准
+function signed(amount: number): string {
+    return (amount >= 0 ? '+' : '') + '¥' + (Math.abs(amount) / 100).toFixed(2);
+}
+function signClass(amount: number): string {
+    return amount >= 0 ? 'history-item__value--in' : '';
+}
+function fmtTime(s: string): string {
+    return s ? String(s).replace('T', ' ').slice(0, 16) : '';
+}
+
+const { items, loading, loadMore, refresh } = usePagination<any>({
+    fetchFn: async ({ take, skip }) => {
+        const r: any = await getMyBalanceTransactions({ take, skip });
+        return r?.myBalanceTransactions || { items: [], totalItems: 0 };
+    },
+});
+
+onReachBottom(() => loadMore());
+onPullDownRefresh(async () => { await refresh(); uni.stopPullDownRefresh(); });
 </script>
+
 <style lang="scss" scoped>
-.history-page { padding: 20rpx; }
-.history-item { background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 12rpx; display: flex; justify-content: space-between; align-items: center; font-size: 26rpx; &__value { color: $success-color; font-weight: bold; } &__date { color: #999; font-size: 22rpx; } }
+.history-page { padding: 20rpx; &__loading { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx; } }
+.history-item { background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 12rpx; display: flex; justify-content: space-between; align-items: center; font-size: 26rpx; &__left { display: flex; flex-direction: column; } &__type { font-weight: bold; font-size: 28rpx; } &__remark { color: #999; font-size: 22rpx; margin-top: 4rpx; max-width: 360rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } &__right { display: flex; flex-direction: column; align-items: flex-end; } &__value { font-weight: bold; &--in { color: $success-color; } } &__date { color: #999; font-size: 22rpx; margin-top: 4rpx; } }
 </style>

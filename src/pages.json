@@ -183,7 +183,8 @@
                 {
                     "path": "pages/balance-history",
                     "style": {
-                        "navigationBarTitleText": "余额明细"
+                        "navigationBarTitleText": "余额明细",
+                        "enablePullDownRefresh": true
                     }
                 },
                 {
