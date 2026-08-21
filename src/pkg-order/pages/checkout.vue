@@ -253,9 +253,24 @@
       <text class="balance-warn__btn" @click="goRecharge">去充值 ▸</text>
     </view>
 
+    <!-- 积分抵扣（可与余额混合） -->
+    <view class="section" v-if="pointsEnabled">
+      <view class="points-redeem">
+        <view class="points-redeem__info">
+          <text class="section__title">积分抵扣</text>
+          <text class="points-redeem__hint">可用 {{ myPoints }} 积分<text v-if="pointsDiscountYuan > 0">，已抵 ¥{{ (pointsDiscountYuan / 100).toFixed(2) }}</text></text>
+        </view>
+        <view class="points-redeem__row">
+          <input v-model="redeemPointsInput" type="digit" placeholder="输入要抵扣的积分" class="points-redeem__input" />
+          <text class="points-redeem__go" @click="applyPointsRedeem">{{ applyingPoints ? '抵扣中…' : '抵扣' }}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="checkout-page__summary" v-if="cart.order">
       <view class="summary-row"><text>商品总额</text><text>¥{{ originalSubTotalYuan }}</text></view>
       <view v-if="appliedCouponCode" class="summary-row"><text>优惠券</text><text class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text></view>
+      <view v-if="pointsDiscountYuan > 0" class="summary-row"><text>积分抵扣</text><text class="coupon-entry__discount">-¥{{ (pointsDiscountYuan / 100).toFixed(2) }}</text></view>
       <view class="summary-row"><text>运费</text><text>¥{{ shippingFee }}</text></view>
       <view class="summary-row summary-row--total"><text>应付</text><text class="checkout-page__total">¥{{ cart.formatPrice(cart.order.totalWithTax) }}</text></view>
     </view>
@@ -282,6 +297,7 @@ import { setOrderShippingAddress, setOrderShippingMethod, transitionOrderToState
 import { addItemToOrder, removeAllOrderLines } from '../../api/mutations/cart';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { getMyBalance } from '../../api/mutations/recharge';
+import { getMyMemberInfo, redeemPoints } from '../../api/queries/member';
 import { getMyCoupons } from '../../api/queries/coupon';
 import { applyCoupon, removeAppliedCoupon as removeCouponFromOrder } from '../../api/mutations/coupon';
 import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
@@ -396,6 +412,37 @@ const deficitYuan = computed(() =>
 );
 function goRecharge() {
     uni.navigateTo({ url: '/pkg-user/pages/recharge' });
+}
+// ===== 积分抵扣（与余额可混合） =====
+const myPoints = ref(0);
+const redeemPointsInput = ref('');
+const applyingPoints = ref(false);
+// 积分抵现累计额（分）：每次 redeemPoints 后订单价下降的差额累加
+const pointsDiscountAccum = ref(0);
+const pointsEnabled = computed(() => myPoints.value > 0 && !!cart.order?.id);
+const pointsDiscountYuan = computed(() => pointsDiscountAccum.value);
+async function applyPointsRedeem() {
+    const pts = Math.floor(Number(redeemPointsInput.value));
+    if (!pts || pts > myPoints.value) { ui.showToast('积分不足'); return; }
+    if (applyingPoints.value) return;
+    applyingPoints.value = true;
+    if (!cart.order?.id) { ui.showToast('订单未创建'); applyingPoints.value = false; return; }
+    const prevTotal = cart.order?.totalWithTax || 0;
+    try {
+        ui.showLoading();
+        await redeemPoints(pts);
+        // 重算价后刷新订单，同步余额预检
+        const orderRes: any = await getActiveOrder();
+        if (orderRes.activeOrder) {
+            cart.setOrder(orderRes.activeOrder);
+            const newTotal = orderRes.activeOrder.totalWithTax || 0;
+            pointsDiscountAccum.value += Math.max(0, prevTotal - newTotal);
+        }
+        ui.hideLoading();
+        ui.showToast('已抵扣', 'success');
+        redeemPointsInput.value = '';
+    } catch (e: any) { ui.hideLoading(); ui.showToast(e.message || '抵扣失败', 'error'); }
+    applyingPoints.value = false;
 }
 // 商品总额：使用 linePriceWithTax（原始行价，未扣折扣）求和，
 // 因为 subTotalWithTax 已包含分摊折扣，直接用会导致折扣被重复计算。
@@ -835,8 +882,9 @@ onMounted(async () => {
             return true;
         });
         if (paymentMethods.value.length > 0) selectedPayment.value = paymentMethods.value[0].code;
-        // Load balance
+        // Load balance + 积分
         try { const balRes: any = await getMyBalance(); balance.value = balRes.myRechargeBalance || 0; } catch (e) {}
+        try { const miRes: any = await getMyMemberInfo(); myPoints.value = miRes?.myMemberInfo?.points || 0; } catch (e) {}
         // 默认选中第一个 Tab
         if (shippingTabs.value.length > 0) {
             await switchTab(shippingTabs.value[0].category);
@@ -1172,6 +1220,13 @@ async function submitOrder() {
     background: #fff2f0; border: 1rpx solid #ff7875; border-radius: $radius-md;
     padding: 18rpx 20rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #cf1322;
     &__btn { color: #cf1322; font-weight: bold; }
+}
+.points-redeem {
+    &__info { margin-bottom: 12rpx; }
+    &__hint { font-size: 24rpx; color: #999; margin-left: 12rpx; }
+    &__row { display: flex; align-items: center; gap: 16rpx; }
+    &__input { flex: 1; height: 72rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx; }
+    &__go { color: $brand-color; font-weight: bold; font-size: 28rpx; padding: 0 10rpx; }
 }
 .address-block {
     padding: 16rpx 0; position: relative;
