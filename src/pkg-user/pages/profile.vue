@@ -6,6 +6,7 @@
     </view>
     <view class="profile-page__menu">
       <view class="menu-item" @click="navTo('/pkg-user/pages/member-center')"><text>会员中心</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/points-mall')"><text>积分兑换</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/points-history')"><text>积分明细</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>地址管理</text><text>></text></view>
@@ -13,6 +14,7 @@
       <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')"><text>余额明细</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')"><text>售后记录</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')"><text>优惠券</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-promotion/pages/live-list')"><text>直播</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')"><text>分销中心</text><text>></text></view>
     </view>
     <button class="profile-page__logout" @click="doLogout">退出登录</button>

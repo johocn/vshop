@@ -156,6 +156,18 @@
                     "style": {
                         "navigationBarTitleText": "优惠券"
                     }
+                },
+                {
+                    "path": "pages/live-list",
+                    "style": {
+                        "navigationBarTitleText": "直播"
+                    }
+                },
+                {
+                    "path": "pages/live-room",
+                    "style": {
+                        "navigationBarTitleText": "直播间"
+                    }
                 }
             ]
         },
@@ -198,6 +210,12 @@
                     "style": {
                         "navigationBarTitleText": "积分明细",
                         "enablePullDownRefresh": true
+                    }
+                },
+                {
+                    "path": "pages/points-mall",
+                    "style": {
+                        "navigationBarTitleText": "积分兑换商城"
                     }
                 },
                 {
