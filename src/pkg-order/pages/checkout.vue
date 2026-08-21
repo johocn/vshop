@@ -247,6 +247,12 @@
       <text>购物车商品分属 {{ paymentGroupCount }} 种支付方式，将拆分为 {{ paymentGroupCount }} 笔订单分别支付</text>
     </view>
 
+    <!-- 余额不足警示（仅选余额支付时） -->
+    <view v-if="selectedPayment === 'balance-pay' && balanceInsufficient" class="balance-warn">
+      <text class="balance-warn__text">余额不足（差 ¥{{ deficitYuan }}），请先充值</text>
+      <text class="balance-warn__btn" @click="goRecharge">去充值 ▸</text>
+    </view>
+
     <view class="checkout-page__summary" v-if="cart.order">
       <view class="summary-row"><text>商品总额</text><text>¥{{ originalSubTotalYuan }}</text></view>
       <view v-if="appliedCouponCode" class="summary-row"><text>优惠券</text><text class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text></view>
@@ -254,7 +260,7 @@
       <view class="summary-row summary-row--total"><text>应付</text><text class="checkout-page__total">¥{{ cart.formatPrice(cart.order.totalWithTax) }}</text></view>
     </view>
 
-    <button class="checkout-page__submit" :disabled="submitting" @click="submitOrder">
+    <button class="checkout-page__submit" :disabled="submitting || (selectedPayment === 'balance-pay' && balanceInsufficient)" @click="submitOrder">
       {{ submitting ? '处理中...' : '提交订单' }}
     </button>
   </view>
@@ -380,6 +386,17 @@ const selectedCouponCode = ref('');
 const applyingCoupon = ref(false);
 
 const balanceYuan = computed(() => (balance.value / 100).toFixed(2));
+// ===== 余额不足预检 =====
+const payTotal = computed(() => cart.order?.totalWithTax || 0);
+const balanceInsufficient = computed(
+    () => selectedPayment.value === 'balance-pay' && payTotal.value > balance.value,
+);
+const deficitYuan = computed(() =>
+    balanceInsufficient.value ? ((payTotal.value - balance.value) / 100).toFixed(2) : '0',
+);
+function goRecharge() {
+    uni.navigateTo({ url: '/pkg-user/pages/recharge' });
+}
 // 商品总额：使用 linePriceWithTax（原始行价，未扣折扣）求和，
 // 因为 subTotalWithTax 已包含分摊折扣，直接用会导致折扣被重复计算。
 const originalSubTotalYuan = computed(() => {
@@ -958,10 +975,19 @@ async function payCurrentOrder(method: string): Promise<string> {
     const payRes: any = await addPaymentToOrder(method, paymentMetadata);
     const order = payRes.addPaymentToOrder;
     if (order?.state === 'PaymentSettled' || order?.state === 'PaymentAuthorized') {
+        // 即时结算类（balance-pay）必须真正 Settled 才返回成功
+        if (method === 'balance-pay' && order.state !== 'PaymentSettled') {
+            throw new Error('余额支付未完成，请重试');
+        }
         return order.code;
     }
     // 从最新一笔 payment 取 metadata（后端在 payment.metadata 中返回支付参数）
     const lastPayment = order?.payments?.[order.payments.length - 1];
+    // balance-pay 无第三方回调：addPaymentToOrder 未 Settled（如余额不足/未登录）即失败，不得误判成功
+    if (method === 'balance-pay') {
+        const declined = lastPayment?.state === 'Declined';
+        throw new Error(declined ? (lastPayment.errorMessage || '余额不足，支付未完成') : '余额支付未完成，请重试');
+    }
     const result = await handlePayment(method as PaymentMethod, {
         ...lastPayment,
         orderCode: order?.code,
@@ -976,6 +1002,10 @@ async function payCurrentOrder(method: string): Promise<string> {
  * @param targetUrl 支付成功后的跳转地址（默认 pay-result）
  */
 async function submitSingleOrder(method: string, targetUrl?: string) {
+    if (method === 'balance-pay' && balanceInsufficient.value) {
+        ui.showToast('余额不足，请先充值');
+        return;
+    }
     const ok = await prepareOrderAddressAndShipping();
     if (!ok) return;
     // Transition to ArrangingPayment
@@ -1086,6 +1116,10 @@ async function submitOrder() {
 
         // marketplace 聚合单：先复用主流程支付聚合单，再逐单支付各商家子单
         if ((cart.order as any)?.type === 'Aggregate') {
+            if (selectedPayment.value === 'balance-pay' && balanceInsufficient.value) {
+                ui.showToast('余额不足，请先充值');
+                return;
+            }
             const ok = await prepareOrderAddressAndShipping();
             if (!ok) return;
             await transitionOrderToState('ArrangingPayment');
@@ -1132,6 +1166,12 @@ async function submitOrder() {
 .split-notice {
     background: #fff8e6; border: 1rpx solid $brand-color; border-radius: $radius-md;
     padding: 18rpx 20rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #b8860b;
+}
+.balance-warn {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #fff2f0; border: 1rpx solid #ff7875; border-radius: $radius-md;
+    padding: 18rpx 20rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #cf1322;
+    &__btn { color: #cf1322; font-weight: bold; }
 }
 .address-block {
     padding: 16rpx 0; position: relative;
