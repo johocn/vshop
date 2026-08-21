@@ -188,6 +188,19 @@
                     }
                 },
                 {
+                    "path": "pages/member-center",
+                    "style": {
+                        "navigationBarTitleText": "会员权益中心"
+                    }
+                },
+                {
+                    "path": "pages/points-history",
+                    "style": {
+                        "navigationBarTitleText": "积分明细",
+                        "enablePullDownRefresh": true
+                    }
+                },
+                {
                     "path": "pages/distribution",
                     "style": {
                         "navigationBarTitleText": "分销中心"
