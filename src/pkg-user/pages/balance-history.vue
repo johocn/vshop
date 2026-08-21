@@ -4,10 +4,12 @@
       <view class="history-item__left">
         <text class="history-item__type">{{ typeLabel(tx.type) }}</text>
         <text class="history-item__remark">{{ tx.remark || '' }}</text>
+        <text v-if="tx.orderId" class="history-item__order">订单 #{{ tx.orderId }}</text>
       </view>
       <view class="history-item__right">
         <text class="history-item__value" :class="signClass(tx.amount)">{{ signed(tx.amount) }}</text>
         <text class="history-item__date">{{ fmtTime(tx.createdAt) }}</text>
+        <text v-if="tx.balanceAfter !== undefined && tx.balanceAfter !== null" class="history-item__balance">余额 ¥{{ (tx.balanceAfter / 100).toFixed(2) }}</text>
       </view>
     </view>
     <EmptyState v-if="items.length === 0 && !loading" text="暂无余额流水" />
@@ -21,12 +23,14 @@ import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
 
-// type → 文案
+// type → 文案（与后端 BalanceTransactionType 枚举对齐）
 const TYPE_LABEL: Record<string, string> = {
     recharge: '充值',
-    consumption: '消费',
+    consume: '消费',
     refund: '退款',
-    adjustment: '调账',
+    adjust: '调账',
+    freeze: '冻结',
+    unfreeze: '解冻',
 };
 function typeLabel(t: string): string { return TYPE_LABEL[t] || t; }
 // 余额流水 amount 语义：消费存负值，充值/退款存正值；「+/-」以 amount 符号为准
@@ -53,5 +57,5 @@ onPullDownRefresh(async () => { await refresh(); uni.stopPullDownRefresh(); });
 
 <style lang="scss" scoped>
 .history-page { padding: 20rpx; &__loading { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx; } }
-.history-item { background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 12rpx; display: flex; justify-content: space-between; align-items: center; font-size: 26rpx; &__left { display: flex; flex-direction: column; } &__type { font-weight: bold; font-size: 28rpx; } &__remark { color: #999; font-size: 22rpx; margin-top: 4rpx; max-width: 360rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } &__right { display: flex; flex-direction: column; align-items: flex-end; } &__value { font-weight: bold; &--in { color: $success-color; } } &__date { color: #999; font-size: 22rpx; margin-top: 4rpx; } }
+.history-item { background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 12rpx; display: flex; justify-content: space-between; align-items: center; font-size: 26rpx; &__left { display: flex; flex-direction: column; } &__type { font-weight: bold; font-size: 28rpx; } &__remark { color: #999; font-size: 22rpx; margin-top: 4rpx; max-width: 360rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } &__order { color: #999; font-size: 20rpx; margin-top: 4rpx; } &__right { display: flex; flex-direction: column; align-items: flex-end; } &__value { font-weight: bold; &--in { color: $success-color; } } &__date { color: #999; font-size: 22rpx; margin-top: 4rpx; } &__balance { color: #999; font-size: 20rpx; margin-top: 4rpx; } }
 </style>
