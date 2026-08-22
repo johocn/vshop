@@ -50,6 +50,7 @@
       <button v-if="canPay" class="action-btn action-btn--primary" @click="goPay">去支付</button>
       <button v-if="canReceive" class="action-btn action-btn--primary" @click="confirmReceive">确认收货</button>
       <button v-if="canAfterSale" class="action-btn" @click="applyAfterSale">申请售后</button>
+      <button v-if="canInvoice" class="action-btn" @click="applyInvoice">开发票</button>
       <button v-if="canCancel" class="action-btn action-btn--ghost" @click="cancelOrder">取消订单</button>
     </view>
   </view>
@@ -71,6 +72,7 @@ const discountTotal = computed(() => order.value?.discounts?.reduce((s:number,d:
 const canPay = computed(() => ['Created','AddingItems','ArrangingPayment'].includes(order.value?.state));
 const canReceive = computed(() => ['Delivered','PartiallyDelivered','Shipped'].includes(order.value?.state));
 const canAfterSale = computed(() => ['Delivered','PaymentSettled','PaymentAuthorized'].includes(order.value?.state));
+const canInvoice = computed(() => ['Delivered','Completed','PartiallyDelivered'].includes(order.value?.state));
 const canCancel = computed(() => ['Created','AddingItems','ArrangingPayment'].includes(order.value?.state));
 onMounted(async () => {
     const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
@@ -87,6 +89,7 @@ function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.show
 function goPay() { uni.navigateTo({ url: '/pkg-order/pages/payment?code=' + order.value.code }); }
 function confirmReceive() { uni.showModal({ title: '确认收货', content: '确认已收到商品?', success: async (r: any) => { if (r.confirm) { try { const client = getGraphQLClient(); await client.request(`mutation { transitionOrderToState(state: "Delivered") { ... on Order { id state } ... on ErrorResult { errorCode message } } }`); uni.showToast({ title: '已确认收货' }); order.value.state = 'Delivered'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 function applyAfterSale() { uni.navigateTo({ url: '/pkg-after-sale/pages/apply?orderId=' + order.value.id }); }
+function applyInvoice() { uni.navigateTo({ url: '/pkg-order/pages/invoice-apply?orderIds=' + order.value.id }); }
 function cancelOrder() { uni.showModal({ title: '取消订单', content: '确定取消该订单?', success: async (r: any) => { if (r.confirm) { try { const client = getGraphQLClient(); await client.request(`mutation { cancelOrder(orderId: "${order.value.id}") { ... on Order { id state } ... on ErrorResult { errorCode message } } }`); uni.showToast({ title: '已取消' }); order.value.state = 'Cancelled'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 </script>
 <style lang="scss" scoped>

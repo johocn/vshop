@@ -121,6 +121,19 @@
                     "style": {
                         "navigationBarTitleText": "订单详情"
                     }
+                },
+                {
+                    "path": "pages/invoice-apply",
+                    "style": {
+                        "navigationBarTitleText": "申请发票"
+                    }
+                },
+                {
+                    "path": "pages/invoices",
+                    "style": {
+                        "navigationBarTitleText": "我的发票",
+                        "enablePullDownRefresh": true
+                    }
                 }
             ]
         },
@@ -240,6 +253,12 @@
                     "path": "pages/logistics",
                     "style": {
                         "navigationBarTitleText": "物流跟踪"
+                    }
+                },
+                {
+                    "path": "pages/invoice-titles",
+                    "style": {
+                        "navigationBarTitleText": "发票抬头管理"
                     }
                 }
             ]
