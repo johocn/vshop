@@ -16,7 +16,8 @@
     { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理" } },
     { "path": "pages/inventory/stock/index", "style": { "navigationBarTitleText": "库存与预警" } },
     { "path": "pages/shipping/methods/index", "style": { "navigationBarTitleText": "配送方式" } },
-    { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } }
+    { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } },
+    { "path": "pages/data/dashboard/index", "style": { "navigationBarTitleText": "数据看板" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
