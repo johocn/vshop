@@ -13,7 +13,10 @@
     { "path": "pages/order/list/index", "style": { "navigationBarTitleText": "订单列表", "enablePullDownRefresh": true } },
     { "path": "pages/order/detail/index", "style": { "navigationBarTitleText": "订单详情" } },
     { "path": "pages/order/ship/index", "style": { "navigationBarTitleText": "发货" } },
-    { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理" } }
+    { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理" } },
+    { "path": "pages/inventory/stock/index", "style": { "navigationBarTitleText": "库存与预警" } },
+    { "path": "pages/shipping/methods/index", "style": { "navigationBarTitleText": "配送方式" } },
+    { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
