@@ -41,3 +41,22 @@ export async function resolveChannelByDomain(host: string) {
         }
     }`, { host });
 }
+
+export async function resolveChannelByCode(code: string) {
+    const client = getGraphQLClient();
+    return client.request(`query ResolveChannelByCode($code: String!) {
+        resolveChannelByCode(code: $code) {
+            token
+            code
+            customFields {
+                shopName
+                shopLogo
+                shopIntro
+                servicePhone
+                shopContent
+                displayTemplate
+                themeId
+            }
+        }
+    }`, { code });
+}
