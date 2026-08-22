@@ -2,7 +2,10 @@
   "pages": [
     { "path": "pages/login/index", "style": { "navigationStyle": "custom", "navigationBarTitleText": "登录" } },
     { "path": "pages/channel-select/index", "style": { "navigationBarTitleText": "选择店铺" } },
-    { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "工作台" } }
+    { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "工作台" } },
+    { "path": "pages/decorate/home/index", "style": { "navigationBarTitleText": "首页装修" } },
+    { "path": "pages/decorate/theme/index", "style": { "navigationBarTitleText": "主题风格" } },
+    { "path": "pages/decorate/shop-info/index", "style": { "navigationBarTitleText": "店铺信息" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

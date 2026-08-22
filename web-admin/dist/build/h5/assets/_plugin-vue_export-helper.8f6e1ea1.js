@@ -1,0 +1,1 @@
+let n=()=>"";function t(){var t;return null!==(t=n("wa_auth_token"))&&void 0!==t?t:""}function o(n,t){}function a(){var t;return null!==(t=n("wa_channel_token"))&&void 0!==t?t:""}function r(){var t;return null!==(t=n("wa_channel_code"))&&void 0!==t?t:""}const c=(n,t)=>{const o=n.__vccOpts||n;for(const[a,r]of t)o[a]=r;return o};export{c as _,r as a,a as b,t as g,o as s};
