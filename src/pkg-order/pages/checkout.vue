@@ -232,6 +232,20 @@
       </view>
     </view>
 
+    <!-- 会员等级权益（阶段39） -->
+    <view class="section" v-if="hasMemberInfo">
+      <view class="member-benefit">
+        <view class="member-benefit__head">
+          <text class="section__title">会员权益</text>
+          <text class="member-benefit__level">{{ memberInfo.levelName }}</text>
+        </view>
+        <view class="member-benefit__chips" v-if="memberBenefits.length > 0">
+          <text v-for="b in memberBenefits" :key="b" class="member-benefit__chip">{{ b }}</text>
+        </view>
+        <text v-else class="member-benefit__hint">当前等级暂无专属折扣，消费/签到升级可享</text>
+      </view>
+    </view>
+
     <!-- 优惠券 -->
     <view class="section coupon-entry" @click="openCouponPicker">
       <text class="coupon-entry__label">优惠券</text>
@@ -271,6 +285,7 @@
       <view class="summary-row"><text>商品总额</text><text>¥{{ originalSubTotalYuan }}</text></view>
       <view v-if="appliedCouponCode" class="summary-row"><text>优惠券</text><text class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text></view>
       <view v-if="pointsDiscountYuan > 0" class="summary-row"><text>积分抵扣</text><text class="coupon-entry__discount">-¥{{ (pointsDiscountYuan / 100).toFixed(2) }}</text></view>
+      <view v-if="Number(memberDiscountYuan) > 0" class="summary-row"><text>会员折扣</text><text class="coupon-entry__discount">-¥{{ memberDiscountYuan }}</text></view>
       <view class="summary-row"><text>运费</text><text>¥{{ shippingFee }}</text></view>
       <view class="summary-row summary-row--total"><text>应付</text><text class="checkout-page__total">¥{{ cart.formatPrice(cart.order.totalWithTax) }}</text></view>
     </view>
@@ -413,6 +428,37 @@ const deficitYuan = computed(() =>
 function goRecharge() {
     uni.navigateTo({ url: '/pkg-user/pages/recharge' });
 }
+// ===== 会员等级权益展示（阶段39） =====
+// 后端播种的等级折扣 Promotion 名称（用于从订单 discounts 中区分「会员折扣」与「优惠券」）
+const MEMBER_TIER_PROMO_NAME = '金卡及以上专属95折';
+const memberInfo = ref<any>(null);
+const hasMemberInfo = computed(() => !!memberInfo.value);
+// 专属折扣展示（specialDiscountRate 千分比：50=5%优惠→95折；0=无）
+const memberDiscountLabel = computed(() => {
+    const rate = memberInfo.value?.specialDiscountRate ?? 0;
+    if (!rate) return '无';
+    return `${(1000 - rate) / 10}折`;
+});
+// 会员可享权益摘要（仅展示有值/有意义的项）
+const memberBenefits = computed(() => {
+    const mi = memberInfo.value;
+    if (!mi) return [];
+    const list: string[] = [];
+    if ((mi.specialDiscountRate ?? 0) > 0) list.push(`专属${memberDiscountLabel.value}`);
+    if ((mi.pointsMultiplier ?? 1000) > 1000) list.push(`积分×${(mi.pointsMultiplier / 1000).toFixed(1)}`);
+    if ((mi.redeemDiscountRate ?? 1000) > 1000) list.push('抵现增强');
+    return list;
+});
+// 会员折扣金额（元）：订单 discounts 中来源为等级折扣的合计
+const memberDiscountYuan = computed(() => {
+    const discounts = cart.order?.discounts || [];
+    const total = discounts.reduce((sum: number, d: any) => {
+        if ((d.description || '') === MEMBER_TIER_PROMO_NAME) return sum + Math.abs(d.amountWithTax || 0);
+        return sum;
+    }, 0);
+    return (total / 100).toFixed(2);
+});
+
 // ===== 积分抵扣（与余额可混合） =====
 const myPoints = ref(0);
 const redeemPointsInput = ref('');
@@ -461,10 +507,13 @@ const unusedCoupons = computed(() => myCouponsList.value.filter((c: any) => (c.s
 const appliedCouponCode = computed(() => {
     return (cart.order as any)?.customFields?.appliedCouponCode || '';
 });
-// 当前订单优惠总金额（元）
+// 当前订单优惠券优惠总金额（元）：仅累加「非会员折扣」来源（会员折扣单列，避免重复计入券）
 const couponDiscountYuan = computed(() => {
     const discounts = cart.order?.discounts || [];
-    const total = discounts.reduce((sum: number, d: any) => sum + Math.abs(d.amountWithTax || 0), 0);
+    const total = discounts.reduce((sum: number, d: any) => {
+        if ((d.description || '') === MEMBER_TIER_PROMO_NAME) return sum;
+        return sum + Math.abs(d.amountWithTax || 0);
+    }, 0);
     return (total / 100).toFixed(2);
 });
 
@@ -840,6 +889,8 @@ onMounted(async () => {
     await tenant.loadChannelConfig();
     // 加载我的优惠券（用于结算页选择）
     loadMyCoupons();
+    // 加载会员等级权益（独立于下单初始化，用户已登录即展示，不与结算流程耦合）
+    loadMemberInfo();
     // Load saved addresses
     try { const custRes: any = await getActiveCustomer(); customerAddresses.value = custRes.activeCustomer?.addresses || []; if (customerAddresses.value.length > 0) { selectedAddress.value = customerAddresses.value.find((a: any) => a.defaultShippingAddress) || customerAddresses.value[0]; } } catch (e) {}
     try {
@@ -882,9 +933,6 @@ onMounted(async () => {
             return true;
         });
         if (paymentMethods.value.length > 0) selectedPayment.value = paymentMethods.value[0].code;
-        // Load balance + 积分
-        try { const balRes: any = await getMyBalance(); balance.value = balRes.myRechargeBalance || 0; } catch (e) {}
-        try { const miRes: any = await getMyMemberInfo(); myPoints.value = miRes?.myMemberInfo?.points || 0; } catch (e) {}
         // 默认选中第一个 Tab
         if (shippingTabs.value.length > 0) {
             await switchTab(shippingTabs.value[0].category);
@@ -898,6 +946,19 @@ async function loadMyCoupons() {
         const res: any = await getMyCoupons();
         myCouponsList.value = res.myCoupons || [];
     } catch (e) { console.warn('[checkout] loadMyCoupons failed', e); }
+}
+
+// 会员等级权益 + 余额（独立加载，任一失败不影响结算主流程）
+async function loadMemberInfo() {
+    try {
+        const balRes: any = await getMyBalance();
+        balance.value = balRes.myRechargeBalance || 0;
+    } catch (e) {}
+    try {
+        const miRes: any = await getMyMemberInfo();
+        myPoints.value = miRes?.myMemberInfo?.points || 0;
+        memberInfo.value = miRes?.myMemberInfo || null;
+    } catch (e) {}
 }
 
 function openCouponPicker() {
@@ -1335,6 +1396,13 @@ async function submitOrder() {
     &__count { font-size: 26rpx; color: $brand-color; }
     &__none { font-size: 26rpx; color: #999; }
     &__arrow { font-size: 24rpx; color: #ccc; }
+}
+.member-benefit {
+    &__head { display: flex; align-items: center; justify-content: space-between; }
+    &__level { font-size: 30rpx; font-weight: bold; color: $brand-color; }
+    &__chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
+    &__chip { font-size: 22rpx; color: $brand-color; background: #f2eeff; border: 1rpx solid $brand-color; padding: 4rpx 16rpx; border-radius: 24rpx; }
+    &__hint { font-size: 24rpx; color: $text-color-secondary; display: block; margin-top: 12rpx; }
 }
 .coupon-modal {
     &__actions { display: flex; gap: 16rpx; padding: 20rpx 0 0; }
