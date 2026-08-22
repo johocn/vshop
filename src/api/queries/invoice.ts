@@ -4,7 +4,7 @@ import { getGraphQLClient } from '../client';
 export async function getMyInvoices() {
     const client = getGraphQLClient();
     return client.request(
-        `query MyInvoices { myInvoices { id invoiceType status title taxNumber email amount orderIds pdfUrl providerInvoiceNo issuedAt reversedAt createdAt } }`,
+        `query MyInvoices { myInvoices { id invoiceType status title taxNumber email amount orderIds pdfUrl providerInvoiceNo invoiceNo lines { orderId orderCode sku name quantity unitPrice unitPriceWithTax amount taxRate taxAmount amountWithTax } totals { totalExcludingTax totalTax totalWithTax } issuedAt reversedAt createdAt } }`,
     );
 }
 

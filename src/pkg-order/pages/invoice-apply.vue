@@ -95,7 +95,9 @@ async function submit() {
     if (!orders.value.length) { uni.showToast({ title: '请选择开票订单', icon: 'none' }); return; }
     submitting.value = true;
     try {
-        const input = { ...form.value, orderIds: orders.value.map((o: any) => o.id) };
+        const input: any = { ...form.value, orderIds: orders.value.map((o: any) => o.id) };
+        // 命中已存抬头：回传 titleId，后端自动回填抬头快照字段（避免前端字段遗漏/不一致）
+        if (selectedTitleId.value) input.invoiceTitleId = selectedTitleId.value;
         const res: any = await createInvoice(input);
         if (res?.createInvoice) {
             uni.showToast({ title: '申请成功', icon: 'success' });

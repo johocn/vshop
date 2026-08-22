@@ -4,7 +4,7 @@ import { getGraphQLClient } from '../client';
 export async function createInvoice(input: any) {
     const client = getGraphQLClient();
     return client.request(
-        `mutation CreateInvoice($input: CreateInvoiceInput!) { createInvoice(input: $input) { id invoiceType status title taxNumber email amount pdfUrl providerInvoiceNo issuedAt reversedAt createdAt } }`,
+        `mutation CreateInvoice($input: CreateInvoiceInput!) { createInvoice(input: $input) { id invoiceType status title taxNumber email amount pdfUrl providerInvoiceNo invoiceNo lines { orderId orderCode sku name quantity unitPrice unitPriceWithTax amount taxRate taxAmount amountWithTax } totals { totalExcludingTax totalTax totalWithTax } issuedAt reversedAt createdAt } }`,
         { input },
     );
 }
