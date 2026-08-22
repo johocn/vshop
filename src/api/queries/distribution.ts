@@ -254,3 +254,21 @@ export function formatYuan(cents?: number | null): string {
     if (cents == null) return '0.00';
     return (cents / 100).toFixed(2);
 }
+
+export interface TeamSummary {
+    directTeamSize: number;
+    indirectTeamSize: number;
+    totalTeamSize: number;
+    orderCount: number;
+    orderAmount: number;
+    teamCommission: number;
+}
+
+/** C 端「我的团队」汇总。返回 { myTeamSummary }（金额单位：分） */
+export async function getMyTeamSummary(): Promise<TeamSummary> {
+    const client = getGraphQLClient();
+    const res: any = await client.request(`query MyTeamSummary {
+        myTeamSummary { directTeamSize indirectTeamSize totalTeamSize orderCount orderAmount teamCommission }
+    }`);
+    return res.myTeamSummary;
+}

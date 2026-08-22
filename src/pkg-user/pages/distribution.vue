@@ -31,6 +31,27 @@
         </view>
       </view>
 
+      <!-- 推广工具 -->
+      <view class="dc-card">
+        <text class="dc-card__title">推广工具</text>
+        <view class="dc-promo__link" @click="copy(promoLink(), '推广链接已复制')">
+          <text class="dc-promo__text">分享链接（好友下单你得佣金）</text>
+          <text class="dc-promo__copy">复制</text>
+        </view>
+        <button class="dc-promo__poster" @click="showPoster = true">生成推广海报</button>
+      </view>
+
+      <!-- 我的团队 -->
+      <view class="dc-card" v-if="teamSummary">
+        <text class="dc-card__title">我的团队</text>
+        <view class="dc-team__grid">
+          <view class="dc-team__cell"><text>直推</text><text>{{ teamSummary.directTeamSize }}人</text></view>
+          <view class="dc-team__cell"><text>间推</text><text>{{ teamSummary.indirectTeamSize }}人</text></view>
+          <view class="dc-team__cell"><text>带来订单</text><text>{{ teamSummary.orderCount }}单</text></view>
+          <view class="dc-team__cell"><text>团队佣金</text><text>¥{{ formatYuan(teamSummary.teamCommission) }}</text></view>
+        </view>
+      </view>
+
       <!-- 佣金明细 -->
       <view class="dc-card">
         <text class="dc-card__title">佣金明细</text>
@@ -81,25 +102,42 @@
         <LoadingSkeleton v-if="loadingWd" type="list" :count="3" />
       </view>
     </block>
+
+    <!-- 推广海报弹窗 -->
+    <view v-if="showPoster" class="dc-poster-mask" @click="showPoster = false">
+      <view class="dc-poster-panel" @click.stop>
+        <dist-poster
+          :channel-name="tenantName"
+          :inviter-name="profile?.referralCode || ''"
+          :invite-code="profile?.referralCode || ''"
+        />
+        <button class="dc-poster-close" @click="showPoster = false">关闭</button>
+      </view>
+    </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/auth';
+import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
 import {
     getMyDistributorProfile,
     getMyCommissionRecords,
     getMyWithdrawalRequests,
+    getMyTeamSummary,
     applyDistributor,
     requestWithdrawal,
     formatYuan,
 } from '../../api/queries/distribution';
+import type { TeamSummary } from '../../api/queries/distribution';
+import DistPoster from '../../components/dist-poster/dist-poster.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 
 const authStore = useAuthStore();
 const ui = useUIStore();
+const tenantStore = useTenantStore();
 
 const profile = ref<any | null>(null);
 const commissions = ref<any[]>([]);
@@ -108,6 +146,10 @@ const loadingCom = ref(false);
 const loadingWd = ref(false);
 const applying = ref(false);
 const withdrawing = ref(false);
+const teamSummary = ref<TeamSummary | null>(null);
+const showPoster = ref(false);
+
+const tenantName = computed(() => tenantStore.tenantName || '商城');
 
 const withdrawAmount = ref('');
 const methodLabels = ['银行转账', '支付宝', '微信'];
@@ -120,6 +162,7 @@ onShow(() => {
     if (authStore.token) {
         loadCommissions();
         loadWithdrawals();
+        loadTeam();
     }
 });
 
@@ -167,6 +210,24 @@ function referralLink(): string {
         return base + '?ref=' + encodeURIComponent(code);
     }
     return code;
+}
+
+function promoLink(): string {
+    const code = profile.value?.referralCode || '';
+    if (typeof window !== 'undefined' && window.location) {
+        const base = window.location.origin + '/#/pages/landing/invite';
+        return code ? `${base}?ref=${encodeURIComponent(code)}` : base;
+    }
+    return code;
+}
+
+async function loadTeam() {
+    teamSummary.value = null;
+    try {
+        teamSummary.value = await getMyTeamSummary();
+    } catch (e: any) {
+        console.error(e);
+    }
 }
 
 async function copy(text: string, msg: string) {
@@ -258,4 +319,18 @@ function fmtTime(t?: string): string {
 .dc-form-input { flex: 1; font-size: 26rpx; }
 .dc-form-picker { font-size: 26rpx; padding: 10rpx 0; }
 .dc-withdraw-btn { margin-top: 20rpx; background: $brand-color; color: #fff; border-radius: $radius-md; height: 80rpx; font-size: 30rpx; }
+
+.dc-promo__link { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.dc-promo__text { font-size: 26rpx; color: $text-color; }
+.dc-promo__copy { font-size: 24rpx; color: $brand-color; }
+.dc-promo__poster { margin-top: 20rpx; background: #fff; color: $brand-color; border: 1rpx solid $brand-color; border-radius: $radius-md; height: 76rpx; line-height: 76rpx; font-size: 28rpx; }
+
+.dc-team__grid { display: flex; flex-wrap: wrap; }
+.dc-team__cell { width: 50%; display: flex; flex-direction: column; padding: 18rpx 0; text-align: center; }
+.dc-team__cell text:first-child { font-size: 22rpx; color: $text-color-secondary; }
+.dc-team__cell text:last-child { font-size: 30rpx; font-weight: bold; margin-top: 8rpx; }
+
+.dc-poster-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 40rpx; }
+.dc-poster-panel { display: flex; flex-direction: column; align-items: center; }
+.dc-poster-close { margin-top: 24rpx; width: 320rpx; height: 76rpx; line-height: 76rpx; background: rgba(255,255,255,0.2); color: #fff; border-radius: 999rpx; font-size: 28rpx; font-weight: bold; }
 </style>
