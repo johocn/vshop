@@ -5,7 +5,11 @@
     { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "工作台" } },
     { "path": "pages/decorate/home/index", "style": { "navigationBarTitleText": "首页装修" } },
     { "path": "pages/decorate/theme/index", "style": { "navigationBarTitleText": "主题风格" } },
-    { "path": "pages/decorate/shop-info/index", "style": { "navigationBarTitleText": "店铺信息" } }
+    { "path": "pages/decorate/shop-info/index", "style": { "navigationBarTitleText": "店铺信息" } },
+    { "path": "pages/product/list/index", "style": { "navigationBarTitleText": "商品列表", "enablePullDownRefresh": true } },
+    { "path": "pages/product/create/index", "style": { "navigationBarTitleText": "新增商品" } },
+    { "path": "pages/product/edit/index", "style": { "navigationBarTitleText": "编辑商品" } },
+    { "path": "pages/product/categories/index", "style": { "navigationBarTitleText": "分类管理" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

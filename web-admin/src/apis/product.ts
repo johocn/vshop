@@ -1,12 +1,18 @@
-// 商品域 admin-api 调用（Task 3，schema 已校准）
+// 商品域 admin-api 调用（Task 3 + Task 7，schema 已校准）
 // 校准结果（本地 admin-api 实测）：
 //   - products(options:{take,skip,filter:{name:{contains}}}) { totalItems items { id name enabled slug } }
 //     —— name/slug 直接可用（无需 translations），filter.name.contains 可用
-//   - product(id) { id name enabled slug } —— 可用
-//   - updateProduct(input:{id,enabled}) { id enabled } —— 可用
+//   - product(id) { id name enabled slug } / translations { languageCode name slug description } —— 可用
+//   - updateProduct(input:{id,enabled}) / updateProduct(input:{id,translations}) —— 可用
 //   - createProduct(input:{translations:[{languageCode,name,slug,description}]}) 直接返回 Product（非 union）
+//     —— description 为 NOT NULL 必须提供；本地实测无需 variant 即可创建商品
+//   - createProductVariants(input:[{productId,sku,price,taxCategoryId,translations:[{languageCode,name}]}])
+//     —— 若需为商品补 SKU/变体，用此 mutation（本地实测可用，无需 optionValues/optionIds）
 //   - collections(options:{take}) { totalItems items { id name } } —— 可用
 import { getAdminClient } from './client';
+
+// 本地 admin-api 实测的 LanguageCode 枚举值（zh_Hans 可用，en 也可用）
+export const PRODUCT_LANGUAGE_CODE = 'zh_Hans';
 
 export interface ProductListItem {
   id: string;
@@ -15,16 +21,14 @@ export interface ProductListItem {
   slug: string;
 }
 
-export interface ProductTranslationInput {
-  languageCode: string;
-  name: string;
-  slug: string;
+export interface ProductDetail extends ProductListItem {
+  featuredAsset?: { preview: string } | null;
   description?: string;
 }
 
-export interface ProductInput {
-  enabled?: boolean;
-  translations: ProductTranslationInput[];
+export interface CollectionListItem {
+  id: string;
+  name: string;
 }
 
 export async function fetchProducts(
@@ -54,6 +58,36 @@ export async function fetchProduct(id: string): Promise<ProductListItem | null> 
   return product;
 }
 
+export async function fetchProductDetail(id: string): Promise<ProductDetail> {
+  const { product } = await getAdminClient().request<{
+    product: {
+      id: string;
+      name: string;
+      enabled: boolean;
+      slug: string;
+      featuredAsset?: { preview: string } | null;
+      translations?: Array<{ languageCode: string; description: string }>;
+    };
+  }>(
+    `query ProductDetail($id: ID!) {
+      product(id: $id) {
+        id name enabled slug featuredAsset { preview }
+        translations { languageCode description }
+      }
+    }`,
+    { id },
+  );
+  const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
+  return {
+    id: product.id,
+    name: product.name,
+    enabled: product.enabled,
+    slug: product.slug,
+    featuredAsset: product.featuredAsset,
+    description: zh?.description ?? '',
+  };
+}
+
 export async function setProductEnabled(id: string, enabled: boolean): Promise<void> {
   await getAdminClient().request(
     `mutation SetEnabled($id: ID!, $enabled: Boolean!) { updateProduct(input: { id: $id, enabled: $enabled }) { id enabled } }`,
@@ -61,39 +95,51 @@ export async function setProductEnabled(id: string, enabled: boolean): Promise<v
   );
 }
 
-export async function createProduct(input: ProductInput): Promise<ProductListItem> {
-  const { createProduct } = await getAdminClient().request<{ createProduct: ProductListItem }>(
+export async function createProduct(name: string, slug: string, description = ''): Promise<string> {
+  const { createProduct } = await getAdminClient().request<{ createProduct: { id: string } }>(
     `mutation CreateProduct($input: CreateProductInput!) {
-      createProduct(input: $input) { id name enabled slug }
+      createProduct(input: $input) { id }
     }`,
+    {
+      input: {
+        translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name, slug, description }],
+      },
+    },
+  );
+  return createProduct.id;
+}
+
+export interface UpdateProductArgs {
+  enabled?: boolean;
+  name?: string;
+  slug?: string;
+  description?: string;
+}
+
+export async function updateProduct(id: string, args: UpdateProductArgs = {}): Promise<void> {
+  const input: Record<string, unknown> = { id };
+  if (args.enabled !== undefined) input.enabled = args.enabled;
+  if (args.name !== undefined) {
+    input.translations = [
+      {
+        languageCode: PRODUCT_LANGUAGE_CODE,
+        name: args.name,
+        slug: args.slug ?? '',
+        description: args.description ?? '',
+      },
+    ];
+  }
+  await getAdminClient().request(
+    `mutation UpdateProduct($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
     { input },
   );
-  return createProduct;
 }
 
-export async function updateProduct(id: string, input: Partial<ProductInput>): Promise<ProductListItem> {
-  const { updateProduct } = await getAdminClient().request<{ updateProduct: ProductListItem }>(
-    `mutation UpdateProduct($input: UpdateProductInput!) {
-      updateProduct(input: $input) { id name enabled slug }
-    }`,
-    { input: { id, ...input } },
-  );
-  return updateProduct;
-}
-
-export interface CollectionListItem {
-  id: string;
-  name: string;
-}
-
-export async function fetchCollections(take = 50): Promise<{ totalItems: number; items: CollectionListItem[] }> {
+export async function fetchCollections(): Promise<CollectionListItem[]> {
   const { collections } = await getAdminClient().request<{
-    collections: { totalItems: number; items: CollectionListItem[] };
+    collections: { items: CollectionListItem[] };
   }>(
-    `query Collections($take: Int) {
-      collections(options: { take: $take }) { totalItems items { id name } }
-    }`,
-    { take },
+    `query Collections { collections(options: { take: 50 }) { items { id name } } }`,
   );
-  return collections;
+  return collections.items;
 }
