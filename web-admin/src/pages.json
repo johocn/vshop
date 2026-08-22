@@ -9,7 +9,11 @@
     { "path": "pages/product/list/index", "style": { "navigationBarTitleText": "商品列表", "enablePullDownRefresh": true } },
     { "path": "pages/product/create/index", "style": { "navigationBarTitleText": "新增商品" } },
     { "path": "pages/product/edit/index", "style": { "navigationBarTitleText": "编辑商品" } },
-    { "path": "pages/product/categories/index", "style": { "navigationBarTitleText": "分类管理" } }
+    { "path": "pages/product/categories/index", "style": { "navigationBarTitleText": "分类管理" } },
+    { "path": "pages/order/list/index", "style": { "navigationBarTitleText": "订单列表", "enablePullDownRefresh": true } },
+    { "path": "pages/order/detail/index", "style": { "navigationBarTitleText": "订单详情" } },
+    { "path": "pages/order/ship/index", "style": { "navigationBarTitleText": "发货" } },
+    { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
