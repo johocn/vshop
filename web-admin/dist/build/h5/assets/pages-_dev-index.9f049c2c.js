@@ -1,0 +1,1 @@
+import{o as a,c as s,w as t,_ as e,a as n,b as o,d as c}from"./index-656273f6.js";const d=((a,s)=>{const t=a.__vccOpts||a;for(const[e,n]of s)t[e]=n;return t})({},[["render",function(d,r){const f=c,u=e;return a(),s(u,{class:"dev"},{default:t(()=>[n(f,null,{default:t(()=>[o("web-admin 占位页")]),_:1})]),_:1})}],["__scopeId","data-v-da72fca0"]]);export{d as default};
