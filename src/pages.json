@@ -61,6 +61,12 @@
             "style": {
                 "navigationBarTitleText": "分销结算"
             }
+        },
+        {
+            "path": "pages/landing/invite",
+            "style": {
+                "navigationBarTitleText": "邀请"
+            }
         }
     ],
     "subPackages": [
