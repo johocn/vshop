@@ -55,6 +55,12 @@
             "style": {
                 "navigationBarTitleText": "平台上架审批"
             }
+        },
+        {
+            "path": "pages/admin/distribution-settle",
+            "style": {
+                "navigationBarTitleText": "分销结算"
+            }
         }
     ],
     "subPackages": [
