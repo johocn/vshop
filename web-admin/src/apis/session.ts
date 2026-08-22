@@ -2,12 +2,23 @@ export const AUTH_TOKEN_KEY = 'wa_auth_token';
 export const CHANNEL_TOKEN_KEY = 'wa_channel_token';
 export const CHANNEL_CODE_KEY = 'wa_channel_code';
 
-let storage: { getItem(k: string): string | null; setItem(k: string, v: string): void } = {
-  getItem: () => '',
-  setItem: () => {},
-};
+type StorageLike = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
-export function setSessionStorage(s: typeof storage): void { storage = s; }
+function createBrowserStorage(): StorageLike {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return {
+        getItem: (k) => localStorage.getItem(k),
+        setItem: (k, v) => localStorage.setItem(k, v),
+      };
+    }
+  } catch { /* ignore */ }
+  return { getItem: () => '', setItem: () => {} };
+}
+
+let storage: StorageLike = createBrowserStorage();
+
+export function setSessionStorage(s: StorageLike): void { storage = s; }
 
 export function getAuthToken(): string { return storage.getItem(AUTH_TOKEN_KEY) ?? ''; }
 export function setAuthToken(t: string): void { storage.setItem(AUTH_TOKEN_KEY, t); }

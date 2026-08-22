@@ -10,7 +10,8 @@ const CHANNEL_HEADER = 'vendure-token';
 
 function buildClientUrl(): string {
   const base = (import.meta.env?.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
-  return `${base}${ADMIN_API_PATH}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base || origin}${ADMIN_API_PATH}`;
 }
 
 let instance: GraphQLClient | null = null;

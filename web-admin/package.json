@@ -10,19 +10,18 @@
     "@dcloudio/uni-app": "3.0.0-4060620250520001",
     "@dcloudio/uni-components": "3.0.0-4060620250520001",
     "@dcloudio/uni-h5": "3.0.0-4060620250520001",
-    "graphql": "^16.6.0",
-    "graphql-request": "^5.2.0",
+    "graphql": "^16.11.0",
+    "graphql-request": "^7.2.0",
     "graphql-tag": "^2.12.6",
-    "pinia": "^2.1.6",
-    "vue": "^3.3.4"
+    "pinia": "^3.0.2",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@dcloudio/types": "^3.3.0",
-    "@dcloudio/uni-uts-v1": "^3.0.0-4060620250520001",
+    "@dcloudio/types": "^3.4.14",
     "@dcloudio/vite-plugin-uni": "3.0.0-4060620250520001",
-    "@vitejs/plugin-vue": "^4.2.3",
-    "sass": "^1.62.1",
-    "typescript": "^5.0.4",
-    "vite": "^4.3.9"
+    "@vitejs/plugin-vue": "^5.1.0",
+    "sass": "^1.89.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.21"
   }
 }
