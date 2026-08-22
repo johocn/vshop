@@ -92,6 +92,7 @@ function navTo(url: string) { uni.navigateTo({ url }); }
 const quickMenus = [
     { label: '我的订单', url: '/pkg-order/pages/orders' },
     { label: '余额明细', url: '/pkg-user/pages/balance-history' },
+    { label: '积分兑换', url: '/pkg-user/pages/points-mall' },
     { label: '优惠券', url: '/pkg-promotion/pages/coupons' },
 ];
 </script>

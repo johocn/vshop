@@ -1,1 +1,0 @@
-import{d as s,k as e,I as n,c as a,P as o,o as r}from"./index-DcUc7JgO.js";const t=s({__name:"index",setup(s){const t=e("");return n(s=>{t.value=decodeURIComponent((null==s?void 0:s.url)||"")}),(s,e)=>{const n=o;return r(),a(n,{src:t.value},null,8,["src"])}}});export{t as default};

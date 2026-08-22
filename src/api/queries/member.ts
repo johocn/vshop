@@ -37,3 +37,24 @@ export async function doCheckin() {
     const client = getGraphQLClient();
     return client.request(`mutation { checkin { success reason points growth streak } }`);
 }
+
+/** 积分兑换商城：可兑换券列表 */
+export async function getPointsMallTemplates() {
+    const client = getGraphQLClient();
+    return client.request(`query PointsMallTemplates {
+        pointsMallTemplates {
+            id name type discountValue minSpend pointsPrice totalCount claimedCount perUserLimit enabled
+        }
+    }`);
+}
+
+/** 积分兑换优惠券（成功扣积分并发放一张券） */
+export async function exchangeCouponWithPoints(templateId: string) {
+    const client = getGraphQLClient();
+    return client.request(
+        `mutation ExchangeCouponWithPoints($templateId: ID!) {
+            exchangeCouponWithPoints(templateId: $templateId) { coupon { code status } spentPoints }
+        }`,
+        { templateId },
+    );
+}

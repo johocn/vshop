@@ -2,10 +2,11 @@ import { getGraphQLClient } from '../client';
 
 export async function getLiveRooms(status?: string) {
     const client = getGraphQLClient();
-    const q = status
-        ? `query LiveRooms($status: String) { liveRooms(status: $status) { id name coverUrl streamerName status type scheduledStartAt replayUrl playUrl likeCount viewCount } }`
-        : `query LiveRooms { liveRooms { id name coverUrl streamerName status type scheduledStartAt replayUrl playUrl likeCount viewCount } }`;
-    return client.request(q, status ? { status } : {});
+    const fields = 'id name coverUrl streamerName status type scheduledStartAt replayUrl playUrl likeCount viewCount';
+    if (status) {
+        return client.request(`query LiveRooms($status: String) { liveRooms(status: $status) { ${fields} } }`, { status });
+    }
+    return client.request(`query LiveRooms { liveRooms { ${fields} } }`);
 }
 
 export async function getLiveRoom(id: string) {
