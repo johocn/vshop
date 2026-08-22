@@ -1,16 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { getActiveChannelConfig, getAuthMethods, getSsoProviders } from '../api/queries/channel';
-import { resolveChannelByDomain } from '../api/queries/channel';
-
-// Tenant configuration registry
-interface TenantConfig {
-    token: string;
-    template: string;
-    name: string;
-    features: { distribution: boolean; recharge: boolean; groupBuy: boolean; flashSale: boolean; afterSales: boolean };
-    wechatMiniAppId?: string;
-}
+import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode } from '../api/queries/channel';
+import { parseShopContent, ShopContent } from '../templates/shared/schema';
 
 interface SsoProviderInfo {
     name: string;
@@ -23,28 +14,6 @@ interface SsoProviderInfo {
     channelCode?: string | null;
 }
 
-// token 必须与后端 populate 脚本设置的 Channel.token 一致
-const TENANT_CONFIGS: Record<string, TenantConfig> = {
-    default: {
-        token: 'default-token',
-        template: 'default',
-        name: '默认商城',
-        features: { distribution: true, recharge: true, groupBuy: true, flashSale: true, afterSales: true },
-    },
-    'shop-a': {
-        token: 'shop-a-token',
-        template: 'fresh',
-        name: '生鲜优选',
-        features: { distribution: true, recharge: true, groupBuy: true, flashSale: true, afterSales: true },
-    },
-    marketplace: {
-        token: 'default-token',
-        template: 'marketplace',
-        name: '市场聚合',
-        features: { distribution: false, recharge: false, groupBuy: false, flashSale: false, afterSales: false },
-    },
-};
-
 function resolveTenantFromUrl(): string | null {
     // #ifdef H5
     try {
@@ -56,10 +25,9 @@ function resolveTenantFromUrl(): string | null {
 }
 
 export const useTenantStore = defineStore('tenant', () => {
-    const token = ref(TENANT_CONFIGS.default.token);
+    const token = ref('');
     const tenantCode = ref('default');
     const templateCode = ref('default');
-    const tenantName = ref(TENANT_CONFIGS.default.name);
     const paymentMethods = ref<any[]>([]);
     const shippingMethods = ref<any[]>([]);
     const employeePickupMode = ref<'disabled' | 'loose' | 'strict'>('disabled');
@@ -68,8 +36,13 @@ export const useTenantStore = defineStore('tenant', () => {
     const wechatAppId = ref('');
     const ssoProviders = ref<SsoProviderInfo[]>([]);
     const tenantReady = ref(false);
+    const shopContent = ref<ShopContent | null>(null);
+    const shopName = ref('');
+    const shopLogo = ref('');
+    const shopIntro = ref('');
+    const servicePhone = ref('');
 
-    const currentConfig = computed(() => TENANT_CONFIGS[tenantCode.value] || TENANT_CONFIGS.default);
+    const tenantName = computed(() => shopName.value || tenantCode.value);
 
     async function initTenant() {
         // 1. 尝试域名解析（仅 H5）
@@ -85,6 +58,7 @@ export const useTenantStore = defineStore('tenant', () => {
                         tenantCode.value = result.code;
                         token.value = result.token;
                         uni.setStorageSync('tenant_code', result.code);
+                        await loadTenantDetails(result.code);
                         return;
                     } catch {}
                 }
@@ -95,50 +69,72 @@ export const useTenantStore = defineStore('tenant', () => {
                     tenantCode.value = result.code;
                     token.value = result.token;
                     uni.setStorageSync('tenant_code', result.code);
+                    await loadTenantDetails(result.code);
                     return;
                 }
             }
         } catch {}
         // #endif
 
-        // 2. 回退：?tenant= URL 参数
+        // 2. ?tenant= URL 参数
         const fromUrl = resolveTenantFromUrl();
-        if (fromUrl && TENANT_CONFIGS[fromUrl]) {
+        if (fromUrl) {
             tenantCode.value = fromUrl;
-            applyConfig();
+            await loadTenantDetails(fromUrl);
             return;
         }
 
-        // 3. 回退：localStorage
+        // 3. localStorage 兜底
         const stored = uni.getStorageSync('tenant_code');
-        if (stored && TENANT_CONFIGS[stored]) {
+        if (stored) {
             tenantCode.value = stored;
-            applyConfig();
+            await loadTenantDetails(stored);
             return;
         }
 
         // 4. 默认
         tenantCode.value = 'default';
-        applyConfig();
+        await loadTenantDetails('default');
     }
 
-    function applyConfig() {
-        const config = currentConfig.value;
-        token.value = config.token;
-        templateCode.value = config.template;
-        tenantName.value = config.name;
-        uni.setStorageSync('tenant_code', tenantCode.value);
+    async function loadTenantDetails(code: string) {
+        try {
+            const res: any = await resolveChannelByCode(code);
+            const data = res?.resolveChannelByCode;
+            if (data) {
+                token.value = data.token;
+                tenantCode.value = data.code;
+                const cf = data.customFields || {};
+                shopName.value = cf.shopName || '';
+                shopLogo.value = cf.shopLogo || '';
+                shopIntro.value = cf.shopIntro || '';
+                servicePhone.value = cf.servicePhone || '';
+                templateCode.value = cf.displayTemplate || 'default';
+                shopContent.value = parseShopContent(cf.shopContent);
+                uni.setStorageSync('tenant_code', data.code);
+                return;
+            }
+        } catch (e) {
+            console.warn('[tenant] loadTenantDetails failed', code, e);
+        }
+        // 回退默认，保证页面不白屏
+        token.value = 'default-token';
+        templateCode.value = 'default';
+        shopContent.value = null;
+        shopName.value = '';
+        shopLogo.value = '';
+        shopIntro.value = '';
+        servicePhone.value = '';
     }
 
-    function switchTenant(code: string) {
-        if (!TENANT_CONFIGS[code]) return false;
+    async function switchTenant(code: string) {
         tenantCode.value = code;
-        applyConfig();
+        await loadTenantDetails(code);
         return true;
     }
 
     function listTenants(): Array<{ code: string; name: string; template: string }> {
-        return Object.entries(TENANT_CONFIGS).map(([code, cfg]) => ({ code, name: cfg.name, template: cfg.template }));
+        return [{ code: tenantCode.value, name: tenantName.value, template: templateCode.value }];
     }
 
     function setPaymentMethods(methods: any[]) { paymentMethods.value = methods; }
@@ -181,7 +177,8 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, currentConfig, initTenant, switchTenant, listTenants,
+        tenantReady, shopContent, shopName, shopLogo, shopIntro, servicePhone,
+        initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };
 });
