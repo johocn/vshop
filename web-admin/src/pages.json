@@ -17,7 +17,9 @@
     { "path": "pages/inventory/stock/index", "style": { "navigationBarTitleText": "库存与预警" } },
     { "path": "pages/shipping/methods/index", "style": { "navigationBarTitleText": "配送方式" } },
     { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } },
-    { "path": "pages/data/dashboard/index", "style": { "navigationBarTitleText": "数据看板" } }
+    { "path": "pages/data/dashboard/index", "style": { "navigationBarTitleText": "数据看板" } },
+    { "path": "pages/distribution/relations/index", "style": { "navigationBarTitleText": "分销关系" } },
+    { "path": "pages/distribution/settle/index", "style": { "navigationBarTitleText": "佣金结算" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

@@ -1,0 +1,1 @@
+import{l as e}from"./index-e520481f.js";import{a as t,b as o,s}from"./_plugin-vue_export-helper.8f6e1ea1.js";const n=e("tenant",{state:()=>({code:t(),token:o(),name:""}),actions:{selectCh(e,t){this.code=e.code,this.token=e.token,this.name=null!=t?t:e.code,s(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{n as u};
