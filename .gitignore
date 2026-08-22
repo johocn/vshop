@@ -34,3 +34,7 @@ unpackage/
 # Type auto-generated
 types/auto-imports.d.ts
 types/components.d.ts
+
+# E2E screenshots (test artifacts)
+web-admin/_e2e/*.png
+
