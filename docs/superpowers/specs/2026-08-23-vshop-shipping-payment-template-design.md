@@ -88,6 +88,8 @@ entity PaymentTemplate implements ChannelAware, HasCustomFields {
 - **租户级自提点**：`isPublic=false`、`ownerChannelId=ctx.channelId`（租户自建，仅本租户可见）
 - 可见查询规则（findAll/findByType/findByIds 已实现）：`(isPublic = true OR ownerChannelId = ctx.channelId)` **AND** `channels` 关联到当前租户
 - 已有能力：`promoteToPublic`（租户点提升为全局点）、`assignToChannel`/`removeFromChannel`（把点分配/移出到某租户）
+- **权限常量（新增）**：`PickupLocationPermissions.SetGlobalPickupLocation`，仅超管角色持有；`promoteToPublic` 与 create 时 `isPublic=true` 均受此权限保护，无权限租户强制租户级
+- **创建归属（新增）**：超管创建自提点时可指定 `isPublic`（全局可用 / 租户级）；租户创建固定 `isPublic=false`
 - **copy 复用**：租户从全局池把某点 `assignToChannel` 到自己租户 → 该点进入本店可用池；全局点进入租户后仍是同一实例（不复制副本）
 - 自提方式范围的可选集 = **本店可见自提点**（全局池点 + 租户自建点，均须 channels 已关联），且按严格类型过滤
 
@@ -112,13 +114,36 @@ entity PaymentTemplate implements ChannelAware, HasCustomFields {
 - 运费公式：复用 tiered-weight 计算器参数（首重/续重/包邮门槛/偏远附加/体积重/保价/封顶）在线编辑。
 - 保存写回该 ShippingMethod 的 calculator.args；checker 区域匹配写回。
 
-### 5.5 自提点页（全局/租户两级展示）
-现状：单列表（本店可见=公共+自建混排），前端未区分全局/租户、无 promote/copy。
-改：
-- 双 Tab「本店自提点」/「全局自提点池」。
-- 「本店自提点」：本店可见点（全局池已分配 + 租户自建），带 编辑/启停/删除；租户自建点额外提供「**设为全局**」`promoteToPublic`。
-- 「全局自提点池」：`isPublic=true` 点列表，带「**复制到本店**」`assignToChannel`（把全局点分配进本租户可用池）；已分配的显示「已复制」。
-- 自提方式范围控件（档案内）的可选集来自「本店自提点」。
+### 5.5 自提点页（全局/租户两级展示）—— 最终版（已与用户确认）
+
+**目的（本模块要解决的核心问题）：**
+- 自提点分两级归属：**全局点**（`isPublic=true`，超管维护，所有租户可选用）与**租户点**（`isPublic=false`，归属某租户，仅该租户用）。
+- 让"公共点 / 我的点"分开展示，一眼分清归属，避免每租户重复录入菜鸟驿站类公共点，也避免租户误用他人私有点。
+- 提供两个转换操作：租户自建点→设为全局（分享）；全局点→复制到本店（选用）。对齐运动/支付「全局方案→租户复用」语义。
+
+**复制 = 引用共享（非克隆）：**
+- 「复制到本店」`assignToChannel` 只是把全局点**关联**到当前租户渠道，**不生成副本**。
+- 全局点实例唯一、超管编辑后所有引用它的租户同步生效。与配送方式/支付方式「copy 独立实例」语义**不同**，自提点是实体共享。
+
+**权限模型：**
+- 新增自定义权限常量 `PickupLocationPermissions.SetGlobalPickupLocation`，分配给 Vendure 默认超管角色 `superadmin`。
+- 「设为全局」/ 全局点编辑 / 创建时指定全局归属 → 均**仅超管**可操作。
+- 无该权限的租户运营：看不到「设为全局」开关；创建自提点强制租户级；对全局点**只读**。
+
+**租户使用规则（选 A，无启停）：**
+- 租户对复制进本店的全局点**不能编辑、不能停用、只读**。
+- 租户不想要某全局点 → 不复制该点；若已复制则不作处理，靠配送方式自提点范围 `rangeMode=selected` 圈选排除（不圈即默认不用），**不通过停用实现**。
+
+**严格类型隔离（方式↔点类型互相绑定）：**
+- 门店自提方式（mode=store）→ 可选点范围**仅 store 类型**
+- 纯自提点方式（mode=pickup）→ 仅 point 类型
+- 职工单位自提方式（mode=employee）→ 仅 employee 类型
+- 范围控件的可选集合于此类型隔离，互不混入。
+
+**页面结构（双 Tab）：**
+- Tab1「本店自提点」：本店可用点（全局已分配 + 本店自建），带 编辑/启停/删除；`isPublic=true` 的全局点仅超管可编辑，租户只读；本店自建点提供「**设为全局**」（仅超管可见）。
+- Tab2「全局自提点池」：`isPublic=true` 点列表，带「**复制到本店**」`assignToChannel`；已分配的显示「已复制」；仅超管可新建/编辑全局点（创建时可指定"全局可用 / 租户级"归属）。
+- 自提方式范围控件（档案内）的可选集来自「本店自提点」且按类型隔离。
 
 ## 6. 生效范围
 
@@ -138,9 +163,11 @@ entity PaymentTemplate implements ChannelAware, HasCustomFields {
 | C5 | rangeMode 未实现同城聚合 | shop resolver 仅透传 `options.pickupLocationIds`，无 `rangeMode=all` 时按 city 实时聚合 point 的逻辑 | 后端在返回 pickup 方式时：rangeMode=all → 用 findByType(point)+city 匹配+enabled 动态聚合；selected → 取 pickupLocationIds |
 | C6 | 档案 enabled 不参与回退 | `getTenantDefault` 不判断 enabled | 变体绑定判断与默认档案回退时排除 enabled=false 档案 |
 | C7 | ShippingTemplate 前端无 UI、未全面接入 | 模板层仅后端存在，前端配送方式页直接用原生 shippingMethods | 前端配送/支付方式页做「本店/全局方案池」双 Tab + 复制 |
-| C8 | 自提点全局/租户前端未区分 | 前端单列表，无 promote/copy UI（后端 promoteToPublic/assignToChannel 已具备） | 前端自提点页双 Tab + 设为全局 + 复制到本店 |
+| C8 | 自提点全局/租户前端未区分 | 前端单列表，无 promote/copy UI（后端 promoteToPublic/assignToChannel 已具备），前端也无法读 isPublic/超管权限 | 前端自提点页双 Tab + 设为全局(仅超管) + 复制到本店；按 SetGlobalPickupLocation 权限决定是否显示超管操作 |
 | C9 | 支付方式页/档案现状未核 | 本次以配送侧已核实现为参照，支付档案/方式页需在计划中按同一结构核对（setPaymentEnabled 已存在） | 计划中先核对 payment.ts / payment-profile.ts 现状再改 |
 | C10 | 支付方式 copy 后结算过滤仍是原生 enabled | PaymentMethod 原生 enabled | 沿用；本店支付方式启停走 updatePaymentMethod({enabled}) |
+| C11 | 超管/租户权限区分待新增 | 尚无 `PickupLocationPermissions.SetGlobalPickupLocation` 权限常量；create 无 isPublic 归属参数 | 新增权限常量并分配给 superadmin；create 输入补 `isPublic`（仅持权限者可设 true，否则强制 false）；resolver 按权限判定 promote/编辑归属 |
+| C12 | 自提方式可选范围未按类型隔离 | shop/档案读取 pickupLocationIds 未校验点类型 | 范围查询与前端可选集均按 mode 对应类型过滤（store/point/employee 互不混入） |
 
 **关键依赖顺序**：先 C2(C3) 配送启停 → 再 C5 自提点范围 → 再 C1/C9 支付模板与档案 → 最后 C7/C8 前端。前端强依赖后端 schema 就绪。
 
