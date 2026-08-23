@@ -281,6 +281,60 @@ git commit -m "feat(cjk-plugin): 新增PaymentTemplate支付模板与createPayme
 
 ---
 
+### Task 5b: 后端 —— 自提点权限常量 + create 归属 + resolver 权限判定
+
+**Files:**
+- Create: `packages/cjk-plugin/src/pickup/pickup-location-permissions.ts`
+- Modify: `packages/cjk-plugin/src/pickup/pickup-location-admin.resolver.ts`
+- Modify: `packages/cjk-plugin/src/pickup/pickup-location.service.ts`
+- Modify: `packages/cjk-plugin/src/plugin.ts`（权限注册 + Admin schema 补 isPublic/type/归属输入）
+
+> 供前端 Task 10 调用；随 Task 6 一起部署。
+
+- [ ] **Step 1: 权限常量**
+
+```ts
+// pickup-location-permissions.ts
+import { PermissionDefinition } from '@vendure/core';
+
+export const SetGlobalPickupLocation = new PermissionDefinition({
+    name: 'SetGlobalPickupLocation',
+    description: '允许创建/提升/编辑全局自提点（超管专用）',
+});
+
+export const pickupLocationPermissionDefinitions = [SetGlobalPickupLocation];
+```
+
+- [ ] **Step 2: create 输入补归属，服务端强制租户级**
+
+在 admin resolver 的 `createPickupLocation`：
+- 增加入参 `isGlobal?: boolean`；
+- 无 `SetGlobalPickupLocation` 权限时强制 `isGlobal = false`（本店自建）；
+- 有权限时按入参（true=全局可用，false=租户级）。
+
+service 里 create 时根据 isGlobal 设 `isPublic` + `ownerChannelId`（全局点 ownerChannelId=null，且 assign 到默认渠道）。
+
+- [ ] **Step 3: promoteToPublic 鉴权**
+
+resolver 的 `promoteToPublic` 加 `@Allow(Permission.UpdateGlobalSettings, SetGlobalPickupLocation)`，service 内再次校验持有权限否则抛 `ForbiddenError`。
+
+- [ ] **Step 4: Admin schema 暴露 isPublic/type + 归属输入 + 权限注册**
+
+- plugin.ts 的 admin gql 模板：`PickupLocation` 类型补 `isPublic: Boolean!`、`type`（已暴露则略）；`CreatePickupLocationInput` 补 `isGlobal: Boolean`。
+- `config.authOptions.customPermissions.push(...pickupLocationPermissionDefinitions)`。
+- query 应支持 `filter.isPublic`（若无，补 `BoolOperators` filter 或单独 query）。
+
+- [ ] **Step 5: 构建 + 提交**
+
+```bash
+cd d:\zhao\vendure\packages\cjk-plugin && pnpm run build
+Select-String packages/cjk-plugin/lib -Pattern "SetGlobalPickupLocation" -Recurse | Select-Object -First 2
+git add packages/cjk-plugin/src/pickup/pickup-location-permissions.ts packages/cjk-plugin/src/pickup/pickup-location-admin.resolver.ts packages/cjk-plugin/src/pickup/pickup-location.service.ts packages/cjk-plugin/src/plugin.ts
+git commit -m "feat(cjk-plugin): 自提点SetGlobal权限+create归属+promote鉴权"
+```
+
+---
+
 ### Task 6: 后端 —— 全量构建、冒烟、commit + 推送
 
 **Files:**
@@ -426,27 +480,82 @@ git commit -m "feat(web-admin): 支付方式双Tab+copy+启停"
 
 ---
 
-### Task 10: 前端 —— 自提点页「本店/全局池」双 Tab + promote + copy
+### Task 10: 前端 —— 自提点页「本店/全局池」双 Tab + promote + copy（含超管权限 + 类型隔离）
 
 **Files:**
 - Modify: `web-admin/src/apis/pickup-location.ts`
 - Modify: `web-admin/src/pages/pickup/index.vue`
 
+> 前置依赖：本任务依赖后端 Task 7b（`PickupLocationPermissions.SetGlobalPickupLocation` 权限常量、create 输入补 `isPublic`、resolver 权限与归属判定、query 暴露 `isPublic`/`type`）已就绪。
+
 - [ ] **Step 1: pickup-location.ts 补能力**
 
-- `fetchPickupLocations` 改为可传 `{ isPublic?: boolean }` 过滤
-- 新增 `promoteToPublic(id)`、`assignToChannel(ids, channelId)` 调后端同名 mutation。
+```ts
+// 查询项补 isPublic/type
+export interface PickupLocationItem {
+  id: string; name: string; address: string; type: string; isPublic: boolean; enabled: boolean;
+  // 其余现有字段保持
+}
 
-- [ ] **Step 2: 自提点页双 Tab**
+// fetchPickupLocations 支持按 isPublic 过滤
+export async function fetchPickupLocations(isPublic?: boolean): Promise<PickupLocationItem[]> {
+  const filter = isPublic === undefined ? '' : `(isPublic: { eq: ${isPublic} })`;
+  const { pickupLocations } = await getAdminClient().request<{
+    pickupLocations: { items: PickupLocationItem[] };
+  }>(`query { pickupLocations(${filter ? `filter: ${filter}` : ''}) {
+    items { id name address type isPublic enabled }
+  } }`);
+  return pickupLocations.items;
+}
 
-Tab「本店自提点」：现有列表 + 租户自建点「设为全局」；Tab「全局自提点池」：isPublic 列表 + 「复制到本店」。
+// 新增：设为全局（仅持有 SetGlobalPickupLocation 权限者调用，后端二次校验）
+export async function promoteToPublic(id: string): Promise<void> {
+  await getAdminClient().request(`mutation P($id: ID!) { promoteToPublic(id: $id) { id } }`, { id });
+}
 
-- [ ] **Step 3: 构建 + 提交**
+// 新增：把全局点分配到当前租户使用（引用共享，不克隆）
+export async function assignToChannel(ids: string[], channelId: string): Promise<void> {
+  await getAdminClient().request(`mutation A($ids: [ID!]!, $channelId: ID!) {
+    assignToChannel(locationIds: $ids, channelId: $channelId) { id }
+  }`, { ids, channelId });
+}
+
+// 新增：新建自提点时可带归属(仅超管可传 isGlobal=true)
+export async function createPickupLocation(input: {
+  name: string; type: string; address: string;
+  isGlobal?: boolean; phoneNumber?: string; coordinates?: { lat: number; lng: number };
+}): Promise<void> {
+  await getAdminClient().request(`mutation C($i: CreatePickupLocationInput!) {
+    createPickupLocation(input: $i) { id }
+  }`, { i: input });
+}
+```
+
+- [ ] **Step 2: 判定超管身份**
+
+读取当前用户已持有权限列表（现有登录/用户 API 可暴露 `userPermissions` 或 `userRoles`），定义：
+```ts
+const IS_SUPERADMIN = /* 当前用户含 SetGlobalPickupLocation 权限 */ true;
+```
+若登录 API 未暴露自定义权限，则在用户信息里补查 `meQuery` 的 `roles { code }`，用 `code == 'superadmin'` 兜底（后端仍有权限校验保证安全）。
+
+- [ ] **Step 3: 自提点页双 Tab（含权限控制 + 类型展示）**
+
+`pickup/index.vue` 顶部 `view.tabs`：
+- Tab「本店自提点」：`fetchPickupLocations()`（不含 isPublic 过滤，返回本店可见=全局已分配+自建）。每项展示 `type` 标签（门店/自提点/职工单位）+ `isPublic` 徽标（全局/本店）。操作：编辑（`isPublic=true` 的全局点仅超管可编辑，否则只读）、启停、删除（仅本店自建可删）；「**设为全局**」按钮 `promoteToPublic(id)` **仅 `IS_SUPERADMIN` 显示**，租户不显示。
+- Tab「全局自提点池」：`fetchPickupLocations(true)`（isPublic=true）。每项「复制到本店」→ `assignToChannel([id], currentChannelId)`；已分配（在 fetchPickupLocations() 结果中存在）显示「已复制」不可再点。编辑/新建全局点仅 `IS_SUPERADMIN` 显示。
+- 新建流程：此 Tab 内「新增自提点」时，`IS_SUPERADMIN` 显示"全局可用 / 租户级"归属选择（map 到 `isGlobal: true/false`）；非超管固定租户级，不显示归属选项。
+
+- [ ] **Step 4: 类型隔离（方式↔点类型）衔接**
+
+自提点列表条目类型下拉与档案范围控件共用 `type` 取值（store/point/employee），档案页（Task 11）按 mode 过滤对应类型。此处页面确认「本店自提点」列表已按类型分组或标 tag，佐证类型隔离。
+
+- [ ] **Step 5: 构建 + 提交**
 
 ```bash
 cd d:\zhao\vshop\web-admin && npm run build:h5
 git add web-admin/src/apis/pickup-location.ts web-admin/src/pages/pickup/index.vue
-git commit -m "feat(web-admin): 自提点全局/租户双Tab+pomote+copy"
+git commit -m "feat(web-admin): 自提点双Tab+超管权限+类型隔离(promote/copy)"
 ```
 
 ---
@@ -556,7 +665,8 @@ git push
 - ShippingMethod enabled + 结算过滤 → Task 1(+4) ✓
 - 档案 enabled + schema + 回退 → Task 2, 3 ✓
 - rangeMode 同城聚合 + 类型绑定 → Task 4, 11 ✓
-- 全局/租户自提点（promote/copy）→ Task 10 ✓
+- 全局/租户自提点（promote/copy + 超管权限 + create 归属 + 类型隔离）→ Task 5b（后端）, 10（前端）✓
+- 超管权限常量/鉴权 → Task 5b ✓
 - 快递运费/区域 → Task 12 ✓
 - 前端双 Tab copy → Task 8, 9 ✓
 - 部署 → Task 6, 13 ✓
