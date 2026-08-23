@@ -143,3 +143,215 @@ export async function fetchCollections(): Promise<CollectionListItem[]> {
   );
   return collections.items;
 }
+
+// ---- 商品经营闭环扩展 ----
+// 支撑商品表单「两步创建」与「整表更新」。schema 沿用文件头部校准结果：
+//   - createProductVariants(input:[{productId,sku,price,taxCategoryId,translations}]) —— 本地实测可用
+//   - customFields{shippingProfileId,paymentProfileId} 为 cjk-plugin 在 ProductVariant 上的自定义字段
+//   - 库存只用单默认仓，create/update variant 的 stockLevels 传 stockOnHand（无本地 variant 写入先例，
+//     需冒烟校准 stockLocationId；多仓时可改为按默认仓 stockLocationId 传）
+
+export interface VariantRef {
+  id: string;
+  sku: string;
+  price: number; // 单位：分
+  stockOnHand: number;
+  trackInventory: boolean;
+  customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+  featuredAsset?: { preview: string } | null;
+  assets?: { preview: string }[] | null;
+}
+
+export interface ProductFull {
+  id: string;
+  name: string;
+  slug: string;
+  enabled: boolean;
+  description?: string;
+  featuredAsset?: { preview: string } | null;
+  assets?: { preview: string }[] | null;
+  variant?: VariantRef | null;
+  customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+}
+
+export interface ProductSaveInput {
+  name: string;
+  slug: string;
+  description?: string;
+  enabled?: boolean;
+  priceYuan: number; // 单位：元，内部换算成分
+  stock: number;
+  assetIds: string[];
+  featuredAssetId?: string;
+  shippingProfileId?: string;
+  paymentProfileId?: string;
+}
+
+export async function fetchProductFull(id: string): Promise<ProductFull> {
+  const { product } = await getAdminClient().request<{
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      enabled: boolean;
+      featuredAsset?: { preview: string } | null;
+      assets?: { preview: string }[] | null;
+      translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
+      variants: Array<{
+        id: string;
+        sku: string;
+        price: number;
+        stockOnHand: number;
+        trackInventory: boolean;
+        featuredAsset?: { preview: string } | null;
+        customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+      }>;
+    };
+  }>(
+    `query ProductFull($id: ID!) {
+      product(id: $id) {
+        id name slug enabled
+        featuredAsset { preview }
+        assets { preview }
+        translations { languageCode name slug description }
+        variants {
+          id sku price stockOnHand trackInventory
+          featuredAsset { preview }
+          customFields { shippingProfileId paymentProfileId }
+        }
+      }
+    }`,
+    { id },
+  );
+  const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
+  const v = product.variants?.[0];
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    enabled: product.enabled,
+    description: zh?.description ?? '',
+    featuredAsset: product.featuredAsset ?? null,
+    assets: product.assets ?? null,
+    variant: v ? { ...v } : null,
+    customFields: v?.customFields ?? null,
+  };
+}
+
+export interface CreateVariantInput {
+  productId: string;
+  sku: string;
+  price: number;
+  stock: number;
+  assetIds: string[];
+  featuredAssetId?: string;
+  shippingProfileId?: string;
+  paymentProfileId?: string;
+}
+
+export async function createVariantsForProduct(input: CreateVariantInput): Promise<string> {
+  const { createProductVariants } = await getAdminClient().request<{
+    createProductVariants: Array<{ id: string }>;
+  }>(
+    `mutation CreateProductVariants($input: [CreateProductVariantInput!]!) {
+      createProductVariants(input: $input) { id }
+    }`,
+    {
+      input: [
+        {
+          productId: input.productId,
+          sku: input.sku,
+          price: input.price,
+          trackInventory: true,
+          assetIds: input.assetIds,
+          featuredAssetId: input.featuredAssetId,
+          customFields: {
+            shippingProfileId: input.shippingProfileId ?? '',
+            paymentProfileId: input.paymentProfileId ?? '',
+          },
+          stockLevels: [{ stockOnHand: input.stock }],
+          translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: input.sku }],
+        },
+      ],
+    },
+  );
+  return createProductVariants[0]?.id;
+}
+
+export async function createProductFull(input: ProductSaveInput): Promise<string> {
+  const pid = await createProduct(input.name, input.slug, input.description ?? '');
+  const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
+  const variantId = await createVariantsForProduct({
+    productId: pid,
+    sku: 'P' + Date.now(),
+    price: Math.round(input.priceYuan * 100),
+    stock: input.stock,
+    assetIds: input.assetIds,
+    featuredAssetId,
+    shippingProfileId: input.shippingProfileId,
+    paymentProfileId: input.paymentProfileId,
+  });
+  void variantId;
+  if (input.enabled === false) {
+    await updateProduct(pid, { enabled: false });
+  }
+  return pid;
+}
+
+export async function updateProductFull(id: string, input: ProductSaveInput): Promise<void> {
+  // 三件套更新：
+  // 1) 基本字段（enabled/name/slug/description）
+  await updateProduct(id, {
+    enabled: input.enabled,
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+  });
+
+  // 2) 商品图片与翻译（单独 mutation，携带 assetIds / featuredAssetId）
+  const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
+  await getAdminClient().request(
+    `mutation UpdateProductAssets($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
+    {
+      input: {
+        id,
+        translations: [
+          {
+            languageCode: PRODUCT_LANGUAGE_CODE,
+            name: input.name,
+            slug: input.slug,
+            description: input.description ?? '',
+          },
+        ],
+        assetIds: input.assetIds,
+        featuredAssetId,
+      },
+    },
+  );
+
+  // 3) 变体更新（sku 沿用原值，price 换算成分，更新库存与 profiles）
+  const full = await fetchProductFull(id);
+  const v = full.variant;
+  if (v?.id) {
+    await getAdminClient().request(
+      `mutation UpdateProductVariants($input: [UpdateProductVariantInput!]!) {
+        updateProductVariants(input: $input) { id }
+      }`,
+      {
+        input: [
+          {
+            id: v.id,
+            sku: v.sku,
+            price: Math.round(input.priceYuan * 100),
+            trackInventory: true,
+            customFields: {
+              shippingProfileId: input.shippingProfileId ?? '',
+              paymentProfileId: input.paymentProfileId ?? '',
+            },
+            stockLevels: [{ stockOnHand: input.stock }],
+          },
+        ],
+      },
+    );
+  }
+}
