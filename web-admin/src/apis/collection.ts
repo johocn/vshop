@@ -55,6 +55,16 @@ export async function updateCollection(id: string, productIds: string[], name?: 
   );
 }
 
+// 纯重命名：只更新 translations，不触碰 filters，避免清空分类下已挂载商品
+export async function renameCollection(id: string, name: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation UpdateCollectionName($input: UpdateCollectionInput!) {
+      updateCollection(input: $input) { id }
+    }`,
+    { input: { id, translations: [{ languageCode: LAN, name, slug: name, description: name }] } },
+  );
+}
+
 export async function deleteCollectionById(id: string): Promise<void> {
   // DeletionResponse in this schema exposes `result: DeletionResult` (DELETED | NOT_DELETED),
   // not `success`. Calibrated against live :3000 admin-api.
