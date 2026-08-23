@@ -82,6 +82,15 @@ entity PaymentTemplate implements ChannelAware, HasCustomFields {
 - `mode=pickup`：默认 `rangeMode='all'`；可切 `'selected'` 手动勾选（限 point）。
 - `mode=store` / `mode=employee`：仅 `selected`，限对应 store/employee 类型。
 
+### 4.5 自提点的「全局 / 租户」两级（利用既有机制，非新建）
+后端 `PickupLocation` **已具备**全局/租户区分，本期在前端补露出，不重复建表：
+- **全局自提点**：`isPublic=true`、`ownerChannelId=null`（超管维护，所有租户可见可选用）
+- **租户级自提点**：`isPublic=false`、`ownerChannelId=ctx.channelId`（租户自建，仅本租户可见）
+- 可见查询规则（findAll/findByType/findByIds 已实现）：`(isPublic = true OR ownerChannelId = ctx.channelId)` **AND** `channels` 关联到当前租户
+- 已有能力：`promoteToPublic`（租户点提升为全局点）、`assignToChannel`/`removeFromChannel`（把点分配/移出到某租户）
+- **copy 复用**：租户从全局池把某点 `assignToChannel` 到自己租户 → 该点进入本店可用池；全局点进入租户后仍是同一实例（不复制副本）
+- 自提方式范围的可选集 = **本店可见自提点**（全局池点 + 租户自建点，均须 channels 已关联），且按严格类型过滤
+
 ## 5. 前端改动
 
 ### 5.1 配送方式页（双 Tab）
@@ -103,19 +112,46 @@ entity PaymentTemplate implements ChannelAware, HasCustomFields {
 - 运费公式：复用 tiered-weight 计算器参数（首重/续重/包邮门槛/偏远附加/体积重/保价/封顶）在线编辑。
 - 保存写回该 ShippingMethod 的 calculator.args；checker 区域匹配写回。
 
+### 5.5 自提点页（全局/租户两级展示）
+现状：单列表（本店可见=公共+自建混排），前端未区分全局/租户、无 promote/copy。
+改：
+- 双 Tab「本店自提点」/「全局自提点池」。
+- 「本店自提点」：本店可见点（全局池已分配 + 租户自建），带 编辑/启停/删除；租户自建点额外提供「**设为全局**」`promoteToPublic`。
+- 「全局自提点池」：`isPublic=true` 点列表，带「**复制到本店**」`assignToChannel`（把全局点分配进本租户可用池）；已分配的显示「已复制」。
+- 自提方式范围控件（档案内）的可选集来自「本店自提点」。
+
 ## 6. 生效范围
 
 - 后端 vendure/packages/cjk-plugin：新增 payment-template.entity/service/resolver；ShippingMethod customFields；shipping-template.admin.resolver（如需补 create 权限/模板管理查删）；档案 entity/schema/resolver/service；shipping-calculator 过滤；收藏 @Column({default:true})。
 - 前端 vshop/web-admin：delivery/payment 方式页双 Tab + copy + 启停；档案页 enabled + 自提点范围；快递运费/区域配置页。
 
-## 7. 不实现（YAGNI）
+## 7. 卡点与遗漏检查（已逐一确认）
+
+实施前已对后端现状做精确核查，以下是**必须在本计划中处理，否则会失败的卡点/遗漏**：
+
+| # | 卡点 | 现状核实 | 对策 |
+|---|---|---|---|
+| C1 | PaymentTemplate 完全不存在 | 后端无 payment-template.*、无 createPaymentMethodFromTemplate | 全套新建：entity/service/resolver/schema/权限，支付方式 copy 能力来自此 |
+| C2 | ShippingMethod 无 enabled | `customFields.ShippingMethod` **未注册**（确认无重复风险，可安全新增） | 在 plugin.ts customFields 区注册 `{name:'enabled',type:'boolean',defaultValue:true}`，并加"已存在字段名去重"判断（仿 ProductVariant 已注册区 807-822） |
+| C3 | ShippingMethod 启停未接入结算过滤 | `shipping-calculator.ts:31` `getEligibleShippingMethods` 只按 skipIds 过滤，无 enabled | add `.filter(m => m.customFields?.enabled !== false)` |
+| C4 | shop 端方法列表无 enabled 过滤 | `shipping-profile-shop.resolver.ts` `resolveShippingMethodsForChannel`/`eligibleShippingMethodsWithConfig` 已返回 pickupLocationIds 但不过滤 enabled | shop 端在打包返回时过滤 `method.customFields.enabled === false` 的方法 |
+| C5 | rangeMode 未实现同城聚合 | shop resolver 仅透传 `options.pickupLocationIds`，无 `rangeMode=all` 时按 city 实时聚合 point 的逻辑 | 后端在返回 pickup 方式时：rangeMode=all → 用 findByType(point)+city 匹配+enabled 动态聚合；selected → 取 pickupLocationIds |
+| C6 | 档案 enabled 不参与回退 | `getTenantDefault` 不判断 enabled | 变体绑定判断与默认档案回退时排除 enabled=false 档案 |
+| C7 | ShippingTemplate 前端无 UI、未全面接入 | 模板层仅后端存在，前端配送方式页直接用原生 shippingMethods | 前端配送/支付方式页做「本店/全局方案池」双 Tab + 复制 |
+| C8 | 自提点全局/租户前端未区分 | 前端单列表，无 promote/copy UI（后端 promoteToPublic/assignToChannel 已具备） | 前端自提点页双 Tab + 设为全局 + 复制到本店 |
+| C9 | 支付方式页/档案现状未核 | 本次以配送侧已核实现为参照，支付档案/方式页需在计划中按同一结构核对（setPaymentEnabled 已存在） | 计划中先核对 payment.ts / payment-profile.ts 现状再改 |
+| C10 | 支付方式 copy 后结算过滤仍是原生 enabled | PaymentMethod 原生 enabled | 沿用；本店支付方式启停走 updatePaymentMethod({enabled}) |
+
+**关键依赖顺序**：先 C2(C3) 配送启停 → 再 C5 自提点范围 → 再 C1/C9 支付模板与档案 → 最后 C7/C8 前端。前端强依赖后端 schema 就绪。
+
+## 8. 不实现（YAGNI）
 
 - 不做支付方式的复杂费率引擎（沿用 checker/calculator 结构）。
 - 不引入独立的「同城范围表」（用 rangeMode + 实城聚合）。
 - 不做模板的多级继承（仅全局池→租户单层 copy）。
 - 不动 Vendure 核心实体源码（配送方式启停全部走 customFields）。
 
-## 8. 风险与注意事项（沿用铁律）
+## 9. 风险与注意事项（沿用铁律）
 
 - cjk-plugin 改动后必须本地 `pnpm run build` 且产物在 **`lib/`**（非 dist/），用 `Select-String packages/cjk-plugin/lib/... -Pattern "关键词"` 验证后 commit，服务器 git pull + pm2 restart；**绝不在服务器构建**。
 - adminSchema 新增类型/字段需同步补齐，否则启动即报 Unknown type；改插件后重启 dev server 才能暴露 schema 错误。
