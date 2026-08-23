@@ -97,10 +97,13 @@ export const useTenantStore = defineStore('tenant', () => {
         await loadTenantDetails('default');
     }
 
+    // Vendure 默认频道的 code 是 __default_channel__，C 端保留 'default' 别名并兜底映射
     async function loadTenantDetails(code: string) {
         try {
-            const res: any = await resolveChannelByCode(code);
-            const data = res?.resolveChannelByCode;
+            let data: any = (await resolveChannelByCode(code))?.resolveChannelByCode;
+            if (!data && code === 'default') {
+                data = (await resolveChannelByCode('__default_channel__'))?.resolveChannelByCode;
+            }
             if (data) {
                 token.value = data.token;
                 tenantCode.value = data.code;
