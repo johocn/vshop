@@ -17,7 +17,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchShippingProfiles, createShippingProfile, updateShippingProfile, deleteShippingProfile } from '../../../apis/shipping-profile';
+import { fetchShippingProfiles, fetchShippingMethods, createShippingProfile, updateShippingProfile, deleteShippingProfile } from '../../../apis/shipping-profile';
 
 const items = ref<any[]>([]);
 async function reload() { items.value = await fetchShippingProfiles(); }
@@ -35,10 +35,36 @@ function promptForm(edit?: any): Promise<any> {
     });
   });
 }
+function pickShippingMethod(): Promise<string | null> {
+  return new Promise((resolve) => {
+    uni.showLoading('查询方式…');
+    fetchShippingMethods().then((methods) => {
+      uni.hideLoading();
+      if (!methods || !methods.length) {
+        uni.showToast({ title: '请先在「配送方式」页面配置配送方式', icon: 'none' });
+        return resolve(null);
+      }
+      uni.showActionSheet({
+        itemList: methods.map((m) => m.code),
+        success: (res) => resolve(methods[res.tapIndex]?.id ?? null),
+        fail: () => resolve(null),
+      });
+    }).catch((e: any) => {
+      uni.hideLoading();
+      uni.showToast({ title: e?.message || '查询方式失败', icon: 'none' });
+      resolve(null);
+    });
+  });
+}
 async function onAdd() {
   const f = await promptForm();
   if (!f) return;
-  try { await createShippingProfile({ name: f.name, code: f.code, description: f.description, shippingMethodIds: [] }); await reload(); }
+  const methodId = await pickShippingMethod();
+  if (!methodId) return;
+  try {
+    await createShippingProfile({ name: f.name, code: f.code, description: f.description, shippingMethodIds: [methodId] });
+    await reload();
+  }
   catch (e: any) { uni.showToast({ title: e?.message || '创建失败', icon: 'none' }); }
 }
 async function onEdit(s: any) {

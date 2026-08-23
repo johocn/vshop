@@ -17,7 +17,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchPaymentProfiles, createPaymentProfile, updatePaymentProfile, deletePaymentProfile } from '../../../apis/payment-profile';
+import { fetchPaymentProfiles, fetchPaymentMethods, createPaymentProfile, updatePaymentProfile, deletePaymentProfile } from '../../../apis/payment-profile';
 
 const items = ref<any[]>([]);
 async function reload() { items.value = await fetchPaymentProfiles(); }
@@ -35,10 +35,36 @@ function promptForm(edit?: any): Promise<any> {
     });
   });
 }
+function pickPaymentMethod(): Promise<string | null> {
+  return new Promise((resolve) => {
+    uni.showLoading('查询方式…');
+    fetchPaymentMethods().then((methods) => {
+      uni.hideLoading();
+      if (!methods || !methods.length) {
+        uni.showToast({ title: '请先在「支付方式」页面配置支付方式', icon: 'none' });
+        return resolve(null);
+      }
+      uni.showActionSheet({
+        itemList: methods.map((m) => m.code),
+        success: (res) => resolve(methods[res.tapIndex]?.id ?? null),
+        fail: () => resolve(null),
+      });
+    }).catch((e: any) => {
+      uni.hideLoading();
+      uni.showToast({ title: e?.message || '查询方式失败', icon: 'none' });
+      resolve(null);
+    });
+  });
+}
 async function onAdd() {
   const f = await promptForm();
   if (!f) return;
-  try { await createPaymentProfile({ name: f.name, code: f.code, description: f.description, paymentMethodIds: [] }); await reload(); }
+  const methodId = await pickPaymentMethod();
+  if (!methodId) return;
+  try {
+    await createPaymentProfile({ name: f.name, code: f.code, description: f.description, paymentMethodIds: [methodId] });
+    await reload();
+  }
   catch (e: any) { uni.showToast({ title: e?.message || '创建失败', icon: 'none' }); }
 }
 async function onEdit(s: any) {

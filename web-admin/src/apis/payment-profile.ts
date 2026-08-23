@@ -70,3 +70,11 @@ export async function deletePaymentProfile(id: string): Promise<void> {
     { id },
   );
 }
+
+export interface PaymentMethodRef { id: string; code: string; }
+export async function fetchPaymentMethods(): Promise<PaymentMethodRef[]> {
+  const { paymentMethods } = await getAdminClient().request<{ paymentMethods: { items: PaymentMethodRef[] } }>(
+    `query { paymentMethods { items { id code } } }`,
+  );
+  return paymentMethods.items;
+}

@@ -76,3 +76,11 @@ export async function deleteShippingProfile(id: string): Promise<void> {
     { id },
   );
 }
+
+export interface ShippingMethodRef { id: string; code: string; }
+export async function fetchShippingMethods(): Promise<ShippingMethodRef[]> {
+  const { shippingMethods } = await getAdminClient().request<{ shippingMethods: { items: ShippingMethodRef[] } }>(
+    `query { shippingMethods { items { id code } } }`,
+  );
+  return shippingMethods.items;
+}
