@@ -148,8 +148,8 @@ export async function fetchCollections(): Promise<CollectionListItem[]> {
 // 支撑商品表单「两步创建」与「整表更新」。schema 沿用文件头部校准结果：
 //   - createProductVariants(input:[{productId,sku,price,taxCategoryId,translations}]) —— 本地实测可用
 //   - customFields{shippingProfileId,paymentProfileId} 为 cjk-plugin 在 ProductVariant 上的自定义字段
-//   - 库存只用单默认仓，create/update variant 的 stockLevels 传 stockOnHand（无本地 variant 写入先例，
-//     需冒烟校准 stockLocationId；多仓时可改为按默认仓 stockLocationId 传）
+//   - 库存用顶层 stockOnHand（StockLevelInput.stockLocationId 为必填，顶层 stockOnHand 无需 location）；
+//     trackInventory 是 GlobalFlag 枚举(TRUE/FALSE/INHERIT)，传字符串 'TRUE'
 
 export interface VariantRef {
   id: string;
@@ -262,14 +262,15 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
           productId: input.productId,
           sku: input.sku,
           price: input.price,
-          trackInventory: true,
+          // stockOnHand 为顶层字段（无需 StockLevelInput 的必填 stockLocationId）；trackInventory 是 GlobalFlag 枚举
+          trackInventory: 'TRUE',
+          stockOnHand: input.stock,
           assetIds: input.assetIds,
           featuredAssetId: input.featuredAssetId,
           customFields: {
             shippingProfileId: input.shippingProfileId ?? '',
             paymentProfileId: input.paymentProfileId ?? '',
           },
-          stockLevels: [{ stockOnHand: input.stock }],
           translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: input.sku }],
         },
       ],
@@ -343,12 +344,12 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
             id: v.id,
             sku: v.sku,
             price: Math.round(input.priceYuan * 100),
-            trackInventory: true,
+            trackInventory: 'TRUE',
+            stockOnHand: input.stock,
             customFields: {
               shippingProfileId: input.shippingProfileId ?? '',
               paymentProfileId: input.paymentProfileId ?? '',
             },
-            stockLevels: [{ stockOnHand: input.stock }],
           },
         ],
       },
