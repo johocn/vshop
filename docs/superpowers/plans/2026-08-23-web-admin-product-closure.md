@@ -1687,9 +1687,11 @@ Expected: 无 JS 报错、数据闭环。
 - `uploadAsset`/`fetchAssets`/`deleteAsset`（Task 1）与 Task 4 引用一致。
 
 **已知风险（如实标注，非占位）：**
-- `customFields` 输入名（`shippingProfileId`/`paymentProfileId`）在 `createProductVariants` 的 mutation 里可能需拼成 `customFields.shippingProfileId`，探针校准。
-- `stockLevels` 是否需要 `stockLocationId`，探针/冒烟校准。
+- `customFields` 输入名（`shippingProfileId`/`paymentProfileId`）在 `createProductVariants` 的 mutation 里可能需拼成 `customFields.shippingProfileId`，探针校准。→ 已实测确认：`CreateProductVariantInput.customFields.shippingProfileId/paymentProfileId` 可直接传（空串可接受）。
+- `stockLevels` 是否需要 `stockLocationId`，探针/冒烟校准。→ **已实测需修正**：`StockLevelInput.stockLocationId` 为必填，改用 `Create/UpdateProductVariantInput` 的**顶层 `stockOnHand: Int`** 写入库存（无需 location）。同时 `trackInventory` 是 **GlobalFlag 枚举（TRUE/FALSE/INHERIT）**，传字符串 `'TRUE'` 而非 boolean。
 - H5 图片转 `File` 的 `pathToFile` 依项目实际 chooseImage 返回类型适配。
 - 商品「选分类即写入 Collection filter」依赖反解 filter JSON，本期在编辑页精简（Task 9 说明），主入口是分类页。
+- 建档 methods 非空强校验：`CreateShippingProfileInput.shippingMethodIds` / `CreatePaymentProfileInput.paymentMethodIds` 运行时**拒绝空数组**（报「至少需要选择一种配送/支付方式」）。→ 已修复：档案页 `onAdd` 新增 `uni.showActionSheet` 强制选一个方式再创建（Task 12 已含此修正）。
+- 商品列表在售/下架 `enabled` 过滤（Task 10 `filter.enabled={eq}`）→ 已实测确认：`ProductFilterParameter` 支持 `enabled: BooleanOperators`，可用。
 
 若发现最终 schema 与计划不符，以**本地 admin-api 实测**为准修正（保持代码在 `build:h5` 下编译通过即关卡）。

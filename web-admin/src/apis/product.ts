@@ -293,6 +293,14 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
     paymentProfileId: input.paymentProfileId,
   });
   void variantId;
+  // 图片同时挂到商品级：列表用 product.featuredAsset 做缩略图、编辑页用 product.assets 回填，
+  // 只挂变体会导致新建商品无缩略图、编辑页回填不到图（冒烟实证 assets:0）
+  if (input.assetIds.length || featuredAssetId) {
+    await getAdminClient().request(
+      `mutation CreateProductAssets($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
+      { input: { id: pid, assetIds: input.assetIds, featuredAssetId } },
+    );
+  }
   if (input.enabled === false) {
     await updateProduct(pid, { enabled: false });
   }
