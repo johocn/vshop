@@ -27,3 +27,13 @@ export async function setPaymentEnabled(id: string, enabled: boolean): Promise<v
     { input: { id, enabled } },
   );
 }
+
+export async function updatePaymentMethod(id: string, name: string, description: string): Promise<void> {
+  await getAdminClient().request(`mutation Up($input: UpdatePaymentMethodInput!) {
+    updatePaymentMethod(input: $input) { id }
+  }`, { input: { id, translations: [{ languageCode: 'zh_Hans', name, description }] } });
+}
+
+export async function deletePaymentMethod(id: string): Promise<void> {
+  await getAdminClient().request(`mutation Del($id: ID!) { deletePaymentMethod(id: $id) { result } }`, { id });
+}

@@ -83,12 +83,13 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import {
   fetchShippingProfiles, fetchShippingMethods, createShippingProfile,
   updateShippingProfile, deleteShippingProfile, setTenantDefaultShippingProfile,
   ShippingProfileItem,
 } from '../../../apis/shipping-profile';
-import { fetchPickupLocations, createPickupLocation, PickupLocationItem } from '../../../apis/pickup-location';
+import { fetchPickupLocations, PickupLocationItem } from '../../../apis/pickup-location';
 
 interface MethodEntry {
   shippingMethodId: string;
@@ -125,7 +126,10 @@ function loadMethods() {
   return fetchShippingMethods().then((m) => { methods.value = m; });
 }
 onMounted(async () => {
-  await Promise.all([reload(), loadPickups(), loadMethods()]);
+  await Promise.all([reload(), loadMethods()]);
+});
+onShow(() => {
+  loadPickups();
 });
 
 function isPickupChecked(e: MethodEntry, pid: string) {
@@ -201,60 +205,17 @@ function onRemoveMethod(i: number) {
 }
 
 function onAddPickup(e: MethodEntry) {
-  uni.showActionSheet({
-    itemList: ['租户自提点（point）', '租户门店（store）', '职工单位自提点（employee）'],
-    success: (r) => {
-      const type = ['point', 'store', 'employee'][r.tapIndex];
-      let name = '';
-      let address = '';
-      let phone = '';
-      let lat = '';
-      let lng = '';
-      awaitModal({ title: '自提点名称', placeholderText: '如 北京朝阳自提点' }).then((n) => {
-        if (!n) { uni.showToast({ title: '已取消', icon: 'none' }); return; }
-        name = n;
-        awaitModal({ title: '自提点地址', placeholderText: '如 北京市朝阳区XX路1号' }).then((a) => {
-          address = a || '';
-          awaitModal({ title: '联系电话', placeholderText: '选填，如 010-88886666' }).then((ph) => {
-            phone = (ph || '').trim();
-            awaitModal({ title: '纬度 lat', placeholderText: '选填，如 39.9042' }).then((lt) => {
-              lat = (lt || '').trim();
-              awaitModal({ title: '经度 lng', placeholderText: '选填，如 116.4074' }).then((lg) => {
-                lng = (lg || '').trim();
-                doCreatePickup(e, type, name, address, phone, lat, lng);
-              });
-            });
-          });
-        });
+  // 跳转独立自提点管理页（全字段表单：联系人/电话/经纬度/照片等），返回后自动刷新列表再勾选
+  uni.navigateTo({
+    url: '/pages/pickup/edit/index',
+    success: () => {
+      uni.$once('pickup-created', (newId: string) => {
+        if (newId && !e.pickupLocationIds.includes(String(newId))) {
+          e.pickupLocationIds.push(String(newId));
+        }
       });
     },
   });
-}
-async function awaitModal(opts: { title: string; placeholderText?: string }): Promise<string> {
-  return new Promise((resolve) => {
-    uni.showModal({ ...opts, editable: true, success: (r) => resolve(r.confirm ? (r.content || '').trim() : '') });
-  });
-}
-async function doCreatePickup(e: MethodEntry, type: string, name: string, address: string, phone?: string, lat?: string, lng?: string) {
-  if (!name.trim()) { uni.showToast({ title: '名称不能为空', icon: 'none' }); return; }
-  try {
-    const coordinates = lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))
-      ? { lat: Number(lat), lng: Number(lng) }
-      : undefined;
-    const id = await createPickupLocation({
-      name,
-      type: type as any,
-      address: address.trim(),
-      phoneNumber: phone || undefined,
-      ...(coordinates ? { coordinates } : {}),
-    });
-    const list = await fetchPickupLocations();
-    pickupLocations.value = list;
-    if (!e.pickupLocationIds.includes(id)) e.pickupLocationIds.push(id);
-    uni.showToast({ title: '已新增自提点' });
-  } catch (err: any) {
-    uni.showToast({ title: err?.message || '新增自提点失败', icon: 'none' });
-  }
 }
 
 async function onSave() {

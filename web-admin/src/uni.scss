@@ -8,3 +8,14 @@ $wa-rule: #efefef;
 $wa-danger: #e53935;
 $wa-success: #43a047;
 $wa-radius: 12rpx;
+
+// 业务域主色（唯一来源见 src/theme.ts，此处供 <style> 引用，2026-08-23）
+$pm-d1: #ff6600; $pm-d1-grad: #ff8833;
+$pm-d2: #e53935; $pm-d2-grad: #ff6659;
+$pm-d3: #2563eb; $pm-d3-grad: #60a5fa;
+$pm-d4: #7c3aed; $pm-d4-grad: #a78bfa;
+$pm-d5: #0d9488; $pm-d5-grad: #14b8a6;
+$pm-d6: #64748b; $pm-d6-grad: #94a3b8;
+// 全局语义色
+$pm-success: #16a34a; $pm-warning: #f59e0b; $pm-danger: #e53935; $pm-disabled: #9ca3af;
+$pm-info: #2563eb;

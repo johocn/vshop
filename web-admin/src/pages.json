@@ -22,7 +22,9 @@
     { "path": "pages/distribution/settle/index", "style": { "navigationBarTitleText": "佣金结算" } },
     { "path": "pages/media/library/index", "style": { "navigationBarTitleText": "图片库" } },
     { "path": "pages/shipping/profile/index", "style": { "navigationBarTitleText": "配送档案" } },
-    { "path": "pages/payment/profile/index", "style": { "navigationBarTitleText": "支付档案" } }
+    { "path": "pages/payment/profile/index", "style": { "navigationBarTitleText": "支付档案" } },
+    { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
+    { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

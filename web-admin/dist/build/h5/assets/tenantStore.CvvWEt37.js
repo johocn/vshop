@@ -1,1 +1,0 @@
-import{l as e}from"./index-D3D8ILHL.js";import{s as t,a as o,b as s}from"./_plugin-vue_export-helper.CcZi7tFQ.js";const n=e("tenant",{state:()=>({code:s(),token:o(),name:""}),actions:{selectCh(e,o){this.code=e.code,this.token=e.token,this.name=o??e.code,t(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{n as u};

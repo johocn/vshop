@@ -17,3 +17,13 @@ export async function fetchShippingMethods(): Promise<ShippingRow[]> {
   }>(`query { shippingMethods { items { id code name description } } }`);
   return shippingMethods.items;
 }
+
+export async function updateShippingMethod(id: string, name: string, description: string): Promise<void> {
+  await getAdminClient().request(`mutation Up($input: UpdateShippingMethodInput!) {
+    updateShippingMethod(input: $input) { id }
+  }`, { input: { id, translations: [{ languageCode: 'zh_Hans', name, description }] } });
+}
+
+export async function deleteShippingMethod(id: string): Promise<void> {
+  await getAdminClient().request(`mutation Del($id: ID!) { deleteShippingMethod(id: $id) { result } }`, { id });
+}
