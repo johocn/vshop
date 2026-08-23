@@ -20,7 +20,9 @@
     { "path": "pages/data/dashboard/index", "style": { "navigationBarTitleText": "数据看板" } },
     { "path": "pages/distribution/relations/index", "style": { "navigationBarTitleText": "分销关系" } },
     { "path": "pages/distribution/settle/index", "style": { "navigationBarTitleText": "佣金结算" } },
-    { "path": "pages/media/library/index", "style": { "navigationBarTitleText": "图片库" } }
+    { "path": "pages/media/library/index", "style": { "navigationBarTitleText": "图片库" } },
+    { "path": "pages/shipping/profile/index", "style": { "navigationBarTitleText": "配送档案" } },
+    { "path": "pages/payment/profile/index", "style": { "navigationBarTitleText": "支付档案" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
