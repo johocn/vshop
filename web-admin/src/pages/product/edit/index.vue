@@ -1,56 +1,76 @@
 <template>
   <view class="page">
-    <view class="card">
-      <view class="cell">
-        <text class="lbl">商品名</text>
-        <input v-model="detail.name" />
-      </view>
-      <view class="cell">
-        <text class="lbl">Slug</text>
-        <input v-model="detail.slug" />
-      </view>
-      <view class="cell row-in">
-        <text class="lbl">状态</text>
-        <switch :checked="detail.enabled" @change="onToggle" />
-      </view>
+    <view v-if="loaded">
+      <ProductForm ref="form" :initial="initial" @submit="onSubmit" />
+      <button class="save" @tap="doSave">保存</button>
     </view>
-    <button class="save" @tap="save">保存</button>
+    <view v-else class="empty">加载中…</view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchProductDetail, updateProduct } from '../../../apis/product';
+import ProductForm from '../../../components/ProductForm.vue';
+import { fetchProductFull, updateProductFull } from '../../../apis/product';
 
 const id = ref('');
-const detail = ref<any>({});
+const loaded = ref(false);
+const form = ref<any>(null);
+const initial = ref<any>(null);
+let busy = false;
 
 onMounted(async () => {
   id.value = (getCurrentPages().at(-1) as any)?.options?.id || '';
-  detail.value = await fetchProductDetail(id.value);
+  const full = await fetchProductFull(id.value);
+  initial.value = {
+    name: full.name,
+    slug: full.slug,
+    description: full.description,
+    priceYuan: full.variant ? full.variant.price / 100 : 0,
+    stock: full.variant?.stockOnHand ?? 0,
+    enabled: full.enabled,
+    // ImagePicker 的 value 是资产 id 数组，故回填真实 id（full.assets 已带 id）
+    assetIds: (full.assets || []).map((a) => a.id).filter(Boolean),
+    shippingProfileId: full.variant?.customFields?.shippingProfileId ?? '',
+    paymentProfileId: full.variant?.customFields?.paymentProfileId ?? '',
+    // 归属分类：统一在分类管理页（Task 11）维护；编辑页不反解 product-id-filter，置空既不预选也不改动
+    collectionId: undefined,
+  };
+  loaded.value = true;
 });
 
-function onToggle(e: any) { detail.value.enabled = e.detail.value; }
+async function doSave() {
+  if (!busy) await form.value?.submit?.();
+}
 
-async function save() {
-  await updateProduct(id.value, {
-    enabled: detail.value.enabled,
-    name: detail.value.name,
-    slug: detail.value.slug,
-    description: detail.value.description,
-  });
-  uni.showToast({ title: '已保存', icon: 'success' });
+async function onSubmit(d: any) {
+  busy = true;
+  try {
+    await updateProductFull(id.value, d);
+    uni.showToast({ title: '已保存', icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '保存失败', icon: 'none' });
+  } finally {
+    busy = false;
+  }
 }
 </script>
 <style lang="scss" scoped>
-.page { min-height: 100vh; background: $wa-bg; padding: 32rpx 32rpx 160rpx;
-  .card { background: $wa-card; border-radius: $wa-radius; padding: 8rpx 32rpx;
-    .cell { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid $wa-rule;
-      .lbl { width: 180rpx; font-size: 28rpx; color: $wa-ink; flex-shrink: 0; }
-      input { flex: 1; font-size: 28rpx; }
-      &.row-in { justify-content: space-between; }
-      &:last-child { border-bottom: none; }
-    }
+.page {
+  min-height: 100vh;
+  background: $wa-bg;
+  padding: 32rpx 32rpx 160rpx;
+  .save {
+    margin-top: 48rpx;
+    background: $wa-accent;
+    color: #fff;
+    font-size: 30rpx;
+    border-radius: $wa-radius;
   }
-  .save { margin-top: 48rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
+  .empty {
+    padding: 80rpx 0;
+    text-align: center;
+    color: $wa-muted;
+    font-size: 28rpx;
+  }
 }
 </style>

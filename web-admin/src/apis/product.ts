@@ -169,7 +169,7 @@ export interface ProductFull {
   enabled: boolean;
   description?: string;
   featuredAsset?: { preview: string } | null;
-  assets?: { preview: string }[] | null;
+  assets?: { id: string; preview: string }[] | null;
   variant?: VariantRef | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
 }
@@ -195,7 +195,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
       slug: string;
       enabled: boolean;
       featuredAsset?: { preview: string } | null;
-      assets?: { preview: string }[] | null;
+      assets?: { id: string; preview: string }[] | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -212,7 +212,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
       product(id: $id) {
         id name slug enabled
         featuredAsset { preview }
-        assets { preview }
+        assets { id preview }
         translations { languageCode name slug description }
         variants {
           id sku price stockOnHand trackInventory
