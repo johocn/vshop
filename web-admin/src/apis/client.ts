@@ -8,7 +8,7 @@ const AUTH_HEADER = 'vendure-auth-token';
 // 店铺上下文 header（key 必须是 vendure-token，见设计文档 §6.2 已实测）
 const CHANNEL_HEADER = 'vendure-token';
 
-function buildClientUrl(): string {
+export function buildClientUrl(): string {
   const base = (import.meta.env?.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return `${base || origin}${ADMIN_API_PATH}`;
