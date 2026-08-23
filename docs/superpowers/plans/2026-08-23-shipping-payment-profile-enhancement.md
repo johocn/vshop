@@ -31,10 +31,11 @@
 - **Modify** `packages/cjk-plugin/src/plugin.ts` — 注册实体、暴露 schema
 
 ### 前端（vshop 仓库 `d:\zhao\vshop`）
+- **Create** `web-admin/src/apis/pickup-location.ts` — 封装 fetch/create 自提点
 - **Modify** `web-admin/src/apis/shipping-profile.ts` — API 加 `modeConfig` / `isTenantDefault`
 - **Modify** `web-admin/src/apis/payment-profile.ts` — 同上
-- **Modify** `web-admin/src/pages/shipping/profile/index.vue` — 逐方式条目编辑 + 设为默认
-- **Modify** `web-admin/src/pages/payment/profile/index.vue` — 同上
+- **Modify** `web-admin/src/pages/shipping/profile/index.vue` — 逐方式条目编辑 + 自提点选择（内联新增）+ 设为默认
+- **Modify** `web-admin/src/pages/payment/profile/index.vue` — 逐方式条目编辑 + 设为默认
 
 ---
 
@@ -677,7 +678,54 @@ export async function setTenantDefaultShippingProfile(id: string): Promise<void>
 
 按 Step 1 同构实现，含 `setTenantDefaultPaymentProfile`、字段 `isTenantDefault`、`methodConfigs`。
 
-- [ ] **Step 3: HBuilder X 重新编译（不执行构建命令）**
+- [ ] **Step 3: 新建 pickup-location.ts 封装自提点增查**
+
+创建 `web-admin/src/apis/pickup-location.ts`：
+
+```ts
+// 自提点 admin-api 调用（cjk-plugin pickup-location-admin.resolver）
+import { getAdminClient } from './client';
+
+export type PickupLocationType = 'store' | 'point' | 'employee';
+
+export interface PickupLocationItem {
+  id: string;
+  name: string;
+  type: PickupLocationType;
+  address: string | null;
+  phoneNumber?: string | null;
+  businessHours?: string | null;
+}
+
+export async function fetchPickupLocations(): Promise<PickupLocationItem[]> {
+  const { pickupLocations } = await getAdminClient().request<{
+    pickupLocations: { items: PickupLocationItem[]; totalItems: number };
+  }>(`query PickupLocations {
+    pickupLocations {
+      items { id name type address phoneNumber businessHours }
+      totalItems
+    }
+  }`);
+  return pickupLocations.items ?? [];
+}
+
+export async function createPickupLocation(input: {
+  name: string;
+  type: PickupLocationType;
+  address?: string;
+}): Promise<string> {
+  const { createPickupLocation } = await getAdminClient().request<{
+    createPickupLocation: { id: string };
+  }>(`mutation CreatePickupLocation($input: CreatePickupLocationInput!) {
+    createPickupLocation(input: $input) { id }
+  }`, { input });
+  return createPickupLocation.id;
+}
+```
+
+> 注意：`createPickupLocation` 的 schema 要求 `type`、`name`、`address` 为非空（见 plugin.ts admin schema `CreatePickupLocationInput`），且 `type` 为 `PickupLocationType` 枚举。租户级自提点传 `type:'point'`（或 `store`），职工单位自提点传 `type:'employee'`。
+
+- [ ] **Step 4: HBuilder X 重新编译（不执行构建命令）**
 
 按铁律，此仓库由用户在 HBuilder X 手动编译。**不要**执行 `npm run build` / `pnpm install`。修改源码后提醒用户在 HBuilder X 重新编译即可。（前端无需 git 提交 dist 产物，若仓库有 dist 跟踪统一由 user 处理。）
 
@@ -691,6 +739,10 @@ export async function setTenantDefaultShippingProfile(id: string): Promise<void>
 - [ ] **Step 1: 拆表单布局为「方式条目」**
 
 将原「整档案选自提点」（`pickupLocationIds`）改为逐方式条目：每行展示一个已选配送方式，自提方式（code 含 pickup/store）下方渲染自提点多选；邮寄方式展示「范围/公式由原方式实例配置」提示。表单状态新增 `methodConfigs` 数组（`{ shippingMethodId, mode, pickupLocationIds }`）。
+
+- [ ] **Step 1b: 自提点选择支持「内联新增」**
+
+自提点多选面板（`fetchPickupLocations()` 列出已有自提点，按 `type` 分组展示）下方加「＋ 新增自提点」入口，用 `uni.showActionSheet` 让用户选类型（`point` 租户门店自提点 / `store` 租户门店 / `employee` 职工单位自提点），然后 `uni.showModal` 依次收集 `name`、`address`（均必填），调用 `createPickupLocation({ name, type, address })` 拿到新 id 后：刷新列表并自动勾选该新点。说明文案注明「新增的自提点归属当前租户（store/point），或职工单位自提（employee）」。
 
 - [ ] **Step 2: 保存时映射为 methodConfigs**
 
@@ -739,7 +791,7 @@ Run: `cd D:\zhao\vendure && pnpm --filter @cjk/plugin run build`（含 lib 产�
 
 - [ ] **Step 3: 手工冒烟（手机浏览器）**
 
-按愿望清单：建档A(自提1点)、建档B(自提2点)、商品未绑档案(走默认档案)、支付分期逐方式配置。
+按愿望清单：建档A(自提1点)、建档B(自提2点)、商品未绑档案(走默认档案)、支付分期逐方式配置、档案内内联新增租户级/职工单位自提点。
 
 - [ ] **Step 4: 最终 git 提交（按仓库分别）**
 
