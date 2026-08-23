@@ -355,3 +355,61 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     );
   }
 }
+
+// ---- Task 10：商品列表增强 ----
+// 列表专用查询：主图缩略 + 首个变体的价格/库存/是否缺货，支持按名称搜索与在售/下架筛选。
+// 说明：enabled 字段对象是否被 ProductFilterParameter 支持、stockOnHand 的默认仓口径，
+//       属于冒烟校准项（Task 13 统一校准），本期先按此写，编译通过即可。
+export interface ProductListQuery {
+  take?: number;
+  skip?: number;
+  term?: string;
+  enabled?: boolean;
+}
+
+export interface ProductListRow {
+  id: string;
+  name: string;
+  slug: string;
+  enabled: boolean;
+  thumb?: string;
+  priceYuan: number;
+  stock: number;
+  low: boolean;
+}
+
+const LOW_STOCK = 5;
+
+export async function fetchProductList(
+  q: ProductListQuery = {},
+): Promise<{ totalItems: number; items: ProductListRow[] }> {
+  const filter: Record<string, unknown> = {};
+  if (q.term) filter.name = { contains: q.term };
+  if (q.enabled !== undefined) filter.enabled = { eq: q.enabled };
+  const { products } = await getAdminClient().request<{
+    products: { totalItems: number; items: any[] };
+  }>(
+    `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
+      products(options: { take: $take, skip: $skip, filter: $filter }) {
+        totalItems
+        items { id name slug enabled featuredAsset { preview } variants { price stockOnHand } }
+      }
+    }`,
+    { take: q.take ?? 20, skip: q.skip ?? 0, filter },
+  );
+  const items: ProductListRow[] = products.items.map((p: any) => {
+    const price = p.variants?.[0]?.price ?? 0;
+    const stock = p.variants?.[0]?.stockOnHand ?? 0;
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      enabled: p.enabled,
+      thumb: p.featuredAsset?.preview,
+      priceYuan: price / 100,
+      stock,
+      low: stock <= LOW_STOCK,
+    };
+  });
+  return { totalItems: products.totalItems, items };
+}
