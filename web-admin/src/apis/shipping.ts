@@ -9,13 +9,27 @@ export interface ShippingRow {
   code: string;
   name: string;
   description: string;
+  enabled: boolean;
 }
 
 export async function fetchShippingMethods(): Promise<ShippingRow[]> {
   const { shippingMethods } = await getAdminClient().request<{
-    shippingMethods: { items: ShippingRow[] };
-  }>(`query { shippingMethods { items { id code name description } } }`);
-  return shippingMethods.items;
+    shippingMethods: { items: Array<ShippingRow & { customFields: { enabled: boolean } | null }> };
+  }>(`query { shippingMethods { items { id code name description customFields { enabled } } } }`);
+  return shippingMethods.items.map((m) => ({
+    id: m.id,
+    code: m.code,
+    name: m.name,
+    description: m.description,
+    enabled: m.customFields?.enabled ?? true,
+  }));
+}
+
+// 配送方式启用/停用（customFields.enabled 启停开关）
+export async function setShippingEnabled(id: string, enabled: boolean): Promise<void> {
+  await getAdminClient().request(`mutation S($i: UpdateShippingMethodInput!) {
+    updateShippingMethod(input: $i) { id }
+  }`, { i: { id, customFields: { enabled } } });
 }
 
 export async function updateShippingMethod(id: string, name: string, description: string): Promise<void> {

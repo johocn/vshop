@@ -1,23 +1,45 @@
 <template>
   <view class="page">
-    <view class="hint">前提配置：先配好支付方式，才可在「支付档案」引用。</view>
-    <view class="card" v-for="p in items" :key="p.id">
-      <view class="row">
-        <view class="left">
-          <text class="name">{{ p.name }}</text>
-          <text class="code">{{ p.code }}</text>
-        </view>
-        <switch :checked="p.enabled" color="#ff6600" @change="toggle(p, $event)" />
-      </view>
-      <text class="desc">{{ p.description || '—' }}</text>
-      <view class="ops">
-        <text class="ed" @tap="openEdit(p)">编辑</text>
-        <text class="del" @tap="onDel(p)">删除</text>
-      </view>
+    <view class="tabs">
+      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">本店方式</text>
+      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">全局方案池</text>
     </view>
-    <view v-if="!items.length" class="empty">暂无支付方式</view>
 
-    <view v-if="editing" class="sheet-mask" @tap="editing = null">
+    <template v-if="tab === 'mine'">
+      <view class="hint">先配好支付方式（启用中），才可在「支付档案」引用。</view>
+      <view class="card" v-for="p in items" :key="p.id">
+        <view class="row">
+          <view class="left">
+            <text class="name">{{ p.name }}</text>
+            <text class="code">{{ p.code }}</text>
+          </view>
+          <switch :checked="p.enabled" color="#ff6600" @change="toggle(p, $event)" />
+        </view>
+        <text class="desc">{{ p.description || '—' }}</text>
+        <view class="ops">
+          <text class="ed" @tap="openEdit(p)">编辑</text>
+          <text class="del" @tap="onDel(p)">删除</text>
+        </view>
+      </view>
+      <view v-if="!items.length" class="empty">暂无支付方式</view>
+    </template>
+
+    <template v-else>
+      <view class="hint">全局方案由超级管理员维护，点击「复制到本店」生成独立实例后可编辑。</view>
+      <view class="card" v-for="t in pool" :key="t.id">
+        <view class="row">
+          <view class="left">
+            <text class="name">{{ t.name }}</text>
+            <text class="code">{{ t.code }}</text>
+          </view>
+          <text class="copy" @tap="copy(t)">复制到本店</text>
+        </view>
+        <text class="desc">{{ t.description || '—' }}</text>
+      </view>
+      <view v-if="!pool.length" class="empty">暂无全局方案</view>
+    </template>
+
+    <view v-if="tab === 'mine' && editing" class="sheet-mask" @tap="editing = null">
       <view class="sheet" @tap.stop>
         <text class="st">编辑支付方式</text>
         <input class="ipt" v-model="form.name" placeholder="名称" />
@@ -33,11 +55,32 @@
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchPaymentMethods, setPaymentEnabled, updatePaymentMethod, deletePaymentMethod } from '../../../apis/payment';
+import { fetchPaymentTemplates, createPaymentMethodFromTemplate } from '../../../apis/payment-template';
 
+const tab = ref<'mine' | 'pool'>('mine');
 const items = ref<any[]>([]);
+const pool = ref<any[]>([]);
 const editing = ref<any>(null);
 const form = ref({ id: '', name: '', description: '' });
+
+async function switchTab(t: 'mine' | 'pool') {
+  tab.value = t;
+  if (t === 'mine' && !items.value.length) items.value = await fetchPaymentMethods();
+  if (t === 'pool') pool.value = await fetchPaymentTemplates();
+}
+
 onMounted(async () => { items.value = await fetchPaymentMethods(); });
+
+async function copy(t: any) {
+  try {
+    await createPaymentMethodFromTemplate(t.id);
+    uni.showToast({ title: '已复制到本店', icon: 'none' });
+    tab.value = 'mine';
+    items.value = await fetchPaymentMethods();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '复制失败', icon: 'none' });
+  }
+}
 
 async function toggle(p: any, e: any) {
   const enabled = Boolean(e.detail.value);
@@ -67,6 +110,12 @@ function onDel(p: any) {
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
+  .tabs { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 8rpx; margin-bottom: 20rpx;
+    .tab { flex: 1; text-align: center; font-size: 28rpx; color: $wa-muted; padding: 18rpx 0; border-radius: 14rpx;
+      &.on { background: $pm-d1; color: #fff; font-weight: 600; }
+    }
+  }
+  .copy { font-size: 26rpx; color: $pm-d1; font-weight: 600; }
   .hint { background: #fff7f0; border: 1px solid #ffe0c4; color: #b05000; font-size: 24rpx; border-radius: 16rpx; padding: 18rpx 22rpx; margin-bottom: 20rpx; }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 26rpx 30rpx 12rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; justify-content: space-between;

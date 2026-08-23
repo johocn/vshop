@@ -13,6 +13,7 @@ export interface ShippingProfileItem {
   code: string;
   description: string | null;
   isGlobal: boolean;
+  enabled: boolean;
   freeShippingThreshold: number | null;
   isTenantDefault: boolean;
   shippingMethodIds: string[];
@@ -25,6 +26,7 @@ export interface ShippingProfileInput {
   code: string;
   description?: string;
   isGlobal?: boolean;
+  enabled?: boolean;
   freeShippingThreshold?: number;
   isTenantDefault?: boolean;
   /** create 必填，至少一个配送方式 */
@@ -40,7 +42,7 @@ export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
   }>(`query ShippingProfiles {
     shippingProfiles {
       items {
-        id name code description isGlobal freeShippingThreshold isTenantDefault
+        id name code description isGlobal enabled freeShippingThreshold isTenantDefault
         shippingMethods { id code }
         pickupLocations { id }
         methodConfigs { shippingMethodId mode options }

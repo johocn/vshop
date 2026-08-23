@@ -51,16 +51,38 @@ export type UpdatePickupLocationInput = Partial<CreatePickupLocationInput> & { i
 
 const FIELDS = `id name type address contactPerson phoneNumber businessHours coordinates photos remark sortOrder enabled isPublic province city district street`;
 
-export async function fetchPickupLocations(): Promise<PickupLocationItem[]> {
+export async function fetchPickupLocations(isPublic?: boolean): Promise<PickupLocationItem[]> {
+  const filter = isPublic === undefined ? '' : `, filter: { isPublic: { eq: ${isPublic} } }`;
   const { pickupLocations } = await getAdminClient().request<{
     pickupLocations: { items: PickupLocationItem[]; totalItems: number };
   }>(`query PickupLocations {
-    pickupLocations(options: { take: 100, skip: 0 }) {
+    pickupLocations(options: { take: 100, skip: 0${filter} }) {
       items { ${FIELDS} }
       totalItems
     }
   }`);
   return pickupLocations.items ?? [];
+}
+
+// 设为全局（引用共享：仅持有 SetGlobalPickupLocation 权限者调用，后端二次鉴权）
+export async function promoteToListPublic(id: string): Promise<void> {
+  await getAdminClient().request(`mutation Promote($id: ID!) {
+    promotePickupLocationToPublic(id: $id) { id }
+  }`, { id });
+}
+
+// 把（全局）自提点分配/复制到本店使用（引用共享，不克隆副本；channel 取当前 ctx.channelId）
+export async function assignToChannel(ids: string[]): Promise<void> {
+  await getAdminClient().request(`mutation Assign($ids: [ID!]!) {
+    assignPickupLocationsToChannel(ids: $ids)
+  }`, { ids });
+}
+
+// 把（全局）自提点从本店移出
+export async function removeFromChannel(ids: string[]): Promise<void> {
+  await getAdminClient().request(`mutation Remove($ids: [ID!]!) {
+    removePickupLocationsFromChannel(ids: $ids)
+  }`, { ids });
 }
 
 export async function fetchPickupLocation(id: string): Promise<PickupLocationItem | null> {

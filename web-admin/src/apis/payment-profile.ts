@@ -12,6 +12,7 @@ export interface PaymentProfileItem {
   code: string;
   description: string | null;
   isGlobal: boolean;
+  enabled: boolean;
   installmentOptions?: Record<string, unknown> | null;
   isTenantDefault: boolean;
   paymentMethodIds: string[];
@@ -23,6 +24,7 @@ export interface PaymentProfileInput {
   code: string;
   description?: string;
   isGlobal?: boolean;
+  enabled?: boolean;
   installmentOptions?: Record<string, unknown>;
   isTenantDefault?: boolean;
   /** create 必填，至少一个支付方式 */
@@ -36,7 +38,7 @@ export async function fetchPaymentProfiles(): Promise<PaymentProfileItem[]> {
   }>(`query PaymentProfiles {
     paymentProfiles {
       items {
-        id name code description isGlobal installmentOptions isTenantDefault
+        id name code description isGlobal enabled installmentOptions isTenantDefault
         paymentMethods { id code }
         methodConfigs { paymentMethodId mode options }
       }

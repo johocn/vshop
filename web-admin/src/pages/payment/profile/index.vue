@@ -50,9 +50,13 @@
 
     <view class="card" v-for="s in items" :key="s.id">
       <view class="row">
-        <text class="name">{{ s.name }}</text>
-        <text v-if="s.isTenantDefault" class="default-badge">默认</text>
-        <text class="code">{{ s.code }}</text>
+        <view class="row-left">
+          <text class="name">{{ s.name }}</text>
+          <text v-if="s.isTenantDefault" class="default-badge">默认</text>
+          <text v-if="!s.enabled" class="off-badge">停用</text>
+          <text class="code">{{ s.code }}</text>
+        </view>
+        <switch :checked="s.enabled" color="#2563eb" style="transform: scale(.7);" @change="onToggle(s, $event)" />
       </view>
       <text class="desc">{{ s.description || '—' }}</text>
       <view class="ops">
@@ -242,6 +246,16 @@ async function onSetDefault(s: PaymentProfileItem) {
   }
 }
 
+async function onToggle(s: PaymentProfileItem, e: any) {
+  const enabled = Boolean(e.detail.value);
+  try {
+    await updatePaymentProfile(s.id, { enabled });
+    s.enabled = enabled;
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+  }
+}
+
 function onDel(s: PaymentProfileItem) {
   uni.showModal({
     title: '删除',
@@ -288,10 +302,13 @@ function onDel(s: PaymentProfileItem) {
 
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; justify-content: space-between;
-      .name { font-size: 28rpx; color: $wa-ink; flex: 1; font-weight: 500; }
-      .code { font-size: 24rpx; color: $wa-muted; }
+      .row-left { display: flex; align-items: center; flex: 1; min-width: 0; flex-wrap: wrap;
+        .name { font-size: 28rpx; color: $wa-ink; font-weight: 500; }
+        .code { font-size: 24rpx; color: $wa-muted; margin-left: 16rpx; }
+      }
+      .default-badge { font-size: 22rpx; color: #fff; background: $wa-accent; border-radius: 20rpx; padding: 2rpx 16rpx; margin-left: 16rpx; }
+      .off-badge { font-size: 22rpx; color: #fff; background: #bbb; border-radius: 20rpx; padding: 2rpx 16rpx; margin-left: 16rpx; }
     }
-    .default-badge { font-size: 22rpx; color: #fff; background: $wa-accent; border-radius: 20rpx; padding: 2rpx 16rpx; margin-right: 16rpx; }
     .desc { display: block; margin-top: 8rpx; font-size: 26rpx; color: $wa-muted; }
     .ops { margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid $wa-rule;
       text { font-size: 26rpx; color: $wa-accent; margin-right: 32rpx;
