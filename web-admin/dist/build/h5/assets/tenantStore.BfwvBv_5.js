@@ -1,1 +1,0 @@
-import{m as e}from"./index-DmPjckPa.js";import{s as t,g as o,a as s}from"./_plugin-vue_export-helper.B4Ubenok.js";const n=e("tenant",{state:()=>({code:s(),token:o(),name:""}),actions:{selectCh(e,o){this.code=e.code,this.token=e.token,this.name=o??e.code,t(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{n as u};

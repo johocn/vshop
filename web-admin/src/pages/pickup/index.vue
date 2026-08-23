@@ -28,7 +28,7 @@
         <view class="ops">
           <text v-if="editable(s)" @tap="onEdit(s)">编辑</text>
           <text v-if="!s.isPublic" class="setdefault" @tap="onToggle(s)">{{ s.enabled ? '停用' : '启用' }}</text>
-          <text v-if="!s.isPublic && !s.enabled && auth.isSuperAdmin" class="promote" @tap="onPromote(s)">设为全局</text>
+          <text v-if="!s.isPublic && auth.isSuperAdmin" class="promote" @tap="onPromote(s)">设为全局</text>
           <text v-if="s.isPublic" class="del" @tap="onRemove(s)">不用本店点</text>
           <text v-if="!s.isPublic" class="del" @tap="onDel(s)">删除</text>
         </view>
