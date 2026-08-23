@@ -14,8 +14,10 @@ export interface ShippingProfileItem {
   description: string | null;
   isGlobal: boolean;
   freeShippingThreshold: number | null;
+  isTenantDefault: boolean;
   shippingMethodIds: string[];
   pickupLocationIds: string[];
+  methodConfigs?: { shippingMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
 }
 
 export interface ShippingProfileInput {
@@ -24,10 +26,12 @@ export interface ShippingProfileInput {
   description?: string;
   isGlobal?: boolean;
   freeShippingThreshold?: number;
+  isTenantDefault?: boolean;
   /** create 必填，至少一个配送方式 */
   shippingMethodIds: string[];
   /** undefined=不变（create 时省略），[]=清空，[ids]=设置 */
   pickupLocationIds?: string[];
+  methodConfigs?: { shippingMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
 }
 
 export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
@@ -36,9 +40,10 @@ export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
   }>(`query ShippingProfiles {
     shippingProfiles {
       items {
-        id name code description isGlobal freeShippingThreshold
+        id name code description isGlobal freeShippingThreshold isTenantDefault
         shippingMethods { id code }
         pickupLocations { id }
+        methodConfigs { shippingMethodId mode options }
       }
       totalItems
     }
@@ -59,15 +64,23 @@ export async function updateShippingProfile(
   id: string,
   input: Partial<ShippingProfileInput>,
 ): Promise<void> {
-  const { shippingMethodIds, pickupLocationIds, ...rest } = input;
+  const { shippingMethodIds, pickupLocationIds, methodConfigs, ...rest } = input;
   await getAdminClient().request<{
     updateShippingProfile: { id: string };
   }>(`mutation UpdateShippingProfile($input: UpdateShippingProfileInput!) {
     updateShippingProfile(input: $input) { id }
   }`, {
     input: { id, ...rest, ...(shippingMethodIds !== undefined ? { shippingMethodIds } : {}),
-      ...(pickupLocationIds !== undefined ? { pickupLocationIds } : {}) },
+      ...(pickupLocationIds !== undefined ? { pickupLocationIds } : {}),
+      ...(methodConfigs !== undefined ? { methodConfigs } : {}) },
   } as { input: { id: string } & Record<string, unknown> });
+}
+
+/** 设为租户默认档案；全局档案后端会拒绝 */
+export async function setTenantDefaultShippingProfile(id: string): Promise<void> {
+  await getAdminClient().request<{ setTenantDefaultShippingProfile: boolean }>(
+    `mutation SetTenantDefault($id: ID!) { setTenantDefaultShippingProfile(id: $id) }`, { id },
+  );
 }
 
 export async function deleteShippingProfile(id: string): Promise<void> {

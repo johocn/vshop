@@ -13,7 +13,9 @@ export interface PaymentProfileItem {
   description: string | null;
   isGlobal: boolean;
   installmentOptions?: Record<string, unknown> | null;
+  isTenantDefault: boolean;
   paymentMethodIds: string[];
+  methodConfigs?: { paymentMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
 }
 
 export interface PaymentProfileInput {
@@ -22,8 +24,10 @@ export interface PaymentProfileInput {
   description?: string;
   isGlobal?: boolean;
   installmentOptions?: Record<string, unknown>;
+  isTenantDefault?: boolean;
   /** create 必填，至少一个支付方式 */
   paymentMethodIds: string[];
+  methodConfigs?: { paymentMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
 }
 
 export async function fetchPaymentProfiles(): Promise<PaymentProfileItem[]> {
@@ -32,8 +36,9 @@ export async function fetchPaymentProfiles(): Promise<PaymentProfileItem[]> {
   }>(`query PaymentProfiles {
     paymentProfiles {
       items {
-        id name code description isGlobal installmentOptions
+        id name code description isGlobal installmentOptions isTenantDefault
         paymentMethods { id code }
+        methodConfigs { paymentMethodId mode options }
       }
       totalItems
     }
@@ -54,14 +59,22 @@ export async function updatePaymentProfile(
   id: string,
   input: Partial<PaymentProfileInput>,
 ): Promise<void> {
-  const { paymentMethodIds, ...rest } = input;
+  const { paymentMethodIds, methodConfigs, ...rest } = input;
   await getAdminClient().request<{
     updatePaymentProfile: { id: string };
   }>(`mutation UpdatePaymentProfile($input: UpdatePaymentProfileInput!) {
     updatePaymentProfile(input: $input) { id }
   }`, {
-    input: { id, ...rest, ...(paymentMethodIds !== undefined ? { paymentMethodIds } : {}) },
+    input: { id, ...rest, ...(paymentMethodIds !== undefined ? { paymentMethodIds } : {}),
+      ...(methodConfigs !== undefined ? { methodConfigs } : {}) },
   } as { input: { id: string } & Record<string, unknown> });
+}
+
+/** 设为租户默认档案；全局档案后端会拒绝 */
+export async function setTenantDefaultPaymentProfile(id: string): Promise<void> {
+  await getAdminClient().request<{ setTenantDefaultPaymentProfile: boolean }>(
+    `mutation SetTenantDefault($id: ID!) { setTenantDefaultPaymentProfile(id: $id) }`, { id },
+  );
 }
 
 export async function deletePaymentProfile(id: string): Promise<void> {
