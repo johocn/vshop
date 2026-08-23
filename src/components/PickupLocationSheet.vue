@@ -29,6 +29,7 @@
           <text class="sheet__item-name">{{ loc.name }}</text>
           <text class="sheet__item-addr">{{ loc.address }}</text>
           <view class="sheet__item-meta">
+            <text v-if="loc.phoneNumber" class="sheet__item-phone">☎ {{ loc.phoneNumber }}</text>
             <text v-if="loc.businessHours" class="sheet__item-hours">营业: {{ loc.businessHours }}</text>
             <text v-if="getDistance(loc) !== null" class="sheet__item-dist">{{ getDistance(loc) }}</text>
           </view>
@@ -170,6 +171,7 @@ function confirm() {
     &-addr { font-size: 24rpx; color: #999; display: block; margin-top: 6rpx; }
     &-meta { display: flex; gap: 20rpx; margin-top: 8rpx; }
     &-hours { font-size: 24rpx; color: #999; }
+    &-phone { font-size: 24rpx; color: #999; }
     &-dist { font-size: 24rpx; color: #ff8a3d; }
   }
   &__empty {

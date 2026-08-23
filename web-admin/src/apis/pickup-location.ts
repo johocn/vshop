@@ -3,6 +3,11 @@ import { getAdminClient } from './client';
 
 export type PickupLocationType = 'store' | 'point' | 'employee';
 
+export interface PickupLocationCoordinates {
+  lat: number;
+  lng: number;
+}
+
 export interface PickupLocationItem {
   id: string;
   name: string;
@@ -10,6 +15,16 @@ export interface PickupLocationItem {
   address: string | null;
   phoneNumber?: string | null;
   businessHours?: string | null;
+  coordinates?: PickupLocationCoordinates | null;
+}
+
+export interface CreatePickupLocationInput {
+  name: string;
+  type: PickupLocationType;
+  address: string;
+  phoneNumber?: string;
+  businessHours?: string;
+  coordinates?: PickupLocationCoordinates;
 }
 
 export async function fetchPickupLocations(): Promise<PickupLocationItem[]> {
@@ -17,18 +32,14 @@ export async function fetchPickupLocations(): Promise<PickupLocationItem[]> {
     pickupLocations: { items: PickupLocationItem[]; totalItems: number };
   }>(`query PickupLocations {
     pickupLocations {
-      items { id name type address phoneNumber businessHours }
+      items { id name type address phoneNumber businessHours coordinates }
       totalItems
     }
   }`);
   return pickupLocations.items ?? [];
 }
 
-export async function createPickupLocation(input: {
-  name: string;
-  type: PickupLocationType;
-  address: string;
-}): Promise<string> {
+export async function createPickupLocation(input: CreatePickupLocationInput): Promise<string> {
   const { createPickupLocation } = await getAdminClient().request<{
     createPickupLocation: { id: string };
   }>(`mutation CreatePickupLocation($input: CreatePickupLocationInput!) {

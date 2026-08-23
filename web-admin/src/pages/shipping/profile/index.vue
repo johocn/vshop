@@ -38,8 +38,12 @@
               <checkbox-group>
                 <label class="pickup-item" v-for="p in grp.list" :key="p.id">
                   <checkbox :value="p.id" :checked="isPickupChecked(e, p.id)" @tap.stop="togglePickup(e, p.id)" style="transform: scale(0.7);" />
-                  <text class="pickup-name">{{ p.name }}</text>
-                  <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
+                  <view class="pickup-info">
+                    <text class="pickup-name">{{ p.name }}</text>
+                    <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
+                    <text v-if="p.phoneNumber" class="pickup-meta">☎ {{ p.phoneNumber }}</text>
+                    <text v-if="p.coordinates" class="pickup-meta">📍 {{ p.coordinates.lat }}, {{ p.coordinates.lng }}</text>
+                  </view>
                 </label>
               </checkbox-group>
             </view>
@@ -203,26 +207,47 @@ function onAddPickup(e: MethodEntry) {
       const type = ['point', 'store', 'employee'][r.tapIndex];
       let name = '';
       let address = '';
+      let phone = '';
+      let lat = '';
+      let lng = '';
       awaitModal({ title: '自提点名称', placeholderText: '如 北京朝阳自提点' }).then((n) => {
         if (!n) { uni.showToast({ title: '已取消', icon: 'none' }); return; }
         name = n;
         awaitModal({ title: '自提点地址', placeholderText: '如 北京市朝阳区XX路1号' }).then((a) => {
           address = a || '';
-          doCreatePickup(e, type, name, address);
+          awaitModal({ title: '联系电话', placeholderText: '选填，如 010-88886666' }).then((ph) => {
+            phone = (ph || '').trim();
+            awaitModal({ title: '纬度 lat', placeholderText: '选填，如 39.9042' }).then((lt) => {
+              lat = (lt || '').trim();
+              awaitModal({ title: '经度 lng', placeholderText: '选填，如 116.4074' }).then((lg) => {
+                lng = (lg || '').trim();
+                doCreatePickup(e, type, name, address, phone, lat, lng);
+              });
+            });
+          });
         });
       });
     },
   });
 }
-function awaitModal(opts: { title: string; placeholderText?: string }): Promise<string> {
+async function awaitModal(opts: { title: string; placeholderText?: string }): Promise<string> {
   return new Promise((resolve) => {
-    uni.showModal({ ...opts, editable: true, success: (r) => resolve(r.confirm ? r.content : '') });
+    uni.showModal({ ...opts, editable: true, success: (r) => resolve(r.confirm ? (r.content || '').trim() : '') });
   });
 }
-async function doCreatePickup(e: MethodEntry, type: string, name: string, address: string) {
+async function doCreatePickup(e: MethodEntry, type: string, name: string, address: string, phone?: string, lat?: string, lng?: string) {
   if (!name.trim()) { uni.showToast({ title: '名称不能为空', icon: 'none' }); return; }
   try {
-    const id = await createPickupLocation({ name, type: type as any, address: address.trim() });
+    const coordinates = lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))
+      ? { lat: Number(lat), lng: Number(lng) }
+      : undefined;
+    const id = await createPickupLocation({
+      name,
+      type: type as any,
+      address: address.trim(),
+      phoneNumber: phone || undefined,
+      ...(coordinates ? { coordinates } : {}),
+    });
     const list = await fetchPickupLocations();
     pickupLocations.value = list;
     if (!e.pickupLocationIds.includes(id)) e.pickupLocationIds.push(id);
@@ -320,9 +345,12 @@ function onDel(s: ShippingProfileItem) {
       .pickup-blocks { margin-top: 16rpx;
         .pickup-block { margin-bottom: 12rpx;
           .pickup-group { display: block; font-size: 24rpx; color: $wa-muted; margin-bottom: 6rpx; }
-          .pickup-item { display: flex; align-items: center; min-height: 52rpx;
-            .pickup-name { font-size: 26rpx; color: $wa-ink; }
-            .pickup-addr { font-size: 22rpx; color: $wa-muted; margin-left: 8rpx; }
+          .pickup-item { display: flex; align-items: flex-start; min-height: 52rpx;
+            .pickup-info { display: flex; flex-direction: column; line-height: 1.5;
+              .pickup-name { font-size: 26rpx; color: $wa-ink; }
+              .pickup-addr { font-size: 22rpx; color: $wa-muted; }
+              .pickup-meta { font-size: 22rpx; color: $wa-muted; opacity: .85; }
+            }
           }
         }
         .pickup-empty { font-size: 24rpx; color: $wa-muted; }
