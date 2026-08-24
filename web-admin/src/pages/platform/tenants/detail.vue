@@ -42,9 +42,46 @@
   <view class="mask" v-if="showAdd" @tap="showAdd = false">
     <view class="pop" @tap.stop>
       <text class="pop-title">添加管理员</text>
-      <view class="field"><text class="label">邮箱 <text class="req">*</text></text><input class="input" v-model="addForm.emailAddress" placeholder="必填（全局唯一）" /></view>
-      <view class="field"><text class="label">显示姓名</text><input class="input" v-model="addForm.displayName" placeholder="选填" /></view>
-      <view class="field"><text class="label">手机号</text><input class="input" v-model="addForm.phone" placeholder="选填" /></view>
+      <view class="mode-tabs">
+        <text class="mode-tab" :class="{ on: addMode === 'create' }" @tap="switchMode('create')">新建账号</text>
+        <text class="mode-tab" :class="{ on: addMode === 'link' }" @tap="switchMode('link')">关联已有</text>
+      </view>
+
+      <!-- 新建账号模式 -->
+      <template v-if="addMode === 'create'">
+        <view class="field"><text class="label">邮箱 <text class="req">*</text></text><input class="input" v-model="addForm.emailAddress" placeholder="必填（全局唯一）" /></view>
+        <view class="field"><text class="label">显示姓名</text><input class="input" v-model="addForm.displayName" placeholder="选填" /></view>
+        <view class="field"><text class="label">手机号</text><input class="input" v-model="addForm.phone" placeholder="选填" /></view>
+      </template>
+
+      <!-- 关联已有账号模式 -->
+      <template v-else>
+        <view class="field">
+          <text class="label">搜索账号</text>
+          <view class="search-row">
+            <input class="input link-search" v-model="linkKeyword" placeholder="邮箱或姓名" />
+            <button class="btn link-btn" @tap="doSearch">搜索</button>
+          </view>
+        </view>
+        <view class="field">
+          <text class="label">候选账号</text>
+          <view v-if="searched && !candidates.length" class="empty hint">未找到可关联的账号，可切回「新建账号」</view>
+          <view class="cand-list" v-if="candidates.length">
+            <view
+              class="cand-item" :class="{ on: selectedAdminId === c.id }"
+              v-for="c in candidates" :key="c.id" @tap="selectedAdminId = c.id"
+            >
+              <view class="cand-info">
+                <text class="name">{{ c.displayName || c.emailAddress }}</text>
+                <text class="sub">{{ c.emailAddress }} · 已关联 {{ c.linkedCount }} 个租户</text>
+              </view>
+              <text class="cand-tag" v-if="c.alreadyLinked">已在本租户</text>
+              <text class="check" :class="{ on: selectedAdminId === c.id }">{{ selectedAdminId === c.id ? '✓' : '' }}</text>
+            </view>
+          </view>
+        </view>
+      </template>
+
       <view class="field">
         <text class="label">角色</text>
         <view class="pick-trigger" @tap="showRolePick = true">
@@ -55,7 +92,7 @@
       </view>
       <view class="actions">
         <button class="btn ghost" @tap="showAdd = false">取消</button>
-        <button class="btn" @tap="submitAdd">添加</button>
+        <button class="btn" @tap="submitAdd">{{ addMode === 'link' ? '关联' : '添加' }}</button>
       </view>
     </view>
   </view>
@@ -82,11 +119,12 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
   fetchTenantAdministrators, createTenantAdministrator, setTenantAdministratorEnabled,
   fetchTenantRoles, deleteTenantRole,
-  type TenantMemberItem, type RoleItem,
+  searchTenantAdmins, linkTenantMember,
+  type TenantMemberItem, type RoleItem, type AdminSearchCandidate,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
@@ -96,9 +134,10 @@ const tab = ref<'admin' | 'role'>('admin');
 const admins = ref<TenantMemberItem[]>([]);
 const roles = ref<RoleItem[]>([]);
 
-onLoad((q: any) => { channelId.value = q.id; load(); });
+onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
+onShow(() => { if (channelId.value) loadAdminAndRoles(); });
 
-async function load() {
+async function loadAdminAndRoles() {
   await Promise.all([loadAdmins(), loadRoles()]);
 }
 async function loadAdmins() {
@@ -110,7 +149,13 @@ async function loadRoles() {
 
 // 添加管理员表单弹层
 const showAdd = ref(false);
+const addMode = ref<'create' | 'link'>('create');
 const addForm = ref({ emailAddress: '', displayName: '', phone: '', roleIds: [] as string[] });
+// 关联已有账号模式
+const linkKeyword = ref('');
+const candidates = ref<AdminSearchCandidate[]>([]);
+const searched = ref(false);
+const selectedAdminId = ref('');
 const showRolePick = ref(false);
 const selectedRoleNames = computed(() =>
   roles.value.filter((r) => addForm.value.roleIds.includes(r.id)).map((r) => r.description || r.code),
@@ -118,8 +163,26 @@ const selectedRoleNames = computed(() =>
 const pwdPop = ref(false);
 const pwdInfo = ref({ account: '', password: '' });
 
+function switchMode(mode: 'create' | 'link') {
+  addMode.value = mode;
+  if (mode === 'create') {
+    linkKeyword.value = '';
+    candidates.value = [];
+    searched.value = false;
+    selectedAdminId.value = '';
+  } else {
+    addForm.value.emailAddress = '';
+    selectedAdminId.value = '';
+  }
+}
+
 function onAddAdmin() {
+  addMode.value = 'create';
   addForm.value = { emailAddress: '', displayName: '', phone: '', roleIds: [] };
+  linkKeyword.value = '';
+  candidates.value = [];
+  searched.value = false;
+  selectedAdminId.value = '';
   showAdd.value = true;
 }
 function toggleRole(id: string) {
@@ -127,7 +190,19 @@ function toggleRole(id: string) {
   if (i >= 0) addForm.value.roleIds.splice(i, 1);
   else addForm.value.roleIds.push(id);
 }
+async function doSearch() {
+  const kw = linkKeyword.value.trim();
+  if (!kw) { uni.showToast({ title: '请输入邮箱或姓名', icon: 'none' }); return; }
+  try {
+    candidates.value = await searchTenantAdmins(channelId.value, kw);
+    searched.value = true;
+    selectedAdminId.value = '';
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '搜索失败'), icon: 'none' });
+  }
+}
 async function submitAdd() {
+  if (addMode.value === 'link') return submitLink();
   const email = addForm.value.emailAddress.trim();
   if (!email) { uni.showToast({ title: '邮箱必填', icon: 'none' }); return; }
   try {
@@ -145,9 +220,31 @@ async function submitAdd() {
     } else {
       uni.showToast({ title: '已添加', icon: 'none' });
     }
-    loadAdmins();
+    loadAdminAndRoles();
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, '添加失败'), icon: 'none' });
+  }
+}
+async function submitLink() {
+  if (!selectedAdminId.value) { uni.showToast({ title: '请选择要关联的账号', icon: 'none' }); return; }
+  if (!addForm.value.roleIds.length) { uni.showToast({ title: '请选择角色', icon: 'none' }); return; }
+  try {
+    await linkTenantMember(channelId.value, {
+      administratorId: selectedAdminId.value,
+      roleIds: addForm.value.roleIds,
+      displayName: addForm.value.displayName.trim() || undefined,
+      phone: addForm.value.phone.trim() || undefined,
+      remark: undefined,
+    });
+    showAdd.value = false;
+    uni.showToast({ title: '已关联', icon: 'none' });
+    loadAdminAndRoles();
+  } catch (err: any) {
+    if (/ALREADY_IN_CHANNEL/.test(graphQlErrorMsg(err, ''))) {
+      uni.showToast({ title: '该账号已在本租户', icon: 'none' });
+    } else {
+      uni.showToast({ title: graphQlErrorMsg(err, '关联失败'), icon: 'none' });
+    }
   }
 }
 
@@ -197,6 +294,21 @@ function onEditRole(r: RoleItem) {
 .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
 .pop { width: 600rpx; background: #fff; border-radius: 20rpx; padding: 40rpx; }
 .pop-title { display: block; font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
+.mode-tabs { display: flex; gap: 12rpx; margin-bottom: 24rpx; background: #f2f2f2; border-radius: 12rpx; padding: 6rpx; }
+.mode-tab { flex: 1; text-align: center; padding: 12rpx 0; font-size: 26rpx; color: #666; border-radius: 10rpx; }
+.mode-tab.on { background: #fff; color: $pm-info; font-weight: 600; }
+.search-row { display: flex; gap: 16rpx; }
+.link-search { flex: 1; }
+.link-btn { flex: 0 0 auto; padding: 0 30rpx; line-height: 2.4; border-radius: 12rpx; }
+.cand-list { max-height: 320rpx; overflow-y: auto; border: 1px solid #eee; border-radius: 12rpx; }
+.cand-item { display: flex; align-items: center; gap: 12rpx; padding: 18rpx 20rpx; border-bottom: 1px solid #f2f2f2; }
+.cand-item:last-child { border-bottom: none; }
+.cand-item.on { background: #f2f7ff; }
+.cand-info { flex: 1; }
+.cand-info .name { display: block; font-size: 28rpx; font-weight: 600; }
+.cand-info .sub { display: block; font-size: 22rpx; color: #999; margin-top: 4rpx; }
+.cand-tag { font-size: 20rpx; color: #e64340; background: #fdeeee; border-radius: 999rpx; padding: 4rpx 14rpx; }
+.hint { padding: 24rpx 0; }
 .field { margin-bottom: 24rpx; }
 .req { color: #e64340; }
 .label { display: block; font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
