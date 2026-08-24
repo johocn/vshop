@@ -28,6 +28,24 @@ export interface RoleItem {
   permissions: string[];
 }
 
+export interface PermissionCatalogItem {
+  code: string;
+  label: string;
+}
+export interface PermissionCatalogGroup {
+  key: string;
+  label: string;
+  items: PermissionCatalogItem[];
+}
+
+/** 动态获取业务权限目录（单一来源：后端 PERMISSION_CATALOG），供角色管理页渲染 */
+export async function fetchPermissionCatalog(): Promise<PermissionCatalogGroup[]> {
+  const res = await getAdminClient().request<{ permissionCatalog: PermissionCatalogGroup[] }>(
+    `query PermissionCatalog { permissionCatalog { key label items { code label } } }`,
+  );
+  return res.permissionCatalog ?? [];
+}
+
 function mapTenant(t: any): TenantItem {
   return {
     id: t.id,
@@ -95,13 +113,14 @@ export async function fetchTenantAdministrators(channelId: string): Promise<Tena
 export async function createTenantAdministrator(
   channelId: string,
   input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string },
-): Promise<void> {
-  await getAdminClient().request(
+): Promise<string | null> {
+  const res = await getAdminClient().request<{ createTenantAdministrator: { initialPassword?: string | null } }>(
     `mutation CreateTenantAdministrator($channelId: ID!, $input: CreateTenantAdministratorInput!) {
-      createTenantAdministrator(channelId: $channelId, input: $input) { id }
+      createTenantAdministrator(channelId: $channelId, input: $input) { id initialPassword }
     }`,
     { channelId, input },
   );
+  return res.createTenantAdministrator?.initialPassword ?? null;
 }
 
 export async function setTenantAdministratorEnabled(id: string, enabled: boolean): Promise<void> {
@@ -154,11 +173,12 @@ export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   return res.tenantMembers;
 }
 
-export async function createTenantMember(input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string }): Promise<void> {
-  await getAdminClient().request(
-    `mutation CreateTenantMember($input: CreateTenantMemberInput!) { createTenantMember(input: $input) { id } }`,
+export async function createTenantMember(input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string }): Promise<string | null> {
+  const res = await getAdminClient().request<{ createTenantMember: { initialPassword?: string | null } }>(
+    `mutation CreateTenantMember($input: CreateTenantMemberInput!) { createTenantMember(input: $input) { id initialPassword } }`,
     { input },
   );
+  return res.createTenantMember?.initialPassword ?? null;
 }
 
 export async function setTenantMemberEnabled(id: string, enabled: boolean): Promise<void> {

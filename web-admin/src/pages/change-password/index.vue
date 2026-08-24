@@ -1,15 +1,15 @@
 <template>
-  <view class="login">
+  <view class="chg">
     <view class="brand">
       <view class="dot" />
-      <text class="t1">vshop 管理后台</text>
-      <text class="t2">店铺经营 · 一部手机搞定</text>
+      <text class="t1">设置新密码</text>
+      <text class="t2">首次登录需修改初始密码后方可使用</text>
     </view>
     <view class="card">
-      <input v-model="username" class="field" placeholder="账号" />
-      <input v-model="password" class="field" :password="!showPwd" placeholder="密码" @confirm="doLogin" />
-      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}密码</text></view>
-      <button class="btn" :disabled="loading" @tap="doLogin">{{ loading ? '登录中…' : '登 录' }}</button>
+      <input v-model="pw1" class="field" :password="!showPwd" placeholder="新密码（≥8位，含大小写/数字）" />
+      <input v-model="pw2" class="field" :password="!showPwd" placeholder="再次输入新密码" @confirm="submit" />
+      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}</text></view>
+      <button class="btn" :disabled="loading" @tap="submit">{{ loading ? '提交中…' : '绑定新密码' }}</button>
       <view v-if="err" class="err">{{ err }}</view>
     </view>
   </view>
@@ -17,35 +17,39 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
+import { changeMyPassword } from '../../apis/auth';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
-const username = ref('');
-const password = ref('');
+const pw1 = ref('');
+const pw2 = ref('');
 const showPwd = ref(false);
 const loading = ref(false);
 const err = ref('');
 
-async function doLogin() {
+async function submit() {
   err.value = '';
+  if (!pw1.value || pw1.value.length < 8) {
+    err.value = '密码至少 8 位';
+    return;
+  }
+  if (pw1.value !== pw2.value) {
+    err.value = '两次输入的新密码不一致';
+    return;
+  }
   loading.value = true;
   try {
-    await auth.login(username.value, password.value);
-    // 首登强改密：改密完成前强制停留改密页
-    if (auth.mustChangePassword) {
-      uni.redirectTo({ url: '/pages/change-password/index' });
-      return;
-    }
-    // 保留上次店铺；无则进入选店
+    await changeMyPassword(pw1.value);
+    await auth.loadAccess(); // 刷新 mustChangePassword 标志
     if (tenant.token) {
       uni.redirectTo({ url: '/pages/dashboard/index' });
     } else {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = (e?.response?.errors?.[0]?.message) || '登录失败，请检查账号密码';
+    err.value = e?.response?.errors?.[0]?.message || '修改失败，请重试';
   } finally {
     loading.value = false;
   }
@@ -53,11 +57,11 @@ async function doLogin() {
 </script>
 
 <style lang="scss" scoped>
-.login { min-height: 100vh; background: $wa-bg; padding: 120rpx 48rpx; box-sizing: border-box; }
+.chg { min-height: 100vh; background: $wa-bg; padding: 120rpx 48rpx; box-sizing: border-box; }
 .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 80rpx;
   .dot { width: 72rpx; height: 72rpx; border-radius: 18rpx; background: $wa-accent; margin-bottom: 24rpx; }
   .t1 { font-size: 44rpx; font-weight: 700; color: $wa-ink; }
-  .t2 { font-size: 24rpx; color: $wa-muted; margin-top: 8rpx; }
+  .t2 { font-size: 24rpx; color: $wa-muted; margin-top: 8rpx; text-align: center; }
 }
 .card { background: $wa-card; border-radius: 24rpx; padding: 40rpx 32rpx; box-shadow: 0 8rpx 30rpx rgba(0,0,0,.06);
   .field { height: 92rpx; border: 1rpx solid $wa-rule; border-radius: $wa-radius; padding: 0 24rpx; margin-bottom: 24rpx; font-size: 30rpx; }

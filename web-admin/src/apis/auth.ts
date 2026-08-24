@@ -41,23 +41,35 @@ export interface MyTenantChannel {
   tenantNo?: number | null;
   isOfficial: boolean;
   memberEnabled: boolean;
+  mustChangePassword: boolean;
 }
 
 export interface MyTenantAccess {
   isSuperAdmin: boolean;
   channels: MyTenantChannel[];
   permissions: string[];
+  mustChangePassword: boolean;
 }
 
-export async function fetchMyTenantAccess(): Promise<MyTenantAccess> {
+export async function fetchMyTenantAccess(channelId?: string): Promise<MyTenantAccess> {
   const res = await getAdminClient().request<{ myTenantAccess: MyTenantAccess }>(
-    `query MyTenantAccess {
-      myTenantAccess {
+    `query MyTenantAccess($channelId: ID) {
+      myTenantAccess(channelId: $channelId) {
         isSuperAdmin
-        channels { id code token name enabled tenantNo isOfficial memberEnabled }
+        channels { id code token name enabled tenantNo isOfficial memberEnabled mustChangePassword }
         permissions
+        mustChangePassword
       }
     }`,
+    { channelId: channelId ?? null },
   );
   return res.myTenantAccess;
+}
+
+/** 修改当前登录者自身密码（首登强改密时后端自动清除标志） */
+export async function changeMyPassword(newPassword: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation ChangeMyPassword($newPassword: String!) { tenantChangeMyPassword(newPassword: $newPassword) }`,
+    { newPassword },
+  );
 }

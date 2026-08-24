@@ -42,13 +42,13 @@ export async function updateChannelCustomFields(
   id: string,
   fields: Partial<ChannelCustomFields> & Record<string, unknown>,
 ): Promise<void> {
+  // 安全加固：改走插件端「仅本 channel」resolver（后端强制限定 ctx.channelId，
+  // 并禁止改 enabled/tenantNo/isOfficial），租户不再持有核心 UpdateChannel 权限，
+  // 从而校验跨租户改渠道画面。
   await getAdminClient().request(
-    `mutation UpdateChannel($id: ID!, $fields: UpdateChannelCustomFieldsInput!) {
-      updateChannel(input: { id: $id, customFields: $fields }) {
-        ... on Channel { id code }
-        ... on ErrorResult { errorCode message }
-      }
+    `mutation MyUpdateChannelCustomFields($fields: JSON!) {
+      myUpdateChannelCustomFields(input: $fields) { id }
     }`,
-    { id, fields },
+    { fields },
   );
 }

@@ -18,8 +18,10 @@ import { useTenantStore } from '../../stores/tenantStore';
 const auth = useAuthStore();
 const tenant = useTenantStore();
 
-function pick(c: { code: string; token: string }) {
+async function pick(c: { id: string; code: string; token: string }) {
   tenant.selectCh(c, c.code);
+  // 按所选店铺限定权限后进入（避免跨店铺权限并集导致菜单错显）
+  await auth.loadAccess(c.id);
   uni.redirectTo({ url: '/pages/dashboard/index' });
 }
 </script>

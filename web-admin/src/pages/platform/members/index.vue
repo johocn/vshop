@@ -38,9 +38,16 @@ function onAdd() {
     success: async (r) => {
       if (!r.confirm || !r.content) return;
       try {
-        await createTenantMember({ emailAddress: r.content, password: 'Admin@123456', displayName: r.content, roleIds: [] });
-        uni.showToast({ title: '已添加', icon: 'none' });
-        load();
+        // 不传密码：后端生成随机强口令并标记首次登录强制改密，initialPassword 仅本次返回展示一次
+        const pwd = await createTenantMember({ emailAddress: r.content, displayName: r.content, roleIds: [] });
+        uni.showModal({
+          title: '初始口令（仅显示一次）',
+          content: `账号：${r.content}\n初始口令：${pwd}\n请立即转发给本人，首次登录后将被强制修改密码。`,
+          showCancel: false,
+          success: () => {
+            load();
+          },
+        });
       } catch (err: any) {
         uni.showToast({ title: err?.message || '添加失败', icon: 'none' });
       }
