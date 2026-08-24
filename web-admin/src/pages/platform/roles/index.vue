@@ -1,6 +1,6 @@
 <template>
   <view class="page">
-    <view class="tabbar" v-if="isSuperPath">
+    <view class="tabbar" v-if="isSuperAdmin">
       <text class="tab" :class="{ on: activeTab === 'shop' }" @tap="switchTab('shop')">本店角色</text>
       <text class="tab" :class="{ on: activeTab === 'global' }" @tap="switchTab('global')">全局角色池</text>
     </view>
@@ -36,18 +36,18 @@
       </view>
       <view v-if="canImport()" class="import-row"><text class="import-btn" @tap="openImport">{{ importing ? '导入中…' : '一键导入默认角色' }}</text></view>
 
-      <!-- 租户自助：从全局角色池引用 -->
-      <view v-if="!isSuperPath" class="import-row">
-        <text class="import-btn ghost" @tap="openGlobalRefer">{{ openRefer ? '关闭' : '从全局角色池引用' }}</text>
+      <!-- 从全局角色池引用到本店（超管 / 租户自助） -->
+      <view class="import-row">
+        <text class="import-btn ghost" @tap="toggleRefer">{{ referOpen ? '关闭' : '从全局角色池引用到本店' }}</text>
       </view>
-      <view class="refer-list" v-if="!isSuperPath && openRefer">
+      <view class="refer-list" v-if="referOpen">
         <view class="card" v-for="g in availableGlobal" :key="g.id">
           <view class="row head">
             <view class="lt">
               <text class="title">{{ g.description || g.code }}</text>
               <text class="sub">{{ g.code }}</text>
             </view>
-            <text class="btn" @tap="doMyRefer(g.id)">引用到本店</text>
+            <text class="btn" @tap="doRefer(g.id)">引用到本店</text>
           </view>
         </view>
         <view v-if="!availableGlobal.length" class="empty">暂无可用全局角色</view>
@@ -134,6 +134,7 @@
       <view class="pop" @tap.stop>
         <text class="pop-title">分发「{{ distributeRole?.description || distributeRole?.code }}」到租户</text>
         <view class="field">
+          <text class="g-label">从「全局角色池」分发该角色到以下租户（引用到店）</text>
           <view class="perms">
             <text v-for="t in tenants" :key="t.id" class="perm tenant" :class="{ on: distributeSel.includes(t.id) }" @tap="toggleDistribute(t.id)">
               {{ t.name }}
@@ -151,6 +152,7 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
+import { useAuthStore } from '../../../stores/authStore';
 import {
   fetchTenantRoles, createTenantRole, updateTenantRole, deleteTenantRole, importTenantDefaultRoles,
   fetchMyTenantRoles, myCreateTenantRole, myUpdateTenantRole, myDeleteTenantRole,
@@ -160,6 +162,7 @@ import {
   type RoleItem, type PermissionCatalogGroup, type TenantItem,
 } from '../../../apis/tenant-admin';
 
+const auth = useAuthStore();
 const channelId = ref('');
 const activeTab = ref<'shop' | 'global'>('shop');
 const roles = ref<RoleItem[]>([]);
@@ -169,12 +172,18 @@ const tenants = ref<TenantItem[]>([]);
 // 动态业务权限目录（单一来源：后端 PERMISSION_CATALOG，避免前端硬编码双份）
 const catalog = ref<PermissionCatalogGroup[]>([]);
 const importing = ref(false);
-const isSuperPath = computed(() => !!channelId.value);
-const openRefer = ref(false);
+const isSuperAdmin = computed(() => auth.isSuperAdmin);
+const referOpen = ref(false);
 
-onLoad(async (q: any) => { channelId.value = q?.id || ''; loadCatalog(); if (tenants.value.length === 0) loadTenants(); });
+onLoad(async (q: any) => {
+  channelId.value = q?.id || '';
+  loadCatalog();
+  if (tenants.value.length === 0 && auth.isSuperAdmin) loadTenants();
+  if (isSuperAdmin.value) activeTab.value = 'global';
+});
 // uni-app 先 onLoad 后 onShow；每次进入/从详情页返回都重拉角色列表，修复新建后不刷新的问题
 onShow(() => { load(); });
+
 async function loadTenants() {
   try { tenants.value = (await fetchTenants(0, 100)).items; } catch (e: any) { /* 忽略 */ }
 }
@@ -193,7 +202,7 @@ async function load() {
   roles.value = channelId.value ? await fetchTenantRoles(channelId.value) : await fetchMyTenantRoles();
 }
 async function loadGlobal() {
-  if (isSuperPath.value) {
+  if (isSuperAdmin.value) {
     globalRoles.value = await fetchGlobalRoles();
   } else {
     availableGlobal.value = await fetchMyGlobalRolesAvailable();
@@ -264,6 +273,27 @@ async function submitCreate() {
   }
 }
 
+// ===== 从全局角色池引用到本店（超管 / 租户自助） =====
+async function toggleRefer() {
+  referOpen.value = !referOpen.value;
+  if (referOpen.value) availableGlobal.value = isSuperAdmin.value ? await fetchGlobalRoles() : await fetchMyGlobalRolesAvailable();
+}
+async function doRefer(roleId: string) {
+  try {
+    if (channelId.value) {
+      // 超管从租户详情进入：显式引用到该租户
+      await referGlobalRoleToChannel(roleId, channelId.value);
+    } else {
+      await myReferGlobalRole(roleId);
+    }
+    uni.showToast({ title: '已引用到本店', icon: 'none' });
+    referOpen.value = false;
+    load();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '引用失败', icon: 'none' });
+  }
+}
+
 // ===== 全局角色池（超管） =====
 async function openGlobalCreate() {
   globalForm.value = { code: '', description: '', permissions: ['ReadProduct'], channelIds: [] as string[] };
@@ -324,23 +354,6 @@ async function submitDistribute() {
     loadGlobal();
   } catch (err: any) {
     uni.showToast({ title: err?.message || '分发失败', icon: 'none' });
-  }
-}
-
-// ===== 租户自助：从全局池引用 =====
-async function openGlobalRefer() {
-  openRefer.value = !openRefer.value;
-  if (openRefer.value) availableGlobal.value = await fetchMyGlobalRolesAvailable();
-}
-async function doMyRefer(roleId: string) {
-  try {
-    await myReferGlobalRole(roleId);
-    uni.showToast({ title: '已引用到本店', icon: 'none' });
-    openRefer.value = false;
-    load();
-    loadGlobal();
-  } catch (err: any) {
-    uni.showToast({ title: err?.message || '引用失败', icon: 'none' });
   }
 }
 </script>
