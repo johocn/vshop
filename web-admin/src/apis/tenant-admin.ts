@@ -175,6 +175,57 @@ export async function importTenantDefaultRoles(channelId: string): Promise<RoleI
   return res.importDefaultRoles ?? [];
 }
 
+// ===== 全局角色池（超管） =====
+export async function fetchGlobalRoles(): Promise<RoleItem[]> {
+  const res = await getAdminClient().request<{ globalRoles: RoleItem[] }>(
+    `query GlobalRoles { globalRoles { id code description permissions } }`,
+  );
+  return res.globalRoles;
+}
+
+export async function createGlobalRole(
+  channelIds: string[],
+  input: { code: string; description: string; permissions: string[] },
+): Promise<RoleItem[]> {
+  const res = await getAdminClient().request<{ createGlobalRole: RoleItem[] }>(
+    `mutation CreateGlobalRole($channelIds: [ID!]!, $input: CreateTenantRoleInput!) {
+      createGlobalRole(channelIds: $channelIds, input: $input) { id code description permissions }
+    }`,
+    { channelIds, input },
+  );
+  return res.createGlobalRole;
+}
+
+export async function referGlobalRoleToChannel(roleId: string, channelId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation ReferGlobalRoleToChannel($roleId: ID!, $channelId: ID!) { referGlobalRoleToChannel(roleId: $roleId, channelId: $channelId) }`,
+    { roleId, channelId },
+  );
+}
+
+export async function unreferGlobalRoleFromChannel(roleId: string, channelId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation UnreferGlobalRoleFromChannel($roleId: ID!, $channelId: ID!) { unreferGlobalRoleFromChannel(roleId: $roleId, channelId: $channelId) }`,
+    { roleId, channelId },
+  );
+}
+
+// ===== 全局角色池（租户自助，限定本 channel） =====
+export async function fetchMyGlobalRolesAvailable(): Promise<RoleItem[]> {
+  const res = await getAdminClient().request<{ myGlobalRolesAvailable: RoleItem[] }>(
+    `query MyGlobalRolesAvailable { myGlobalRolesAvailable { id code description permissions } }`,
+  );
+  return res.myGlobalRolesAvailable;
+}
+
+export async function myReferGlobalRole(roleId: string): Promise<void> {
+  await getAdminClient().request(`mutation MyReferGlobalRole($roleId: ID!) { myReferGlobalRole(roleId: $roleId) }`, { roleId });
+}
+
+export async function myUnreferGlobalRole(roleId: string): Promise<void> {
+  await getAdminClient().request(`mutation MyUnreferGlobalRole($roleId: ID!) { myUnreferGlobalRole(roleId: $roleId) }`, { roleId });
+}
+
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
