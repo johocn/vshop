@@ -2,7 +2,7 @@
   <view class="page">
     <view v-if="!loading && !tpl" class="empty">模板不存在</view>
     <template v-if="tpl">
-      <view class="hint">配置将写入全局配送模板「{{ tpl.name }}」，之后「复制到本店」生成的方式实例会继承此配置。</view>
+      <view class="hint">配置将写入全局配送模板「{{ tpl.name }}」，之后「引用到本店」生成的方式实例会继承此配置。</view>
 
       <view class="section">
         <text class="section-title">配送区域（资格检查器）</text>
@@ -16,6 +16,28 @@
         </view>
       </view>
 
+      <!-- 自提/同城：默认固定运费 -->
+      <template v-if="kind === 'fixed-fee'">
+        <view class="section">
+          <text class="section-title">默认固定运费</text>
+          <view class="field">
+            <text class="label">固定运费（分，0=免费）</text>
+            <input class="ipt" type="number" v-model="fee.shippingPrice" placeholder="0" />
+          </view>
+          <text class="sub">此处为全局默认；租户「引用到本店」后可在本店配送方式里改自己的固定运费。</text>
+        </view>
+      </template>
+
+      <!-- 门店自提：免运费 -->
+      <template v-else-if="kind === 'store'">
+        <view class="section">
+          <text class="section-title">计费方式</text>
+          <text class="sub">门店自提免运费，无需配置。</text>
+        </view>
+      </template>
+
+      <!-- 快递：阶梯重量+区域计费 -->
+      <template v-else>
       <view class="section">
         <text class="section-title">运费公式（阶梯重量+区域计费）</text>
         <view class="field"><text class="label">首重 kg</text><input class="ipt" type="digit" v-model="fee.firstWeight" /></view>
@@ -34,6 +56,7 @@
         <view class="field"><text class="label">超重阈值 kg（0=不检查）</text><input class="ipt" type="digit" v-model="fee.oversizedThreshold" /></view>
         <view class="field"><text class="label">超重附加费（分）</text><input class="ipt" type="number" v-model="fee.oversizedSurcharge" /></view>
       </view>
+      </template>
 
       <button class="save" @tap="onSave">{{ saving ? '保存中…' : '保存配置' }}</button>
     </template>
@@ -48,6 +71,10 @@ const tpl = ref<any>(null);
 const loading = ref(true);
 const saving = ref(false);
 const templateId = ref('');
+
+// 计费类型：express=快递公式 / fixed-fee=自提/同城固定运费 / store=门店自提免费
+const FIXED_FEE_CALCS = ['pickup-point-calculator', 'employee-pickup-calculator', 'local-delivery-calculator'];
+const kind = ref<'express' | 'fixed-fee' | 'store'>('express');
 
 const region = ref({ excludedAreas: '', orderMinimum: '0' });
 const fee = ref<any>({});
@@ -70,6 +97,9 @@ onLoad(async (query) => {
   const data = await fetchShippingTemplate(templateId.value);
   if (data) {
     tpl.value = data;
+    kind.value = FIXED_FEE_CALCS.includes(data.calculator?.code)
+      ? 'fixed-fee'
+      : data.calculator?.code === 'store-pickup-calculator' ? 'store' : 'express';
     const checker = argsToMap(data.checker?.arguments);
     region.value = { excludedAreas: checker.excludedAreas ?? '', orderMinimum: checker.orderMinimum ?? '0' };
     const calc = argsToMap(data.calculator?.arguments);
@@ -82,6 +112,21 @@ async function onSave() {
   if (!templateId.value) return;
   saving.value = true;
   try {
+    if (kind.value === 'store') {
+      await updateShippingTemplateConfig(templateId.value, null, null);
+      uni.showToast({ title: '已保存' });
+      return;
+    }
+    if (kind.value === 'fixed-fee') {
+      const checker = tpl.value?.checker ? { code: tpl.value.checker.code, arguments: tpl.value.checker.arguments ?? [] } : null;
+      const calculator = {
+        code: tpl.value?.calculator?.code || 'local-delivery-calculator',
+        arguments: [{ name: 'shippingPrice', value: String(Math.max(0, Number(fee.value.shippingPrice) || 0)) }],
+      };
+      await updateShippingTemplateConfig(templateId.value, checker, calculator);
+      uni.showToast({ title: '已保存' });
+      return;
+    }
     const checker = {
       code: 'tiered-shipping-eligibility-checker',
       arguments: [
@@ -123,6 +168,7 @@ async function onSave() {
   .hint { background: #fff7f0; border: 1px solid #ffe0c4; color: #b05000; font-size: 24rpx; border-radius: 16rpx; padding: 18rpx 22rpx; margin-bottom: 20rpx; }
   .section { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 30rpx; margin-bottom: 20rpx;
     .section-title { display: block; font-size: 28rpx; color: $wa-ink; font-weight: 600; margin-bottom: 18rpx; }
+    .sub { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 6rpx; line-height: 1.5; }
     .field { margin-bottom: 16rpx; &.row { display: flex; align-items: center; justify-content: space-between; }
       .label { display: block; font-size: 24rpx; color: $wa-muted; margin-bottom: 8rpx; }
       .ipt { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; }

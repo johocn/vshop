@@ -10,19 +10,33 @@ export interface ShippingRow {
   name: string;
   description: string;
   enabled: boolean;
+  /** 计费方式 calculator code，如 自提/同城=pickup-point/employee-pickup/local-delivery，门店自提=store-pickup，快递=tiered-* */
+  calcCode: string;
+  /** 固定运费（分），仅自提/同城计费类型有效 */
+  shippingPrice: number;
+}
+
+function readArgs(args?: Array<{ name: string; value: string }> | null): Record<string, string> {
+  return (args || []).reduce<Record<string, string>>((acc, a) => { acc[a.name] = a.value; return acc; }, {});
 }
 
 export async function fetchShippingMethods(): Promise<ShippingRow[]> {
   const { shippingMethods } = await getAdminClient().request<{
-    shippingMethods: { items: Array<ShippingRow & { customFields: { enabled: boolean } | null }> };
-  }>(`query { shippingMethods { items { id code name description customFields { enabled } } } }`);
-  return shippingMethods.items.map((m) => ({
-    id: m.id,
-    code: m.code,
-    name: m.name,
-    description: m.description,
-    enabled: m.customFields?.enabled ?? true,
-  }));
+    shippingMethods: { items: Array<ShippingRow & { customFields: { enabled: boolean } | null; calculator: { code: string; args: Array<{ name: string; value: string }> } | null }> };
+  }>(`query { shippingMethods { items { id code name description calculator { code args { name value } } customFields { enabled } } } }`);
+  return shippingMethods.items.map((m) => {
+    const calcCode = m.calculator?.code || '';
+    const feeArgs = readArgs(m.calculator?.args);
+    return {
+      id: m.id,
+      code: m.code,
+      name: m.name,
+      description: m.description,
+      enabled: m.customFields?.enabled ?? true,
+      calcCode,
+      shippingPrice: Number(feeArgs.shippingPrice || 0),
+    };
+  });
 }
 
 // 配送方式启用/停用（customFields.enabled 启停开关）
@@ -40,4 +54,11 @@ export async function updateShippingMethod(id: string, name: string, description
 
 export async function deleteShippingMethod(id: string): Promise<void> {
   await getAdminClient().request(`mutation Del($id: ID!) { deleteShippingMethod(id: $id) { result } }`, { id });
+}
+
+// 更新配送方式实例的固定运费（分）。用于自提/同城计费类型的租户级运费配置。
+export async function updateShippingMethodShippingPrice(id: string, shippingPrice: number): Promise<void> {
+  await getAdminClient().request(`mutation Fee($id: ID!, $shippingPrice: Int!) {
+    updateShippingMethodShippingPrice(id: $id, shippingPrice: $shippingPrice) { id }
+  }`, { id, shippingPrice });
 }

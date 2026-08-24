@@ -1,5 +1,9 @@
 <template>
   <view class="page">
+    <!-- 顶部导航：支付档案 -->
+    <view class="nav">
+      <text class="nav-btn" @tap="go('/pages/payment/profile/index')">支付档案</text>
+    </view>
     <view class="tabs">
       <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">本店方式</text>
       <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">全局方案池</text>
@@ -25,14 +29,14 @@
     </template>
 
     <template v-else>
-      <view class="hint">全局方案由超级管理员维护，点击「复制到本店」生成独立实例后可编辑。</view>
+      <view class="hint">全局方案由超级管理员维护，点击「引用到本店」生成独立实例后可编辑。</view>
       <view class="card" v-for="t in pool" :key="t.id">
         <view class="row">
           <view class="left">
             <text class="name">{{ t.name }}</text>
             <text class="code">{{ t.code }}</text>
           </view>
-          <text class="copy" @tap="copy(t)">复制到本店</text>
+          <text class="copy" @tap="copy(t)">引用到本店</text>
         </view>
         <text class="desc">{{ t.description || '—' }}</text>
       </view>
@@ -74,11 +78,11 @@ onMounted(async () => { items.value = await fetchPaymentMethods(); });
 async function copy(t: any) {
   try {
     await createPaymentMethodFromTemplate(t.id);
-    uni.showToast({ title: '已复制到本店', icon: 'none' });
+    uni.showToast({ title: '已引用到本店', icon: 'none' });
     tab.value = 'mine';
     items.value = await fetchPaymentMethods();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '复制失败', icon: 'none' });
+    uni.showToast({ title: e?.message || '引用失败', icon: 'none' });
   }
 }
 
@@ -93,6 +97,7 @@ async function toggle(p: any, e: any) {
 }
 
 function openEdit(p: any) { editing.value = p; form.value = { id: p.id, name: p.name, description: p.description || '' }; }
+function go(url: string) { uni.navigateTo({ url }); }
 async function save() {
   try {
     await updatePaymentMethod(form.value.id, form.value.name, form.value.description);
@@ -110,6 +115,9 @@ function onDel(p: any) {
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
+  .nav { display: flex; gap: 20rpx; margin-bottom: 20rpx;
+    .nav-btn { flex: 1; text-align: center; font-size: 26rpx; color: $pm-d1; font-weight: 600; background: #fff; border: 1px solid $pm-d1; border-radius: 14rpx; padding: 20rpx 0; }
+  }
   .tabs { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 8rpx; margin-bottom: 20rpx;
     .tab { flex: 1; text-align: center; font-size: 28rpx; color: $wa-muted; padding: 18rpx 0; border-radius: 14rpx;
       &.on { background: $pm-d1; color: #fff; font-weight: 600; }

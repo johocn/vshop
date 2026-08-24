@@ -31,3 +31,33 @@ export async function fetchMyChannels(): Promise<AdminChannel[]> {
   );
   return res.me.channels;
 }
+
+export interface MyTenantChannel {
+  id: string;
+  code: string;
+  token: string;
+  name: string;
+  enabled: boolean;
+  tenantNo?: number | null;
+  isOfficial: boolean;
+  memberEnabled: boolean;
+}
+
+export interface MyTenantAccess {
+  isSuperAdmin: boolean;
+  channels: MyTenantChannel[];
+  permissions: string[];
+}
+
+export async function fetchMyTenantAccess(): Promise<MyTenantAccess> {
+  const res = await getAdminClient().request<{ myTenantAccess: MyTenantAccess }>(
+    `query MyTenantAccess {
+      myTenantAccess {
+        isSuperAdmin
+        channels { id code token name enabled tenantNo isOfficial memberEnabled }
+        permissions
+      }
+    }`,
+  );
+  return res.myTenantAccess;
+}

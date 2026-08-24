@@ -71,7 +71,7 @@ export async function promoteToListPublic(id: string): Promise<void> {
   }`, { id });
 }
 
-// 把（全局）自提点分配/复制到本店使用（引用共享，不克隆副本；channel 取当前 ctx.channelId）
+// 把（全局）自提点分配/引用到本店使用（引用共享，不克隆副本；channel 取当前 ctx.channelId）
 export async function assignToChannel(ids: string[]): Promise<void> {
   await getAdminClient().request(`mutation Assign($ids: [ID!]!) {
     assignPickupLocationsToChannel(ids: $ids)

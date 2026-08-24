@@ -37,7 +37,7 @@
     </template>
 
     <template v-else>
-      <view class="hint">全局自提点由超级管理员维护，租户「复制到本店」即引用共享（不克隆副本）。</view>
+      <view class="hint">全局自提点由超级管理员维护，租户「引用到本店」即引用共享（不克隆副本）。</view>
       <view class="card" v-for="g in pool" :key="g.id">
         <view class="row">
           <view class="info">
@@ -52,8 +52,8 @@
         </view>
         <view class="ops">
           <text v-if="auth.isSuperAdmin" @tap="onEdit(g)">编辑</text>
-          <text v-if="!assigned(g.id)" class="copy" @tap="onAssign(g)">复制到本店</text>
-          <text v-else class="assigned">已复制</text>
+          <text v-if="!assigned(g.id)" class="copy" @tap="onAssign(g)">引用到本店</text>
+          <text v-else class="assigned">已引用</text>
         </view>
       </view>
       <view v-if="!pool.length" class="empty">暂无全局自提点</view>
@@ -106,8 +106,8 @@ function onPromote(s: PickupLocationItem) {
 }
 
 async function onAssign(g: PickupLocationItem) {
-  try { await assignToChannel([g.id]); await reload(); await switchTab('pool'); uni.showToast({ title: '已复制到本店', icon: 'none' }); }
-  catch (e: any) { uni.showToast({ title: e?.message || '复制失败', icon: 'none' }); }
+  try { await assignToChannel([g.id]); await reload(); await switchTab('pool'); uni.showToast({ title: '已引用到本店', icon: 'none' }); }
+  catch (e: any) { uni.showToast({ title: e?.message || '引用失败', icon: 'none' }); }
 }
 
 function onRemove(s: PickupLocationItem) {

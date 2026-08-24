@@ -25,7 +25,11 @@
     { "path": "pages/shipping/profile/index", "style": { "navigationBarTitleText": "配送档案" } },
     { "path": "pages/payment/profile/index", "style": { "navigationBarTitleText": "支付档案" } },
     { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
-    { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } }
+    { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } },
+    { "path": "pages/platform/tenants/index", "style": { "navigationBarTitleText": "租户列表" } },
+    { "path": "pages/platform/tenants/detail", "style": { "navigationBarTitleText": "租户详情" } },
+    { "path": "pages/platform/roles/index", "style": { "navigationBarTitleText": "角色管理" } },
+    { "path": "pages/platform/members/index", "style": { "navigationBarTitleText": "人员管理" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

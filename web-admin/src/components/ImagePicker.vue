@@ -41,6 +41,7 @@
               class="zoom"
               @tap.stop="preview(i)"
             >⌕</view>
+            <view class="del" @tap.stop="onDelete(it)">🗑</view>
           </view>
         </view>
         <view class="foot">
@@ -77,7 +78,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchAssets, uploadAsset, type AssetItem } from '../apis/asset';
+import { fetchAssets, uploadAsset, deleteAsset, type AssetItem } from '../apis/asset';
 
 const props = withDefaults(defineProps<{ max?: number; value?: string[] }>(), {
   max: 9,
@@ -163,6 +164,28 @@ function remove(id: string) {
   emitChange();
 }
 
+// 删除图片库中的图片文件（含物理文件），删除后刷新列表
+function onDelete(it: AssetItem) {
+  uni.showModal({
+    title: '删除图片',
+    content: '确定删除这张图片？将同时删除图片文件。若该图正被商品/自提点等引用，删除后相关位置将无法显示。',
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        await deleteAsset(it.id);
+        selectedIds.value = selectedIds.value.filter((id) => id !== it.id);
+        items.value = items.value.filter((x) => x.id !== it.id);
+        uploadedItems.value = uploadedItems.value.filter((x) => x.id !== it.id);
+        emitChange();
+        await load(false); // 重新拉取，校正分页与总数
+        uni.showToast({ title: '已删除', icon: 'none' });
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
+      }
+    },
+  });
+}
+
 function previewIndexItems(list: { preview: string }[], currentPreview: string) {
   const urls = list.map((i) => i.preview);
   const current = urls.indexOf(currentPreview);
@@ -193,14 +216,15 @@ async function chooseAndUpload() {
     for (const tf of tmp.slice(0, remain)) {
       const { file, name } = await toFile(tf);
       const asset = await uploadAsset(file, name);
-      // 上传成功自动选中并追加到图库
+      // 上传成功自动选中
       if (!selectedIds.value.includes(asset.id)) {
         selectedIds.value.push(asset.id);
       }
-      items.value = [asset, ...items.value];
       uploadedItems.value = [asset, ...uploadedItems.value];
     }
     emitChange();
+    // 上传成功后重置分页并强制从服务器刷新图库，确保新图出现在图库列表
+    await load(false);
     if (selectedIds.value.length >= props.max) {
       uni.showToast({ title: '已达到上限', icon: 'none' });
     }
@@ -256,7 +280,17 @@ async function refresh() {
   await load(false);
 }
 
-defineExpose({ refresh });
+// 把当前已选 id 解析为完整资源对象（含 preview/source），供调用方回填 URL 等
+function getSelectedAssets(): AssetItem[] {
+  const byId = new Map<string, AssetItem>();
+  for (const a of items.value) byId.set(a.id, a);
+  for (const a of uploadedItems.value) byId.set(a.id, a);
+  return selectedIds.value
+    .map((id) => byId.get(id))
+    .filter((a): a is AssetItem => !!a);
+}
+
+defineExpose({ refresh, getSelectedAssets });
 
 onMounted(() => {
   load(false);
@@ -345,6 +379,19 @@ onMounted(() => {
         font-size: 30rpx;
         color: #fff;
         background: rgba(0, 0, 0, 0.4);
+        border-radius: 50%;
+      }
+      .del {
+        position: absolute;
+        right: 6rpx;
+        bottom: 6rpx;
+        width: 34rpx;
+        height: 34rpx;
+        line-height: 34rpx;
+        text-align: center;
+        font-size: 24rpx;
+        color: #fff;
+        background: rgba(220, 38, 38, 0.85);
         border-radius: 50%;
       }
     }

@@ -15,7 +15,7 @@ export async function fetchAssets(take = 30, skip = 0): Promise<{ totalItems: nu
     assets: { totalItems: number; items: AssetItem[] };
   }>(
     `query Assets($take: Int, $skip: Int) {
-      assets(options: { take: $take, skip: $skip, filter: { assetType: { eq: IMAGE } } }) {
+      assets(options: { take: $take, skip: $skip, sort: { createdAt: DESC } }) {
         totalItems
         items { id preview source mimeType width height }
       }

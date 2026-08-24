@@ -43,7 +43,7 @@ export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
     shippingProfiles {
       items {
         id name code description isGlobal enabled freeShippingThreshold isTenantDefault
-        shippingMethods { id code }
+        shippingMethods { id code name }
         pickupLocations { id }
         methodConfigs { shippingMethodId mode options }
       }
@@ -92,10 +92,10 @@ export async function deleteShippingProfile(id: string): Promise<void> {
   );
 }
 
-export interface ShippingMethodRef { id: string; code: string; }
+export interface ShippingMethodRef { id: string; code: string; name: string; }
 export async function fetchShippingMethods(): Promise<ShippingMethodRef[]> {
   const { shippingMethods } = await getAdminClient().request<{ shippingMethods: { items: ShippingMethodRef[] } }>(
-    `query { shippingMethods { items { id code } } }`,
+    `query { shippingMethods { items { id code name } } }`,
   );
   return shippingMethods.items;
 }

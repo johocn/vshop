@@ -7,7 +7,7 @@
         <text class="switch" @tap="switchStore">切换店铺 ›</text>
       </view>
       <scroll-view scroll-y class="body">
-        <view class="group" v-for="g in groups" :key="g.domain">
+        <view class="group" v-for="g in shownGroups" :key="g.domain">
           <view class="g-band">
             <view class="band" :style="{ background: g.color }" />
             <text class="g-title">{{ g.domain }}</text>
@@ -22,10 +22,13 @@
   </view>
 </template>
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { useTenantStore } from '../stores/tenantStore';
+import { useAuthStore } from '../stores/authStore';
 import { D, tierStyle } from '../theme';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
+const auth = useAuthStore();
 defineProps<{ show: boolean }>();
 
 const groups = [
@@ -63,6 +66,26 @@ const groups = [
     { label: '退出登录', tier: 3, action: 'logout' },
   ]},
 ];
+
+// 平台管理组：按权限渲染（仅持有对应权限者可见）
+const platformGroup = () => {
+  const items: { label: string; url: string; tier: number }[] = [];
+  if (auth.isSuperAdmin || auth.hasPermission('TenantManage')) {
+    items.push({ label: '租户列表', url: '/pages/platform/tenants/index', tier: 1 });
+  }
+  if (auth.hasPermission('TenantRoleManage')) {
+    items.push({ label: '角色管理', url: '/pages/platform/roles/index', tier: 2 });
+  }
+  if (auth.hasPermission('TenantMemberManage')) {
+    items.push({ label: '人员管理', url: '/pages/platform/members/index', tier: 2 });
+  }
+  if (!items.length) return null;
+  return { domain: '平台', color: D.d7.main, grad: D.d7.grad, items };
+};
+
+const shownGroups = computed(() =>
+  [...groups, ...(platformGroup() ? [platformGroup()] : [])].filter(Boolean),
+);
 
 function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' }); }
 function go(it: any) {

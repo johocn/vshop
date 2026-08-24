@@ -11,7 +11,7 @@
         <input class="ipt" v-model="form.name" placeholder="如 全国标准配送" />
       </view>
       <view class="field">
-        <text class="label">Code</text>
+        <text class="label">编码</text>
         <input class="ipt" v-model="form.code" placeholder="如 express" />
       </view>
       <view class="field">
@@ -26,9 +26,16 @@
 
       <view class="methods" v-for="(e, i) in methodEntries" :key="e.shippingMethodId">
         <view class="method-row">
-          <text class="method-code">{{ e.code }}</text>
-          <text class="method-mode">{{ e.mode === 'pickup' ? '自提' : '邮寄' }}</text>
-          <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
+          <view class="method-head">
+          <view class="method-title">
+            <text class="method-code">{{ e.name || e.code }}</text>
+            <text v-if="e.name && e.code" class="method-key">{{ e.code }}</text>
+          </view>
+          <view class="method-actions">
+            <text class="method-mode">{{ e.mode === 'pickup' ? '自提' : '邮寄' }}</text>
+            <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
+          </view>
+        </view>
         </view>
 
         <view v-if="isPickup(e.code)">
@@ -40,7 +47,7 @@
             </view>
           </view>
           <view v-if="e.rangeMode === 'selected'" class="pickup-blocks">
-            <view v-for="grp in groupedPickups()" :key="grp.label" class="pickup-block">
+            <view v-for="grp in groupedPickups(e.code)" :key="grp.label" class="pickup-block">
               <text class="pickup-group">{{ grp.label }}</text>
               <checkbox-group>
                 <label class="pickup-item" v-for="p in grp.list" :key="p.id">
@@ -55,6 +62,7 @@
               </checkbox-group>
             </view>
             <view v-if="!pickupLocations.length" class="pickup-empty">暂无自提点</view>
+            <view v-else-if="!groupedPickups(e.code).length" class="pickup-empty">暂无可用的该类型自提点</view>
           </view>
           <button class="mini" @tap="onAddPickup(e)">＋ 新增自提点</button>
         </view>
@@ -105,13 +113,14 @@ import { fetchPickupLocations, PickupLocationItem } from '../../../apis/pickup-l
 interface MethodEntry {
   shippingMethodId: string;
   code: string;
+  name: string;
   mode: string; // 'pickup' | 'mail'
   rangeMode: 'all' | 'selected';
   pickupLocationIds: string[];
 }
 
 const items = ref<any[]>([]);
-const methods = ref<{ id: string; code: string }[]>([]);
+const methods = ref<{ id: string; code: string; name: string }[]>([]);
 const pickupLocations = ref<PickupLocationItem[]>([]);
 
 const creating = ref(false);
@@ -125,8 +134,20 @@ const methodEntries = ref<MethodEntry[]>([]);
 const isPickup = (code: string) => /pickup|store/i.test(code);
 
 const PICKUP_LABEL: Record<string, string> = { point: '租户自提点', store: '租户门店', employee: '职工单位' };
-const groupedPickups = () => ['point', 'store', 'employee']
-  .map((t) => ({ label: PICKUP_LABEL[t], list: pickupLocations.value.filter((p) => p.type === t) }));
+// 配送方式 code → 允许的自提点类型（严格映射，D 区块）
+const CODE_TO_PICKUP_TYPES: Record<string, string[]> = {
+  'store-pickup': ['store'],
+  'pickup-point': ['point'],
+  'employee-pickup': ['employee'],
+};
+const pickupTypeForCode = (code: string): string[] | null => CODE_TO_PICKUP_TYPES[code] ?? null;
+const groupedPickups = (code: string) => {
+  const types = pickupTypeForCode(code);
+  if (!types) return [];
+  return types
+    .map((t) => ({ label: PICKUP_LABEL[t], list: pickupLocations.value.filter((p) => p.type === t) }))
+    .filter((g) => g.list.length > 0);
+};
 
 async function reload() {
   items.value = await fetchShippingProfiles();
@@ -174,14 +195,16 @@ function onEdit(s: ShippingProfileItem) {
     return acc;
   }, {});
   methodEntries.value = ids.map((id: string) => {
-    const code = (s.shippingMethods || []).find((m: any) => m.id === id)?.code || '';
+    const m = (s.shippingMethods || []).find((x: any) => x.id === id);
+    const code = m?.code || '';
+    const name = m?.name || '';
     const cfg = cfgs[id];
     const mode = cfg?.mode || (isPickup(code) ? 'pickup' : 'mail');
     const rangeMode: 'all' | 'selected' = cfg?.options?.rangeMode === 'all' ? 'all' : 'selected';
     const pickupLocationIds: string[] = cfg?.options?.pickupLocationIds
       ? [...(cfg.options.pickupLocationIds as string[])]
       : [];
-    return { shippingMethodId: id, code, mode, rangeMode, pickupLocationIds };
+    return { shippingMethodId: id, code, name, mode, rangeMode, pickupLocationIds };
   });
 }
 
@@ -203,11 +226,11 @@ async function onAddMethod() {
     return;
   }
   uni.showActionSheet({
-    itemList: avail.map((m) => m.code),
+    itemList: avail.map((m) => (m.name || m.code)),
     success: (res) => {
       const m = avail[res.tapIndex];
       if (!m) return;
-      methodEntries.value.push({ shippingMethodId: m.id, code: m.code, mode: isPickup(m.code) ? 'pickup' : 'mail', rangeMode: 'selected', pickupLocationIds: [] });
+      methodEntries.value.push({ shippingMethodId: m.id, code: m.code, name: m.name, mode: isPickup(m.code) ? 'pickup' : 'mail', rangeMode: 'selected', pickupLocationIds: [] });
     },
     fail: () => {},
   });
@@ -218,9 +241,11 @@ function onRemoveMethod(i: number) {
 }
 
 function onAddPickup(e: MethodEntry) {
-  // 跳转独立自提点管理页（全字段表单：联系人/电话/经纬度/照片等），返回后自动刷新列表再勾选
+  // 预选与当前配送方式严格匹配的自提点类型，跳转独立自提点管理页；返回后刷新列表再勾选
+  const types = pickupTypeForCode(e.code) || [];
+  const qs = types[0] ? `?type=${types[0]}` : '';
   uni.navigateTo({
-    url: '/pages/pickup/edit/index',
+    url: `/pages/pickup/edit/index${qs}`,
     success: () => {
       uni.$once('pickup-created', (newId: string) => {
         if (newId && !e.pickupLocationIds.includes(String(newId))) {
@@ -233,7 +258,7 @@ function onAddPickup(e: MethodEntry) {
 
 async function onSave() {
   if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }
-  if (!form.value.code.trim()) { uni.showToast({ title: '请填写 Code', icon: 'none' }); return; }
+  if (!form.value.code.trim()) { uni.showToast({ title: '请填写编码', icon: 'none' }); return; }
   if (!methodEntries.value.length) { uni.showToast({ title: '请至少选择一个配送方式', icon: 'none' }); return; }
 
   const shippingMethodIds = methodEntries.value.map((e) => e.shippingMethodId);
@@ -321,8 +346,12 @@ function onDel(s: ShippingProfileItem) {
     .mini { display: inline-block; width: auto; margin: 8rpx 0 0; padding: 0 28rpx; line-height: 56rpx; font-size: 26rpx; background: $wa-accent; color: #fff; border-radius: $wa-radius; }
 
     .methods { border: 1rpx solid $wa-rule; border-radius: $wa-radius; padding: 20rpx; margin-bottom: 16rpx;
-      .method-row { display: flex; align-items: center; justify-content: space-between;
+      .method-row { 
+        .method-head { display: flex; align-items: center; justify-content: space-between; }
+        .method-title { display: flex; align-items: baseline; min-width: 0; }
         .method-code { font-size: 28rpx; color: $wa-ink; font-weight: 500; }
+        .method-key { font-size: 20rpx; color: $wa-muted; margin-left: 12rpx; }
+        .method-actions { display: flex; align-items: center; gap: 20rpx; flex-shrink: 0; }
         .method-mode { font-size: 24rpx; color: #fff; background: $wa-accent; border-radius: 20rpx; padding: 2rpx 16rpx; }
         .method-del { font-size: 24rpx; color: #e64340; }
       }
