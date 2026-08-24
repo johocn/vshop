@@ -225,3 +225,61 @@ export async function myUpdateTenantRole(roleId: string, input: { description?: 
 export async function myDeleteTenantRole(roleId: string): Promise<void> {
   await getAdminClient().request(`mutation MyDeleteTenantRole($roleId: ID!) { myDeleteTenantRole(roleId: $roleId) }`, { roleId });
 }
+
+// ===== 关联已有账号（平台/租户视角） =====
+export interface AdminSearchCandidate {
+  id: string;
+  emailAddress: string;
+  displayName: string;
+  linkedCount: number;
+  linkedChannelIds: string[];
+  alreadyLinked: boolean;
+}
+
+const SEARCH_CANDIDATE_FIELDS = `id emailAddress displayName linkedCount linkedChannelIds alreadyLinked`;
+
+export async function searchTenantAdmins(channelId: string, keyword: string): Promise<AdminSearchCandidate[]> {
+  const res = await getAdminClient().request<{ tenantSearchAdmins: AdminSearchCandidate[] }>(
+    `query TenantSearchAdmins($channelId: ID!, $keyword: String!) {
+      tenantSearchAdmins(channelId: $channelId, keyword: $keyword) { ${SEARCH_CANDIDATE_FIELDS} }
+    }`,
+    { channelId, keyword },
+  );
+  return res.tenantSearchAdmins;
+}
+
+export async function linkTenantMember(
+  channelId: string,
+  input: { administratorId: string; roleIds: string[]; displayName?: string; phone?: string; remark?: string },
+): Promise<string> {
+  const res = await getAdminClient().request<{ tenantLinkMember: { id: string } }>(
+    `mutation TenantLinkMember($channelId: ID!,
+      $administratorId: ID!, $roleIds: [ID!]!, $displayName: String, $phone: String, $remark: String) {
+      tenantLinkMember(channelId: $channelId, administratorId: $administratorId, roleIds: $roleIds,
+        displayName: $displayName, phone: $phone, remark: $remark) { id }
+    }`,
+    { channelId, ...input },
+  );
+  return res.tenantLinkMember.id;
+}
+
+export async function searchMyAdmins(keyword: string): Promise<AdminSearchCandidate[]> {
+  const res = await getAdminClient().request<{ mySearchAdmins: AdminSearchCandidate[] }>(
+    `query MySearchAdmins($keyword: String!) { mySearchAdmins(keyword: $keyword) { ${SEARCH_CANDIDATE_FIELDS} } }`,
+    { keyword },
+  );
+  return res.mySearchAdmins;
+}
+
+export async function linkTenantMemberToSelf(
+  input: { administratorId: string; roleIds: string[]; displayName?: string; phone?: string; remark?: string },
+): Promise<string> {
+  const res = await getAdminClient().request<{ myLinkMember: { id: string } }>(
+    `mutation MyLinkMember($administratorId: ID!, $roleIds: [ID!]!, $displayName: String, $phone: String, $remark: String) {
+      myLinkMember(administratorId: $administratorId, roleIds: $roleIds,
+        displayName: $displayName, phone: $phone, remark: $remark) { id }
+    }`,
+    input,
+  );
+  return res.myLinkMember.id;
+}
