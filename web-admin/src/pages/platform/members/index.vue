@@ -3,7 +3,7 @@
     <view class="card">
       <view class="row head">
         <text class="title">本租户人员</text>
-        <text class="btn" @tap="onAdd">＋添加人员</text>
+        <text class="head-btn" @tap="onAdd">＋添加人员</text>
       </view>
       <view class="item" v-for="m in members" :key="m.id">
         <view class="info">
@@ -25,8 +25,12 @@
       <view class="field"><text class="label">手机号</text><input class="input" v-model="addForm.phone" placeholder="选填" /></view>
       <view class="field">
         <text class="label">角色</text>
-        <view class="perm-tags">
-          <text v-for="r in roles" :key="r.id" class="perm" :class="{ on: addForm.roleIds.includes(r.id) }" @tap="toggleRole(r.id)">{{ r.description || r.code }}</text>
+        <view class="pick-trigger" @tap="openPickRole">
+          <text v-if="!selectedRoleNames.length" class="ph">请选择角色（可多选）</text>
+          <view v-else class="pick-tags">
+            <text v-for="n in selectedRoleNames" :key="n" class="pick-tag">{{ n }}</text>
+          </view>
+          <text class="arrow">▾</text>
         </view>
       </view>
       <view class="actions">
@@ -36,11 +40,33 @@
     </view>
   </view>
 
+  <!-- 角色多选弹层 -->
+  <view class="mask" v-if="showRolePick" @tap="showRolePick = false">
+    <view class="pop" @tap.stop>
+      <text class="pop-title">选择角色</text>
+      <view class="pick-list">
+        <view v-for="r in roles" :key="r.id" class="pick-item" @tap="togglePickRole(r.id)">
+          <text class="pick-item-name" :class="{ on: addForm.roleIds.includes(r.id) }">{{ r.description || r.code }}</text>
+          <text class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
+        </view>
+        <view v-if="!roles.length" class="empty">该租户暂无角色，<text class="link" @tap="gotoRoles">去创建 ›</text></view>
+      </view>
+      <view class="actions">
+        <button class="btn ghost" @tap="showRolePick = false">取消</button>
+        <button class="btn" @tap="showRolePick = false">确定</button>
+      </view>
+    </view>
+  </view>
+
   <view class="mask" v-if="showRoles" @tap="showRoles = false">
     <view class="pop" @tap.stop>
       <text class="pop-title">分配角色</text>
-      <view class="perm-tags">
-        <text v-for="r in roles" :key="r.id" class="perm" :class="{ on: roleTargetIds.includes(r.id) }" @tap="toggleTargetRole(r.id)">{{ r.description || r.code }}</text>
+      <view class="pick-list">
+        <view v-for="r in roles" :key="r.id" class="pick-item" @tap="toggleTargetRole(r.id)">
+          <text class="pick-item-name" :class="{ on: roleTargetIds.includes(r.id) }">{{ r.description || r.code }}</text>
+          <text class="check" :class="{ on: roleTargetIds.includes(r.id) }">{{ roleTargetIds.includes(r.id) ? '✓' : '' }}</text>
+        </view>
+        <view v-if="!roles.length" class="empty">该租户暂无角色</view>
       </view>
       <view class="actions">
         <button class="btn ghost" @tap="showRoles = false">取消</button>
@@ -52,7 +78,7 @@
   <PasswordPopup v-if="pwdPop" :title="'初始口令（仅显示一次）'" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
 </template>
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import {
   fetchMyTenantMembers, createTenantMember, setTenantMemberEnabled, deleteTenantMember,
@@ -70,6 +96,11 @@ const addForm = ref({ email: '', displayName: '', phone: '', roleIds: [] as stri
 const pwdPop = ref(false);
 const pwdInfo = ref({ account: '', password: '' });
 
+const showRolePick = ref(false);
+const selectedRoleNames = computed(() =>
+  roles.value.filter((r) => addForm.value.roleIds.includes(r.id)).map((r) => r.description || r.code),
+);
+
 const showRoles = ref(false);
 const roleTarget = ref<TenantMemberItem | null>(null);
 const roleTargetIds = ref([] as string[]);
@@ -84,10 +115,16 @@ function onAdd() {
   addForm.value = { email: '', displayName: '', phone: '', roleIds: [] };
   showAdd.value = true;
 }
-function toggleRole(id: string) {
+function openPickRole() { showRolePick.value = true; }
+function togglePickRole(id: string) {
   const i = addForm.value.roleIds.indexOf(id);
   if (i >= 0) addForm.value.roleIds.splice(i, 1);
   else addForm.value.roleIds.push(id);
+}
+function gotoRoles(e: any) {
+  e.stopPropagation();
+  showRolePick.value = false;
+  uni.navigateTo({ url: '/pages/platform/roles/index' });
 }
 async function submitAdd() {
   const email = addForm.value.email.trim();
@@ -171,7 +208,7 @@ function onRemove(m: TenantMemberItem) {
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .title { font-size: 30rpx; font-weight: 700; }
-.btn { color: $pm-info; font-size: 26rpx; }
+.head-btn { flex: 0 0 auto; padding: 8rpx 26rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
 .item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }
 .info { flex: 1; }
 .name { display: block; font-size: 28rpx; font-weight: 600; }
@@ -188,6 +225,17 @@ function onRemove(m: TenantMemberItem) {
 .perm-tags { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .perm { padding: 12rpx 24rpx; border-radius: 40rpx; border: 1px solid #eee; color: #666; font-size: 24rpx; }
 .perm.on { background: #4f8cff; color: #fff; border-color: #4f8cff; }
+.pick-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; border: 1px solid #eee; border-radius: 12rpx; padding: 16rpx 20rpx; }
+.pick-trigger .ph { color: #bbb; font-size: 26rpx; }
+.pick-trigger .arrow { color: #999; font-size: 24rpx; }
+.pick-tags { display: flex; flex-wrap: wrap; gap: 8rpx; flex: 1; }
+.pick-tag { background: #eef4ff; color: $pm-info; border-radius: 999rpx; padding: 4rpx 16rpx; font-size: 22rpx; }
+.pick-list { max-height: 480rpx; overflow-y: auto; margin-bottom: 8rpx; }
+.pick-item { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 8rpx; border-bottom: 1px solid #f2f2f2; }
+.pick-item-name { font-size: 28rpx; color: #333; }
+.pick-item-name.on { color: $pm-info; font-weight: 600; }
+.check { width: 36rpx; height: 36rpx; border-radius: 50%; border: 1px solid #ddd; color: #fff; font-size: 22rpx; text-align: center; line-height: 36rpx; }
+.check.on { background: $pm-info; border-color: $pm-info; }
 .actions { display: flex; gap: 24rpx; margin-top: 8rpx; }
 .btn { flex: 1; border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; }
 .ghost { background: #f2f2f2; color: #666; }

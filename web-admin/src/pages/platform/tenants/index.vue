@@ -3,7 +3,7 @@
     <view class="card">
       <view class="row head">
         <text class="title">租户列表</text>
-        <text class="btn" @tap="onCreate">＋新建租户</text>
+        <text class="head-btn" @tap="onCreate">＋新建租户</text>
       </view>
       <view class="item" v-for="t in tenants" :key="t.id">
         <view class="info">
@@ -93,7 +93,7 @@ onMounted(load);
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .title { font-size: 30rpx; font-weight: 700; }
-.btn { color: $pm-info; font-size: 26rpx; }
+.head-btn { flex: 0 0 auto; padding: 8rpx 26rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
 .item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }
 .info { flex: 1; }
 .name { display: block; font-size: 28rpx; font-weight: 600; }
