@@ -24,11 +24,32 @@
       </view>
     </view>
     <view v-if="!roles.length" class="empty">暂无角色</view>
-    <view class="fab" @tap="onCreate">＋</view>
+    <view class="fab" @tap="openCreate">＋</view>
+
+    <!-- 新建角色表单弹层 -->
+    <view class="mask" v-if="showCreate" @tap="showCreate = false">
+      <view class="pop" @tap.stop>
+        <text class="pop-title">新建角色</text>
+        <view class="field"><text class="label">角色编码（英文，如 kefu）<text class="req">*</text></text><input class="input" v-model="createForm.code" placeholder="唯一英文标识" /></view>
+        <view class="field"><text class="label">显示名称（中文）<text class="req">*</text></text><input class="input" v-model="createForm.description" placeholder="如：客服" /></view>
+        <view class="field">
+          <text class="label">选择权限</text>
+          <view class="perms">
+            <text v-for="p in permissionOptions" :key="p.code" class="perm" :class="{ on: createForm.permissions.includes(p.code) }" @tap="toggleCreate(p.code)">
+              {{ p.label }}
+            </text>
+          </view>
+        </view>
+        <view class="actions">
+          <text class="btn ghost" @tap="showCreate = false">取消</text>
+          <text class="btn" @tap="submitCreate">创建</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
   fetchTenantRoles, createTenantRole, updateTenantRole, deleteTenantRole,
@@ -82,23 +103,34 @@ function onDelete(r: RoleItem) {
     },
   });
 }
-function onCreate() {
-  uni.showModal({
-    title: '新建角色',
-    editable: true,
-    placeholderText: '角色编码（如 kefu）',
-    success: async (r) => {
-      if (!r.confirm || !r.content) return;
-      try {
-        if (channelId.value) await createTenantRole(channelId.value, { code: r.content, description: r.content, permissions: ['ReadProduct'] });
-        else await myCreateTenantRole({ code: r.content, description: r.content, permissions: ['ReadProduct'] });
-        uni.showToast({ title: '已创建', icon: 'none' });
-        load();
-      } catch (err: any) {
-        uni.showToast({ title: err?.message || '创建失败', icon: 'none' });
-      }
-    },
-  });
+function openCreate() {
+  createForm.value = { code: '', description: '', permissions: ['ReadProduct'] };
+  showCreate.value = true;
+}
+const showCreate = ref(false);
+const createForm = ref({ code: '', description: '', permissions: [] as string[] });
+// 新建角色默认勾选「商品·读」，与后端单一模板默认权限一致
+const permissionOptions = computed(() => catalog.value.flatMap((g) => g.items));
+function toggleCreate(p: string) {
+  const list = createForm.value.permissions.slice();
+  const i = list.indexOf(p);
+  if (i >= 0) list.splice(i, 1); else list.push(p);
+  createForm.value.permissions = list;
+}
+async function submitCreate() {
+  const code = createForm.value.code.trim();
+  const description = createForm.value.description.trim();
+  if (!code) { uni.showToast({ title: '角色编码必填', icon: 'none' }); return; }
+  if (!description) { uni.showToast({ title: '显示名称必填', icon: 'none' }); return; }
+  try {
+    if (channelId.value) await createTenantRole(channelId.value, { code, description, permissions: createForm.value.permissions });
+    else await myCreateTenantRole({ code, description, permissions: createForm.value.permissions });
+    uni.showToast({ title: '已创建', icon: 'none' });
+    showCreate.value = false;
+    load();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '创建失败', icon: 'none' });
+  }
 }
 </script>
 <style lang="scss" scoped>
@@ -121,4 +153,14 @@ function onCreate() {
 .btn.danger { color: #e64340; }
 .empty { text-align: center; color: #bbb; padding: 60rpx 0; }
 .fab { position: fixed; right: 40rpx; bottom: 60rpx; width: 96rpx; height: 96rpx; border-radius: 50%; background: $pm-info; color: #fff; font-size: 56rpx; line-height: 96rpx; text-align: center; box-shadow: 0 8rpx 24rpx rgba(0,0,0,.15); }
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
+.pop { width: 640rpx; background: #fff; border-radius: 20rpx; padding: 40rpx; }
+.pop-title { display: block; font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
+.field { margin-bottom: 24rpx; }
+.req { color: #e64340; }
+.label { display: block; font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
+.input { border: 1px solid #eee; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
+.actions { display: flex; justify-content: flex-end; gap: 24rpx; margin-top: 8rpx; }
+.btn { color: $pm-info; font-size: 26rpx; padding: 12rpx 30rpx; }
+.btn.ghost { color: #666; }
 </style>

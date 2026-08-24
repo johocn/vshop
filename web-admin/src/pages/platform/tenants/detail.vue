@@ -85,7 +85,7 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
   fetchTenantAdministrators, createTenantAdministrator, setTenantAdministratorEnabled,
-  fetchTenantRoles, createTenantRole, deleteTenantRole,
+  fetchTenantRoles, deleteTenantRole,
   type TenantMemberItem, type RoleItem,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
@@ -169,21 +169,8 @@ function onToggleAdmin(m: TenantMemberItem, e: any) {
   });
 }
 function onAddRole() {
-  uni.showModal({
-    title: '新建角色',
-    editable: true,
-    placeholderText: '角色编码（如 kefu）',
-    success: async (r) => {
-      if (!r.confirm || !r.content) return;
-      try {
-        await createTenantRole(channelId.value, { code: r.content, description: r.content, permissions: ['ReadProduct'] });
-        uni.showToast({ title: '已创建', icon: 'none' });
-        loadRoles();
-      } catch (err: any) {
-        uni.showToast({ title: err?.message || '创建失败', icon: 'none' });
-      }
-    },
-  });
+  // 创建与编辑统一走角色页（含 code + 中文显示名 + 权限勾选）
+  uni.navigateTo({ url: `/pages/platform/roles/index?channelId=${channelId.value}` });
 }
 function onEditRole(r: RoleItem) {
   uni.navigateTo({ url: `/pages/platform/roles/index?channelId=${channelId.value}` });
