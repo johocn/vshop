@@ -18,6 +18,8 @@ export interface TenantMemberItem {
   enabled: boolean;
   displayName?: string | null;
   remark?: string | null;
+  phone?: string | null;
+  roleIds?: string[];
   createdAt: string;
 }
 
@@ -73,7 +75,7 @@ export async function fetchTenants(skip = 0, take = 50): Promise<{ items: Tenant
   return { items: res.tenants.items.map(mapTenant), totalItems: res.tenants.totalItems };
 }
 
-export async function createTenant(input: { code: string; name: string; tenantNo?: number; isOfficial?: boolean }): Promise<TenantItem> {
+export async function createTenant(input: { name: string; isOfficial?: boolean }): Promise<TenantItem> {
   const res = await getAdminClient().request<{ createTenant: any }>(
     `mutation CreateTenant($input: CreateTenantInput!) { createTenant(input: $input) { ${TENANT_FIELDS} } }`,
     { input },
@@ -103,7 +105,7 @@ export async function deleteTenant(id: string): Promise<void> {
 export async function fetchTenantAdministrators(channelId: string): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantAdministrators: TenantMemberItem[] }>(
     `query TenantAdministrators($channelId: ID!) {
-      tenantAdministrators(channelId: $channelId) { id administratorId channelId enabled displayName remark createdAt }
+      tenantAdministrators(channelId: $channelId) { id administratorId channelId enabled displayName remark phone roleIds createdAt }
     }`,
     { channelId },
   );
@@ -112,7 +114,7 @@ export async function fetchTenantAdministrators(channelId: string): Promise<Tena
 
 export async function createTenantAdministrator(
   channelId: string,
-  input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string },
+  input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string; phone?: string },
 ): Promise<string | null> {
   const res = await getAdminClient().request<{ createTenantAdministrator: { initialPassword?: string | null } }>(
     `mutation CreateTenantAdministrator($channelId: ID!, $input: CreateTenantAdministratorInput!) {
@@ -168,12 +170,12 @@ export async function deleteTenantRole(roleId: string): Promise<void> {
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
-    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark createdAt } }`,
+    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone roleIds createdAt } }`,
   );
   return res.tenantMembers;
 }
 
-export async function createTenantMember(input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string }): Promise<string | null> {
+export async function createTenantMember(input: { emailAddress: string; password?: string; roleIds: string[]; displayName?: string; phone?: string }): Promise<string | null> {
   const res = await getAdminClient().request<{ createTenantMember: { initialPassword?: string | null } }>(
     `mutation CreateTenantMember($input: CreateTenantMemberInput!) { createTenantMember(input: $input) { id initialPassword } }`,
     { input },
@@ -197,6 +199,13 @@ export async function fetchMyTenantRoles(): Promise<RoleItem[]> {
     `query MyTenantRoles { myTenantRoles { id code description permissions } }`,
   );
   return res.myTenantRoles;
+}
+
+export async function updateTenantMemberRolesToMember(id: string, roleIds: string[]): Promise<void> {
+  await getAdminClient().request(
+    `mutation MyUpdateTenantMemberRoles($id: ID!, $roleIds: [ID!]!) { myUpdateTenantMemberRoles(id: $id, roleIds: $roleIds) }`,
+    { id, roleIds },
+  );
 }
 
 export async function myCreateTenantRole(input: { code: string; description: string; permissions: string[] }): Promise<void> {

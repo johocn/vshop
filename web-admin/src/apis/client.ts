@@ -42,3 +42,8 @@ export function getAdminClient(): GraphQLClient {
 }
 
 export function resetAdminClient(): void { instance = null; }
+
+/** 从 graphql-request 抛出的错误里提取对用户友好的 message（后端 errors[0].message 优先） */
+export function graphQlErrorMsg(err: any, fallback = '操作失败'): string {
+  return err?.response?.errors?.[0]?.message || err?.message || fallback;
+}
