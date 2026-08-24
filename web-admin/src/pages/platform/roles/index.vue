@@ -23,7 +23,11 @@
         <text class="btn" @tap="onSave(r)">保存</text>
       </view>
     </view>
-    <view v-if="!roles.length" class="empty">暂无角色</view>
+    <view v-if="!roles.length" class="empty">
+      <text>暂无角色</text>
+      <view v-if="canImport()" class="import-btn" @tap="openImport">{{ importing ? '导入中…' : '一键导入默认角色' }}</view>
+    </view>
+    <view v-if="canImport()" class="import-row"><text class="import-btn" @tap="openImport">{{ importing ? '导入中…' : '一键导入默认角色' }}</text></view>
     <view class="fab" @tap="openCreate">＋</view>
 
     <!-- 新建角色表单弹层 -->
@@ -50,9 +54,9 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
-  fetchTenantRoles, createTenantRole, updateTenantRole, deleteTenantRole,
+  fetchTenantRoles, createTenantRole, updateTenantRole, deleteTenantRole, importTenantDefaultRoles,
   fetchMyTenantRoles, myCreateTenantRole, myUpdateTenantRole, myDeleteTenantRole,
   fetchPermissionCatalog,
   type RoleItem, type PermissionCatalogGroup,
@@ -62,8 +66,29 @@ const channelId = ref('');
 const roles = ref<RoleItem[]>([]);
 // 动态业务权限目录（单一来源：后端 PERMISSION_CATALOG，避免前端硬编码双份）
 const catalog = ref<PermissionCatalogGroup[]>([]);
+const importing = ref(false);
 
-onLoad((q: any) => { channelId.value = q?.id || ''; load(); loadCatalog(); });
+onLoad((q: any) => { channelId.value = q?.id || ''; loadCatalog(); });
+// uni-app 先 onLoad 后 onShow；每次进入/从详情页返回都重拉角色列表，修复新建后不刷新的问题
+onShow(() => { load(); });
+
+function canImport() {
+  // 仅超管从租户详情进入（带 channelId）提供一键导入；租户自助路径无权限，不显示
+  return !!channelId.value;
+}
+async function openImport() {
+  if (importing.value) return;
+  try {
+    importing.value = true;
+    const imported = await importTenantDefaultRoles(channelId.value);
+    uni.showToast({ title: imported.length ? `已导入 ${imported.length} 个默认角色` : '已是默认角色，无需导入', icon: 'none' });
+    load();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '导入失败', icon: 'none' });
+  } finally {
+    importing.value = false;
+  }
+}
 
 async function load() {
   roles.value = channelId.value ? await fetchTenantRoles(channelId.value) : await fetchMyTenantRoles();
@@ -152,6 +177,9 @@ async function submitCreate() {
 .btn { color: $pm-info; font-size: 26rpx; }
 .btn.danger { color: #e64340; }
 .empty { text-align: center; color: #bbb; padding: 60rpx 0; }
+.import-btn { display: inline-block; margin-top: 20rpx; padding: 12rpx 30rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
+.import-row { display: flex; justify-content: center; margin: 24rpx 0 20rpx; }
+.import-row .import-btn { margin-top: 0; }
 .fab { position: fixed; right: 40rpx; bottom: 60rpx; width: 96rpx; height: 96rpx; border-radius: 50%; background: $pm-info; color: #fff; font-size: 56rpx; line-height: 96rpx; text-align: center; box-shadow: 0 8rpx 24rpx rgba(0,0,0,.15); }
 .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
 .pop { width: 640rpx; background: #fff; border-radius: 20rpx; padding: 40rpx; }
