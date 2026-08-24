@@ -167,6 +167,14 @@ export async function deleteTenantRole(roleId: string): Promise<void> {
   await getAdminClient().request(`mutation DeleteTenantRole($roleId: ID!) { deleteTenantRole(roleId: $roleId) }`, { roleId });
 }
 
+export async function importTenantDefaultRoles(channelId: string): Promise<RoleItem[]> {
+  const res = await getAdminClient().request<{ importDefaultRoles: RoleItem[] }>(
+    `mutation ImportDefaultRoles($channelId: ID!) { importDefaultRoles(channelId: $channelId) { id code description permissions } }`,
+    { channelId },
+  );
+  return res.importDefaultRoles ?? [];
+}
+
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
