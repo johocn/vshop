@@ -28,6 +28,14 @@ export interface RoleItem {
   code: string;
   description: string;
   permissions: string[];
+  channels?: { id: string }[];
+}
+
+export interface RoleTemplateItem {
+  key: string;
+  busiPrefix: string;
+  description: string;
+  permissions: string[];
 }
 
 export interface PermissionCatalogItem {
@@ -178,9 +186,16 @@ export async function importTenantDefaultRoles(channelId: string): Promise<RoleI
 // ===== 全局角色池（超管） =====
 export async function fetchGlobalRoles(): Promise<RoleItem[]> {
   const res = await getAdminClient().request<{ globalRoles: RoleItem[] }>(
-    `query GlobalRoles { globalRoles { id code description permissions } }`,
+    `query GlobalRoles { globalRoles { id code description permissions channels { id } } }`,
   );
   return res.globalRoles;
+}
+
+export async function fetchGlobalRoleTemplates(): Promise<RoleTemplateItem[]> {
+  const res = await getAdminClient().request<{ globalRoleTemplates: RoleTemplateItem[] }>(
+    `query GlobalRoleTemplates { globalRoleTemplates { key busiPrefix description permissions } }`,
+  );
+  return res.globalRoleTemplates ?? [];
 }
 
 export async function createGlobalRole(
@@ -224,6 +239,13 @@ export async function myReferGlobalRole(roleId: string): Promise<void> {
 
 export async function myUnreferGlobalRole(roleId: string): Promise<void> {
   await getAdminClient().request(`mutation MyUnreferGlobalRole($roleId: ID!) { myUnreferGlobalRole(roleId: $roleId) }`, { roleId });
+}
+
+export async function myImportDefaultRoles(): Promise<RoleItem[]> {
+  const res = await getAdminClient().request<{ myImportDefaultRoles: RoleItem[] }>(
+    `mutation MyImportDefaultRoles { myImportDefaultRoles { id code description permissions } }`,
+  );
+  return res.myImportDefaultRoles ?? [];
 }
 
 // ===== 租户管理员视角（限定本 channel） =====
