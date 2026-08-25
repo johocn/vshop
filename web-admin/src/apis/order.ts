@@ -15,8 +15,14 @@ export interface OrderRow {
   id: string;
   code: string;
   state: string;
+  active: boolean;
   totalWithTax: number;
-  customerId?: string;
+  createdAt: string;
+  currencyCode: string;
+  orderPlacedAt?: string | null;
+  customer?: { id: string; firstName: string; lastName: string; emailAddress?: string } | null;
+  shippingLines?: Array<{ shippingMethod: { id: string; code: string; name: string } | null }>;
+  customFields?: { deliveryType?: string | null };
 }
 
 export interface FulfillmentResult {
@@ -26,22 +32,38 @@ export interface FulfillmentResult {
   trackingCode?: string;
 }
 
-export async function fetchOrders(
-  take = 20,
-  skip = 0,
-  state?: string,
-): Promise<{ totalItems: number; items: OrderRow[] }> {
+export interface OrderListOptions {
+  take?: number;
+  skip?: number;
+  state?: string;
+  keyword?: string;
+}
+
+export async function fetchOrders(opts: OrderListOptions = {}): Promise<{ totalItems: number; items: OrderRow[] }> {
+  const { take = 20, skip = 0, state, keyword } = opts;
+  const extra = state ? `, filter: { state: { eq: "${state}" } }` : '';
   const { orders } = await getAdminClient().request<{
     orders: { totalItems: number; items: OrderRow[] };
   }>(
-    `query Orders($take: Int, $skip: Int, $state: String) {
-      orders(options: { take: $take, skip: $skip, filter: { state: { eq: $state } } }) {
-        totalItems items { id code state totalWithTax }
+    `query Orders($take: Int, $skip: Int) {
+      orders(options: { take: $take, skip: $skip${extra} }) {
+        totalItems
+        items {
+          id code state active totalWithTax createdAt currencyCode orderPlacedAt
+          customer { id firstName lastName emailAddress }
+          shippingLines { shippingMethod { id code name } }
+          customFields { deliveryType }
+        }
       }
     }`,
-    { take, skip, state },
+    { take, skip },
   );
-  return orders;
+  let items = orders.items;
+  if (keyword) {
+    const k = keyword.trim().toLowerCase();
+    items = items.filter((o) => (o.code || '').toLowerCase().includes(k));
+  }
+  return { totalItems: orders.totalItems, items };
 }
 
 export interface OrderLineItem {

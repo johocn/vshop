@@ -1,36 +1,112 @@
 <template>
   <view class="page">
     <view class="tabs">
-      <text v-for="s in states" :key="s.key" :class="{ on: s.key === cur }" @tap="cur = s.key; load()">{{ s.label }}</text>
+      <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ s.label }}</text>
     </view>
-    <view class="card" v-for="o in items" :key="o.id" @tap="show(o)">
-      <view class="row"><text class="code">{{ o.code }}</text><text class="st">{{ o.state }}</text></view>
-      <text class="total">¥ {{ (o.totalWithTax / 100).toFixed(2) }}</text>
+    <view class="search">
+      <input v-model="kw" class="kw" placeholder="订单号 / 顾客" confirm-type="search" @confirm="onSearch" />
+      <text class="btn" @tap="onSearch">搜索</text>
     </view>
-    <view v-if="!items.length" class="empty">暂无订单</view>
-    <view style="height: 120rpx" />
+    <view class="card" v-for="o in items" :key="o.id" @tap="goDetail(o)">
+      <view class="row">
+        <text class="code">{{ o.code }}</text>
+        <text class="st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
+      </view>
+      <view class="sub">{{ customerName(o) }} · {{ ispickup(o) ? '自提' : (o.shippingLines?.[0]?.shippingMethod?.name || '快递') }}</view>
+      <view class="row">
+        <text class="time">{{ fmtTime(o.orderPlacedAt || o.createdAt) }}</text>
+        <text class="total">¥ {{ (o.totalWithTax / 100).toFixed(2) }}</text>
+      </view>
+    </view>
+    <view v-if="!items.length && !loading" class="empty">暂无订单</view>
+    <view v-if="loading" class="empty">加载中…</view>
+    <view v-if="loadingMore" class="empty">加载更多…</view>
     <BottomBar current="order" />
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { onPullDownRefresh } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchOrders } from '../../../apis/order';
+import { fetchOrders, OrderRow } from '../../../apis/order';
+import { ORDER_STATES, stateLabel } from '../../../constants/orderState';
 
-const states = [
+const tabs = [
   { key: '', label: '全部' },
+  { key: 'PaymentAuthorized', label: '待付款' },
   { key: 'WaitingForShipping', label: '待发货' },
   { key: 'Delivered', label: '已发货' },
   { key: 'Completed', label: '已完成' },
+  { key: 'Cancelled', label: '已取消' },
 ];
 const cur = ref('');
-const items = ref<any[]>([]);
+const kw = ref('');
+const items = ref<OrderRow[]>([]);
+const loading = ref(false);
+const loadingMore = ref(false);
+const totalItems = ref(0);
 
-async function load() { items.value = (await fetchOrders(20, 0, cur.value)).items; }
+function customerName(o: OrderRow): string {
+  const c = o.customer;
+  if (c) {
+    const name = `${c.firstName || ''} ${c.lastName || ''}`.trim();
+    if (name) return name;
+    if (c.emailAddress) return c.emailAddress;
+  }
+  return '顾客';
+}
+
+function fmtTime(t: string): string {
+  if (!t) return '';
+  const d = new Date(t);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function ispickup(o: OrderRow): boolean {
+  return o.customFields?.deliveryType === 'pickup';
+}
+
+async function load() {
+  loading.value = true;
+  try {
+    const { items: list } = await fetchOrders({ take: 20, skip: 0, state: cur.value || undefined, keyword: kw.value });
+    items.value = list;
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadMore() {
+  if (loading.value || loadingMore.value) return;
+  if (items.value.length >= totalItems.value && totalItems.value > 0) return;
+  loadingMore.value = true;
+  try {
+    const { items: more, totalItems: total } = await fetchOrders({ take: 20, skip: items.value.length, state: cur.value || undefined, keyword: kw.value });
+    totalItems.value = total;
+    items.value = items.value.concat(more);
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+function onTab(key: string) {
+  if (cur.value === key) return;
+  cur.value = key;
+  load();
+}
+
+function onSearch() {
+  load();
+}
+
+function goDetail(o: OrderRow) {
+  uni.navigateTo({ url: `/pages/order/detail/index?id=${o.id}` });
+}
+
 onMounted(load);
 onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
-function show(o: any) { uni.navigateTo({ url: `/pages/order/detail/index?id=${o.id}` }); }
+onReachBottom(loadMore);
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
@@ -39,12 +115,18 @@ function show(o: any) { uni.navigateTo({ url: `/pages/order/detail/index?id=${o.
       &.on { color: #fff; background: $wa-accent; font-weight: 600; }
     }
   }
+  .search { display: flex; align-items: center; margin-bottom: 24rpx; background: $wa-card; border-radius: $wa-radius; padding: 8rpx 16rpx 8rpx 24rpx;
+    .kw { flex: 1; font-size: 26rpx; color: $wa-ink; }
+    .btn { flex-shrink: 0; padding: 12rpx 32rpx; font-size: 26rpx; color: #fff; background: $wa-accent; border-radius: $wa-radius; }
+  }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; justify-content: space-between;
-      .code { font-size: 28rpx; color: $wa-ink; }
-      .st { font-size: 24rpx; color: $wa-accent; }
+      .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
+      .st { font-size: 24rpx; }
+      .time { font-size: 24rpx; color: $wa-muted; }
+      .total { font-size: 30rpx; color: $wa-danger; font-weight: 600; }
     }
-    .total { display: block; margin-top: 16rpx; font-size: 30rpx; color: $wa-danger; font-weight: 600; }
+    .sub { margin-top: 16rpx; font-size: 26rpx; color: $wa-muted; }
   }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
 }
