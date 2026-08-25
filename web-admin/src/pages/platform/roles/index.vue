@@ -58,24 +58,40 @@
 
     <!-- 全局角色池（超管） -->
     <template v-else>
-      <view class="card" v-for="g in globalRoles" :key="g.id">
+      <!-- 默认角色模板区 -->
+      <text class="pool-sec-label">默认角色模板（导入后复制为本店独立角色）</text>
+      <view class="card" v-for="tpl in roleTemplates" :key="tpl.key">
         <view class="row head">
           <view class="lt">
-            <text class="title">{{ g.description || g.code }}</text>
-            <text class="sub">{{ g.code }}</text>
+            <text class="title">{{ tpl.description }}</text>
+            <text class="sub">{{ tpl.busiPrefix }}</text>
           </view>
+          <text class="btn" v-if="channelId" @tap="doImportTemplate(tpl)">导入到本店</text>
+        </view>
+        <view class="group">
+          <text class="g-label">模板权限</text>
+          <view class="perms"><text v-for="p in tpl.permissions" :key="p" class="perm">{{ p }}</text></view>
+        </view>
+      </view>
+      <view v-if="!roleTemplates.length" class="empty">暂无默认角色模板</view>
+
+      <!-- 全局可用角色区（超管 g- 角色，含 channels 状态） -->
+      <text class="pool-sec-label pool-sec-gap">全局可用角色（引用/分发到租户）</text>
+      <view class="card" v-for="g in globalRoles" :key="g.id">
+        <view class="row head">
+          <view class="lt"><text class="title">{{ g.description || g.code }}</text><text class="sub">{{ g.code }}</text></view>
+          <text class="btn" @tap="openTenantManage(g)">管理租户</text>
         </view>
         <view class="group">
           <text class="g-label">已绑定权限</text>
-          <view class="perms">
-            <text v-for="p in g.permissions" :key="p" class="perm">{{ p }}</text>
-          </view>
+          <view class="perms"><text v-for="p in g.permissions" :key="p" class="perm">{{ p }}</text></view>
         </view>
-        <view class="row foot">
-          <text class="btn" @tap="openDistribute(g)">分发到租户</text>
+        <view class="group">
+          <text class="g-label">已入本地（{{ poolChannelIds(g).length }} 店）</text>
+          <view class="perms"><text v-for="c in (g.channels || [])" :key="c.id" class="perm">{{ tenantNameById(c.id) }}</text></view>
         </view>
       </view>
-      <view v-if="!globalRoles.length" class="empty">暂无全局角色</view>
+      <view v-if="!globalRoles.length" class="empty">暂无全局可用角色</view>
       <view class="fab" @tap="openGlobalCreate">＋</view>
     </template>
 
@@ -107,6 +123,11 @@
         <view class="field"><text class="label">角色编码（英文，如 kefu）<text class="req">*</text></text><input class="input" v-model="globalForm.code" placeholder="全局唯一英文标识" /></view>
         <view class="field"><text class="label">显示名称（中文）<text class="req">*</text></text><input class="input" v-model="globalForm.description" placeholder="如：客服" /></view>
         <view class="field">
+          <text class="label">角色范围<text class="req">*</text></text>
+          <view class="perm" :class="{ on: createScope === 'globalAvail' }" @tap="createScope = 'globalAvail'">全局可用（入池，可被租户引用）</view>
+          <view class="perm" :class="{ on: createScope === 'globalDefault' }" @tap="createScope = 'globalDefault'">全局默认（创建即分发到所选租户）</view>
+        </view>
+        <view class="field">
           <text class="label">选择权限</text>
           <view class="perms">
             <text v-for="p in permissionOptions" :key="p.code" class="perm" :class="{ on: globalForm.permissions.includes(p.code) }" @tap="toggleGlobalCreate(p.code)">
@@ -114,8 +135,8 @@
             </text>
           </view>
         </view>
-        <view class="field">
-          <text class="label">立即分发到租户（可不选，后续再分发）</text>
+        <view class="field" v-if="createScope === 'globalDefault'">
+          <text class="label">创建即分发到租户（必选）</text>
           <view class="perms">
             <text v-for="t in tenants" :key="t.id" class="perm tenant" :class="{ on: globalForm.channelIds.includes(t.id) }" @tap="toggleTenant(t.id)">
               {{ t.name }}
@@ -147,6 +168,27 @@
         </view>
       </view>
     </view>
+
+    <!-- 管理租户弹层（超管：池内每个全局角色的已入本地/可引用状态 + 分发/取消） -->
+    <view class="mask" v-if="showTenantManage" @tap="showTenantManage = false">
+      <view class="pop" @tap.stop>
+        <text class="pop-title">管理「{{ manageRole?.description || manageRole?.code }}」引用的租户</text>
+        <view class="group">
+          <view class="perm tenant" v-for="t in tenants" :key="t.id"
+                :class="{ on: manageChannelIds.includes(t.id) }"
+                @tap="toggleManageTenant(t.id)">
+            <text>{{ t.name }}</text>
+            <text class="state-tag" :class="{ on: manageChannelIds.includes(t.id) }">
+              {{ manageChannelIds.includes(t.id) ? '已入本地' : '可引用' }}
+            </text>
+          </view>
+        </view>
+        <view class="actions">
+          <text class="btn ghost" @tap="showTenantManage = false">关闭</text>
+          <text class="btn" @tap="applyTenantManage">保存变更</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -157,9 +199,10 @@ import {
   fetchTenantRoles, createTenantRole, updateTenantRole, deleteTenantRole, importTenantDefaultRoles,
   fetchMyTenantRoles, myCreateTenantRole, myUpdateTenantRole, myDeleteTenantRole,
   fetchPermissionCatalog, fetchTenants,
-  fetchGlobalRoles, createGlobalRole, referGlobalRoleToChannel,
+  fetchGlobalRoles, createGlobalRole, referGlobalRoleToChannel, unreferGlobalRoleFromChannel,
+  fetchGlobalRoleTemplates, myImportDefaultRoles,
   fetchMyGlobalRolesAvailable, myReferGlobalRole,
-  type RoleItem, type PermissionCatalogGroup, type TenantItem,
+  type RoleItem, type RoleTemplateItem, type PermissionCatalogGroup, type TenantItem,
 } from '../../../apis/tenant-admin';
 
 const auth = useAuthStore();
@@ -174,9 +217,17 @@ const catalog = ref<PermissionCatalogGroup[]>([]);
 const importing = ref(false);
 const isSuperAdmin = computed(() => auth.isSuperAdmin);
 const referOpen = ref(false);
+// 默认角色模板元数据（全局池·模板区）
+const roleTemplates = ref<RoleTemplateItem[]>([]);
+// 新建全局角色范围三选
+const createScope = ref<'shop' | 'globalAvail' | 'globalDefault'>('globalAvail');
+// 管理租户弹层状态
+const manageRole = ref<RoleItem | null>(null);
+const showTenantManage = ref(false);
+const manageChannelIds = ref<string[]>([]);
 
 onLoad(async (q: any) => {
-  channelId.value = q?.id || '';
+  channelId.value = q?.channelId || '';
   loadCatalog();
   if (tenants.value.length === 0 && auth.isSuperAdmin) loadTenants();
   if (isSuperAdmin.value) activeTab.value = 'global';
@@ -192,6 +243,31 @@ function canImport() {
   // 仅超管从租户详情进入（带 channelId）提供一键导入；租户自助路径无权限，不显示
   return !!channelId.value;
 }
+// 一键导入默认角色（超管进入具体租户，复制独立副本）
+async function openImport() {
+  if (importing.value) return;
+  importing.value = true;
+  try {
+    if (channelId.value) await importTenantDefaultRoles(channelId.value);
+    else await myImportDefaultRoles();
+    uni.showToast({ title: '已导入', icon: 'none' });
+    load();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '导入失败', icon: 'none' });
+  } finally {
+    importing.value = false;
+  }
+}
+// 从全局池模板区导入到当前具体租户（超管从租户详情进入）
+async function doImportTemplate(tpl: RoleTemplateItem) {
+  try {
+    await importTenantDefaultRoles(channelId.value);
+    uni.showToast({ title: `已导入${tpl.description}`, icon: 'none' });
+    load();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '导入失败', icon: 'none' });
+  }
+}
 
 function switchTab(t: 'shop' | 'global') {
   activeTab.value = t;
@@ -204,9 +280,19 @@ async function load() {
 async function loadGlobal() {
   if (isSuperAdmin.value) {
     globalRoles.value = await fetchGlobalRoles();
+    roleTemplates.value = await fetchGlobalRoleTemplates();
   } else {
     availableGlobal.value = await fetchMyGlobalRolesAvailable();
   }
+}
+function tenantNameById(id: string): string {
+  return tenants.value.find((t) => t.id === id)?.name || id;
+}
+function roleHasChannel(r: RoleItem | null, cid: string): boolean {
+  return !!(r?.channels || []).some((c) => c.id === cid);
+}
+function poolChannelIds(r: RoleItem): string[] {
+  return (r.channels || []).map((c) => c.id);
 }
 async function loadCatalog() {
   catalog.value = await fetchPermissionCatalog();
@@ -297,6 +383,7 @@ async function doRefer(roleId: string) {
 // ===== 全局角色池（超管） =====
 async function openGlobalCreate() {
   globalForm.value = { code: '', description: '', permissions: ['ReadProduct'], channelIds: [] as string[] };
+  createScope.value = 'globalAvail'; // 默认范围：全局可用
   showGlobalCreate.value = true;
 }
 const showGlobalCreate = ref(false);
@@ -318,8 +405,12 @@ async function submitGlobalCreate() {
   const description = globalForm.value.description.trim();
   if (!code) { uni.showToast({ title: '角色编码必填', icon: 'none' }); return; }
   if (!description) { uni.showToast({ title: '显示名称必填', icon: 'none' }); return; }
+  if (createScope.value === 'globalDefault' && !globalForm.value.channelIds.length) {
+    uni.showToast({ title: '全局默认需选择至少一家租户', icon: 'none' }); return;
+  }
+  const channelIds = createScope.value === 'globalDefault' ? globalForm.value.channelIds : [];
   try {
-    await createGlobalRole(globalForm.value.channelIds, { code, description, permissions: globalForm.value.permissions });
+    await createGlobalRole(channelIds, { code, description, permissions: globalForm.value.permissions });
     uni.showToast({ title: '已创建', icon: 'none' });
     showGlobalCreate.value = false;
     loadGlobal();
@@ -356,6 +447,37 @@ async function submitDistribute() {
     uni.showToast({ title: err?.message || '分发失败', icon: 'none' });
   }
 }
+
+// ===== 管理租户弹层（池内每个全局角色：已入本地/可引用 + 分发/取消） =====
+function openTenantManage(r: RoleItem) {
+  manageRole.value = r;
+  manageChannelIds.value = poolChannelIds(r).slice();
+  showTenantManage.value = true;
+}
+function toggleManageTenant(id: string) {
+  const i = manageChannelIds.value.indexOf(id);
+  if (i >= 0) manageChannelIds.value.splice(i, 1);
+  else manageChannelIds.value.push(id);
+}
+async function applyTenantManage() {
+  if (!manageRole.value) return;
+  const roleId = manageRole.value.id;
+  const current = poolChannelIds(manageRole.value);
+  try {
+    // 全量对齐：缺失的引用补齐，多出的取消（refer/unrefer 均幂等）
+    for (const cid of manageChannelIds.value) {
+      if (!current.includes(cid)) await referGlobalRoleToChannel(roleId, cid);
+    }
+    for (const cid of current) {
+      if (!manageChannelIds.value.includes(cid)) await unreferGlobalRoleFromChannel(roleId, cid);
+    }
+    uni.showToast({ title: '已更新', icon: 'none' });
+    showTenantManage.value = false;
+    loadGlobal();
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '更新失败', icon: 'none' });
+  }
+}
 </script>
 <style lang="scss" scoped>
 .page { padding: 24rpx 24rpx 140rpx; }
@@ -375,7 +497,10 @@ async function submitDistribute() {
 .perms { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .perm { padding: 10rpx 20rpx; border-radius: 999rpx; font-size: 22rpx; background: #f2f3f5; color: #666; }
 .perm.on { background: $pm-info; color: #fff; }
-.perm.tenant { margin-bottom: 8rpx; }
+.perm.tenant { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; min-width: 300rpx; margin-bottom: 8rpx; }
+.state-tag { font-size: 20rpx; opacity: .75; }
+.pool-sec-label { display: block; font-size: 24rpx; color: #888; margin: 0 0 20rpx; padding-left: 8rpx; }
+.pool-sec-gap { margin-top: 36rpx; }
 .foot { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 20rpx; }
 .btn { color: $pm-info; font-size: 26rpx; }
 .btn.danger { color: #e64340; }
