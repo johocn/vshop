@@ -103,7 +103,7 @@ async function onLookup(): Promise<void> {
   }
   loading.value = true;
   try {
-    const list: PickupRedemptionItem[] = await fetchPickupOrders(false);
+    const list: PickupRedemptionItem[] = await fetchPickupOrders();
     const hit = list.find((r) => r.code === v || String(r.orderId) === v || String(r.orderCode) === v);
     if (!hit) {
       result.value = null;
