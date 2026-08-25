@@ -8,6 +8,9 @@ export interface ChannelInfo {
   code: string;
   token: string;
   name?: string;
+  tenantNo?: number | null;
+  isOfficial?: boolean;
+  enabled?: boolean;
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -43,7 +46,7 @@ export const useAuthStore = defineStore('auth', {
       // 仅保留启用中的租户（停用租户/停用人员不可进入）
       this.channels = access.channels
         .filter((c) => c.enabled && c.memberEnabled)
-        .map((c) => ({ id: c.id, code: c.code, token: c.token, name: c.name }));
+        .map((c) => ({ id: c.id, code: c.code, token: c.token, name: c.name, tenantNo: c.tenantNo ?? null, isOfficial: c.isOfficial === true, enabled: c.enabled }));
     },
     hasPermission(p: string): boolean {
       return this.isSuperAdmin || this.permissions.includes(p);
