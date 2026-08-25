@@ -9,6 +9,7 @@ export interface TenantItem {
   enabled: boolean;
   tenantNo?: number | null;
   isOfficial: boolean;
+  merchantStatus?: string | null;
 }
 
 export interface TenantMemberItem {
@@ -65,10 +66,11 @@ function mapTenant(t: any): TenantItem {
     enabled: t.customFields?.enabled !== false,
     tenantNo: t.customFields?.tenantNo ?? null,
     isOfficial: t.customFields?.isOfficial === true,
+    merchantStatus: t.customFields?.merchantStatus ?? null,
   };
 }
 
-const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial }`;
+const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus }`;
 
 export async function fetchTenants(skip = 0, take = 50): Promise<{ items: TenantItem[]; totalItems: number }> {
   const res = await getAdminClient().request<{ tenants: { items: any[]; totalItems: number } }>(

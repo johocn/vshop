@@ -8,7 +8,15 @@
       <view class="item" v-for="t in tenants" :key="t.id">
         <view class="info">
           <text class="name">{{ t.name }}</text>
-          <text class="sub">#{{ t.tenantNo ?? '—' }} · {{ t.code }} · {{ t.isOfficial ? '官方自营' : '第三方' }}</text>
+          <text class="sub">
+            #{{ t.tenantNo ?? '—' }} · {{ t.code }} ·
+            <text v-if="t.isOfficial" class="tag official">官方自营</text>
+            <template v-else>
+              <text class="tag third" :class="t.merchantStatus || 'active'">
+                {{ merchantLabel(t.merchantStatus) }}
+              </text>
+            </template>
+          </text>
         </view>
         <switch :checked="t.enabled" color="#4f8cff" @change="onToggle(t, $event)" />
         <text class="link" @tap="goDetail(t)">管理 ›</text>
@@ -86,6 +94,10 @@ async function submitCreate() {
 function goDetail(t: TenantItem) {
   uni.navigateTo({ url: `/pages/platform/tenants/detail?id=${t.id}&name=${encodeURIComponent(t.name)}` });
 }
+function merchantLabel(s?: string | null): string {
+  if (!s || s === 'active') return '第三方·已入驻';
+  return s === 'pending' ? '第三方·待入驻' : s === 'disabled' ? '第三方·已停用' : `第三方·${s}`;
+}
 onMounted(load);
 </script>
 <style lang="scss" scoped>
@@ -98,6 +110,11 @@ onMounted(load);
 .info { flex: 1; }
 .name { display: block; font-size: 28rpx; font-weight: 600; }
 .sub { display: block; font-size: 22rpx; color: #999; margin-top: 6rpx; }
+.tag { display: inline-flex; align-items: center; margin-left: 4rpx; padding: 0 12rpx; border-radius: 999rpx; font-size: 20rpx; }
+.tag.official { background: #f0f5ff; color: $pm-info; }
+.tag.third { background: #f6ffed; color: #52c41a; }
+.tag.third.pending { background: #fff7e6; color: #f59e0b; }
+.tag.third.disabled { background: #f2f2f2; color: #999; }
 .link { color: $pm-info; font-size: 26rpx; }
 .empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
 .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
