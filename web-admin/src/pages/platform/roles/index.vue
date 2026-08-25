@@ -233,7 +233,11 @@ onLoad(async (q: any) => {
   if (isSuperAdmin.value) activeTab.value = 'global';
 });
 // uni-app 先 onLoad 后 onShow；每次进入/从详情页返回都重拉角色列表，修复新建后不刷新的问题
-onShow(() => { load(); });
+onShow(() => {
+  load();
+  // 超管进入全局池 tab 需主动拉取数据（onLoad 仅切换 tab，不会加载全局池）
+  if (activeTab.value === 'global') loadGlobal();
+});
 
 async function loadTenants() {
   try { tenants.value = (await fetchTenants(0, 100)).items; } catch (e: any) { /* 忽略 */ }
