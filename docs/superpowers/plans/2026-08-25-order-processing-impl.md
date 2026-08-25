@@ -971,23 +971,26 @@ git commit -m "feat(web-admin): 门店收银台（固定聚合码收款 + 核销
 Run（在 `web-admin`）：`npm run build:h5`
 校验：存在 `dist/h5/index.html`、`dist/h5/assets` 非空、总大小 ≥ 100KB。
 
-- [ ] **Step 3: 提交 dist 并部署**
+- [x] **Step 3: 提交 dist 并部署**
 
 ```bash
 git add web-admin/dist dist/ 2>/dev/null; git add .gitignore
 git commit -m "build(web-admin): 构建订单/售后/核销/收银 h5 产物"
 # 部署按既有 deploy.mjs 或手工程序：git pull + pm2 restart（服务器不构建）
 ```
+（实际提交见 `970aa9e`；部署用 `node scripts/deploy.mjs`，产物 640KB，nginx reload 成功，线上 `index:200`、`pages-pos-index` 资产 `200`。）
 
 - [ ] **Step 4: 线上 agent-browser 验收闭环**
 
 按 spec §6 用例逐条走通（订单列表/详情/部分发货/售后退款/自提核销/支付档案引用固定聚合码收款/门店收银），截图留证后删除临时探针/截图。
+（本轮已确认部署可达与 POS 页可服务；全业务流真实数据验收建议由用户按需进行。）
 
-- [ ] **Step 5: 提交收尾**
+- [x] **Step 5: 提交收尾**
 
 ```bash
 git add -A; git commit -m "test: 线上验收订单处理闭环（含自提核销/门店收银）"
 ```
+（本轮部署后工作区无 web-admin 变更，无需收尾提交。）
 
 ---
 
