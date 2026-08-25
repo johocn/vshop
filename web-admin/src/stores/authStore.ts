@@ -43,9 +43,9 @@ export const useAuthStore = defineStore('auth', {
         if (hit) access = await fetchMyTenantAccess(hit.id);
       }
       this.access = access;
-      // 仅保留启用中的租户（停用租户/停用人员不可进入）
+      // 保留所有租户：停用租户（enabled=false）以灰态展示在前端，仅人员被停用（memberEnabled=false）的租户不展示
       this.channels = access.channels
-        .filter((c) => c.enabled && c.memberEnabled)
+        .filter((c) => c.memberEnabled !== false)
         .map((c) => ({ id: c.id, code: c.code, token: c.token, name: c.name, tenantNo: c.tenantNo ?? null, isOfficial: c.isOfficial === true, enabled: c.enabled }));
     },
     hasPermission(p: string): boolean {
