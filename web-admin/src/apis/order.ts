@@ -66,25 +66,18 @@ export async function fetchOrders(opts: OrderListOptions = {}): Promise<{ totalI
   return { totalItems: orders.totalItems, items };
 }
 
-export interface OrderLineItem {
-  id: string;
-  quantity: number;
-  productVariant: { id: string; name: string; sku: string } | null;
-}
-
-export interface OrderDetail extends OrderRow {
-  currencyCode: string;
-  customer: { id: string; firstName: string; lastName: string; emailAddress?: string } | null;
-  shippingAddress?: {
-    fullName: string;
-    streetLine1: string;
-    city: string;
-    province: string;
-    countryCode: string;
-    postalCode: string;
-    phoneNumber: string | null;
-  } | null;
-  lines: OrderLineItem[];
+export interface OrderDetail {
+  id: string; code: string; state: string; active: boolean;
+  totalWithTax: number; currencyCode: string;
+  createdAt: string; orderPlacedAt?: string | null;
+  subTotal?: number; subTotalWithTax?: number; shippingWithTax?: number;
+  customer?: { id: string; firstName: string; lastName: string; emailAddress?: string; phoneNumber?: string } | null;
+  shippingAddress?: { fullName: string; streetLine1: string; city: string; province: string; countryCode: string; postalCode: string; phoneNumber?: string | null } | null;
+  payments?: Array<{ id: string; state: string; method: string; amount: number; errorMessage?: string | null; transactionId?: string | null; createdAt: string }>;
+  lines: Array<{ id: string; quantity: number; unitPriceWithTax: number; linePriceWithTax: number; productVariant: { id: string; name: string; sku: string } | null }>;
+  shippingLines?: Array<{ shippingMethod: { id: string; code: string; name: string } | null }>;
+  fulfillments?: Array<{ id: string; state: string; method?: string | null; trackingCode?: string | null; createdAt: string }>;
+  customFields?: { deliveryType?: string | null; pickupClaimed?: boolean | null };
 }
 
 export async function fetchOrder(id: string): Promise<OrderDetail | null> {
@@ -101,20 +94,45 @@ export async function fetchOrder(id: string): Promise<OrderDetail | null> {
   return order;
 }
 
-// Task 8：订单详情（含顾客邮箱 + 收货地址 + 行项目），供详情页/发货页使用
+// Task 8：订单详情（含金额/支付/物流/自提自定义字段），供详情页使用
+const ORDER_DETAIL_FIELDS = `
+  id code state active totalWithTax currencyCode createdAt orderPlacedAt
+  subTotal subTotalWithTax shippingWithTax taxSummary { taxBase taxTotal }
+  customer { id firstName lastName emailAddress phoneNumber }
+  shippingAddress { fullName streetLine1 city province countryCode postalCode phoneNumber }
+  payments { id state method amount errorMessage transactionId createdAt }
+  lines { id quantity unitPriceWithTax linePriceWithTax productVariant { id name sku } }
+  shippingLines { shippingMethod { id code name } }
+  fulfillments { id state method trackingCode createdAt }
+  customFields { deliveryType pickupClaimed }
+`;
+
 export async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {
   const { order } = await getAdminClient().request<{ order: OrderDetail | null }>(
     `query OrderDetail($id: ID!) {
-      order(id: $id) {
-        id code state totalWithTax currencyCode
-        customer { id firstName lastName emailAddress }
-        shippingAddress { fullName streetLine1 city province countryCode postalCode phoneNumber }
-        lines { id quantity productVariant { id name sku } }
-      }
+      order(id: $id) {${ORDER_DETAIL_FIELDS}}
     }`,
     { id },
   );
   return order;
+}
+
+// 取消订单：通过 transitionOrderToState(id, "Cancelled")，成功返回 true
+export async function cancelOrder(orderId: string): Promise<boolean> {
+  const { transitionOrderToState } = await getAdminClient().request<{
+    transitionOrderToState?: { state?: string } | { errorCode?: string; message?: string } | null;
+  }>(
+    `mutation Cancel($id: ID!) {
+      transitionOrderToState(id: $id, state: "Cancelled") {
+        ... on Order { state }
+        ... on ErrorResult { errorCode message }
+      }
+    }`,
+    { id: orderId },
+  );
+  const r = transitionOrderToState as any;
+  if (r && r.state) return true;
+  throw new Error((r && r.message ? r.message : '取消失败') || '取消失败');
 }
 
 // 发货：先取订单行组装 lines，再调 addFulfillmentToOrder（manual-fulfillment handler）
