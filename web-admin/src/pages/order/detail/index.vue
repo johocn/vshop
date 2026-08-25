@@ -98,8 +98,8 @@ function goShip() {
 }
 
 function goRedeem() {
-  // TODO: 核销页尚未创建（/pages/pickup/redeem/index），待后续任务建页后启用
-  uni.navigateTo({ url: `/pages/pickup/redeem/index?code=&orderId=${order.value?.id}` });
+  // 核销码不在 Order 上（存于 pickup 核销凭据），故只传 orderId，核销页 onLoad 从核销记录匹配预填
+  uni.navigateTo({ url: `/pages/pickup/redeem/index?orderId=${order.value?.id}` });
 }
 
 async function onCancel() {
