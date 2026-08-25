@@ -19,21 +19,20 @@
         scroll-y
         @scrolltolower="loadMore"
       >
-        <view
-          v-for="loc in pagedLocations"
-          :key="loc.id"
-          class="sheet__item"
-          :class="{ active: loc.id === tempSelectedId }"
-          @click="selectItem(loc)"
-        >
-          <text class="sheet__item-name">{{ loc.name }}</text>
-          <text class="sheet__item-addr">{{ loc.address }}</text>
-          <view class="sheet__item-meta">
-            <text v-if="loc.phoneNumber" class="sheet__item-phone">☎ {{ loc.phoneNumber }}</text>
-            <text v-if="loc.businessHours" class="sheet__item-hours">营业: {{ loc.businessHours }}</text>
-            <text v-if="getDistance(loc) !== null" class="sheet__item-dist">{{ getDistance(loc) }}</text>
+        <view v-for="loc in pagedLocations" :key="loc.id" class="sheet__item" :class="{ active: loc.id === tempSelectedId }" @click="selectItem(loc)">
+          <image v-if="loc.photos?.length" class="sheet__item-thumb" :src="loc.photos[0]" mode="aspectFill" />
+          <view class="sheet__item-main">
+            <text class="sheet__item-name">{{ loc.name }}</text>
+            <text class="sheet__item-addr">{{ loc.address }}</text>
+            <view class="sheet__item-meta">
+              <text v-if="loc.contactPerson" class="sheet__item-contact">👤 {{ loc.contactPerson }}</text>
+              <text v-if="loc.phoneNumber" class="sheet__item-phone">☎ {{ loc.phoneNumber }}</text>
+              <text v-if="loc.businessHours" class="sheet__item-hours">营业: {{ loc.businessHours }}</text>
+              <text v-if="getDistance(loc) !== null" class="sheet__item-dist">{{ getDistance(loc) }}</text>
+            </view>
           </view>
         </view>
+
         <view v-if="pagedLocations.length === 0" class="sheet__empty">
           <text>未找到匹配的自提点</text>
         </view>
@@ -166,10 +165,14 @@ function confirm() {
   &__list { flex: 1; max-height: 50vh; }
   &__item {
     padding: 24rpx 0; border-bottom: 1rpx solid #e8e8ea;
+    display: flex; gap: 20rpx;
     &.active { background: #f0ecff; }
+    &-thumb { width: 120rpx; height: 120rpx; border-radius: 12rpx; flex-shrink: 0; background: #f2f2f2; }
+    &-main { flex: 1; min-width: 0; }
     &-name { font-size: 28rpx; font-weight: bold; display: block; }
     &-addr { font-size: 24rpx; color: #999; display: block; margin-top: 6rpx; }
-    &-meta { display: flex; gap: 20rpx; margin-top: 8rpx; }
+    &-meta { display: flex; flex-wrap: wrap; gap: 20rpx; margin-top: 8rpx; }
+    &-contact { font-size: 24rpx; color: #999; }
     &-hours { font-size: 24rpx; color: #999; }
     &-phone { font-size: 24rpx; color: #999; }
     &-dist { font-size: 24rpx; color: #ff8a3d; }

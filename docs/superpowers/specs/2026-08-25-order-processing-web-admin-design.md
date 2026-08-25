@@ -195,6 +195,38 @@
 
 ---
 
+## 6.1 后端「收款确认」闭环本地验证记录（2026-08-25）
+
+生产后端当前未启用 `pickup-plugin` / `shop-plugin`（`pickup_redemption` 表、`myPickupOrders`、`claimPickupByShop` 在生产可用前缺失），因此先按「本地环境先验证」在 Vendure 测试环境（sqljs 内存库 + synchronize 自动建表）走通闭环，作为后续生产部署依据。
+
+**验证脚本**：`vendure/packages/pickup-plugin/verify-closed-loop.ts`（独立脚本，`node -r ts-node/register verify-closed-loop.ts` 运行，非 vitest）。
+
+**验证链路**（与 POS 收银台 `pages/pos/index.vue` 完全对应的后端链路）：
+1. 建店「赵氏门店」+ `ShopPlugin.init` 店主账号 `zhao@163.com / 23123`
+2. `assignProductsToShop` 归属商品，顾客下单 → `setOrderPickupLocation`/`deliveryType=pickup` → 付款（单段结算验证支付方式）→ `addFulfillmentToOrder`(manual-fulfillment) → 履约 `Shipped`
+3. C 端 `myPickupCode(orderId)` 取核销码（generated）
+4. 店主登录收银：`myPickupOrders` 列出本店待核销单命中
+5. `claimPickupByShop(code)` 确认收款核销 → `redeemed` / `claimChannel=shop` / `claimedAt` 落库
+6. 重复核销被拒（`Pickup code already used / voided`），一次性解除
+7. 履约转 `Delivered`、订单 `customFields.pickupClaimed=true`
+
+**验证结果（PASS）**：
+```
+[数据] 自提单已就绪 订单#1 应付分=22100 核销码=4N5YXS
+[POS] myPickupOrders 命中本店待核销单: status=generated
+[POS] claimPickupByShop: status=redeemed, claimChannel=shop
+orderStateAfter: Delivered | fulfillmentStates: [Delivered] | pickupClaimed: true
+✅ 闭环 PASS：确认收款核销成功、履约达 Delivered、订单标记 pickupClaimed、核销码一次性失效
+```
+
+**脚本排障沉淀（跨库/鉴权/API 命名）**：
+- `PickupRedemption.claimedAt` 原 `@Column({type:'timestamp'})` 在 sqljs 报 `DataTypeNotSupportedError` → 按跨库安全写法改为仅声明可选 `Date`（TypeORM 反射驱动映射：SQLite→datetime / PostgreSQL→timestamp），同步重建 pickup-plugin `lib`
+- 测试配置须 `authOptions.tokenMethod:'bearer'`（`SimpleGraphQLClient` 从响应头取 bearer token；`cookie` 模式不带鉴权会被拒）
+- Vendure 3.6 Shop API 命名：`setOrderShippingAddress`、`setOrderShippingMethod(shippingMethodId:)`
+- 单一 fulfillment 覆盖全部行时订单直接转 `Delivered`（非 `PartiallyDelivered`），两者皆是合法终态
+
+---
+
 ## 7. 范围外（YAGNI）
 
 - 不接支付网关真实扣款、不接真实聚合支付/收款网关

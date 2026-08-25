@@ -297,6 +297,13 @@ async myLinkMember(
 
 > 入参用纯标量（`administratorId|roleIds|displayName|phone|remark`），不用 InputType，避免 NestJS 自动生成输入类型命名的不确定性；返回端按字段名查询、不依赖返回类型名，因此命名风险仅存在于 mutation 方法名（`tenantLinkMember`/`myLinkMember`），与现有 `createTenantMember` 同类。
 
+> **⚠️ 执行期修正（schema-first 缺口）**：`cjk-plugin` 的 AdminApi 采用**手工 SDL**（`plugin.ts` 的 `AdminApiExtensions.schema` 花括号 gql 块），仅加 resolver 会导致启动报 `Query.tenantSearchAdmins defined in resolvers, but not in schema` 而 502。必须在该 SDL 中补充：
+> - 新增 `type TenantAdminCandidate`（`id/emailAddress/displayName/linkedCount/linkedChannelIds/alreadyLinked`）
+> - Query 加 `tenantSearchAdmins(channelId: ID!, keyword: String!): [TenantAdminCandidate!]!` 与 `mySearchAdmins(keyword: String!): [TenantAdminCandidate!]!`
+> - Mutation 加 `tenantLinkMember(channelId: ID!, administratorId: ID!, roleIds: [ID!]!, displayName: String, phone: String, remark: String): TenantMember!` 与 `myLinkMember(...): TenantMember!`
+>
+> 提交 `27b364265`（`3 files changed`，含 `lib/`）。部署后需以 HTTP 200（非 502）冒烟确认 schema 生成成功。
+
 - [ ] **Step 3: 编译验证（本地）**
 
 Run: `tsc -p packages/cjk-plugin/tsconfig.build.json`，再

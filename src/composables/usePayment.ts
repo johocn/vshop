@@ -1,6 +1,6 @@
 import { wxRequestPayment, redirectPayment, getPlatform } from "../utils/platform";
 
-export type PaymentMethod = "wechatpay" | "alipay" | "cod" | "balance-pay";
+export type PaymentMethod = "wechatpay" | "alipay" | "cod" | "balance-pay" | "aggregate-pay";
 
 export interface PaymentResult {
     success: boolean;
@@ -92,6 +92,9 @@ export async function handlePayment(
 
         case "cod":
             return { success: true, message: "货到付款，请在收货时支付" };
+
+        case "aggregate-pay":
+            return { success: true, message: "已扫码聚合收款码，请确认到账后发货" };
 
         case "balance-pay":
             return { success: true, message: "余额支付成功" };

@@ -4,9 +4,11 @@ export interface PickupLocation {
     name: string;
     type: string;
     address: string;
+    contactPerson?: string;
     phoneNumber?: string;
     businessHours?: string;
     coordinates?: { lat: number; lng: number } | null;
+    photos?: string[] | null;
     isPublic?: boolean;
 }
 

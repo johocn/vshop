@@ -14,7 +14,7 @@ export async function getPickupLocations(
     return client.request(
         `query($type: String, $lat: Float, $lng: Float) {
             pickupLocations(type: $type, lat: $lat, lng: $lng) {
-                id name type address phoneNumber businessHours coordinates isPublic
+                id name type address contactPerson phoneNumber businessHours coordinates photos isPublic
             }
         }`,
         variables,
@@ -33,7 +33,7 @@ export async function getEmployeePickupLocations(
     return client.request(
         `query($lat: Float, $lng: Float) {
             employeePickupLocations(lat: $lat, lng: $lng) {
-                id name type address phoneNumber businessHours coordinates isPublic
+                id name type address contactPerson phoneNumber businessHours coordinates photos isPublic
             }
         }`,
         variables,

@@ -589,35 +589,31 @@ git commit -m "feat(web-admin): 档案enabled开关+自提点范围控件"
 
 ---
 
-### Task 12: 前端 —— 快递运费/区域配置页
+### Task 12: 前端 —— 快递运费区域配置页（模板层，决策后定稿）
+
+> **决策（AskUserQuestion 确认）**：快递的配送区域与运费公式配置**落在配送方式模板层**，而非已建方式实例。原因：Vendure `updateShippingMethod` 不支持改写 calculator，而 `ShippingTemplate` 的 `checker`/`calculator` 可写。模板配置后的实例经「复制到本店」继承。
 
 **Files:**
 - Create: `web-admin/src/pages/shipping/method-config/index.vue`
-- Modify: `web-admin/src/apis/shipping.ts`
-- Modify: `web-admin/src/pages.json`
+- Modify: `web-admin/src/apis/shipping-template.ts`（补 fetchShippingTemplate / updateShippingTemplateConfig）
+- Modify: `web-admin/src/pages.json`（注册路由）
+- Modify: `web-admin/src/pages/shipping/methods/index.vue`（全局方案池项超管可见「区域与运费」入口）
 
-- [ ] **Step 1: 新增运费/区域页**
+- [ ] **Step 1: 模板配置 API**
+- `fetchShippingTemplate(id)` 读 `checker.arguments` 与 `calculator.arguments`
+- `updateShippingTemplateConfig(id, checker, calculator)` 调 `updateShippingTemplate(input:{ id, checker: ConfigArgInput, calculator: ConfigArgInput })`
 
-表单含：配送区域（全国/指定省市区多选）、首重/续重/包邮门槛/偏远附加/体积重开关与参数。保存时组装 calculator.args 写回对应 ShippingMethod。
+- [ ] **Step 2: 配置页（区域 + 运费公式）**
+表单：资格检查器（excludedAreas 排除地区、orderMinimum 最低金额）+ 阶梯重量计算器（firstWeight/firstWeightFee/additionalWeightUnit/additionalWeightFee/remoteAreaSurcharge/remoteAreas/freeShippingThreshold/freeShippingAreas/useVolumetricWeight/volumetricDivisor/maxShippingFee/insuranceFeeRate/insuranceMinFee/oversizedThreshold/oversizedSurcharge）。
 
-- [ ] **Step 2: shipping.ts 补 read/update 方法**
+- [ ] **Step 3: 入口与路由**
+配送方式页「全局方案池」每项对超管显示「区域与运费」→ `/pages/shipping/method-config/index?id=<templateId>`；`pages.json` 注册该页。
 
-新增 `fetchShippingMethodConfig(id)`（读 calculator.args 与 checker 区域）、`updateShippingMethodConfig(id, calculatorArgs, region)`。
-
-- [ ] **Step 3: pages.json 注册路由**
-
-`src/pages.json` 加 `"pages/shipping/method-config/index"`。
-
-- [ ] **Step 4: 档案编辑页加入口**
-
-配送档案内 mode=mail 条目加「配置区域与运费」→ `navigateTo /pages/shipping/method-config/index?id=<methodId>`。
-
-- [ ] **Step 5: 构建 + 提交**
-
+- [ ] **Step 4: 构建 + 提交**
 ```bash
 cd d:\zhao\vshop\web-admin && npm run build:h5
-git add web-admin/src/pages/shipping/method-config/index.vue web-admin/src/apis/shipping.ts web-admin/src/pages.json
-git commit -m "feat(web-admin): 快递运费区域配置页"
+git add web-admin/src/pages/shipping/method-config web-admin/src/apis/shipping-template.ts web-admin/src/pages.json web-admin/src/pages/shipping/methods/index.vue
+git commit -m "feat(web-admin): 快递运费区域配置页(模板层)"
 ```
 
 ---
