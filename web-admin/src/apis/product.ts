@@ -385,6 +385,7 @@ export interface ProductListRow {
   priceYuan: number;
   stock: number;
   low: boolean;
+  marketplaceStatus?: string | null;
 }
 
 const LOW_STOCK = 5;
@@ -401,7 +402,7 @@ export async function fetchProductList(
     `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
       products(options: { take: $take, skip: $skip, filter: $filter }) {
         totalItems
-        items { id name slug enabled featuredAsset { preview } variants { price stockOnHand } }
+        items { id name slug enabled featuredAsset { preview } variants { price stockOnHand } customFields { marketplaceStatus } }
       }
     }`,
     { take: q.take ?? 20, skip: q.skip ?? 0, filter },
@@ -418,6 +419,7 @@ export async function fetchProductList(
       priceYuan: price / 100,
       stock,
       low: stock <= LOW_STOCK,
+      marketplaceStatus: p.customFields?.marketplaceStatus ?? null,
     };
   });
   return { totalItems: products.totalItems, items };

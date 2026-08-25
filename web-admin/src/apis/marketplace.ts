@@ -54,3 +54,13 @@ export async function rejectProduct(id: string, reason: string): Promise<void> {
     { productId: id, reason },
   );
 }
+
+/** 商户对自身商品提交上架到默认站点（置审核中） */
+export async function submitProductToMarketplace(id: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation SubmitProductToMarketplace($productId: ID!) {
+      submitForMarketplaceAdmin(productId: $productId)
+    }`,
+    { productId: id },
+  );
+}

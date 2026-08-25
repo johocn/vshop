@@ -37,6 +37,12 @@
             <text class="stock" :class="{ low: p.low }">库存 {{ p.stock }}<text v-if="p.low"> · 缺货</text></text>
           </view>
           <text class="st" :class="{ off: !p.enabled }">{{ p.enabled ? '在售' : '下架' }}</text>
+          <view class="mkt-ops">
+            <text v-if="mktStatus(p) === '审核中'" class="mkt-txt pending">已提交，待审核</text>
+            <text v-else-if="mktStatus(p) === '已上架'" class="mkt-txt ok">已在默认站点上架</text>
+            <text v-else-if="mktStatus(p) === '已驳回'" class="mkt-txt rej">已驳回</text>
+            <text v-else class="mkt-btn" @tap.stop="onSubmitMarketplace(p)">提交上架到默认站点</text>
+          </view>
         </view>
       </view>
     </view>
@@ -52,6 +58,7 @@
 import { ref, computed, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchProductList, type ProductListRow } from '../../../apis/product';
+import { submitProductToMarketplace } from '../../../apis/marketplace';
 
 const term = ref('');
 const filter = ref<'all' | 'on' | 'off'>('all');
@@ -96,6 +103,29 @@ onMounted(() => load(0));
 
 function goCats() { uni.navigateTo({ url: '/pages/product/categories/index' }); }
 function edit(p: ProductListRow) { uni.navigateTo({ url: `/pages/product/edit/index?id=${p.id}` }); }
+
+function mktStatus(p: { marketplaceStatus?: string | null }): string | null {
+  if (p.marketplaceStatus === 'approved') return '已上架';
+  if (p.marketplaceStatus === 'pending') return '审核中';
+  if (p.marketplaceStatus === 'rejected') return '已驳回';
+  return null; // 未提审
+}
+function onSubmitMarketplace(p: ProductListRow) {
+  uni.showModal({
+    title: '提交上架',
+    content: `确定将「${p.name}」提交到默认站点销售？（需平台审核）`,
+    success: async (r: any) => {
+      if (!r.confirm) return;
+      try {
+        await submitProductToMarketplace(p.id);
+        uni.showToast({ title: '已提交，待审核', icon: 'success' });
+        load(0);
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || '提交失败', icon: 'none' });
+      }
+    },
+  });
+}
 </script>
 <style lang="scss" scoped>
 .page {
@@ -134,6 +164,12 @@ function edit(p: ProductListRow) { uni.navigateTo({ url: `/pages/product/edit/in
         border-radius: $wa-radius; background: rgba(67, 160, 71, 0.12);
         &.off { color: $wa-muted; background: $wa-bg; }
       }
+      .mkt-ops { margin-top: 12rpx; }
+      .mkt-btn { align-self: flex-start; font-size: 22rpx; color: $wa-accent; border: 1rpx solid $wa-accent; border-radius: $wa-radius; padding: 4rpx 18rpx; }
+      .mkt-txt { align-self: flex-start; font-size: 22rpx; }
+      .mkt-txt.pending { color: #f59e0b; }
+      .mkt-txt.ok { color: #52c41a; }
+      .mkt-txt.rej { color: #e64340; }
     }
   }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
