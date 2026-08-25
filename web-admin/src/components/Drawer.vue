@@ -79,7 +79,7 @@ const platformGroup = () => {
   if (auth.hasPermission('TenantMemberManage')) {
     items.push({ label: '人员管理', url: '/pages/platform/members/index', tier: 2 });
   }
-  if (auth.isSuperAdmin || auth.hasPermission('PlatformProductReview')) {
+  if (auth.isSuperAdmin) {
     items.push({ label: '商品审批', url: '/pages/platform/product-approval/index', tier: 3 });
   }
   if (!items.length) return null;

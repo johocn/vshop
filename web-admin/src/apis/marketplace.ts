@@ -1,52 +1,56 @@
 // 商品上架审批 admin-api 封装
 import { getAdminClient } from './client';
 
-export interface MarketplaceProductView {
+export interface MarketplaceApprovalItem {
   id: string;
   name: string;
-  listedInMarketplace: boolean;
   marketplaceStatus: string | null;
-  merchantRef: string | null;
   rejectReason: string | null;
 }
 
-/** 跨租户按状态查询待审商品；status 传 '' 查全部 */
-export async function fetchMarketplaceProducts(status = ''): Promise<MarketplaceProductView[]> {
-  const { marketplaceProducts } = await getAdminClient().request<{
-    marketplaceProducts: MarketplaceProductView[];
+/** 拉取待审商品（仅 platform/superadmin） */
+export async function fetchPendingProducts(): Promise<MarketplaceApprovalItem[]> {
+  const { marketplacePendingProducts } = await getAdminClient().request<{
+    marketplacePendingProducts: Array<{
+      id: string;
+      translations?: Array<{ languageCode: string; name?: string | null }>;
+      customFields?: { marketplaceStatus?: string | null; rejectReason?: string | null };
+    }>;
   }>(
-    `query MarketplaceProducts($status: String) {
-      marketplaceProducts(status: $status) { id name listedInMarketplace marketplaceStatus merchantRef rejectReason }
+    `query MarketplacePendingProducts {
+      marketplacePendingProducts { id translations { languageCode name } customFields { marketplaceStatus rejectReason } }
     }`,
-    { status: status || null },
   );
-  return marketplaceProducts ?? [];
+  return (marketplacePendingProducts ?? []).map((p) => {
+    const zh = (p.translations ?? []).find(
+      (t) => t.languageCode === 'zh_Hans' || t.languageCode === 'zh-hans',
+    )?.name;
+    const cf = p.customFields ?? {};
+    return {
+      id: p.id,
+      name: zh || p.id,
+      marketplaceStatus: cf.marketplaceStatus ?? 'pending',
+      rejectReason: cf.rejectReason ?? null,
+    };
+  });
 }
 
-export async function submitProductToMarketplace(id: string): Promise<MarketplaceProductView> {
-  const { submitProductToMarketplace } = await getAdminClient().request<{
-    submitProductToMarketplace: MarketplaceProductView;
-  }>(
-    `mutation SubmitProduct($id: ID!) { submitProductToMarketplace(id: $id) { id marketplaceStatus listedInMarketplace } }`,
-    { id },
+/** 通过商品上架审批 */
+export async function approveProduct(id: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation ApproveMarketplaceProduct($productId: ID!) {
+      approveMarketplaceProduct(productId: $productId)
+    }`,
+    { productId: id },
   );
-  return submitProductToMarketplace;
 }
 
-export async function reviewMarketplaceProduct(
-  id: string,
-  approve: boolean,
-  rejectReason = '',
-): Promise<MarketplaceProductView> {
-  const { reviewMarketplaceProduct } = await getAdminClient().request<{
-    reviewMarketplaceProduct: MarketplaceProductView;
-  }>(
-    `mutation ReviewProduct($id: ID!, $approve: Boolean!, $rejectReason: String) {
-      reviewMarketplaceProduct(id: $id, approve: $approve, rejectReason: $rejectReason) {
-        id marketplaceStatus listedInMarketplace rejectReason
-      }
+/** 驳回商品上架审批 */
+export async function rejectProduct(id: string, reason: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation RejectMarketplaceProduct($productId: ID!, $reason: String!) {
+      rejectMarketplaceProduct(productId: $productId, reason: $reason)
     }`,
-    { id, approve, rejectReason },
+    { productId: id, reason },
   );
-  return reviewMarketplaceProduct;
 }
