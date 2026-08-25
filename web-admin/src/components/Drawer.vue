@@ -43,11 +43,13 @@ const groups = [
     { label: '订单', url: '/pages/order/list/index', tier: 1 },
     { label: '发货', url: '/pages/order/ship/index', tier: 2 },
     { label: '售后', url: '/pages/after-sale/list/index', tier: 2 },
+    { label: '门店收银', url: '/pages/pos/index', tier: 2 },
   ]},
   { domain: '履约', color: D.d3.main, grad: D.d3.grad, items: [
     { label: '配送方式', url: '/pages/shipping/methods/index', tier: 2 },
     { label: '支付方式', url: '/pages/payment/methods/index', tier: 2 },
     { label: '自提点', url: '/pages/pickup/index', tier: 2 },
+    { label: '到店自提核销', url: '/pages/pickup/redeem/index', tier: 2 },
     { label: '配送档案', url: '/pages/shipping/profile/index', tier: 3 },
     { label: '支付档案', url: '/pages/payment/profile/index', tier: 3 },
   ]},
