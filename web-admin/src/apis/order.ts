@@ -196,3 +196,32 @@ export async function fulfillOrder(
   }
   return r as FulfillmentResult;
 }
+
+// 部分发货（按行选品 / 快递公司 / 多包裹）
+export interface ShipLinePart { orderLineId: string; quantity: number }
+
+export async function partialShip(
+  orderId: string,
+  parts: ShipLinePart[],
+  method = 'standard',
+  trackingCode?: string,
+): Promise<FulfillmentResult> {
+  if (!parts.length) throw new Error('请选择要发货的商品');
+  const lines = parts.map((p) => ({ orderLineId: p.orderLineId, quantity: p.quantity }));
+  const args = [{ name: 'method', value: method }];
+  if (trackingCode) args.push({ name: 'trackingCode', value: trackingCode });
+  const res = await getAdminClient().request<{
+    addFulfillmentToOrder: FulfillmentResult | { errorCode: string; message: string };
+  }>(
+    `mutation Fulfill($input: FulfillOrderInput!) {
+      addFulfillmentToOrder(input: $input) {
+        ... on Fulfillment { id state method trackingCode }
+        ... on ErrorResult { errorCode message }
+      }
+    }`,
+    { input: { lines, handler: { code: 'manual-fulfillment', arguments: args } } },
+  );
+  const r = res.addFulfillmentToOrder;
+  if ('errorCode' in r) { const e = r as any; throw new Error(`发货失败: ${e.message || e.errorCode}`); }
+  return r as FulfillmentResult;
+}
