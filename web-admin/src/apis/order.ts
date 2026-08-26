@@ -135,68 +135,6 @@ export async function cancelOrder(orderId: string): Promise<boolean> {
   throw new Error((r && r.message ? r.message : '取消失败') || '取消失败');
 }
 
-// 发货：先取订单行组装 lines，再调 addFulfillmentToOrder（manual-fulfillment handler）
-export async function shipOrder(
-  orderId: string,
-  method = 'standard',
-  trackingCode?: string,
-): Promise<FulfillmentResult> {
-  const { order } = await getAdminClient().request<{ order: { lines: Array<{ id: string; quantity: number }> } | null }>(
-    `query OrderLines($id: ID!) { order(id: $id) { lines { id quantity } } }`,
-    { id: orderId },
-  );
-  if (!order || order.lines.length === 0) {
-    throw new Error('order not found or has no lines');
-  }
-  const lines = order.lines.map((l) => ({ orderLineId: l.id, quantity: l.quantity }));
-  const args = [{ name: 'method', value: method }];
-  if (trackingCode) {
-    args.push({ name: 'trackingCode', value: trackingCode });
-  }
-  const res = await getAdminClient().request<{ addFulfillmentToOrder: FulfillmentResult }>(
-    `mutation Fulfill($input: FulfillOrderInput!) {
-      addFulfillmentToOrder(input: $input) {
-        ... on Fulfillment { id state method }
-        ... on ErrorResult { errorCode message }
-      }
-    }`,
-    { input: { lines, handler: { code: 'manual-fulfillment', arguments: args } } },
-  );
-  return res.addFulfillmentToOrder;
-}
-
-// Task 8：发货（orderLineIds 为订单行 id 列表，quantity 固定 1；handler 用 manual-fulfillment）
-// 实测：addFulfillmentToOrder(input:{ lines:[{orderLineId,quantity}], handler:{ code:'manual-fulfillment',
-//   arguments:[{name:'method',value},{name:'trackingCode',value}] } }) → { id state method trackingCode }
-export async function fulfillOrder(
-  orderLineIds: string[],
-  method = 'standard',
-  trackingCode?: string,
-): Promise<FulfillmentResult> {
-  const lines = orderLineIds.map((id) => ({ orderLineId: id, quantity: 1 }));
-  const args = [{ name: 'method', value: method }];
-  if (trackingCode) {
-    args.push({ name: 'trackingCode', value: trackingCode });
-  }
-  const res = await getAdminClient().request<{
-    addFulfillmentToOrder: FulfillmentResult | { errorCode: string; message: string };
-  }>(
-    `mutation Fulfill($input: FulfillOrderInput!) {
-      addFulfillmentToOrder(input: $input) {
-        ... on Fulfillment { id state method trackingCode }
-        ... on ErrorResult { errorCode message }
-      }
-    }`,
-    { input: { lines, handler: { code: 'manual-fulfillment', arguments: args } } },
-  );
-  const r = res.addFulfillmentToOrder;
-  if ('errorCode' in r) {
-    const e = r as { errorCode: string; message: string };
-    throw new Error(`发货失败: ${e.message || e.errorCode}`);
-  }
-  return r as FulfillmentResult;
-}
-
 // 部分发货（按行选品 / 快递公司 / 多包裹）
 export interface ShipLinePart { orderLineId: string; quantity: number }
 
