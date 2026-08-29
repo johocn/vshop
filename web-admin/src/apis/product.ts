@@ -480,15 +480,20 @@ export async function fetchBrands(term?: string): Promise<BrandOption[]> {
 }
 
 async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Promise<void> {
-  // 仅在品牌/营销/卖点有值时才触发 updateProduct；facets 只在有品牌时传。
-  // marketingTags 存 JSON 字符串；customFields 只在对应字段非空时填充。
+  // 仅在品牌/营销/卖点有值时才触发 updateProduct；facetValueIds 只在有品牌时传。
+  // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
+  // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
   if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint) return;
   const updated: Record<string, unknown> = { id };
   if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
   if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
-  if (input.sellingPoint) customFields.sellingPoint = input.sellingPoint;
   if (Object.keys(customFields).length) updated.customFields = customFields;
+  if (input.sellingPoint) {
+    updated.translations = [
+      { languageCode: PRODUCT_LANGUAGE_CODE, customFields: { sellingPoint: input.sellingPoint } },
+    ];
+  }
   await getAdminClient().request(
     `mutation UpdateProductBrand($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
     { input: updated },
