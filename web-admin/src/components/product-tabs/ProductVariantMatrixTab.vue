@@ -82,7 +82,7 @@
 
 <script lang="ts" setup>
 import { computed, reactive, watch } from 'vue';
-import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../../composables/useVariantMatrix';
+import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../composables/useVariantMatrix';
 
 export interface VariantMatrixValue {
   noSpec: boolean;

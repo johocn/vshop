@@ -55,7 +55,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchBrands } from '../../../apis/product';
+import { fetchBrands } from '../../apis/product';
 
 export interface BrandMarketingValue {
   brandFacetValueId: string;
