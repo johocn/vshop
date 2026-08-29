@@ -157,7 +157,16 @@ export interface VariantRef {
   price: number; // 单位：分
   stockOnHand: number;
   trackInventory: boolean;
-  customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+  optionValues?: Array<{ id: string; code: string; name: string }> | null;
+  customFields?:
+    | {
+        shippingProfileId?: string | null;
+        paymentProfileId?: string | null;
+        listPrice?: number | null;
+        saleStart?: string | null;
+        saleEnd?: string | null;
+      }
+    | null;
   featuredAsset?: { preview: string } | null;
   assets?: { preview: string }[] | null;
 }
@@ -170,8 +179,15 @@ export interface ProductFull {
   description?: string;
   featuredAsset?: { preview: string } | null;
   assets?: { id: string; preview: string }[] | null;
+  facetValues?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    facetValue?: { name: string; code: string; id: string };
+  }> | null;
   variant?: VariantRef | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+  productCustomFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
 }
 
 export interface ProductSaveInput {
@@ -185,6 +201,9 @@ export interface ProductSaveInput {
   featuredAssetId?: string;
   shippingProfileId?: string;
   paymentProfileId?: string;
+  brandFacetValueId?: string | null; // 品牌
+  marketingTags?: string[]; // 营销标签 code 数组
+  sellingPoint?: string; // 卖点
 }
 
 export async function fetchProductFull(id: string): Promise<ProductFull> {
@@ -196,6 +215,13 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
       enabled: boolean;
       featuredAsset?: { preview: string } | null;
       assets?: { id: string; preview: string }[] | null;
+      facetValues?: Array<{
+        id: string;
+        code: string;
+        name: string;
+        facetValue?: { name: string; code: string; id: string };
+      }>;
+      customFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -203,8 +229,9 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         price: number;
         stockOnHand: number;
         trackInventory: boolean;
+        optionValues?: Array<{ id: string; code: string; name: string }>;
         featuredAsset?: { preview: string } | null;
-        customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
+        customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null; saleStart?: string | null; saleEnd?: string | null; listPrice?: number | null } | null;
       }>;
     };
   }>(
@@ -213,11 +240,14 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         id name slug enabled
         featuredAsset { preview }
         assets { id preview }
+        facetValues { id code facetValue { id code name } }
+        customFields { marketingTags sellingPoint }
         translations { languageCode name slug description }
         variants {
           id sku price stockOnHand trackInventory
+          optionValues { id code name }
           featuredAsset { preview }
-          customFields { shippingProfileId paymentProfileId }
+          customFields { shippingProfileId paymentProfileId saleStart saleEnd listPrice }
         }
       }
     }`,
@@ -225,6 +255,15 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
   );
   const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
   const v = product.variants?.[0];
+  let marketingTags: string[] = [];
+  try {
+    marketingTags = product.customFields?.marketingTags
+      ? JSON.parse(product.customFields.marketingTags)
+      : [];
+    if (!Array.isArray(marketingTags)) marketingTags = [];
+  } catch {
+    marketingTags = [];
+  }
   return {
     id: product.id,
     name: product.name,
@@ -233,8 +272,15 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     description: zh?.description ?? '',
     featuredAsset: product.featuredAsset ?? null,
     assets: product.assets ?? null,
+    facetValues: product.facetValues ?? null,
     variant: v ? { ...v } : null,
     customFields: v?.customFields ?? null,
+    productCustomFields: product.customFields
+      ? {
+          marketingTags: marketingTags,
+          sellingPoint: product.customFields.sellingPoint ?? '',
+        }
+      : null,
   };
 }
 
@@ -279,6 +325,40 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
   return createProductVariants[0]?.id;
 }
 
+export interface BrandOption {
+  id: string;
+  name: string;
+}
+
+export async function fetchBrands(term?: string): Promise<BrandOption[]> {
+  const { facets } = await getAdminClient().request<{
+    facets: {
+      items: Array<{ facetValues: Array<{ id: string; code: string; name: string }> }>;
+    };
+  }>(
+    `query Brands($term: String) { facets(options: { take: 100, filter: { code: { eq: "brand" } } }) { items { facetValues { id code name } } } }`,
+  );
+  const values = facets?.items?.[0]?.facetValues ?? [];
+  const filtered = term ? values.filter((v) => v.name.includes(term)) : values;
+  return filtered.map((v) => ({ id: v.id, name: v.name }));
+}
+
+async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Promise<void> {
+  // 仅在品牌/营销/卖点有值时才触发 updateProduct；facets 只在有品牌时传。
+  // marketingTags 存 JSON 字符串；customFields 只在对应字段非空时填充。
+  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint) return;
+  const updated: Record<string, unknown> = { id };
+  if (input.brandFacetValueId) updated.facets = [input.brandFacetValueId];
+  const customFields: Record<string, unknown> = {};
+  if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
+  if (input.sellingPoint) customFields.sellingPoint = input.sellingPoint;
+  if (Object.keys(customFields).length) updated.customFields = customFields;
+  await getAdminClient().request(
+    `mutation UpdateProductBrand($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
+    { input: updated },
+  );
+}
+
 export async function createProductFull(input: ProductSaveInput): Promise<string> {
   const pid = await createProduct(input.name, input.slug, input.description ?? '');
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
@@ -304,6 +384,7 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
   if (input.enabled === false) {
     await updateProduct(pid, { enabled: false });
   }
+  await applyBrandAndMarketing(pid, input);
   return pid;
 }
 
@@ -363,6 +444,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
       },
     );
   }
+  await applyBrandAndMarketing(id, input);
 }
 
 // ---- Task 10：商品列表增强 ----
