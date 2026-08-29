@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view v-if="loaded">
-      <ProductForm ref="form" :initial="initial" @submit="onSubmit" />
+      <ProductForm ref="form" :initial="initial" :full="full" @submit="onSubmit" />
       <button class="save" @tap="doSave">保存</button>
     </view>
     <view v-else class="empty">加载中…</view>
@@ -10,28 +10,30 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import ProductForm from '../../../components/ProductForm.vue';
-import { fetchProductFull, updateProductFull } from '../../../apis/product';
+import { fetchProductFull, updateProductFull, type ProductFull } from '../../../apis/product';
 
 const id = ref('');
 const loaded = ref(false);
 const form = ref<any>(null);
 const initial = ref<any>(null);
+const full = ref<ProductFull | null>(null);
 let busy = false;
 
 onMounted(async () => {
   id.value = (getCurrentPages().at(-1) as any)?.options?.id || '';
-  const full = await fetchProductFull(id.value);
+  const data = await fetchProductFull(id.value);
+  full.value = data;
   initial.value = {
-    name: full.name,
-    slug: full.slug,
-    description: full.description,
-    priceYuan: full.variant ? full.variant.price / 100 : 0,
-    stock: full.variant?.stockOnHand ?? 0,
-    enabled: full.enabled,
+    name: data.name,
+    slug: data.slug,
+    description: data.description,
+    priceYuan: data.variant ? data.variant.price / 100 : 0,
+    stock: data.variant?.stockOnHand ?? 0,
+    enabled: data.enabled,
     // ImagePicker 的 value 是资产 id 数组，故回填真实 id（full.assets 已带 id）
-    assetIds: (full.assets || []).map((a) => a.id).filter(Boolean),
-    shippingProfileId: full.variant?.customFields?.shippingProfileId ?? '',
-    paymentProfileId: full.variant?.customFields?.paymentProfileId ?? '',
+    assetIds: (data.assets || []).map((a) => a.id).filter(Boolean),
+    shippingProfileId: data.variant?.customFields?.shippingProfileId ?? '',
+    paymentProfileId: data.variant?.customFields?.paymentProfileId ?? '',
     // 归属分类：统一在分类管理页（Task 11）维护；编辑页不反解 product-id-filter，置空既不预选也不改动
     collectionId: undefined,
   };
