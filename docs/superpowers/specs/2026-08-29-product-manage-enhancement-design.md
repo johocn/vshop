@@ -19,11 +19,11 @@ web-admin 现有 `ProductForm.vue` 为**单变体**商品表单（字段：名�
 
 ## 第 1 节 · 后端数据模型（Vendure 扩展）
 
-扩展位于 `d:\zhao\vendure\packages\cjk-plugin`，沿用现有 `product-variant-custom-fields.ts` 模式。
+字段落点沿用现有分区：**Variant 级**字段加入 `cjk-plugin/src/shipping/product-variant-custom-fields.ts`（与 shippingProfileId/paymentProfileId 并列）；**Product 级**字段加入 `marketplace-plugin/src/custom-fields.ts`（与 barcode/internalCode 并列）。不新建重复字段。
 
 | 载体 | 新增结构 | 说明 |
 |------|----------|------|
-| Facet `code=brand` | 品牌库 | 每个品牌一个 FacetValue，名称走 `translations`（多语言预留），商品以 `addOptionGroupToProduct` 关联；前台可按品牌筛选 |
+| Facet `code=brand` | 品牌库 | 每个品牌一个 FacetValue，名称走 `translations`（多语言预留），商品以 `updateProduct(..., facets:[brandId?])` 单选关联；Vendure 原生 Facet 即供前台按品牌筛选 |
 | ProductVariant customField | `listPrice: Decimal`（可空） | 划线价/原价，为 null 不显示划线 |
 | ProductVariant customField | `saleStart?: Date`（可空） | 限时促销开始时间 |
 | ProductVariant customField | `saleEnd?: Date`（可空） | 限时促销结束时间，过期自动回落 |
@@ -109,6 +109,19 @@ web-admin 现有 `ProductForm.vue` 为**单变体**商品表单（字段：名�
 
 - 本地 dev（devProxy→线上）验证：品牌库选取/回显、划线价与促销期展示及回落、矩阵生成与批量编辑、满减/优惠券关联下单、登录加购链路。
 - 不触碰线上写操作（用新测试商品/账号）。
+
+## 第 5 节 · Vendure 复用清单（不重复已完成工作）
+
+| 目标 | 复用/依托 | 不重复的实现 |
+|------|-----------|---------------|
+| 品牌筛选 | Vendure 原生 `Facet`/`FacetValue`（`createFacet`/`createFacetValue`/`updateProduct facets`） | 不自建品牌表，不写筛选逻辑 |
+| 规格变体矩阵 | Vendure 原生 `createProductOptionGroup`/`createProductOption` + `createProductVariants` 批量、`updateProductVariants` 编辑 | 后端只补 customFields，不新写建变体 mutation |
+| 限时直降结算 | 既有 `flash-sale-plugin` 闪购价（结算期 PromotionItemAction） | 我们不建第二条结算价逻辑；`listPrice+saleStart/saleEnd` 仅做商品展示层划线价 |
+| 满减/优惠券 | 既有 `coupon-plugin`（含满减）/`voucher-plugin`/`sales-plugin` | 「关联活动」只做选择，不重做活动创建/结算 |
+| 限时秒杀/拼团/预售 | 既有 `flash-sale`/`group-buy`/`pre-sale` 插件 | 本期不新增 |
+| 多语言结构 | Vendure 原生 `translations`（Product/Variant/FacetValue/Option enabled） | 卖点用 `LocalizedText`/`LocalizedString` 类型，仅填 zh_Hans |
+
+**结论**：不重复已有插件（flash-sale/coupon/voucher/sales/group-buy/pre-sale/member-level）职能；本期后端新增仅限产品级/变体级零散 customFields 与 `brand` Facet 初始化，其余全部复用 Vendure 原生与既有插件。
 
 ## 范围界定
 
