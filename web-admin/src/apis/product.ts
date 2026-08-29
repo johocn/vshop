@@ -186,6 +186,22 @@ export interface ProductFull {
     facetValue?: { name: string; code: string; id: string };
   }> | null;
   variant?: VariantRef | null;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    price: number;
+    stockOnHand: number;
+    trackInventory: boolean;
+    featuredAsset?: { preview: string } | null;
+    optionValues?: Array<{ id: string; code: string; name: string }> | null;
+    customFields?: {
+      shippingProfileId?: string | null;
+      paymentProfileId?: string | null;
+      listPrice?: number | null;
+      saleStart?: string | null;
+      saleEnd?: string | null;
+    } | null;
+  }> | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
   productCustomFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
 }
@@ -204,6 +220,8 @@ export interface ProductSaveInput {
   brandFacetValueId?: string | null; // 品牌
   marketingTags?: string[]; // 营销标签 code 数组
   sellingPoint?: string; // 卖点
+  // 多规格变体矩阵（新建落库 / 编辑同结构数值更新用）。productId 由 create/update 补齐。
+  variantMatrix?: CreateVariantMatrixInput | null;
 }
 
 export async function fetchProductFull(id: string): Promise<ProductFull> {
@@ -274,6 +292,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     assets: product.assets ?? null,
     facetValues: product.facetValues ?? null,
     variant: v ? { ...v } : null,
+    variants: product.variants ? [...product.variants] : null,
     customFields: v?.customFields ?? null,
     productCustomFields: product.customFields
       ? {
@@ -330,6 +349,105 @@ export interface BrandOption {
   name: string;
 }
 
+// ---- 变体矩阵落库 ----
+// 新建商品的多规格落库：逐组 createProductOptionGroup（带 values），再一次性 createProductVariants。
+// 规格关联字段采用 Vendure admin `CreateProductVariantInput.optionIds: [ID!]`（指向 ProductOption）。
+// 若线上 schema 用 `optionValueIds` 而非 `optionIds`，以实际 schema 为准。
+export interface CreateVariantMatrixInput {
+  productId: string;
+  groups: { name: string; values: string[] }[]; // 规格组
+  skus: { labels: string[]; priceCents: number; stock: number; listPriceCents?: number }[];
+  shippingProfileId?: string;
+  paymentProfileId?: string;
+}
+
+// code 打斜线：小写 + 非字母数字转 '-'，规避非法 code。注意纯中文输入会得到 '-'（可能同组重复），属已知边界。
+function slugifyCode(v: string): string {
+  return String(v ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+}
+
+export async function createVariantMatrixForProduct(input: CreateVariantMatrixInput): Promise<number> {
+  // 1) 逐组创建规格组，收集「维度号 -> (规格值名 -> option id)」。
+  //    维度口径与 buildMatrix 一致：仅统计至少含一个非空规格值的组，保持原顺序对齐 skus[i].labels[d]。
+  const dims: Array<{ groupIndex: number; valueToOptionId: Map<string, string> }> = [];
+  const groups = input.groups || [];
+  for (let gi = 0; gi < groups.length; gi++) {
+    const name = String(groups[gi]?.name ?? '').trim();
+    const values = (groups[gi]?.values || [])
+      .map((val) => String(val ?? '').trim())
+      .filter((val) => val !== '');
+    if (!name || !values.length) continue; // 空组名或无数值则跳过该组
+    const { createProductOptionGroup } = await getAdminClient().request<{
+      createProductOptionGroup: { options: Array<{ id: string }> };
+    }>(
+      `mutation CreateOptionGroup($input: CreateProductOptionGroupInput!) {
+        createProductOptionGroup(input: $input) { options { id } }
+      }`,
+      {
+        input: {
+          code: slugifyCode(name),
+          translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name }],
+          values: values.map((val) => ({
+            code: slugifyCode(val),
+            translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: val }],
+          })),
+        },
+      },
+    );
+    const opts = createProductOptionGroup?.options || [];
+    const valueToOptionId = new Map<string, string>();
+    for (let k = 0; k < opts.length && k < values.length; k++) {
+      valueToOptionId.set(values[k], opts[k].id); // options 顺序与入参 values 一致
+    }
+    dims.push({ groupIndex: gi, valueToOptionId });
+  }
+
+  const skus = input.skus || [];
+  if (!dims.length || !skus.length) return 0; // 无有效维度或 SKU，不建任何变体
+
+  // 2) 每个 SKU 依据 labels 定位各维度 option id，组装 optionIds。
+  const variants = skus.map((sku) => {
+    const optionIds: string[] = [];
+    for (let d = 0; d < dims.length; d++) {
+      const label = sku.labels?.[d];
+      const oid = label != null ? dims[d].valueToOptionId.get(String(label)) : undefined;
+      if (oid) optionIds.push(oid);
+    }
+    return {
+      productId: input.productId,
+      sku: sku.sku ?? '',
+      price: Math.round(sku.priceCents) || 0,
+      optionIds,
+      trackInventory: 'TRUE',
+      stockOnHand: Math.round(sku.stock) || 0,
+      customFields: {
+        shippingProfileId: input.shippingProfileId ?? '',
+        paymentProfileId: input.paymentProfileId ?? '',
+        listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
+      },
+      translations: [
+        {
+          languageCode: PRODUCT_LANGUAGE_CODE,
+          name: (sku.labels || []).join('·') || sku.sku || '',
+        },
+      ],
+    };
+  });
+
+  // 3) 一次性创建全部变体。
+  const { createProductVariants } = await getAdminClient().request<{
+    createProductVariants: Array<{ id: string }>;
+  }>(
+    `mutation CreateMatrixVariants($input: [CreateProductVariantInput!]!) {
+      createProductVariants(input: $input) { id }
+    }`,
+    { input: variants },
+  );
+  return (createProductVariants || []).length;
+}
+
 export async function fetchBrands(term?: string): Promise<BrandOption[]> {
   const { facets } = await getAdminClient().request<{
     facets: {
@@ -362,17 +480,30 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
 export async function createProductFull(input: ProductSaveInput): Promise<string> {
   const pid = await createProduct(input.name, input.slug, input.description ?? '');
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
-  const variantId = await createVariantsForProduct({
-    productId: pid,
-    sku: 'P' + Date.now(),
-    price: Math.round(input.priceYuan * 100),
-    stock: input.stock,
-    assetIds: input.assetIds,
-    featuredAssetId,
-    shippingProfileId: input.shippingProfileId,
-    paymentProfileId: input.paymentProfileId,
-  });
-  void variantId;
+  const vm = input.variantMatrix;
+  const isMatrix = !!vm && !!(vm.groups || []).length && !!(vm.skus || []).length;
+  if (isMatrix) {
+    // 多规格：建规格组 + 全部变体（矩阵本身在 createVariantMatrixForProduct 内调 createProductVariants）
+    await createVariantMatrixForProduct({
+      productId: pid,
+      groups: vm!.groups,
+      skus: vm!.skus,
+      shippingProfileId: input.shippingProfileId,
+      paymentProfileId: input.paymentProfileId,
+    });
+  } else {
+    // 无矩阵（含 noSpec 单品）：沿用既有的单变体创建
+    await createVariantsForProduct({
+      productId: pid,
+      sku: 'P' + Date.now(),
+      price: Math.round(input.priceYuan * 100),
+      stock: input.stock,
+      assetIds: input.assetIds,
+      featuredAssetId,
+      shippingProfileId: input.shippingProfileId,
+      paymentProfileId: input.paymentProfileId,
+    });
+  }
   // 图片同时挂到商品级：列表用 product.featuredAsset 做缩略图、编辑页用 product.assets 回填，
   // 只挂变体会导致新建商品无缩略图、编辑页回填不到图（冒烟实证 assets:0）
   if (input.assetIds.length || featuredAssetId) {
@@ -419,30 +550,74 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     },
   );
 
-  // 3) 变体更新（sku 沿用原值，price 换算成分，更新库存与 profiles）
+  // 3) 变体更新
   const full = await fetchProductFull(id);
-  const v = full.variant;
-  if (v?.id) {
-    await getAdminClient().request(
-      `mutation UpdateProductVariants($input: [UpdateProductVariantInput!]!) {
-        updateProductVariants(input: $input) { id }
-      }`,
-      {
-        input: [
-          {
-            id: v.id,
-            sku: v.sku,
-            price: Math.round(input.priceYuan * 100),
-            trackInventory: 'TRUE',
-            stockOnHand: input.stock,
-            customFields: {
-              shippingProfileId: input.shippingProfileId ?? '',
-              paymentProfileId: input.paymentProfileId ?? '',
-            },
+  const allVariants = full.variants || [];
+  const vm = input.variantMatrix;
+  const multiSpecNow = !!allVariants[0]?.optionValues?.length;
+
+  if (multiSpecNow && vm?.skus?.length) {
+    // ---- 多规格编辑：同结构仅更新数值 ----
+    // 已有多规格（变体带 optionValues）。最低可用路径：列数（维度数）一致则
+    // 逐变体 updateProductVariants 更新价格/库存/划线价/profiles（按对齐顺序 skus[i]<->variants[i]）。
+    // 【已知限制】规格组/值数量或顺序变更（结构变更）需重开新建，本轮不强制 diff 重建。
+    const curDims = allVariants[0].optionValues?.length ?? 0;
+    const dims = (vm.groups || []).filter((g) =>
+      (g.values || []).some((val) => String(val ?? '').trim() !== ''),
+    ).length;
+    if (dims !== curDims) {
+      throw new Error('多规格结构变更需重开新建：推理仅支持同结构下修改价格/库存/划线价');
+    }
+    const updates = (vm.skus || [])
+      .map((sku, i) => {
+        const v = allVariants[i];
+        return {
+          id: v?.id,
+          sku: v?.sku ?? sku.sku ?? '',
+          price: Math.round(sku.priceCents) || 0,
+          trackInventory: 'TRUE',
+          stockOnHand: Math.round(sku.stock) || 0,
+          customFields: {
+            shippingProfileId: input.shippingProfileId ?? '',
+            paymentProfileId: input.paymentProfileId ?? '',
+            listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
           },
-        ],
-      },
-    );
+        };
+      })
+      .filter((u) => u.id);
+    if (updates.length) {
+      await getAdminClient().request(
+        `mutation UpdateMatrixVariants($input: [UpdateProductVariantInput!]!) {
+          updateProductVariants(input: $input) { id }
+        }`,
+        { input: updates },
+      );
+    }
+  } else {
+    // 单变体（含编辑时切换到无矩阵/单规格）：沿用既有更新逻辑
+    const v = full.variant;
+    if (v?.id) {
+      await getAdminClient().request(
+        `mutation UpdateProductVariants($input: [UpdateProductVariantInput!]!) {
+          updateProductVariants(input: $input) { id }
+        }`,
+        {
+          input: [
+            {
+              id: v.id,
+              sku: v.sku,
+              price: Math.round(input.priceYuan * 100),
+              trackInventory: 'TRUE',
+              stockOnHand: input.stock,
+              customFields: {
+                shippingProfileId: input.shippingProfileId ?? '',
+                paymentProfileId: input.paymentProfileId ?? '',
+              },
+            },
+          ],
+        },
+      );
+    }
   }
   await applyBrandAndMarketing(id, input);
 }

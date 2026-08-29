@@ -112,7 +112,7 @@ interface ProductDraft {
   brandFacetValueId?: string | null;
   marketingTags?: string[];
   sellingPoint?: string;
-  // 具变体矩阵（本期仅作为表单元数据保留在前端，不入库）
+  // 具变体矩阵：priceCents/listPriceCents 单位「分」；随保存落库（apis 的 createVariantMatrixForProduct 消费）
   variantMatrix?: VariantMatrixState;
 }
 
