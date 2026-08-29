@@ -203,7 +203,7 @@ export interface ProductFull {
     } | null;
   }> | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
-  productCustomFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
+  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null } | null;
 }
 
 export interface ProductSaveInput {
@@ -350,13 +350,15 @@ export interface BrandOption {
 }
 
 // ---- 变体矩阵落库 ----
-// 新建商品的多规格落库：逐组 createProductOptionGroup（带 values），再一次性 createProductVariants。
-// 规格关联字段采用 Vendure admin `CreateProductVariantInput.optionIds: [ID!]`（指向 ProductOption）。
-// 若线上 schema 用 `optionValueIds` 而非 `optionIds`，以实际 schema 为准。
+// 新建商品的多规格落库：逐组 createProductOptionGroup（规格值在 options 内嵌创建），
+// 每组创建后必须 addOptionGroupToProduct 关联到商品（否则 createProductVariants 的
+// optionIds 校验失败，线上实测确认），最后一次性 createProductVariants。
+// 规格值关联用 Vendure admin `CreateProductVariantInput.optionIds: [ID!]`（指向 ProductOption）。
+// 中文规格名/值经 baseSlug/uniqueValueCodes 兜底为合法且唯一的 code。
 export interface CreateVariantMatrixInput {
   productId: string;
   groups: { name: string; values: string[] }[]; // 规格组
-  skus: { labels: string[]; priceCents: number; stock: number; listPriceCents?: number }[];
+  skus: { labels: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number }[];
   shippingProfileId?: string;
   paymentProfileId?: string;
 }
@@ -396,10 +398,10 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
     // 规格值 code 兜底：中文退化 `v-序号` 且同组唯一（见 uniqueValueCodes）
     const valueCodes = uniqueValueCodes(values);
     const { createProductOptionGroup } = await getAdminClient().request<{
-      createProductOptionGroup: { options: Array<{ id: string }> };
+      createProductOptionGroup: { id: string; options: Array<{ id: string }> };
     }>(
       `mutation CreateOptionGroup($input: CreateProductOptionGroupInput!) {
-        createProductOptionGroup(input: $input) { options { id } }
+        createProductOptionGroup(input: $input) { id options { id } }
       }`,
       {
         input: {
@@ -414,7 +416,18 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
         },
       },
     );
+    const groupId = createProductOptionGroup?.id;
     const opts = createProductOptionGroup?.options || [];
+    // 规格组必须关联到商品，否则创建变体时 optionIds 校验失败
+    // （线上冒烟实测：addOptionGroupToProduct 后再 createProductVariants）
+    if (groupId) {
+      await getAdminClient().request(
+        `mutation LinkOptionGroup($productId: ID!, $optionGroupId: ID!) {
+          addOptionGroupToProduct(productId: $productId, optionGroupId: $optionGroupId) { id }
+        }`,
+        { productId: input.productId, optionGroupId: groupId },
+      );
+    }
     const valueToOptionId = new Map<string, string>();
     for (let k = 0; k < opts.length && k < values.length; k++) {
       valueToOptionId.set(values[k], opts[k].id); // options 顺序与入参 values 一致
