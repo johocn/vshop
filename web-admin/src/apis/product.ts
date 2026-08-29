@@ -361,11 +361,25 @@ export interface CreateVariantMatrixInput {
   paymentProfileId?: string;
 }
 
-// code 打斜线：小写 + 非字母数字转 '-'，规避非法 code。注意纯中文输入会得到 '-'（可能同组重复），属已知边界。
-function slugifyCode(v: string): string {
+// code 打斜线：小写 + 非字母数字转 '-'，去首尾并压缩连续连字符。
+function baseSlug(v: string): string {
   return String(v ?? '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-');
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// 规格值 code：纯中文退化为空时用 `v-序号`；与同组已有 code 冲突时追加序号，保证合法且同组唯一。
+function uniqueValueCodes(values: string[]): Array<{ name: string; code: string }> {
+  const used = new Set<string>();
+  return values.map((val, i) => {
+    let code = baseSlug(val) || `v-${i}`;
+    let n = 1;
+    while (used.has(code)) code = `${baseSlug(val) || `v-${i}`}-${n++}`;
+    used.add(code);
+    return { name: val, code };
+  });
 }
 
 export async function createVariantMatrixForProduct(input: CreateVariantMatrixInput): Promise<number> {
@@ -379,6 +393,8 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       .map((val) => String(val ?? '').trim())
       .filter((val) => val !== '');
     if (!name || !values.length) continue; // 空组名或无数值则跳过该组
+    // 规格值 code 兜底：中文退化 `v-序号` 且同组唯一（见 uniqueValueCodes）
+    const valueCodes = uniqueValueCodes(values);
     const { createProductOptionGroup } = await getAdminClient().request<{
       createProductOptionGroup: { options: Array<{ id: string }> };
     }>(
@@ -387,11 +403,12 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       }`,
       {
         input: {
-          code: slugifyCode(name),
+          // 组 code 兜底：中文退化 `option-group-<gi>`，避免空串/非法字符
+          code: baseSlug(name) || `option-group-${gi}`,
           translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name }],
-          values: values.map((val) => ({
-            code: slugifyCode(val),
-            translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: val }],
+          values: valueCodes.map(({ name: vName, code }) => ({
+            code,
+            translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: vName }],
           })),
         },
       },
