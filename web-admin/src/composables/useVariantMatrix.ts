@@ -106,10 +106,10 @@ export function defaultVariantMatrix(): VariantMatrixState {
 }
 
 // 从 ProductFull 反解编辑态：
-//  - facetValues 中取品牌（ffacets code=brand -> 取其一 facetValue，id 取 facetValue.id）
+//  - facetValues 中取品牌（FacetValue 的 facet.code=brand -> id/name 取该 FacetValue 自身）
 //  - productCustomFields 解析 marketingTags JSON / sellingPoint
 //  - variants[0].customFields 回填 listPrice(分->元) / saleStart / saleEnd
-//  - 以 variants[0].optionValues 是否为空判定单/多规格；多规格按维度反解 groups 与 skus
+//  - 以 variants[0].options 是否为空判定单/多规格；多规格按维度反解 groups 与 skus
 export function hydrateEditState(product: ProductFull): {
   brandMarketing: BrandMarketingState;
   variantMatrix: VariantMatrixState;
@@ -123,11 +123,12 @@ export function hydrateEditState(product: ProductFull): {
   let brandFacetValueId = '';
   let brandName = '';
   const brandEntry = (product.facetValues || []).find(
-    (f) => f?.facetValue?.code === 'brand' || f?.code === 'brand',
+    (f) => f?.facet?.code === 'brand' || f?.code === 'brand',
   );
   if (brandEntry) {
-    brandFacetValueId = brandEntry.facetValue?.id ?? brandEntry.id ?? '';
-    brandName = brandEntry.facetValue?.name ?? brandEntry.name ?? '';
+    // brandFacetValueId 必须是 FacetValue 自身 id（updateProduct 的 facets 参数接收 FacetValue id）
+    brandFacetValueId = brandEntry.id ?? '';
+    brandName = brandEntry.name ?? '';
   }
 
   // 营销/卖点
@@ -159,13 +160,13 @@ export function hydrateEditState(product: ProductFull): {
       sku: string;
       price: number;
       stockOnHand: number;
-      optionValues?: Array<{ id: string; name: string }>;
+      options?: Array<{ id: string; name: string }>;
       customFields?: { listPrice?: number | null };
     }>;
   }).variants;
   const variants = Array.isArray(all) ? all : [];
   const first = variants[0];
-  const multiSpec = !!first?.optionValues?.length;
+  const multiSpec = !!first?.options?.length;
 
   let variantMatrix: VariantMatrixState;
   if (!multiSpec) {
@@ -183,20 +184,20 @@ export function hydrateEditState(product: ProductFull): {
     }
   } else {
     // 多规格：各维度按位置聚合 distinct 值（分组名受限于查询未带 groupName，用「规格1/规格2…」兜底）
-    const dimCount = Math.max(0, ...variants.map((x) => x?.optionValues?.length || 0));
+    const dimCount = Math.max(0, ...variants.map((x) => x?.options?.length || 0));
     const groups: SpecGroup[] = [];
     for (let d = 0; d < dimCount; d++) {
       const values: string[] = [];
       for (const x of variants) {
-        const ov = x?.optionValues?.[d];
+        const ov = x?.options?.[d];
         if (ov?.name && !values.includes(ov.name)) values.push(ov.name);
       }
       groups.push({ name: `规格${d + 1}`, values });
     }
     const skus: MatrixSku[] = variants.map((x, idx) => ({
-      key: (x.optionValues || []).map((o) => o.name).join('-') || `sku-${idx}`,
-      labels: (x.optionValues || []).map((o) => o.name),
-      optionValueIds: (x.optionValues || []).map((o) => o.id).filter(Boolean),
+      key: (x.options || []).map((o) => o.name).join('-') || `sku-${idx}`,
+      labels: (x.options || []).map((o) => o.name),
+      optionValueIds: (x.options || []).map((o) => o.id).filter(Boolean),
       sku: x.sku || '',
       priceCents: Number(x.price) || 0,
       stock: Number(x.stockOnHand) || 0,

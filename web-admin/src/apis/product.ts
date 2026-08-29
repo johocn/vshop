@@ -7,7 +7,7 @@
 //   - createProduct(input:{translations:[{languageCode,name,slug,description}]}) 直接返回 Product（非 union）
 //     —— description 为 NOT NULL 必须提供；本地实测无需 variant 即可创建商品
 //   - createProductVariants(input:[{productId,sku,price,taxCategoryId,translations:[{languageCode,name}]}])
-//     —— 若需为商品补 SKU/变体，用此 mutation（本地实测可用，无需 optionValues/optionIds）
+//     —— 若需为商品补 SKU/变体，用此 mutation（本地实测可用，无需 options/optionIds）
 //   - collections(options:{take}) { totalItems items { id name } } —— 可用
 import { getAdminClient } from './client';
 
@@ -157,7 +157,7 @@ export interface VariantRef {
   price: number; // 单位：分
   stockOnHand: number;
   trackInventory: boolean;
-  optionValues?: Array<{ id: string; code: string; name: string }> | null;
+  options?: Array<{ id: string; code: string; name: string }> | null;
   customFields?:
     | {
         shippingProfileId?: string | null;
@@ -183,7 +183,7 @@ export interface ProductFull {
     id: string;
     code: string;
     name: string;
-    facetValue?: { name: string; code: string; id: string };
+    facet?: { name: string; code: string; id: string };
   }> | null;
   variant?: VariantRef | null;
   variants?: Array<{
@@ -193,7 +193,7 @@ export interface ProductFull {
     stockOnHand: number;
     trackInventory: boolean;
     featuredAsset?: { preview: string } | null;
-    optionValues?: Array<{ id: string; code: string; name: string }> | null;
+    options?: Array<{ id: string; code: string; name: string }> | null;
     customFields?: {
       shippingProfileId?: string | null;
       paymentProfileId?: string | null;
@@ -237,7 +237,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         id: string;
         code: string;
         name: string;
-        facetValue?: { name: string; code: string; id: string };
+        facet?: { name: string; code: string; id: string };
       }>;
       customFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
@@ -247,7 +247,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         price: number;
         stockOnHand: number;
         trackInventory: boolean;
-        optionValues?: Array<{ id: string; code: string; name: string }>;
+        options?: Array<{ id: string; code: string; name: string }>;
         featuredAsset?: { preview: string } | null;
         customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null; saleStart?: string | null; saleEnd?: string | null; listPrice?: number | null } | null;
       }>;
@@ -258,12 +258,12 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         id name slug enabled
         featuredAsset { preview }
         assets { id preview }
-        facetValues { id code facetValue { id code name } }
+        facetValues { id code name facet { id code name } }
         customFields { marketingTags sellingPoint }
         translations { languageCode name slug description }
         variants {
           id sku price stockOnHand trackInventory
-          optionValues { id code name }
+          options { id code name }
           featuredAsset { preview }
           customFields { shippingProfileId paymentProfileId saleStart saleEnd listPrice }
         }
@@ -406,7 +406,8 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
           // 组 code 兜底：中文退化 `option-group-<gi>`，避免空串/非法字符
           code: baseSlug(name) || `option-group-${gi}`,
           translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name }],
-          values: valueCodes.map(({ name: vName, code }) => ({
+          // 规格值在 options 内嵌创建（Vendure 3.x CreateProductOptionGroupInput 无 values 字段）
+          options: valueCodes.map(({ name: vName, code }) => ({
             code,
             translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: vName }],
           })),
@@ -468,12 +469,12 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
 export async function fetchBrands(term?: string): Promise<BrandOption[]> {
   const { facets } = await getAdminClient().request<{
     facets: {
-      items: Array<{ facetValues: Array<{ id: string; code: string; name: string }> }>;
+      items: Array<{ values: Array<{ id: string; code: string; name: string }> }>;
     };
   }>(
-    `query Brands($term: String) { facets(options: { take: 100, filter: { code: { eq: "brand" } } }) { items { facetValues { id code name } } } }`,
+    `query Brands($term: String) { facets(options: { take: 100, filter: { code: { eq: "brand" } } }) { items { values { id code name } } } }`,
   );
-  const values = facets?.items?.[0]?.facetValues ?? [];
+  const values = facets?.items?.[0]?.values ?? [];
   const filtered = term ? values.filter((v) => v.name.includes(term)) : values;
   return filtered.map((v) => ({ id: v.id, name: v.name }));
 }
@@ -483,7 +484,7 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   // marketingTags 存 JSON 字符串；customFields 只在对应字段非空时填充。
   if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint) return;
   const updated: Record<string, unknown> = { id };
-  if (input.brandFacetValueId) updated.facets = [input.brandFacetValueId];
+  if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
   if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
   if (input.sellingPoint) customFields.sellingPoint = input.sellingPoint;
@@ -571,14 +572,14 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
   const full = await fetchProductFull(id);
   const allVariants = full.variants || [];
   const vm = input.variantMatrix;
-  const multiSpecNow = !!allVariants[0]?.optionValues?.length;
+  const multiSpecNow = !!allVariants[0]?.options?.length;
 
   if (multiSpecNow && vm?.skus?.length) {
     // ---- 多规格编辑：同结构仅更新数值 ----
-    // 已有多规格（变体带 optionValues）。最低可用路径：列数（维度数）一致则
+    // 已有多规格（变体带 options）。最低可用路径：列数（维度数）一致则
     // 逐变体 updateProductVariants 更新价格/库存/划线价/profiles（按对齐顺序 skus[i]<->variants[i]）。
     // 【已知限制】规格组/值数量或顺序变更（结构变更）需重开新建，本轮不强制 diff 重建。
-    const curDims = allVariants[0].optionValues?.length ?? 0;
+    const curDims = allVariants[0].options?.length ?? 0;
     const dims = (vm.groups || []).filter((g) =>
       (g.values || []).some((val) => String(val ?? '').trim() !== ''),
     ).length;
