@@ -25,7 +25,7 @@
         <view class="mlm__tags-inner">
           <view class="mlm__tag" :class="{ on: activeTag === '' }" @tap="selectTag('')">全部</view>
           <view
-            v-for="t in availableTags"
+            v-for="t in mergedTags"
             :key="t.name"
             class="mlm__tag"
             :class="{ on: activeTag === t.name }"
@@ -67,7 +67,7 @@
         <view v-if="uploading" class="mlm__tip">上传中…</view>
         <view v-else-if="loadingMore" class="mlm__tip">加载中…</view>
         <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">上拉加载更多</view>
-        <view v-else-if="!filteredItems.length" class="mlm__empty">媒体库暂无可选资源</view>
+        <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : '媒体库暂无可选资源' }}</view>
         <view v-else class="mlm__tip">没有更多了</view>
       </scroll-view>
 
@@ -195,13 +195,28 @@ watch(
   },
 );
 
+const tagCountMap = ref<Record<string, number>>({});
 async function loadTags() {
   try {
     availableTags.value = await fetchAssetTags();
+    const m: Record<string, number> = {};
+    for (const t of availableTags.value) m[t.name] = t.count;
+    tagCountMap.value = m;
   } catch (e: any) {
     availableTags.value = [];
+    tagCountMap.value = {};
   }
 }
+
+// 常驻标签：全部 + 18 预设 + 额外非预设（预设在前、额外追加、去重）
+const mergedTags = computed(() => {
+  const presets = PRESET_ASSET_TAGS.map((name) => ({ name, count: tagCountMap.value[name] ?? 0 }));
+  const seen = new Set(PRESET_ASSET_TAGS);
+  const extras = availableTags.value
+    .map((t) => t.name)
+    .filter((n) => !seen.has(n) && (seen.add(n), true));
+  return [...presets, ...extras.map((name) => ({ name, count: tagCountMap.value[name] ?? 0 }))];
+});
 
 const filteredItems = computed(() => {
   const kw = searchKeyword.value.trim().toLowerCase();
@@ -288,6 +303,7 @@ function onDelete(it: AssetItem) {
         selected.value = selected.value.filter((x) => x.id !== it.id);
         allItems.value = allItems.value.filter((x) => x.id !== it.id);
         await load(false);
+        await loadTags();
         uni.showToast({ title: '已删除', icon: 'none' });
       } catch (e: any) {
         uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
@@ -341,6 +357,7 @@ async function chooseAndUpload() {
       if (!selected.value.some((x) => x.id === asset.id)) selected.value.push(asset);
     }
     await load(false);
+    await loadTags();
   } catch (e: any) {
     uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
   } finally {
