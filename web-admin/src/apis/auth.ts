@@ -10,9 +10,12 @@ export interface AdminChannel {
   token: string;
 }
 
-export async function adminLogin(username: string, password: string): Promise<string | null> {
+export async function adminLogin(
+  username: string,
+  password: string,
+): Promise<{ id: string; identifier: string } | null> {
   const res = await getAdminClient().request<{
-    login: { identifier?: string };
+    login: { id?: string; identifier?: string } | null;
   }>(
     `mutation Login($u: String!, $p: String!) {
       login(username: $u, password: $p) {
@@ -22,7 +25,8 @@ export async function adminLogin(username: string, password: string): Promise<st
     }`,
     { u: username, p: password },
   );
-  return res.login?.identifier ?? null;
+  if (!res.login?.identifier) return null;
+  return { id: String(res.login.id ?? ''), identifier: res.login.identifier };
 }
 
 export async function fetchMyChannels(): Promise<AdminChannel[]> {

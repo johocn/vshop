@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { adminLogin, fetchMyTenantAccess, type MyTenantAccess } from '../apis/auth';
-import { getAuthToken, clearSession } from '../apis/session';
+import { getAuthToken, getUserId, setUserId, clearSession } from '../apis/session';
 import { useTenantStore } from './tenantStore';
 
 export interface ChannelInfo {
@@ -16,6 +16,7 @@ export interface ChannelInfo {
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: getAuthToken(),
+    userId: getUserId() as string,
     username: '' as string,
     channels: [] as ChannelInfo[],
     access: null as MyTenantAccess | null,
@@ -29,8 +30,12 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     async login(username: string, password: string) {
-      const identifier = await adminLogin(username, password);
-      this.username = identifier ?? username;
+      const info = await adminLogin(username, password);
+      this.username = info?.identifier ?? username;
+      if (info?.id) {
+        this.userId = String(info.id);
+        setUserId(this.userId);
+      }
       this.token = getAuthToken();
       await this.loadAccess();
     },
@@ -54,6 +59,7 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       clearSession();
       this.token = '';
+      this.userId = '';
       this.username = '';
       this.channels = [];
       this.access = null;
