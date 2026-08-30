@@ -64,6 +64,12 @@
         <view class="img-title">商品图片</view>
         <ImagePicker :max="9" :value="d.assetIds" @change="onImg" />
       </view>
+
+      <view class="card">
+        <view class="img-title">商品视频</view>
+        <MediaPicker :max="1" mediaType="video" :value="d.videoAssetId ? [d.videoAssetId] : []" @change="onVideo" />
+        <text class="vid-hint">支持 mp4/webm 等，详情页将展示可播放视频</text>
+      </view>
     </template>
 
     <ProductBrandMarketingTab
@@ -83,6 +89,7 @@
 <script lang="ts" setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import ImagePicker from './ImagePicker.vue';
+import MediaPicker from './MediaPicker.vue';
 import ProductBrandMarketingTab from './product-tabs/ProductBrandMarketingTab.vue';
 import ProductVariantMatrixTab from './product-tabs/ProductVariantMatrixTab.vue';
 import {
@@ -114,6 +121,8 @@ interface ProductDraft {
   sellingPoint?: string;
   // 商品所属租户分类名，作过审归位的匹配依据（保存落库）
   tenantCategoryRef?: string | null;
+  // 商品主视频资产 id（随 customFields 落库，详情页展示可播放视频）
+  videoAssetId?: string | null;
   // 具变体矩阵：priceCents/listPriceCents 单位「分」；随保存落库（apis 的 createVariantMatrixForProduct 消费）
   variantMatrix?: VariantMatrixState;
 }
@@ -133,6 +142,7 @@ const props = defineProps<{
     shippingProfileId?: string;
     paymentProfileId?: string;
     collectionId?: string;
+    videoAssetId?: string | null;
   }>;
   full?: ProductFull | null;
 }>();
@@ -150,6 +160,8 @@ const d = reactive<ProductDraft>({
   shippingProfileId: props.initial?.shippingProfileId,
   paymentProfileId: props.initial?.paymentProfileId,
   collectionId: props.initial?.collectionId,
+  // 主视频 id：优先取 initial（edit 页已回填），fallback full（兼容未透传 initial 的场景）
+  videoAssetId: props.initial?.videoAssetId ?? props.full?.videoAssetId ?? null,
 });
 
 // 品牌营销 / 规格变体：编辑态用 full 反解，否则给默认初值
@@ -188,6 +200,9 @@ function onToggle(e: any) {
 }
 function onImg(ids: string[]) {
   d.assetIds = ids;
+}
+function onVideo(ids: string[]) {
+  d.videoAssetId = ids[0] || null;
 }
 
 function submit() {
@@ -294,6 +309,13 @@ defineExpose({ submit, brandMarketing, variantMatrix });
       padding-top: 20rpx;
       font-size: 28rpx;
       color: $wa-ink;
+    }
+
+    .vid-hint {
+      font-size: 24rpx;
+      color: $wa-muted;
+      padding: 8rpx 4rpx 0;
+      display: block;
     }
   }
 }
