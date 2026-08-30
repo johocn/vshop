@@ -13,12 +13,26 @@
         <input
           v-model="searchKeyword"
           class="mlm__search-input"
-          placeholder="搜索文件名"
+          placeholder="搜索文件名 / 分类码"
           confirm-type="search"
           @confirm="doSearch"
         />
         <text v-if="searchKeyword" class="mlm__search-clear" @tap="clearSearch">×</text>
       </view>
+
+      <!-- 分类标签过滤（按当前租户，普通用户则本人） -->
+      <scroll-view scroll-x class="mlm__tags">
+        <view class="mlm__tags-inner">
+          <view class="mlm__tag" :class="{ on: activeTag === '' }" @tap="selectTag('')">全部</view>
+          <view
+            v-for="t in availableTags"
+            :key="t.name"
+            class="mlm__tag"
+            :class="{ on: activeTag === t.name }"
+            @tap="selectTag(t.name)"
+          >{{ t.name }}<text class="mlm__tag-count">{{ t.count }}</text></view>
+        </view>
+      </scroll-view>
 
       <scroll-view class="mlm__grid-scroll" scroll-y @scrolltolower="loadMore">
         <view class="mlm__grid">
@@ -42,7 +56,12 @@
             <image v-else class="mlm__cell-thumb" :src="it.preview" mode="aspectFill" />
             <view v-if="isSelected(it.id)" class="mlm__mark" @tap.stop>✓</view>
             <view class="mlm__cell-del" @tap.stop="onDelete(it)">🗑</view>
-            <text class="mlm__cell-name">{{ it.name }}</text>
+            <view class="mlm__cell-meta">
+              <text class="mlm__cell-name">{{ it.name }}</text>
+              <view v-if="(it.assetTags || []).length" class="mlm__cell-tags">
+                <text v-for="tg in it.assetTags" :key="tg" class="mlm__cell-tag">{{ tg }}</text>
+              </view>
+            </view>
           </view>
         </view>
         <view v-if="uploading" class="mlm__tip">上传中…</view>
@@ -52,8 +71,37 @@
         <view v-else class="mlm__tip">没有更多了</view>
       </scroll-view>
 
+      <!-- 分类编辑：给已选图片设置分类码 -->
       <view class="mlm__footer">
-        <text class="mlm__picked">已选 {{ selected.length }}/{{ max }}</text>
+        <view class="mlm__tag-edit">
+          <view class="mlm__tag-edit-head">
+            <text class="mlm__picked">已选 {{ selected.length }}/{{ max }}</text>
+            <text v-if="selected.length" class="mlm__tag-edit-tip">为已选图片设置分类码</text>
+          </view>
+          <view v-if="selectedTags.length" class="mlm__tag-edit-list">
+            <view v-for="tg in selectedTags" :key="tg" class="mlm__tag chip" @tap="removeTag(tg)">
+              {{ tg }}<text class="mlm__tag-x">×</text>
+            </view>
+          </view>
+          <view v-if="selected.length" class="mlm__preset">
+            <text class="mlm__preset-title">常用分类</text>
+            <scroll-view scroll-x class="mlm__preset-list">
+              <view class="mlm__preset-inner">
+                <view
+                  v-for="p in PRESET_ASSET_TAGS"
+                  :key="p"
+                  class="mlm__preset-chip"
+                  :class="{ on: selectedTags.includes(p) }"
+                  @tap="toggleTagOnSelected(p)"
+                >{{ p }}</view>
+              </view>
+            </scroll-view>
+          </view>
+          <view v-if="selected.length" class="mlm__tag-add">
+            <input v-model="tagInput" class="mlm__tag-input" placeholder="输入新分类码，回车添加" confirm-type="done" @confirm="addTag" />
+            <view class="mlm__tag-btn" @tap="addTag">添加</view>
+          </view>
+        </view>
         <view class="mlm__confirm" @tap="confirm">确定</view>
       </view>
     </view>
@@ -62,7 +110,30 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
-import { fetchAssets, uploadAsset, deleteAsset, type AssetItem } from '../apis/asset';
+import {
+  fetchAssets,
+  fetchAssetTags,
+  setAssetTags,
+  uploadAsset,
+  deleteAsset,
+  type AssetItem,
+} from '../apis/asset';
+
+/** 预设常用分类（运营可点选打标，也可自由输入新分类码） */
+const PRESET_ASSET_TAGS = [
+  // 商品图
+  '主图', '白底图', '细节图', '场景图', '实拍图', '规格图', '商详图',
+  // 富媒体
+  '商品视频', '实拍视频',
+  // 营销
+  '首页Banner', '活动海报', '广告图',
+  // 店铺
+  '店铺装修', '分类图标', '品牌图',
+  // 资质
+  '资质证书', '检测报告', '授权书', '说明书',
+  // 通用
+  '轮播图',
+];
 
 const props = withDefaults(
   defineProps<{
@@ -85,6 +156,13 @@ const loadedAll = ref(false);
 const loadingMore = ref(false);
 const uploading = ref(false);
 const searchKeyword = ref('');
+
+// 分类标签状态
+const availableTags = ref<Array<{ name: string; count: number }>>([]);
+const activeTag = ref('');
+const selectedTags = ref<string[]>([]);
+const tagInput = ref('');
+const tagSaving = ref(false);
 
 function isVideo(it: AssetItem): boolean {
   return (it.mimeType || '').toLowerCase().startsWith('video');
@@ -110,17 +188,51 @@ watch(
         .map((id) => m.get(id))
         .filter((a): a is AssetItem => !!a);
       searchKeyword.value = '';
+      selectedTags.value = [];
+      loadTags();
       if (!allItems.value.length) load(false);
     }
   },
 );
 
+async function loadTags() {
+  try {
+    availableTags.value = await fetchAssetTags();
+  } catch (e: any) {
+    availableTags.value = [];
+  }
+}
+
 const filteredItems = computed(() => {
   const kw = searchKeyword.value.trim().toLowerCase();
   return allItems.value.filter(
-    (it) => typeMatch(it) && (!kw || !it.name || it.name.toLowerCase().includes(kw)),
+    (it) =>
+      typeMatch(it) &&
+      (!activeTag.value || (it.assetTags || []).includes(activeTag.value)) &&
+      (!kw || !it.name || it.name.toLowerCase().includes(kw)),
   );
 });
+
+function selectTag(tag: string) {
+  activeTag.value = tag;
+}
+
+function toggleTagOnSelected(tag: string) {
+  const idx = selectedTags.value.indexOf(tag);
+  if (idx >= 0) selectedTags.value = selectedTags.value.filter((t) => t !== tag);
+  else selectedTags.value = [...selectedTags.value, tag];
+}
+const applyPreset = toggleTagOnSelected;
+
+function addTag() {
+  const t = tagInput.value.trim();
+  if (!t) return;
+  if (!selectedTags.value.includes(t)) selectedTags.value = [...selectedTags.value, t];
+  tagInput.value = '';
+}
+function removeTag(tag: string) {
+  selectedTags.value = selectedTags.value.filter((t) => t !== tag);
+}
 
 async function loadMore() {
   if (loadingMore.value || loadedAll.value) return;
@@ -266,7 +378,20 @@ function imageMimeFromPath(path: string): string {
   return map[ext] || '';
 }
 
-function confirm() {
+async function confirm() {
+  // 为当前选中图片保存分类码（未选分类则不写，避免误清空历史标签）
+  if (selected.value.length && selectedTags.value.length && !tagSaving.value) {
+    tagSaving.value = true;
+    try {
+      const ids = selected.value.map((x) => x.id);
+      await setAssetTags(ids, selectedTags.value);
+    } catch (e: any) {
+      uni.showToast({ title: e?.message || '分类保存失败', icon: 'none' });
+      tagSaving.value = false;
+      return;
+    }
+    tagSaving.value = false;
+  }
   emit('confirm', [...selected.value]);
   onClose();
 }
@@ -440,10 +565,47 @@ function onClose() {
   &__footer {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 16rpx;
     padding: 18rpx 28rpx;
     background: $wa-card;
     border-top: 1rpx solid $wa-rule;
+  }
+  &__tag-edit {
+    flex: 1;
+    min-width: 0;
+  }
+  &__preset {
+    margin-top: 12rpx;
+  }
+  &__preset-title {
+    display: block;
+    font-size: 22rpx;
+    color: $wa-muted;
+    margin-bottom: 8rpx;
+  }
+  &__preset-list {
+    width: 100%;
+    white-space: nowrap;
+  }
+  &__preset-inner {
+    display: inline-flex;
+    gap: 12rpx;
+    padding-right: 12rpx;
+  }
+  &__preset-chip {
+    flex-shrink: 0;
+    padding: 6rpx 18rpx;
+    border-radius: 999rpx;
+    font-size: 22rpx;
+    color: $wa-ink;
+    background: $wa-bg;
+    border: 1rpx solid $wa-rule;
+    &.on {
+      color: $wa-accent;
+      border-color: $wa-accent;
+      background: rgba($wa-accent, 0.06);
+    }
   }
   &__picked {
     font-size: 24rpx;
