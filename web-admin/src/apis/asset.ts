@@ -9,32 +9,62 @@ export interface AssetItem {
   mimeType: string;
   width?: number;
   height?: number;
+  assetTags?: string[];
 }
 
-export async function fetchAssets(take = 30, skip = 0): Promise<{ totalItems: number; items: AssetItem[] }> {
+export interface AssetTagSummary {
+  name: string;
+  count: number;
+}
+
+export async function fetchAssets(
+  take = 30,
+  skip = 0,
+  tag?: string,
+): Promise<{ totalItems: number; items: AssetItem[] }> {
   const { assetLibrary } = await getAdminClient().request<{
     assetLibrary: { totalItems: number; items: AssetItem[] };
   }>(
-    `query AssetLibrary($take: Int, $skip: Int) {
-      assetLibrary(take: $take, skip: $skip) {
+    `query AssetLibrary($take: Int, $skip: Int, $tag: String) {
+      assetLibrary(take: $take, skip: $skip, tag: $tag) {
         totalItems
-        items { id name preview source mimeType width height }
+        items { id name preview source mimeType width height assetTags }
       }
     }`,
-    { take, skip },
+    { take, skip, tag: tag ?? null },
   );
   return assetLibrary;
 }
 
+export async function fetchAssetTags(): Promise<AssetTagSummary[]> {
+  const res = await getAdminClient().request<{ assetTags: AssetTagSummary[] }>(
+    `query AssetTags {
+      assetTags { name count }
+    }`,
+  );
+  return res.assetTags;
+}
+
+export async function setAssetTags(assetIds: string[], tags: string[]): Promise<void> {
+  await getAdminClient().request(
+    `mutation SetAssetTags($assetIds: [String!]!, $tags: [String!]) {
+      setAssetTags(assetIds: $assetIds, tags: $tags)
+    }`,
+    { assetIds, tags },
+  );
+}
+
 export async function uploadAsset(file: File | Blob, fileName: string): Promise<AssetItem> {
-  // 记录上传者（普通用户图库按用户过滤时只能看到自己的上传）
+  // 记录上传者（普通用户图库按用户过滤时只能看到自己的上传）+ 空分类标签
   const uploadedBy = getUserId();
   const query = `mutation CreateAssets($input: [CreateAssetInput!]!) {
     createAssets(input: $input) { __typename ... on Asset { id preview source mimeType } }
   }`;
   const operations = JSON.stringify({
     query,
-    variables: { input: [{ file: null, customFields: { uploadedBy } } satisfies Record<string, unknown>] },
+    variables: {
+      input: [{ file: null, customFields: { uploadedBy, assetTags: [] } } satisfies Record<string, unknown>],
+    },
   });
   const form = new FormData();
   form.append('operations', operations);
