@@ -337,10 +337,40 @@ function chooseFiles(remain: number): Promise<any[]> {
       uni.chooseVideo({ success: (r) => resolve([r]), fail: reject }),
     );
   }
+  // H5 不支持 uni.chooseMedia（混合选图/视频会静默无反应），改用原生 file input
+  // #ifdef H5
+  return chooseFilesMixedH5(remain);
+  // #endif
+  // #ifndef H5
   return new Promise((resolve, reject) =>
     uni.chooseMedia({ count: remain, mediaType: ['image', 'video'], success: (r) => resolve(r.tempFiles || []), fail: reject }),
   );
+  // #endif
 }
+
+// #ifdef H5
+function chooseFilesMixedH5(_remain: number): Promise<any[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', () => {
+      const files = Array.from((input.files || []) as FileList);
+      document.body.removeChild(input);
+      // 兼容 toFile：file 字段为真实 File，name/path/type 各路由兼容
+      resolve(files.map((f) => ({ file: f, name: f.name, type: f.type, path: f.name })));
+    });
+    input.addEventListener('cancel', () => {
+      document.body.removeChild(input);
+      resolve([]);
+    });
+    input.click();
+  });
+}
+// #endif
 
 async function chooseAndUpload() {
   const remain = props.max - selected.value.length;
