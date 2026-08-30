@@ -24,13 +24,17 @@
       <!-- 分组多行标签过滤（按当前租户，普通用户则本人） -->
       <view class="mlm__filters">
         <view class="mlm__group-grid">
-          <view class="mlm__chip" :class="{ on: activeTag === '' }" @tap="selectTag('')">全部</view>
+          <view class="mlm__chip" :class="{ on: !activeGroup && !activeTag }" @tap="selectTag('')">全部</view>
         </view>
         <view v-for="g in tagGroups" :key="g.key" class="mlm__group">
-          <view class="mlm__group-head" @tap="toggleGroup(g.key)">
-            <text class="mlm__group-arrow">{{ collapsedGroups[g.key] ? '▸' : '▾' }}</text>
-            <text class="mlm__group-title">{{ g.title }}</text>
-            <text class="mlm__group-count">{{ g.count }}</text>
+          <view class="mlm__group-head" :class="{ on: activeGroup === g.key }">
+            <!-- 箭头：仅折叠，不与大分类冲突 -->
+            <text class="mlm__group-arrow" @tap.stop="toggleGroup(g.key)">{{ collapsedGroups[g.key] ? '▸' : '▾' }}</text>
+            <!-- 标题行：整组过滤（大分类） -->
+            <view class="mlm__group-select" @tap="selectGroup(g.key)">
+              <text class="mlm__group-title">{{ g.title }}</text>
+              <text class="mlm__group-count">{{ g.count }}</text>
+            </view>
           </view>
           <view v-if="!collapsedGroups[g.key]" class="mlm__group-grid">
             <view
@@ -89,7 +93,7 @@
           <view v-if="uploading" class="mlm__tip">上传中…</view>
           <view v-else-if="loadingMore" class="mlm__tip">加载中…</view>
           <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">上拉加载更多</view>
-          <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : '媒体库暂无可选资源' }}</view>
+          <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : activeGroup ? '该分组下暂无可选资源' : '媒体库暂无可选资源' }}</view>
           <view v-else class="mlm__tip">没有更多了</view>
         </view>
       </scroll-view>
@@ -187,7 +191,8 @@ const searchKeyword = ref('');
 
 // 分类标签状态
 const availableTags = ref<Array<{ name: string; count: number }>>([]);
-const activeTag = ref('');
+const activeTag = ref(''); // 小分类 = 具体标签
+const activeGroup = ref(''); // 大分类 = 组 key（product/rich/.../custom）
 const selectedTags = ref<string[]>([]);
 const tagInput = ref('');
 const tagSaving = ref(false);
@@ -285,7 +290,37 @@ const filteredItems = computed(() => {
 });
 
 function selectTag(tag: string) {
-  activeTag.value = tag;
+  // 「全部」= 清空两级过滤
+  if (tag === '') {
+    activeGroup.value = '';
+    activeTag.value = '';
+    load(false);
+    return;
+  }
+  // 小分类：组内 chip 天然属当前组；再点一次取消（单标）
+  activeTag.value = activeTag.value === tag ? '' : tag;
+  load(false);
+}
+
+// 二级过滤的加载参数映射：
+// - 小分类：tags = [activeTag]（单标收窄）
+// - 大分类：tags = 该组全部标签（自定义组为其额外标签）
+// - 无筛选：null（不强加 tags）
+const filterTags = computed<string[] | null>(() => {
+  if (activeTag.value) return [activeTag.value];
+  if (activeGroup.value) {
+    const g = tagGroups.value.find((x) => x.key === activeGroup.value);
+    if (g && g.tags.length) return g.tags.map((t) => t.name);
+  }
+  return null;
+});
+
+// 大分类：整组过滤
+function selectGroup(key: string) {
+  // 已是该组则取消（回到全部），否则设为该组并清空小分类
+  activeGroup.value = activeGroup.value === key ? '' : key;
+  activeTag.value = '';
+  load(false);
 }
 
 function toggleGroup(key: string) {
@@ -356,7 +391,7 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     const s = allItems.value.length;
-    const r = await fetchAssets(30, s);
+    const r = await fetchAssets(30, s, filterTags.value ?? undefined);
     const seen = new Set(allItems.value.map((i) => i.id));
     const fresh = r.items.filter((i) => !seen.has(i.id));
     allItems.value = allItems.value.concat(fresh);
@@ -668,48 +703,65 @@ function onClose() {
 
   // 分组多行网格
   &__filters {
-    max-height: 34vh;
+    max-height: 30vh;
     overflow-y: auto;
-    padding: 4rpx 20rpx 12rpx;
+    padding: 2rpx 16rpx 8rpx;
     border-bottom: 1rpx solid $wa-rule;
     background: $wa-card;
     box-sizing: border-box;
   }
   &__group {
-    margin-top: 14rpx;
+    margin-top: 6rpx;
   }
   &__group-head {
     display: flex;
     align-items: center;
-    gap: 10rpx;
-    padding: 6rpx 2rpx;
+    gap: 6rpx;
+    padding: 2rpx 2rpx;
+    &.on {
+      .mlm__group-title {
+        color: $wa-accent;
+        font-weight: 700;
+      }
+      .mlm__group-select {
+        background: rgba($wa-accent, 0.08);
+      }
+    }
+  }
+  &__group-select {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 4rpx 12rpx;
+    border-radius: 999rpx;
   }
   &__group-arrow {
-    font-size: 24rpx;
+    font-size: 20rpx;
     color: $wa-muted;
+    padding: 6rpx 12rpx;
   }
   &__group-title {
-    font-size: 24rpx;
+    font-size: 22rpx;
     font-weight: 600;
     color: $wa-ink;
   }
   &__group-count {
-    font-size: 20rpx;
+    font-size: 18rpx;
     color: $wa-muted;
   }
   &__group-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 12rpx;
-    padding: 2rpx 0 10rpx;
+    gap: 8rpx;
+    padding: 2rpx 0 6rpx;
   }
   &__chip {
     display: inline-flex;
     align-items: center;
-    gap: 6rpx;
-    padding: 6rpx 18rpx;
+    gap: 4rpx;
+    padding: 3rpx 12rpx;
     border-radius: 999rpx;
-    font-size: 22rpx;
+    font-size: 20rpx;
     color: $wa-ink;
     background: $wa-bg;
     border: 1rpx solid $wa-rule;
@@ -720,7 +772,7 @@ function onClose() {
     }
   }
   &__chip-count {
-    font-size: 18rpx;
+    font-size: 16rpx;
     color: $wa-muted;
     padding: 0 4rpx;
     border-radius: 999rpx;
