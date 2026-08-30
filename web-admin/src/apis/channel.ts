@@ -18,6 +18,8 @@ export interface ChannelCustomFields {
   servicePhone?: string;
   // shopContent 为 text 类型，存装修 JSON 字符串（Vendure 3.6.4 无 type:'json'）
   shopContent?: string;
+  // 商品富文本描述多语言开关（true 时商品表单展示中文/English Tab）
+  multilingualEnabled?: boolean;
 }
 
 export interface ActiveChannelInfo {
@@ -31,7 +33,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled }
       }
     }`,
   );

@@ -180,6 +180,9 @@ export interface ProductFull {
   slug: string;
   enabled: boolean;
   description?: string;
+  nameEn?: string;
+  slugEn?: string;
+  descriptionEn?: string;
   featuredAsset?: { preview: string } | null;
   assets?: { id: string; preview: string }[] | null;
   videoAssetId?: string | null;
@@ -218,6 +221,11 @@ export interface ProductSaveInput {
   name: string;
   slug: string;
   description?: string;
+  // 多语言（multilingualEnabled 开启时写入 en translation）：缺失回退 zh
+  nameEn?: string;
+  slugEn?: string;
+  descriptionEn?: string;
+  sellingPointEn?: string;
   enabled?: boolean;
   priceYuan: number; // 单位：元，内部换算成分
   stock: number;
@@ -284,6 +292,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     { id },
   );
   const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
+  const en = product.translations?.find((t) => t.languageCode === 'en');
   const v = product.variants?.[0];
   let marketingTags: string[] = [];
   try {
@@ -300,6 +309,9 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     slug: product.slug,
     enabled: product.enabled,
     description: zh?.description ?? '',
+    nameEn: en?.name ?? '',
+    slugEn: en?.slug ?? '',
+    descriptionEn: en?.description ?? '',
     featuredAsset: product.featuredAsset ?? null,
     assets: product.assets ?? null,
     facetValues: product.facetValues ?? null,
@@ -551,6 +563,31 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   );
 }
 
+// 通用设置某语言商品翻译（zh 或 en，幂等 upsert）。
+// en 缺失时用户侧回退 zh 展示；sellingPoint 只在有值时才写入该语言的 customFields.sellingPoint。
+export async function upsertProductTranslation(
+  id: string,
+  lang: string,
+  t: { name: string; slug?: string; description?: string; sellingPoint?: string },
+): Promise<void> {
+  const input: Record<string, unknown> = {
+    id,
+    translations: [
+      {
+        languageCode: lang,
+        name: t.name,
+        slug: t.slug ?? t.name,
+        description: t.description ?? '',
+        ...(t.sellingPoint != null ? { customFields: { sellingPoint: t.sellingPoint } } : {}),
+      },
+    ],
+  };
+  await getAdminClient().request(
+    `mutation UpPdt($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
+    { input },
+  );
+}
+
 export async function createProductFull(input: ProductSaveInput): Promise<string> {
   const pid = await createProduct(input.name, input.slug, input.description ?? '');
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
@@ -594,6 +631,16 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
     await updateProduct(pid, { enabled: false });
   }
   await applyBrandAndMarketing(pid, input);
+  const hasEn = input.nameEn != null && input.nameEn !== '';
+  if (hasEn) {
+    // 英文卖点仅在显式提供时写入 en customFields.sellingPoint，否则回退 zh 展示
+    await upsertProductTranslation(pid, 'en', {
+      name: input.nameEn!,
+      slug: input.slugEn,
+      description: input.descriptionEn,
+      sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
+    });
+  }
   return pid;
 }
 
@@ -707,6 +754,15 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     }
   }
   await applyBrandAndMarketing(id, input);
+  const hasEn = input.nameEn != null && input.nameEn !== '';
+  if (hasEn) {
+    await upsertProductTranslation(id, 'en', {
+      name: input.nameEn!,
+      slug: input.slugEn,
+      description: input.descriptionEn,
+      sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
+    });
+  }
 }
 
 // ---- Task 10：商品列表增强 ----

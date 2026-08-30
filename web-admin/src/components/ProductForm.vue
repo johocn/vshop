@@ -12,18 +12,23 @@
 
     <!-- 基本信息 -->
     <template v-if="activeTab === '基本信息'">
+      <!-- 多语言 Tab：multilingualEnabled 开启时展示，中/英分别编辑名称、Slug、描述、卖点 -->
+      <view v-if="multilingual" class="langbar">
+        <text :class="['lg', { on: lang === 'zh' }]" @tap="lang = 'zh'">中文</text>
+        <text :class="['lg', { on: lang === 'en' }]" @tap="lang = 'en'">English</text>
+      </view>
       <view class="card">
         <view class="cell">
           <text class="lbl">商品名</text>
-          <input v-model="d.name" placeholder="必填" />
+          <input :value="curName" @input="curName = $event.detail.value" placeholder="必填" />
         </view>
         <view class="cell">
           <text class="lbl">Slug</text>
-          <input v-model="d.slug" placeholder="URL 别名" />
+          <input :value="curSlug" @input="curSlug = $event.detail.value" placeholder="URL 别名" />
         </view>
         <view class="cell col">
           <text class="lbl">描述</text>
-          <RichTextEditor v-model="d.description" />
+          <RichTextEditor :model-value="curDesc" @update:model-value="curDesc = $event" />
         </view>
         <view class="cell">
           <text class="lbl">价格（元）</text>
@@ -104,11 +109,16 @@ import type { ProductFull } from '../apis/product';
 import { fetchShippingProfiles, type ShippingProfileItem } from '../apis/shipping-profile';
 import { fetchPaymentProfiles, type PaymentProfileItem } from '../apis/payment-profile';
 import { fetchCollectionsOptimized, type CollectionItem } from '../apis/collection';
+import { fetchActiveChannel } from '../apis/channel';
 
 interface ProductDraft {
   name: string;
   slug: string;
   description: string;
+  // 多语言英文槽位（multilingualEnabled 开启时使用，缺失回退 zh）
+  nameEn?: string;
+  slugEn?: string;
+  descriptionEn?: string;
   priceYuan: number;
   stock: number;
   enabled: boolean;
@@ -136,6 +146,9 @@ const props = defineProps<{
     name?: string;
     slug?: string;
     description?: string;
+    nameEn?: string;
+    slugEn?: string;
+    descriptionEn?: string;
     priceYuan?: number;
     stock?: number;
     enabled?: boolean;
@@ -154,6 +167,9 @@ const d = reactive<ProductDraft>({
   name: props.initial?.name || '',
   slug: props.initial?.slug || '',
   description: props.initial?.description || '',
+  nameEn: props.initial?.nameEn || '',
+  slugEn: props.initial?.slugEn || '',
+  descriptionEn: props.initial?.descriptionEn || '',
   priceYuan: props.initial?.priceYuan ?? 0,
   stock: props.initial?.stock ?? 0,
   enabled: props.initial?.enabled ?? false,
@@ -184,6 +200,23 @@ const spName = computed(() => spList.value.find((i) => i.id === d.shippingProfil
 const ppName = computed(() => ppList.value.find((i) => i.id === d.paymentProfileId)?.name || '请选择');
 const catName = computed(() => catList.value.find((i) => i.id === d.collectionId)?.name || '请选择');
 
+// ---- 多语言（multilingualEnabled 开启时启用）----
+const multilingual = ref(false);
+const lang = ref<'zh' | 'en'>('zh');
+// 按当前语言绑定基础输入（中文->d.*，英文->d.*En）
+const curName = computed({
+  get: () => (lang.value === 'zh' ? d.name : d.nameEn || ''),
+  set: (v: string) => (lang.value === 'zh' ? (d.name = v) : (d.nameEn = v)),
+});
+const curSlug = computed({
+  get: () => (lang.value === 'zh' ? d.slug : d.slugEn || ''),
+  set: (v: string) => (lang.value === 'zh' ? (d.slug = v) : (d.slugEn = v)),
+});
+const curDesc = computed({
+  get: () => (lang.value === 'zh' ? d.description : d.descriptionEn || ''),
+  set: (v: string) => (lang.value === 'zh' ? (d.description = v) : (d.descriptionEn = v)),
+});
+
 function onSpChange(e: any) {
   const it = spList.value[Number(e.detail.value)];
   if (it) d.shippingProfileId = it.id;
@@ -211,6 +244,12 @@ function submit() {
   d.priceYuan = Number(d.priceYuan);
   d.stock = Number(d.stock);
   const out: ProductDraft = JSON.parse(JSON.stringify(d));
+  // 多语言开启时携带英文槽位，随 translations[].en 一次写入（缺失回退 zh 展示）
+  if (multilingual.value) {
+    out.nameEn = d.nameEn || '';
+    out.slugEn = d.slugEn || '';
+    out.descriptionEn = d.descriptionEn || '';
+  }
   // 汇入品牌/营销到最终 ProductSaveInput（apis 内 applyBrandAndMarketing 落库）
   out.brandFacetValueId = brandMarketing.value.brandFacetValueId || null;
   out.marketingTags = brandMarketing.value.tags;
@@ -222,6 +261,10 @@ function submit() {
 }
 
 onMounted(async () => {
+  // 拉取当前渠道：multilingualEnabled 决定是否显示多语言 Tab
+  fetchActiveChannel()
+    .then((c) => (multilingual.value = !!c.customFields?.multilingualEnabled))
+    .catch(() => {});
   const [sp, pp, cat] = await Promise.all([
     fetchShippingProfiles().catch(() => []),
     fetchPaymentProfiles().catch(() => []),
@@ -257,6 +300,26 @@ defineExpose({ submit, brandMarketing, variantMatrix });
       &.on {
         background: $wa-accent;
         color: #fff;
+      }
+    }
+  }
+
+  .langbar {
+    display: flex;
+    gap: 16rpx;
+    margin-bottom: 24rpx;
+
+    .lg {
+      padding: 12rpx 32rpx;
+      font-size: 26rpx;
+      color: $wa-muted;
+      background: $wa-card;
+      border-radius: $wa-radius;
+      border: 2rpx solid transparent;
+
+      &.on {
+        color: #fff;
+        background: $wa-accent;
       }
     }
   }
