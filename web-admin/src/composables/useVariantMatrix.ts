@@ -5,6 +5,10 @@ import type { ProductFull } from '../apis/product';
 export interface SpecGroup {
   name: string;
   values: string[];
+  /** 已复用系统规格组：其 ProductOptionGroup 的 id（存在时保存/建变体走复用路径，不新建组） */
+  groupId?: string;
+  /** 与 values 对齐，为各规格值对应的 ProductOption id（复用系统组时才有） */
+  valueIds?: string[];
 }
 
 export interface MatrixSku {
@@ -15,6 +19,10 @@ export interface MatrixSku {
   priceCents: number; // 单位：分
   stock: number;
   listPriceCents?: number; // 划线价，单位：分
+  costPrice?: number; // 成本价，单位：分
+  barcode?: string; // 条形码
+  internalCode?: string; // 内部编码
+  assetIds?: string[]; // 变体图片（规格组合独立图）；首张作为变体主图 featuredAsset
 }
 
 export function defaultSku(): MatrixSku {
@@ -161,7 +169,8 @@ export function hydrateEditState(product: ProductFull): {
       price: number;
       stockOnHand: number;
       options?: Array<{ id: string; name: string }>;
-      customFields?: { listPrice?: number | null };
+      customFields?: { listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null };
+      assets?: Array<{ id: string; preview: string }>;
     }>;
   }).variants;
   const variants = Array.isArray(all) ? all : [];
@@ -179,7 +188,14 @@ export function hydrateEditState(product: ProductFull): {
           priceCents: Number(first.price) || 0,
           stock: Number(first.stockOnHand) || 0,
           listPriceCents: first.customFields?.listPrice ?? undefined,
-        },
+          costPrice: first.customFields?.costPrice ?? undefined,
+          barcode: first.customFields?.barcode ?? undefined,
+          internalCode: first.customFields?.internalCode ?? undefined,
+          assetIds:
+            (first as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
+          _preview:
+            (first as unknown as { assets?: Array<{ id: string; preview: string }> })?.assets?.[0]?.preview ?? '',
+        } as MatrixSku,
       ];
     }
   } else {
@@ -202,7 +218,14 @@ export function hydrateEditState(product: ProductFull): {
       priceCents: Number(x.price) || 0,
       stock: Number(x.stockOnHand) || 0,
       listPriceCents: x.customFields?.listPrice ?? undefined,
-    }));
+      costPrice: x.customFields?.costPrice ?? undefined,
+      barcode: x.customFields?.barcode ?? undefined,
+      internalCode: x.customFields?.internalCode ?? undefined,
+      assetIds:
+        (x as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
+      _preview:
+        (x as unknown as { assets?: Array<{ id: string; preview: string }> })?.assets?.[0]?.preview ?? '',
+    })) as MatrixSku[];
     variantMatrix = { noSpec: false, groups, skus, showListPrice: true };
   }
 

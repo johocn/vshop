@@ -374,7 +374,7 @@ export interface BrandOption {
 // 中文规格名/值经 baseSlug/uniqueValueCodes 兜底为合法且唯一的 code。
 export interface CreateVariantMatrixInput {
   productId: string;
-  groups: { name: string; values: string[] }[]; // 规格组
+  groups: { name: string; values: string[]; groupId?: string; valueIds?: string[] }[]; // 规格组（groupId 存在表示复用系统规格组，不新建组）
   skus: { labels: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[] }[];
   shippingProfileId?: string;
   paymentProfileId?: string;
@@ -412,6 +412,18 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       .map((val) => String(val ?? '').trim())
       .filter((val) => val !== '');
     if (!name || !values.length) continue; // 空组名或无数值则跳过该组
+    const valueToOptionId = new Map<string, string>();
+    const grp = groups[gi] as (typeof groups)[number] & { groupId?: string; valueIds?: string[] };
+    if (grp?.groupId) {
+      // 复用系统规格组：不新建组，走 reuseOptionGroupForProduct 关联；直接以 valueIds（与 values 对齐）构建映射
+      await reuseOptionGroupForProduct(input.productId, grp.groupId);
+      const valueIds = grp.valueIds || [];
+      for (let k = 0; k < values.length && k < valueIds.length; k++) {
+        valueToOptionId.set(values[k], valueIds[k]);
+      }
+      dims.push({ groupIndex: gi, valueToOptionId });
+      continue;
+    }
     // 规格值 code 兜底：中文退化 `v-序号` 且同组唯一（见 uniqueValueCodes）
     const valueCodes = uniqueValueCodes(values);
     const { createProductOptionGroup } = await getAdminClient().request<{
@@ -445,14 +457,12 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
         { productId: input.productId, optionGroupId: groupId },
       );
     }
-    const valueToOptionId = new Map<string, string>();
+    valueToOptionId.clear();
     for (let k = 0; k < opts.length && k < values.length; k++) {
       valueToOptionId.set(values[k], opts[k].id); // options 顺序与入参 values 一致
     }
     dims.push({ groupIndex: gi, valueToOptionId });
   }
-
-  const skus = input.skus || [];
   if (!dims.length || !skus.length) return 0; // 无有效维度或 SKU，不建任何变体
 
   // 2) 每个 SKU 依据 labels 定位各维度 option id，组装 optionIds。
@@ -753,4 +763,38 @@ export async function fetchProductList(
     };
   });
   return { totalItems: products.totalItems, items };
+}
+
+// ---- 规格组复用（跨渠道） ----
+// 后端 cjk-plugin TenantCatalogAdminResolver 暴露：
+//   query reusableOptionGroups { id name options { id name } }
+//   mutation reuseOptionGroupForProduct(productId, optionGroupId)
+export interface ReusableOptionGroup {
+  id: string;
+  name: string;
+  options: Array<{ id: string; name: string }>;
+}
+
+export async function fetchReusableOptionGroups(): Promise<ReusableOptionGroup[]> {
+  const { reusableOptionGroups } = await getAdminClient().request<{
+    reusableOptionGroups: ReusableOptionGroup[];
+  }>(
+    `query ReusableOptionGroups { reusableOptionGroups { id name options { id name } } }`,
+  );
+  return reusableOptionGroups || [];
+}
+
+export async function reuseOptionGroupForProduct(
+  productId: string,
+  optionGroupId: string,
+): Promise<boolean> {
+  const { reuseOptionGroupForProduct } = await getAdminClient().request<{
+    reuseOptionGroupForProduct: boolean;
+  }>(
+    `mutation ReuseOptionGroup($productId: ID!, $optionGroupId: ID!) {
+      reuseOptionGroupForProduct(productId: $productId, optionGroupId: $optionGroupId)
+    }`,
+    { productId, optionGroupId },
+  );
+  return !!reuseOptionGroupForProduct;
 }

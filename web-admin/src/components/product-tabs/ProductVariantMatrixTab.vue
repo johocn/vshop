@@ -17,6 +17,9 @@
 
     <template v-if="!value.noSpec">
       <view class="card" v-for="(g, gi) in value.groups" :key="gi">
+        <view class="syshead">
+          <text class="link" @tap="openSystemGroups(gi)">从系统选择已有规格组</text>
+        </view>
         <view class="cell">
           <text class="lbl">规格名</text>
           <input class="inp" :value="g.name" placeholder="如：颜色" @input="onGroupName(gi, $event)" />
@@ -55,18 +58,29 @@
           <text class="c-p" v-if="value.showListPrice">划线价(分)</text>
           <text class="c-s">库存</text>
         </view>
-        <view class="mrow" v-for="(s, si) in value.skus" :key="s.key + si">
-          <text v-if="!value.noSpec" class="c-lab">{{ s.labels.join(' / ') }}</text>
-          <text v-else class="c-lab">单品</text>
-          <input class="c-p" type="number" :value="String(s.priceCents)" @input="onSkuField(si, 'priceCents', $event)" />
-          <input
-            v-if="value.showListPrice"
-            class="c-p"
-            type="number"
-            :value="String(s.listPriceCents ?? '')"
-            @input="onSkuField(si, 'listPriceCents', $event)"
-          />
-          <input class="c-s" type="number" :value="String(s.stock)" @input="onSkuField(si, 'stock', $event)" />
+        <view class="skublock" v-for="(s, si) in value.skus" :key="si">
+          <view class="mrow">
+            <text v-if="!value.noSpec" class="c-lab">{{ s.labels.join(' / ') }}</text>
+            <text v-else class="c-lab">单品</text>
+            <input class="c-p" type="number" :value="String(s.priceCents)" @input="onSkuField(si, 'priceCents', $event)" />
+            <input
+              v-if="value.showListPrice"
+              class="c-p"
+              type="number"
+              :value="String(s.listPriceCents ?? '')"
+              @input="onSkuField(si, 'listPriceCents', $event)"
+            />
+            <input class="c-s" type="number" :value="String(s.stock)" @input="onSkuField(si, 'stock', $event)" />
+          </view>
+          <view class="mrow sub">
+            <view class="variant-cover" @tap="openSkuImage(si)">
+              <image v-if="(s.assetIds || []).length && coverPreview(s)" class="cover-img" :src="coverPreview(s)" mode="aspectFill" />
+              <text v-else class="cover-plus">＋图</text>
+            </view>
+            <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
+            <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
+            <input class="c-p" type="number" placeholder="成本价(分)" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
+          </view>
         </view>
       </template>
       <view v-else class="tip">暂无规格数据</view>
@@ -77,12 +91,43 @@
         <button class="ghost" v-if="value.showListPrice" @tap="batchListPrice">批量划线价</button>
       </view>
     </view>
+
+    <view v-if="pickerOpen" class="picker-mask" @tap.self="pickerOpen = false">
+      <view class="picker-panel">
+        <view class="picker-head">
+          <text>设置「{{ pickerLabels.join('/') || '单品' }}」的变体图片</text>
+          <text class="picker-close" @tap="pickerOpen = false">✕</text>
+        </view>
+        <ImagePicker ref="pickerRef" :max="1" :value="pickerAssetIds" @change="onPickerChange" />
+      </view>
+    </view>
+
+    <view v-if="sysGroupsOpen" class="picker-mask" @tap.self="sysGroupsOpen = false">
+      <view class="picker-panel">
+        <view class="picker-head">
+          <text>选择系统已有规格组</text>
+          <text class="picker-close" @tap="sysGroupsOpen = false">✕</text>
+        </view>
+        <scroll-view scroll-y class="sys-list">
+          <view v-if="!sysGroups.length" class="sys-empty">暂无可复用的规格组</view>
+          <view v-else class="sys-item" v-for="(sg, si) in sysGroups" :key="sg.id" @tap="selectSystemGroup(sg)">
+            <view class="sys-item-head">
+              <text class="sys-name">{{ sg.name }}</text>
+              <text class="sys-count">{{ (sg.options || []).length }} 个值</text>
+            </view>
+            <text class="sys-opts">{{ (sg.options || []).map((o) => o.name).join(' / ') }}</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, watch } from 'vue';
+import { reactive, ref } from 'vue';
+import ImagePicker from '../../components/ImagePicker.vue';
 import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../composables/useVariantMatrix';
+import { fetchReusableOptionGroups } from '../../apis/product';
 
 export interface VariantMatrixValue {
   noSpec: boolean;
@@ -103,7 +148,13 @@ function setNoSpec(noSpec: boolean) {
 }
 
 function onGroupName(gi: number, e: any) {
-  const groups = props.value.groups.map((g, i) => (i === gi ? { ...g, name: e.detail.value || '' } : g));
+  // 手动改名：若该组已复用系统规格组，丢弃 groupId/valueIds（退化为新建组，避免 id 与值错位）
+  const groups = props.value.groups.map((g, i) => {
+    if (i !== gi) return g;
+    // 复用组被手动改动 -> 清除 groupId/valueIds 再改名
+    const next: SpecGroup = { name: e.detail.value || '', values: g.values };
+    return next;
+  });
   const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
   emit('update:value', { ...props.value, groups, skus });
 }
@@ -118,8 +169,11 @@ function addValue(gi: number) {
     uni.showToast({ title: '请先输入规格值', icon: 'none' });
     return;
   }
+  // 复用组被手动增删规格值 -> 清除 groupId/valueIds（退化为新建组，避免 id 与值错位）
   const groups = props.value.groups.map((g, i) =>
-    i === gi ? { ...g, values: g.values.includes(v) ? g.values : [...g.values, v] } : g,
+    i === gi
+      ? { name: g.name, values: g.values.includes(v) ? g.values : [...g.values, v] }
+      : g,
   );
   newVal[gi] = '';
   const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
@@ -148,8 +202,84 @@ function onToggleListPrice(e: any) {
   emit('update:value', { ...props.value, showListPrice: !!e.detail.value });
 }
 
-function onSkuField(si: number, field: 'priceCents' | 'stock' | 'listPriceCents', e: any) {
-  const skus = props.value.skus.map((s, i) => (i === si ? { ...s, [field]: Number(e.detail.value) || 0 } : s));
+const pickerOpen = ref(false);
+const pickerIndex = ref(0);
+const pickerLabels = ref<string[]>([]);
+const pickerAssetIds = ref<string[]>([]);
+const pickerRef = ref<any>(null);
+
+// —— 从系统选择已有规格组 ——
+interface ReusableSysGroup {
+  id: string;
+  name: string;
+  options: Array<{ id: string; name: string }>;
+}
+const sysGroupsOpen = ref(false);
+const sysGroups = ref<ReusableSysGroup[]>([]);
+const sysTarget = ref(0);
+
+async function openSystemGroups(gi: number) {
+  sysTarget.value = gi;
+  try {
+    sysGroups.value = await fetchReusableOptionGroups();
+    sysGroupsOpen.value = true;
+  } catch {
+    uni.showToast({ title: '获取规格组失败', icon: 'none' });
+  }
+}
+
+function selectSystemGroup(g: ReusableSysGroup) {
+  const gi = sysTarget.value;
+  const values = g.options.map((o) => o.name);
+  const valueIds = g.options.map((o) => o.id);
+  const groups = props.value.groups.map((grp, i) =>
+    i === gi ? { name: g.name, values, groupId: g.id, valueIds } : grp,
+  );
+  const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
+  emit('update:value', { ...props.value, groups, skus });
+  sysGroupsOpen.value = false;
+  uni.showToast({ title: '已引用规格组，可修改名称/值', icon: 'none' });
+}
+
+function coverPreview(s: MatrixSku): string {
+  return (s as any)._preview || '';
+}
+
+function openSkuImage(si: number) {
+  const s = props.value.skus[si];
+  pickerIndex.value = si;
+  pickerLabels.value = s?.labels || [];
+  pickerAssetIds.value = s?.assetIds ? [...s.assetIds] : [];
+  pickerOpen.value = true;
+}
+
+async function onPickerChange(ids: string[]) {
+  const assets = pickerRef.value?.getSelectedAssets?.() ?? [];
+  const preview = assets[0]?.preview || '';
+  const skus = props.value.skus.map((s, i): MatrixSku => {
+    if (i !== pickerIndex.value) return s;
+    const base = { ...s, assetIds: [...ids] } as MatrixSku;
+    (base as any)._preview = preview;
+    return base;
+  });
+  emit('update:value', { ...props.value, skus });
+}
+
+function onSkuField(
+  si: number,
+  field: 'priceCents' | 'stock' | 'listPriceCents' | 'costPrice' | 'barcode' | 'internalCode',
+  e: any,
+) {
+  const raw = e.detail.value ?? '';
+  const skus = props.value.skus.map((s, i) => {
+    if (i !== si) return s;
+    // 条形码/内部码为字符串；可选数字字段（划线价/成本价）留空则置 undefined，价格/库存留空按 0
+    if (field === 'barcode' || field === 'internalCode') return { ...s, [field]: raw };
+    if (field === 'listPriceCents' || field === 'costPrice') {
+      return { ...s, [field]: raw === '' ? undefined : Number(raw) || 0 };
+    }
+    return { ...s, [field]: Number(raw) || 0 };
+  });
   emit('update:value', { ...props.value, skus });
 }
 
@@ -171,26 +301,6 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
   const cur = field === 'listPriceCents' ? first?.listPriceCents ?? 0 : first ? (first[field] as number) : 0;
   return cur;
 }
-
-const maybeSkus = computed(() => props.value.skus);
-
-// 监听 groups 变化自动 buildMatrix 刷新 skus（仅在多规格时）
-watch(
-  () => props.value.groups,
-  (groups) => {
-    if (props.value.noSpec) return;
-    const rebuilt = buildMatrix(groups || []);
-    // 保留已有 skus 的价格/库存/划线价（按 key 对齐）
-    const merged = rebuilt.map((r) => {
-      const old = props.value.skus.find((s) => s.key === r.key);
-      return old ? { ...r, priceCents: old.priceCents, stock: old.stock, listPriceCents: old.listPriceCents ?? r.listPriceCents } : r;
-    });
-    emit('update:value', { ...props.value, skus: merged });
-  },
-  { deep: true },
-);
-
-void maybeSkus;
 </script>
 
 <style lang="scss" scoped>
@@ -217,10 +327,19 @@ void maybeSkus;
   .mrow {
     display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid $wa-rule;
     &.head { color: $wa-muted; font-size: 24rpx; }
+    &.sub {
+      padding: 12rpx 0 12rpx 12rpx; border-bottom: 1rpx solid $wa-rule;
+      background: rgba(0,0,0,0.02);
+      .c-b { flex: 1; font-size: 24rpx; color: $wa-ink; margin-right: 12rpx; }
+    }
     .c-lab { flex: 1.4; font-size: 26rpx; color: $wa-ink; word-break: break-all; padding-right: 8rpx; }
     .c-p { flex: 0.9; font-size: 26rpx; color: $wa-ink; text-align: center; }
     .c-s { flex: 0.7; font-size: 26rpx; color: $wa-ink; text-align: center; }
     &:last-child { border-bottom: none; }
+  }
+  .skublock {
+    border-bottom: 1rpx solid $wa-rule;
+    .mrow:last-child { border-bottom: none; }
   }
   .batch { display: flex; flex-wrap: wrap; gap: 20rpx; padding: 20rpx 0 8rpx; }
   .ghost {
@@ -239,5 +358,61 @@ void maybeSkus;
     &:first-child { margin-right: 20rpx; }
     &.on { background: $wa-accent; color: #fff; border-color: $wa-accent; }
   }
+}
+.variant-cover {
+  width: 56rpx;
+  height: 56rpx;
+  border: 1rpx solid $wa-rule;
+  border-radius: $wa-radius;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: $wa-card;
+  flex: none;
+  .cover-img { width: 100%; height: 100%; display: block; }
+  .cover-plus { font-size: 20rpx; color: $wa-muted; }
+}
+.picker-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.picker-panel {
+  width: 640rpx;
+  max-height: 80vh;
+  background: $wa-bg;
+  border-radius: $wa-radius;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: $wa-card;
+  border-bottom: 1rpx solid $wa-rule;
+  font-size: 26rpx;
+  color: $wa-ink;
+}
+.picker-close { font-size: 30rpx; color: $wa-muted; padding: 0 8rpx; }
+.syshead { padding: 16rpx 0 0; }
+.link { color: #00A2EA; font-size: 26rpx; }
+.sys-list { max-height: 60vh; }
+.sys-empty { padding: 48rpx 0; text-align: center; font-size: 26rpx; color: $wa-muted; }
+.sys-item {
+  padding: 24rpx;
+  border-bottom: 1rpx solid $wa-rule;
+  background: $wa-card;
+  .sys-item-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+  .sys-name { font-size: 28rpx; color: $wa-ink; font-weight: 500; }
+  .sys-count { font-size: 24rpx; color: $wa-muted; }
+  .sys-opts { font-size: 26rpx; color: $wa-muted; line-height: 1.5; }
 }
 </style>
