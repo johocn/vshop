@@ -35,6 +35,10 @@ onMounted(async () => {
     name: data.name,
     slug: data.slug,
     description: data.description,
+    // 多语言英文回填（multilingualEnabled 开启时表单展示，缺失回退 zh）
+    nameEn: data.nameEn,
+    slugEn: data.slugEn,
+    descriptionEn: data.descriptionEn,
     priceYuan: data.variant ? data.variant.price / 100 : 0,
     stock: data.variant?.stockOnHand ?? 0,
     enabled: data.enabled,
