@@ -19,6 +19,13 @@
         </view>
       </view>
     </view>
+    <view class="product-detail__rich" v-if="mainVideo || descHtml || sellingPoint">
+      <view v-if="mainVideo" class="rich__video">
+        <video :src="mainVideo.source" controls class="rich__video-tag"></video>
+      </view>
+      <text v-if="sellingPoint" class="rich__sp">{{ sellingPoint }}</text>
+      <MpHtml v-if="descHtml" :content="descHtml" class="rich__mp" />
+    </view>
     <view class="product-detail__bar">
       <button class="product-detail__poster-btn" @click="showPoster = true">海报</button>
       <button class="product-detail__cart-btn" @click="addToCart">加入购物车</button>
@@ -40,6 +47,8 @@ import { getActiveOrder } from '../../api/queries/order';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import ProductPoster from '../../components/product-poster/product-poster.vue';
+import { pickTranslation } from '../../utils/locale';
+import MpHtml from 'mp-html/dist/uni-app/components/mp-html/mp-html.vue';
 
 const product = ref<any>(null);
 const selectedOptions = ref<Record<string, string>>({});
@@ -57,6 +66,14 @@ const selectedVariant = computed(() => {
     return product.value.variants.find((v: any) =>
         v.options?.every((o: any) => opts.includes(o.id))
     ) || product.value.variants[0];
+});
+
+const sellingPoint = computed(() => (product.value?.customFields?.sellingPoint as string) ?? '');
+const descHtml = computed(() => pickTranslation(product.value?.translations || []));
+const mainVideo = computed(() => {
+    const vid = product.value?.customFields?.videoAssetId;
+    if (!vid) return null;
+    return (product.value?.assets || []).find((a: any) => String(a.id) === String(vid)) || null;
 });
 
 onMounted(async () => {
@@ -144,4 +161,9 @@ onUnmounted(() => {
     padding: 8rpx 24rpx; font-size: 24rpx; border: 1rpx solid $border-color; border-radius: $radius-sm;
     &.active { border-color: $brand-color; color: $brand-color; background: $brand-color-light; }
 }
+.product-detail__rich { margin-top: 16rpx; background: #fff; }
+.rich__video { padding: 16rpx 0; }
+.rich__video-tag { width: 100%; height: 380rpx; display: block; }
+.rich__sp { display: block; padding: 0 20rpx 8rpx; font-size: 26rpx; color: $text-color-secondary; }
+.rich__mp { padding: 0 20rpx 20rpx; }
 </style>

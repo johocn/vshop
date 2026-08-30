@@ -22,6 +22,7 @@
         "graphql-request": "^7.2.0",
         "graphql-tag": "^2.12.6",
         "html-to-image": "^1.11.13",
+        "mp-html": "^2.5.2",
         "pinia": "^3.0.2",
         "qrcode": "^1.5.4",
         "vue": "^3.5.13",
