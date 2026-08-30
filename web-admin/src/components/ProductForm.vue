@@ -112,6 +112,8 @@ interface ProductDraft {
   brandFacetValueId?: string | null;
   marketingTags?: string[];
   sellingPoint?: string;
+  // 商品所属租户分类名，作过审归位的匹配依据（保存落库）
+  tenantCategoryRef?: string | null;
   // 具变体矩阵：priceCents/listPriceCents 单位「分」；随保存落库（apis 的 createVariantMatrixForProduct 消费）
   variantMatrix?: VariantMatrixState;
 }
@@ -198,6 +200,8 @@ function submit() {
   out.marketingTags = brandMarketing.value.tags;
   out.sellingPoint = brandMarketing.value.sellingPoint;
   out.variantMatrix = JSON.parse(JSON.stringify(variantMatrix.value));
+  // 所选租户分类名写入 tenantCategoryRef，作为过审归位的匹配依据（unused 时置空，避免残留）
+  out.tenantCategoryRef = d.collectionId ? (catList.value.find((i) => i.id === d.collectionId)?.name ?? null) : null;
   emit('submit', out);
 }
 

@@ -11,6 +11,7 @@
 import { ref, onMounted } from 'vue';
 import ProductForm from '../../../components/ProductForm.vue';
 import { fetchProductFull, updateProductFull, type ProductFull } from '../../../apis/product';
+import { fetchCollectionsOptimized } from '../../../apis/collection';
 
 const id = ref('');
 const loaded = ref(false);
@@ -21,8 +22,15 @@ let busy = false;
 
 onMounted(async () => {
   id.value = (getCurrentPages().at(-1) as any)?.options?.id || '';
-  const data = await fetchProductFull(id.value);
+  // 并行拉取商品全量与租户分类列表，用于按 tenantCategoryRef 反解 collectionId 预选分类
+  const [data, cats] = await Promise.all([
+    fetchProductFull(id.value),
+    fetchCollectionsOptimized().catch(() => []),
+  ]);
   full.value = data;
+  // 归位反解：商品自带 tenantCategoryRef（租户分类名），按名反查分类 id 预选
+  const refName = data.productCustomFields?.tenantCategoryRef ?? null;
+  const mappedCat = refName ? cats.find((c) => c.name === refName) : undefined;
   initial.value = {
     name: data.name,
     slug: data.slug,
@@ -34,8 +42,8 @@ onMounted(async () => {
     assetIds: (data.assets || []).map((a) => a.id).filter(Boolean),
     shippingProfileId: data.variant?.customFields?.shippingProfileId ?? '',
     paymentProfileId: data.variant?.customFields?.paymentProfileId ?? '',
-    // 归属分类：统一在分类管理页（Task 11）维护；编辑页不反解 product-id-filter，置空既不预选也不改动
-    collectionId: undefined,
+    // 归属分类：优先按 tenantCategoryRef 反解预选；找不到则 undefined（不预选不改动）
+    collectionId: mappedCat?.id ?? undefined,
   };
   loaded.value = true;
 });

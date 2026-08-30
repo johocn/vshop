@@ -165,10 +165,13 @@ export interface VariantRef {
         listPrice?: number | null;
         saleStart?: string | null;
         saleEnd?: string | null;
+        costPrice?: number | null;
+        barcode?: string | null;
+        internalCode?: string | null;
       }
     | null;
-  featuredAsset?: { preview: string } | null;
-  assets?: { preview: string }[] | null;
+  featuredAsset?: { id: string; preview: string } | null;
+  assets?: { id: string; preview: string }[] | null;
 }
 
 export interface ProductFull {
@@ -193,6 +196,7 @@ export interface ProductFull {
     stockOnHand: number;
     trackInventory: boolean;
     featuredAsset?: { preview: string } | null;
+    assets?: Array<{ id: string; preview: string }>;
     options?: Array<{ id: string; code: string; name: string }> | null;
     customFields?: {
       shippingProfileId?: string | null;
@@ -200,10 +204,13 @@ export interface ProductFull {
       listPrice?: number | null;
       saleStart?: string | null;
       saleEnd?: string | null;
+      costPrice?: number | null;
+      barcode?: string | null;
+      internalCode?: string | null;
     } | null;
   }> | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
-  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null } | null;
+  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null; tenantCategoryRef?: string | null } | null;
 }
 
 export interface ProductSaveInput {
@@ -220,6 +227,7 @@ export interface ProductSaveInput {
   brandFacetValueId?: string | null; // 品牌
   marketingTags?: string[]; // 营销标签 code 数组
   sellingPoint?: string; // 卖点
+  tenantCategoryRef?: string | null; // 商品所属租户分类名（过审归位匹配依据）
   // 多规格变体矩阵（新建落库 / 编辑同结构数值更新用）。productId 由 create/update 补齐。
   variantMatrix?: CreateVariantMatrixInput | null;
 }
@@ -239,7 +247,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         name: string;
         facet?: { name: string; code: string; id: string };
       }>;
-      customFields?: { marketingTags?: string | null; sellingPoint?: string | null } | null;
+      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -249,7 +257,8 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         trackInventory: boolean;
         options?: Array<{ id: string; code: string; name: string }>;
         featuredAsset?: { preview: string } | null;
-        customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null; saleStart?: string | null; saleEnd?: string | null; listPrice?: number | null } | null;
+        assets?: Array<{ id: string; preview: string }>;
+        customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null; saleStart?: string | null; saleEnd?: string | null; listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null } | null;
       }>;
     };
   }>(
@@ -259,13 +268,14 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         featuredAsset { preview }
         assets { id preview }
         facetValues { id code name facet { id code name } }
-        customFields { marketingTags sellingPoint }
+        customFields { marketingTags sellingPoint tenantCategoryRef }
         translations { languageCode name slug description }
         variants {
           id sku price stockOnHand trackInventory
           options { id code name }
           featuredAsset { preview }
-          customFields { shippingProfileId paymentProfileId saleStart saleEnd listPrice }
+          assets { id preview }
+          customFields { shippingProfileId paymentProfileId saleStart saleEnd listPrice costPrice barcode internalCode }
         }
       }
     }`,
@@ -298,6 +308,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
       ? {
           marketingTags: marketingTags,
           sellingPoint: product.customFields.sellingPoint ?? '',
+          tenantCategoryRef: product.customFields.tenantCategoryRef ?? null,
         }
       : null,
   };
@@ -312,6 +323,9 @@ export interface CreateVariantInput {
   featuredAssetId?: string;
   shippingProfileId?: string;
   paymentProfileId?: string;
+  costPriceCents?: number;
+  barcode?: string;
+  internalCode?: string;
 }
 
 export async function createVariantsForProduct(input: CreateVariantInput): Promise<string> {
@@ -335,6 +349,9 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
           customFields: {
             shippingProfileId: input.shippingProfileId ?? '',
             paymentProfileId: input.paymentProfileId ?? '',
+            costPrice: input.costPriceCents != null ? Math.round(input.costPriceCents) : null,
+            barcode: input.barcode ?? '',
+            internalCode: input.internalCode ?? '',
           },
           translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: input.sku }],
         },
@@ -358,7 +375,7 @@ export interface BrandOption {
 export interface CreateVariantMatrixInput {
   productId: string;
   groups: { name: string; values: string[] }[]; // 规格组
-  skus: { labels: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number }[];
+  skus: { labels: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[] }[];
   shippingProfileId?: string;
   paymentProfileId?: string;
 }
@@ -453,10 +470,15 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       optionIds,
       trackInventory: 'TRUE',
       stockOnHand: Math.round(sku.stock) || 0,
+      assetIds: sku.assetIds ?? [],
+      featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
       customFields: {
         shippingProfileId: input.shippingProfileId ?? '',
         paymentProfileId: input.paymentProfileId ?? '',
         listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
+        costPrice: sku.costPrice != null ? Math.round(sku.costPrice) : null,
+        barcode: sku.barcode ?? '',
+        internalCode: sku.internalCode ?? '',
       },
       translations: [
         {
@@ -493,14 +515,16 @@ export async function fetchBrands(term?: string): Promise<BrandOption[]> {
 }
 
 async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Promise<void> {
-  // 仅在品牌/营销/卖点有值时才触发 updateProduct；facetValueIds 只在有品牌时传。
+  // 仅在品牌/营销/卖点/租户分类名有值时才触发 updateProduct；facetValueIds 只在有品牌时传。
   // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
   // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
-  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint) return;
+  // tenantCategoryRef 为 Product 自定义 string 字段，随 customFields 落库，null 则清除。
+  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null) return;
   const updated: Record<string, unknown> = { id };
   if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
   if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
+  if (input.tenantCategoryRef != null) customFields.tenantCategoryRef = input.tenantCategoryRef;
   if (Object.keys(customFields).length) updated.customFields = customFields;
   if (input.sellingPoint) {
     updated.translations = [
@@ -528,7 +552,8 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
       paymentProfileId: input.paymentProfileId,
     });
   } else {
-    // 无矩阵（含 noSpec 单品）：沿用既有的单变体创建
+    // 无矩阵（含 noSpec 单品）：沿用既有的单变体创建；成本/条码/内码从矩阵单行取（单品时也有默认行）
+    const s0 = vm?.skus?.[0];
     await createVariantsForProduct({
       productId: pid,
       sku: 'P' + Date.now(),
@@ -538,6 +563,9 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
       featuredAssetId,
       shippingProfileId: input.shippingProfileId,
       paymentProfileId: input.paymentProfileId,
+      costPriceCents: s0?.costPrice,
+      barcode: s0?.barcode,
+      internalCode: s0?.internalCode,
     });
   }
   // 图片同时挂到商品级：列表用 product.featuredAsset 做缩略图、编辑页用 product.assets 回填，
@@ -613,10 +641,15 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
           price: Math.round(sku.priceCents) || 0,
           trackInventory: 'TRUE',
           stockOnHand: Math.round(sku.stock) || 0,
+          assetIds: sku.assetIds ?? [],
+          featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
           customFields: {
             shippingProfileId: input.shippingProfileId ?? '',
             paymentProfileId: input.paymentProfileId ?? '',
             listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
+            costPrice: sku.costPrice != null ? Math.round(sku.costPrice) : null,
+            barcode: sku.barcode ?? '',
+            internalCode: sku.internalCode ?? '',
           },
         };
       })
@@ -633,6 +666,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     // 单变体（含编辑时切换到无矩阵/单规格）：沿用既有更新逻辑
     const v = full.variant;
     if (v?.id) {
+      const s0 = vm?.skus?.[0];
       await getAdminClient().request(
         `mutation UpdateProductVariants($input: [UpdateProductVariantInput!]!) {
           updateProductVariants(input: $input) { id }
@@ -648,6 +682,9 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
               customFields: {
                 shippingProfileId: input.shippingProfileId ?? '',
                 paymentProfileId: input.paymentProfileId ?? '',
+                costPrice: s0?.costPrice != null ? Math.round(s0.costPrice) : null,
+                barcode: s0?.barcode ?? '',
+                internalCode: s0?.internalCode ?? '',
               },
             },
           ],

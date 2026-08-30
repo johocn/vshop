@@ -65,6 +65,39 @@ export async function renameCollection(id: string, name: string): Promise<void> 
   );
 }
 
+// 租户分类隔离创建：createTenantCollection（backend cjk-plugin adminApiExtensions 提供），
+// 创建租户分类并从默认渠道摘除（隔离）。走平台的 product-id-filter 过滤器，含无商品时空 filters。
+export async function createTenantCollection(input: CollectionInput): Promise<string> {
+  const { createTenantCollection } = await getAdminClient().request<{ createTenantCollection: { id: string } }>(
+    `mutation CreateTenantCollection($input: CreateCollectionInput!) {
+      createTenantCollection(input: $input) { id }
+    }`,
+    {
+      input: {
+        isPrivate: false,
+        translations: [{ languageCode: LAN, name: input.name, slug: input.slug || input.name, description: input.name }],
+        filters: await buildFilters(input.productIds || []),
+      },
+    },
+  );
+  return createTenantCollection.id;
+}
+
+// 归位映射：租户分类名 -> 平台分类 collectionId，写入当前租户渠道的 categoryMapping 自定义字段。
+// 复用后端 myUpdateChannelCustomFields 写回当前渠道（channel.ts 里同为该 mutation）。
+export interface CategoryMapping {
+  tenantCategory: string;
+  collectionId: string;
+}
+
+export async function saveCategoryMapping(mapping: CategoryMapping[]): Promise<boolean> {
+  await getAdminClient().request(
+    `mutation SaveMapping($json: JSON!) { myUpdateChannelCustomFields(input: $json) }`,
+    { json: { categoryMapping: mapping } },
+  );
+  return true;
+}
+
 export async function deleteCollectionById(id: string): Promise<void> {
   // DeletionResponse in this schema exposes `result: DeletionResult` (DELETED | NOT_DELETED),
   // not `success`. Calibrated against live :3000 admin-api.
