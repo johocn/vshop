@@ -23,6 +23,15 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 function isWechat(): boolean {
   return typeof navigator !== 'undefined' && /MicroMessenger/i.test(navigator.userAgent || '');
 }
+
+// 是否安全上下文（HTTPS 或 localhost）。`navigator.mediaDevices` 只在安全上下文暴露，
+// 非 HTTPS 下直接用引导文案提示，而非笼统"无法访问摄像头"。
+function isSecureContext(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.isSecureContext === 'boolean') return window.isSecureContext;
+  const host = (window.location && window.location.hostname) || '';
+  return host === 'localhost' || host === '127.0.0.1';
+}
 // #endif
 
 export function scanCode(): Promise<string> {
@@ -53,9 +62,19 @@ function scanNative(): Promise<string> {
 function scanOnH5(): Promise<string> {
   // 微信内置 WebView 无法可靠打开相机 → 直接走手动输入信号，不白屏
   if (isWechat()) {
-    return Promise.reject(new ScannerError(MANUAL, '请在浏览器中使用扫码，或手动输入'));
+    return Promise.reject(
+      new ScannerError(MANUAL, '微信内置浏览器不支持扫码，请在手机浏览器/Chrome 中打开本页'),
+    );
   }
   if (!navigator.mediaDevices?.getUserMedia) {
+    if (!isSecureContext()) {
+      return Promise.reject(
+        new ScannerError(
+          MANUAL,
+          '当前为非安全上下文（未启用 HTTPS），浏览器无法调用摄像头；请通过 https:// 或 localhost 访问本页后重试',
+        ),
+      );
+    }
     return Promise.reject(new ScannerError(MANUAL, '当前环境无法访问摄像头，请手动输入'));
   }
   return scanWithCamera();
@@ -219,34 +238,53 @@ function scanWithCamera(): Promise<string> {
       finished('', '', text);
     };
 
-    codeReader = new Html5Qrcode(region.id, {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.ITF,
-      ],
-    });
+    // 相机无法打开的引导文案（权限被拒 / 库内部异常 / 非安全上下文等统一收敛到 FAILED）
+    const CAMERA_FAIL_MSG =
+      '无法打开相机，请在浏览器地址栏允许摄像头权限后重试，或改用【手动输入】';
 
-    timeout = setTimeout(() => {
-      const t = document.getElementById('scanner-tip');
-      if (t && !settled) t.textContent = '未识别到条码，可对准更清晰或点【手动输入】';
-    }, 8000);
+    try {
+      // 说明：html5-qrcode v2 中 `formatsToSupport` 属于构造函数 config，
+      // 由构造函数内的 getSupportedFormats() 读取并注入解码器；start() 的
+      // Html5QrcodeCameraScanConfig 不读取该字段（仅 fps/qrbox/aspectRatio/disableFlip/
+      // videoConstraints）。因此它不能移到 start()，保留此处。
+      codeReader = new Html5Qrcode(region.id, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
+      });
 
-    codeReader
-      .start(
-        { facingMode: 'environment' },
-        { fps: 1, qrbox: { width: fb, height: fb }, aspectRatio: 1 },
-        successAction,
-        () => { /* 单帧未识别到码：继续 */ },
-      )
-      .then(() => setupFocus())
-      .catch(() => finished(FAILED, '无法打开相机，请检查授权后重试'));
+      timeout = setTimeout(() => {
+        const t = document.getElementById('scanner-tip');
+        if (t && !settled) t.textContent = '未识别到条码，可对准更清晰或点【手动输入】';
+      }, 8000);
+
+      codeReader
+        .start(
+          { facingMode: 'environment' },
+          { fps: 1, qrbox: { width: fb, height: fb }, aspectRatio: 1 },
+          successAction,
+          () => { /* 单帧未识别到码：继续 */ },
+        )
+        .then(() => setupFocus())
+        .catch((err) => {
+          // 权限拒绝 / 相机不可用 / start() 内部异常
+          console.warn('[scanner] H5 camera start failed', err);
+          finished(FAILED, CAMERA_FAIL_MSG);
+        });
+    } catch (err) {
+      // new Html5Qrcode(...) 或 start() 同步抛错（如库内部校验异常）也收敛到 FAILED，
+      // 避免"点扫码无反应"的未捕获异常
+      console.warn('[scanner] H5 camera init threw', err);
+      finished(FAILED, CAMERA_FAIL_MSG);
+    }
   });
 }
 // #endif
