@@ -21,18 +21,28 @@ export interface NoticeSection {
 export interface NavItem {
     label: string;
     icon?: string;
+    image?: string;
     link?: string;
 }
+
+export type NavShape = 'square' | 'round';
+
+export type NavLayout = 'grid5x2' | 'grid4x2' | 'row';
 
 export interface NavSection {
     type: 'nav';
     items: NavItem[];
+    shape?: NavShape;
+    layout?: NavLayout;
 }
+
+export type GoodsLayout = 'compact' | 'masonry' | 'single';
 
 export interface GoodsSection {
     type: 'goods';
     title?: string;
-    collectionId: string;
+    collectionId?: string;
+    layout?: GoodsLayout;
 }
 
 export interface RichTextSection {
@@ -74,7 +84,7 @@ export function isValidShopContent(data: any): data is ShopContent {
         if (sec.type === 'banner' && (!Array.isArray(sec.images) || sec.images.length === 0)) return false;
         if (sec.type === 'notice' && typeof sec.text !== 'string') return false;
         if (sec.type === 'nav' && (!Array.isArray(sec.items) || sec.items.length === 0)) return false;
-        if (sec.type === 'goods' && typeof sec.collectionId !== 'string') return false;
+        if (sec.type === 'goods' && sec.collectionId != null && typeof sec.collectionId !== 'string') return false;
         if (sec.type === 'richText' && typeof sec.html !== 'string') return false;
     }
     return true;
