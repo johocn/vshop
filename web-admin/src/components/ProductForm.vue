@@ -23,7 +23,7 @@
         </view>
         <view class="cell col">
           <text class="lbl">描述</text>
-          <textarea v-model="d.description" class="ta" placeholder="商品描述" />
+          <RichTextEditor v-model="d.description" />
         </view>
         <view class="cell">
           <text class="lbl">价格（元）</text>
@@ -90,6 +90,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import ImagePicker from './ImagePicker.vue';
 import MediaPicker from './MediaPicker.vue';
+import RichTextEditor from './RichTextEditor.vue';
 import ProductBrandMarketingTab from './product-tabs/ProductBrandMarketingTab.vue';
 import ProductVariantMatrixTab from './product-tabs/ProductVariantMatrixTab.vue';
 import {
