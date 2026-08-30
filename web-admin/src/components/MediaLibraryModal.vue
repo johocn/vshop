@@ -5,6 +5,7 @@
         <text class="mlm__title">媒体库</text>
         <view class="mlm__header-actions">
           <view class="mlm__upload" @tap="chooseAndUpload">上传</view>
+          <text class="mlm__refresh" @tap="refresh">⟳</text>
           <text class="mlm__close" @tap="onClose">×</text>
         </view>
       </view>
@@ -20,89 +21,119 @@
         <text v-if="searchKeyword" class="mlm__search-clear" @tap="clearSearch">×</text>
       </view>
 
-      <!-- 分类标签过滤（按当前租户，普通用户则本人） -->
-      <scroll-view scroll-x class="mlm__tags">
-        <view class="mlm__tags-inner">
-          <view class="mlm__tag" :class="{ on: activeTag === '' }" @tap="selectTag('')">全部</view>
-          <view
-            v-for="t in mergedTags"
-            :key="t.name"
-            class="mlm__tag"
-            :class="{ on: activeTag === t.name }"
-            @tap="selectTag(t.name)"
-          >{{ t.name }}<text class="mlm__tag-count">{{ t.count }}</text></view>
+      <!-- 分组多行标签过滤（按当前租户，普通用户则本人） -->
+      <view class="mlm__filters">
+        <view class="mlm__group-grid">
+          <view class="mlm__chip" :class="{ on: activeTag === '' }" @tap="selectTag('')">全部</view>
         </view>
-      </scroll-view>
+        <view v-for="g in tagGroups" :key="g.key" class="mlm__group">
+          <view class="mlm__group-head" @tap="toggleGroup(g.key)">
+            <text class="mlm__group-arrow">{{ collapsedGroups[g.key] ? '▸' : '▾' }}</text>
+            <text class="mlm__group-title">{{ g.title }}</text>
+            <text class="mlm__group-count">{{ g.count }}</text>
+          </view>
+          <view v-if="!collapsedGroups[g.key]" class="mlm__group-grid">
+            <view
+              v-for="t in g.tags"
+              :key="t.name"
+              class="mlm__chip"
+              :class="{ on: activeTag === t.name }"
+              @tap="selectTag(t.name)"
+            >{{ t.name }}<text class="mlm__chip-count">{{ t.count }}</text></view>
+          </view>
+        </view>
+      </view>
 
-      <scroll-view class="mlm__grid-scroll" scroll-y @scrolltolower="loadMore">
-        <view class="mlm__grid">
-          <view
-            v-for="(it, i) in filteredItems"
-            :key="it.id"
-            class="mlm__cell"
-            :class="{ on: isSelected(it.id) }"
-            @tap="toggle(it)"
-            @longpress="preview(filteredItems, i)"
-          >
-            <video
-              v-if="isVideo(it)"
-              class="mlm__cell-thumb"
-              :src="it.source"
-              :data-mime="it.mimeType"
-              :show-center-play-btn="false"
-              object-fit="cover"
-              controls
-            />
-            <image v-else class="mlm__cell-thumb" :src="it.preview" mode="aspectFill" />
-            <view v-if="isSelected(it.id)" class="mlm__mark" @tap.stop>✓</view>
-            <view class="mlm__cell-del" @tap.stop="onDelete(it)">🗑</view>
-            <view class="mlm__cell-meta">
-              <text class="mlm__cell-name">{{ it.name }}</text>
-              <view v-if="(it.assetTags || []).length" class="mlm__cell-tags">
-                <text v-for="tg in it.assetTags" :key="tg" class="mlm__cell-tag">{{ tg }}</text>
+      <scroll-view
+        class="mlm__grid-scroll"
+        scroll-y
+        @scrolltolower="loadMore"
+        @scroll="onGridScroll"
+        @touchstart="onTouchStart"
+        @touchmove="onTouchMove"
+        @touchend="onTouchEnd"
+      >
+        <view class="mlm__pull-area" :style="{ transform: pullOffset ? `translateY(${pullOffset}px)` : '' }">
+          <view v-if="pulling || refreshing" class="mlm__pull-hint" :class="{ releasing: pullOffset >= PULL_THRESHOLD }">
+            {{ refreshing ? '刷新中…' : pullOffset >= PULL_THRESHOLD ? '释放刷新' : '下拉刷新' }}
+          </view>
+          <view class="mlm__grid">
+            <view
+              v-for="(it, i) in filteredItems"
+              :key="it.id"
+              class="mlm__cell"
+              :class="{ on: isSelected(it.id) }"
+              @tap="toggle(it)"
+              @longpress="preview(filteredItems, i)"
+            >
+              <video
+                v-if="isVideo(it)"
+                class="mlm__cell-thumb"
+                :src="it.source"
+                :data-mime="it.mimeType"
+                :show-center-play-btn="false"
+                object-fit="cover"
+                controls
+              />
+              <image v-else class="mlm__cell-thumb" :src="it.preview" mode="aspectFill" />
+              <view v-if="isSelected(it.id)" class="mlm__mark" @tap.stop>✓</view>
+              <view class="mlm__cell-del" @tap.stop="onDelete(it)">🗑</view>
+              <view class="mlm__cell-meta">
+                <text class="mlm__cell-name">{{ it.name }}</text>
+                <view v-if="(it.assetTags || []).length" class="mlm__cell-tags">
+                  <text v-for="tg in it.assetTags" :key="tg" class="mlm__cell-tag">{{ tg }}</text>
+                </view>
               </view>
             </view>
           </view>
+          <view v-if="uploading" class="mlm__tip">上传中…</view>
+          <view v-else-if="loadingMore" class="mlm__tip">加载中…</view>
+          <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">上拉加载更多</view>
+          <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : '媒体库暂无可选资源' }}</view>
+          <view v-else class="mlm__tip">没有更多了</view>
         </view>
-        <view v-if="uploading" class="mlm__tip">上传中…</view>
-        <view v-else-if="loadingMore" class="mlm__tip">加载中…</view>
-        <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">上拉加载更多</view>
-        <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : '媒体库暂无可选资源' }}</view>
-        <view v-else class="mlm__tip">没有更多了</view>
       </scroll-view>
 
-      <!-- 分类编辑：给已选图片设置分类码 -->
+      <!-- 底部操作条：已选 + 打标 + 确定 -->
       <view class="mlm__footer">
-        <view class="mlm__tag-edit">
-          <view class="mlm__tag-edit-head">
-            <text class="mlm__picked">已选 {{ selected.length }}/{{ max }}</text>
-            <text v-if="selected.length" class="mlm__tag-edit-tip">为已选图片设置分类码</text>
-          </view>
-          <view v-if="selectedTags.length" class="mlm__tag-edit-list">
-            <view v-for="tg in selectedTags" :key="tg" class="mlm__tag chip" @tap="removeTag(tg)">
-              {{ tg }}<text class="mlm__tag-x">×</text>
+        <text class="mlm__picked">已选 {{ selected.length }}/{{ max }}</text>
+        <view class="mlm__footer-actions">
+          <view class="mlm__tag-main" :class="{ disabled: !selected.length }" @tap="openTagPanel">打标</view>
+          <view class="mlm__confirm" @tap="confirm">确定</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 打标分类面板 -->
+    <view v-if="panelVisible" class="mlm__panel-mask" @tap.stop="closePanel">
+      <view class="mlm__tag-panel" @tap.stop>
+        <view class="mlm__tag-panel-head">
+          <text class="mlm__tag-panel-title">为已选 {{ selected.length }} 张图片打标</text>
+          <text class="mlm__tag-panel-x" @tap="closePanel">×</text>
+        </view>
+        <view class="mlm__tag-panel-body">
+          <view v-for="g in tagGroups" :key="g.key" class="mlm__panel-group">
+            <text class="mlm__panel-group-title">{{ g.title }}</text>
+            <view class="mlm__panel-chips">
+              <view
+                v-for="t in g.tags"
+                :key="t.name"
+                class="mlm__panel-chip"
+                :class="{ on: selectedTags.includes(t.name) }"
+                @tap="toggleTagOnSelected(t.name)"
+              >{{ t.name }}<text v-if="hasTagOnSelected(t.name)" class="mlm__panel-chip-exists">已有</text></view>
             </view>
           </view>
-          <view v-if="selected.length" class="mlm__preset">
-            <text class="mlm__preset-title">常用分类</text>
-            <scroll-view scroll-x class="mlm__preset-list">
-              <view class="mlm__preset-inner">
-                <view
-                  v-for="p in PRESET_ASSET_TAGS"
-                  :key="p"
-                  class="mlm__preset-chip"
-                  :class="{ on: selectedTags.includes(p) }"
-                  @tap="toggleTagOnSelected(p)"
-                >{{ p }}</view>
-              </view>
-            </scroll-view>
-          </view>
-          <view v-if="selected.length" class="mlm__tag-add">
+          <view class="mlm__panel-add">
             <input v-model="tagInput" class="mlm__tag-input" placeholder="输入新分类码，回车添加" confirm-type="done" @confirm="addTag" />
-            <view class="mlm__tag-btn" @tap="addTag">添加</view>
+            <view class="mlm__panel-add-btn" @tap="addTag">添加</view>
           </view>
         </view>
-        <view class="mlm__confirm" @tap="confirm">确定</view>
+        <view class="mlm__panel-foot">
+          <text class="mlm__panel-clear" @tap="clearPanelTags">清空</text>
+          <text class="mlm__panel-count">已选 {{ selectedTags.length }} 个分类</text>
+          <view class="mlm__panel-confirm" :class="{ disabled: !selectedTags.length }" @tap="confirmTags">确认</view>
+        </view>
       </view>
     </view>
   </view>
@@ -119,21 +150,18 @@ import {
   type AssetItem,
 } from '../apis/asset';
 
-/** 预设常用分类（运营可点选打标，也可自由输入新分类码） */
-const PRESET_ASSET_TAGS = [
-  // 商品图
-  '主图', '白底图', '细节图', '场景图', '实拍图', '规格图', '商详图',
-  // 富媒体
-  '商品视频', '实拍视频',
-  // 营销
-  '首页Banner', '活动海报', '广告图',
-  // 店铺
-  '店铺装修', '分类图标', '品牌图',
-  // 资质
-  '资质证书', '检测报告', '授权书', '说明书',
-  // 通用
-  '轮播图',
+/** 分组成员常量（覆盖 PRESET_ASSET_TAGS 全部预设） */
+const TAG_GROUPS = [
+  { key: 'product', title: '商品图', tags: ['主图', '白底图', '细节图', '场景图', '实拍图', '规格图', '商详图'] },
+  { key: 'rich', title: '富媒体', tags: ['商品视频', '实拍视频'] },
+  { key: 'marketing', title: '营销', tags: ['首页Banner', '活动海报', '广告图'] },
+  { key: 'shop', title: '店铺', tags: ['店铺装修', '分类图标', '品牌图'] },
+  { key: 'qual', title: '资质', tags: ['资质证书', '检测报告', '授权书', '说明书'] },
+  { key: 'common', title: '通用', tags: ['轮播图'] },
 ];
+
+/** 预设常用分类（运营可点选打标，也可自由输入新分类码） */
+const PRESET_ASSET_TAGS: string[] = TAG_GROUPS.flatMap((g) => g.tags);
 
 const props = withDefaults(
   defineProps<{
@@ -164,6 +192,19 @@ const selectedTags = ref<string[]>([]);
 const tagInput = ref('');
 const tagSaving = ref(false);
 
+// 分组折叠状态
+const collapsedGroups = ref<Record<string, boolean>>({});
+
+// 打标面板
+const panelVisible = ref(false);
+
+// 下拉刷新
+const PULL_THRESHOLD = 60;
+const pullOffset = ref(0);
+const refreshing = ref(false);
+const pulling = ref(false);
+let touchStartY = 0;
+
 function isVideo(it: AssetItem): boolean {
   return (it.mimeType || '').toLowerCase().startsWith('video');
 }
@@ -189,6 +230,7 @@ watch(
         .filter((a): a is AssetItem => !!a);
       searchKeyword.value = '';
       selectedTags.value = [];
+      panelVisible.value = false;
       loadTags();
       if (!allItems.value.length) load(false);
     }
@@ -208,14 +250,28 @@ async function loadTags() {
   }
 }
 
-// 常驻标签：全部 + 18 预设 + 额外非预设（预设在前、额外追加、去重）
-const mergedTags = computed(() => {
-  const presets = PRESET_ASSET_TAGS.map((name) => ({ name, count: tagCountMap.value[name] ?? 0 }));
+// 分组多行网格：预设在前按组分、额外非预设归入「自定义」
+const tagGroups = computed(() => {
+  const groups = TAG_GROUPS.map((g) => ({
+    key: g.key,
+    title: g.title,
+    count: g.tags.reduce((sum, n) => sum + (tagCountMap.value[n] ?? 0), 0),
+    tags: g.tags.map((n) => ({ name: n, count: tagCountMap.value[n] ?? 0 })),
+  }));
   const seen = new Set(PRESET_ASSET_TAGS);
   const extras = availableTags.value
     .map((t) => t.name)
-    .filter((n) => !seen.has(n) && (seen.add(n), true));
-  return [...presets, ...extras.map((name) => ({ name, count: tagCountMap.value[name] ?? 0 }))];
+    .filter((n) => !seen.has(n) && (seen.add(n), true))
+    .map((n) => ({ name: n, count: tagCountMap.value[n] ?? 0 }));
+  if (extras.length) {
+    groups.push({
+      key: 'custom',
+      title: '自定义',
+      count: extras.reduce((s, t) => s + t.count, 0),
+      tags: extras,
+    });
+  }
+  return groups;
 });
 
 const filteredItems = computed(() => {
@@ -232,12 +288,15 @@ function selectTag(tag: string) {
   activeTag.value = tag;
 }
 
+function toggleGroup(key: string) {
+  collapsedGroups.value[key] = !collapsedGroups.value[key];
+}
+
 function toggleTagOnSelected(tag: string) {
   const idx = selectedTags.value.indexOf(tag);
   if (idx >= 0) selectedTags.value = selectedTags.value.filter((t) => t !== tag);
   else selectedTags.value = [...selectedTags.value, tag];
 }
-const applyPreset = toggleTagOnSelected;
 
 function addTag() {
   const t = tagInput.value.trim();
@@ -245,8 +304,51 @@ function addTag() {
   if (!selectedTags.value.includes(t)) selectedTags.value = [...selectedTags.value, t];
   tagInput.value = '';
 }
-function removeTag(tag: string) {
-  selectedTags.value = selectedTags.value.filter((t) => t !== tag);
+
+// 已选图片中是否已有该标签（用于面板「已有」态）
+function hasTagOnSelected(tag: string): boolean {
+  return selected.value.some((x) => (x.assetTags || []).includes(tag));
+}
+
+// ---- 下拉刷新手势 ----
+const gridScrollTop = ref(0);
+function onGridScroll(e: any) {
+  gridScrollTop.value = e.detail?.scrollTop || 0;
+}
+function onTouchStart(e: any) {
+  touchStartY = e.touches[0].clientY;
+  pulling.value = true;
+}
+function onTouchMove(e: any) {
+  if (!pulling.value) return;
+  if (gridScrollTop.value > 0) {
+    pullOffset.value = 0;
+    return;
+  }
+  const delta = e.touches[0].clientY - touchStartY;
+  if (delta <= 0) {
+    pullOffset.value = 0;
+    return;
+  }
+  pullOffset.value = Math.round(Math.min(delta, 120) * 0.5);
+}
+function onTouchEnd() {
+  pulling.value = false;
+  if (pullOffset.value >= PULL_THRESHOLD) refresh();
+  pullOffset.value = 0;
+}
+
+async function refresh() {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  try {
+    allItems.value = [];
+    loadedAll.value = false;
+    await loadMore();
+    await loadTags();
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 async function loadMore() {
@@ -425,19 +527,47 @@ function imageMimeFromPath(path: string): string {
   return map[ext] || '';
 }
 
-async function confirm() {
-  // 为当前选中图片保存分类码（未选分类则不写，避免误清空历史标签）
-  if (selected.value.length && selectedTags.value.length && !tagSaving.value) {
-    tagSaving.value = true;
-    try {
-      const ids = selected.value.map((x) => x.id);
-      await setAssetTags(ids, selectedTags.value);
-    } catch (e: any) {
-      uni.showToast({ title: e?.message || '分类保存失败', icon: 'none' });
-      tagSaving.value = false;
-      return;
-    }
+// ---- 打标面板 ----
+function openTagPanel() {
+  if (!selected.value.length) {
+    uni.showToast({ title: '请先选择图片', icon: 'none' });
+    return;
+  }
+  panelVisible.value = true;
+}
+function closePanel() {
+  panelVisible.value = false;
+}
+function clearPanelTags() {
+  selectedTags.value = [];
+}
+async function confirmTags() {
+  if (!selected.value.length) {
+    closePanel();
+    return;
+  }
+  if (!selectedTags.value.length) return;
+  if (tagSaving.value) return;
+  tagSaving.value = true;
+  try {
+    const ids = selected.value.map((x) => x.id);
+    await setAssetTags(ids, selectedTags.value);
+    closePanel();
+    selectedTags.value = [];
+    await loadTags();
+    await load(false);
+    uni.showToast({ title: '已打标', icon: 'none' });
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '打标失败', icon: 'none' });
+  } finally {
     tagSaving.value = false;
+  }
+}
+
+function confirm() {
+  if (!selected.value.length) {
+    uni.showToast({ title: '请先选择图片', icon: 'none' });
+    return;
   }
   emit('confirm', [...selected.value]);
   onClose();
@@ -498,6 +628,11 @@ function onClose() {
     border-radius: 999rpx;
     font-size: 26rpx;
   }
+  &__refresh {
+    font-size: 34rpx;
+    color: $wa-muted;
+    padding: 0 6rpx;
+  }
   &__close {
     font-size: 48rpx;
     color: $wa-muted;
@@ -531,11 +666,81 @@ function onClose() {
     padding: 0 8rpx;
   }
 
+  // 分组多行网格
+  &__filters {
+    max-height: 34vh;
+    overflow-y: auto;
+    padding: 4rpx 20rpx 12rpx;
+    border-bottom: 1rpx solid $wa-rule;
+    background: $wa-card;
+    box-sizing: border-box;
+  }
+  &__group {
+    margin-top: 14rpx;
+  }
+  &__group-head {
+    display: flex;
+    align-items: center;
+    gap: 10rpx;
+    padding: 6rpx 2rpx;
+  }
+  &__group-arrow {
+    font-size: 24rpx;
+    color: $wa-muted;
+  }
+  &__group-title {
+    font-size: 24rpx;
+    font-weight: 600;
+    color: $wa-ink;
+  }
+  &__group-count {
+    font-size: 20rpx;
+    color: $wa-muted;
+  }
+  &__group-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    padding: 2rpx 0 10rpx;
+  }
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6rpx;
+    padding: 6rpx 18rpx;
+    border-radius: 999rpx;
+    font-size: 22rpx;
+    color: $wa-ink;
+    background: $wa-bg;
+    border: 1rpx solid $wa-rule;
+    &.on {
+      color: $wa-accent;
+      border-color: $wa-accent;
+      background: rgba($wa-accent, 0.08);
+    }
+  }
+  &__chip-count {
+    font-size: 18rpx;
+    color: $wa-muted;
+    padding: 0 4rpx;
+    border-radius: 999rpx;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
   &__grid-scroll {
     flex: 1;
     padding: 20rpx;
     box-sizing: border-box;
     min-height: 0;
+  }
+  &__pull-hint {
+    text-align: center;
+    font-size: 24rpx;
+    color: $wa-muted;
+    padding: 6rpx 0 12rpx;
+    &.releasing {
+      color: $wa-accent;
+    }
   }
   &__grid {
     display: flex;
@@ -609,54 +814,36 @@ function onClose() {
     color: $wa-muted;
   }
 
+  // 底部操作条
   &__footer {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 16rpx;
     padding: 18rpx 28rpx;
     background: $wa-card;
     border-top: 1rpx solid $wa-rule;
   }
-  &__tag-edit {
-    flex: 1;
-    min-width: 0;
-  }
-  &__preset {
-    margin-top: 12rpx;
-  }
-  &__preset-title {
-    display: block;
-    font-size: 22rpx;
-    color: $wa-muted;
-    margin-bottom: 8rpx;
-  }
-  &__preset-list {
-    width: 100%;
-    white-space: nowrap;
-  }
-  &__preset-inner {
-    display: inline-flex;
-    gap: 12rpx;
-    padding-right: 12rpx;
-  }
-  &__preset-chip {
-    flex-shrink: 0;
-    padding: 6rpx 18rpx;
-    border-radius: 999rpx;
-    font-size: 22rpx;
-    color: $wa-ink;
-    background: $wa-bg;
-    border: 1rpx solid $wa-rule;
-    &.on {
-      color: $wa-accent;
-      border-color: $wa-accent;
-      background: rgba($wa-accent, 0.06);
-    }
-  }
   &__picked {
     font-size: 24rpx;
     color: $wa-muted;
+  }
+  &__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+  }
+  &__tag-main {
+    background: $wa-card;
+    color: $wa-ink;
+    border: 1rpx solid $wa-rule;
+    padding: 10rpx 32rpx;
+    border-radius: 999rpx;
+    font-size: 26rpx;
+    &.disabled {
+      opacity: 0.4;
+      color: $wa-muted;
+    }
   }
   &__confirm {
     background: $wa-accent;
@@ -665,5 +852,158 @@ function onClose() {
     border-radius: 999rpx;
     font-size: 26rpx;
   }
+
+  // 打标分类面板
+  &__panel-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: mlmFade 0.2s ease;
+  }
+  &__tag-panel {
+    width: 90%;
+    max-width: 760px;
+    max-height: 76vh;
+    background: $wa-bg;
+    border-radius: $wa-radius;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: mlmSlideUp 0.22s ease;
+  }
+  &__tag-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22rpx 28rpx;
+    background: $wa-card;
+    border-bottom: 1rpx solid $wa-rule;
+  }
+  &__tag-panel-title {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: $wa-ink;
+  }
+  &__tag-panel-x {
+    font-size: 44rpx;
+    color: $wa-muted;
+    line-height: 1;
+    padding: 0 4rpx;
+  }
+  &__tag-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20rpx;
+    box-sizing: border-box;
+  }
+  &__panel-group {
+    margin-bottom: 16rpx;
+  }
+  &__panel-group-title {
+    display: block;
+    font-size: 22rpx;
+    font-weight: 600;
+    color: $wa-muted;
+    margin-bottom: 10rpx;
+  }
+  &__panel-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+  }
+  &__panel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6rpx;
+    padding: 8rpx 20rpx;
+    border-radius: 999rpx;
+    font-size: 22rpx;
+    color: $wa-ink;
+    background: $wa-card;
+    border: 1rpx solid $wa-rule;
+    &.on {
+      color: $wa-accent;
+      border-color: $wa-accent;
+      background: rgba($wa-accent, 0.08);
+    }
+  }
+  &__panel-chip-exists {
+    font-size: 18rpx;
+    color: $wa-success;
+    background: rgba($wa-success, 0.1);
+    padding: 0 6rpx;
+    border-radius: 999rpx;
+  }
+  &__panel-add {
+    display: flex;
+    gap: 12rpx;
+    margin-top: 6rpx;
+  }
+  &__tag-input {
+    flex: 1;
+    height: 64rpx;
+    border: 1rpx solid $wa-rule;
+    border-radius: $wa-radius;
+    background: $wa-card;
+    padding: 0 16rpx;
+    font-size: 24rpx;
+    box-sizing: border-box;
+    color: $wa-ink;
+  }
+  &__panel-add-btn {
+    background: $wa-card;
+    color: $wa-ink;
+    border: 1rpx solid $wa-rule;
+    padding: 12rpx 28rpx;
+    border-radius: 999rpx;
+    font-size: 24rpx;
+  }
+  &__panel-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16rpx;
+    padding: 18rpx 28rpx;
+    background: $wa-card;
+    border-top: 1rpx solid $wa-rule;
+  }
+  &__panel-clear {
+    font-size: 24rpx;
+    color: $wa-muted;
+    padding: 10rpx 0;
+  }
+  &__panel-count {
+    font-size: 24rpx;
+    color: $wa-muted;
+    flex: 1;
+    text-align: center;
+  }
+  &__panel-confirm {
+    background: $wa-accent;
+    color: #fff;
+    padding: 10rpx 44rpx;
+    border-radius: 999rpx;
+    font-size: 26rpx;
+    &.disabled {
+      opacity: 0.4;
+    }
+  }
+}
+
+@keyframes mlmFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mlmSlideUp {
+  from { transform: translateY(40rpx); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 </style>
