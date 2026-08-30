@@ -64,6 +64,7 @@ const groups = [
   ]},
   { domain: '系统', color: D.d6.main, grad: D.d6.grad, items: [
     { label: '数据看板', url: '/pages/data/dashboard/index', tier: 2 },
+    { label: '使用手册', tier: 3, action: 'manual' },
     { label: '切换店铺', tier: 3, action: 'switchStore' },
     { label: '退出登录', tier: 3, action: 'logout' },
   ]},
@@ -93,10 +94,17 @@ const shownGroups = computed(() =>
 );
 
 function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' }); }
+// 公开手册：独立新窗口打开，无需登录鉴权
+function openManual() {
+  const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
+  const url = location.origin + base + '/static/manual/index.html';
+  window.open(url, '_blank');
+}
 function go(it: any) {
   emit('close');
   if (it.action === 'logout') return uni.redirectTo({ url: '/pages/login/index' });
   if (it.action === 'switchStore') return switchStore();
+  if (it.action === 'manual') return openManual();
   if (it.url) uni.navigateTo({ url: it.url });
 }
 </script>

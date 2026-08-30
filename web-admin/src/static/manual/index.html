@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>vshop 使用手册</title>
+<style>
+:root{
+  --brand:#1a56db; --brand2:#1e40af; --bg:#f5f6fa; --ink:#303133; --muted:#909399;
+  --rule:#e4e7ed; --mark:#fef08a; --mark-ink:#92400e;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Segoe UI',sans-serif;font-size:15px;line-height:1.75;color:var(--ink);background:var(--bg)}
+[hidden]{display:none!important}
+
+/* ===== App header ===== */
+.app-header{position:sticky;top:0;z-index:80;background:var(--brand);color:#fff;box-shadow:0 2rpx 10rpx rgba(0,0,0,.08)}
+.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:12px 14px}
+.app-header .back{font-size:22px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.app-header h1{flex:1;margin:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-header .ibtn{font-size:20px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}
+.app-header .ibtn:active{background:rgba(255,255,255,.18)}
+
+.page{max-width:720px;margin:0 auto;padding:14px 14px 40px}
+
+/* ===== Home ===== */
+.cover{margin:-14px -14px 16px;background:linear-gradient(135deg,#fff,#f3ede2)}
+.cover img{width:100%;display:block;max-height:200px;object-fit:cover}
+.cover .cap{padding:14px 16px 16px}
+.cover h2{margin:0 0 4px;font-size:20px;font-weight:800;color:#211a14}
+.cover p{margin:0;font-size:13px;color:#6c6357}
+.search-entry{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--rule);border-radius:12px;padding:11px 14px;margin-bottom:14px;color:var(--muted);font-size:14px;cursor:pointer}
+.search-entry:active{background:#f0f2f7}
+.search-entry .si{color:var(--brand)}
+
+.book-card{position:relative;background:#fff;border:1px solid var(--rule);border-radius:14px;padding:16px;margin-bottom:14px;cursor:pointer;overflow:hidden}
+.book-card:active{background:#fafbff}
+.book-card .rk{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--brand)}
+.book-card .bt{font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px}
+.book-card .bt .bn{font-size:16px}
+.book-card .bd{font-size:13px;color:var(--muted);margin-top:6px}
+.book-card .badge{font-size:11px;color:var(--brand);background:rgba(26,86,219,.08);border-radius:999px;padding:1px 8px;font-weight:600}
+.book-card .go{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#c0c4cc;font-size:18px}
+.side-note{font-size:12px;color:#b0b3b9;text-align:center;margin-top:24px;padding:0 16px}
+
+/* ===== Reader ===== */
+.reader{background:#fff;border-radius:14px;padding:18px 16px;border:1px solid var(--rule)}
+.reader h2{font-size:22px;font-weight:800;margin:0 0 14px;color:var(--ink);line-height:1.35}
+.reader h3{font-size:17px;font-weight:700;margin:22px 0 8px;color:var(--ink);border-left:4px solid var(--brand);padding-left:10px}
+.reader h4{font-size:15px;font-weight:700;margin:16px 0 6px}
+.reader p{margin:0 0 12px;color:#4b5157}
+.reader ul,.reader ol{padding-left:22px;margin:10px 0}
+.reader li{margin:5px 0}
+.reader .lead{color:var(--muted)}
+.reader code{font-family:Consolas,Menlo,monospace;font-size:.86em;background:#f2f4f9;color:var(--brand2);padding:2px 6px;border-radius:5px}
+.reader pre{overflow-x:auto;background:#1e2233;color:#e6e9f2;border-radius:10px;padding:14px;font-size:12.5px;line-height:1.6;margin:12px 0;white-space:pre-wrap;word-break:break-word}
+.reader pre code{background:none;color:inherit;padding:0}
+.reader table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+.reader th,.reader td{border:1px solid #dcdfe6;padding:7px 9px;vertical-align:top;text-align:left;word-break:break-word}
+.reader th{background:#f5f7fa;font-weight:700}
+.reader blockquote{border-left:4px solid #dcdfe6;background:#fafbfc;margin:12px 0;padding:10px 14px;color:#80848a;border-radius:0 8px 8px 0}
+.reader blockquote p{margin:0}
+.reader mark{background:var(--mark);color:var(--mark-ink);padding:0 2px;border-radius:2px}
+.reader .mark{background:none;color:var(--brand);font-weight:700}
+.reader .note,.reader .warn,.reader .tip{border-radius:10px;padding:11px 14px;margin:12px 0;font-size:13.5px;overflow-wrap:break-word}
+.reader .note{background:#eff6ff;border:1px solid #bfdbfe}
+.reader .warn{background:#fff7ed;border:1px solid #fed7aa}
+.reader .tip{background:#ecfdf5;border:1px solid #a7f3d0}
+.reader .note b,.reader .warn b,.reader .tip b{white-space:nowrap}
+.reader .card{background:#fafbff;border:1px solid #eef0f6;border-radius:10px;padding:12px 14px;margin:10px 0}
+.reader .card b{color:var(--brand2)}
+.reader .steps{list-style:none;counter-reset:st;padding:0;margin:12px 0}
+.reader .steps li{counter-increment:st;position:relative;padding:6px 0 6px 40px;margin:0}
+.reader .steps li::before{content:counter(st);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.reader .img{display:block;width:100%;border:1px solid var(--rule);border-radius:10px;margin:12px 0;cursor:zoom-in}
+.reader .imgcap{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 12px}
+.reader .flow{background:#fafafa;border:1px solid #eef0F6;border-radius:10px;padding:14px;margin:12px 0;overflow-x:auto}
+.reader .frow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin:6px 0;text-align:center}
+.reader .fnode{background:#fff;border:1px solid #dcdfe6;border-radius:8px;padding:8px 12px;font-size:13px;color:var(--ink);text-align:center;min-width:90px}
+.reader .fnode.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.reader .farrow{color:#c0c4cc;font-size:16px;white-space:nowrap}
+.reader .fphase{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--brand);font-weight:700;margin:8px 0 2px}
+.reader details{background:#fafbfc;border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin:10px 0}
+.reader summary{cursor:pointer;font-weight:700;font-size:14px}
+.reader details[open] summary{color:var(--brand);margin-bottom:8px}
+
+/* ===== Doc nav ===== */
+.doc-nav{display:flex;gap:10px;margin-top:14px}
+.doc-nav .navbtn{flex:1;background:#fff;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;text-align:center;font-size:13px;color:#4b5157;cursor:pointer}
+.doc-nav .navbtn:active{background:#f0f2f7}
+.doc-nav .navbtn.next{color:var(--brand);border-color:#c9d7f7;background:#f5f8ff}
+
+/* ===== Search ===== */
+.search-bar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--rule);border-radius:12px;padding:4px 12px;margin-bottom:12px}
+.search-bar input{flex:1;border:none;outline:none;padding:10px 0;font-size:14px;background:none;color:var(--ink)}
+.search-bar .clear{color:#c0c4cc;font-size:18px;cursor:pointer;padding:4px}
+.empty-hint{padding:80px 0;text-align:center;color:var(--muted);font-size:13px}
+.result-count{font-size:12px;color:var(--muted);margin-bottom:10px}
+.result-item{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:13px 14px;margin-bottom:10px;cursor:pointer}
+.result-item:active{background:#fafbff}
+.result-title{display:block;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:5px}
+.result-snippet{font-size:13px;color:#5a6066;line-height:1.6;margin-bottom:5px}
+.result-snippet mark,.result-title mark{background:var(--mark);color:var(--mark-ink);padding:0 2px;border-radius:2px}
+.result-path{font-size:11px;color:#c0c4cc;font-family:monospace}
+.result-book{display:inline-block;font-size:10px;color:var(--brand);background:rgba(26,86,219,.08);border-radius:999px;padding:1px 7px;margin-right:6px;font-weight:600}
+
+/* ===== TOC float ===== */
+.toc-float{position:fixed;right:16px;bottom:34px;width:52px;height:52px;border-radius:15px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;box-shadow:0 6px 20px rgba(26,86,219,.35);z-index:100;cursor:pointer}
+.toc-float:active{background:var(--brand2)}
+.toc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:200;display:flex;align-items:flex-end}
+.toc-panel{width:100%;max-width:720px;margin:0 auto;max-height:66vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column}
+.toc-panel .toc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--rule)}
+.toc-panel .toc-head .t{font-size:16px;font-weight:700}
+.toc-panel .toc-head .c{font-size:18px;color:var(--muted);cursor:pointer;padding:4px}
+.toc-panel .toc-list{flex:1;overflow-y:auto;padding:8px 0;max-height:50vh}
+.toc-item{padding:12px 20px;font-size:14px;color:#4b5157;border-left:4px solid transparent;cursor:pointer}
+.toc-item.on{color:var(--brand);font-weight:700;border-left-color:var(--brand);background:#f5f8ff}
+.toc-item .toc-book{font-size:11px;color:#b0b3b9;display:block}
+
+.footerbar{text-align:center;color:#b0b3b9;font-size:12px;margin-top:26px;padding-top:14px;border-top:1px solid #eef0f6}
+img:fullscreen{object-fit:contain;background:#fff}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <span class="back" id="btnBack" hidden>‹</span>
+    <h1 id="appTitle">vshop 使用手册</h1>
+    <span class="ibtn" id="btnSearch" title="搜索">🔍</span>
+    <span class="ibtn" id="btnMenu" title="目录">≡</span>
+  </div>
+</header>
+
+<!-- HOME -->
+<section id="viewHome" class="page">
+  <div class="cover">
+    <img src="cover.jpg" alt="vshop 使用手册">
+    <div class="cap"><h2>vshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p></div>
+  </div>
+  <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
+  <div id="bookList"></div>
+  <div class="side-note">本手册公开共享，无需登录即可访问；内容随产品持续更新。</div>
+</section>
+
+<!-- READER -->
+<section id="viewReader" class="page" hidden>
+  <div class="reader" id="readerContent"></div>
+  <div class="doc-nav">
+    <div class="navbtn" id="btnPrev">‹ 上一章</div>
+    <div class="navbtn next" id="btnNext">下一章 ›</div>
+  </div>
+  <div class="footerbar" id="readerFoot"></div>
+</section>
+
+<!-- SEARCH -->
+<section id="viewSearch" class="page" hidden>
+  <div class="search-bar">
+    <span>🔍</span>
+    <input id="searchInput" type="text" placeholder="输入关键词搜索…" autocomplete="off">
+    <span class="clear" id="searchClear" hidden>×</span>
+  </div>
+  <div class="empty-hint" id="searchEmpty">输入关键词开始搜索</div>
+  <div id="searchResults"></div>
+</section>
+
+<div class="toc-float" id="tocFloat" hidden>≡</div>
+
+<div class="toc-overlay" id="tocOverlay" hidden>
+  <div class="toc-panel">
+    <div class="toc-head"><span class="t">目录</span><span class="c" id="tocClose">✕</span></div>
+    <div class="toc-list" id="tocList"></div>
+  </div>
+</div>
+
+<script>
+/* ============ 手册数据 ============ */
+var BOOKS = {
+  op: { id:'op', title:'vshop 租户运营手册', short:'运营手册', icon:'🏪',
+        desc:'开店、绑定域名、装修首页、上架商品、处理订单的日常运营指南。' },
+  mp: { id:'mp', title:'商户入驻与商品上架审批流程', short:'入驻审批', icon:'📋',
+        desc:'平台建商户 → 商户提交商品 → 审批上架 → 真实下单拆单验证。' }
+};
+
+var CHAPTERS = [
+/* ===================== 运营手册 ===================== */
+{book:'op', id:'op-1', title:'这是一本什么手册', html:`
+<p class="lead">vshop 是一个基于 Vendure 的 <span class="mark">多租户 C 端商城</span>：一个平台服务多个商家（租户），每个租户拥有独立的域名、店铺装修、商品与订单，数据相互隔离。</p>
+<p>本手册站在<strong>租户运营者</strong>视角，带你走完从「拿到店铺」到「日常运营」的全流程。你无需了解后端技术——只需在管理后台配置，前端商城会<mark class="mark">自动按你的配置渲染</mark>。</p>
+<div class="note"><b>页面路径：</b>以租户域名 <code>https://e.joho.cn</code> 为例。你在后台的所有配置，最终通过 <code>/shop-api</code> 下发给商城页面，租户由访问域名自动识别。</div>
+<h3>这本手册会带你掌握</h3>
+<div class="card"><b>开店</b> —— 开通租户、绑定域名，让商城「跑起来」。</div>
+<div class="card"><b>装修</b> —— 用首页组件与主题，搭建自己的品牌门面。</div>
+<div class="card"><b>经营</b> —— 商品、价格、库存、订单与售后，一整套日常运营。</div>
+<div class="warn"><b>约定：</b>手册中的「后台」均指管理后台（Admin）界面；「商城」指你的租户向用户展示的 C 端 H5 页面。</div>`},
+
+{book:'op', id:'op-2', title:'认识多租户商城', html:`
+<p class="lead">先理解你的店铺在整体架构里的位置，后面的配置就会顺理成章。</p>
+<h3>整体架构</h3>
+<div class="flow">
+  <div class="frow"><span class="fnode">买家</span><span class="farrow">→</span><span class="fnode primary">C端商城</span><span class="farrow">→ /shop-api</span><span class="fnode">Vendure 后端<br/>商品/订单/库存</span></div>
+  <div class="frow"><span class="fnode primary">租户运营者</span><span class="farrow">→</span><span class="fnode">管理后台 Admin</span><span class="farrow">→</span><span class="fnode">Vendure 后端</span></div>
+</div>
+<h3>核心概念</h3>
+<div class="card"><b>Channel（渠道 = 你的店铺）</b><br/>Vendure 用 Channel 隔离不同租户，商品、订单、会员都归属其中，<mark class="mark">互不影响</mark>。</div>
+<div class="card"><b>域名绑定</b><br/>每个 Channel 绑定一个访问域名，系统根据买家访问域名自动「认领」到对应租户（<code>resolveChannelByDomain</code>）。</div>
+<div class="card"><b>通道主题 themeId</b><br/>每个 Channel 有主题标识（如 <code>taobao-orange</code>），商城用它切换整体配色与风格。</div>
+<div class="card"><b>展示模板 displayTemplate</b><br/>每个商品可选展示模板（如 <code>standard</code>），控制商品详情页版式，承载不同营销展示。</div>
+<div class="tip"><b>一句话：</b>你是「租户」→ 在后台是「一个 Channel」→ 买家看到的是「绑定你域名的一套商城」。</div>`},
+
+{book:'op', id:'op-3', title:'开通并绑定你的店铺', html:`
+<p class="lead">上架任何内容之前，先确保你的店铺能被正确访问、且归属准确的租户。</p>
+<h3>开通 CheckList</h3>
+<ol class="steps">
+  <li><b>分配租户账号</b>：由平台为你开通运营账号与对应 Channel，并告知店铺标识（Channel token）与后台地址。</li>
+  <li><b>绑定独立域名</b>：将你的域名解析到商城入口，并在平台侧登记该域名到你名下。</li>
+  <li><b>配置域名映射</b>：在后台 Channel 设置中填写访问域名（如 <code>e.joho.cn</code>），买家访问时系统通过 <code>resolveChannelByDomain</code> 自动认领。</li>
+  <li><b>指定主题与默认页</b>：给 Channel 设置 <code>themeId</code> 与首页配置，商城即可按品牌风格渲染。</li>
+</ol>
+<div class="flow">
+  <div class="frow"><span class="fnode">平台开通 Channel<br/>设定域名字段</span><span class="farrow">→</span><span class="fnode">域名解析</span><span class="farrow">→</span><span class="fnode">后台填入域名</span></div>
+  <div class="frow"><span class="farrow">↑</span></div>
+  <div class="frow"><span class="fnode">买家访问域名</span><span class="farrow">→</span><span class="fnode primary">命中?命中→你的商城<br/>未配置→回退默认租户</span></div>
+</div>
+<div class="warn"><b>常见坑：</b>买家打开域名却显示「默认风」，大概率是<mark class="mark">Channel 域名映射没填/填错</mark>，系统没认领到你的租户。</div>`},
+
+{book:'op', id:'op-4', title:'登录管理后台', html:`
+<p class="lead">所有店铺配置都在管理后台完成，它和买家看到的商城是两回事。</p>
+<div class="card"><b>后台地址</b><br/>平台的 Admin UI 入口（如 <code>https://e.joho.cn/admin</code>），运营者专用，买家看不到。</div>
+<div class="card"><b>账号与权限</b><br/>用平台分配的账号登录，请<mark class="mark">妥善保管凭据</mark>，必要时可按角色申请只读/编辑权限。</div>
+<div class="note"><b>安全提示：</b>后台仅管理员可访问；商城面向买家完全公开。若媒体文件（视频/PDF）被误开放，可能是走错了鉴权通道。</div>`},
+
+{book:'op', id:'op-5', title:'店铺装修与主题', html:`
+<p class="lead">商城首页由「板块组件」搭成，配合「通道主题」整体换肤。你在后台的装修会<mark class="mark">按板块的排序（sort）依次渲染</mark>成买家看到的第一屏。</p>
+<h3>首页组件（板块）</h3>
+<div class="card"><b>图标导航组 IconGrid</b><br/>一排图标入口，常用于金刚区（领券、秒杀、签到等）。</div>
+<div class="card"><b>分类导航 CategoryNav</b><br/>商品分类的横向导航，把买家快速导向对应类目。</div>
+<div class="card"><b>轮播 Banner</b><br/>店铺头图/活动横幅的轮播位，放主视觉与活动入口。</div>
+<div class="card"><b>商品楼层 Floor</b><br/>按类目组织的商品陈列区，可设置楼层标题与推荐商品。</div>
+<div class="card"><b>展示模板 displayTemplate</b><br/>控制商品详情/列表的版式风格，可按商品选择。</div>
+<div class="card"><b>通道主题 themeId</b><br/>整站配色与视觉的开关，按主题标识一键换肤。</div>
+<h3>装修建议流程</h3>
+<ol class="steps">
+  <li><b>先定主题</b>：确定 Channel 的 <code>themeId</code>，让后续配色有基准。</li>
+  <li><b>搭首屏</b>：从上往下依次放 Banner → 分类导航 → 图标导航组。</li>
+  <li><b>排商品楼层</b>：按主营类目添加 Floor，并为每个商品设定合适的展示模板。</li>
+  <li><b>检查排序</b>：确认各板块的 <code>sort</code> 顺序，前端严格按此渲染。</li>
+</ol>
+<div class="warn"><b>注意排序：</b>板块顺序由 <mark class="mark">sort 字段</mark>决定，新增板块后务必核对，否则可能出现「楼层在 Banner 上面」。</div>`},
+
+{book:'op', id:'op-6', title:'商品管理', html:`
+<p class="lead">商品是你与买家交易的基础。合理分类、维护规格、挑选展示模板，能极大提升成交率。</p>
+<div class="card"><b>分类（Collection）</b><br/>先用分类给商品归类，首页的「分类导航」和「商品楼层」都依赖它。建议先画好类目树再上架。</div>
+<div class="card"><b>商品（Product）</b><br/>一个商品对应多个规格（SKU）。维护基础信息、详情、图片与<mark class="mark">展示模板 displayTemplate</mark>。</div>
+<div class="card"><b>规格（Variant / SKU）</b><br/>颜色、尺码等变化体，各自有价格与库存，买家下单时选择具体规格。</div>
+<div class="card"><b>上下架（Enabled）</b><br/>未启用状态前端不可见，建议先维护好内容再启用，避免半成品上架。</div>
+<h3>新商品上线 CheckList</h3>
+<table>
+  <thead><tr><th>序号</th><th>事项</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>归类</td><td>挂到对应分类下，便于首页楼层与导航引用。</td></tr>
+    <tr><td>2</td><td>完整资料</td><td>标题、主图、详情、规格齐全。</td></tr>
+    <tr><td>3</td><td>选择展示模板</td><td>按商品形态选 <code>displayTemplate</code>（如 <code>standard</code>）。</td></tr>
+    <tr><td>4</td><td>设价格与库存</td><td>为每个 SKU 配价格、可用库存与策略。</td></tr>
+    <tr><td>5</td><td>预览后启用</td><td>确认无误再启用上架。</td></tr>
+  </tbody>
+</table>`},
+
+{book:'op', id:'op-7', title:'价格与库存', html:`
+<p class="lead">价格决定毛利，库存决定履约。vshop 的库存是<mark class="mark">「下单即占用、成交/取消即释放」</mark>的动态机制。</p>
+<div class="card"><b>价格</b><br/>在 SKU 上维护，支持一口价与促销价位。</div>
+<div class="card"><b>库存占用</b><br/>买家进入支付阶段（ArrangingPayment）时系统<mark class="mark">锁定库存</mark>，防止超卖。</div>
+<div class="card"><b>订单取消释放</b><br/>订单取消/超时未支付时，占用的库存<mark class="mark">自动释放</mark>回可售库存，不泄漏。</div>
+<div class="card"><b>库存核查</b><br/>若发现长期占用不释放，优先核查订单是否停在「支付中」被卡住的状态。</div>
+<div class="note"><b>温馨提示：</b>库存释放逻辑已内置，正常情况下无需手工干预；退款、取消等售后动作都会带动库存回补。</div>`},
+
+{book:'op', id:'op-8', title:'订单与售后', html:`
+<p class="lead">订单从生成到完结按固定状态流转，读懂这条链路就能在后台准确跟进每一单。</p>
+<h3>订单状态机</h3>
+<div class="flow">
+  <div class="frow"><span class="fnode">待支付</span><span class="farrow">→</span><span class="fnode">支付中<br/>锁定库存</span><span class="farrow">→</span><span class="fnode">已支付</span><span class="farrow">→</span><span class="fnode">配货中</span><span class="farrow">→</span><span class="fnode">已发货</span><span class="farrow">→</span><span class="fnode">已完成</span></div>
+  <div class="frow"><span class="fnode">待支付</span><span class="farrow">→</span><span class="fnode">已取消<br/>释放库存</span></div>
+  <div class="frow"><span class="fnode">已支付</span><span class="farrow">→</span><span class="fnode">售后处理</span><span class="farrow">→</span><span class="fnode">售后完成</span></div>
+</div>
+<div class="card"><b>履约</b><br/>订单支付后依次经历配货、发货直至完成，及时更新物流信息有助体验。</div>
+<div class="card"><b>售后</b><br/>退款、退货、换货等申请在后台处理，库存回补在售后完成时体现。</div>
+<div class="card"><b>超时取消</b><br/>长时间未支付订单会被取消，<mark class="mark">占用库存同步释放</mark>。</div>
+<div class="card"><b>查询</b><br/>按订单号、买家、状态检索，或导出数据复盘。</div>`},
+
+{book:'op', id:'op-9', title:'常见问题（FAQ）· 运营', html:`
+<details><summary>买家打开域名却看不到我的品牌主题，像「默认店铺」</summary><p>大概率是<mark class="mark">Channel 域名映射未配置</mark>，系统没能通过 <code>resolveChannelByDomain</code> 认领到你的租户，回退到默认主题。请确认后台 Channel 的域名字段与访问域名完全一致。</p></details>
+<details><summary>首页板块顺序不对，楼层跑到 Banner 上面了</summary><p>板块按 <mark class="mark"><code>sort</code> 排序渲染</mark>。请重新核对各板块排序值，让 Banner/导航在前、商品楼层在后。</p></details>
+<details><summary>为什么有的商品详情页版式不一样</summary><p>每个商品可选独立<mark class="mark">展示模板 <code>displayTemplate</code></mark>。版式不同通常是选了不同模板；找回后台把模板设为一致即可。</p></details>
+<details><summary>上传的视频/PDF 买家访问提示 403</summary><p>这是<mark class="mark">媒体鉴权正常生效</mark>，此类媒体不支持匿名直访，需登录或通过签名播放接口（<code>stream-token</code>）播放，防止资源被爬取。</p></details>
+<details><summary>改完装修/商品，买家看到的还是旧样</summary><p>部分环境（尤其微信浏览器）会缓存 <code>index.html</code>。系统已对首页设置 <code>no-cache</code>，正常情况下刷新即可。</p></details>
+<details><summary>订单取消了，为什么库存看起来还占着</summary><p>请核查订单是否还停在「支付中」等中间态。确认订单确实取消/退款后库存会自动回补；若长期异常可联系平台核查该单。</p></details>`},
+
+/* ===================== 入驻审批 ===================== */
+{book:'mp', id:'mp-1', title:'概述', html:`
+<p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
+<table>
+  <thead><tr><th>阶段</th><th>角色</th><th>操作内容</th><th>截图</th></tr></thead>
+  <tbody>
+    <tr><td>A</td><td>平台超管</td><td>创建商户租户、添加管理员、生成初始口令</td><td>m01~m07</td></tr>
+    <tr><td>B</td><td>商户管理员</td><td>首次登录强制改密、创建商品、提交上架审核</td><td>m08~m14</td></tr>
+    <tr><td>C</td><td>平台超管</td><td>在待审列表审批（通过/驳回）</td><td>c02~c05</td></tr>
+    <tr><td>D</td><td>商户管理员</td><td>复看商品状态变为「已在默认站点上架」</td><td>d01</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>演示账号：</b>商户邮箱 <code>chendi-mobile@joho.cn</code>，商品「手工黄油曲奇礼盒」。全程截图由自动化测试驱动真实界面抓取（手机视口），所见即所得。</div>`},
+
+{book:'mp', id:'mp-2', title:'前置条件', html:`
+<ul>
+  <li>平台超管账号可登录管理后台，具备「租户管理」「商品上架审批」菜单权限。</li>
+  <li>默认商城（<code>default</code> 租户）已配置好配送档案、支付档案、分类与税率。</li>
+  <li>商户提交商品时未配置配送/支付档案/分类将被校验拦截，需先创建这些基础档案。</li>
+</ul>`},
+
+{book:'mp', id:'mp-3', title:'流程总览', html:`
+<div class="flow">
+  <div class="fphase">阶段 A · 平台超管</div>
+  <div class="frow"><span class="fnode primary">登录后台</span><span class="farrow">→</span><span class="fnode">租户管理</span><span class="farrow">→</span><span class="fnode">新建商户</span></div>
+  <div class="frow"><span class="fnode">租户详情</span><span class="farrow">→</span><span class="fnode">添加管理员</span><span class="farrow">→</span><span class="fnode primary">生成初始口令</span></div>
+  <div class="fphase">↓ 将初始口令转交商户</div>
+  <div class="fphase">阶段 B · 商户管理员</div>
+  <div class="frow"><span class="fnode">首次登录</span><span class="farrow">→</span><span class="fnode">强制改密</span><span class="farrow">→</span><span class="fnode">加商品</span><span class="farrow">→</span><span class="fnode primary">提交上架(待审)</span></div>
+  <div class="fphase">↓ 平台收到待审通知</div>
+  <div class="fphase">阶段 C · 平台超管</div>
+  <div class="frow"><span class="fnode">商品上架审批</span><span class="farrow">→</span><span class="fnode">定位商品</span><span class="farrow">→</span><span class="fnode primary">通过(或驳回)</span></div>
+  <div class="frow"><span class="fnode">状态流转</span><span class="farrow">→</span><span class="fnode primary">pending → approved</span></div>
+  <div class="fphase">阶段 D · 商户复核</div>
+  <div class="frow"><span class="fnode">商户复看</span><span class="farrow">→</span><span class="fnode primary">已在默认站点上架</span></div>
+</div>`},
+
+{book:'mp', id:'mp-4', title:'阶段 A：平台超管创建商户', html:`
+<h3>A1 · 登录管理后台</h3>
+<p>使用平台超管账号登录，进入「工作台」。登录页输入用户名与密码后点击登录。</p>
+<img class="img" src="shots/m01_login.png" alt="登录页">
+<div class="imgcap">图 A1 · 后台登录页</div>
+<h3>A2 · 进入租户管理</h3>
+<p>登录后从底部切入「我的」→ 平台管理入口进入租户列表。列表展示所有已创建的商户（含官方店与第三方商户）。</p>
+<img class="img" src="shots/m02_tenants.png" alt="租户列表">
+<div class="imgcap">图 A2 · 租户列表</div>
+<h3>A3 · 新建商户租户</h3>
+<p>点击「新建」弹出创建弹窗，填写商户名称（店名），系统为新商户分配独立信道（Channel）与租户编号。第三方商户默认 <code>isOfficial=false</code>。</p>
+<img class="img" src="shots/m03_create_tenant_dialog.png" alt="新建租户弹窗">
+<div class="imgcap">图 A3 · 新建租户弹窗</div>
+<p>创建成功后，新商户出现在租户列表，并拥有独立的 <code>token</code>（用于 API 侧商户上下文隔离）。</p>
+<img class="img" src="shots/m04_tenants_after_create.png" alt="创建后租户列表">
+<div class="imgcap">图 A4 · 创建后有独立 token</div>
+<h3>A4 · 添加管理员</h3>
+<p>点击商户进入「租户详情」，默认展示「管理员 / 角色」页签。在「管理员授权」区点「添加管理员」，为该商户创建后台账号。</p>
+<img class="img" src="shots/m05_tenant_detail_admins.png" alt="租户详情-管理员">
+<div class="imgcap">图 A5 · 租户详情-管理员</div>
+<p>填写管理员邮箱、姓名，并勾选角色权限。</p>
+<img class="img" src="shots/m06_add_admin_dialog_filled.png" alt="添加管理员弹窗">
+<img class="img" src="shots/m06b_role_pick.png" alt="角色选择">
+<div class="imgcap">图 A6 · 添加管理员并勾选角色</div>
+<h3>A5 · 领取初始口令</h3>
+<p>创建成功后系统弹窗显示<mark class="mark">一次性初始口令</mark>，并提示「仅显示一次，请复制并转发给本人；首次登录后强制修改密码」。可「一键复制」后安全转交商户人员。</p>
+<img class="img" src="shots/m07_initial_password.png" alt="初始口令弹窗">
+<div class="imgcap">图 A7 · 一次性初始口令</div>
+<div class="tip"><b>安全设计：</b>初始口令为随机强口令（≥12 位，含大小写/数字/符号），仅展示一次，首次登录强制改密。</div>`},
+
+{book:'mp', id:'mp-5', title:'阶段 B：商户登录并提交商品', html:`
+<h3>B1 · 首次登录、强制修改密码</h3>
+<p>商户用邮箱与初始口令登录，系统判定需强制改密，引导进入「修改密码」页，保证账户安全闭环（提交会销毁会话，仅演示界面）。</p>
+<img class="img" src="shots/m08_merchant_login_filled.png" alt="商户登录">
+<img class="img" src="shots/m09_change_password.png" alt="改密页">
+<img class="img" src="shots/m09b_change_password_filled.png" alt="改密页已填写">
+<div class="imgcap">图 B1 · 首登强制改密</div>
+<h3>B2 · 进入商户工作台</h3>
+<p>改密后进入商户工作台（首页），可看到「加商品」「订单」等入口，顶部为当前操作店铺上下文。</p>
+<img class="img" src="shots/m10_merchant_dashboard.png" alt="商户工作台">
+<div class="imgcap">图 B2 · 商户工作台</div>
+<h3>B3 · 新建商品</h3>
+<p>点「加商品」进入商品列表（初始为空），再进入「新增商品」表单，填写名称、Slug、描述、价格、库存，并选择配送档案、支付档案、分类与商品图片。</p>
+<img class="img" src="shots/m11_merchant_product_list_empty.png" alt="商户商品列表-空">
+<img class="img" src="shots/m12_merchant_create_product_form.png" alt="新增商品表单">
+<div class="imgcap">图 B3 · 新建商品（配送/支付/分类必选）</div>
+<div class="warn"><b>注意：</b>表单中的「配送档案 / 支付档案 / 分类」为必选，与拆单、结算规则强相关。</div>
+<p>创建成功后商品出现在「全部」列表，即进入「待审」状态。</p>
+<img class="img" src="shots/m13_merchant_product_pending.png" alt="商品已创建-待审">
+<div class="imgcap">图 B4 · 商品进入待审</div>
+<h3>B4 · 提交上架到默认站点</h3>
+<p>在商品操作区点击「提交上架到默认站点」，弹窗确认后状态由「待提交」变为「已提交，待审核」（<code>marketplaceStatus: pending</code>），等待平台审批。</p>
+<img class="img" src="shots/m14_submit_confirm_modal.png" alt="提交上架确认">
+<div class="imgcap">图 B5 · 提交上架确认</div>`},
+
+{book:'mp', id:'mp-6', title:'阶段 C：平台超管审批商品', html:`
+<h3>C1 · 进入「商品上架审批」</h3>
+<p>平台超管在侧栏/工作台进入「商品上架审批」，页面列出所有<mark class="mark">待审商品</mark>，每条卡片显示商品名、状态徽标及「驳回 / 通过」两个操作按钮。</p>
+<img class="img" src="shots/c02_pending_list.png" alt="待审商品列表">
+<div class="imgcap">图 C1 · 待审商品列表</div>
+<h3>C2 · 定位目标商品</h3>
+<p>在列表中找到本次提交的「手工黄油曲奇礼盒」（可结合提交时间核对），卡片展示清晰名称与「待审」徽标。</p>
+<img class="img" src="shots/c03_found_card.png" alt="定位目标商品">
+<div class="imgcap">图 C2 · 定位目标商品卡片</div>
+<h3>C3 · 通过审批</h3>
+<p>点击「通过」弹出确认弹窗，确认后即完成审批，商品从待审列表移除（<code>marketplaceStatus: approved</code>）。</p>
+<img class="img" src="shots/c04_approve_modal.png" alt="通过-确认弹窗">
+<img class="img" src="shots/c05_after_approve.png" alt="通过后列表刷新">
+<div class="imgcap">图 C3 · 通过审批</div>
+<div class="warn"><b>如需驳回：</b>点击「驳回」并填写必填的驳回原因，商品进入「已驳回」态并回显原因，商户可据此修正后再次提交。</div>`},
+
+{book:'mp', id:'mp-7', title:'阶段 D：商户复看上架结果', html:`
+<p>商户重新登录进入商品列表，目标商品状态已更新为「<mark class="mark">已在默认站点上架</mark>」，标识其可在默认商场完成销售。</p>
+<img class="img" src="shots/d01_merchant_approved_product.png" alt="商户端-已在默认站点上架">
+<div class="imgcap">图 D1 · 商户端已上架</div>
+<p>至此，<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效</mark> 的完整流程验证通过。</p>`},
+
+{book:'mp', id:'mp-8', title:'状态与规则说明', html:`
+<table>
+  <thead><tr><th>状态码(市场)</th><th>界面显示</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>null</code></td><td>待提交</td><td>商品尚未提交上架</td></tr>
+    <tr><td><code>pending</code></td><td>已提交，待审核</td><td>已提交，等待平台审批</td></tr>
+    <tr><td><code>approved</code></td><td>已在默认站点上架</td><td>审批通过，可在默认商城销售（独立店不受审批约束）</td></tr>
+    <tr><td><code>rejected</code></td><td>已驳回</td><td>审批未通过，回显原因，可修正后重提</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><b>租户规则：</b>前 20 个租户预留官方自营；第 21+ 为第三方商户，其商品需经平台审批后方可在默认商城销售。</li>
+  <li><b>审批权限：</b>仅平台超管可见「商品上架审批」入口并执行通过/驳回。</li>
+</ul>`},
+
+{book:'mp', id:'mp-9', title:'商家商品真实下单拆单验证（e2e）', html:`
+<p>审核通过后，商家商品在默认商城即可被真实下单。本节验证在<mark class="mark">同一笔订单</mark>里，商家商品与普通商品因<mark class="mark">配送档案不同</mark>而自动分箱、按箱配送的拆单能力。</p>
+<h3>拆单原理</h3>
+<p>分箱以<mark class="mark">配送档案</mark>（<code>shippingProfileId</code>，见变体级 <code>customFields</code>）为唯一划分单元：</p>
+<ul>
+  <li>同一送达档案 → 合箱；跨档案 / 跨租户 → 分箱，零交集；</li>
+  <li>未绑定档案的变体回退到当前租户<mark class="mark">默认配送档案</mark>并入其分组；</li>
+  <li>前端按 <code>orderBoxes</code> 分箱结果，每箱单独选配送方式、生成独立的配送线（ShippingLine）。</li>
+</ul>
+<h3>场景数据</h3>
+<table>
+  <thead><tr><th>商品</th><th>绑定配送档案</th><th>配送方式</th><th>归属箱</th></tr></thead>
+  <tbody>
+    <tr><td>商家「手工黄油曲奇礼盒」(变体31)</td><td>8「拆单验证-自提点档案」</td><td>自提点配送</td><td>箱A</td></tr>
+    <tr><td>商家「陈记手工蛋卷」(变体32)</td><td>未绑定 → 回退默认档案5</td><td>门店自提</td><td>箱B</td></tr>
+  </tbody>
+</table>
+<h3>验证结果（订单 75 <code>YZWKW3Z6PW3R8AZD</code>）</h3>
+<ol>
+  <li><b>同单加购：</b>曲奇 + 蛋卷落入同一活动订单（此前「分开建单」实为会话 token 未持久化，非拆单问题）。</li>
+  <li><b>分箱查询 <code>orderBoxes</code> 返回 2 箱：</b>
+    <table>
+      <thead><tr><th>boxKey</th><th>生效档案</th><th>落入行</th><th>可用配送</th><th>默认配送</th></tr></thead>
+      <tbody>
+        <tr><td><code>box:8</code></td><td>拆单验证-自提点档案</td><td>曲奇</td><td>自提点配送</td><td>自提点配送</td></tr>
+        <tr><td><code>box:5</code></td><td>default默认配送档案</td><td>蛋卷</td><td>门店自提</td><td>门店自提</td></tr>
+      </tbody>
+    </table>
+  </li>
+  <li><b>按箱设配送：</b>对每箱调用 <code>setOrderBoxShippingMethod</code> 成功后，订单出现 <strong>2 条配送线</strong>：
+    <pre><code>shippingLines:
+  - id58  pickup-point-template  自提点配送  ← 箱A（商家曲奇）
+  - id59  store-pickup           门店自提    ← 箱B（蛋卷）</code></pre>
+  </li>
+  <li><b>状态流转：</b>订单由 <code>AddingItems</code> 顺利推进到 <code>ArrangingPayment</code>。</li>
+  <li><b>支付：</b>生成支付记录；余额支付因测试顾客<mark class="mark">钱包无余额</mark>返回 <code>PAYMENT_DECLINED_ERROR</code>（属支付网关余额问题，与分箱无关）。</li>
+</ol>
+<h3>结论</h3>
+<p>商家商品在默认商城完成审批上架后，与普通商品<mark class="mark">同单加购即可自动按配送档案拆分为多个包裹</mark>，每个包裹独立配送、独立结算行，拆单能力闭环验证通过。</p>
+<div class="note"><b>说明：</b>本节为 Shop API 层的地基验证（订单/分箱/配送线/状态流水）。结算页按箱展示配送的 UI 截图见前端联调记录。</div>`},
+
+{book:'mp', id:'mp-10', title:'常见问题（FAQ）· 入驻审批', html:`
+<details><summary>商户提交商品时报「配送档案/支付档案/分类」必选？</summary><p>请先在该商户后台为商品配置对应的配送档案、支付档案与分类；这些档案与拆单、结算规则强相关，属校验拦截而非异常。</p></details>
+<details><summary>为什么找不到「商品上架审批」菜单？</summary><p>该入口仅对平台超管开放，请确认当前登录账号为平台超管角色。</p></details>
+<details><summary>驳回后商品还能再提交吗？</summary><p>可以。查看驳回原因并修正后，再次执行「提交上架到默认站点」即可重新进入待审队列。</p></details>
+<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`}
+];
+
+/* ============ 状态与渲染 ============ */
+var state = { view:'home', book:null, cur:null, q:'' };
+
+function $id(id){ return document.getElementById(id); }
+var cap = {
+  op: '商户运营', mp: '入驻与审批',
+};
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function stripHtml(h){ var d=document.createElement('div'); d.innerHTML=h; return d.textContent||''; }
+
+/* --- Home --- */
+function renderBooks(){
+  var el = $id('bookList'); el.innerHTML = '';
+  var keys = Object.keys(BOOKS);
+  keys.forEach(function(k){
+    var b = BOOKS[k]; var n = CHAPTERS.filter(function(c){return c.book===k;}).length;
+    var colors = {'op':'#1a56db','mp':'#e4542a'}; var col = colors[k]||'#1a56db';
+    var d = document.createElement('div'); d.className='book-card'; d.innerHTML=
+      '<span class="rk" style="background:'+col+'"></span>'+
+      '<div class="bt">'+b.icon+' '+esc(b.title)+' <span class="badge">'+n+' 章</span></div>'+
+      '<div class="bd">'+esc(b.desc)+'</div><span class="go">›</span>';
+    d.onclick=function(){ openBook(k); };
+    el.appendChild(d);
+  });
+}
+
+/* --- Reader --- */
+function showView(v){
+  ['viewHome','viewReader','viewSearch'].forEach(function(vid){ $id(vid).hidden = (vid!=='view'+v); });
+  $id('btnBack').hidden = (v==='home');
+  $id('btnMenu').style.display = (v==='reader')?'':'none';
+  $id('tocFloat').hidden = (v!=='reader');
+  state.view = v;
+  $id('appTitle').textContent = (v==='search')?'搜索文档':(v==='reader'? cap[state.book]:'vshop 使用手册');
+}
+
+function chaptersOf(book){ return CHAPTERS.filter(function(c){return c.book===book;}); }
+function openBook(book){
+  state.book = book; state.cur = chaptersOf(book)[0].id;
+  showView('reader'); renderReader();
+}
+function openChapter(id){
+  var ch = CHAPTERS.filter(function(c){return c.id===id;})[0];
+  if(!ch) return; state.book = ch.book; state.cur = ch.id;
+  showView('reader'); renderReader();
+  document.getElementById('viewReader').scrollTop = 0;
+  window.scrollTo(0,0);
+}
+function idxOf(){ var list=chaptersOf(state.book); for(var i=0;i<list.length;i++)if(list[i].id===state.cur)return i; return -1; }
+function renderReader(){
+  var ch = CHAPTERS.filter(function(c){return c.id===state.cur;})[0];
+  var list = chaptersOf(state.book); var i = idxOf();
+  $id('appTitle').textContent = BOOKS[state.book].title;
+  var el = $id('readerContent');
+  el.innerHTML = '<h2>'+(i+1)+'. '+esc(ch.title)+'</h2>'+ch.html;
+  // 图片点击全屏预览
+  el.querySelectorAll('img.img').forEach(function(img){
+    img.onclick = function(){ if(img.requestFullscreen){ img.requestFullscreen(); } };
+  });
+  // 自动同步目录高亮
+  var tocO = $id('tocOverlay');
+  if(!tocO.hidden){ $id('tocList').querySelectorAll('.toc-item').forEach(function(it){ it.classList.toggle('on', it.dataset.id===ch.id); }); }
+  var first = (i===0); var last = (i===list.length-1);
+  var foot = $id('readerFoot');
+  foot.innerHTML = 'vshop 使用手册 · '+BOOKS[state.book].short+' · 第 '+(i+1)+'/'+list.length+' 章';
+  renderNav(first, last);
+}
+function renderNav(first,last){
+  $id('btnPrev').style.visibility = first?'hidden':'visible';
+  $id('btnNext').style.visibility = last?'hidden':'visible';
+}
+
+/* --- TOC --- */
+function renderToc(){
+  var ch = CHAPTERS.filter(function(c){return c.id===state.cur;})[0];
+  var list = chaptersOf(state.book); var html = '';
+  list.forEach(function(c){
+    html += '<div class="toc-item'+ (c.id===ch.id?' on':'') +'" data-id="'+c.id+'">'+
+      '<span class="toc-book">'+esc(BOOKS[c.book].short)+'</span>'+esc(c.title)+'</div>';
+  });
+  var el = $id('tocList'); el.innerHTML = html;
+  el.querySelectorAll('.toc-item').forEach(function(it){
+    it.onclick = function(){ $id('tocOverlay').hidden = true; openChapter(it.dataset.id); };
+  });
+}
+
+/* --- Search --- */
+var INDEX = [];
+function buildIndex(){
+  INDEX = CHAPTERS.map(function(c){
+    return { id:c.id, book:c.book, title:c.title, text:stripHtml(c.html), words:stripHtml(c.html).toLowerCase() };
+  });
+}
+function doSearch(){
+  var q = state.q;
+  var empty = $id('searchEmpty'); var res = $id('searchResults');
+  $id('searchClear').hidden = !q;
+  if(!q){ empty.hidden=false; empty.textContent='输入关键词开始搜索'; res.innerHTML=''; return; }
+  var ql = q.toLowerCase();
+  var out = [];
+  INDEX.forEach(function(it){
+    if(it.title.toLowerCase().indexOf(ql)>=0){
+      out.push({ id:it.id, book:it.book, title:it.title, score:100, snippet:it.title }); return;
+    }
+    // 按句匹配
+    var paras = it.text.split(/[\n。；;]/).filter(function(p){return p.trim().length>=3;});
+    for(var i=0;i<paras.length;i++){
+      var p=paras[i]; var idx=p.toLowerCase().indexOf(ql);
+      if(idx>=0){
+        var snip = p.slice(Math.max(0,idx-24), idx+q.length+40);
+        out.push({ id:it.id, book:it.book, title:it.title, score:idx===0?50:10, snippet:snip });
+      }
+    }
+  });
+  out.sort(function(a,b){return b.score-a.score;});
+  out = out.slice(0,80);
+  if(!out.length){ empty.hidden=false; empty.textContent='未找到匹配的文档'; res.innerHTML=''; return; }
+  empty.hidden = true;
+  res.innerHTML = '<div class="result-count">共 '+out.length+' 条结果</div>';
+  out.forEach(function(r){
+    var sph = hl(r.snippet, q); var tih = hl(r.title, q);
+    var d=document.createElement('div'); d.className='result-item'; d.innerHTML=
+      '<span class="result-title"><span class="result-book">'+esc(BOOKS[r.book].short)+'</span>'+tih+'</span>'+
+      '<div class="result-snippet">'+sph+'</div>'+
+      '<span class="result-path">'+esc(r.id)+'</span>';
+    d.onclick=function(){ openChapter(r.id); };
+    res.appendChild(d);
+  });
+}
+function hl(t,q){ var rq=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); var re=new RegExp(rq,'gi'); return esc(t).replace(re,'<mark>$&</mark>'); }
+
+/* ============ 事件绑定 ============ */
+function bind(){
+  $id('goSearchHome').onclick = function(){ state.q=''; $id('searchInput').value=''; doSearch(); showView('search'); $id('searchInput').focus(); };
+  $id('btnSearch').onclick = function(){ state.q=''; $id('searchInput').value=''; doSearch(); showView('search'); $id('searchInput').focus(); };
+  $id('btnBack').onclick = function(){ showView('home'); };
+  $id('btnMenu').onclick = function(){ renderToc(); $id('tocOverlay').hidden=false; };
+  $id('btnPrev').onclick = function(){ var list=chaptersOf(state.book); var i=idxOf(); if(i>0)openChapter(list[i-1].id); };
+  $id('btnNext').onclick = function(){ var list=chaptersOf(state.book); var i=idxOf(); if(i<list.length-1)openChapter(list[i+1].id); };
+  $id('btnNext').style.visibility='hidden';
+  $id('tocClose').onclick = function(){ $id('tocOverlay').hidden=true; };
+  $id('tocFloat').onclick = function(){ renderToc(); $id('tocOverlay').hidden=false; };
+  $id('tocOverlay').onclick = function(e){ if(e.target===e.currentTarget) $id('tocOverlay').hidden=true; };
+  var inp = $id('searchInput');
+  inp.addEventListener('input', function(){ state.q = inp.value.trim(); doSearch(); });
+  $id('searchClear').onclick = function(){ inp.value=''; state.q=''; doSearch(); inp.focus(); };
+}
+
+buildIndex();
+renderBooks();
+bind();
+</script>
+</body>
+</html>

@@ -35,6 +35,21 @@
 
       <!-- nav：宫格导航 -->
       <template v-else-if="sec.type === 'nav'">
+        <view class="field">
+          <text class="lbl">图标形状</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: sec.shape !== 'round' }" @tap="sec.shape = 'square'">方形（京东）</text>
+            <text class="btn" :class="{ active: sec.shape === 'round' }" @tap="sec.shape = 'round'">圆形（淘宝）</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="lbl">宫格排布</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'grid5x2' }" @tap="sec.layout = 'grid5x2'">京东十宫格</text>
+            <text class="btn" :class="{ active: sec.layout === 'grid4x2' }" @tap="sec.layout = 'grid4x2'">淘宝八宫格</text>
+            <text class="btn" :class="{ active: sec.layout === 'row' }" @tap="sec.layout = 'row'">极简单行</text>
+          </view>
+        </view>
         <view class="item" v-for="(it, ii) in sec.items" :key="ii">
           <view class="field">
             <text class="lbl">名称</text>
@@ -42,7 +57,7 @@
           </view>
           <view class="field">
             <text class="lbl">图标</text>
-            <input v-model="it.icon" placeholder="可选" />
+            <input v-model="it.image" placeholder="可选，图标图片 URL，如：https://…/icon.png" />
           </view>
           <view class="field">
             <text class="lbl">链接</text>
@@ -64,8 +79,17 @@
         </view>
         <view class="field">
           <text class="lbl">商品集合 ID (collectionId)</text>
-          <input v-model="sec.collectionId" placeholder="请输入集合 ID" />
+          <input v-model="sec.collectionId" placeholder="留空 = 自动推荐" />
         </view>
+        <view class="field">
+          <text class="lbl">卡片布局</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">京东紧凑</text>
+            <text class="btn" :class="{ active: sec.layout === 'masonry' }" @tap="sec.layout = 'masonry'">淘宝瀑布流</text>
+            <text class="btn" :class="{ active: sec.layout === 'single' }" @tap="sec.layout = 'single'">极简单列</text>
+          </view>
+        </view>
+        <view class="muted hint">提示：同一店铺商品区块建议 ≤2 个，以免影响首页加载速度</view>
       </template>
 
       <!-- richText：富文本 -->
@@ -97,9 +121,11 @@ interface SectionVM {
   type: string;
   images?: { image: string; link?: string }[];
   text?: string;
-  items?: { label: string; icon?: string; link?: string }[];
+  items?: { label: string; icon?: string; image?: string; link?: string }[];
   title?: string;
   collectionId?: string;
+  shape?: string;
+  layout?: string;
   html?: string;
 }
 
@@ -134,8 +160,8 @@ function typeLabel(t: string): string {
 function removeSection(i: number) { sections.value.splice(i, 1); }
 function addBanner() { sections.value.push({ type: 'banner', images: [{ image: '' }] }); }
 function addNotice() { sections.value.push({ type: 'notice', text: '' }); }
-function addNav() { sections.value.push({ type: 'nav', items: [{ label: '' }] }); }
-function addGoods() { sections.value.push({ type: 'goods', collectionId: '' }); }
+function addNav() { sections.value.push({ type: 'nav', items: [{ label: '' }], shape: 'square', layout: 'grid5x2' }); }
+function addGoods() { sections.value.push({ type: 'goods', collectionId: '', layout: 'compact' }); }
 function addRichText() { sections.value.push({ type: 'richText', html: '' }); }
 
 function addBannerItem(sec: SectionVM) { sec.images?.push({ image: '' }); }
@@ -198,6 +224,13 @@ function buildContent(): ShopContent | null {
       input, textarea { background: $wa-card; border: 1rpx solid $wa-rule; border-radius: $wa-radius;
         padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; width: 100%; box-sizing: border-box; }
     }
+    .btns { display: flex; flex-wrap: wrap; gap: 12rpx;
+      .btn { flex: 1 1 30%; text-align: center; font-size: 24rpx; color: $wa-ink;
+        background: $wa-card; border: 1rpx solid $wa-rule; border-radius: $wa-radius;
+        padding: 14rpx 0;
+        &.active { color: #fff; background: $wa-accent; border-color: $wa-accent; } }
+    }
+    .hint { font-size: 22rpx; }
     .add { margin-top: 8rpx; text-align: center; color: $wa-accent; font-size: 26rpx;
       border: 1rpx dashed $wa-accent; border-radius: $wa-radius; padding: 16rpx 0; }
   }

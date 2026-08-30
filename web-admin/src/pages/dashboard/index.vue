@@ -19,7 +19,7 @@
     <view class="sec">
       <text class="sec-t">🗂 常用功能 <text class="tag">高频</text></text>
       <view class="grid">
-        <view v-for="it in common" :key="it.label" class="act" @tap="go(it.url)">
+        <view v-for="it in common" :key="it.label" class="act" @tap="go(it)">
           <view class="ic" :style="tierStyle(it.color, it.grad, 1)">{{ it.ic }}</view>
           <text class="nm">{{ it.label }}</text>
         </view>
@@ -29,7 +29,7 @@
     <view class="sec">
       <text class="sec-t">⚙ 履约 / 配置</text>
       <view class="row">
-        <view class="pill" v-for="p in fulfill" :key="p.label" @tap="go(p.url)">
+        <view class="pill" v-for="p in fulfill" :key="p.label" @tap="go(p)">
           <view class="ic" :style="{ background: D.d3.main + '22', color: D.d3.main }">{{ p.ic }}</view>
           <view class="tx"><text class="b">{{ p.label }}</text><text class="s">前提配置</text></view>
           <text class="chev">›</text>
@@ -40,7 +40,7 @@
     <view class="sec">
       <text class="sec-t">📦 商品 <text class="tag b">次频</text></text>
       <view class="grid">
-        <view v-for="it in subfreq" :key="it.label" class="act" @tap="go(it.url)">
+        <view v-for="it in subfreq" :key="it.label" class="act" @tap="go(it)">
           <view class="ic" :style="{ background: D.d3.main + '22', color: D.d3.main }">{{ it.ic }}</view>
           <text class="nm">{{ it.label }}</text>
         </view>
@@ -73,6 +73,7 @@ const common = [
   { ic: '类', label: '分类', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
   { ic: '库', label: '库存', url: '/pages/inventory/stock/index', color: D.d1.main, grad: D.d1.grad },
   { ic: '装', label: '装修', url: '/pages/decorate/home/index', color: D.d4.main, grad: D.d4.grad },
+  { ic: '书', label: '使用手册', action: 'manual', color: D.d6.main, grad: D.d6.grad },
 ];
 const fulfill = [
   { ic: '配', label: '配送方式', url: '/pages/shipping/methods/index' },
@@ -82,7 +83,16 @@ const subfreq = [
   { ic: '商', label: '商品列表', url: '/pages/product/list/index' },
   { ic: '图', label: '图片库', url: '/pages/media/library/index' },
 ];
-function go(url: string) { uni.navigateTo({ url }); }
+function go(it: any) {
+  if (it.action === 'manual') return openManual();
+  uni.navigateTo({ url: it.url });
+}
+// 公开手册：独立新窗口打开，无需登录鉴权
+function openManual() {
+  const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
+  const url = location.origin + base + '/static/manual/index.html';
+  window.open(url, '_blank');
+}
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 24rpx 160rpx; }
