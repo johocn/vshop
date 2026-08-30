@@ -135,7 +135,7 @@ import { reactive, ref } from 'vue';
 import ImagePicker from '../../components/ImagePicker.vue';
 import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../composables/useVariantMatrix';
 import { fetchReusableOptionGroups } from '../../apis/product';
-import { scanCode } from '../../utils/scanner';
+import { scanCode, ScannerError } from '../../utils/scanner';
 
 export interface VariantMatrixValue {
   noSpec: boolean;
@@ -224,7 +224,26 @@ async function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
     if (!val) return;
     onSkuFieldLiteral(si, field, val);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '扫码失败', icon: 'none' });
+    const code = (e as ScannerError)?.code;
+    if (code === 'CANCEL') return; // 用户取消，静默关闭
+    if (code === 'MANUAL' || code === 'FAILED') {
+      // 能力不足/摄像头失败/用户点手动输入 → 弹可编辑输入框
+      const cur = props.value.skus[si]?.[field] ?? '';
+      uni.showModal({
+        title: '手动输入' + (field === 'barcode' ? '条形码' : '内部码'),
+        editable: true,
+        placeholderText: '请输入条码',
+        content: String(cur ?? ''),
+        success: (r) => {
+          if (r.confirm) {
+            const v = (r.content ?? '').trim();
+            if (v) onSkuFieldLiteral(si, field, v);
+          }
+        },
+      });
+      return;
+    }
+    uni.showToast({ title: (e as Error)?.message || '扫码失败', icon: 'none' });
   }
 }
 // 直接写入字符串字段，复用 onSkuField 的语义
