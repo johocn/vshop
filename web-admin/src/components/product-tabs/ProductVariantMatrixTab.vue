@@ -135,6 +135,7 @@ import { reactive, ref } from 'vue';
 import ImagePicker from '../../components/ImagePicker.vue';
 import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../composables/useVariantMatrix';
 import { fetchReusableOptionGroups } from '../../apis/product';
+import { scanCode } from '../../utils/scanner';
 
 export interface VariantMatrixValue {
   noSpec: boolean;
@@ -216,22 +217,15 @@ function removeValue(gi: number, vi: number) {
   emit('update:value', { ...props.value, noSpec: false, groups: cleaned, skus });
 }
 
-// 扫码：uni.scanCode 扫条码/二维码后填入对应 SKU 字段（H5 端不支持时提示）
-function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
-  // @ts-ignore uni.scanCode 在部分端（H5 微信）可能缺失
-  if (typeof uni.scanCode !== 'function') {
-    uni.showToast({ title: '当前环境不支持扫码', icon: 'none' });
-    return;
+// 扫码：App/小程序走 uni.scanCode，H5 走浏览器 BarcodeDetector（Chrome 内置）降级扫码；均失败时提示手动输入
+async function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
+  try {
+    const val = await scanCode();
+    if (!val) return;
+    onSkuFieldLiteral(si, field, val);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '扫码失败', icon: 'none' });
   }
-  // @ts-ignore
-  uni.scanCode({
-    success: (res: any) => {
-      const val = (res?.result ?? '').trim();
-      if (!val) return;
-      onSkuFieldLiteral(si, field, val);
-    },
-    fail: () => uni.showToast({ title: '扫码取消或失败', icon: 'none' }),
-  });
 }
 // 直接写入字符串字段，复用 onSkuField 的语义
 function onSkuFieldLiteral(si: number, field: 'barcode' | 'internalCode', val: string) {

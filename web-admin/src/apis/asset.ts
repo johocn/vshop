@@ -1,8 +1,9 @@
 import { getAdminClient, buildClientUrl } from './client';
-import { getAuthToken, getChannelToken } from './session';
+import { getAuthToken, getChannelToken, getUserId } from './session';
 
 export interface AssetItem {
   id: string;
+  name?: string;
   preview: string;
   source: string;
   mimeType: string;
@@ -11,25 +12,30 @@ export interface AssetItem {
 }
 
 export async function fetchAssets(take = 30, skip = 0): Promise<{ totalItems: number; items: AssetItem[] }> {
-  const { assets } = await getAdminClient().request<{
-    assets: { totalItems: number; items: AssetItem[] };
+  const { assetLibrary } = await getAdminClient().request<{
+    assetLibrary: { totalItems: number; items: AssetItem[] };
   }>(
-    `query Assets($take: Int, $skip: Int) {
-      assets(options: { take: $take, skip: $skip, sort: { createdAt: DESC } }) {
+    `query AssetLibrary($take: Int, $skip: Int) {
+      assetLibrary(take: $take, skip: $skip) {
         totalItems
-        items { id preview source mimeType width height }
+        items { id name preview source mimeType width height }
       }
     }`,
     { take, skip },
   );
-  return assets;
+  return assetLibrary;
 }
 
 export async function uploadAsset(file: File | Blob, fileName: string): Promise<AssetItem> {
+  // 记录上传者（普通用户图库按用户过滤时只能看到自己的上传）
+  const uploadedBy = getUserId();
   const query = `mutation CreateAssets($input: [CreateAssetInput!]!) {
     createAssets(input: $input) { __typename ... on Asset { id preview source mimeType } }
   }`;
-  const operations = JSON.stringify({ query, variables: { input: [{ file: null }] } });
+  const operations = JSON.stringify({
+    query,
+    variables: { input: [{ file: null, customFields: { uploadedBy } } satisfies Record<string, unknown>] },
+  });
   const form = new FormData();
   form.append('operations', operations);
   form.append('map', JSON.stringify({ '0': ['variables.input.0.file'] }));
