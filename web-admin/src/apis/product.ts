@@ -182,6 +182,7 @@ export interface ProductFull {
   description?: string;
   featuredAsset?: { preview: string } | null;
   assets?: { id: string; preview: string }[] | null;
+  videoAssetId?: string | null;
   facetValues?: Array<{
     id: string;
     code: string;
@@ -228,6 +229,7 @@ export interface ProductSaveInput {
   marketingTags?: string[]; // 营销标签 code 数组
   sellingPoint?: string; // 卖点
   tenantCategoryRef?: string | null; // 商品所属租户分类名（过审归位匹配依据）
+  videoAssetId?: string | null; // 商品主视频资产 id（随 customFields 落库）
   // 多规格变体矩阵（新建落库 / 编辑同结构数值更新用）。productId 由 create/update 补齐。
   variantMatrix?: CreateVariantMatrixInput | null;
 }
@@ -247,7 +249,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         name: string;
         facet?: { name: string; code: string; id: string };
       }>;
-      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null } | null;
+      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; videoAssetId?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -268,7 +270,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         featuredAsset { preview }
         assets { id preview }
         facetValues { id code name facet { id code name } }
-        customFields { marketingTags sellingPoint tenantCategoryRef }
+        customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId }
         translations { languageCode name slug description }
         variants {
           id sku price stockOnHand trackInventory
@@ -304,6 +306,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     variant: v ? { ...v } : null,
     variants: product.variants ? [...product.variants] : null,
     customFields: v?.customFields ?? null,
+    videoAssetId: product.customFields?.videoAssetId ?? null,
     productCustomFields: product.customFields
       ? {
           marketingTags: marketingTags,
@@ -529,12 +532,13 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
   // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
   // tenantCategoryRef 为 Product 自定义 string 字段，随 customFields 落库，null 则清除。
-  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null) return;
+  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null) return;
   const updated: Record<string, unknown> = { id };
   if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
   if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
   if (input.tenantCategoryRef != null) customFields.tenantCategoryRef = input.tenantCategoryRef;
+  if (input.videoAssetId != null) customFields.videoAssetId = input.videoAssetId;
   if (Object.keys(customFields).length) updated.customFields = customFields;
   if (input.sellingPoint) {
     updated.translations = [
