@@ -1,0 +1,1 @@
+import{aC as o,k as a,ao as n,aq as t,Q as s}from"./index-DEgwH5HJ.js";const i=o("ui",()=>{const o=a(!1),i=a("");return{loading:o,toastMessage:i,showLoading:function(){o.value=!0,n({title:"加载中..."})},hideLoading:function(){o.value=!1,t()},showToast:function(o,a="none"){s({title:o,icon:a,duration:2e3})}}});export{i as u};
