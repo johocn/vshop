@@ -1,7 +1,7 @@
 <template>
   <view>
     <view class="card">
-      <picker mode="selector" :range="brandNames" @change="onBrandPick" :disabled="!brandNames.length || !!value.newBrand">
+      <picker mode="selector" :range="brandNames" :value="brandIndex" @change="onBrandPick">
         <view class="cell row-in">
           <text class="lbl">品牌</text>
           <text class="val">{{ value.brandName || '请选择品牌' }}</text>
@@ -9,7 +9,25 @@
       </picker>
       <view class="cell row-in">
         <text class="lbl">新建品牌</text>
-        <input class="inp" :value="value.newBrand" placeholder="品牌库无匹配时输入新品名（本期不落库）" @input="onNewBrand" />
+        <text class="val link" @tap="openBrandModal">+ 新建品牌</text>
+      </view>
+    </view>
+
+    <view v-if="showBrandModal" class="modal-mask" @tap="closeBrandModal">
+      <view class="modal" @tap.stop>
+        <view class="modal-title">新建品牌</view>
+        <input
+          class="modal-inp"
+          v-model="newBrandName"
+          placeholder="输入品牌名称"
+          focus
+        />
+        <view class="modal-btns">
+          <button class="btn cancel" @tap="closeBrandModal">取消</button>
+          <button class="btn ok" :disabled="saving" @tap="confirmCreateBrand">
+            {{ saving ? '创建中…' : '创建' }}
+          </button>
+        </view>
       </view>
     </view>
 
@@ -54,7 +72,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { fetchBrands } from '../../apis/product';
 
 export interface BrandMarketingValue {
@@ -85,8 +103,58 @@ const emit = defineEmits<{ (e: 'update:value', v: BrandMarketingValue): void }>(
 const brands = ref<Array<{ id: string; name: string }>>([]);
 const brandNames = ref<string[]>([]);
 
+// 当前已选品牌在下拉中的下标（用于定位高亮；未匹配返回 0）
+const brandIndex = computed(() =>
+  props.value.brandName ? Math.max(0, brandNames.value.indexOf(props.value.brandName)) : 0,
+);
+
+const showBrandModal = ref(false);
+const newBrandName = ref('');
+const saving = ref(false);
+
+async function reloadBrands() {
+  try {
+    const { items } = await fetchBrands();
+    brands.value = items;
+    brandNames.value = items.map((b) => b.name);
+  } catch {
+    brands.value = [];
+    brandNames.value = [];
+  }
+}
+
+function openBrandModal() {
+  newBrandName.value = '';
+  showBrandModal.value = true;
+}
+function closeBrandModal() {
+  if (!saving.value) showBrandModal.value = false;
+}
+async function confirmCreateBrand() {
+  const name = (newBrandName.value || '').trim();
+  if (!name) return uni.showToast({ title: '请输入品牌名', icon: 'none' });
+  saving.value = true;
+  try {
+    const created = await import('../../apis/product').then((m) => m.createBrand(name));
+    await reloadBrands();
+    // 选中新建品牌
+    emit('update:value', {
+      ...props.value,
+      brandFacetValueId: created.id,
+      brandName: created.name,
+      newBrand: '',
+    });
+    showBrandModal.value = false;
+    uni.showToast({ title: '品牌已创建', icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: (e?.message || '创建失败').slice(0, 20), icon: 'none' });
+  } finally {
+    saving.value = false;
+  }
+}
+
 function onNewBrand(e: any) {
-  emit('update:value', { ...props.value, newBrand: e.detail.value || '' });
+  newBrandName.value = e.detail.value || '';
 }
 function onBrandPick(e: any) {
   const it = brands.value[Number(e.detail.value)];
@@ -108,20 +176,7 @@ function onTags(e: any) {
   emit('update:value', { ...props.value, tags: (e.detail.value || []) as string[] });
 }
 
-onMounted(async () => {
-  try {
-    const list = await fetchBrands();
-    brands.value = list;
-    brandNames.value = list.map((b) => b.name);
-    // v-if，未选中品牌名则不显示已选
-    if (!props.value.brandName && props.value.brandFacetValueId) {
-      const hit = list.find((b) => b.id === props.value.brandFacetValueId);
-      if (hit) emit('update:value', { ...props.value, brandName: hit.name });
-    }
-  } catch {
-    brands.value = [];
-  }
-});
+onMounted(reloadBrands);
 </script>
 
 <style lang="scss" scoped>
@@ -151,4 +206,25 @@ onMounted(async () => {
   .tag { display: flex; align-items: center; margin: 0 32rpx 16rpx 0; font-size: 28rpx; color: $wa-ink; }
 }
 .tip { padding: 28rpx 0; font-size: 26rpx; color: $wa-muted; }
+
+.link { color: $wa-accent; }
+.modal-mask {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+}
+.modal {
+  width: 560rpx; background: $wa-card; border-radius: $wa-radius;
+  padding: 40rpx 36rpx; box-sizing: border-box;
+  .modal-title { font-size: 32rpx; font-weight: 600; color: $wa-ink; margin-bottom: 28rpx; }
+  .modal-inp {
+    background: $wa-bg; border: 1rpx solid $wa-rule; border-radius: 12rpx;
+    padding: 18rpx 24rpx; font-size: 28rpx; color: $wa-ink;
+  }
+  .modal-btns { display: flex; gap: 24rpx; margin-top: 36rpx; }
+  .btn {
+    flex: 1; font-size: 28rpx; border-radius: 12rpx; line-height: 2.8;
+    &.cancel { background: $wa-bg; color: $wa-muted; }
+    &.ok { background: $wa-accent; color: #fff; }
+  }
+}
 </style>

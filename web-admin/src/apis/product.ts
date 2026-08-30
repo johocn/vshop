@@ -526,17 +526,52 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
   return (createProductVariants || []).length;
 }
 
-export async function fetchBrands(term?: string): Promise<BrandOption[]> {
+export interface BrandFacetInfo {
+  facetId: string;
+  items: BrandOption[];
+}
+
+export async function fetchBrands(term?: string): Promise<BrandFacetInfo> {
   const { facets } = await getAdminClient().request<{
     facets: {
-      items: Array<{ values: Array<{ id: string; code: string; name: string }> }>;
+      items: Array<{ id: string; values: Array<{ id: string; code: string; name: string }> }>;
     };
   }>(
-    `query Brands($term: String) { facets(options: { take: 100, filter: { code: { eq: "brand" } } }) { items { values { id code name } } } }`,
+    `query Brands($term: String) { facets(options: { take: 100, filter: { code: { eq: "brand" } } }) { items { id values { id code name } } } }`,
   );
-  const values = facets?.items?.[0]?.values ?? [];
+  const facet = facets?.items?.[0];
+  const values = facet?.values ?? [];
   const filtered = term ? values.filter((v) => v.name.includes(term)) : values;
-  return filtered.map((v) => ({ id: v.id, name: v.name }));
+  return {
+    facetId: facet?.id ?? '',
+    items: filtered.map((v) => ({ id: v.id, name: v.name })),
+  };
+}
+
+// 新建品牌：在 code=brand 的 Facet 下追加一个 FacetValue 并落库（随后的 fetchBrands 可复用）。
+// 品牌 facet 缺失时兜底抛错，提示先用初始化接口建 brand Facet。
+export async function createBrand(name: string): Promise<BrandOption> {
+  const { facetId } = await fetchBrands();
+  if (!facetId) throw new Error('品牌库未初始化');
+  const code = baseSlug(name) || 'brand-' + Date.now();
+  const { createFacetValue } = await getAdminClient().request<{
+    createFacetValue: { id: string; name: string };
+  }>(
+    `mutation CreateBrand($input: CreateFacetValueInput!) {
+      createFacetValue(input: $input) { id name }
+    }`,
+    {
+      input: {
+        facetId,
+        code,
+        translations: [
+          { languageCode: PRODUCT_LANGUAGE_CODE, name },
+          { languageCode: 'en', name },
+        ],
+      },
+    },
+  );
+  return { id: createFacetValue.id, name: createFacetValue.name };
 }
 
 async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Promise<void> {
