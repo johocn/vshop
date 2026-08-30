@@ -30,6 +30,7 @@
             <view class="pills">
               <view class="pill" v-for="(vg, vi) in g.values" :key="vi">
                 <text class="pill-txt">{{ vg }}</text>
+                <text class="pill-x" @tap="removeValue(gi, vi)">✕</text>
               </view>
             </view>
             <input class="inp" :value="newVal[gi]" placeholder="输入后用以下按钮添加" @input="onNewVal(gi, $event)" />
@@ -77,8 +78,14 @@
               <image v-if="(s.assetIds || []).length && coverPreview(s)" class="cover-img" :src="coverPreview(s)" mode="aspectFill" />
               <text v-else class="cover-plus">＋图</text>
             </view>
-            <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
-            <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
+            <view class="field">
+              <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
+              <text class="scan-btn" @tap="scanSkuField(si, 'barcode')">📷</text>
+            </view>
+            <view class="field">
+              <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
+              <text class="scan-btn" @tap="scanSkuField(si, 'internalCode')">📷</text>
+            </view>
             <input class="c-p" type="number" placeholder="成本价(分)" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
           </view>
         </view>
@@ -189,6 +196,49 @@ function removeGroup(gi: number) {
   const groups = props.value.groups.filter((_, i) => i !== gi);
   const skus = buildMatrix(groups);
   emit('update:value', { ...props.value, groups, skus });
+}
+
+// 删除单个规格值：从组内移除该值并重建矩阵；若组删空则整组移除
+function removeValue(gi: number, vi: number) {
+  const group = props.value.groups[gi];
+  if (!group) return;
+  const next = group.values.filter((_, i) => i !== vi);
+  const groups = props.value.groups.map((g, i) =>
+    i === gi ? { name: g.name, values: next } : g,
+  );
+  // 空值组整组剔除；若全部组删空则退回无规格
+  const cleaned = groups.filter((g) => g.values.length);
+  if (!cleaned.length) {
+    setNoSpec(true);
+    return;
+  }
+  const skus = buildMatrix(cleaned);
+  emit('update:value', { ...props.value, noSpec: false, groups: cleaned, skus });
+}
+
+// 扫码：uni.scanCode 扫条码/二维码后填入对应 SKU 字段（H5 端不支持时提示）
+function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
+  // @ts-ignore uni.scanCode 在部分端（H5 微信）可能缺失
+  if (typeof uni.scanCode !== 'function') {
+    uni.showToast({ title: '当前环境不支持扫码', icon: 'none' });
+    return;
+  }
+  // @ts-ignore
+  uni.scanCode({
+    success: (res: any) => {
+      const val = (res?.result ?? '').trim();
+      if (!val) return;
+      onSkuFieldLiteral(si, field, val);
+    },
+    fail: () => uni.showToast({ title: '扫码取消或失败', icon: 'none' }),
+  });
+}
+// 直接写入字符串字段，复用 onSkuField 的语义
+function onSkuFieldLiteral(si: number, field: 'barcode' | 'internalCode', val: string) {
+  const skus = props.value.skus.map((s, i) =>
+    i === si ? { ...s, [field]: val } : s,
+  );
+  emit('update:value', { ...props.value, skus });
 }
 
 function addGroup() {
@@ -318,7 +368,9 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
     .pills { display: flex; flex-wrap: wrap; margin-bottom: 16rpx; }
     .pill {
       background: rgba(0,0,0,0.05); border-radius: 8rpx; padding: 6rpx 20rpx; margin: 0 16rpx 16rpx 0;
+      display: inline-flex; align-items: center;
       .pill-txt { font-size: 26rpx; color: $wa-ink; }
+      .pill-x { margin-left: 10rpx; font-size: 24rpx; color: $wa-muted; padding: 0 4rpx; }
     }
   }
   .row-in { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 0; }
@@ -330,8 +382,10 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
     &.sub {
       padding: 12rpx 0 12rpx 12rpx; border-bottom: 1rpx solid $wa-rule;
       background: rgba(0,0,0,0.02);
-      .c-b { flex: 1; font-size: 24rpx; color: $wa-ink; margin-right: 12rpx; }
+      .field { flex: 1; display: flex; align-items: center; margin-right: 12rpx; }
+      .c-b { flex: 1; font-size: 24rpx; color: $wa-ink; min-width: 0; }
     }
+    .scan-btn { font-size: 26rpx; margin-left: 8rpx; padding: 4rpx; color: $wa-accent; }
     .c-lab { flex: 1.4; font-size: 26rpx; color: $wa-ink; word-break: break-all; padding-right: 8rpx; }
     .c-p { flex: 0.9; font-size: 26rpx; color: $wa-ink; text-align: center; }
     .c-s { flex: 0.7; font-size: 26rpx; color: $wa-ink; text-align: center; }

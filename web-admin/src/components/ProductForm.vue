@@ -32,7 +32,12 @@
         </view>
         <view class="cell">
           <text class="lbl">价格（元）</text>
-          <input v-model="d.priceYuan" type="digit" placeholder="0.00" />
+          <input
+            v-model="d.priceYuan"
+            type="digit"
+            placeholder="0.00"
+            @blur="syncPriceToSkus"
+          />
         </view>
         <view class="cell">
           <text class="lbl">库存（件）</text>
@@ -237,6 +242,15 @@ function onImg(ids: string[]) {
 }
 function onVideo(ids: string[]) {
   d.videoAssetId = ids[0] || null;
+}
+
+// 基本信息「价格」失焦时，将当前价（元→分）默认填充到全部变体 SKU 的销售价（仍可逐个修改）
+function syncPriceToSkus() {
+  const yuan = Number(d.priceYuan) || 0;
+  if (!yuan) return;
+  const cents = Math.round(yuan * 100);
+  const skus = (variantMatrix.value.skus || []).map((s) => ({ ...s, priceCents: cents }));
+  variantMatrix.value = { ...variantMatrix.value, skus };
 }
 
 function submit() {
