@@ -29,6 +29,8 @@
     { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
     { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } },
     { "path": "pages/pickup/redeem/index", "style": { "navigationBarTitleText": "到店自提核销" } },
+    { "path": "pages/coupon/index", "style": { "navigationBarTitleText": "优惠券发行" } },
+    { "path": "pages/coupon/edit/index", "style": { "navigationBarTitleText": "优惠券" } },
     { "path": "pages/pos/index", "style": { "navigationBarTitleText": "门店收银" } },
     { "path": "pages/platform/tenants/index", "style": { "navigationBarTitleText": "租户列表" } },
     { "path": "pages/platform/tenants/detail", "style": { "navigationBarTitleText": "租户详情" } },
