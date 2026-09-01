@@ -32,20 +32,36 @@ const ORDER_FIELDS = `
       customFields { deliveryType }
     `;
 
-export async function fetchShopOrders(opts: OrderListOptions = {}): Promise<{ totalItems: number; items: OrderRow[] }> {
-  const { take = 20, skip = 0 } = opts;
-  const { myShopOrders } = await getAdminClient().request<{
-    myShopOrders: { totalItems: number; items: OrderRow[] };
-  }>(
-    `query ShopOrders($take: Int, $skip: Int) {
-      myShopOrders(options: { take: $take, skip: $skip }) {
-        totalItems
-        items {${ORDER_FIELDS}}
+// 本店商品单：对接 shop-plugin 既有 myShopOrders（跨渠道按商品 shopId 归集），返回全量无分页
+export interface ShopOrderRow {
+  orderId: string;
+  code: string;
+  state: string;
+  totalWithTax: number;
+  currencyCode: string;
+  customerName?: string | null;
+  placedAt?: string | null;
+  items: Array<{
+    orderLineId: string;
+    productId: string;
+    productName: string;
+    variantName: string;
+    quantity: number;
+    fulfilledQuantity: number;
+    lineTotalWithTax: number;
+  }>;
+}
+
+export async function fetchShopOrders(): Promise<ShopOrderRow[]> {
+  const { myShopOrders } = await getAdminClient().request<{ myShopOrders: ShopOrderRow[] }>(
+    `query ShopOrders {
+      myShopOrders {
+        orderId code state totalWithTax currencyCode customerName placedAt
+        items { orderLineId productId productName variantName quantity fulfilledQuantity lineTotalWithTax }
       }
     }`,
-    { take, skip },
   );
-  return myShopOrders as { totalItems: number; items: OrderRow[] };
+  return myShopOrders ?? [];
 }
 
 export interface FulfillmentResult {
