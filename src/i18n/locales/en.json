@@ -70,5 +70,9 @@
         "login": "Login",
         "phoneLogin": "Phone Login",
         "wechatLogin": "WeChat Login"
+    },
+    "promotion": {
+        "freeShipping": "Free Shipping",
+        "couponScopeMismatch": "This coupon only applies to orders from this store"
     }
 }

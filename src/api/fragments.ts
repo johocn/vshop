@@ -48,7 +48,7 @@ export const ORDER_FRAGMENT = `
         payments { id method amount state transactionId metadata }
         couponCodes
         discounts { description amountWithTax }
-        customFields { appliedCouponCode }
+        customFields { couponCode couponId }
     }
 `;
 

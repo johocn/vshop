@@ -12,11 +12,11 @@
         <view v-for="c in availableCoupons" :key="c.id" class="coupon-card">
           <view class="coupon-card__left" :class="{ 'coupon-card__left--disabled': !canClaim(c) }">
             <view class="coupon-card__amount-row">
-              <text class="coupon-card__symbol" v-if="c.couponType === 'fixed'">¥</text>
+              <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
               <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
-              <text class="coupon-card__unit">{{ c.couponType === 'fixed' ? '元' : '折' }}</text>
+              <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
             </view>
-            <text class="coupon-card__left-tip">{{ c.couponType === 'fixed' ? '立减' : '折扣' }}</text>
+            <text class="coupon-card__left-tip">{{ couponTypeTip(c.type) }}</text>
           </view>
           <view class="coupon-card__right">
             <view class="coupon-card__info">
@@ -59,22 +59,22 @@
           >
             <view class="coupon-card__left">
               <view class="coupon-card__amount-row">
-                <text class="coupon-card__symbol" v-if="myCouponType(mc) === 'fixed'">¥</text>
+                <text class="coupon-card__symbol" v-if="myCouponType(mc) === 'FIXED' || myCouponType(mc) === 'FULL'">¥</text>
                 <text class="coupon-card__amount">{{ formatMyAmount(mc) }}</text>
-                <text class="coupon-card__unit">{{ myCouponType(mc) === 'fixed' ? '元' : '折' }}</text>
+                <text class="coupon-card__unit">{{ myCouponType(mc) === 'FREE_SHIPPING' ? '' : (myCouponType(mc) === 'PERCENT' ? '折' : '元') }}</text>
               </view>
-              <text class="coupon-card__left-tip">{{ myCouponType(mc) === 'fixed' ? '立减' : '折扣' }}</text>
+              <text class="coupon-card__left-tip">{{ couponTypeTip(myCouponType(mc)) }}</text>
             </view>
             <view class="coupon-card__right">
               <view class="coupon-card__info">
-                <text class="coupon-card__name">{{ mc.coupon?.name || '优惠券' }}</text>
+                <text class="coupon-card__name">{{ mc.template?.name || '优惠券' }}</text>
                 <text class="coupon-card__cond">{{ formatMyCondition(mc) }}</text>
                 <text class="coupon-card__code">券码：{{ mc.code }}</text>
                 <text class="coupon-card__date">{{ formatMyDate(mc) }}</text>
               </view>
             </view>
             <view v-if="mc.status !== 'UNUSED'" class="coupon-card__stamp">
-              <text>{{ mc.status === 'USED' ? '已使用' : '已过期' }}</text>
+              <text>{{ mc.status === 'USED' ? '已使用' : (mc.status === 'EXPIRED' ? '已过期' : mc.status) }}</text>
             </view>
           </view>
         </view>
@@ -94,11 +94,11 @@
           <input v-model="couponCode" placeholder="请输入优惠码" class="input" />
           <button @click="applyCode" class="coupons-code__btn" :disabled="applying">使用</button>
         </view>
-        <view v-if="activeCouponCodes.length > 0" class="coupons-code__active">
+        <view v-if="activeCouponCode" class="coupons-code__active">
           <text class="coupons-code__active-title">当前订单已使用</text>
-          <view v-for="code in activeCouponCodes" :key="code" class="coupons-code__active-item">
-            <text class="coupons-code__active-code">{{ code }}</text>
-            <text class="coupons-code__active-remove" @click="removeCode(code)">移除</text>
+          <view class="coupons-code__active-item">
+            <text class="coupons-code__active-code">{{ activeCouponCode }}</text>
+            <text class="coupons-code__active-remove" @click="removeCode">移除</text>
           </view>
         </view>
       </template>
@@ -108,9 +108,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { getAvailableCoupons, getMyCoupons } from '../../api/queries/coupon';
-import { claimCoupon } from '../../api/mutations/coupon';
-import { applyCouponCode, removeCouponCode } from '../../api/mutations/cart';
+import { getCouponCentre, getMyCoupons } from '../../api/queries/coupon';
+import { claimCoupon, applyCouponToOrder, clearCouponFromOrder, couponErrorMessage } from '../../api/mutations/coupon';
 import { getActiveOrder } from '../../api/queries/order';
 import { useUIStore } from '../../stores/ui';
 import { useCartStore } from '../../stores/cart';
@@ -136,7 +135,7 @@ const walletTab = ref<WalletKey>('unused');
 const availableCoupons = ref<any[]>([]);
 const myCoupons = ref<any[]>([]);
 const couponCode = ref('');
-const activeCouponCodes = ref<string[]>([]);
+const activeCouponCode = ref('');
 const claiming = ref(false);
 const applying = ref(false);
 const loadingCenter = ref(false);
@@ -186,9 +185,9 @@ function switchTab(t: TabKey) {
 async function loadAvailable() {
     loadingCenter.value = true;
     try {
-        const res: any = await getAvailableCoupons();
-        availableCoupons.value = res.availableCoupons || [];
-    } catch (e: any) { ui.showToast(e.message); }
+        const res: any = await getCouponCentre();
+        availableCoupons.value = res.couponCentre || [];
+    } catch (e: any) { ui.showToast(couponErrorMessage(e)); }
     loadingCenter.value = false;
 }
 
@@ -205,7 +204,7 @@ async function loadMy() {
             auth.logout();
             ui.showToast('登录已过期，请重新登录');
         } else {
-            ui.showToast(e.message);
+            ui.showToast(couponErrorMessage(e));
         }
     }
     loadingWallet.value = false;
@@ -215,7 +214,7 @@ async function loadActive() {
     try {
         const res: any = await getActiveOrder();
         if (res.activeOrder) {
-            activeCouponCodes.value = res.activeOrder.couponCodes || [];
+            activeCouponCode.value = (res.activeOrder.customFields as any)?.couponCode || '';
             cart.setOrder(res.activeOrder);
         }
     } catch (e: any) {
@@ -227,13 +226,13 @@ async function loadActive() {
 
 function canClaim(c: any): boolean {
     if (c._claimed) return false;
-    if (c.totalQuantity && c.claimedCount != null && c.claimedCount >= c.totalQuantity) return false;
+    if (c.totalCount && c.claimedCount != null && c.claimedCount >= c.totalCount) return false;
     return true;
 }
 
 function claimBtnText(c: any): string {
     if (c._claimed) return '已领取';
-    if (c.totalQuantity && c.claimedCount != null && c.claimedCount >= c.totalQuantity) return '已抢完';
+    if (c.totalCount && c.claimedCount != null && c.claimedCount >= c.totalCount) return '已抢完';
     return '立即领取';
 }
 
@@ -256,7 +255,7 @@ async function claim(c: any) {
             auth.logout();
             ui.showToast('登录已过期，请重新登录');
         } else {
-            ui.showToast(e.message);
+            ui.showToast(couponErrorMessage(e));
         }
     }
     claiming.value = false;
@@ -274,7 +273,7 @@ async function checkPendingClaim() {
         const target = availableCoupons.value.find((c: any) => c.id === pendingId);
         if (target) target._claimed = true;
     } catch (e: any) {
-        ui.showToast(e?.message || '领取失败');
+        ui.showToast(couponErrorMessage(e));
     }
 }
 
@@ -283,10 +282,12 @@ async function applyCode() {
     if (!couponCode.value) { ui.showToast('请输入优惠码'); return; }
     applying.value = true;
     try {
-        const res: any = await applyCouponCode(couponCode.value);
-        if (res.applyCouponCode?.couponCodes) {
-            activeCouponCodes.value = res.applyCouponCode.couponCodes;
-            cart.setOrder(res.applyCouponCode);
+        await applyCouponToOrder(couponCode.value);
+        // 应用成功后刷新 activeOrder 读取 customFields.couponCode
+        const res: any = await getActiveOrder();
+        if (res.activeOrder) {
+            cart.setOrder(res.activeOrder);
+            activeCouponCode.value = (res.activeOrder.customFields as any)?.couponCode || '';
         }
         ui.showToast('优惠券已应用', 'success');
         couponCode.value = '';
@@ -295,70 +296,86 @@ async function applyCode() {
             auth.logout();
             ui.showToast('登录已过期，请重新登录');
         } else {
-            ui.showToast(e.message);
+            ui.showToast(couponErrorMessage(e));
         }
     }
     applying.value = false;
 }
 
-async function removeCode(code: string) {
+async function removeCode() {
     try {
-        const res: any = await removeCouponCode(code);
-        if (res.removeCouponCode) {
-            activeCouponCodes.value = res.removeCouponCode.couponCodes || [];
-            cart.setOrder(res.removeCouponCode);
+        await clearCouponFromOrder();
+        const res: any = await getActiveOrder();
+        if (res.activeOrder) {
+            cart.setOrder(res.activeOrder);
+            activeCouponCode.value = (res.activeOrder.customFields as any)?.couponCode || '';
         }
         ui.showToast('已移除', 'success');
     } catch (e: any) {
         if (isAuthError(e)) {
             auth.logout();
         } else {
-            ui.showToast(e.message);
+            ui.showToast(couponErrorMessage(e));
         }
     }
 }
 
 // ===== 格式化工具 =====
 
-/** 左侧大字：fixed 显示金额（元），percentage 显示折 */
+/** 券类型文案（左侧 tip）：FIXED=立减 / PERCENT=折扣 / FULL=直减 / FREE_SHIPPING=免配送费 */
+function couponTypeTip(type?: string): string {
+    if (type === 'FREE_SHIPPING') return '免配送费';
+    if (type === 'FULL') return '直减';
+    if (type === 'PERCENT') return '折扣';
+    return '立减';
+}
+
+/** 左侧大字：FIXED/FULL 显示金额（元）；PERCENT 显示折扣（discountValue=85 → 8.5折）；FREE_SHIPPING 显示免配送费 */
 function formatAmount(c: any): string {
-    if (c.couponType === 'fixed') return (c.discountValue / 100).toString();
-    // percentage: discountValue 为优惠百分比（10 = 9折）
-    const zhe = (100 - c.discountValue) / 10;
-    return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    if (c.type === 'FREE_SHIPPING') return '免配送费';
+    if (c.type === 'PERCENT') {
+        const zhe = c.discountValue / 10;
+        return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    }
+    return (c.discountValue / 100).toString();
+}
+
+function formatUnit(c: any): string {
+    if (c.type === 'FREE_SHIPPING') return '';
+    if (c.type === 'PERCENT') return '折';
+    return '元';
 }
 
 function myCouponType(mc: any): string {
-    return mc.coupon?.couponType || 'fixed';
+    return mc.template?.type || 'FIXED';
 }
 
 function formatMyAmount(mc: any): string {
-    return formatAmount(mc.coupon || { couponType: 'fixed', discountValue: 0 });
+    return formatAmount(mc.template || { type: 'FIXED', discountValue: 0 });
 }
 
 function formatCondition(c: any): string {
     const minSpend = c.minSpend ? c.minSpend / 100 : 0;
-    let cond = minSpend > 0 ? `满${minSpend}元可用` : '无门槛';
-    if (c.couponType === 'percentage' && c.maxDiscount) {
-        cond += `，最高减${c.maxDiscount / 100}元`;
-    }
-    return cond;
+    if (c.type === 'FREE_SHIPPING') return c.description || '免配送费';
+    if (c.type === 'FULL') return '无门槛直减';
+    if (!minSpend) return '无门槛';
+    return `满${minSpend}元可用`;
 }
 
 function formatMyCondition(mc: any): string {
-    return formatCondition(mc.coupon || { couponType: 'fixed', discountValue: 0 });
+    return formatCondition(mc.template || { type: 'FIXED', discountValue: 0 });
 }
 
 function formatDateRange(c: any): string {
-    const start = c.startAt ? String(c.startAt).slice(0, 10) : '';
-    const end = c.endAt ? String(c.endAt).slice(0, 10) : '';
+    const start = c.startsAt ? String(c.startsAt).slice(0, 10) : '';
+    const end = c.endsAt ? String(c.endsAt).slice(0, 10) : '';
     if (start && end) return `${start} 至 ${end}`;
     if (end) return `至 ${end}`;
     return '';
 }
 
 function formatMyDate(mc: any): string {
-    return formatDateRange(mc.coupon || {});
+    return formatDateRange(mc.template || {});
 }
 
 onMounted(async () => {

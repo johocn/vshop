@@ -130,13 +130,13 @@
           >
             <view class="coupon-pick__left">
               <view class="coupon-pick__amount-row">
-                <text class="coupon-pick__symbol" v-if="mc.coupon?.couponType === 'fixed'">¥</text>
+                <text class="coupon-pick__symbol" v-if="mc.template?.type === 'FIXED' || mc.template?.type === 'FULL'">¥</text>
                 <text class="coupon-pick__amount">{{ formatCouponAmount(mc) }}</text>
-                <text class="coupon-pick__unit">{{ mc.coupon?.couponType === 'fixed' ? '元' : '折' }}</text>
+                <text class="coupon-pick__unit">{{ mc.template?.type === 'FREE_SHIPPING' ? '' : (mc.template?.type === 'PERCENT' ? '折' : '元') }}</text>
               </view>
             </view>
             <view class="coupon-pick__right">
-              <text class="coupon-pick__name">{{ mc.coupon?.name || '优惠券' }}</text>
+              <text class="coupon-pick__name">{{ mc.template?.name || '优惠券' }}</text>
               <text class="coupon-pick__cond">{{ formatCouponCondition(mc) }}</text>
               <text class="coupon-pick__code">券码：{{ mc.code }}</text>
             </view>
@@ -314,7 +314,7 @@ import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } f
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyMemberInfo, redeemPoints } from '../../api/queries/member';
 import { getMyCoupons } from '../../api/queries/coupon';
-import { applyCoupon, removeAppliedCoupon as removeCouponFromOrder } from '../../api/mutations/coupon';
+import { applyCouponToOrder, clearCouponFromOrder } from '../../api/mutations/coupon';
 import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
 
 type ShippingCategory = 'shipping' | 'store-pickup' | 'point-pickup' | 'employee-pickup';
@@ -503,9 +503,9 @@ const shippingFee = computed(() => {
 
 // 优惠券：未使用的券
 const unusedCoupons = computed(() => myCouponsList.value.filter((c: any) => (c.status || '').toUpperCase() === 'UNUSED'));
-// 当前订单已应用的优惠码（自定义 applyCoupon 设置 customFields.appliedCouponCode）
+// 当前订单已应用的优惠码（coupon-plugin 写入 order.customFields.couponCode）
 const appliedCouponCode = computed(() => {
-    return (cart.order as any)?.customFields?.appliedCouponCode || '';
+    return (cart.order as any)?.customFields?.couponCode || '';
 });
 // 当前订单优惠券优惠总金额（元）：仅累加「非会员折扣」来源（会员折扣单列，避免重复计入券）
 const couponDiscountYuan = computed(() => {
@@ -978,20 +978,18 @@ async function confirmCoupon() {
     applyingCoupon.value = true;
     try {
         ui.showLoading();
-        const res: any = await applyCoupon(cart.order.id, selectedCouponCode.value);
-        const result = res.applyCoupon;
-        if (result?.valid) {
-            // 应用成功，刷新订单获取最新折扣信息
-            const orderRes: any = await getActiveOrder();
-            if (orderRes.activeOrder) {
-                cart.setOrder(orderRes.activeOrder);
-            }
-            ui.showToast('优惠券已应用', 'success');
-            showCouponPicker.value = false;
-        } else {
-            ui.showToast(result?.error || '优惠券不可用');
+        // applyCouponToOrder 直接作用于当前活动订单；成功返回 Order，失败抛错（含 COUPON_SCOPE_MISMATCH等）
+        await applyCouponToOrder(selectedCouponCode.value);
+        // 刷新 activeOrder 获取更新后的 customFields.couponCode 与最新折扣
+        const orderRes: any = await getActiveOrder();
+        if (orderRes.activeOrder) {
+            cart.setOrder(orderRes.activeOrder);
         }
-    } catch (e: any) { ui.showToast(e.message); }
+        ui.showToast('优惠券已应用', 'success');
+        showCouponPicker.value = false;
+    } catch (e: any) {
+        ui.showToast(couponErrorMessage(e));
+    }
     ui.hideLoading();
     applyingCoupon.value = false;
 }
@@ -1001,8 +999,8 @@ async function removeAppliedCoupon() {
     if (!cart.order?.id) return;
     try {
         ui.showLoading();
-        await removeCouponFromOrder(cart.order.id);
-        // removeCoupon 返回 Boolean，需刷新订单获取最新折扣信息
+        await clearCouponFromOrder();
+        // 刷新订单获取最新折扣信息
         const orderRes: any = await getActiveOrder();
         if (orderRes.activeOrder) cart.setOrder(orderRes.activeOrder);
         ui.showToast('已移除', 'success');
@@ -1012,20 +1010,51 @@ async function removeAppliedCoupon() {
 }
 
 function formatCouponAmount(mc: any): string {
-    const c = mc.coupon || {};
-    if (c.couponType === 'fixed') return (c.discountValue / 100).toString();
-    const zhe = (100 - c.discountValue) / 10;
-    return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    const t = mc.template || {};
+    if (t.type === 'FREE_SHIPPING') return '免配送费';
+    if (t.type === 'PERCENT') {
+        const zhe = t.discountValue / 10;
+        return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    }
+    return (t.discountValue / 100).toString();
 }
 
 function formatCouponCondition(mc: any): string {
-    const c = mc.coupon || {};
-    const minSpend = c.minSpend ? c.minSpend / 100 : 0;
-    let cond = minSpend > 0 ? `满${minSpend}元可用` : '无门槛';
-    if (c.couponType === 'percentage' && c.maxDiscount) {
-        cond += `，最高减${c.maxDiscount / 100}元`;
+    const t = mc.template || {};
+    const minSpend = t.minSpend ? t.minSpend / 100 : 0;
+    if (t.type === 'FREE_SHIPPING') return '免配送费';
+    if (t.type === 'FULL') return '无门槛直减';
+    if (!minSpend) return '无门槛';
+    return `满${minSpend}元可用`;
+}
+
+/** 后端优惠券应用失败的友好提示映射（key 为 GraphQL 错误码或其 message 中的标识，避免透出英文错误串） */
+const COUPON_ERROR_MAP: Record<string, string> = {
+    COUPON_SCOPE_MISMATCH: '本券仅限本店商品订单使用',
+};
+
+/** 从 GraphQL 抛错对象中提取错误码 */
+function extractCouponErrorCode(e: any): string {
+    const errors = e?.response?.errors || e?.errors || [];
+    for (const er of errors) {
+        const code = er?.extensions?.code;
+        if (code) return code;
     }
-    return cond;
+    const msg = String(e?.message || '');
+    for (const key of Object.keys(COUPON_ERROR_MAP)) {
+        if (msg.includes(key)) return key;
+    }
+    return '';
+}
+
+/** 将后端 coupon 应用错误（抛错对象或 result.error 字符串）映射为友好提示 */
+function couponErrorMessage(e: any): string {
+    if (typeof e === 'string') {
+        return COUPON_ERROR_MAP[e] || e || '优惠券不可用';
+    }
+    const code = extractCouponErrorCode(e);
+    if (code && COUPON_ERROR_MAP[code]) return COUPON_ERROR_MAP[code];
+    return e?.message || '优惠券不可用';
 }
 
 /**
