@@ -129,7 +129,9 @@
         "startGroup": "发起拼团",
         "peopleJoined": "人已参团",
         "claimCoupon": "领取",
-        "useCoupon": "使用"
+        "useCoupon": "使用",
+        "freeShipping": "免配送费",
+        "couponScopeMismatch": "本券仅限本店商品订单使用"
     },
     "user": {
         "profile": "个人中心",
