@@ -25,6 +25,29 @@ export interface OrderRow {
   customFields?: { deliveryType?: string | null };
 }
 
+const ORDER_FIELDS = `
+      id code state active totalWithTax createdAt currencyCode orderPlacedAt
+      customer { id firstName lastName emailAddress }
+      shippingLines { shippingMethod { id code name } }
+      customFields { deliveryType }
+    `;
+
+export async function fetchShopOrders(opts: OrderListOptions = {}): Promise<{ totalItems: number; items: OrderRow[] }> {
+  const { take = 20, skip = 0 } = opts;
+  const { myShopOrders } = await getAdminClient().request<{
+    myShopOrders: { totalItems: number; items: OrderRow[] };
+  }>(
+    `query ShopOrders($take: Int, $skip: Int) {
+      myShopOrders(options: { take: $take, skip: $skip }) {
+        totalItems
+        items {${ORDER_FIELDS}}
+      }
+    }`,
+    { take, skip },
+  );
+  return myShopOrders as { totalItems: number; items: OrderRow[] };
+}
+
 export interface FulfillmentResult {
   id: string;
   state: string;
