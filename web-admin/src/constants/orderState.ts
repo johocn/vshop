@@ -2,16 +2,22 @@
 export interface StateLabel { label: string; color: string }
 
 export const ORDER_STATES: Record<string, StateLabel> = {
-  Created:           { label: '已下单',   color: '#72767b' },
-  AddingItems:       { label: '加购中',   color: '#72767b' },
-  ArrangingPayment:  { label: '待付款',   color: '#f59e0b' },
-  PaymentAuthorized: { label: '待发货',   color: '#2563eb' },
-  WaitingForShipping:{ label: '待发货',   color: '#2563eb' },
-  PartiallyDelivered:{ label: '部分发货', color: '#2563eb' },
-  Delivered:         { label: '已发货',   color: '#059669' },
-  Completed:         { label: '已完成',   color: '#72767b' },
-  Cancelled:         { label: '已取消',   color: '#e64340' },
-  Modified:          { label: '已修改',   color: '#f59e0b' },
+  Created:               { label: '已下单',     color: '#72767b' },
+  AddingItems:           { label: '加购中',     color: '#72767b' },
+  ArrangingPayment:      { label: '待付款',     color: '#f59e0b' },
+  PaymentAuthorized:     { label: '待发货',     color: '#2563eb' },
+  WaitingForShipping:    { label: '待发货',     color: '#2563eb' },
+  PartiallyPaymentSettled: { label: '部分付款', color: '#f59e0b' },
+  PaymentSettled:        { label: '已付款',     color: '#059669' },
+  PartiallyShipped:      { label: '部分发货',   color: '#2563eb' },
+  Shipped:               { label: '已发货',     color: '#059669' },
+  PartiallyDelivered:    { label: '部分收货',   color: '#2563eb' },
+  Delivered:             { label: '已收货',     color: '#059669' },
+  Completed:             { label: '已完成',     color: '#72767b' },
+  Cancelled:             { label: '已取消',     color: '#e64340' },
+  Modified:              { label: '已修改',     color: '#f59e0b' },
+  Modifying:             { label: '修改中',     color: '#f59e0b' },
+  ArrangingAdditionalPayment: { label: '补款中', color: '#f59e0b' },
 };
 
 export const AFTER_SALE_STATES: Record<string, StateLabel> = {
