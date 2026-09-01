@@ -58,6 +58,9 @@ const groups = [
     { label: '主题风格', url: '/pages/decorate/theme/index', tier: 3 },
     { label: '店铺信息', url: '/pages/decorate/shop-info/index', tier: 3 },
   ]},
+  { domain: '营销', color: D.d5.main, grad: D.d5.grad, items: [
+    { label: '优惠券发行', url: '/pages/coupon/index', tier: 1 },
+  ]},
   { domain: '分销', color: D.d5.main, grad: D.d5.grad, items: [
     { label: '分销关系', url: '/pages/distribution/relations/index', tier: 2 },
     { label: '佣金结算', url: '/pages/distribution/settle/index', tier: 2 },
