@@ -18,13 +18,30 @@
 import { ref, onMounted } from 'vue';
 import {
   fetchCollectionsOptimized, createTenantCollection, renameCollection, deleteCollectionById,
-  saveCategoryMapping, type CategoryMapping,
+  saveCategoryMapping, fetchPlatformCollections, buildCollectionTree, type CategoryMapping,
 } from '../../../apis/collection';
 
 const cats = ref<any[]>([]);
 const mapping = ref<CategoryMapping[]>([]);
-async function reload() { cats.value = await fetchCollectionsOptimized(); }
-onMounted(reload);
+const platTree = ref<Array<{ id: string; name: string; depth: number }>>([]);
+const mappingLoadState = ref<'idle' | 'loading' | 'error'>('idle');
+
+async function reload() {
+  cats.value = await fetchCollectionsOptimized();
+}
+onMounted(() => { reload(); ensurePlatformTree(); });
+
+// 平台（默认租户）分类下拉：懒加载一次
+async function ensurePlatformTree() {
+  if (platTree.value.length || mappingLoadState.value !== 'idle') return;
+  mappingLoadState.value = 'loading';
+  try {
+    platTree.value = buildCollectionTree(await fetchPlatformCollections());
+    mappingLoadState.value = 'ready';
+  } catch {
+    mappingLoadState.value = 'error';
+  }
+}
 
 function promptName(title: string): Promise<string> {
   return new Promise((resolve) => {
@@ -37,28 +54,39 @@ async function onAdd() {
   try { await createTenantCollection({ name }); await reload(); }
   catch (e: any) { uni.showToast({ title: e?.message || '创建失败', icon: 'none' }); }
 }
-// 归位映射：让用户输入该租户分类要映射到的平台分类 id，upsert 到 mapping 后写回当前租户渠道
+
+// 归位映射：从「平台（默认租户）分类」下拉选择，映射到当前租户分类（tenantCategory）
 function onMap(c: any) {
-  const existing = mapping.value.find((m) => m.tenantCategory === c.name)?.collectionId || '';
-  uni.showModal({
-    title: `「${c.name}」归位映射`,
-    editable: true,
-    placeholderText: '输入平台分类 id',
-    editableContent: existing,
-    success: async (r) => {
-      if (!r.confirm) return;
-      const collectionId = (r.content || '').trim();
-      if (!collectionId) return uni.showToast({ title: '请输入平台分类 id', icon: 'none' });
-      const idx = mapping.value.findIndex((m) => m.tenantCategory === c.name);
-      if (idx >= 0) mapping.value[idx] = { tenantCategory: c.name, collectionId };
-      else mapping.value.push({ tenantCategory: c.name, collectionId });
+  if (mappingLoadState.value === 'error' || !platTree.value.length) {
+    uni.showModal({
+      title: '提示',
+      content: mappingLoadState.value === 'error'
+        ? '未能加载平台分类下拉，请稍后重试'
+        : '平台分类为空，无法选择',
+      showCancel: false,
+    });
+    if (mappingLoadState.value === 'error') ensurePlatformTree();
+    return;
+  }
+  const labels = platTree.value.map((p) => p.name.trim());
+  uni.showActionSheet({
+    itemList: ['（取消）', ...labels],
+    success: async (r: any) => {
+      if (r.tapIndex === 0) return;
+      const chosen = platTree.value[r.tapIndex - 1];
+      if (!chosen) return;
+      const record = { tenantCategory: c.name, collectionId: String(chosen.id) };
+      const mi = mapping.value.findIndex((m) => m.tenantCategory === c.name);
+      if (mi >= 0) mapping.value[mi] = record;
+      else mapping.value.push(record);
       try {
         await saveCategoryMapping([...mapping.value]);
-        uni.showToast({ title: '已保存映射', icon: 'success' });
+        uni.showToast({ title: `已映射到「${chosen.name.trim()}」`, icon: 'success' });
       } catch (e: any) {
         uni.showToast({ title: e?.message || '保存映射失败', icon: 'none' });
       }
     },
+    fail: () => {},
   });
 }
 async function onEdit(c: any) {

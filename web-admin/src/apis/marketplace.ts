@@ -64,3 +64,56 @@ export async function submitProductToMarketplace(id: string): Promise<void> {
     { productId: id },
   );
 }
+
+/** 已过审商品：供运营查看分类归属 / 手动归类 */
+export interface ApprovedItem extends MarketplaceApprovalItem {
+  platformCategoryId: string | null;
+  needsCategorization: boolean;
+  listedInMarketplace: boolean;
+}
+
+/** 拉取已过审商品（仅 platform/superadmin） */
+export async function fetchApprovedProducts(): Promise<ApprovedItem[]> {
+  const { approvedMarketplaceProducts } = await getAdminClient().request<{
+    approvedMarketplaceProducts: Array<{
+      id: string;
+      translations?: Array<{ languageCode: string; name?: string | null }>;
+      customFields?: {
+        marketplaceStatus?: string | null;
+        rejectReason?: string | null;
+        platformCategoryId?: string | null;
+        needsCategorization?: boolean | null;
+        listedInMarketplace?: boolean | null;
+      };
+    }>;
+  }>(
+    `query ApprovedMarketplaceProducts {
+      approvedMarketplaceProducts { id translations { languageCode name } customFields { marketplaceStatus rejectReason platformCategoryId needsCategorization listedInMarketplace } }
+    }`,
+  );
+  return (approvedMarketplaceProducts ?? []).map((p) => {
+    const zh = (p.translations ?? []).find(
+      (t) => t.languageCode === 'zh_Hans' || t.languageCode === 'zh-hans',
+    )?.name;
+    const cf = p.customFields ?? {};
+    return {
+      id: p.id,
+      name: zh || p.id,
+      marketplaceStatus: cf.marketplaceStatus ?? 'approved',
+      rejectReason: cf.rejectReason ?? null,
+      platformCategoryId: cf.platformCategoryId ?? null,
+      needsCategorization: !!cf.needsCategorization,
+      listedInMarketplace: !!cf.listedInMarketplace,
+    };
+  });
+}
+
+/** 运营设置平台分类：collectionId 为空则置待归类 */
+export async function setProductPlatformCategory(productId: string, collectionId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation SetProductPlatformCategory($productId: ID!, $collectionId: String) {
+      setProductPlatformCategory(productId: $productId, collectionId: $collectionId)
+    }`,
+    { productId, collectionId: collectionId || null },
+  );
+}
