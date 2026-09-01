@@ -1,5 +1,8 @@
 <template>
   <view class="page">
+    <view class="scope">
+      <text v-for="s in scopes" :key="s.key" :class="{ on: s.key === scope }" @tap="onScope(s.key)">{{ s.label }}</text>
+    </view>
     <view class="tabs">
       <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ s.label }}</text>
     </view>
@@ -28,7 +31,7 @@
 import { ref, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchOrders, OrderRow } from '../../../apis/order';
+import { fetchOrders, fetchShopOrders, OrderRow } from '../../../apis/order';
 import { ORDER_STATES, stateLabel } from '../../../constants/orderState';
 
 const tabs = [
@@ -39,6 +42,12 @@ const tabs = [
   { key: 'Completed', label: '已完成' },
   { key: 'Cancelled', label: '已取消' },
 ];
+// 本店渠道单：走 orderService（ctx 渠道内）；本店商品单：跨渠道按商品 shopId 归集
+const scopes = [
+  { key: 'channel', label: '本店渠道单' },
+  { key: 'shop', label: '本店商品单' },
+];
+const scope = ref('channel');
 const cur = ref('');
 const kw = ref('');
 const items = ref<OrderRow[]>([]);
@@ -70,8 +79,15 @@ function ispickup(o: OrderRow): boolean {
 async function load() {
   loading.value = true;
   try {
-    const { items: list } = await fetchOrders({ take: 20, skip: 0, state: cur.value || undefined, keyword: kw.value });
-    items.value = list;
+    if (scope.value === 'shop') {
+      const res = await fetchShopOrders({ take: 20, skip: 0 });
+      items.value = res.items;
+      totalItems.value = res.totalItems;
+    } else {
+      const { items: list, totalItems: total } = await fetchOrders({ take: 20, skip: 0, state: cur.value || undefined, keyword: kw.value });
+      items.value = list;
+      totalItems.value = total;
+    }
   } finally {
     loading.value = false;
   }
@@ -82,12 +98,25 @@ async function loadMore() {
   if (items.value.length >= totalItems.value && totalItems.value > 0) return;
   loadingMore.value = true;
   try {
-    const { items: more, totalItems: total } = await fetchOrders({ take: 20, skip: items.value.length, state: cur.value || undefined, keyword: kw.value });
-    totalItems.value = total;
-    items.value = items.value.concat(more);
+    if (scope.value === 'shop') {
+      const res = await fetchShopOrders({ take: 20, skip: items.value.length });
+      totalItems.value = res.totalItems;
+      items.value = items.value.concat(res.items);
+    } else {
+      const { items: more, totalItems: total } = await fetchOrders({ take: 20, skip: items.value.length, state: cur.value || undefined, keyword: kw.value });
+      totalItems.value = total;
+      items.value = items.value.concat(more);
+    }
   } finally {
     loadingMore.value = false;
   }
+}
+
+function onScope(key: string) {
+  if (scope.value === key) return;
+  scope.value = key;
+  if (key === 'shop') cur.value = ''; // 本店商品单忽略状态筛选
+  load();
 }
 
 function onTab(key: string) {
@@ -110,6 +139,11 @@ onReachBottom(loadMore);
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
+  .scope { display: flex; margin-bottom: 16rpx; background: $wa-card; border-radius: $wa-radius; padding: 8rpx;
+    text { flex: 1; text-align: center; padding: 16rpx 0; font-size: 26rpx; color: $wa-muted; border-radius: $wa-radius;
+      &.on { color: #fff; background: $wa-ink; font-weight: 600; }
+    }
+  }
   .tabs { display: flex; margin-bottom: 24rpx; background: $wa-card; border-radius: $wa-radius; padding: 8rpx;
     text { flex: 1; text-align: center; padding: 16rpx 0; font-size: 26rpx; color: $wa-muted; border-radius: $wa-radius;
       &.on { color: #fff; background: $wa-accent; font-weight: 600; }

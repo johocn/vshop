@@ -17,9 +17,11 @@ export interface PickupRedemptionItem {
   status: string;
   claimedAt?: string | null;
   claimChannel?: string | null;
+  paymentType?: string | null;
+  collected?: boolean;
 }
 
-const REDEMPTION_FIELDS = `id orderId orderCode code status claimedAt claimChannel`;
+const REDEMPTION_FIELDS = `id orderId orderCode code status claimedAt claimChannel paymentType collected`;
 
 /** 取本店待核销（onlyPending=true，即后端 myPickupOrders/generated）或全部核销记录 */
 export async function fetchPickupOrders(onlyPending = true): Promise<PickupRedemptionItem[]> {
@@ -36,14 +38,14 @@ export async function fetchPickupOrders(onlyPending = true): Promise<PickupRedem
   return res[query]?.items ?? [];
 }
 
-/** 店员核销自提单；成功返回凭据，失败抛对用户友好的 message */
-export async function claimPickup(code: string): Promise<PickupRedemptionItem> {
+/** 店员核销自提单；collect=true 表示同时确认已收款（到店付款单必须 collect=true 才放行）。失败抛对用户友好的 message */
+export async function claimPickup(code: string, collect = true): Promise<PickupRedemptionItem> {
   try {
     const res = await getAdminClient().request<{ claimPickupByShop: PickupRedemptionItem }>(
-      `mutation ClaimPickup($code: String!) {
-        claimPickupByShop(code: $code) { ${REDEMPTION_FIELDS} }
+      `mutation ClaimPickup($code: String!, $collect: Boolean) {
+        claimPickupByShop(code: $code, collect: $collect) { ${REDEMPTION_FIELDS} }
       }`,
-      { code },
+      { code, collect },
     );
     return res.claimPickupByShop;
   } catch (e: any) {
