@@ -501,7 +501,7 @@ function renderBooks(){
 
 /* --- Reader --- */
 function showView(v){
-  ['viewHome','viewReader','viewSearch'].forEach(function(vid){ $id(vid).hidden = (vid!=='view'+v); });
+  ['viewHome','viewReader','viewSearch'].forEach(function(vid){ $id(vid).hidden = (vid.toLowerCase() !== ('view'+v).toLowerCase()); });
   $id('btnBack').hidden = (v==='home');
   $id('btnMenu').style.display = (v==='reader')?'':'none';
   $id('tocFloat').hidden = (v!=='reader');
