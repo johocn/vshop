@@ -21,30 +21,28 @@
         <text v-if="searchKeyword" class="mlm__search-clear" @tap="clearSearch">×</text>
       </view>
 
-      <!-- 分组多行标签过滤（按当前租户，普通用户则本人） -->
+      <!-- 主分类一行（紧凑）+ 子分类（仅展开组显示，从左到右换行） -->
       <view class="mlm__filters">
-        <view class="mlm__group-grid">
-          <view class="mlm__chip" :class="{ on: !activeGroup && !activeTag }" @tap="selectTag('')">全部</view>
+        <view class="mlm__group-row">
+          <view class="mlm__chip mlm__chip-main" :class="{ on: !activeGroup && !activeTag }" @tap="selectTag('')">全部</view>
+          <view
+            v-for="g in tagGroups"
+            :key="g.key"
+            class="mlm__chip mlm__chip-main"
+            :class="{ on: activeGroup === g.key }"
+            @tap="selectGroup(g.key)"
+          >
+            {{ g.title }}<text class="mlm__chip-count">{{ g.count }}</text><text v-if="expandedGroup === g.key" class="mlm__chip-caret">▾</text>
+          </view>
         </view>
-        <view v-for="g in tagGroups" :key="g.key" class="mlm__group">
-          <view class="mlm__group-head" :class="{ on: activeGroup === g.key }">
-            <!-- 箭头：仅折叠，不与大分类冲突 -->
-            <text class="mlm__group-arrow" @tap.stop="toggleGroup(g.key)">{{ collapsedGroups[g.key] ? '▸' : '▾' }}</text>
-            <!-- 标题行：整组过滤（大分类） -->
-            <view class="mlm__group-select" @tap="selectGroup(g.key)">
-              <text class="mlm__group-title">{{ g.title }}</text>
-              <text class="mlm__group-count">{{ g.count }}</text>
-            </view>
-          </view>
-          <view v-if="!collapsedGroups[g.key]" class="mlm__group-grid">
-            <view
-              v-for="t in g.tags"
-              :key="t.name"
-              class="mlm__chip"
-              :class="{ on: activeTag === t.name }"
-              @tap="selectTag(t.name)"
-            >{{ t.name }}<text class="mlm__chip-count">{{ t.count }}</text></view>
-          </view>
+        <view v-if="subTags.length" class="mlm__sub-grid">
+          <view
+            v-for="t in subTags"
+            :key="t.name"
+            class="mlm__chip"
+            :class="{ on: activeTag === t.name }"
+            @tap="selectTag(t.name)"
+          >{{ t.name }}<text class="mlm__chip-count">{{ t.count }}</text></view>
         </view>
       </view>
 
@@ -197,8 +195,13 @@ const selectedTags = ref<string[]>([]);
 const tagInput = ref('');
 const tagSaving = ref(false);
 
-// 分组折叠状态
-const collapsedGroups = ref<Record<string, boolean>>({});
+// 当前展开显示子分类的分组（单值：同一时刻只展开一个主分类，其余折叠，符合"不点击上级就不显示"）
+const expandedGroup = ref('');
+// 按媒体类型优先展开的主分类：图片→商品图，视频→富媒体(视频)，混选→商品图
+const defaultGroupKey = computed(() => {
+  if (props.mediaType === 'video') return 'rich';
+  return 'product'; // image / mixed 均优先商品
+});
 
 // 打标面板
 const panelVisible = ref(false);
@@ -236,6 +239,10 @@ watch(
       searchKeyword.value = '';
       selectedTags.value = [];
       panelVisible.value = false;
+      // 每次打开都回到"默认展开一个主分类"且无过滤的初始态
+      activeGroup.value = '';
+      activeTag.value = '';
+      expandedGroup.value = defaultGroupKey.value;
       loadTags();
       if (!allItems.value.length) load(false);
     }
@@ -289,15 +296,25 @@ const filteredItems = computed(() => {
   );
 });
 
+// 当前展开主分类下的子分类（用于第二行展示；无展开组则为空）
+const subTags = computed(() => {
+  const g = tagGroups.value.find((x) => x.key === expandedGroup.value);
+  return g ? g.tags : [];
+});
+
 function selectTag(tag: string) {
-  // 「全部」= 清空两级过滤
+  // 「全部」= 清空两级过滤，并回到默认展开的主分类（始终保证有一行子分类可看）
   if (tag === '') {
     activeGroup.value = '';
     activeTag.value = '';
+    expandedGroup.value = defaultGroupKey.value;
     load(false);
     return;
   }
-  // 小分类：组内 chip 天然属当前组；再点一次取消（单标）
+  // 小分类：若该标签所属分组并非当前大分类，则把大分类同步为该组（保证高亮一致）
+  const owner = tagGroups.value.find((g) => g.tags.some((t) => t.name === tag));
+  if (owner && activeGroup.value !== owner.key) activeGroup.value = owner.key;
+  // 再点一次取消（单标）
   activeTag.value = activeTag.value === tag ? '' : tag;
   load(false);
 }
@@ -315,16 +332,13 @@ const filterTags = computed<string[] | null>(() => {
   return null;
 });
 
-// 大分类：整组过滤
+// 大分类：整组过滤，并展开其子分类；取消时回到默认展开的主分类（始终有一行子分类）
 function selectGroup(key: string) {
   // 已是该组则取消（回到全部），否则设为该组并清空小分类
   activeGroup.value = activeGroup.value === key ? '' : key;
   activeTag.value = '';
+  expandedGroup.value = activeGroup.value || defaultGroupKey.value;
   load(false);
-}
-
-function toggleGroup(key: string) {
-  collapsedGroups.value[key] = !collapsedGroups.value[key];
 }
 
 function toggleTagOnSelected(tag: string) {
@@ -701,65 +715,48 @@ function onClose() {
     padding: 0 8rpx;
   }
 
-  // 分组多行网格
+  // 主分类一行 + 子分类（第二行）
   &__filters {
     max-height: 30vh;
     overflow-y: auto;
-    padding: 2rpx 16rpx 8rpx;
+    padding: 12rpx 16rpx 12rpx;
     border-bottom: 1rpx solid $wa-rule;
     background: $wa-card;
     box-sizing: border-box;
   }
-  &__group {
-    margin-top: 6rpx;
-  }
-  &__group-head {
-    display: flex;
-    align-items: center;
-    gap: 6rpx;
-    padding: 2rpx 2rpx;
-    &.on {
-      .mlm__group-title {
-        color: $wa-accent;
-        font-weight: 700;
-      }
-      .mlm__group-select {
-        background: rgba($wa-accent, 0.08);
-      }
-    }
-  }
-  &__group-select {
-    display: flex;
-    align-items: center;
-    gap: 8rpx;
-    padding: 4rpx 12rpx;
-    border-radius: 999rpx;
-  }
-  &__group-arrow {
-    font-size: 20rpx;
-    color: $wa-muted;
-    padding: 6rpx 12rpx;
-  }
-  &__group-title {
-    font-size: 22rpx;
-    font-weight: 600;
-    color: $wa-ink;
-  }
-  &__group-count {
-    font-size: 18rpx;
-    color: $wa-muted;
-  }
-  &__group-grid {
+  &__group-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8rpx;
-    padding: 2rpx 0 6rpx;
+    gap: 6rpx;
+  }
+  &__chip-main {
+    padding: 6rpx 14rpx;
+    font-size: 22rpx;
+    font-weight: 600;
+    &.on {
+      color: $wa-accent;
+      border-color: $wa-accent;
+      background: rgba($wa-accent, 0.1);
+    }
+  }
+  &__chip-caret {
+    font-size: 16rpx;
+    color: $wa-accent;
+    padding: 0 0 0 2rpx;
+  }
+  &__sub-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6rpx;
+    padding: 12rpx 0 2rpx;
+    margin-top: 12rpx;
+    border-top: 1rpx solid rgba(0, 0, 0, 0.05);
   }
   &__chip {
     display: inline-flex;
     align-items: center;
     gap: 4rpx;
-    padding: 3rpx 12rpx;
+    padding: 2rpx 10rpx;
     border-radius: 999rpx;
     font-size: 20rpx;
     color: $wa-ink;

@@ -12,6 +12,46 @@ export async function fetchCollectionsOptimized(take = 50): Promise<CollectionIt
   return collections.items;
 }
 
+export interface PlatformCollectionNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
+/**
+ * 平台（默认租户）分类列表：审批手动归类 / 租户归位映射下拉用。
+ * 始终取 default channel 的分类，避免拿到登录租户渠道自己的分类。
+ */
+export async function fetchPlatformCollections(): Promise<PlatformCollectionNode[]> {
+  const { platformCollections } = await getAdminClient().request<{
+    platformCollections: PlatformCollectionNode[];
+  }>(`query PlatformCollections { platformCollections { id name parentId } }`);
+  return platformCollections ?? [];
+}
+
+/** 按 id 建立 父->子 有序树，返回带层级缩进的分层节点，用于下拉选择 */
+export function buildCollectionTree(
+  list: PlatformCollectionNode[],
+  indent = '　',
+): Array<{ id: string; name: string; depth: number }> {
+  const byParent = new Map<string | null, PlatformCollectionNode[]>();
+  for (const it of list) {
+    const k = it.parentId == null ? null : String(it.parentId);
+    if (!byParent.has(k)) byParent.set(k, []);
+    byParent.get(k)!.push(it);
+  }
+  const out: Array<{ id: string; name: string; depth: number }> = [];
+  const walk = (nodes: PlatformCollectionNode[] | undefined, depth: number) => {
+    if (!nodes) return;
+    for (const n of nodes) {
+      out.push({ id: n.id, name: indent.repeat(depth) + n.name, depth });
+      walk(byParent.get(String(n.id)), depth + 1);
+    }
+  };
+  walk(byParent.get(null) ?? [], 0);
+  return out;
+}
+
 interface CollectionInput {
   name: string;
   slug?: string;
