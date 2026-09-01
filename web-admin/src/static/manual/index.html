@@ -514,7 +514,37 @@ var CHAPTERS = [
 <details><summary>商户提交商品时报「配送档案/支付档案/分类」必选？</summary><p>请先在该商户后台为商品配置对应的配送档案、支付档案与分类；这些档案与拆单、结算规则强相关，属校验拦截而非异常。</p></details>
 <details><summary>为什么找不到「商品上架审批」菜单？</summary><p>该入口仅对平台超管开放，请确认当前登录账号为平台超管角色。</p></details>
 <details><summary>驳回后商品还能再提交吗？</summary><p>可以。查看驳回原因并修正后，再次执行「提交上架到默认站点」即可重新进入待审队列。</p></details>
-<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`}
+<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`},
+
+{book:'op', id:'op-12', title:'优惠券（多租户发行与使用）', html:`
+<p class="lead">优惠券由<mark class="mark">每个租户（店铺）独立发行</mark>，买家可在本店或默认商城领取使用。系统支持满减、折扣、无门槛直减与<mark class="mark">免邮券</mark>四种类型，券名与说明支持多语言。</p>
+<h3>优惠券类型</h3>
+<table>
+  <thead><tr><th>类型</th><th>含义</th><th>示例</th></tr></thead>
+  <tbody>
+    <tr><td>FIXED</td><td>满额立减（需满足门槛）</td><td>满 100 减 20</td></tr>
+    <tr><td>PERCENT</td><td>按折扣比例优惠</td><td>8.5 折</td></tr>
+    <tr><td>FULL</td><td>无门槛直减</td><td>立减 10 元</td></tr>
+    <tr><td class="mark">FREE_SHIPPING</td><td>免配送费</td><td>全场免邮券</td></tr>
+  </tbody>
+</table>
+<h3>发行与使用范围</h3>
+<div class="card"><b>每租户发行</b><br/>优惠券归属发行店铺（shopId），管理员只能管理<mark class="mark">本店发行的券</mark>，无法查看/编辑其他店铺的券。</div>
+<div class="card"><b>使用范围</b><br/>券可用于<mark class="mark">本店商品</mark>或<mark class="mark">默认租户（默认商城）</mark>。在默认商城使用时，仅当订单包含<mark class="mark">本店商品行</mark>才可核销，且折扣只作用于本店商品行。</div>
+<div class="card"><b>多语言</b><br/>券名与说明支持 zh-CN / en-US 等多语言，按买家当前语言自动显示对应文案。</div>
+<h3>买家端：领券中心与我的券包</h3>
+<p>商城「优惠券」页提供<mark class="mark">领券中心</mark>（浏览并领取可领券）与<mark class="mark">我的券包</mark>（按未使用/已使用/已过期查看已领券）两个 Tab。</p>
+<img class="img" src="shots/o03_coupon_centre.png" alt="领券中心-全场免邮券与满减券">
+<div class="imgcap">图 O3 · 领券中心（免邮券 + 满减券，券名按语言显示）</div>
+<img class="img" src="shots/o04_coupon_wallet.png" alt="我的券包-状态筛选">
+<div class="imgcap">图 O4 · 我的券包（未使用 / 已使用 / 已过期筛选）</div>
+<h3>管理端：发券与券管理</h3>
+<p>后台「优惠券管理」入口可<mark class="mark">创建 / 编辑 / 启停 / 删除</mark>本店优惠券，配置类型、面额、门槛、有效期、限量与多语言名称。</p>
+<img class="img" src="shots/o05_coupon_admin_list.png" alt="优惠券管理-列表">
+<div class="imgcap">图 O5 · 优惠券管理列表</div>
+<img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
+<div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
