@@ -296,6 +296,50 @@ var CHAPTERS = [
 <details><summary>改完装修/商品，买家看到的还是旧样</summary><p>部分环境（尤其微信浏览器）会缓存 <code>index.html</code>。系统已对首页设置 <code>no-cache</code>，正常情况下刷新即可。</p></details>
 <details><summary>订单取消了，为什么库存看起来还占着</summary><p>请核查订单是否还停在「支付中」等中间态。确认订单确实取消/退款后库存会自动回补；若长期异常可联系平台核查该单。</p></details>`},
 
+{book:'op', id:'op-10', title:'到店自提核销与收款', html:`
+<p class="lead">到店自提是<mark class="mark">线上支付 / 到店收款</mark>两种资金形态并存的一种履约方式。本手册带你掌握「扫码核销」、「收款确认」与「防漏收」的运营要点。</p>
+<h3>两种收款形态</h3>
+<table>
+  <thead><tr><th>形态</th><th>识别</th><th>收款时机</th></tr></thead>
+  <tbody>
+    <tr><td>线上支付</td><td>余额 / 在线支付等</td><td>下单即已收款</td></tr>
+    <tr><td class="mark">到店收款</td><td>货到付款 / 固定聚合码收款</td><td><strong>提货当刻由店员确认收款</strong></td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>防漏收设计：</b>到店收款单在店员<mark class="mark">确认收款前不可核销</mark>，系统以核销动作作为「已收款」的事实来源，为发货环节是否收费提供依据，防止忘记收款。</div>
+<h3>核销入口</h3>
+<p>管理后台进入「到店自提核销」页，可<mark class="mark">扫码（扫一扫）或手动输入 6 位核销码</mark>完成核销。列表展示每张自提单的核销码与收款状态（待到店收款 / 已收款）。</p>
+<img class="img" src="shots/o01_redeem_scan.png" alt="核销页-扫码入口与待核销列表">
+<div class="imgcap">图 O1 · 核销页（扫码入口 + 待核销自提单收款状态）</div>
+<h3>确认收款的建议流程</h3>
+<ol class="steps">
+  <li><b>核对核销码</b>：扫码或输入买家出示的 6 位码。</li>
+  <li><b>查验收款</b>：若是「待到店收款」单，<mark class="mark">先确认实际已收款</mark>。</li>
+  <li><b>确认核销</b>：核销即视为已收款，系统自动标记，订单方可进入发货/履约环节。</li>
+</ol>
+<div class="tip"><b>为什么扫码即可：</b>店员到店核销即确认已收款（到店收银单必须 <code>collect=true</code> 后端才放行），从机制上杜绝「没收款就交付」。</div>`},
+
+{book:'op', id:'op-11', title:'商户订单可见性（本店商品单）', html:`
+<p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
+<h3>双维度切换</h3>
+<table>
+  <thead><tr><th>维度</th><th>口径</th><th>适用</th></tr></thead>
+  <tbody>
+    <tr><td>本店渠道单</td><td>当前店铺（Channel）内直接产生的订单</td><td>自营店内成交</td></tr>
+    <tr><td class="mark">本店商品单</td><td>含当前店铺商品、在任何渠道成交的订单（按商品 shopId 归集）</td><td>在默认商城售出的本店商品</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>为什么需要它：</b>商户在默认商城上架的商品，订单归属默认商城渠道。仅看「本店渠道单」会<mark class="mark">漏掉这部分销售</mark>；切到「本店商品单」即可完整核对本店商品的所有成交。</div>
+<img class="img" src="shots/o02_order_shop_scope.png" alt="订单列表-本店商品单维度">
+<div class="imgcap">图 O2 · 订单列表「本店商品单」维度（跨渠道归集本店商品订单）</div>
+<h3>操作要点</h3>
+<ol class="steps">
+  <li><b>切到「本店商品单」</b>：回到后台「订单列表」，顶部在「本店渠道单 / 本店商品单」间切换。</li>
+  <li><b>结合状态筛选</b>：配合待付款 / 待发货 / 已发货等状态 Tab，快速定位该处理的单。</li>
+  <li><b>保证金流对照</b>：对本店商品单同样遵守上述到店自提核销收款规则，避免漏收。</li>
+</ol>
+<div class="tip"><b>口径说明：</b>「本店商品单」忽略渠道状态筛选，展示的是<mark class="mark">所有含本店商品的成交</mark>，含默认商城等外部渠道；金额为含税总价，与渠道单互补但不重复计数。</div>`},
+
 /* ===================== 入驻审批 ===================== */
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
