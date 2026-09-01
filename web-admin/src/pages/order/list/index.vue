@@ -31,7 +31,7 @@
 import { ref, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchOrders, fetchShopOrders, OrderRow } from '../../../apis/order';
+import { fetchOrders, fetchShopOrders, ShopOrderRow, OrderRow } from '../../../apis/order';
 import { ORDER_STATES, stateLabel } from '../../../constants/orderState';
 
 const tabs = [
@@ -76,13 +76,27 @@ function ispickup(o: OrderRow): boolean {
   return o.customFields?.deliveryType === 'pickup';
 }
 
+function toRow(s: ShopOrderRow): OrderRow {
+  return {
+    id: s.orderId,
+    code: s.code,
+    state: s.state,
+    active: false,
+    totalWithTax: s.totalWithTax,
+    createdAt: s.placedAt || '',
+    currencyCode: s.currencyCode,
+    orderPlacedAt: s.placedAt,
+    customer: { id: '', firstName: s.customerName || '', lastName: '', emailAddress: '' },
+  };
+}
+
 async function load() {
   loading.value = true;
   try {
     if (scope.value === 'shop') {
-      const res = await fetchShopOrders({ take: 20, skip: 0 });
-      items.value = res.items;
-      totalItems.value = res.totalItems;
+      const list = await fetchShopOrders();
+      items.value = list.map(toRow);
+      totalItems.value = list.length;
     } else {
       const { items: list, totalItems: total } = await fetchOrders({ take: 20, skip: 0, state: cur.value || undefined, keyword: kw.value });
       items.value = list;
@@ -99,9 +113,9 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     if (scope.value === 'shop') {
-      const res = await fetchShopOrders({ take: 20, skip: items.value.length });
-      totalItems.value = res.totalItems;
-      items.value = items.value.concat(res.items);
+      const list = await fetchShopOrders();
+      totalItems.value = list.length;
+      items.value = list.map(toRow);
     } else {
       const { items: more, totalItems: total } = await fetchOrders({ take: 20, skip: items.value.length, state: cur.value || undefined, keyword: kw.value });
       totalItems.value = total;
