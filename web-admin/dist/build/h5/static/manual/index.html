@@ -296,6 +296,50 @@ var CHAPTERS = [
 <details><summary>改完装修/商品，买家看到的还是旧样</summary><p>部分环境（尤其微信浏览器）会缓存 <code>index.html</code>。系统已对首页设置 <code>no-cache</code>，正常情况下刷新即可。</p></details>
 <details><summary>订单取消了，为什么库存看起来还占着</summary><p>请核查订单是否还停在「支付中」等中间态。确认订单确实取消/退款后库存会自动回补；若长期异常可联系平台核查该单。</p></details>`},
 
+{book:'op', id:'op-10', title:'到店自提核销与收款', html:`
+<p class="lead">到店自提是<mark class="mark">线上支付 / 到店收款</mark>两种资金形态并存的一种履约方式。本手册带你掌握「扫码核销」、「收款确认」与「防漏收」的运营要点。</p>
+<h3>两种收款形态</h3>
+<table>
+  <thead><tr><th>形态</th><th>识别</th><th>收款时机</th></tr></thead>
+  <tbody>
+    <tr><td>线上支付</td><td>余额 / 在线支付等</td><td>下单即已收款</td></tr>
+    <tr><td class="mark">到店收款</td><td>货到付款 / 固定聚合码收款</td><td><strong>提货当刻由店员确认收款</strong></td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>防漏收设计：</b>到店收款单在店员<mark class="mark">确认收款前不可核销</mark>，系统以核销动作作为「已收款」的事实来源，为发货环节是否收费提供依据，防止忘记收款。</div>
+<h3>核销入口</h3>
+<p>管理后台进入「到店自提核销」页，可<mark class="mark">扫码（扫一扫）或手动输入 6 位核销码</mark>完成核销。列表展示每张自提单的核销码与收款状态（待到店收款 / 已收款）。</p>
+<img class="img" src="shots/o01_redeem_scan.png" alt="核销页-扫码入口与待核销列表">
+<div class="imgcap">图 O1 · 核销页（扫码入口 + 待核销自提单收款状态）</div>
+<h3>确认收款的建议流程</h3>
+<ol class="steps">
+  <li><b>核对核销码</b>：扫码或输入买家出示的 6 位码。</li>
+  <li><b>查验收款</b>：若是「待到店收款」单，<mark class="mark">先确认实际已收款</mark>。</li>
+  <li><b>确认核销</b>：核销即视为已收款，系统自动标记，订单方可进入发货/履约环节。</li>
+</ol>
+<div class="tip"><b>为什么扫码即可：</b>店员到店核销即确认已收款（到店收银单必须 <code>collect=true</code> 后端才放行），从机制上杜绝「没收款就交付」。</div>`},
+
+{book:'op', id:'op-11', title:'商户订单可见性（本店商品单）', html:`
+<p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
+<h3>双维度切换</h3>
+<table>
+  <thead><tr><th>维度</th><th>口径</th><th>适用</th></tr></thead>
+  <tbody>
+    <tr><td>本店渠道单</td><td>当前店铺（Channel）内直接产生的订单</td><td>自营店内成交</td></tr>
+    <tr><td class="mark">本店商品单</td><td>含当前店铺商品、在任何渠道成交的订单（按商品 shopId 归集）</td><td>在默认商城售出的本店商品</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>为什么需要它：</b>商户在默认商城上架的商品，订单归属默认商城渠道。仅看「本店渠道单」会<mark class="mark">漏掉这部分销售</mark>；切到「本店商品单」即可完整核对本店商品的所有成交。</div>
+<img class="img" src="shots/o02_order_shop_scope.png" alt="订单列表-本店商品单维度">
+<div class="imgcap">图 O2 · 订单列表「本店商品单」维度（跨渠道归集本店商品订单）</div>
+<h3>操作要点</h3>
+<ol class="steps">
+  <li><b>切到「本店商品单」</b>：回到后台「订单列表」，顶部在「本店渠道单 / 本店商品单」间切换。</li>
+  <li><b>结合状态筛选</b>：配合待付款 / 待发货 / 已发货等状态 Tab，快速定位该处理的单。</li>
+  <li><b>保证金流对照</b>：对本店商品单同样遵守上述到店自提核销收款规则，避免漏收。</li>
+</ol>
+<div class="tip"><b>口径说明：</b>「本店商品单」忽略渠道状态筛选，展示的是<mark class="mark">所有含本店商品的成交</mark>，含默认商城等外部渠道；金额为含税总价，与渠道单互补但不重复计数。</div>`},
+
 /* ===================== 入驻审批 ===================== */
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
@@ -470,7 +514,63 @@ var CHAPTERS = [
 <details><summary>商户提交商品时报「配送档案/支付档案/分类」必选？</summary><p>请先在该商户后台为商品配置对应的配送档案、支付档案与分类；这些档案与拆单、结算规则强相关，属校验拦截而非异常。</p></details>
 <details><summary>为什么找不到「商品上架审批」菜单？</summary><p>该入口仅对平台超管开放，请确认当前登录账号为平台超管角色。</p></details>
 <details><summary>驳回后商品还能再提交吗？</summary><p>可以。查看驳回原因并修正后，再次执行「提交上架到默认站点」即可重新进入待审队列。</p></details>
-<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`}
+<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`},
+
+{book:'op', id:'op-12', title:'优惠券（多租户发行与使用）', html:`
+<p class="lead">优惠券由<mark class="mark">每个租户（店铺）独立发行</mark>，买家可在本店或默认商城领取使用。系统支持满减、折扣、无门槛直减与<mark class="mark">免邮券</mark>四种类型，券名与说明支持多语言。</p>
+<h3>优惠券类型</h3>
+<table>
+  <thead><tr><th>类型</th><th>含义</th><th>示例</th></tr></thead>
+  <tbody>
+    <tr><td>FIXED</td><td>满额立减（需满足门槛）</td><td>满 100 减 20</td></tr>
+    <tr><td>PERCENT</td><td>按折扣比例优惠</td><td>8.5 折</td></tr>
+    <tr><td>FULL</td><td>无门槛直减</td><td>立减 10 元</td></tr>
+    <tr><td class="mark">FREE_SHIPPING</td><td>免配送费</td><td>全场免邮券</td></tr>
+  </tbody>
+</table>
+<h3>发行与使用范围</h3>
+<div class="card"><b>每租户发行</b><br/>优惠券归属发行店铺（shopId），管理员只能管理<mark class="mark">本店发行的券</mark>，无法查看/编辑其他店铺的券。</div>
+<div class="card"><b>使用范围</b><br/>券可用于<mark class="mark">本店商品</mark>或<mark class="mark">默认租户（默认商城）</mark>。在默认商城使用时，仅当订单包含<mark class="mark">本店商品行</mark>才可核销，且折扣只作用于本店商品行。</div>
+<div class="card"><b>多语言</b><br/>券名与说明支持 zh-CN / en-US 等多语言，按买家当前语言自动显示对应文案。</div>
+<h3>买家端：领券中心与我的券包</h3>
+<p>商城「优惠券」页提供<mark class="mark">领券中心</mark>（浏览并领取可领券）与<mark class="mark">我的券包</mark>（按未使用/已使用/已过期查看已领券）两个 Tab。</p>
+<img class="img" src="shots/o03_coupon_centre.png" alt="领券中心-全场免邮券与满减券">
+<div class="imgcap">图 O3 · 领券中心（免邮券 + 满减券，券名按语言显示）</div>
+<img class="img" src="shots/o04_coupon_wallet.png" alt="我的券包-状态筛选">
+<div class="imgcap">图 O4 · 我的券包（未使用 / 已使用 / 已过期筛选）</div>
+<h3>管理端：发券与券管理</h3>
+<p>后台「优惠券管理」入口可<mark class="mark">创建 / 编辑 / 启停 / 删除</mark>本店优惠券，配置类型、面额、门槛、有效期、限量与多语言名称。</p>
+<img class="img" src="shots/o05_coupon_admin_list.png" alt="优惠券管理-列表">
+<div class="imgcap">图 O5 · 优惠券管理列表</div>
+<img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
+<div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`},
+{book:'op', id:'op-13', title:'nshop 结账页中国本地化（cn 版式）', html:`
+<p class="lead">nshop 结账页默认采用<mark class="mark">中国本地化 cn 版式</mark>：收货信息一体卡 + 配送/自提分箱模块 + 底部吸底结算栏 + 提交前协议勾选。版式经<mark class="mark">四级可回退风格系统</mark>管控，可在 cn / jd / legacy 间切换。</p>
+<h3>收货信息一体卡</h3>
+<p>物流箱的收货信息以<mark class="mark">收货人 + 电话 + 省市区 + 详细地址</mark>一体卡片展示，右上「切换地址」可换地址或新增；自提单不显示地址块，仅在需联系方式时展示联系人。</p>
+<img class="img" src="shots/o08_checkout_cn_contact.png" alt="收货信息一体卡-姓名电话省市区">
+<div class="imgcap">图 O8 · 收货信息一体卡（赵测试 / 13800138000 / 北京市·北京·测试路1号）</div>
+<h3>底部吸底结算栏</h3>
+<p>移动端底部吸底栏显示<mark class="mark">应付合计 + 「去结算」按钮 + 协议勾选</mark>，可展开/收起订单明细，支持安全区适配（<code>safe-area-inset-bottom</code>）。有可用券时经「优惠券」抽屉选择抵扣。</p>
+<img class="img" src="shots/o07_checkout_cn_bar.png" alt="底部吸底结算栏-合计去结算与协议勾选">
+<div class="imgcap">图 O7 · 底部吸底结算栏（合计 ¥687.74 + 去结算 + 协议勾选）</div>
+<h3>提交前协议拦截</h3>
+<p>未勾选《用户服务协议》/《隐私政策》点「去结算」时，系统弹出<mark class="mark">黄色提示「请先勾选同意服务协议与隐私政策后再提交订单」</mark>并<mark class="mark">阻断提交</mark>，不会生成订单。</p>
+<img class="img" src="shots/o09_checkout_cn_agreement.png" alt="未勾选协议去结算的拦截提示">
+<div class="imgcap">图 O9 · 未勾选协议时的提交拦截提示</div>
+<div class="note"><b>版式回退：</b>cn 为默认版式；若需切换京东新版 jd 或旧版 legacy，改结算页 <code>checkLayout</code> 配置即可降落回退，无需改动功能块。</div>`},
+{book:'op', id:'op-14', title:'结算页逐箱结算：商户分账与地址字段', html:`
+<p class="lead">结算页按<mark class="mark">商家分组 → 逐箱卡片</mark>组织，多商家/多配送档案各自成箱；下方「分账明细」汇总各商户应收金额，与订单实收口径一致。</p>
+<h3>分账明细与应付款总额</h3>
+<p>结算提交前，页面展示<mark class="mark">「分账明细」列表 + 应付款总额</mark>：按商户逐行列出其应计入金额，并显式提示<mark class="mark">「将合并为 1 单支付」</mark>。各箱商品小计、运费逐行核算，实收按商户分账记账。</p>
+<img class="img" src="shots/o10_checkout_merchant_split.png" alt="结算页分账明细-应按商户分账与应付款总额">
+<div class="imgcap">图 O10 · 结算页分账明细（校验商户分账金额 + 应付款总额 + 合并一单提示）</div>
+<h3>地址字段对齐（邮编物流必填 + 公司选填）</h3>
+<p>物流配送地址表单字段严格对齐 Vendure <code>Address</code>：<mark class="mark">收货人 / 电话 / 省市区 / 详细地址 / 邮编必填</mark>，其中<mark class="mark">邮政编码为物流必填</mark>（自提无地址不涉及）；<mark class="mark">公司、地址2（楼栋/楼层/门牌）为选填</mark>，空表提交会本地校验拦截。</p>
+<img class="img" src="shots/o11_address_company_postal.png" alt="地址表单-公司选填与邮政编码必填">
+<div class="imgcap">图 O11 · 地址表单（公司（选填）+ 邮政编码必填）</div>
+<div class="note"><b>说明：</b>自提订单不采集收货地址因此无邮编；仅物流配送需邮编。合并支付时各商户分账按台账记账，通道级分账属后续 Roadmap。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
