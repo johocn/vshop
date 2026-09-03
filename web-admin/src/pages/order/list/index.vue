@@ -95,8 +95,18 @@ async function load() {
   try {
     if (scope.value === 'shop') {
       const list = await fetchShopOrders();
-      items.value = list.map(toRow);
       totalItems.value = list.length;
+      // 本店商品单也按状态 tab + 关键词本地过滤（全量归集后前端筛）
+      let rows = list;
+      if (cur.value) rows = rows.filter((o) => o.state === cur.value);
+      if (kw.value) {
+        const k = kw.value.trim().toLowerCase();
+        rows = rows.filter((o) =>
+          (o.code || '').toLowerCase().includes(k) ||
+          (o.customerName || '').toLowerCase().includes(k),
+        );
+      }
+      items.value = rows.map(toRow);
     } else {
       const { items: list, totalItems: total } = await fetchOrders({ take: 20, skip: 0, state: cur.value || undefined, keyword: kw.value });
       items.value = list;
@@ -113,9 +123,8 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     if (scope.value === 'shop') {
-      const list = await fetchShopOrders();
-      totalItems.value = list.length;
-      items.value = list.map(toRow);
+      // myShopOrders 全量一次返回，首屏 load() 已全部过滤取回，无需二次加载
+      return;
     } else {
       const { items: more, totalItems: total } = await fetchOrders({ take: 20, skip: items.value.length, state: cur.value || undefined, keyword: kw.value });
       totalItems.value = total;
@@ -129,7 +138,6 @@ async function loadMore() {
 function onScope(key: string) {
   if (scope.value === key) return;
   scope.value = key;
-  if (key === 'shop') cur.value = ''; // 本店商品单忽略状态筛选
   load();
 }
 
