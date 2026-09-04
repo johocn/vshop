@@ -49,6 +49,7 @@
           <text class="total">¥{{ fmtMoney(o.total) }}</text>
         </view>
         <view class="actions">
+          <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
           <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
           <text class="act ghost" @tap="goDetail(o)">详情</text>
         </view>
@@ -78,6 +79,7 @@
         <text class="c-time">{{ fmtTime(o.time) }}</text>
         <text class="c-st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
         <view class="c-ops">
+          <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
           <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
           <text class="act ghost" @tap="goDetail(o)">详情</text>
         </view>
@@ -101,6 +103,7 @@ import {
   channelToView,
   shopToView,
   isGhostView,
+  isShippable,
   fmtMoney,
   computeStats,
   OrderView,
@@ -228,6 +231,9 @@ function onTab(key: string) {
 }
 function onSearch() {
   load();
+}
+function goShip(o: OrderView) {
+  uni.navigateTo({ url: `/pages/order/ship/index?id=${o.id}` });
 }
 function goDetail(o: OrderView) {
   uni.navigateTo({ url: `/pages/order/detail/index?id=${o.id}` });
@@ -370,7 +376,8 @@ onReachBottom(loadMore);
         gap: 16rpx;
         margin-top: 20rpx;
         .act { font-size: 26rpx; padding: 10rpx 30rpx; border-radius: 8rpx; }
-        .redeem { color: #fff; background: $wa-accent; }
+        .ship { color: #fff; background: $wa-accent; }
+        .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
         .ghost { color: $wa-ink; background: #eef1f6; }
       }
     }
@@ -407,7 +414,8 @@ onReachBottom(loadMore);
         display: flex;
         gap: 10rpx;
         .act { font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .redeem { color: #fff; background: $wa-accent; }
+        .ship { color: #fff; background: $wa-accent; }
+        .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
         .ghost { color: $wa-ink; background: #eef1f6; }
       }
     }
