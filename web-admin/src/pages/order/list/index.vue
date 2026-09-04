@@ -1,23 +1,22 @@
 <template>
   <view class="page">
-    <view class="topbar">
+    <view class="headbar">
       <text class="title">订单</text>
+      <view class="stats">
+        <view class="stat">
+          <text class="num">{{ stats.today }}</text>
+          <text class="lbl">今日订单</text>
+        </view>
+        <view class="stat">
+          <text class="num">{{ stats.toShip }}</text>
+          <text class="lbl">待发货</text>
+        </view>
+        <view class="stat">
+          <text class="num">{{ stats.refund }}</text>
+          <text class="lbl">待退款</text>
+        </view>
+      </view>
       <view class="redeem-btn" @tap="goRedeemPage">核销码</view>
-    </view>
-
-    <view class="stats">
-      <view class="stat">
-        <text class="num">{{ stats.today }}</text>
-        <text class="lbl">今日订单</text>
-      </view>
-      <view class="stat">
-        <text class="num">{{ stats.toShip }}</text>
-        <text class="lbl">待发货</text>
-      </view>
-      <view class="stat">
-        <text class="num">{{ stats.refund }}</text>
-        <text class="lbl">待退款</text>
-      </view>
     </view>
 
     <view class="scope">
@@ -256,12 +255,12 @@ onReachBottom(loadMore);
   background: $wa-bg;
   padding: 24rpx 32rpx 160rpx;
 
-  .topbar {
+  .headbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16rpx;
-    .title { font-size: 34rpx; color: $wa-ink; font-weight: 700; }
+    margin-bottom: 20rpx;
+    .title { font-size: 34rpx; color: $wa-ink; font-weight: 700; margin-right: auto; }
     .redeem-btn {
       background: $wa-accent;
       color: #fff;
@@ -273,16 +272,12 @@ onReachBottom(loadMore);
 
   .stats {
     display: flex;
+    flex: 1 0 100%;
+    order: 3;
     gap: 16rpx;
-    margin-bottom: 20rpx;
-    .stat {
-      flex: 1;
-      background: $wa-card;
-      border-radius: $wa-radius;
-      padding: 20rpx 0;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
+    margin-top: 16rpx;
+    margin-bottom: 0;
+    .stat { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 20rpx 0; text-align: center; display: flex; flex-direction: column;
       .num { font-size: 36rpx; color: $wa-ink; font-weight: 700; }
       .lbl { margin-top: 6rpx; font-size: 22rpx; color: $wa-muted; }
     }
@@ -422,5 +417,9 @@ onReachBottom(loadMore);
   .page { padding: 24px 32px 120px; }
   .page .card-list { display: none; }
   .page .dt { display: block; }
+  .page .headbar { flex-wrap: nowrap; }
+  .page .headbar .stats { flex: 1; order: 1; margin: 0 24px; }
+  .page .headbar .title { order: 0; }
+  .page .headbar .redeem-btn { order: 2; }
 }
 </style>
