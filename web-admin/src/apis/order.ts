@@ -26,7 +26,7 @@ export interface OrderRow {
   shippingLines?: Array<{
     shippingMethod: { id: string; code: string; name: string } | null;
   }>;
-  lines?: Array<{ quantity: number; productVariant?: { name: string } | null; linePriceWithTax?: number }>;
+  lines?: Array<{ quantity: number; productVariant?: { name: string; featuredAsset?: { source?: string | null } | null } | null; linePriceWithTax?: number }>;
   payments?: Array<{ method?: string }>;
   customFields?: { deliveryType?: string | null; pickupClaimed?: boolean | null };
 }
@@ -35,7 +35,7 @@ export interface OrderRow {
 const ORDER_FIELDS = `
   id code state active totalWithTax totalQuantity createdAt currencyCode orderPlacedAt
   customer { id firstName lastName emailAddress phoneNumber }
-  lines { quantity productVariant { name } linePriceWithTax }
+  lines { quantity productVariant { name featuredAsset { source } } linePriceWithTax }
   shippingAddress { phoneNumber }
   shippingLines { shippingMethod { id code name } }
   payments { method }
