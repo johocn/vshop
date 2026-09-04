@@ -38,7 +38,8 @@
   - `OrderRow.lines[].productVariant` 增 `featuredAsset?: { source?: string } | null`。
   - `ORDER_FIELDS` 中 `lines` 段补 `featuredAsset { source }`。
 - 视图模型（`src/utils/orderFormat.ts`）：`OrderGood` 增 `image?: string`；
-  `channelToView` 从 `l.productVariant?.featuredAsset?.source` 取图。
+  `channelToView` 从 `l.productVariant?.featuredAsset?.source` 取图，**并动态拼当前访问域名**
+  （`image = deriveOrigin() + source`，禁止硬编码域名，遵循项目多城市资源统一规范）。
   `shopToView` **不取图**（`myShopOrders` 接口无此字段），`image` 为空。
 - 模板商品行：`g.image` 存在则渲染缩略图 `<image>`；否则渲染中性占位块（浅灰底，不破版）。
 - 桌面表格 `c-goods` 列保持纯文本，不加缩略图（设计表格无图）。
