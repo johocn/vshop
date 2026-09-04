@@ -17,20 +17,29 @@ export interface OrderRow {
   state: string;
   active: boolean;
   totalWithTax: number;
+  totalQuantity: number;
   createdAt: string;
   currencyCode: string;
   orderPlacedAt?: string | null;
-  customer?: { id: string; firstName: string; lastName: string; emailAddress?: string } | null;
-  shippingLines?: Array<{ shippingMethod: { id: string; code: string; name: string } | null }>;
-  customFields?: { deliveryType?: string | null };
+  customer?: { id: string; firstName: string; lastName: string; emailAddress?: string; phoneNumber?: string } | null;
+  shippingLines?: Array<{
+    shippingMethod: { id: string; code: string; name: string } | null;
+    shippingAddress?: { phoneNumber?: string | null } | null;
+  }>;
+  lines?: Array<{ quantity: number; productVariant?: { name: string } | null; linePriceWithTax?: number }>;
+  payments?: Array<{ method?: string }>;
+  customFields?: { deliveryType?: string | null; pickupClaimed?: boolean | null };
 }
 
+// 订单列表查询字段（含中国本地化所需的 手机号/支付方式/商品行/自提态）
 const ORDER_FIELDS = `
-      id code state active totalWithTax createdAt currencyCode orderPlacedAt
-      customer { id firstName lastName emailAddress }
-      shippingLines { shippingMethod { id code name } }
-      customFields { deliveryType }
-    `;
+  id code state active totalWithTax totalQuantity createdAt currencyCode orderPlacedAt
+  customer { id firstName lastName emailAddress phoneNumber }
+  lines { quantity productVariant { name } linePriceWithTax }
+  shippingLines { shippingMethod { id code name } shippingAddress { phoneNumber } }
+  payments { method }
+  customFields { deliveryType pickupClaimed }
+`;
 
 // 本店商品单：对接 shop-plugin 既有 myShopOrders（跨渠道按商品 shopId 归集），返回全量无分页
 export interface ShopOrderRow {
@@ -87,12 +96,7 @@ export async function fetchOrders(opts: OrderListOptions = {}): Promise<{ totalI
     `query Orders($take: Int, $skip: Int) {
       orders(options: { take: $take, skip: $skip${extra} }) {
         totalItems
-        items {
-          id code state active totalWithTax createdAt currencyCode orderPlacedAt
-          customer { id firstName lastName emailAddress }
-          shippingLines { shippingMethod { id code name } }
-          customFields { deliveryType }
-        }
+        items {${ORDER_FIELDS}}
       }
     }`,
     { take, skip },
