@@ -22,9 +22,9 @@ export interface OrderRow {
   currencyCode: string;
   orderPlacedAt?: string | null;
   customer?: { id: string; firstName: string; lastName: string; emailAddress?: string; phoneNumber?: string } | null;
+  shippingAddress?: { phoneNumber?: string | null } | null;
   shippingLines?: Array<{
     shippingMethod: { id: string; code: string; name: string } | null;
-    shippingAddress?: { phoneNumber?: string | null } | null;
   }>;
   lines?: Array<{ quantity: number; productVariant?: { name: string } | null; linePriceWithTax?: number }>;
   payments?: Array<{ method?: string }>;
@@ -36,7 +36,8 @@ const ORDER_FIELDS = `
   id code state active totalWithTax totalQuantity createdAt currencyCode orderPlacedAt
   customer { id firstName lastName emailAddress phoneNumber }
   lines { quantity productVariant { name } linePriceWithTax }
-  shippingLines { shippingMethod { id code name } shippingAddress { phoneNumber } }
+  shippingAddress { phoneNumber }
+  shippingLines { shippingMethod { id code name } }
   payments { method }
   customFields { deliveryType pickupClaimed }
 `;

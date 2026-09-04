@@ -70,7 +70,7 @@ function customerNameOf(o: OrderRow): string {
 }
 
 export function channelToView(o: OrderRow): OrderView {
-  const phone = o.customer?.phoneNumber || o.shippingLines?.[0]?.shippingAddress?.phoneNumber || '';
+  const phone = o.customer?.phoneNumber || o.shippingAddress?.phoneNumber || '';
   const payment = o.payments?.[0]?.method || '';
   return {
     id: o.id,
