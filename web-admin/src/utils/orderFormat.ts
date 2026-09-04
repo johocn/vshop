@@ -6,6 +6,7 @@ export interface OrderGood {
   name: string;
   qty: number;
   price: number;
+  image?: string; // 商品缩略图完整 URL；本店商品单无图 → undefined
 }
 export interface OrderView {
   id: string;
@@ -18,6 +19,20 @@ export interface OrderView {
   time: string; // 下单时间原始串（页面再排版时间格式）
   goods: OrderGood[];
   total: number; // 实付（分）
+}
+
+// 缩略图完整 URL：Vendure source 是相对路径，动态拼当前访问域名（禁硬编码）
+export function imageFullUrl(src?: string | null): string {
+  if (!src) return '';
+  if (/^https?:\/\//i.test(src)) return src;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}${src}`;
+}
+
+// 可发货状态集合（订单已支付/待履约，可进入发货页）
+export const SHIPPABLE_STATES = ['PaymentAuthorized', 'PaymentSettled', 'WaitingForShipping', 'PartiallyPaymentSettled'];
+export function isShippable(state: string): boolean {
+  return SHIPPABLE_STATES.includes(state);
 }
 
 export function maskPhone(p?: string | null): string {
@@ -85,6 +100,7 @@ export function channelToView(o: OrderRow): OrderView {
       name: l.productVariant?.name || (l as any).productName || '',
       qty: Number(l.quantity || 0),
       price: Number(l.linePriceWithTax || 0),
+      image: imageFullUrl(l.productVariant?.featuredAsset?.source),
     })),
     total: Number(o.totalWithTax || 0),
   };
