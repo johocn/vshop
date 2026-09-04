@@ -37,13 +37,15 @@
           <text class="code">{{ o.code }}</text>
           <text class="st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
         </view>
-        <view class="sub">{{ o.customerName }}{{ o.phoneMask }}</view>
+        <view class="sub">{{ o.customerName }}{{ o.phoneMask }}{{ o.delivery ? ' · ' + o.delivery : '' }}</view>
         <view class="goods" v-for="(g, gi) in o.goods" :key="gi">
+          <image v-if="g.image" class="g-thumb" :src="g.image" mode="aspectFill" />
+          <view v-else class="g-thumb"></view>
           <text class="g-name">{{ g.name }}</text>
           <text class="g-price">×{{ g.qty }} ¥{{ fmtMoney(g.price) }}</text>
         </view>
         <view class="row foot">
-          <text class="time">{{ o.delivery }}{{ o.payment ? ' · ' + o.payment : '' }} · {{ fmtTime(o.time) }}</text>
+          <text class="time">{{ o.payment ? o.payment + ' · ' : '' }}{{ fmtTime(o.time) }}</text>
           <text class="total">¥{{ fmtMoney(o.total) }}</text>
         </view>
         <view class="actions">
@@ -354,6 +356,7 @@ onReachBottom(loadMore);
         justify-content: space-between;
         padding-top: 8rpx;
         border-top: 1rpx dashed #e8edf5;
+        .g-thumb { width: 56rpx; height: 56rpx; border-radius: 8rpx; background: #f0f2f7; flex-shrink: 0; margin-right: 16rpx; }
         .g-name { font-size: 26rpx; color: $wa-ink; flex: 1; margin-right: 16rpx; }
         .g-price { font-size: 26rpx; color: $wa-ink; }
       }
