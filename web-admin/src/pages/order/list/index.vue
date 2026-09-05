@@ -30,8 +30,17 @@
       <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ s.label }}</text>
     </view>
     <view class="search">
-      <input v-model="kw" class="kw" placeholder="订单号 / 顾客 / 手机号" confirm-type="search" @confirm="onSearch" />
+      <input v-model="kw" class="kw" placeholder="订单号 / 顾客 / 手机号 / 商品名" confirm-type="search" @confirm="onSearch" />
       <text class="btn" @tap="onSearch">搜索</text>
+    </view>
+    <view class="filters">
+      <picker :range="deliveryOpts" :value="deliveryIdx" @change="onDeliveryPick">
+        <text class="f-chip" :class="{ on: delivery }">{{ deliveryLabel || '配送' }} ▾</text>
+      </picker>
+      <picker :range="dateOpts" :value="dateIdx" @change="onDatePick">
+        <text class="f-chip" :class="{ on: dateRange }">{{ dateLabel || '时间' }} ▾</text>
+      </picker>
+      <text v-if="delivery || dateRange" class="f-clear" @tap="onClearFilter">清除</text>
     </view>
 
     <!-- 手机：卡片列表（<768 显示） -->
@@ -95,6 +104,12 @@
           <text class="act ghost" @tap="goDetail(o)">详情</text>
         </view>
       </view>
+    </view>
+    <view class="pgbar" v-if="scope === 'channel'">
+      <text class="pg-btn" :class="{ dis: page <= 1 }" @tap="onPage(-1)">上一页</text>
+      <text class="pg-info">第 {{ page }} / {{ Math.max(1, Math.ceil(totalItems / perPage)) }} 页 · 共 {{ totalItems }} 单</text>
+      <text class="pg-btn" :class="{ dis: page >= Math.max(1, Math.ceil(totalItems / perPage)) }" @tap="onPage(1)">下一页</text>
+      <text class="pg-size" v-for="n in [20, 50, 100]" :key="n" :class="{ on: perPage === n }" @tap="onPerPage(n)">{{ n }}</text>
     </view>
 
     <view v-if="!views.length && !loading" class="empty">暂无订单</view>
@@ -423,6 +438,35 @@ onReachBottom(loadMore);
     }
   }
 
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    margin-bottom: 24rpx;
+    flex-wrap: wrap;
+    .f-chip {
+      font-size: 26rpx; color: $wa-muted; background: $wa-card;
+      padding: 10rpx 24rpx; border-radius: 999rpx; border: 1rpx solid #e8edf5;
+      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+    }
+    .f-clear { font-size: 24rpx; color: $wa-muted; text-decoration: underline; cursor: pointer; }
+  }
+  .pgbar {
+    display: none;
+    align-items: center;
+    gap: 12rpx;
+    margin-top: 20rpx;
+    font-size: 13px;
+    color: $wa-muted;
+    .pg-btn { padding: 6px 14px; border: 1rpx solid #d8dee9; border-radius: 6px; cursor: pointer; background: $wa-card;
+      &.dis { opacity: 0.4; cursor: default; }
+    }
+    .pg-info { margin: 0 8px; }
+    .pg-size { padding: 4px 10px; border: 1rpx solid #d8dee9; border-radius: 6px; cursor: pointer;
+      &.on { color: #fff; background: $wa-accent; border-color: $wa-accent; }
+    }
+  }
+
   .card-list {
     .card {
       background: $wa-card;
@@ -520,5 +564,6 @@ onReachBottom(loadMore);
   .page .headbar .stats { flex: 1; order: 1; margin: 0 24px; }
   .page .headbar .title { order: 0; }
   .page .headbar .redeem-btn { order: 2; }
+  .page .pgbar { display: flex; }
 }
 </style>
