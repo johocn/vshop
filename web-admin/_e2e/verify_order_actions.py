@@ -75,6 +75,12 @@ def run(vp,tag):
         status_colored = pg.locator('.card .st[style*="color"], .c-st[style*="color"]').count() > 0
         ok_addr = has_addr_header and status_colored
         print('ADDR_MOBILE=', addr_mobile, 'ADDR_COL=', addr_col, 'HAS_ADDR_HEADER=', has_addr_header, 'STATUS_COLORED=', status_colored, 'OK_ADDR=', ok_addr)
+        # 商品单补地址：后端 myShopOrders 升级后, 商品单变体(ShopOrderRow)返回配送方式名/收货地址;
+        # 手机地址行=.card .addr, 桌面地址单元格(除表头)=.dt-row:not(.head) .c-addr。
+        # 后端部署前为 0 属预期(仅信息项, 不参与 ALL_OK); 真实数据核对在 Task 7 后端部署后回归。
+        shop_deliv = '快递'  # 配送方式名由后端新字段返回(此处仅标记 scope 已切至商品单)
+        addr_shop = pg.locator('.card .addr').count() + pg.locator('.dt-row:not(.head) .c-addr').count()
+        print('SHOP_DELIV=', shop_deliv, 'ADDR_SHOP_NODES=', addr_shop)
         # 若未付款单存在则切到「待付款」tab 再统计催付按钮(数据依赖; 无待付款单允许为 0)
         remind_on_unpaid = remind_btns
         try:
