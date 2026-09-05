@@ -423,6 +423,28 @@ flowchart TD
     </div>
   </section>
 
+  <h2>9 商品媒体库 · 缩略图可视化修复</h2>
+  <section>
+    <h4>9.1 现象</h4>
+    <p>商品上传页（<code class="mono">/pages/product/create</code>）的媒体库组件：<strong>上传图片后看不到图、已上传的资源也全部看不到，无法选商品图</strong>。控制台报 <code class="mono">assetLibrary</code> 查询错误：<code class="mono">Cannot take more than 1000 results from a list query</code>。</p>
+
+    <h4>9.2 根因（两个后端缺陷叠加）</h4>
+    <p><strong>缺陷一 · 列表上限被突破</strong>：媒体库由 <code class="mono">@vendure/cjk-plugin</code> 的自定义 <code class="mono">AssetLibraryAdminResolver.assetLibrary</code> 提供。它在 <code class="mono">loadFiltered()</code> 里用 <code class="mono">assetService.findAll(ctx, { take: 100000 })</code> 试图一次拉全量资产，而核心 <code class="mono">ListQueryBuilder.parseTakeSkipParams</code> 对 admin API 的 <code class="mono">take</code> 上限是 <code class="mono">adminListQueryLimit</code>（默认 1000）——<code class="mono">100000 &gt; 1000</code> 直接抛「Cannot take more than 1000」。结果是<strong>无论前端传 <code class="mono">take:30</code> 与否，外层 <code class="mono">assetLibrary</code> 都整体报错</strong>，媒体库网格永远加载不出来（上传虽成功、但网格不刷新，已传资源也看不到）。</p>
+    <p><strong>缺陷二 · 返回裸相对路径</strong>：该 resolver 的 <code class="mono">toAssetItem</code> 直接返回 Asset 实体存储的相对路径 <code class="mono">preview/…</code>（无 <code class="mono">/assets</code> 前缀）。前端媒体库模板用 <code class="mono">&lt;image :src="it.preview"&gt;</code>，<code class="mono">preview/…</code> 相对当前页面解析成 <code class="mono">/guanli/preview/…</code> → 命中 SPA 兜底返回 <code class="mono">index.html</code>（<code class="mono">text/html</code>）而非图片，缩略图一律破图。已实测：<code class="mono">/assets/preview/…</code> 返回 <code class="mono">image/jpeg</code> 真图，<code class="mono">/guanli/preview/…</code> 与 <code class="mono">/preview/…</code> 均为 <code class="mono">text/html</code> SPA 页。</p>
+
+    <h4>9.3 修复</h4>
+    <p>（均在 <code class="mono">packages/cjk-plugin/src/asset/asset-library-admin.resolver.ts</code>，前端零改动）</p>
+    <p><strong>① <code class="mono">loadFiltered</code> 改用仓库直查：</strong>由 <code class="mono">assetService.findAll(take:100000)</code> 改为 <code class="mono">this.connection.getRepository(ctx, Asset).find({ order: { createdAt: 'DESC' } })</code>，直接走 TypeORM 仓库、绕开 <code class="mono">ListQueryBuilder</code> 的 take 上限（与插件内 <code class="mono">setAssetTags</code> 既有的仓库直查模式一致）。</p>
+    <p><strong>② <code class="mono">toAssetItem</code> 返回绝对 URL：</strong>经 <code class="mono">ctx.req</code> 取当前请求 origin，拼 <code class="mono">preview/source = origin + /assets/ + 存储路径</code>，所有消费媒体库的组件（MediaLibraryModal、MediaPicker/ImagePicker、RichTextEditor）不再依赖前端补前缀即得可用图片 URL。</p>
+
+    <h4>9.4 线上验收</h4>
+    <div class="callout ok">
+      <h4>验收证据</h4>
+      <p><strong>接口层</strong>：<code class="mono">assetLibrary(take:30, skip:0)</code> 由报错改为返回 <code class="mono">totalItems=42</code>，且 <code class="mono">preview/source</code> 为可加载的绝对 URL（如 <code class="mono">https://e.joho.cn/assets/preview/1c/…jpg</code>）。<strong>渲染层</strong>：打入商品创建页媒体库，<code class="mono">mlm__cell</code> 加载 30 张缩略图，全部 <code class="mono">naturalWidth &gt; 0</code>（真实加载，非 SPA 占位），未加载 0，无 <code class="mono">PAGEERROR</code>。商品图分组为 0 属于「这些资源尚未打商品图分类码」，点分组过滤后为空为预期。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/media_library_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品创建页媒体库（桌面 1440×900）：缩略图网格正常显示，上传与已传资源均可选</figcaption></figure>
+  </section>
+
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
