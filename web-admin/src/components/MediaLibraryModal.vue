@@ -781,6 +781,11 @@ function onClose() {
     padding: 20rpx;
     box-sizing: border-box;
     min-height: 0;
+    // uni 的 scroll-view 无显式高度时不会收缩，内容会撑开并 paint 覆盖底部
+    // 「已选/打标/确定」操作条（footer），导致真机点不到打标按钮。
+    // 这里限定高度为 52vh，网格内容在其中内部滚动，footer 始终可见可点。
+    height: 52vh;
+    max-height: 52vh;
   }
   &__pull-hint {
     text-align: center;
