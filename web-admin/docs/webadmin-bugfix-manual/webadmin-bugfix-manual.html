@@ -352,6 +352,14 @@ flowchart TD
       <h4>已知限制</h4>
       <p>「发货/详情」跳转在<strong>本店渠道单</strong>可用（订单在当前渠道）；<strong>本店商品单</strong>是跨渠道归集视图，其「发货/详情」受 Vendure 渠道隔离限制、可能无法打开目标单，运营请以渠道单操作为主。本店商品单无商品缩略图（接口不返回图），展示占位块。</p>
     </div>
+
+    <h4>8.4.1 催付 + 商品单缩略图</h4>
+    <p><strong>催付（待付款单）：</strong>处于「待付款」（Vendure 状态码 <code class="mono">ArrangingPayment</code>）的订单，操作区会出现「催付」按钮。点击后用 <code class="mono">uni.setClipboardData</code> 把含「订单号 + 金额 + 顾客名」的催付文案复制到剪贴板，并 toast 提示「已复制，请粘贴发给顾客」。该功能纯前端、无后端调用；运营把文案粘贴到微信/短信手动发给顾客。</p>
+    <p><strong>商品单缩略图：</strong>「本店商品单」（<code class="mono">myShopOrders</code>）接口本体不返回商品图；现前端将列表所有订单的物品行的 <code class="mono">productId</code> 收集后，按 <code class="mono">products(filter:{id:{in}})</code> 批量取商品级 <code class="mono">featuredAsset.preview</code>，填充到商品行的缩略图；查图失败或商品无图时仍显示占位块。商品必须配置了「封面图/Featured Asset」才有真实缩略图（如本店带图商品即显示真实图，无图商品仍为灰底占位）。</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+      <figure style="margin:0;flex:1;min-width:300px;"><img src="assets/order_actions_mobile_390.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 商品单带真实商品缩略图（催付按钮随待付款单出现）</figcaption></figure>
+      <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/order_actions_desk_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 商品单表格（缩略图在商品行展示）</figcaption></figure>
+    </div>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
