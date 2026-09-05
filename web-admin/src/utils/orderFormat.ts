@@ -77,18 +77,20 @@ export function isRefundApprox(s: string): boolean {
   return s === 'Cancelled';
 }
 
-export interface StatsValue { today: string; toShip: string; refund: string }
+export interface StatsValue { today: string; unpaid: string; toShip: string; refund: string }
 
 export function computeStats(rows: { state: string; placedAt?: string | null }[], now = new Date()): StatsValue {
   let today = 0;
+  let unpaid = 0;
   let toShip = 0;
   let refund = 0;
   for (const o of rows) {
     if (isToday(o.placedAt, now)) today += 1;
+    if (isUnpaid(o.state)) unpaid += 1;
     if (isToBeShipped(o.state)) toShip += 1;
     if (isRefundApprox(o.state)) refund += 1;
   }
-  return { today: String(today), toShip: String(toShip), refund: String(refund) };
+  return { today: String(today), unpaid: String(unpaid), toShip: String(toShip), refund: String(refund) };
 }
 
 function customerNameOf(o: OrderRow): string {
