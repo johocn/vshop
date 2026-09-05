@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方案 B · 状态优先</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f4f5f8;color:#1c2233}
+  .bar{position:sticky;top:0;background:#5b48c4;color:#fff;padding:12px 18px;display:flex;
+       align-items:center;gap:12px;font-size:13px;z-index:5}
+  .bar a{color:#e3ddff;text-decoration:none}
+  .bar span{opacity:.75;font-size:12px}
+  .toolbar{max-width:1200px;margin:0 auto;padding:18px 18px 8px;display:flex;gap:10px;flex-wrap:wrap}
+  .gfilter{display:flex;gap:4px;background:#fff;border:1px solid #e7eaf0;border-radius:999px;
+       padding:4px;font-size:12px}
+  .gfilter span{padding:6px 14px;border-radius:999px;color:#6b758a;cursor:pointer}
+  .gfilter span.on{color:#fff;background:#7c5cff;font-weight:600}
+  .badges{display:flex;gap:8px;margin-top:10px;padding:0 18px;max-width:1200px;margin:10px auto 0}
+  .stat{flex:1;background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:22px}
+  .stat span{font-size:11px;color:#8a93a6}
+  .stat.b1 b{color:#e8950c}.stat.b2 b{color:#2f6bff}.stat.b3 b{color:#1fa97a}.stat.b4 b{color:#9aa3b5}
+  /* cards */
+  .l{max-width:1200px;margin:0 auto;padding:14px 18px;display:grid;gap:12px}
+  .card{background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:14px}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .st.lg{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px}
+  .st.lg.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+  .st.lg.sent{color:#2f6bff;background:rgba(47,107,255,.13)}
+  .st.lg.done{color:#1fa97a;background:rgba(31,169,122,.13)}
+  .st.lg.cancel{color:#9aa3b5;background:rgba(154,163,181,.16)}
+  .code{font-size:12.5px;color:#8a93a6;font-weight:600}
+  .mid{margin:12px 0;font-size:12.5px;line-height:19px}
+  .mid b{font-weight:600}
+  .mk{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:11px;color:#2f6bff;
+       border:1px solid rgba(47,107,255,.35);border-radius:999px;padding:1px 8px}
+  .mcont{display:flex;justify-content:space-between;font-size:11.5px;color:#6b758a;margin-bottom:4px}
+  .maddr{display:flex;gap:5px;font-size:11px;color:#8a93a6;line-height:15px}
+  .maddr b{color:#1c2233;font-weight:600}
+  .off{background:#f7f8fb;border-radius:7px;padding:6px 9px;margin-top:8px}
+  .goods{display:flex;gap:9px;align-items:center;border-top:1px dashed #e7eaf0;padding:8px 0}
+  .thumb{width:36px;height:36px;border-radius:7px;background:#e9edf4;flex:none}
+  .g{flex:1;font-size:12.5px}.qv{font-size:12.5px;font-weight:600}
+  .cf{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .at{color:#e5484d;font-weight:700}
+  .acts{display:flex;justify-content:flex-end;gap:7px;margin-top:10px}
+  .act{font-size:12px;padding:5px 13px;border-radius:7px}
+  .act.p{color:#fff;background:#7c5cff}
+  .act.o{color:#1c2233;background:#eef1f6}
+  /* desktop table */
+  .tbl{display:none}
+  @media(min-width:900px){
+    .l{display:none}
+    .tbl{display:block;max-width:1200px;margin:0 auto;padding:0 18px 30px}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e7eaf0;border-radius:12px;
+          overflow:hidden;font-size:12.5px}
+    th{background:#efeaff;color:#5b48c4;text-align:left;padding:9px 11px;font-size:11.5px;font-weight:700}
+    td{padding:10px 11px;border-top:1px solid #eef2f7;vertical-align:top}
+    tr:hover td{background:#fbfaff}
+    .row{display:flex;flex-direction:column;gap:3px}
+    .adT{font-size:10.8px;color:#8a93a6;max-width:160px;line-height:14px}
+    .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px}
+    .chip.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+    .chip.sent{color:#2f6bff;background:rgba(47,107,255,.13)}
+    .chip.done{color:#1fa97a;background:rgba(31,169,122,.13)}
+    .bar2{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:12px auto;
+          padding:0 18px}
+    .pager{display:flex;gap:10px;align-items:center;font-size:12px;color:#6b758a}
+    .box{background:#fff;border:1px solid #e7eaf0;border-radius:6px;padding:6px 12px}
+    .box.on{color:#7c5cff;border-color:#7c5cff}
+  }
+</style>
+</head>
+<body>
+  <div class="bar"><a href="index.html">← 三个方案</a><span>/</span><span>方案 B — 状态优先 / 运维视角</span></div>
+
+  <div class="toolbar">
+    <div class="gfilter"><span>全部</span><span class="on">待发货</span><span>已发货</span><span>已完成</span><span>已取消</span></div>
+    <div class="gfilter"><span>快递</span><span>自提</span></div>
+  </div>
+  <div class="badges">
+    <div class="stat b1"><b>12</b><span>待发货</span></div>
+    <div class="stat b2"><b>23</b><span>已发货</span></div>
+    <div class="stat b3"><b>15</b><span>已完成</span></div>
+    <div class="stat b4"><b>3</b><span>已取消</span></div>
+  </div>
+
+  <!-- 手机卡片 -->
+  <div class="l">
+    <div class="card">
+      <div class="top"><span class="st lg ship">● 待发货</span><span class="code">JH20260905001</span></div>
+      <div class="mid"><b>张小满</b> · 138****6732<br>快递·标准 <span class="mk">📍 北京市 朝阳区 望京街道</span></div>
+      <div class="off"><div class="mcont"><span>2026-09-05 10:24 · 微信支付</span><span class="at">¥399.00</span></div>
+        <div class="maddr"><b>北京市</b>朝阳区望京街道 融科橄榄城A座1201</div></div>
+      <div class="goods"><span class="thumb"></span><span class="g">AI 智能音箱 Pro 白色</span><span class="qv">×1</span></div>
+      <div class="acts"><span class="act o">详情</span><span class="act p">发货</span></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="st lg sent">● 已发货</span><span class="code">JH20260905002</span></div>
+      <div class="mid"><b>李建国</b> · 139****2281<br>同城配送 <span class="mk">📍 上海市 徐汇区 漕河泾</span></div>
+      <div class="off"><div class="mcont"><span>2026-09-04 22:18 · 支付宝</span><span class="at">¥218.00</span></div>
+        <div class="maddr"><b>上海市</b>徐汇区漕河泾 田林路 888号</div></div>
+      <div class="goods"><span class="thumb"></span><span class="g">记忆棉护颈枕</span><span class="qv">×2</span></div>
+      <div class="acts"><span class="act o">详情</span></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="st lg done">● 已完成</span><span class="code">JH20260904098</span></div>
+      <div class="mid"><b>王芳</b> · 180****5520<br>门店自提</div>
+      <div class="off"><div class="mcont"><span>2026-09-03 15:02 · 自提</span><span class="at">¥129.00</span></div></div>
+      <div class="goods"><span class="thumb"></span><span class="g">香薰机 薰衣草</span><span class="qv">×1</span></div>
+      <div class="acts"><span class="act o">详情</span></div>
+    </div>
+  </div>
+
+  <!-- 桌面表格 -->
+  <div class="tbl">
+    <table>
+      <thead><tr>
+        <th style="width:92px">状态</th><th style="width:130px">订单号</th><th>收货人 / 电话</th>
+        <th style="width:170px">配送（方式 + 地址）</th><th style="width:80px">实付</th>
+        <th style="width:110px">下单时间</th><th style="width:90px">操作</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="chip ship">● 待发货</span></td>
+          <td style="font-weight:700">JH20260905001</td>
+          <td><div class="row"><span>张小满</span><span style="color:#8a93a6;font-size:11px">138****6732</span></div></td>
+          <td><div class="row"><span style="font-weight:600">快递·标准</span><span class="adT">北京市朝阳区望京街道 融科橄榄城A座1201</span></div></td>
+          <td><span style="color:#e5484d;font-weight:700">¥399.00</span></td>
+          <td style="color:#8a93a6;font-size:11px">09-05 10:24</td>
+          <td><span style="color:#7c5cff;font-weight:600">发货 / 详情</span></td>
+        </tr>
+        <tr>
+          <td><span class="chip sent">● 已发货</span></td>
+          <td style="font-weight:700">JH20260905002</td>
+          <td><div class="row"><span>李建国</span><span style="color:#8a93a6;font-size:11px">139****2281</span></div></td>
+          <td><div class="row"><span style="font-weight:600">同城配送</span><span class="adT">上海市徐汇区漕河泾 田林路 888号</span></div></td>
+          <td><span style="color:#e5484d;font-weight:700">¥218.00</span></td>
+          <td style="color:#8a93a6;font-size:11px">09-04 22:18</td>
+          <td><span style="color:#7c5cff;font-weight:600">详情</span></td>
+        </tr>
+        <tr>
+          <td><span class="chip done">● 已完成</span></td>
+          <td style="font-weight:700">JH20260904098</td>
+          <td><div class="row"><span>王芳</span><span style="color:#8a93a6;font-size:11px">180****5520</span></div></td>
+          <td><div class="row"><span style="font-weight:600">门店自提</span><span class="adT" style="color:#b3bad1">（自提无地址）</span></div></td>
+          <td><span style="color:#e5484d;font-weight:700">¥129.00</span></td>
+          <td style="color:#8a93a6;font-size:11px">09-03 15:02</td>
+          <td><span style="color:#7c5cff;font-weight:600">详情</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="bar2"><span style="font-size:12px;color:#8a93a6">本店渠道单 · 共 58 单</span>
+      <div class="pager"><span class="box">上一页</span><span>1 / 3</span><span class="box">下一页</span><span class="box on">20</span><span class="box">50</span><span class="box">100</span></div>
+    </div>
+  </div>
+</body>
+</html>

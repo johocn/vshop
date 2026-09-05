@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方案 A · 卡片+表格分离</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f4f5f8;color:#1c2233}
+  .bar{position:sticky;top:0;background:#1c2233;color:#f4f5f8;padding:12px 18px;display:flex;
+       align-items:center;gap:12px;font-size:13px;z-index:5}
+  .bar a{color:#c9d2ff;text-decoration:none}
+  .bar span{opacity:.7;font-size:12px}
+  .toolbar{max-width:1200px;margin:0 auto;padding:18px 18px 6px;display:flex;flex-wrap:wrap;gap:12px;
+       align-items:center}
+  .search{flex:1;min-width:220px;background:#fff;border:1px solid #e7eaf0;border-radius:8px;
+       padding:9px 12px;font-size:13px;color:#8a93a6}
+  .fchip{background:#fff;border:1px solid #e7eaf0;border-radius:999px;padding:8px 16px;font-size:12px;
+       color:#6b758a;cursor:pointer}
+  .fchip.on{color:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 4px;max-width:1200px;margin:0 auto}
+  .tab{font-size:12px;padding:5px 12px;border-radius:999px;color:#6b758a;background:#fff;
+       border:1px solid #e7eaf0}
+  .tab.on{color:#fff;background:#2f6bff;border-color:#2f6bff}
+  /* ---------- mobile cards ---------- */
+  .cards{max-width:1200px;margin:0 auto;padding:14px 18px;display:grid;grid-template-columns:1fr;
+         gap:14px}
+  .card{background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:14px}
+  .ch0{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .code{font-weight:700;font-size:13px}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px}
+  .pill.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+  .pill.sent{color:#2f6bff;background:rgba(47,107,255,.13)}
+  .pill.done{color:#1fa97a;background:rgba(31,169,122,.13)}
+  .pill.cancel{color:#9aa3b5;background:rgba(154,163,181,.16)}
+  .sub{font-size:12px;color:#6b758a;margin-bottom:3px}
+  .sub b{color:#1c2233;font-weight:600}
+  .addr{display:flex;gap:6px;align-items:flex-start;font-size:11.5px;color:#8a93a6;line-height:16px;
+       background:#f7f8fb;border-radius:7px;padding:6px 9px;margin-bottom:9px}
+  .addr b{color:#1c2233;font-weight:600}
+  .pin{color:#2f6bff;font-weight:700;margin-top:-1px}
+  .goods{display:flex;gap:9px;align-items:center;border-top:1px dashed #e7eaf0;padding:8px 0}
+  .thumb{width:36px;height:36px;border-radius:7px;background:#e9edf4;flex:none}
+  .g{flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qv{font-size:12.5px;font-weight:600}
+  .cf{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .tm{font-size:11.5px;color:#8a93a6}
+  .at{color:#e5484d;font-weight:700;font-size:13px}
+  .acts{display:flex;justify-content:flex-end;gap:7px;margin-top:11px}
+  .act{font-size:12px;padding:5px 13px;border-radius:7px}
+  .act.p{color:#fff;background:#2f6bff}
+  .act.o{color:#1c2233;background:#eef1f6}
+  /* ---------- desktop table ---------- */
+  .table{display:none}
+  @media(min-width:820px){
+    .cards{display:none}
+    .table{display:block;max-width:1200px;margin:14px auto;padding:0 18px 30px}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e7eaf0;
+          border-radius:12px;overflow:hidden;font-size:12.5px}
+    th{background:#eef1f6;color:#6b758a;text-align:left;padding:9px 11px;font-size:11.5px;font-weight:600}
+    td{padding:10px 11px;border-top:1px solid #eef2f7;vertical-align:top}
+    tr:hover td{background:#fafbff}
+    .trow{display:flex;flex-direction:column;gap:3px}
+    .addrT{font-size:10.8px;color:#8a93a6;line-height:14px;max-width:170px}
+    .chip{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+    .chip.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+    .chip.sent{color:#2f6bff;background:rgba(47,107,255,.13)}
+    .chip.done{color:#1fa97a;background:rgba(31,169,122,.13)}
+    .chip.cancel{color:#9aa3b5}
+    .pv{color:#e5484d;font-weight:700}
+    .ops{color:#2f6bff;font-weight:600;white-space:nowrap}
+    .ops i{font-style:normal;color:#e7eaf0;margin:0 4px}
+    .method{color:#6b758a}
+  }
+</style>
+</head>
+<body>
+  <div class="bar"><a href="index.html">← 三个方案</a><span>/</span><span>方案 A — 卡片 + 表格分离</span></div>
+
+  <div class="toolbar">
+    <div class="search">🔍 订单号 / 顾客 / 手机号 / 商品名</div>
+    <div class="fchip on">配送 自提 / 快递</div>
+    <div class="fchip">时间 全部</div>
+  </div>
+  <div class="tabs">
+    <span class="tab">全部</span><span class="tab">待付款</span><span class="tab on">待发货</span>
+    <span class="tab">已发货</span><span class="tab">已完成</span><span class="tab">已取消</span>
+  </div>
+
+  <!-- 手机卡片 -->
+  <div class="cards">
+    <div class="card">
+      <div class="ch0"><span class="code">JH20260905001</span><span class="pill ship">待发货</span></div>
+      <div class="sub">张小满 · 138****6732 · <b>快递·标准</b></div>
+      <div class="addr"><span class="pin">📍</span><span><b>北京市</b>朝阳区望京街道 融科橄榄城A座1201</span></div>
+      <div class="goods"><span class="thumb"></span><span class="g">AI 智能音箱 Pro 白色</span><span class="qv">×1</span></div>
+      <div class="goods"><span class="thumb"></span><span class="g">无线充电器</span><span class="qv">×1</span></div>
+      <div class="cf"><span class="tm">微信支付 · 09-05 10:24</span><span class="at">¥399.00</span></div>
+      <div class="acts"><span class="act o">详情</span><span class="act p">发货</span></div>
+    </div>
+    <div class="card">
+      <div class="ch0"><span class="code">JH20260905002</span><span class="pill sent">已发货</span></div>
+      <div class="sub">李建国 · 139****2281 · <b>同城配送</b></div>
+      <div class="addr"><span class="pin">📍</span><span><b>上海市</b>徐汇区漕河泾 田林路 888号</span></div>
+      <div class="goods"><span class="thumb"></span><span class="g">记忆棉护颈枕</span><span class="qv">×2</span></div>
+      <div class="cf"><span class="tm">支付宝 · 09-04 22:18</span><span class="at">¥218.00</span></div>
+      <div class="acts"><span class="act o">详情</span></div>
+    </div>
+    <div class="card">
+      <div class="ch0"><span class="code">JH20260904098</span><span class="pill done">已完成</span></div>
+      <div class="sub">王芳 · 180****5520 · <b>门店自提</b></div>
+      <div class="goods"><span class="thumb"></span><span class="g">香薰机 薰衣草</span><span class="qv">×1</span></div>
+      <div class="cf"><span class="tm">门店自提 · 09-03 15:02</span><span class="at">¥129.00</span></div>
+      <div class="acts"><span class="act o">详情</span></div>
+    </div>
+  </div>
+
+  <!-- 桌面表格 -->
+  <div class="table">
+    <table>
+      <thead><tr>
+        <th style="width:130px">订单号</th><th style="width:150px">商品</th><th>收货人 / 电话 / 地址</th>
+        <th style="width:96px">配送方式</th><th style="width:80px">实付</th><th style="width:120px">下单时间</th>
+        <th style="width:70px">状态</th><th style="width:96px">操作</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:700">JH20260905001</td>
+          <td><div class="trow"><span>AI 智能音箱 Pro 白色(w)</span><span style="color:#8a93a6">无线充电器</span></div></td>
+          <td><div class="trow"><span>张小满 · 138****6732</span><span class="addrT">北京市朝阳区望京街道 融科橄榄城A座1201</span></div></td>
+          <td><span class="method">快递·标准</span></td>
+          <td><span class="pv">¥399.00</span></td>
+          <td style="color:#8a93a6">09-05 10:24</td>
+          <td><span class="chip ship">待发货</span></td>
+          <td><span class="ops">发货<i>|</i>详情</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:700">JH20260905002</td>
+          <td><span>记忆棉护颈枕</span><span style="color:#8a93a6">×2</span></td>
+          <td><div class="trow"><span>李建国 · 139****2281</span><span class="addrT">上海市徐汇区漕河泾 田林路 888号</span></div></td>
+          <td><span class="method">同城配送</span></td>
+          <td><span class="pv">¥218.00</span></td>
+          <td style="color:#8a93a6">09-04 22:18</td>
+          <td><span class="chip sent">已发货</span></td>
+          <td><span class="ops">详情</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:700">JH20260904098</td>
+          <td><span>香薰机 薰衣草</span><span style="color:#8a93a6">×1</span></td>
+          <td><div class="trow"><span>王芳 · 180****5520</span><span class="addrT" style="color:#8a93a6">门店自提（不显示地址）</span></div></td>
+          <td><span class="method">门店自提</span></td>
+          <td><span class="pv">¥129.00</span></td>
+          <td style="color:#8a93a6">09-03 15:02</td>
+          <td><span class="chip done">已完成</span></td>
+          <td><span class="ops">详情</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;margin-top:14px;
+         font-size:12px;color:#6b758a">
+      <span style="background:#fff;border:1px solid #e7eaf0;border-radius:6px;padding:6px 14px">上一页</span>
+      <span>第 1 / 3 页 · 共 58 单</span>
+      <span style="background:#fff;border:1px solid #e7eaf0;border-radius:6px;padding:6px 14px">下一页</span>
+      <span style="background:#fff;border:1px solid #2f6bff;color:#2f6bff;border-radius:6px;padding:6px 12px">20</span>
+      <span style="background:#fff;border:1px solid #e7eaf0;border-radius:6px;padding:6px 12px">50</span>
+      <span style="background:#fff;border:1px solid #e7eaf0;border-radius:6px;padding:6px 12px">100</span>
+    </div>
+  </div>
+</body>
+</html>
