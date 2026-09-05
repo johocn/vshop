@@ -408,6 +408,19 @@ flowchart TD
       <h4>线上验收结论</h4>
       <p>部署后线上 E2E 双视口回归：手机 390×844 与桌面 1440×900 <code class="mono">ALL_OK</code> 均 <code class="mono">True</code>；桌面 <code class="mono">ADDR_COL=19</code>（地址列单元格，含表头）、<code class="mono">HAS_ADDR_HEADER=True</code>、<code class="mono">STATUS_COLORED=True</code>、<code class="mono">OK_ADDR=True</code> 成立。手机 <code class="mono">ADDR_MOBILE=0</code>（本店商品单无地址，符合已知限制；邮箱渠道单快递单的地址行随有值订单出现），无 <code class="mono">PAGEERROR</code>。</p>
     </div>
+    <h4>8.4.5 本店商品单补地址（后端 myShopOrders 返回收货地址/配送方式）</h4>
+    <p>8.4.4 的「已知限制」中，<strong>本店商品单</strong>因 <code class="mono">myShopOrders</code> 接口不返回 <code class="mono">shippingAddress</code>/配送方式名，导致地址列恒为 <code class="mono">—</code>、手机地址行不渲染。本节通过<strong>后端接口扩展</strong>解除该限制——「本店商品单」即本租户全部订单总表，理应看得到地址。</p>
+    <p><strong>① 后端 <code class="mono">@vendure/shop-plugin</code> 扩展 <code class="mono">aggregateMerchantOrders</code>：</strong>在 <code class="mono">packages/shop-plugin/src/shop.service.ts</code> 中加载订单的 <code class="mono">shippingLines</code>（含 <code class="mono">shippingMethod</code>）关系，并在构造 <code class="mono">MerchantOrder</code> 时映射 <code class="mono">shippingAddress</code>（<code class="mono">fullName/streetLine1/city/province/countryCode/postalCode</code>）与 <code class="mono">shippingLines</code>（<code class="mono">id/code/name</code>）。<code class="mono">types.ts</code> 与 <code class="mono">plugin.ts</code> GraphQL schema 同步新增 <code class="mono">MerchantShippingAddress</code>/<code class="mono">MerchantShippingLine</code> 并扩展 <code class="mono">MerchantOrder</code> 字段。</p>
+    <p><strong>② 前端补查字段：</strong><code class="mono">src/apis/order.ts</code> 的 <code class="mono">ShopOrderRow</code> 新增 <code class="mono">shippingAddress</code>/<code class="mono">shippingLines</code>，<code class="mono">fetchShopOrders</code> 查询补查这两组字段；<code class="mono">src/utils/orderFormat.ts</code> 的 <code class="mono">shopToView</code> 用现成 <code class="mono">formatAddress</code> 填 <code class="mono">o.address</code>（省市区+街道）、用 <code class="mono">shippingLines[0].name</code> 填 <code class="mono">o.delivery</code>（自提无配送行时为「门店自提」）。</p>
+    <p><strong>③ 展示效果：</strong>手机卡片灰底地址行（<code class="mono">.addr</code>）在快递单上渲染真实地址；桌面「地址」列显示真实收货地址（自提/无地址单显示 <code class="mono">—</code>）；「配送」列显示配送方式全名（自提为「门店自提」）。部署后线上 E2E 双视口回归：手机 <code class="mono">ADDR_MOBILE=7</code>（灰底地址行出现），桌面 <code class="mono">ADDR_COL=19</code>、<code class="mono">ADDR_SHOP_NODES=25</code>（真实地址单元格）、<code class="mono">OK_ADDR=True</code>，无 <code class="mono">PAGEERROR</code>。</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+      <figure style="margin:0;flex:1;min-width:300px;"><img src="assets/shop-addr-mobile-390.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品单 · 手机 390×844：快递单卡片出现灰底地址行（如「北京市 北京市 …」），配送方式名与地址随 myShopOrders 新字段返回</figcaption></figure>
+      <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/shop-addr-desk-1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品单 · 桌面 1440×900：「地址」列显示真实收货地址（自提/无地址单显示 —），「配送」列显示配送方式全名</figcaption></figure>
+    </div>
+    <div class="callout ok">
+      <h4>线上验收结论</h4>
+      <p>部署后线上 E2E 双视口回归：手机 390×844 与桌面 1440×900 <code class="mono">ALL_OK</code> 均 <code class="mono">True</code>；手机 <code class="mono">ADDR_MOBILE=7</code>（灰底地址行出现）、桌面 <code class="mono">ADDR_SHOP_NODES=25</code>（地址单元格，含真实值）、<code class="mono">OK_ADDR=True</code>，无 <code class="mono">PAGEERROR</code>。部分订单（门店自提/无收货地址）地址显示 <code class="mono">—</code> 属预期。</p>
+    </div>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
