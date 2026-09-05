@@ -152,3 +152,56 @@ export function goodsTotalQty(v: OrderView): number {
 export function isGhostView(v: OrderView): boolean {
   return goodsTotalQty(v) <= 0;
 }
+
+export interface OrderFilter {
+  kw?: string;            // 关键词（订单号/顾客/手机号/商品名）
+  delivery?: '' | 'pickup' | 'express';
+  dateRange?: '' | 'today' | '7d' | '30d';
+}
+
+function rowTime(row: { orderPlacedAt?: string | null; createdAt?: string }): string {
+  return row.orderPlacedAt || row.createdAt || '';
+}
+
+function deliveryOf(row: { customFields?: { deliveryType?: string | null } | null }): 'pickup' | 'express' {
+  return row.customFields?.deliveryType === 'pickup' ? 'pickup' : 'express';
+}
+
+function withinDate(ts: string, range: '' | 'today' | '7d' | '30d', now = new Date()): boolean {
+  if (!range || !ts) return true;
+  const d = new Date(ts).getTime();
+  if (Number.isNaN(d)) return true;
+  const start = new Date(now);
+  if (range === 'today') start.setHours(0, 0, 0, 0);
+  else start.setDate(start.getDate() - (range === '7d' ? 7 : 30));
+  return d >= start.getTime();
+}
+
+// 渠道单原始行过滤（Vendure 无这些服务端过滤 → 对已加载页生效）
+export function filterChannelRows(rows: OrderRow[], f: OrderFilter = {}, now = new Date()): OrderRow[] {
+  const k = (f.kw || '').trim().toLowerCase();
+  const dc = f.delivery || '';
+  return rows.filter((o) => {
+    if (dc && deliveryOf(o) !== dc) return false;
+    if (f.dateRange && !withinDate(rowTime(o), f.dateRange, now)) return false;
+    if (!k) return true;
+    const cust = o.customer;
+    const name = `${cust?.firstName || ''} ${cust?.lastName || ''}`.trim();
+    const phone = cust?.phoneNumber || o.shippingAddress?.phoneNumber || '';
+    const prodNames = (o.lines || []).map((l) => l.productVariant?.name || '').join(' ');
+    return [o.code, name, cust?.emailAddress, phone, prodNames].some((v) => (v || '').toLowerCase().includes(k));
+  });
+}
+
+// 商品单原始行过滤（myShopOrders 全量 → 完全可靠）
+export function filterShopRows(rows: ShopOrderRow[], f: OrderFilter = {}, now = new Date()): ShopOrderRow[] {
+  const k = (f.kw || '').trim().toLowerCase();
+  const dc = f.delivery || '';
+  return rows.filter((o) => {
+    if (dc === 'pickup') return false; // 商品单恒快递；选「自提」全排除、选「快递」放行继续下探
+    if (f.dateRange && !withinDate(o.placedAt || '', f.dateRange, now)) return false;
+    if (!k) return true;
+    const prodNames = (o.items || []).map((it) => `${it.productName || ''} ${it.variantName || ''}`).join(' ');
+    return [o.code, o.customerName, prodNames].some((v) => (v || '').toLowerCase().includes(k));
+  });
+}
