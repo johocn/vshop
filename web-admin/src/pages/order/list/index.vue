@@ -76,7 +76,12 @@
       <view class="dt-row" v-for="o in views" :key="o.id">
         <text class="c-code">{{ o.code }}</text>
         <view class="c-goods">
-          <view v-for="(g, gi) in o.goods" :key="gi">{{ g.name }}×{{ g.qty }}</view>
+          <view class="dg" v-for="(g, gi) in o.goods" :key="gi">
+            <image v-if="g.image" class="dg-thumb" :src="g.image" mode="aspectFill" />
+            <view v-else class="dg-thumb"></view>
+            <text class="dg-name">{{ g.name }}</text>
+            <text class="dg-qty">×{{ g.qty }}</text>
+          </view>
         </view>
         <text class="c-cust">{{ o.customerName }}{{ o.phoneMask }}</text>
         <text class="c-deliv">{{ o.delivery }}</text>
@@ -430,7 +435,11 @@ onReachBottom(loadMore);
       }
       .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-goods { font-size: 13px; color: $wa-ink;
-        view { line-height: 1.5; }
+        .dg { display: flex; align-items: center; gap: 8px; padding: 2px 0; line-height: 1.5;
+          .dg-thumb { width: 20px; height: 20px; border-radius: 4px; background: #f0f2f7; flex-shrink: 0; }
+          .dg-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .dg-qty { color: $wa-muted; }
+        }
       }
       .c-cust { font-size: 13px; color: $wa-ink; }
       .c-deliv { font-size: 13px; color: $wa-muted; }
