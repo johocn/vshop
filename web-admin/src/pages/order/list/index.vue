@@ -3,15 +3,19 @@
     <view class="headbar">
       <text class="title">订单</text>
       <view class="stats">
-        <view class="stat">
+        <view class="stat" @tap="onStatTap('')">
           <text class="num">{{ stats.today }}</text>
           <text class="lbl">今日订单</text>
         </view>
-        <view class="stat">
+        <view class="stat" @tap="onStatTap('ArrangingPayment')">
+          <text class="num">{{ stats.unpaid }}</text>
+          <text class="lbl">待付款</text>
+        </view>
+        <view class="stat" @tap="onStatTap('PaymentAuthorized')">
           <text class="num">{{ stats.toShip }}</text>
           <text class="lbl">待发货</text>
         </view>
-        <view class="stat">
+        <view class="stat" @tap="onStatTap('Cancelled')">
           <text class="num">{{ stats.refund }}</text>
           <text class="lbl">待退款</text>
         </view>
@@ -137,7 +141,7 @@ const views = ref<OrderView[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
 const totalItems = ref(0);
-const stats = ref<{ today: string; toShip: string; refund: string }>({ today: '—', toShip: '—', refund: '—' });
+const stats = ref<{ today: string; unpaid: string; toShip: string; refund: string }>({ today: '—', unpaid: '—', toShip: '—', refund: '—' });
 const redeemableIds = ref<Set<string>>(new Set());
 
 function fmtTime(t: string): string {
@@ -238,6 +242,11 @@ function onTab(key: string) {
   cur.value = key;
   load();
 }
+function onStatTap(key: string) {
+  if (cur.value === key) return;
+  cur.value = key;
+  load();
+}
 function onSearch() {
   load();
 }
@@ -302,7 +311,7 @@ onReachBottom(loadMore);
     gap: 16rpx;
     margin-top: 16rpx;
     margin-bottom: 0;
-    .stat { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 20rpx 0; text-align: center; display: flex; flex-direction: column;
+    .stat { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 20rpx 0; text-align: center; display: flex; flex-direction: column; cursor: pointer;
       .num { font-size: 36rpx; color: $wa-ink; font-weight: 700; }
       .lbl { margin-top: 6rpx; font-size: 22rpx; color: $wa-muted; }
     }
