@@ -105,7 +105,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchOrders, fetchShopOrders, fetchProductThumbs, ShopOrderRow, OrderRow } from '../../../apis/order';
@@ -113,6 +113,8 @@ import { fetchPickupOrders } from '../../../apis/pickup';
 import {
   channelToView,
   shopToView,
+  filterChannelRows,
+  filterShopRows,
   isGhostView,
   isShippable,
   buildReminderText,
@@ -146,6 +148,19 @@ const views = ref<OrderView[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
 const totalItems = ref(0);
+const perPage = ref(20);
+const page = ref(1);
+const channelRaw = ref<OrderRow[]>([]);
+const delivery = ref<'' | 'pickup' | 'express'>('');
+const dateRange = ref<'' | 'today' | '7d' | '30d'>('');
+const deliveryArr = ['', 'pickup', 'express'] as const;
+const dateArr = ['', 'today', '7d', '30d'] as const;
+const deliveryOpts = ['自提', '快递'];
+const dateOpts = ['今日', '近7天', '近30天'];
+const deliveryIdx = computed(() => Math.max(0, deliveryArr.indexOf(delivery.value)));
+const dateIdx = computed(() => Math.max(0, dateArr.indexOf(dateRange.value)));
+const deliveryLabel = computed(() => (delivery.value ? deliveryOpts[deliveryArr.indexOf(delivery.value)] : ''));
+const dateLabel = computed(() => (dateRange.value ? dateOpts[dateArr.indexOf(dateRange.value)] : ''));
 const stats = ref<{ today: string; unpaid: string; toShip: string; refund: string }>({ today: '—', unpaid: '—', toShip: '—', refund: '—' });
 const redeemableIds = ref<Set<string>>(new Set());
 
@@ -181,33 +196,28 @@ async function loadRedeem() {
 async function load() {
   loading.value = true;
   try {
+    const ok = { kw: kw.value, delivery: delivery.value, dateRange: dateRange.value };
     if (scope.value === 'shop') {
       const list = await fetchShopOrders();
-      totalItems.value = list.length;
-      let rows = list as (ShopOrderRow)[];
-      let thumbMap: Record<string, string> = {};
-      try {
-        const ids = list.flatMap((o) => (o.items || []).map((it) => it.productId));
-        thumbMap = await fetchProductThumbs(ids);
-      } catch { thumbMap = {}; }
+      let rows = filterShopRows(list, ok);
       const st = tabs.find((t) => t.key === cur.value);
       if (cur.value && st?.keys?.length) rows = rows.filter((o) => st.keys.includes(o.state));
-      if (kw.value) {
-        const k = kw.value.trim().toLowerCase();
-        rows = rows.filter((o) =>
-          (o.code || '').toLowerCase().includes(k) || (o.customerName || '').toLowerCase().includes(k),
-        );
-      }
+      totalItems.value = rows.length;
+      let thumbMap: Record<string, string> = {};
+      try {
+        const ids = rows.flatMap((o) => (o.items || []).map((it) => it.productId));
+        thumbMap = await fetchProductThumbs(ids);
+      } catch { thumbMap = {}; }
       views.value = rows.map((o) => shopToView(o, thumbMap)).filter((v) => !isGhostView(v));
     } else {
       const { items: list, totalItems: total } = await fetchOrders({
-        take: 20,
-        skip: 0,
+        take: perPage.value,
+        skip: (page.value - 1) * perPage.value,
         state: cur.value || undefined,
-        keyword: kw.value,
       });
-      views.value = list.map(channelToView).filter((v) => !isGhostView(v));
+      channelRaw.value = list;
       totalItems.value = total;
+      views.value = filterChannelRows(list, ok).map(channelToView).filter((v) => !isGhostView(v));
     }
   } finally {
     loading.value = false;
@@ -215,23 +225,23 @@ async function load() {
 }
 
 async function loadMore() {
+  if (scope.value === 'shop') return;
   if (loading.value || loadingMore.value) return;
-  if (views.value.length >= totalItems.value && totalItems.value > 0) return;
+  if (channelRaw.value.length >= totalItems.value && totalItems.value > 0) return;
+  const isMobile = typeof window === 'undefined' ? false : window.innerWidth < 768;
+  if (!isMobile) return; // 桌面用分页条，不做无限滚动
   loadingMore.value = true;
   try {
-    if (scope.value === 'shop') {
-      // myShopOrders 全量一次返回，首屏 load() 已全部过滤取回，无需二次加载
-      return;
-    } else {
-      const { items: more, totalItems: total } = await fetchOrders({
-        take: 20,
-        skip: views.value.length,
-        state: cur.value || undefined,
-        keyword: kw.value,
-      });
-      totalItems.value = total;
-      views.value = views.value.concat(more.map(channelToView).filter((v) => !isGhostView(v)));
-    }
+    page.value += 1;
+    const { items: more, totalItems: total } = await fetchOrders({
+      take: perPage.value,
+      skip: (page.value - 1) * perPage.value,
+      state: cur.value || undefined,
+    });
+    totalItems.value = total;
+    channelRaw.value = channelRaw.value.concat(more);
+    const ok = { kw: kw.value, delivery: delivery.value, dateRange: dateRange.value };
+    views.value = filterChannelRows(channelRaw.value, ok).map(channelToView).filter((v) => !isGhostView(v));
   } finally {
     loadingMore.value = false;
   }
@@ -240,19 +250,23 @@ async function loadMore() {
 function onScope(key: string) {
   if (scope.value === key) return;
   scope.value = key;
+  resetPage();
   load();
 }
 function onTab(key: string) {
   if (cur.value === key) return;
   cur.value = key;
+  resetPage();
   load();
 }
 function onStatTap(key: string) {
   if (cur.value === key) return;
   cur.value = key;
+  resetPage();
   load();
 }
 function onSearch() {
+  resetPage();
   load();
 }
 function goShip(o: OrderView) {
@@ -292,6 +306,25 @@ function goRemind(o: OrderView) {
 function copyCode(code: string) {
   if (!code) return;
   uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '订单号已复制', icon: 'none' }) });
+}
+function resetPage() { page.value = 1; }
+function onPage(delta: number) {
+  const pages = Math.max(1, Math.ceil(totalItems.value / perPage.value));
+  const next = Math.min(pages, Math.max(1, page.value + delta));
+  if (next === page.value) return;
+  page.value = next; load();
+}
+function onPerPage(n: number) { perPage.value = n; resetPage(); load(); }
+function onDeliveryPick(e: any) { onDelivery(deliveryArr[e.detail.value] as never); }
+function onDatePick(e: any) { onDateRange(dateArr[e.detail.value] as never); }
+function onClearFilter() { delivery.value = ''; dateRange.value = ''; resetPage(); load(); }
+function onDelivery(v: '' | 'pickup' | 'express') {
+  if (delivery.value === v) v = '';
+  delivery.value = v; resetPage(); load();
+}
+function onDateRange(v: '' | 'today' | '7d' | '30d') {
+  if (dateRange.value === v) v = '';
+  dateRange.value = v; resetPage(); load();
 }
 
 onMounted(() => {
