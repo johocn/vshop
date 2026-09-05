@@ -15,6 +15,7 @@ export interface OrderView {
   customerName: string;
   phoneMask: string; // 已有手机号 → ' · 138****6732'；无 → ''
   delivery: string; // 自提 / 快递 / 具体配送方式名
+  address: string; // 省市区+街道 完整地址；无 → ''
   payment: string; // 支付方式名；无 → ''
   time: string; // 下单时间原始串（页面再排版时间格式）
   goods: OrderGood[];
@@ -40,6 +41,17 @@ export function isUnpaid(state: string): boolean {
   return state === 'ArrangingPayment';
 }
 
+// 物流着色：待发货橙 / 已发货蓝 / 已完成绿 / 已取消灰；未命中 → fallback(沿用订单状态原色, 如待付款红)
+export const LOGISTICS_COLORS: Record<string, string> = {
+  PaymentAuthorized: '#E8930C', PaymentSettled: '#E8930C', WaitingForShipping: '#E8930C', PartiallyPaymentSettled: '#E8930C',
+  Shipped: '#2B88D9', PartiallyShipped: '#2B88D9',
+  Completed: '#1FAE5F',
+  Cancelled: '#9095A2',
+};
+export function shipColor(state: string, fallback = ''): string {
+  return LOGISTICS_COLORS[state] || fallback;
+}
+
 // 生成催付文案(纯函数)。顾客名为默认占位'顾客'时省略称谓; shopName 缺省则该行省略。
 export function buildReminderText(o: OrderView, opts?: { shopName?: string }): string {
   const shop = opts?.shopName ? `${opts.shopName} ` : '';
@@ -56,6 +68,23 @@ export function maskPhone(p?: string | null): string {
   const s = (p || '').replace(/\s/g, '');
   if (s.length < 7) return s || '';
   return s.slice(0, 3) + '****' + s.slice(-4);
+}
+
+export interface ShipAddressLike {
+  fullName?: string | null;
+  streetLine1?: string | null;
+  city?: string | null;
+  province?: string | null;
+  countryCode?: string | null;
+  postalCode?: string | null;
+  phoneNumber?: string | null;
+}
+
+// 省市区+街道 拼接，去空；无 → ''
+export function formatAddress(a?: ShipAddressLike | null): string {
+  if (!a) return '';
+  const parts = [a.province, a.city, a.streetLine1].map((s) => (s || '').trim()).filter(Boolean);
+  return parts.join(' ');
 }
 
 export function fmtMoney(cents: number): string {
@@ -112,9 +141,10 @@ export function channelToView(o: OrderRow): OrderView {
     state: o.state,
     customerName: customerNameOf(o),
     phoneMask: phone ? ` · ${maskPhone(phone)}` : '',
-    delivery: o.customFields?.deliveryType === 'pickup' ? '自提' : o.shippingLines?.[0]?.shippingMethod?.name || '快递',
+    delivery: o.customFields?.deliveryType === 'pickup' ? '门店自提' : o.shippingLines?.[0]?.shippingMethod?.name || '快递',
     payment,
     time: o.orderPlacedAt || o.createdAt || '',
+    address: formatAddress(o.shippingAddress),
     goods: (o.lines || []).map((l) => ({
       name: l.productVariant?.name || (l as any).productName || '',
       qty: Number(l.quantity || 0),
@@ -135,6 +165,7 @@ export function shopToView(s: ShopOrderRow, thumbMap: Record<string, string> = {
     delivery: '快递',
     payment: '',
     time: s.placedAt || '',
+    address: '', // 本店商品单接口无地址
     goods: (s.items || []).map((it) => ({
       name: it.productName || it.variantName || '',
       qty: Number(it.quantity || 0),
