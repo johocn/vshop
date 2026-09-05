@@ -289,6 +289,7 @@ flowchart TD
       <table>
         <thead><tr><th>版本</th><th>日期</th><th>说明</th></tr></thead>
         <tbody>
+          <tr><td>v1.2</td><td>2026-09-04</td><td>统计条 + 本店商品单打通：shop-plugin 渠道回退解析，superadmin 按城市选店可查看本店商品单与统计（此前返回 FORBIDDEN）。</td></tr>
           <tr><td>v1.1</td><td>2026-09-04</td><td>订单列表·中国本地化改造（统计条/核销入口/手机卡片+桌面表格响应式）。</td></tr>
           <tr><td>v1.0</td><td>2026-09-04</td><td>F1 启动会话还原；F2 登录错误提示；F3 静默 vue-router 警告；F4 桌面宽屏适配；部署上线并回归。</td></tr>
         </tbody>
@@ -317,20 +318,39 @@ flowchart TD
     </ul>
 
     <h3>8.3 验收截图（线上 e.joho.cn/guanli，手机/桌面双视口）</h3>
+    <p>左侧为手机 390×844（卡片列表），右侧为桌面 1440×900（表格）。截图取「本店商品单」scope：统计条显示真实数字（今日/待发货/待退款），列表渲染归集后的本店商品订单。</p>
     <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
       <figure style="margin:0;">
-        <img src="assets/order_local_mobile_390.png" alt="订单列表-手机卡片" style="width:280px;border:1px solid var(--line);border-radius:10px;" />
-        <figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 卡片</figcaption>
+        <img src="assets/order_myorders_stats_mobile_390.png" alt="订单列表-手机卡片-统计+商品单" style="width:280px;border:1px solid var(--line);border-radius:10px;" />
+        <figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 本店商品单 · 统计条已填充</figcaption>
       </figure>
       <figure style="margin:0;flex:1;min-width:360px;">
-        <img src="assets/order_local_desk_1440.png" alt="订单列表-桌面表格" style="width:100%;border:1px solid var(--line);border-radius:10px;" />
-        <figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 表格</figcaption>
+        <img src="assets/order_myorders_stats_desk_1440.png" alt="订单列表-桌面表格-统计+商品单" style="width:100%;border:1px solid var(--line);border-radius:10px;" />
+        <figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 本店商品单 · 表格</figcaption>
       </figure>
     </div>
 
+    <div class="callout">
+      <h4>统计 + 本店商品单 已打通（后端渠道回退解析）</h4>
+      <p>根因：<code class="mono">myShopOrders</code> 原只按「管理员绑定店铺（<code class="mono">Shop.administratorId</code>）」解析归属，superadmin 无绑定店铺故 <code class="mono">FORBIDDEN</code>，统计条与「本店商品单」空。</p>
+      <p>修复（<code class="mono">vendure/packages/shop-plugin/src/shop.service.ts</code> → <code class="mono">resolveMyShopFromActiveUser</code>）：管理员有绑定店铺时按归属解析（店主不变）；否则按当前经营渠道 <code class="mono">ctx.channelId</code> 回退解析该渠道 active 店铺，使 superadmin 按城市选店后即可查看本渠道「本店商品单/统计」。多店并存渠道取首个（当前单店/渠道模型）。</p>
+      <p>验证：superadmin 选店 t1（店铺「新生」）实测 <code class="mono">myShopOrders</code> 返回订单 18 单；统计=今日 8 / 待发货 8 / 待退款 2；手机卡片 + 桌面表格均正常渲染，无页面/GraphQL 报错。</p>
+    </div>
+
     <div class="callout warn">
-      <h4>已知限制（待后端授权）</h4>
-      <p>统计条与「本店商品单」scope 依赖 <code class="mono">myShopOrders</code>，其在当前 admin 渠道返回 <code class="mono">FORBIDDEN</code>。待后端/渠道对 <code class="mono">myShopOrders</code> 授权后，统计数字与商品单列表即自动填充；未授权期间统计条显示「—」占位。前端已按该来源实现并做了失败兜底，无需返工。</p>
+      <h4>注意：「本店渠道单」对部分渠道为空</h4>
+      <p>「本店渠道单」走 <code class="mono">orders</code> 管理员查询（按订单所处渠道严格过滤）。实测 t1 渠道下 <code class="mono">orders</code> 返回 0（订单实际建于默认/其他渠道，仅经 <code class="mono">myShopOrders</code> 按商品 <code class="mono">shopId</code> 归集可见）。这是数据归属的现实：运营请以「本店商品单」+ 统计条为准；「本店渠道单」仅列出落在当前渠道的订单。若需让渠道单也归集本店商品，可后续在 <code class="mono">orders</code> 侧统一按 shopId 过滤。</p>
+    </div>
+
+    <h3>8.4 对齐设计方案（操作区快捷 + 缩略图 + 头栏）</h3>
+    <p>对订单列表补齐与已批准设计方案的差距：操作区按订单状态给快捷按钮（<strong>待发货→发货</strong>、<strong>自提待核销→去核销</strong>、其余→详情）；手机卡片商品行渠道单显示缩略图（商品单无图→占位块）；收货人行显示「顾客 · 电话 · 配送」；桌面 headbar 单行内联「订单→统计→核销码」。</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+      <figure style="margin:0;"><img src="assets/order_actions_mobile_390.png" style="width:280px;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 快捷按钮+缩略图</figcaption></figure>
+      <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/order_actions_desk_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · headbar+表格操作</figcaption></figure>
+    </div>
+    <div class="callout warn">
+      <h4>已知限制</h4>
+      <p>「发货/详情」跳转在<strong>本店渠道单</strong>可用（订单在当前渠道）；<strong>本店商品单</strong>是跨渠道归集视图，其「发货/详情」受 Vendure 渠道隔离限制、可能无法打开目标单，运营请以渠道单操作为主。本店商品单无商品缩略图（接口不返回图），展示占位块。</p>
     </div>
   </section>
 
