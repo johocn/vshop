@@ -51,6 +51,7 @@
         <view class="actions">
           <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
           <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
+          <text v-if="isUnpaid(o.state)" class="act remind" @tap="goRemind(o)">催付</text>
           <text class="act ghost" @tap="goDetail(o)">详情</text>
         </view>
       </view>
@@ -81,6 +82,7 @@
         <view class="c-ops">
           <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
           <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
+          <text v-if="isUnpaid(o.state)" class="act remind" @tap="goRemind(o)">催付</text>
           <text class="act ghost" @tap="goDetail(o)">详情</text>
         </view>
       </view>
@@ -97,13 +99,15 @@
 import { ref, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchOrders, fetchShopOrders, ShopOrderRow, OrderRow } from '../../../apis/order';
+import { fetchOrders, fetchShopOrders, fetchProductThumbs, ShopOrderRow, OrderRow } from '../../../apis/order';
 import { fetchPickupOrders } from '../../../apis/pickup';
 import {
   channelToView,
   shopToView,
   isGhostView,
   isShippable,
+  buildReminderText,
+  isUnpaid,
   fmtMoney,
   computeStats,
   OrderView,
@@ -172,6 +176,11 @@ async function load() {
       const list = await fetchShopOrders();
       totalItems.value = list.length;
       let rows = list as (ShopOrderRow)[];
+      let thumbMap: Record<string, string> = {};
+      try {
+        const ids = list.flatMap((o) => (o.items || []).map((it) => it.productId));
+        thumbMap = await fetchProductThumbs(ids);
+      } catch { thumbMap = {}; }
       const st = tabs.find((t) => t.key === cur.value);
       if (cur.value && st?.keys?.length) rows = rows.filter((o) => st.keys.includes(o.state));
       if (kw.value) {
@@ -180,7 +189,7 @@ async function load() {
           (o.code || '').toLowerCase().includes(k) || (o.customerName || '').toLowerCase().includes(k),
         );
       }
-      views.value = rows.map(shopToView).filter((v) => !isGhostView(v));
+      views.value = rows.map((o) => shopToView(o, thumbMap)).filter((v) => !isGhostView(v));
     } else {
       const { items: list, totalItems: total } = await fetchOrders({
         take: 20,
@@ -243,6 +252,14 @@ function goRedeem(o: OrderView) {
 }
 function goRedeemPage() {
   uni.navigateTo({ url: '/pages/pickup/redeem/index' });
+}
+function goRemind(o: OrderView) {
+  const text = buildReminderText(o);
+  uni.setClipboardData({
+    data: text,
+    success: () => uni.showToast({ title: '催付文案已复制，请粘贴发给顾客', icon: 'none' }),
+    fail: () => uni.showToast({ title: '复制失败，请重试', icon: 'none' }),
+  });
 }
 
 onMounted(() => {
@@ -379,6 +396,7 @@ onReachBottom(loadMore);
         .ship { color: #fff; background: $wa-accent; }
         .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
         .ghost { color: $wa-ink; background: #eef1f6; }
+        .remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
       }
     }
   }
@@ -417,6 +435,7 @@ onReachBottom(loadMore);
         .ship { color: #fff; background: $wa-accent; }
         .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
         .ghost { color: $wa-ink; background: #eef1f6; }
+        .remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
       }
     }
   }
