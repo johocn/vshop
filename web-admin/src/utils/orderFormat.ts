@@ -35,6 +35,23 @@ export function isShippable(state: string): boolean {
   return SHIPPABLE_STATES.includes(state);
 }
 
+// 待付款(可催付)：order 状态机实测, 待付款 = ArrangingPayment
+export function isUnpaid(state: string): boolean {
+  return state === 'ArrangingPayment';
+}
+
+// 生成催付文案(纯函数)。顾客名为默认占位'顾客'时省略称谓; shopName 缺省则该行省略。
+export function buildReminderText(o: OrderView, opts?: { shopName?: string }): string {
+  const shop = opts?.shopName ? `${opts.shopName} ` : '';
+  const name = o.customerName && o.customerName !== '顾客' ? `，${o.customerName}` : '';
+  return [
+    `${shop}有一笔订单待支付${name}，请尽快完成付款：`,
+    `订单号：${o.code}`,
+    `金额：¥${fmtMoney(o.total)}`,
+    '点击链接或登录确认支付，谢谢支持！',
+  ].join('\n');
+}
+
 export function maskPhone(p?: string | null): string {
   const s = (p || '').replace(/\s/g, '');
   if (s.length < 7) return s || '';
@@ -106,20 +123,21 @@ export function channelToView(o: OrderRow): OrderView {
   };
 }
 
-export function shopToView(s: ShopOrderRow): OrderView {
+export function shopToView(s: ShopOrderRow, thumbMap: Record<string, string> = {}): OrderView {
   return {
     id: s.orderId,
     code: s.code,
     state: s.state,
     customerName: s.customerName || '顾客',
-    phoneMask: '', // 本店商品单接口不返回手机号 → 显示空（桌面表格该列也空）
-    delivery: '快递', // myShopOrders 无配送方式字段，取近似
-    payment: '', // myShopOrders 无支付方式字段
+    phoneMask: '', // 本店商品单接口不返回手机号 → 显示空
+    delivery: '快递',
+    payment: '',
     time: s.placedAt || '',
     goods: (s.items || []).map((it) => ({
       name: it.productName || it.variantName || '',
       qty: Number(it.quantity || 0),
       price: Number(it.lineTotalWithTax || 0),
+      image: thumbMap[it.productId] ? imageFullUrl(thumbMap[it.productId]) : '',
     })),
     total: Number(s.totalWithTax || 0),
   };
