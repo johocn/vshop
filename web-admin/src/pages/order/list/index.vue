@@ -48,9 +48,10 @@
       <view class="card" v-for="o in views" :key="o.id">
         <view class="row head">
           <text class="code" @tap="copyCode(o.code)">{{ o.code }}</text>
-          <text class="st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
+          <text class="st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
         </view>
         <view class="sub">{{ o.customerName }}{{ o.phoneMask }}{{ o.delivery ? ' · ' + o.delivery : '' }}</view>
+        <view class="addr" v-if="o.address"><text class="addr-ic">📍</text><text class="addr-tx">{{ o.address }}</text></view>
         <view class="goods" v-for="(g, gi) in o.goods" :key="gi">
           <image v-if="g.image" class="g-thumb" :src="g.image" mode="aspectFill" />
           <view v-else class="g-thumb"></view>
@@ -136,6 +137,7 @@ import {
   isUnpaid,
   fmtMoney,
   computeStats,
+  shipColor,
   OrderView,
 } from '../../../utils/orderFormat';
 import { ORDER_STATES, stateLabel } from '../../../constants/orderState';
@@ -483,6 +485,20 @@ onReachBottom(loadMore);
         .st { font-size: 24rpx; }
       }
       .sub { font-size: 26rpx; color: $wa-muted; margin-bottom: 10rpx; }
+      .addr {
+        display: flex;
+        gap: 8rpx;
+        align-items: flex-start;
+        background: #f0f2f7;
+        border-radius: 8rpx;
+        padding: 12rpx 20rpx;
+        font-size: 24rpx;
+        color: $wa-muted;
+        line-height: 1.5;
+        margin-bottom: 10rpx;
+        .addr-ic { flex-shrink: 0; color: $wa-accent; }
+        .addr-tx { flex: 1; }
+      }
       .goods {
         display: flex;
         justify-content: space-between;
