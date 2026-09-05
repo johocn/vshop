@@ -22,6 +22,17 @@ def run(vp,tag):
         # 切到「本店商品单」（有真实数据 18 单）
         pg.locator('.scope').get_by_text('本店商品单',exact=True).click(); time.sleep(3)
         body=pg.inner_text('body')
+        # 按商品名搜索（商品单全量本地过滤）：取首单首个商品名，填写应命中 >=1 单，随后清空
+        product_name_ok = False
+        gname_el = pg.locator('.card .goods .g-name').first
+        if gname_el.count() > 0:
+            nm = gname_el.inner_text().strip()
+            if nm:
+                pg.locator('.kw').fill(nm)
+                pg.locator('.search .btn').click(); time.sleep(3)
+                product_name_ok = pg.locator('.card').count() >= 1
+                pg.locator('.kw').fill('')
+                pg.locator('.search .btn').click(); time.sleep(3)
         ship_btns  = pg.locator('.act.ship').count()     # 发货按钮
         detail_btns= pg.locator('.act.ghost').count()    # 详情按钮
         redeem_btns= pg.locator('.act.redeem').count()   # 去核销按钮（线上核销未授权→可能为0）
@@ -36,7 +47,9 @@ def run(vp,tag):
         dg_rows      = pg.locator('.dt .c-goods .dg').count() if tag=='desk' else 0  # 桌面商品缩略图行
         ok_stat4     = stat_cards==4
         ok_dg        = (not (tag=='desk')) or dg_rows>0
-        ALL_OK       = ok_ship and ok_detail and ok_thumb and ok_thumb_img and ok_stat4 and ok_dg
+        filter_chips  = pg.locator('.filters .f-chip').count()
+        pf_channel    = pg.locator('.pgbar').count()
+        pf_on_desk    = (pf_channel >= 1) if tag == 'desk' else True
         copied = False
         # 桌面用「非表头行的 c-code」（表头也有 .c-code 但无 @tap）；手机卡片 .code 无表头
         sel = '.dt .dt-row:not(.head) .c-code' if tag=='desk' else '.card .code'
@@ -44,7 +57,9 @@ def run(vp,tag):
         if code_el.count()>0:
             code_el.click(); time.sleep(1)
             copied = '订单号已复制' in pg.inner_text('body')
-        ALL_OK = ALL_OK and copied
+        ALL_OK = (ok_ship and ok_detail and ok_thumb and ok_thumb_img
+                  and ok_stat4 and ok_dg and copied
+                  and product_name_ok and filter_chips >= 2 and pf_on_desk)
         # 若未付款单存在则切到「待付款」tab 再统计催付按钮(数据依赖; 无待付款单允许为 0)
         remind_on_unpaid = remind_btns
         try:
@@ -54,7 +69,7 @@ def run(vp,tag):
         except Exception:
             remind_on_unpaid = remind_btns
         pg.screenshot(path=SHOT+'order_actions_'+('desk_1440.png' if tag=='desk' else 'mobile_390.png'),full_page=True)
-        print('=== TAG',tag,'===  ALL_OK', ALL_OK, 'STAT_4=',stat_cards,'DG_ROWS=',dg_rows,'COPY_OK=',copied)
+        print('=== TAG',tag,'===  ALL_OK', ALL_OK, 'STAT_4=',stat_cards,'DG_ROWS=',dg_rows,'COPY_OK=',copied,'PRODUCT_NAME_OK=',product_name_ok,' FILTER_CHIPS=',filter_chips,' PGBAR=',pf_channel)
         print('HEADBAR=',has_headbar,'SHIP_BTNS=',ship_btns,'DETAIL_BTNS=',detail_btns,'REDEEM_BTNS=',redeem_btns)
         print('THUMB_TOTAL=',thumb_total,'THUMB_IMG=',thumb_img,'REMIND_BTNS=',remind_btns,'REMIND_ON_UNPAID=',remind_on_unpaid,'| PAGEERRORS=',errs if errs else '(none)')
         b.close()
