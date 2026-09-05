@@ -68,6 +68,13 @@ def run(vp,tag):
         ALL_OK = (ok_ship and ok_detail and ok_thumb and ok_thumb_img
                   and ok_stat4 and ok_dg and copied
                   and product_name_ok and filter_chips >= 2 and pgbar_ok)
+        # 配送信息补齐：地址行(手机卡片, 仅渠道单有值) / 桌面地址列(表头恒在, 数据格占位—)
+        addr_mobile = pg.locator('.card .addr').count()          # 手机卡片地址行(商品单无地址→0)
+        addr_col = pg.locator('.c-addr').count()                  # 桌面地址列单元格(含表头; mobile 视口 display:none 不可见但 DOM 在)
+        has_addr_header = pg.locator('.dt-row.head .c-addr').count() > 0
+        status_colored = pg.locator('.card .st[style*="color"], .c-st[style*="color"]').count() > 0
+        ok_addr = has_addr_header and status_colored
+        print('ADDR_MOBILE=', addr_mobile, 'ADDR_COL=', addr_col, 'HAS_ADDR_HEADER=', has_addr_header, 'STATUS_COLORED=', status_colored, 'OK_ADDR=', ok_addr)
         # 若未付款单存在则切到「待付款」tab 再统计催付按钮(数据依赖; 无待付款单允许为 0)
         remind_on_unpaid = remind_btns
         try:
