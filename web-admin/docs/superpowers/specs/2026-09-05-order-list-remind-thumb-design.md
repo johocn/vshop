@@ -83,16 +83,18 @@ export function buildReminderText(o: OrderView, opts?: { shopName?: string }): s
 
 ### 2. 商品单缩略图（前端批量查图）
 
-**`src/apis/order.ts` 新增（或放 `product.ts` 更内聚，视计划定）：**
+**`src/apis/order.ts` 新增（放 order.ts：商品单数据层查询，内聚于订单域）：**
+
+> 注意：`order.ts` 只返回 `featuredAsset.preview` 的相对路径，**不调 `imageFullUrl`**，避免 `order.ts ↔ orderFormat.ts` 循环依赖；统一由 `orderFormat.shopToView` 拼完整 URL。
 
 ```ts
 // 商品单缩略图：商品单 items[] 只带 productId, 无图;
-// 按 productId 批量取商品级 featuredAsset.preview, 建 id→image 映射。
+// 按 productId 批量取商品级 featuredAsset.preview, 建 id→相对路径 映射（拼域名交给 orderFormat）。
 export async function fetchProductThumbs(ids: string[]): Promise<Record<string, string>> {
   const uniq = [...new Set(ids)].filter(Boolean);
   if (!uniq.length) return {};
   const chunk = 80; // 分批, 避免单次 in 数组过长
-  let map: Record<string, string> = {};
+  const map: Record<string, string> = {};
   for (let i = 0; i < uniq.length; i += chunk) {
     const batch = uniq.slice(i, i + chunk);
     const { products } = await getAdminClient().request<{
@@ -107,7 +109,7 @@ export async function fetchProductThumbs(ids: string[]): Promise<Record<string, 
     );
     for (const p of products.items) {
       const src = p.featuredAsset?.preview;
-      if (src) map[p.id] = imageFullUrl(src);
+      if (src) map[p.id] = src; // 相对路径, 由 shopToView 经 imageFullUrl 拼完整
     }
   }
   return map;
@@ -115,13 +117,13 @@ export async function fetchProductThumbs(ids: string[]): Promise<Record<string, 
 ```
 
 **`src/utils/orderFormat.ts`：**
-- `shopToView(s, thumbMap = {})` 增补商品行 `image`：
+- `shopToView(s, thumbMap = {})` 增补商品行 `image`；`shopToView` 已 import `imageFullUrl`，就地拼完整 URL：
   ```ts
   goods: (s.items || []).map((it) => ({
     name: it.productName || it.variantName || '',
     qty: Number(it.quantity || 0),
     price: Number(it.lineTotalWithTax || 0),
-    image: thumbMap[it.productId] || '',
+    image: thumbMap[it.productId] ? imageFullUrl(thumbMap[it.productId]) : '',
   })),
   ```
 
