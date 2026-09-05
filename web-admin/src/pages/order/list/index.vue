@@ -38,7 +38,7 @@
     <view class="card-list">
       <view class="card" v-for="o in views" :key="o.id">
         <view class="row head">
-          <text class="code">{{ o.code }}</text>
+          <text class="code" @tap="copyCode(o.code)">{{ o.code }}</text>
           <text class="st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
         </view>
         <view class="sub">{{ o.customerName }}{{ o.phoneMask }}{{ o.delivery ? ' · ' + o.delivery : '' }}</view>
@@ -74,7 +74,7 @@
         <text class="c-ops">操作</text>
       </view>
       <view class="dt-row" v-for="o in views" :key="o.id">
-        <text class="c-code">{{ o.code }}</text>
+        <text class="c-code" @tap="copyCode(o.code)">{{ o.code }}</text>
         <view class="c-goods">
           <view class="dg" v-for="(g, gi) in o.goods" :key="gi">
             <image v-if="g.image" class="dg-thumb" :src="g.image" mode="aspectFill" />
@@ -289,6 +289,11 @@ function goRemind(o: OrderView) {
   });
 }
 
+function copyCode(code: string) {
+  if (!code) return;
+  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '订单号已复制', icon: 'none' }) });
+}
+
 onMounted(() => {
   load();
   loadStats();
@@ -397,7 +402,7 @@ onReachBottom(loadMore);
         justify-content: space-between;
       }
       .head { margin-bottom: 14rpx;
-        .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
+        .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; cursor: pointer; }
         .st { font-size: 24rpx; }
       }
       .sub { font-size: 26rpx; color: $wa-muted; margin-bottom: 10rpx; }
@@ -446,7 +451,7 @@ onReachBottom(loadMore);
         position: sticky;
         top: 0;
       }
-      .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
       .c-goods { font-size: 13px; color: $wa-ink;
         .dg { display: flex; align-items: center; gap: 8px; padding: 2px 0; line-height: 1.5;
           .dg-thumb { width: 20px; height: 20px; border-radius: 4px; background: #f0f2f7; flex-shrink: 0; }
