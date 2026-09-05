@@ -77,6 +77,7 @@
         <text class="c-code">订单号</text>
         <text class="c-goods">商品</text>
         <text class="c-cust">收货人 / 电话</text>
+        <text class="c-addr">地址</text>
         <text class="c-deliv">配送</text>
         <text class="c-pay">实付</text>
         <text class="c-time">下单时间</text>
@@ -94,10 +95,11 @@
           </view>
         </view>
         <text class="c-cust">{{ o.customerName }}{{ o.phoneMask }}</text>
+        <text class="c-addr">{{ o.address || '—' }}</text>
         <text class="c-deliv">{{ o.delivery }}</text>
         <text class="c-pay">¥{{ fmtMoney(o.total) }}</text>
         <text class="c-time">{{ fmtTime(o.time) }}</text>
-        <text class="c-st" :style="{ color: stateLabel(ORDER_STATES, o.state).color }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
+        <text class="c-st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
         <view class="c-ops">
           <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
           <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
@@ -531,7 +533,7 @@ onReachBottom(loadMore);
     display: none;
     .dt-row {
       display: grid;
-      grid-template-columns: 2fr 3fr 1.8fr 1fr 1fr 1.6fr 1fr 1.4fr;
+      grid-template-columns: 2fr 3fr 1.8fr 1.4fr 1fr 1fr 1.6fr 1fr 1.4fr;
       gap: 16rpx;
       align-items: center;
       padding: 18rpx 24rpx;
@@ -553,6 +555,7 @@ onReachBottom(loadMore);
         }
       }
       .c-cust { font-size: 13px; color: $wa-ink; }
+      .c-addr { font-size: 13px; color: $wa-muted; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-deliv { font-size: 13px; color: $wa-muted; }
       .c-pay { font-size: 14px; color: $wa-danger; font-weight: 600; }
       .c-time { font-size: 13px; color: $wa-muted; }
