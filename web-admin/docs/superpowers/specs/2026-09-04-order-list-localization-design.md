@@ -180,9 +180,39 @@
 
 ### 13.3 取舍
 
-- 商品单（本店商品单）接口无地址/配送方式名：**不扩后端**，仅物流着色沿用；地址列/方式名显示占位（`—` / 「快递」）。
+- 商品单（本店商品单）接口无地址/配送方式名（初版取舍，已在下文 14 改为后端补地址）。
 
 - 仅渠道单具备完整地址与方式名，故地址行/地址列/方式名在渠道单完整生效。
+
+## 14. 本店商品单补地址（修订，2026-09-05 决策）
+
+> 结论：**不新增「本店订单」scope**。「本店商品单」本就是本租户全部订单（跨渠道按商品 shopId 归集的权威总表 = 默认/全量），「本店渠道单」是本租户在当前渠道的销售切片。要"看得到地址"，正确做法是让全量总表（商品单）也带上地址，而非叠一个新总表。
+
+### 14.1 语义确认
+
+| scope | 查询                                 | 语义                                                 |
+| ----- | ---------------------------------- | -------------------------------------------------- |
+| 本店渠道单 | `fetchOrders` → `orders()`         | 本租户在当前渠道下的销售（渠道隔离），自带地址/方式/支付                      |
+| 本店商品单 | `fetchShopOrders` → `myShopOrders` | 本租户全部订单（跨渠道全量总表），现状含 customerName/items，**无地址/方式** |
+
+### 14.2 后端改动（`@vendure/shop-plugin`，仓 `d:\zhao\vendure`）
+
+- `src/shop.service.ts`：`aggregateMerchantOrders`（及单订单 `resolveMyShopOrder`）加载 relations 补
+  `order.shippingAddress`、`order.shippingLines`、`order.shippingLines.shippingMethod`。
+
+- `src/plugin.ts`（graphql schema）：`MerchantOrder` 增 `shippingAddress`（fullName/streetLine1/city/province/countryCode/postalCode）+ `shippingLines`（shippingMethod{id code name}）。
+
+- `src/types.ts`：`MerchantOrder` 接口同步扩展。
+
+- 部署：vendure 后端仓库走 `git pull + pm2 restart`（**非** web-admin 的 `deploy.mjs`）。
+
+### 14.3 前端改动（`d:\zhao\vshop\web-admin`）
+
+- `src/apis/order.ts`：`ShopOrderRow` 增 `shippingAddress?`/`shippingLines?`；`fetchShopOrders` 查询补字段。
+
+- `src/utils/orderFormat.ts`：`shopToView` 用现有 `formatAddress` 填 `o.address`；配送方式沿用 `o.delivery`。
+
+- 效果：商品单 scope 下手机地址行、桌面「地址」列填充真实数据。
 
 ## 涉及文件（预估）
 
