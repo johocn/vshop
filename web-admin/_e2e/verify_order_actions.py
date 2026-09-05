@@ -32,6 +32,19 @@ def run(vp,tag):
         ok_detail    = detail_btns>0
         ok_thumb     = thumb_total>0
         ok_thumb_img = thumb_img>0                        # 新feature: 商品单商品行出现真实缩略图
+        stat_cards   = pg.locator('.stat').count()          # 统计卡 = 4(今日/待付款/待发货/待退款)
+        dg_rows      = pg.locator('.dt .c-goods .dg').count() if tag=='desk' else 0  # 桌面商品缩略图行
+        ok_stat4     = stat_cards==4
+        ok_dg        = (not (tag=='desk')) or dg_rows>0
+        ALL_OK       = ok_ship and ok_detail and ok_thumb and ok_thumb_img and ok_stat4 and ok_dg
+        copied = False
+        # 桌面用「非表头行的 c-code」（表头也有 .c-code 但无 @tap）；手机卡片 .code 无表头
+        sel = '.dt .dt-row:not(.head) .c-code' if tag=='desk' else '.card .code'
+        code_el = pg.locator(sel).first
+        if code_el.count()>0:
+            code_el.click(); time.sleep(1)
+            copied = '订单号已复制' in pg.inner_text('body')
+        ALL_OK = ALL_OK and copied
         # 若未付款单存在则切到「待付款」tab 再统计催付按钮(数据依赖; 无待付款单允许为 0)
         remind_on_unpaid = remind_btns
         try:
@@ -41,7 +54,7 @@ def run(vp,tag):
         except Exception:
             remind_on_unpaid = remind_btns
         pg.screenshot(path=SHOT+'order_actions_'+('desk_1440.png' if tag=='desk' else 'mobile_390.png'),full_page=True)
-        print('=== TAG',tag,'===  ALL_OK', ok_ship and ok_detail and ok_thumb and ok_thumb_img)
+        print('=== TAG',tag,'===  ALL_OK', ALL_OK, 'STAT_4=',stat_cards,'DG_ROWS=',dg_rows,'COPY_OK=',copied)
         print('HEADBAR=',has_headbar,'SHIP_BTNS=',ship_btns,'DETAIL_BTNS=',detail_btns,'REDEEM_BTNS=',redeem_btns)
         print('THUMB_TOTAL=',thumb_total,'THUMB_IMG=',thumb_img,'REMIND_BTNS=',remind_btns,'REMIND_ON_UNPAID=',remind_on_unpaid,'| PAGEERRORS=',errs if errs else '(none)')
         b.close()
