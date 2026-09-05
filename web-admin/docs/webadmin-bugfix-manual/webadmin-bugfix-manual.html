@@ -389,6 +389,25 @@ flowchart TD
       <h4>线上验收结论</h4>
       <p>手机 390×844 与桌面 1440×900 <code class="mono">ALL_OK</code> 均 <code class="mono">True</code>；<code class="mono">PRODUCT_NAME_OK=True</code>（商品单按商品名搜索命中 ≥1）、<code class="mono">FILTER_CHIPS=2</code> 双视口成立。桌面「本店渠道单」<code class="mono">.pgbar</code> 分页条（上一页/下一页 + 共 N 单 + 页大小 20/50/100）正常渲染。说明：渠道单分页「共 0 单」系 t1 渠道当前无落单订单（订单建于默认/其他渠道，数据归属），条本身渲染与翻页能力正常，非缺陷。</p>
     </div>
+
+    <h4>8.4.4 配送信息补齐（手机地址行 + 桌面地址列 + 物流着色）</h4>
+    <p>在 8.4.1/8.4.2/8.4.3 基础上补齐订单的配送信息展示：手机卡片新增灰底地址行、桌面表格新增「地址」列，并对不同物流状态做颜色标注（部署后经线上 E2E 双视口回归验证，桌面 <code class="mono">ADDR_COL=19</code>、<code class="mono">HAS_ADDR_HEADER=True</code> 成立，验收图见下）。</p>
+    <p><strong>① 手机卡片·灰底地址行：</strong>在「收货人·手机·配送方式名」行<strong>下方</strong>新增一行灰底地址（<code class="mono">.addr</code>，样式 <code class="mono">📍 省市区 街道门牌</code>）。该行<strong>仅快递单（express）存在</strong>：订单有 <code class="mono">shippingAddress</code> 且配送方式为快递时渲染；无地址或自提单不渲染此行。</p>
+    <p><strong>② 配送方式名补全：</strong>「收货人·手机·配送方式名」一行里的<strong>配送方式名</strong>补全——自提订单显示「门店自提」，快递订单显示 <code class="mono">shippingMethod.name</code> 全名（如「顺丰速运」），不再截断/空置。</p>
+    <p><strong>③ 桌面表格·新增「地址」列：</strong>桌面八列表格仅新增一列「地址」（<code class="mono">.c-addr</code>，位于<strong>收货人 / 电话</strong>之后），其余列保持不变；该订单无地址或为自提时显示 <code class="mono">—</code> 占位。表头固定渲染此列（<code class="mono">HAS_ADDR_HEADER=True</code>），线上桌面视口该列单元格 <code class="mono">ADDR_COL=19</code>（含表头 + 数据行）。</p>
+    <p><strong>④ 状态物流着色：</strong>对订单状态做颜色标注——<strong>待发货橙 / 已发货蓝 / 已完成绿 / 已取消灰</strong>；「待付款」保留原色不标注。着色对手机卡片（<code class="mono">.st</code>）与桌面表格（<code class="mono">.c-st</code>）同时生效（<code class="mono">STATUS_COLORED=True</code> 双视口成立）。</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+      <figure style="margin:0;flex:1;min-width:300px;"><img src="assets/order_actions_mobile_390.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 商品单卡片：灰底地址行（仅快递单有值，此处商品单无地址故不渲染）+ 配送方式名补全 + 状态物流着色</figcaption></figure>
+      <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/order_actions_desk_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 表格新增「地址」列（收货人/电话后，无地址或自提显示 —）+ 状态物流着色（ADDR_COL=19）</figcaption></figure>
+    </div>
+    <div class="callout warn">
+      <h4>已知限制</h4>
+      <p><strong>本店商品单</strong>（<code class="mono">myShopOrders</code>）接口不返回 <code class="mono">shippingAddress</code> 与配送方式名 → 商品单内手机卡片<strong>不渲染</strong>灰底地址行、桌面「地址」列显示 <code class="mono">—</code> 占位。<strong>本店渠道单</strong>（<code class="mono">orders</code> 接口）才返回地址，灰底地址行随快递单出现。物流着色（待发货橙/已发货蓝/已完成绿/已取消灰）对商品单同样生效，不因此受限。</p>
+    </div>
+    <div class="callout ok">
+      <h4>线上验收结论</h4>
+      <p>部署后线上 E2E 双视口回归：手机 390×844 与桌面 1440×900 <code class="mono">ALL_OK</code> 均 <code class="mono">True</code>；桌面 <code class="mono">ADDR_COL=19</code>（地址列单元格，含表头）、<code class="mono">HAS_ADDR_HEADER=True</code>、<code class="mono">STATUS_COLORED=True</code>、<code class="mono">OK_ADDR=True</code> 成立。手机 <code class="mono">ADDR_MOBILE=0</code>（本店商品单无地址，符合已知限制；邮箱渠道单快递单的地址行随有值订单出现），无 <code class="mono">PAGEERROR</code>。</p>
+    </div>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
