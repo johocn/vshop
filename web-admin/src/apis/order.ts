@@ -74,6 +74,33 @@ export async function fetchShopOrders(): Promise<ShopOrderRow[]> {
   return myShopOrders ?? [];
 }
 
+// 商品单缩略图：myShopOrders items 只带 productId, 无图;
+// 按 productId 批量取商品级 featuredAsset.preview, 建 id→相对路径 映射(拼域名交给 orderFormat)。
+export async function fetchProductThumbs(ids: string[]): Promise<Record<string, string>> {
+  const uniq = [...new Set(ids)].filter(Boolean);
+  if (!uniq.length) return {};
+  const chunk = 80; // 分批, 避免单次 in 数组过长
+  const map: Record<string, string> = {};
+  for (let i = 0; i < uniq.length; i += chunk) {
+    const batch = uniq.slice(i, i + chunk);
+    const { products } = await getAdminClient().request<{
+      products: { items: Array<{ id: string; featuredAsset?: { preview?: string } | null }> };
+    }>(
+      `query ProductThumbs($ids: [ID!]!) {
+        products(options: { filter: { id: { in: $ids } } }) {
+          items { id featuredAsset { preview } }
+        }
+      }`,
+      { ids: batch },
+    );
+    for (const p of products.items) {
+      const src = p.featuredAsset?.preview;
+      if (src) map[p.id] = src; // 仅相对路径, 由 shopToView 经 imageFullUrl 拼完整
+    }
+  }
+  return map;
+}
+
 export interface FulfillmentResult {
   id: string;
   state: string;
