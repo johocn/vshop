@@ -86,7 +86,7 @@ export async function fetchProductThumbs(ids: string[]): Promise<Record<string, 
     const { products } = await getAdminClient().request<{
       products: { items: Array<{ id: string; featuredAsset?: { preview?: string } | null }> };
     }>(
-      `query ProductThumbs($ids: [ID!]!) {
+      `query ProductThumbs($ids: [String!]!) {
         products(options: { filter: { id: { in: $ids } } }) {
           items { id featuredAsset { preview } }
         }
