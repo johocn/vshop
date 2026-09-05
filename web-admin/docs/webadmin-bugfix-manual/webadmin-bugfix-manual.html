@@ -443,6 +443,20 @@ flowchart TD
       <p><strong>接口层</strong>：<code class="mono">assetLibrary(take:30, skip:0)</code> 由报错改为返回 <code class="mono">totalItems=42</code>，且 <code class="mono">preview/source</code> 为可加载的绝对 URL（如 <code class="mono">https://e.joho.cn/assets/preview/1c/…jpg</code>）。<strong>渲染层</strong>：打入商品创建页媒体库，<code class="mono">mlm__cell</code> 加载 30 张缩略图，全部 <code class="mono">naturalWidth &gt; 0</code>（真实加载，非 SPA 占位），未加载 0，无 <code class="mono">PAGEERROR</code>。商品图分组为 0 属于「这些资源尚未打商品图分类码」，点分组过滤后为空为预期。</p>
     </div>
     <figure style="margin:0;"><img src="assets/media_library_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品创建页媒体库（桌面 1440×900）：缩略图网格正常显示，上传与已传资源均可选</figcaption></figure>
+    <h4>9.5 打标与底部操作条修复</h4>
+    <p><strong>关联现象</strong>：媒体库网格能显示后，选中图片但<strong>底部「已选/打标/确定」操作条不可见/点不到</strong>，无法打标签、无法把图带回商品表单。</p>
+    <p><strong>根因</strong>：<code class="mono">MediaLibraryModal.vue</code> 的 <code class="mono">.mlm__grid-scroll</code> 是 uni 的 <code class="mono">scroll-view</code>，未设显式高度时不收缩，网格内容会整体撑开并经 <code class="mono">paint</code> 覆盖底部 footer（命中检测证实拦截者是网格里的 <code class="mono">.mlm__cell-name</code>），故真实触屏点在 footer 上毫无反应。</p>
+    <p><strong>修复</strong>：给 <code class="mono">.mlm__grid-scroll</code> 增加 <code class="mono">height:52vh; max-height:52vh</code>（内容在其中内部滚动，footer 始终可见可点）。注入验证先行确认（把网格限高后 footer 显现、触摸可打开打标面板、chips=20），再落地代码构建部署。</p>
+    <div class="callout ok">
+      <h4>打标 + 主图端到端验证（桌面 1440×900）</h4>
+      <p>选中图片 → 打标面板打开（主图/白底图/…共 20 个分类）→ 勾选「主图」确认 → 后端 <code class="mono">setAssetTags</code> 落库生效（该资产 <code class="mono">assetTags:['主图']</code>）→ 选图「确定」回填商品表单主图，缩略图 <code class="mono">naturalWidth&gt;0</code> 真实显示，无 <code class="mono">PAGEERROR</code>。</p>
+    </div>
+    <figure style="margin:0;display:flex;gap:12px;flex-wrap:wrap;">
+      <img src="assets/media_tagged_grid_1440.png" style="width:48%;border:1px solid var(--line);border-radius:10px;" />
+      <img src="assets/media_confirm_backfill_1440.png" style="width:48%;border:1px solid var(--line);border-radius:10px;" />
+      <figcaption style="width:100%;font-size:12px;color:var(--muted);margin-top:6px;">左：打标后网格显示「主图」标签；右：选图确认后商品表单主图回填显示</figcaption>
+    </figure>
+    <p class="muted" style="font-size:13px;">注：媒体库当前<strong>没有「描述」字段</strong>，附加资源说明只能通过分类码（打标面板「输入新分类码」）表达；若要给资源加独立描述文案，需另行迭代。</p>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
