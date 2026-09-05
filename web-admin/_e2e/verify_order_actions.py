@@ -23,17 +23,27 @@ def run(vp,tag):
         pg.locator('.scope').get_by_text('本店商品单',exact=True).click(); time.sleep(3)
         body=pg.inner_text('body')
         ship_btns  = pg.locator('.act.ship').count()     # 发货按钮
-        detail_btns= pg.locator('.act.ghost').count()     # 详情按钮
-        redeem_btns= pg.locator('.act.redeem').count()    # 去核销按钮（线上核销未授权→可能为0）
+        detail_btns= pg.locator('.act.ghost').count()    # 详情按钮
+        redeem_btns= pg.locator('.act.redeem').count()   # 去核销按钮（线上核销未授权→可能为0）
         thumb_total = pg.locator('.g-thumb').count()      # 缩略图位：商品单=占位 view，渠道单=image
         thumb_img   = pg.locator('.g-thumb image, .g-thumb uni-image, .g-thumb img').count()
-        ok_ship   = ship_btns>0
-        ok_detail = detail_btns>0
-        ok_thumb  = thumb_total>0
+        remind_btns = pg.locator('.act.remind').count()   # 催付按钮(仅待付款单出现)
+        ok_ship      = ship_btns>0
+        ok_detail    = detail_btns>0
+        ok_thumb     = thumb_total>0
+        ok_thumb_img = thumb_img>0                        # 新feature: 商品单商品行出现真实缩略图
+        # 若未付款单存在则切到「待付款」tab 再统计催付按钮(数据依赖; 无待付款单允许为 0)
+        remind_on_unpaid = remind_btns
+        try:
+            pg.locator('.tabs').get_by_text('待付款',exact=True).first.click()
+            time.sleep(2)
+            remind_on_unpaid = pg.locator('.act.remind').count()
+        except Exception:
+            remind_on_unpaid = remind_btns
         pg.screenshot(path=SHOT+'order_actions_'+('desk_1440.png' if tag=='desk' else 'mobile_390.png'),full_page=True)
-        print('=== TAG',tag,'===  ALL_OK', ok_ship and ok_detail and ok_thumb)
+        print('=== TAG',tag,'===  ALL_OK', ok_ship and ok_detail and ok_thumb and ok_thumb_img)
         print('HEADBAR=',has_headbar,'SHIP_BTNS=',ship_btns,'DETAIL_BTNS=',detail_btns,'REDEEM_BTNS=',redeem_btns)
-        print('THUMB_TOTAL=',thumb_total,'THUMB_IMG=',thumb_img,'| PAGEERRORS=',errs if errs else '(none)')
+        print('THUMB_TOTAL=',thumb_total,'THUMB_IMG=',thumb_img,'REMIND_BTNS=',remind_btns,'REMIND_ON_UNPAID=',remind_on_unpaid,'| PAGEERRORS=',errs if errs else '(none)')
         b.close()
 run({'width':390,'height':844},'mobile')
 run({'width':1440,'height':900},'desk')
