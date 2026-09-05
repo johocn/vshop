@@ -59,6 +59,15 @@ export interface ShopOrderRow {
   currencyCode: string;
   customerName?: string | null;
   placedAt?: string | null;
+  shippingAddress?: {
+    fullName?: string | null;
+    streetLine1?: string | null;
+    city?: string | null;
+    province?: string | null;
+    countryCode?: string | null;
+    postalCode?: string | null;
+  } | null;
+  shippingLines?: Array<{ id?: string; code?: string | null; name?: string | null }>;
   items: Array<{
     orderLineId: string;
     productId: string;
@@ -75,6 +84,8 @@ export async function fetchShopOrders(): Promise<ShopOrderRow[]> {
     `query ShopOrders {
       myShopOrders {
         orderId code state totalWithTax currencyCode customerName placedAt
+        shippingAddress { fullName streetLine1 city province countryCode postalCode }
+        shippingLines { id code name }
         items { orderLineId productId productName variantName quantity fulfilledQuantity lineTotalWithTax }
       }
     }`,

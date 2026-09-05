@@ -162,10 +162,10 @@ export function shopToView(s: ShopOrderRow, thumbMap: Record<string, string> = {
     state: s.state,
     customerName: s.customerName || '顾客',
     phoneMask: '', // 本店商品单接口不返回手机号 → 显示空
-    delivery: '快递',
+    delivery: s.shippingLines?.[0]?.name || '门店自提',
     payment: '',
     time: s.placedAt || '',
-    address: '', // 本店商品单接口无地址
+    address: formatAddress(s.shippingAddress as ShipAddressLike | null | undefined),
     goods: (s.items || []).map((it) => ({
       name: it.productName || it.variantName || '',
       qty: Number(it.quantity || 0),
