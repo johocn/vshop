@@ -256,9 +256,22 @@ function onSearch() {
   load();
 }
 function goShip(o: OrderView) {
-  uni.navigateTo({ url: `/pages/order/ship/index?id=${o.id}` });
+  if (scope.value === 'shop') {
+    uni.showToast({ title: '商品单为跨渠道归集视图，请到「本店渠道单」发货', icon: 'none' });
+    return;
+  }
+  uni.showModal({
+    title: '确认发货',
+    content: `订单 ${o.code} 将进入发货流程`,
+    confirmText: '进入发货',
+    success: (r) => { if (r.confirm) uni.navigateTo({ url: `/pages/order/ship/index?id=${o.id}` }); },
+  });
 }
 function goDetail(o: OrderView) {
+  if (scope.value === 'shop') {
+    uni.showToast({ title: '商品单为跨渠道归集视图，详情请到「本店渠道单」查看', icon: 'none' });
+    return;
+  }
   uni.navigateTo({ url: `/pages/order/detail/index?id=${o.id}` });
 }
 function goRedeem(o: OrderView) {
