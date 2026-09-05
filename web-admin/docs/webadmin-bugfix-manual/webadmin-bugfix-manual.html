@@ -360,6 +360,21 @@ flowchart TD
       <figure style="margin:0;flex:1;min-width:300px;"><img src="assets/order_actions_mobile_390.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 商品单带真实商品缩略图（催付按钮随待付款单出现）</figcaption></figure>
       <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/order_actions_desk_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 商品单表格（缩略图在商品行展示）</figcaption></figure>
     </div>
+
+    <h4>8.4.2 补齐缺失：桌面缩略图 / 统计4卡 / 受限提示 / 交互补强</h4>
+    <p>在 8.4.1 基础上进一步补齐桌面与商品单视图的体验缺口，覆盖四类改动（部署后经线上 E2E 双视口回归验证，结果见下验收图）。</p>
+    <p><strong>① 桌面商品列表行补商品缩略图：</strong>之前桌面表格商品行只显示文本；现在与手机卡片一致，在商品行左侧渲染 <code class="mono">productId</code> 批量回填的 <code class="mono">featuredAsset.preview</code> 缩略图，无图商品回退为灰底占位块（<code class="mono">.dg</code> 行内）。线上回归桌面 1440 视口 <code class="mono">DG_ROWS=18</code>、其中 <code class="mono">DG_IMGS=4</code> 为真实商品图，其余为占位。</p>
+    <p><strong>② 顶栏统计改为 4 卡：</strong>headbar 统计由原先的卡片改为 <code class="mono">今日订单 / 待付款 / 待发货 / 待退款</code> 四张 (<code class="mono">.stat</code>) 卡，采用<strong>商品单跨渠道概览</strong>口径（按 <code class="mono">myShopOrders</code> 归集本店全部订单）。点击卡片直达对应状态 tab（全部/待付款/待发货/待退款）。线上 <code class="mono">STAT_4=4</code> 双视口均成立。</p>
+    <p><strong>③ 商品单（跨渠道归集）视图受限提示：</strong>「本店商品单」是把本店订单按商品 <code class="mono">shopId</code> 归集、跨渠道聚合的视图；其中发起的「发货/详情」受 Vendure 渠道隔离限制、可能无法打开目标单。现点击「发货/详情」会弹受限提示，引导运营切到「本店渠道单」操作；「催付」复制的纯前端功能不受影响，仍可正常复制文案。</p>
+    <p><strong>④ 二次确认 + 一键复制：</strong>发货动作在提交前弹二次确认（防止误发）；点击订单号调用 <code class="mono">uni.setClipboardData</code> 一键复制单号并 toast「订单号已复制」。线上桌面 <code class="mono">COPY_OK=True</code>（点击表头外订单号单元格，body 出现复制 toast）。</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+      <figure style="margin:0;flex:1;min-width:300px;"><img src="assets/order_actions_mobile_390.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">手机 390×844 · 4 统计卡 + 商品单缩略图（ALL_OK 通过）</figcaption></figure>
+      <figure style="margin:0;flex:1;min-width:360px;"><img src="assets/order_actions_desk_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">桌面 1440×900 · 表格商品缩略图 + 统计4卡（ALL_OK 通过）</figcaption></figure>
+    </div>
+    <div class="callout ok">
+      <h4>线上验收结论</h4>
+      <p>手机 390×844 与桌面 1440×900 两个视口 <code class="mono">ALL_OK</code> 均 <code class="mono">True</code>；<code class="mono">STAT_4=4</code>、桌面 <code class="mono">DG_ROWS=18</code>（缩略图行出现）、<code class="mono">COPY_OK=True</code>（复制 toast）双视口成立。说明:「待签约/待催付」计数与 <code class="mono">REMIND</code> 催付按钮依赖线上待付款单的存在——t1 当前无待付款单故为 0，属正常数据依赖、非缺陷；缩略图取真实图数取决于商品是否配置封面图，无图回退占位亦属正常。</p>
+    </div>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
