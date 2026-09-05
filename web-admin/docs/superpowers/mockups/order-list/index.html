@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订单列表 · Mockup 方案选择</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f4f5f8;color:#1c2233;padding:40px 20px}
+  .hub{max-width:960px;margin:0 auto}
+  h1{font-size:20px;margin-bottom:6px}
+  p{color:#8a93a6;font-size:13px;margin-bottom:24px;line-height:20px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  a.opt{display:block;background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:20px;
+        text-decoration:none;color:inherit;transition:.15s}
+  a.opt:hover{border-color:#2f6bff;box-shadow:0 4px 14px rgba(47,107,255,.12);transform:translateY(-2px)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#2f6bff;
+         border-radius:999px;padding:2px 10px;margin-bottom:12px}
+  .badge.b{background:#7c5cff} .badge.c{background:#1fa97a}
+  h2{font-size:16px;margin-bottom:8px}
+  .desc{font-size:12px;color:#6b758a;line-height:18px}
+  .tag{font-size:11px;color:#8a93a6;margin-top:14px}
+</style>
+</head>
+<body>
+  <div class="hub">
+    <h1>订单列表 · 配送信息补齐 — 三个版式方案</h1>
+    <p>统一接入：收货地址行（快递单）、配送方式全名、物流状态标签（待发货橙 / 已发货蓝 / 已完成绿 / 已取消灰）。三方案仅在布局分配上不同，功能一致。切换手机/桌面视口可看响应式两态。</p>
+    <div class="grid">
+      <a class="opt" href="scheme-a.html">
+        <span class="badge">方案 A</span>
+        <h2>卡片 + 表格分离（信息压缩）</h2>
+        <p class="desc">手机卡片单列信息流；桌面 8 列表格，地址作收货列子行，配送方式独立一列。触达面广、最贴近现有页面，迁移成本最低。</p>
+        <div class="tag">推荐 · 信息密度平衡</div>
+      </a>
+      <a class="opt" href="scheme-b.html">
+        <span class="badge b">方案 B</span>
+        <h2>状态优先（运维视角）</h2>
+        <p class="desc">状态列/重置卡片顶部，配合更大物流色块 + 配送方式名；桌面加固定筛选 chip 行，按状态快速刷单。适合高频按状态流转的运营场景。</p>
+        <div class="tag">状态流转优先</div>
+      </a>
+      <a class="opt" href="scheme-c.html">
+        <span class="badge c">方案 C</span>
+        <h2>按状态分组（分区导航）</h2>
+        <p class="desc">手机卡片按物流状态分组呈现，每组带小计条；桌面左右分栏：左状态分组计数 + 右明细，地址与方式并入「配送」宽列。信息组织最清晰。</p>
+        <div class="tag">结构化最强</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
