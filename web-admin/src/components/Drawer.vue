@@ -44,6 +44,7 @@ const groups = [
     { label: '发货', url: '/pages/order/ship/index', tier: 2 },
     { label: '售后', url: '/pages/after-sale/list/index', tier: 2 },
     { label: '门店收银', url: '/pages/pos/index', tier: 2 },
+    { label: '收款台账', url: '/pages/settle/ledger/index', tier: 3 },
   ]},
   { domain: '履约', color: D.d3.main, grad: D.d3.grad, items: [
     { label: '配送方式', url: '/pages/shipping/methods/index', tier: 2 },
@@ -60,6 +61,7 @@ const groups = [
   ]},
   { domain: '营销', color: D.d5.main, grad: D.d5.grad, items: [
     { label: '优惠券发行', url: '/pages/coupon/index', tier: 1 },
+    { label: '定向发券', url: '/pages/coupon/issue/index', tier: 3 },
   ]},
   { domain: '分销', color: D.d5.main, grad: D.d5.grad, items: [
     { label: '分销关系', url: '/pages/distribution/relations/index', tier: 2 },

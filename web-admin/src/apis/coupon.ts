@@ -139,3 +139,53 @@ export async function deleteCouponTemplate(id: string): Promise<void> {
     throw new Error(graphQlErrorMsg(e, '删除券失败'));
   }
 }
+
+/* ------------------------- 定向发券（coupon-plugin 后台） ------------------------- */
+
+export interface IssueCustomer {
+  id: string;
+  emailAddress: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phoneNumber?: string | null;
+}
+export interface IssueResult {
+  customerId: string;
+  ok: boolean;
+  code?: string | null;
+  reason?: string | null;
+}
+
+/** 当前渠道客户搜索（按 姓名/手机号/邮箱 模糊匹配） */
+export async function searchChannelCustomers(query: string, take = 20, skip = 0): Promise<{ items: IssueCustomer[]; totalItems: number }> {
+  try {
+    const r = await getAdminClient().request<{ couponChannelCustomers: { items: IssueCustomer[]; totalItems: number } }>(
+      `query ($query: String, $take: Int, $skip: Int) {
+          couponChannelCustomers(query: $query, take: $take, skip: $skip) {
+            items { id emailAddress firstName lastName phoneNumber } totalItems
+          }
+      }`,
+      { query: query || null, take, skip },
+    );
+    return r.couponChannelCustomers;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '搜索客户失败'));
+  }
+}
+
+/** 批量定向发券（支持站内消息通知） */
+export async function grantCouponIssue(templateId: string, customerIds: string[], notify: boolean): Promise<IssueResult[]> {
+  try {
+    const r = await getAdminClient().request<{ grantCouponIssue: IssueResult[] }>(
+      `mutation ($templateId: ID!, $customerIds: [ID!]!, $notify: Boolean!) {
+          grantCouponIssue(templateId: $templateId, customerIds: $customerIds, notify: $notify) {
+            customerId ok code reason
+          }
+      }`,
+      { templateId, customerIds, notify },
+    );
+    return r.grantCouponIssue;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '发券失败'));
+  }
+}
