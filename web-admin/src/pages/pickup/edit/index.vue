@@ -79,6 +79,13 @@
         <switch :checked="form.enabled" @change="form.enabled = $event.detail.value" color="#2563eb" />
       </view>
 
+      <!-- 全局可用：仅超级管理员可把自提点设为全局（后端 SetGlobalPickupLocation 二次鉴权） -->
+      <view v-if="auth.isSuperAdmin" class="field">
+        <text class="label">全局可用</text>
+        <switch :checked="form.isPublic" @change="form.isPublic = $event.detail.value" color="#0a9c6e" />
+        <text class="tip">全局自提点全平台租户可选用（「引用到本店」），仅超级管理员可维护</text>
+      </view>
+
       <!-- 自提点照片：复用图片库（图库选择/上传） -->
       <view class="field">
         <text class="label">自提点照片（从图片库选择）</text>
@@ -131,6 +138,9 @@ import {
 } from '../../../apis/pickup-location';
 import { fetchDistricts, reverseGeocode, fetchMapSdkConfig, DistrictNode } from '../../../apis/map';
 import ImagePicker from '../../../components/ImagePicker.vue';
+import { useAuthStore } from '../../../stores/authStore';
+
+const auth = useAuthStore();
 
 const id = ref<string | null>(null);
 const typeKeys: PickupLocationType[] = ['store', 'point', 'employee'];
@@ -140,7 +150,7 @@ const mapTypeLabel = (t: string) => ({ store: '门店', point: '自提点', empl
 const form = ref({
   name: '', type: 'point' as PickupLocationType, contactPerson: '', phoneNumber: '',
   businessHours: '早8:30至16:30', province: '', city: '', district: '', street: '', address: '',
-  lat: '', lng: '', remark: '', sortOrder: '0', enabled: true,
+  lat: '', lng: '', remark: '', sortOrder: '0', enabled: true, isPublic: false,
 });
 const photos = ref<string[]>([]);
 
@@ -324,7 +334,7 @@ onMounted(async () => {
         lat: s.coordinates?.lat != null ? String(s.coordinates.lat) : '',
         lng: s.coordinates?.lng != null ? String(s.coordinates.lng) : '',
         remark: s.remark || '', sortOrder: String(s.sortOrder ?? 0),
-        enabled: s.enabled !== false,
+        enabled: s.enabled !== false, isPublic: s.isPublic || false,
       };
       photos.value = s.photos || [];
       // 联动预载：已填省份时拉取对应市/区
@@ -375,6 +385,7 @@ async function onSave() {
     remark: form.value.remark.trim() || undefined,
     sortOrder: Number(form.value.sortOrder) || 0,
     enabled: form.value.enabled,
+    isPublic: form.value.isPublic,
     photos: photos.value.length ? photos.value : undefined,
     ...(coordinates ? { coordinates } : {}),
   };

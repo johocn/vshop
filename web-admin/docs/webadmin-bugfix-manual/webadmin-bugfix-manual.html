@@ -124,6 +124,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#deploy">部署记录</a></li>
       <li><a href="#accept">验收与回滚指引</a></li>
       <li><a href="#files">涉及文件与修订记录</a></li>
+      <li><a href="#pickup-global">自提点「全局可用」开关</a></li>
     </ol>
   </nav>
 
@@ -457,6 +458,92 @@ flowchart TD
       <figcaption style="width:100%;font-size:12px;color:var(--muted);margin-top:6px;">左：打标后网格显示「主图」标签；右：选图确认后商品表单主图回填显示</figcaption>
     </figure>
     <p class="muted" style="font-size:13px;">注：媒体库当前<strong>没有「描述」字段</strong>，附加资源说明只能通过分类码（打标面板「输入新分类码」）表达；若要给资源加独立描述文案，需另行迭代。</p>
+
+    <h4>9.6 三媒库能力综合复测（生产环境 e.joho.cn）</h4>
+    <p>针对「打标签、加入描述（富文本插图）、添加主图」三条链路在 <code class="mono">https://e.joho.cn/guanli/</code> 上做端到端回归，三条链路全部可用，无 <code class="mono">PAGEERROR</code>。</p>
+    <div class="callout ok">
+      <h4>① 打标签 ✅</h4>
+      <p>商品创建页媒体库网格正常加载 30 张图，点选后计数「已选 1/9」；打标面板正常打开，含 <strong>20 个分类码</strong>（主图/白底图/细节图/场景图/实拍图/规格图/商详图/商品视频/实拍视频/首页Banner/活动海报/广告图/店铺装修/分类图标/品牌图/资质证书/检测报告/授权书/说明书/轮播图）。勾选「主图」确认后，后端该资产 <code class="mono">setAssetTags</code> 落库为 <code class="mono">assetTags:['主图']</code>，标签真实生效。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/media_tagpanel_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">打标面板（桌面 1440×900）：20 个分类码可勾选，底部「已选 1 个分类」</figcaption></figure>
+    <div class="callout ok">
+      <h4>② 加入描述（富文本插图到光标处）✅</h4>
+      <p>在商品「描述」富文本（wangEditor）里先输入占位文本 <code class="mono">ABCTEST</code>，点编辑器右上角「媒体库」选图 →「确定」→ 图片插入到<strong>光标所在位置</strong>（在 ABCTEST 之后）。DOM 断言 <code class="mono">container img数=1</code> 且含 ABCTEST，网络层观测到 <code class="mono">/assets/source/…</code> 真实请求（<strong>真图加载，非占位</strong>）。插入实现走 <code class="mono">RichTextEditor.vue</code> 的 <code class="mono">dangerouslyInsertHtml</code>（本工程工具栏未启用 wangEditor 图片模块，故用通用 <code class="mono">&lt;img&gt;</code> 插入代替 <code class="mono">insertImage</code>）。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/rte_insert_desc_1440.png" style="width:100%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品描述富文本插图（桌面 1440×900）：媒体库选图后插入到描述正文光标位置</figcaption></figure>
+    <div class="callout ok">
+      <h4>③ 添加商品主图 ✅</h4>
+      <p>选图并打「主图」标签后点媒体库「确定」关闭，商品表单<strong>主图缩略图回填</strong>，<code class="mono">img.naturalWidth &gt; 0</code> 证明真实加载（非破图/SPA 占位）。参见 9.5 已有回填图 <code class="mono">media_confirm_backfill_1440.png</code>。</p>
+    </div>
+    <p class="muted" style="font-size:13px;">复测产物：<code class="mono">media_tagpanel_1440.png</code>（打标面板）、<code class="mono">media_tagged_grid_1440.png</code>（打标后网格）、<code class="mono">media_confirm_backfill_1440.png</code>（主图回填）、<code class="mono">rte_insert_desc_1440.png</code>（描述插图）。</p>
+  </section>
+
+  <section>
+    <h2>10 商城端品牌视觉与购物车样式（nshop 站点）</h2>
+    <p class="muted" style="font-size:12px;">说明：本变更作用于商城前端（Nuxt 3，站点 <code class="mono">www.youshop.cn</code>），非 web-admin 后台；因属同一产品线的品牌视觉调整，一并归档于此以便查阅。</p>
+
+    <h4>10.1 背景与设计选型</h4>
+    <p>商城原品牌标是 Nuxtless 绿色「N」形占位；本轮将全站视觉统一为「<strong>红盾 + 白色闪电</strong>」徽标。选型经历了「Y 字形 → 皇冠（即 Y 变形）→ 胜利 / 品质 / 第一等意象」多轮概念探索，最终确定 <strong>盾 + 闪电</strong>：红盾表「品质·可信」，白闪电表「优选·高效·电速胜出」。favicon 取红白高对比的小尺寸可辨方案；logo 文件保留「徽标 + youShop.cn 品牌字」。</p>
+
+    <h4>10.2 变更文件</h4>
+    <table>
+      <thead><tr><th>文件</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">public/favicon.svg</td><td>绿色「N」形 → 红盾+白闪电（32×32）</td></tr>
+        <tr><td class="mono">public/logo-top.svg</td><td>徽标 + youShop.cn 横排（顶部导航）</td></tr>
+        <tr><td class="mono">public/logo-full.svg</td><td>徽标居上 + 品牌字竖排（页脚/账号页/SchemaOrg）</td></tr>
+        <tr><td class="mono">CartTrigger.vue</td><td>购物车 <code class="mono">UButton</code> 补 <code class="mono">variant="outline"</code>：红实心 → 红描边</td></tr>
+      </tbody>
+    </table>
+    <p>三个 SVG 文件名与既有引用路径一致，<code class="mono">nuxt.config.ts</code> / <code class="mono">app.config.ts</code> / OG 底图 / <code class="mono">schema/identity.ts</code> 全部自动生效，无需改组件与配置。</p>
+
+    <h4>10.3 部署</h4>
+    <p>遵守部署铁律：本地构建 → scp 上传 <code class="mono">.output/</code> → pm2 restart（服务器不构建）。</p>
+    <div class="callout warn">
+      <p><strong>坑</strong>：pnpm 自带内置 <code class="mono">deploy</code> 命令，直接 <code class="mono">pnpm deploy</code> 会报 <code class="mono">ERR_PNPM_NOTHING_TO_DEPLOY</code>；须用 <code class="mono">pnpm run deploy</code> 执行本项目 <code class="mono">scripts/deploy.mjs</code>。目标 <code class="mono">qing:/opt/1panel/…/www.youshop.cn/index</code>，<code class="mono">APP=nshop</code>，<code class="mono">PORT=3000</code>，本地 build 约 13s。pm2 进程 restart 后 <code class="mono">online</code>。</p>
+    </div>
+
+    <h4>10.4 生产验证</h4>
+    <table>
+      <thead><tr><th>断言</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr><td>首页 <code class="mono">&lt;title&gt;</code>（中文）</td><td>优商铺</td></tr>
+        <tr><td><code class="mono">link[rel="icon"]</code></td><td>存在（1 处）</td></tr>
+        <tr><td><code class="mono">/favicon.svg</code> · <code class="mono">/logo-top.svg</code> · <code class="mono">/logo-full.svg</code></td><td>均 200 且含 <code class="mono">#E6162D</code>（红盾）</td></tr>
+        <tr><td>头部 logo 图数量</td><td>2（移动端 390×844）</td></tr>
+        <tr><td>页面错误</td><td>无 <code class="mono">PAGEERROR</code></td></tr>
+      </tbody>
+    </table>
+    <figure style="margin:0;display:flex;gap:12px;flex-wrap:wrap;">
+      <img src="assets/nshop_lightning_header_zh.png" style="width:48%;border:1px solid var(--line);border-radius:10px;" />
+      <img src="assets/nshop_cart_outline.png" style="width:48%;border:1px solid var(--line);border-radius:10px;" />
+      <figcaption style="width:100%;font-size:12px;color:var(--muted);margin-top:6px;">左：移动端头部闪电徽标（红盾+白闪电+youShop.cn）；右：购物车已改为红描边，与搜索/用户一致</figcaption>
+    </figure>
+    <p class="muted" style="font-size:13px;">注：移动端页脚按设计仅在 <code class="mono">lg(≥1024px)</code> 显示，故手机视口抓不到页脚图；<code class="mono">logo-full.svg</code> 通过 HTTP 200 + 内容校验（含红盾）确认生效。<code class="mono">CartTrigger</code> 为共享组件，描边同时作用于桌面头部，与全局搜索/用户按钮风格统一。</p>
+  </section>
+
+  <section>
+    <h2 id="pickup-global">11 自提点 · 超级管理员「全局可用」开关</h2>
+    <h3>11.1 现象</h3>
+    <p>在后台「配送档案 → 自提点 → 新增自提点」时，超级管理员账号<strong>看不到「全局可用」开关</strong>，无法直接创建全平台各租户可引用的全局自提点；旧版本只能先建普通自提点，再用其它入口转全局，链路不完整。</p>
+
+    <h3>11.2 根因</h3>
+    <p>前端新增自提点表单（<code class="mono">src/pages/pickup/edit/index.vue</code>）<strong>没有“全局可用”字段</strong>，新增 <code class="mono">createPickupLocation</code> 请求里也就没有把 <code class="mono">isPublic</code> 传给后端，因此即使后端 <code class="mono">cjk-plugin</code> 已实现「全局自提点」能力（schema 含 <code class="mono">isPublic</code> 字段、service 按 <code class="mono">SetGlobalPickupLocation</code> 权限二次鉴权），前端也永远建不出全局点。</p>
+
+    <h3>11.3 修复</h3>
+    <ul>
+      <li>表单新增 <code class="mono">isPublic</code> 字段，在字段区（「启用」之后）以 <strong>「全局可用」开关</strong>展示；<strong>仅当 <code class="mono">auth.isSuperAdmin</code> 为真时才渲染</strong>，普通租户管理员不显示，避免越权误配。</li>
+      <li>保存时把 <code class="mono">isPublic</code> 随 payload 一起提交给 <code class="mono">createPickupLocation</code> / <code class="mono">updatePickupLocation</code>。</li>
+      <li>开关文案说明：<em>“全局自提点全平台租户可选用（「引用到本店」），仅超级管理员可维护”</em>。后端 <code class="mono">pickup-location.service.create</code> 依旧校验 <code class="mono">SetGlobalPickupLocation</code> 权限，双重保险。</li>
+    </ul>
+    <p class="muted" style="font-size:13px;">前端改动：<code class="mono">src/pages/pickup/edit/index.vue</code>（模板 + <code class="mono">form</code> + <code class="mono">onSave</code> payload），复用既有 <code class="mono">isSuperAdmin</code> 判定；后端无需改动（schema/service/实体/cjk-plugin <code class="mono">lib/</code> 均已含 <code class="mono">isPublic</code>）。</p>
+
+    <h3>11.4 验收（生产 e.joho.cn，手机 390×844）</h3>
+    <div class="callout ok">
+      <h4>验收证据</h4>
+      <p>superadmin 登录 → 选择店铺 → 配送档案 → 自提点管理 →「+ 新增自提点」：编辑页表单完整加载（名称/类型/保存均在），<strong>「全局可用」开关正常显示</strong>于「启用」下方，默认灰色 OFF，无 <code class="mono">PAGEERROR</code>。截图见下。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/superadmin_global_btn_pickup_edit.png" style="width:42%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">超级管理员新增自提点（手机 390×844）：「全局可用」开关显示于「启用」下方</figcaption></figure>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
