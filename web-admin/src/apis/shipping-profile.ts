@@ -16,6 +16,8 @@ export interface ShippingProfileItem {
   enabled: boolean;
   freeShippingThreshold: number | null;
   isTenantDefault: boolean;
+  requiresAddress: boolean;
+  requiresContact: boolean;
   shippingMethodIds: string[];
   pickupLocationIds: string[];
   methodConfigs?: { shippingMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
@@ -29,6 +31,10 @@ export interface ShippingProfileInput {
   enabled?: boolean;
   freeShippingThreshold?: number;
   isTenantDefault?: boolean;
+  /** 物流配送是否需要填写收货地址 */
+  requiresAddress?: boolean;
+  /** 自提是否需要填写收货人/联系方式 */
+  requiresContact?: boolean;
   /** create 必填，至少一个配送方式 */
   shippingMethodIds: string[];
   /** undefined=不变（create 时省略），[]=清空，[ids]=设置 */
@@ -43,6 +49,7 @@ export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
     shippingProfiles {
       items {
         id name code description isGlobal enabled freeShippingThreshold isTenantDefault
+        requiresAddress requiresContact
         shippingMethods { id code name }
         pickupLocations { id }
         methodConfigs { shippingMethodId mode options }
@@ -90,12 +97,4 @@ export async function deleteShippingProfile(id: string): Promise<void> {
     `mutation DeleteShippingProfile($id: ID!) { deleteShippingProfile(id: $id) }`,
     { id },
   );
-}
-
-export interface ShippingMethodRef { id: string; code: string; name: string; }
-export async function fetchShippingMethods(): Promise<ShippingMethodRef[]> {
-  const { shippingMethods } = await getAdminClient().request<{ shippingMethods: { items: ShippingMethodRef[] } }>(
-    `query { shippingMethods { items { id code name } } }`,
-  );
-  return shippingMethods.items;
 }

@@ -821,6 +821,8 @@ export interface ProductListRow {
   stock: number;
   low: boolean;
   marketplaceStatus?: string | null;
+  /** 首选在售变体 id，用于批量库存等需要具体变体的操作 */
+  firstVariantId?: string;
 }
 
 const LOW_STOCK = 5;
@@ -837,27 +839,97 @@ export async function fetchProductList(
     `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
       products(options: { take: $take, skip: $skip, filter: $filter }) {
         totalItems
-        items { id name slug enabled featuredAsset { preview } variants { price stockOnHand } customFields { marketplaceStatus } }
+        items { id name slug enabled featuredAsset { preview } variants { id price stockOnHand } customFields { marketplaceStatus } }
       }
     }`,
     { take: q.take ?? 20, skip: q.skip ?? 0, filter },
   );
   const items: ProductListRow[] = products.items.map((p: any) => {
-    const price = p.variants?.[0]?.price ?? 0;
-    const stock = p.variants?.[0]?.stockOnHand ?? 0;
+    const variants = p.variants || [];
+    // 库存取所有变体库存求和（多规格商品首个变体≠总量，求和才准确）
+    const stock = variants.reduce((sum: number, v: any) => sum + (v.stockOnHand ?? 0), 0);
+    const first = variants[0];
     return {
       id: p.id,
       name: p.name,
       slug: p.slug,
       enabled: p.enabled,
       thumb: p.featuredAsset?.preview,
-      priceYuan: price / 100,
+      priceYuan: (first?.price ?? 0) / 100,
       stock,
       low: stock <= LOW_STOCK,
       marketplaceStatus: p.customFields?.marketplaceStatus ?? null,
+      firstVariantId: first?.id,
     };
   });
   return { totalItems: products.totalItems, items };
+}
+
+/**
+ * 批量上架/下架商品：调用 Vendure core 原生 updateProducts（数组输入）。
+ * enabled 为 true 上架、false 下架，一次提交，事务性。
+ */
+export async function bulkSetProductsEnabled(
+  ids: string[],
+  enabled: boolean,
+): Promise<number> {
+  if (!ids.length) return 0;
+  const { updateProducts } = await getAdminClient().request<{ updateProducts: Array<{ id: string }> }>(
+    `mutation BulkEnabled($input: [UpdateProductInput!]!) {
+      updateProducts(input: $input) { id }
+    }`,
+    { input: ids.map((id) => ({ id, enabled })) },
+  );
+  return (updateProducts || []).length;
+}
+
+/**
+ * 解析一个可写库存的仓库 id（库存写在逐仓 StockLevel 上）。
+ * 平台多仓模式下，顶层 `stockOnHand` 仅在存在「默认仓」时才能落库；
+ * 无默认仓时会静默落空（表现为改库存无效）。这里显式取首个仓库，
+ * 通过 `stockLevels` 携带 locationId 写入以稳定生效。取不到时返回 null。
+ */
+let cachedStockLocationId: string | null | undefined;
+export async function resolveStockLocationId(): Promise<string | null> {
+  if (cachedStockLocationId !== undefined) return cachedStockLocationId;
+  try {
+    const { stockLocations } = await getAdminClient().request<{
+      stockLocations: { items: Array<{ id: string }> };
+    }>(`query StockLocs { stockLocations { items { id } } }`);
+    cachedStockLocationId = stockLocations?.items?.[0]?.id ?? null;
+  } catch {
+    cachedStockLocationId = null;
+  }
+  return cachedStockLocationId;
+}
+
+/**
+ * 批量设置库存：单选变体时用变体 id；商品级（firstVariantId）则设置该商品首选变体库存。
+ * 调用 Vendure core 原生 updateProductVariants（数组输入）。
+ * 库存走显式 `stockLevels:[{stockLocationId, stockOnHand}]` 写入（绝对覆盖值），
+ * 避免无默认仓时顶层 stockOnHand 静默落空。返回成功改动的变体数。
+ */
+export async function bulkSetVariantsStock(
+  updates: Array<{ variantId: string; stock: number }>,
+): Promise<number> {
+  const valid = updates.filter((u) => u.variantId && Number.isFinite(u.stock));
+  if (!valid.length) return 0;
+  const locId = await resolveStockLocationId();
+  const input = valid.map((u) => {
+    const stock = Math.max(0, Math.round(u.stock));
+    return locId
+      ? { id: u.variantId, stockLevels: [{ stockLocationId: locId, stockOnHand: stock }] }
+      : { id: u.variantId, stockOnHand: stock };
+  });
+  const { updateProductVariants } = await getAdminClient().request<{
+    updateProductVariants: Array<{ id: string }>;
+  }>(
+    `mutation BulkStock($input: [UpdateProductVariantInput!]!) {
+      updateProductVariants(input: $input) { id }
+    }`,
+    { input },
+  );
+  return (updateProductVariants || []).length;
 }
 
 // ---- 规格组复用（跨渠道） ----

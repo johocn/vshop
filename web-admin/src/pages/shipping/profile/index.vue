@@ -32,13 +32,13 @@
             <text v-if="e.name && e.code" class="method-key">{{ e.code }}</text>
           </view>
           <view class="method-actions">
-            <text class="method-mode">{{ e.mode === 'pickup' ? '自提' : '邮寄' }}</text>
+            <text class="method-mode">{{ isPickupMode(e.mode) ? '自提' : '邮寄' }}</text>
             <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
           </view>
         </view>
         </view>
 
-        <view v-if="isPickup(e.code)">
+        <view v-if="isPickupEntry(e)">
           <view class="range-row">
             <text class="range-label">自提点范围</text>
             <view class="seg">
@@ -47,26 +47,44 @@
             </view>
           </view>
           <view v-if="e.rangeMode === 'selected'" class="pickup-blocks">
-            <view v-for="grp in groupedPickups(e.code)" :key="grp.label" class="pickup-block">
+            <view v-for="grp in groupedPickups(e)" :key="grp.label" class="pickup-block">
               <text class="pickup-group">{{ grp.label }}</text>
-              <checkbox-group>
-                <label class="pickup-item" v-for="p in grp.list" :key="p.id">
-                  <checkbox :value="p.id" :checked="isPickupChecked(e, p.id)" @tap.stop="togglePickup(e, p.id)" style="transform: scale(0.7);" />
-                  <view class="pickup-info">
-                    <text class="pickup-name">{{ p.name }}</text>
-                    <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
-                    <text v-if="p.phoneNumber" class="pickup-meta">☎ {{ p.phoneNumber }}</text>
-                    <text v-if="p.coordinates" class="pickup-meta">📍 {{ p.coordinates.lat }}, {{ p.coordinates.lng }}</text>
-                  </view>
-                </label>
-              </checkbox-group>
+              <view class="pickup-item" v-for="p in grp.list" :key="p.id">
+                <checkbox :value="p.id" :checked="isPickupChecked(e, p.id)" @tap.stop="togglePickup(e, p.id)" style="transform: scale(0.7);" />
+                <view class="pickup-info">
+                  <text class="pickup-name">{{ p.name }}</text>
+                  <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
+                  <text v-if="p.phoneNumber" class="pickup-meta">☎ {{ p.phoneNumber }}</text>
+                  <text v-if="p.coordinates" class="pickup-meta">📍 {{ p.coordinates.lat }}, {{ p.coordinates.lng }}</text>
+                </view>
+                <view class="pickup-ops">
+                  <text class="pk-edit" @tap.stop="editPickup(p)">编辑</text>
+                  <text v-if="!p.isPublic" class="pk-del" @tap.stop="delPickup(p)">删除</text>
+                </view>
+              </view>
             </view>
             <view v-if="!pickupLocations.length" class="pickup-empty">暂无自提点</view>
-            <view v-else-if="!groupedPickups(e.code).length" class="pickup-empty">暂无可用的该类型自提点</view>
+            <view v-else-if="!groupedPickups(e).length" class="pickup-empty">暂无可用的该类型自提点</view>
           </view>
           <button class="mini" @tap="onAddPickup(e)">＋ 新增自提点</button>
         </view>
         <view v-else class="mail-tip">范围/运费公式请在「配送方式」原实例中配置</view>
+      </view>
+
+      <view class="field row">
+        <view class="flag-label">
+          <text class="label">需要联系方式</text>
+          <text class="hint">自提时需填写收货人/电话</text>
+        </view>
+        <switch :checked="form.requiresContact" @change="form.requiresContact = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
+      </view>
+
+      <view class="field row">
+        <view class="flag-label">
+          <text class="label">需要收货地址</text>
+          <text class="hint">物流配送时需填写收货地址</text>
+        </view>
+        <switch :checked="form.requiresAddress" @change="form.requiresAddress = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
       <view class="field row">
@@ -104,23 +122,25 @@
 import { ref, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import {
-  fetchShippingProfiles, fetchShippingMethods, createShippingProfile,
+  fetchShippingProfiles, createShippingProfile,
   updateShippingProfile, deleteShippingProfile, setTenantDefaultShippingProfile,
   ShippingProfileItem,
 } from '../../../apis/shipping-profile';
-import { fetchPickupLocations, PickupLocationItem } from '../../../apis/pickup-location';
+import { fetchShippingMethods as fetchAllShippingMethods } from '../../../apis/shipping';
+import { fetchPickupLocations, deletePickupLocation, PickupLocationItem } from '../../../apis/pickup-location';
 
 interface MethodEntry {
   shippingMethodId: string;
   code: string;
   name: string;
+  calcCode: string;
   mode: string; // 'pickup' | 'mail'
   rangeMode: 'all' | 'selected';
   pickupLocationIds: string[];
 }
 
 const items = ref<any[]>([]);
-const methods = ref<{ id: string; code: string; name: string }[]>([]);
+const methods = ref<{ id: string; code: string; name: string; calcCode: string; enabled: boolean }[]>([]);
 const pickupLocations = ref<PickupLocationItem[]>([]);
 
 const creating = ref(false);
@@ -128,21 +148,43 @@ const editing = ref(false);
 const editingId = ref<string | null>(null);
 const setDefault = ref(false);
 
-const form = ref({ name: '', code: '', description: '' });
+const form = ref({ name: '', code: '', description: '', requiresAddress: true, requiresContact: false });
 const methodEntries = ref<MethodEntry[]>([]);
 
-const isPickup = (code: string) => /pickup|store/i.test(code);
-
 const PICKUP_LABEL: Record<string, string> = { point: '租户自提点', store: '租户门店', employee: '职工单位' };
-// 配送方式 code → 允许的自提点类型（严格映射，D 区块）
+// 自提类型按真实「计费计算器」判定（与方式命名后缀无关，修复模板导入后 `-template` 后缀导致匹配失败）
+const PICKUP_CALCULATORS = ['store-pickup-calculator', 'pickup-point-calculator', 'employee-pickup-calculator'];
+const CALC_TO_PICKUP_TYPES: Record<string, string[]> = {
+  'store-pickup-calculator': ['store'],
+  'pickup-point-calculator': ['point'],
+  'employee-pickup-calculator': ['employee'],
+};
+// 兼容旧数据：无 calcCode 时回退到 code 命名（无后缀）
 const CODE_TO_PICKUP_TYPES: Record<string, string[]> = {
   'store-pickup': ['store'],
   'pickup-point': ['point'],
   'employee-pickup': ['employee'],
 };
-const pickupTypeForCode = (code: string): string[] | null => CODE_TO_PICKUP_TYPES[code] ?? null;
-const groupedPickups = (code: string) => {
-  const types = pickupTypeForCode(code);
+const isPickupEntry = (e: { code: string; calcCode: string }) =>
+  PICKUP_CALCULATORS.includes(e.calcCode) || !!CODE_TO_PICKUP_TYPES[e.code];
+const pickupTypeForEntry = (e: { code: string; calcCode: string }): string[] | null =>
+  (e.calcCode && CALC_TO_PICKUP_TYPES[e.calcCode]) || CODE_TO_PICKUP_TYPES[e.code] || null;
+// 自提方式 mode：按真实计算器派生（store/point/employee），与后端 pickupTypeByMode 对齐
+const isPickupMode = (mode: string) => ['pickup', 'store', 'employee'].includes(mode);
+const PICKUP_MODE_BY_CALC: Record<string, string> = {
+  'store-pickup-calculator': 'store',
+  'pickup-point-calculator': 'pickup',
+  'employee-pickup-calculator': 'employee',
+};
+const LEGACY_CODE_MODE: Record<string, string> = {
+  'store-pickup': 'store',
+  'pickup-point': 'pickup',
+  'employee-pickup': 'employee',
+};
+const pickupModeFor = (calcCode: string, code: string): string =>
+  (calcCode && PICKUP_MODE_BY_CALC[calcCode]) || LEGACY_CODE_MODE[code] || 'mail';
+const groupedPickups = (e: MethodEntry) => {
+  const types = pickupTypeForEntry(e);
   if (!types) return [];
   return types
     .map((t) => ({ label: PICKUP_LABEL[t], list: pickupLocations.value.filter((p) => p.type === t) }))
@@ -156,7 +198,7 @@ function loadPickups() {
   return fetchPickupLocations().then((l) => { pickupLocations.value = l; });
 }
 function loadMethods() {
-  return fetchShippingMethods().then((m) => { methods.value = m; });
+  return fetchAllShippingMethods().then((m) => { methods.value = m; });
 }
 onMounted(async () => {
   await Promise.all([reload(), loadMethods()]);
@@ -178,7 +220,7 @@ function onCreate() {
   creating.value = true;
   editing.value = false;
   editingId.value = null;
-  form.value = { name: '', code: '', description: '' };
+  form.value = { name: '', code: '', description: '', requiresAddress: true, requiresContact: false };
   methodEntries.value = [];
   setDefault.value = false;
 }
@@ -187,7 +229,13 @@ function onEdit(s: ShippingProfileItem) {
   creating.value = false;
   editing.value = true;
   editingId.value = s.id;
-  form.value = { name: s.name, code: s.code, description: s.description || '' };
+  form.value = {
+    name: s.name,
+    code: s.code,
+    description: s.description || '',
+    requiresAddress: s.requiresAddress ?? true,
+    requiresContact: s.requiresContact ?? false,
+  };
   setDefault.value = false;
   const ids = (s.shippingMethods || []).map((m: any) => m.id);
   const cfgs = (s.methodConfigs || []).reduce<Record<string, any>>((acc, c) => {
@@ -198,13 +246,15 @@ function onEdit(s: ShippingProfileItem) {
     const m = (s.shippingMethods || []).find((x: any) => x.id === id);
     const code = m?.code || '';
     const name = m?.name || '';
+    const calcCode = methods.value.find((meth) => meth.id === id)?.calcCode || '';
     const cfg = cfgs[id];
-    const mode = cfg?.mode || (isPickup(code) ? 'pickup' : 'mail');
+    const entry = { shippingMethodId: id, code, name, calcCode };
+    const mode = cfg?.mode || pickupModeFor(entry.calcCode, entry.code);
     const rangeMode: 'all' | 'selected' = cfg?.options?.rangeMode === 'all' ? 'all' : 'selected';
     const pickupLocationIds: string[] = cfg?.options?.pickupLocationIds
       ? [...(cfg.options.pickupLocationIds as string[])]
       : [];
-    return { shippingMethodId: id, code, name, mode, rangeMode, pickupLocationIds };
+    return { ...entry, mode, rangeMode, pickupLocationIds };
   });
 }
 
@@ -215,12 +265,13 @@ function onClose() {
 }
 
 async function onAddMethod() {
-  if (!methods.value.length) {
-    uni.showToast({ title: '请先在「配送方式」页面配置配送方式', icon: 'none' });
+  const enabled = methods.value.filter((m) => m.enabled !== false);
+  if (!enabled.length) {
+    uni.showToast({ title: '请先在「配送方式」页面启用配送方式', icon: 'none' });
     return;
   }
   const selected = new Set(methodEntries.value.map((e) => e.shippingMethodId));
-  const avail = methods.value.filter((m) => !selected.has(m.id));
+  const avail = enabled.filter((m) => !selected.has(m.id));
   if (!avail.length) {
     uni.showToast({ title: '已全部添加', icon: 'none' });
     return;
@@ -230,7 +281,8 @@ async function onAddMethod() {
     success: (res) => {
       const m = avail[res.tapIndex];
       if (!m) return;
-      methodEntries.value.push({ shippingMethodId: m.id, code: m.code, name: m.name, mode: isPickup(m.code) ? 'pickup' : 'mail', rangeMode: 'selected', pickupLocationIds: [] });
+      const entry = { shippingMethodId: m.id, code: m.code, name: m.name, calcCode: m.calcCode || '' };
+      methodEntries.value.push({ ...entry, mode: pickupModeFor(entry.calcCode, entry.code), rangeMode: 'selected', pickupLocationIds: [] });
     },
     fail: () => {},
   });
@@ -242,7 +294,7 @@ function onRemoveMethod(i: number) {
 
 function onAddPickup(e: MethodEntry) {
   // 预选与当前配送方式严格匹配的自提点类型，跳转独立自提点管理页；返回后刷新列表再勾选
-  const types = pickupTypeForCode(e.code) || [];
+  const types = pickupTypeForEntry(e) || [];
   const qs = types[0] ? `?type=${types[0]}` : '';
   uni.navigateTo({
     url: `/pages/pickup/edit/index${qs}`,
@@ -256,6 +308,30 @@ function onAddPickup(e: MethodEntry) {
   });
 }
 
+function editPickup(p: PickupLocationItem) {
+  uni.navigateTo({ url: `/pages/pickup/edit/index?id=${p.id}` });
+}
+
+function delPickup(p: PickupLocationItem) {
+  uni.showModal({
+    title: '删除自提点',
+    content: `删除自提点「${p.name}」？该点将从本店所有配送档案中移除。`,
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        await deletePickupLocation(p.id);
+        methodEntries.value.forEach((e) => {
+          const i = e.pickupLocationIds.indexOf(String(p.id));
+          if (i >= 0) e.pickupLocationIds.splice(i, 1);
+        });
+        await loadPickups();
+      } catch (err: any) {
+        uni.showToast({ title: err?.message || '删除失败', icon: 'none' });
+      }
+    },
+  });
+}
+
 async function onSave() {
   if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }
   if (!form.value.code.trim()) { uni.showToast({ title: '请填写编码', icon: 'none' }); return; }
@@ -265,7 +341,7 @@ async function onSave() {
   const methodConfigs = methodEntries.value.map((e) => ({
     shippingMethodId: e.shippingMethodId,
     mode: e.mode,
-    options: e.mode === 'pickup' ? { rangeMode: e.rangeMode, pickupLocationIds: e.rangeMode === 'all' ? [] : e.pickupLocationIds } : null,
+    options: isPickupMode(e.mode) ? { rangeMode: e.rangeMode, pickupLocationIds: e.rangeMode === 'all' ? [] : e.pickupLocationIds } : null,
   }));
 
   try {
@@ -277,6 +353,8 @@ async function onSave() {
         description: form.value.description,
         shippingMethodIds,
         methodConfigs,
+        requiresAddress: form.value.requiresAddress,
+        requiresContact: form.value.requiresContact,
       });
     } else {
       await updateShippingProfile(id, {
@@ -285,6 +363,8 @@ async function onSave() {
         description: form.value.description,
         shippingMethodIds,
         methodConfigs,
+        requiresAddress: form.value.requiresAddress,
+        requiresContact: form.value.requiresContact,
       });
     }
     if (setDefault.value && id) {
@@ -338,7 +418,11 @@ function onDel(s: ShippingProfileItem) {
   .panel { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 24rpx;
     .panel-title { font-size: 30rpx; color: $wa-ink; font-weight: 600; margin-bottom: 20rpx; }
     .field { margin-bottom: 18rpx;
-      &.row { display: flex; align-items: center; justify-content: space-between; }
+      &.row { display: flex; align-items: center; justify-content: space-between;
+        .flag-label { display: flex; flex-direction: column;
+          .hint { font-size: 20rpx; color: $wa-muted; margin-top: 2rpx; }
+        }
+      }
       .label { display: block; font-size: 26rpx; color: $wa-muted; margin-bottom: 10rpx; }
       .ipt { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; }
       .area { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; width: 100%; height: 120rpx; box-sizing: border-box; }
@@ -366,11 +450,16 @@ function onDel(s: ShippingProfileItem) {
       .pickup-blocks { margin-top: 16rpx;
         .pickup-block { margin-bottom: 12rpx;
           .pickup-group { display: block; font-size: 24rpx; color: $wa-muted; margin-bottom: 6rpx; }
-          .pickup-item { display: flex; align-items: flex-start; min-height: 52rpx;
-            .pickup-info { display: flex; flex-direction: column; line-height: 1.5;
+          .pickup-item { display: flex; align-items: center; min-height: 52rpx;
+            .pickup-info { display: flex; flex-direction: column; line-height: 1.5; flex: 1; min-width: 0;
               .pickup-name { font-size: 26rpx; color: $wa-ink; }
               .pickup-addr { font-size: 22rpx; color: $wa-muted; }
               .pickup-meta { font-size: 22rpx; color: $wa-muted; opacity: .85; }
+            }
+            .pickup-ops { display: flex; gap: 8rpx; flex-shrink: 0; margin-left: 12rpx;
+              text { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 10rpx; }
+              .pk-edit { color: $wa-accent; background: $wa-bg; }
+              .pk-del { color: #e64340; background: #fff1f0; }
             }
           }
         }

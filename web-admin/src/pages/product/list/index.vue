@@ -20,8 +20,25 @@
       >{{ t.label }}</text>
     </view>
 
-    <view class="card" v-for="p in items" :key="p.id" @tap="edit(p)">
+    <!-- 批量选择工具栏入口 -->
+    <view class="bulkbar" :class="{ on: bulkMode }">
+      <view class="bulk-left">
+        <text v-if="bulkMode" class="bulk-tip">
+          <text class="bulk-count">{{ selectedCount }}</text> 个选中
+        </text>
+        <text v-else class="bulk-off">单件操作</text>
+      </view>
+      <view class="bulk-right">
+        <text v-if="bulkMode" class="bulk-cancel" @tap="exitBulk">取消</text>
+        <text v-else class="bulk-enter" @tap="enterBulk">批量管理</text>
+      </view>
+    </view>
+
+    <view class="card" v-for="p in items" :key="p.id" @tap="bulkMode ? toggleSel(p) : edit(p)">
       <view class="body">
+        <view v-if="bulkMode" class="check" :class="{ on: selected.has(p.id) }">
+          <text class="tick">{{ selected.has(p.id) ? '✓' : '' }}</text>
+        </view>
         <image
           v-if="p.thumb"
           class="thumb"
@@ -37,7 +54,7 @@
             <text class="stock" :class="{ low: p.low }">库存 {{ p.stock }}<text v-if="p.low"> · 缺货</text></text>
           </view>
           <text class="st" :class="{ off: !p.enabled }">{{ p.enabled ? '在售' : '下架' }}</text>
-          <view class="mkt-ops">
+          <view v-if="!bulkMode" class="mkt-ops">
             <text v-if="mktStatus(p) === '审核中'" class="mkt-txt pending">已提交，待审核</text>
             <text v-else-if="mktStatus(p) === '已上架'" class="mkt-txt ok">已在默认站点上架</text>
             <text v-else-if="mktStatus(p) === '已驳回'" class="mkt-txt rej">已驳回</text>
@@ -50,14 +67,26 @@
     <view v-if="!items.length" class="empty">暂无商品</view>
     <view v-else-if="hasMore" class="more" @tap="load()">加载更多</view>
 
+    <!-- 批量操作栏 -->
+    <view v-if="bulkMode" class="bulk-ops">
+      <text class="op" @tap="onBulkSet(true)">上架</text>
+      <text class="op danger" @tap="onBulkSet(false)">下架</text>
+      <text class="op" @tap="onBulkStock">库存数量</text>
+    </view>
+
     <view style="height: 160rpx" />
     <BottomBar current="product" />
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchProductList, type ProductListRow } from '../../../apis/product';
+import {
+  fetchProductList,
+  bulkSetProductsEnabled,
+  bulkSetVariantsStock,
+  type ProductListRow,
+} from '../../../apis/product';
 import { submitProductToMarketplace } from '../../../apis/marketplace';
 
 const term = ref('');
@@ -65,6 +94,24 @@ const filter = ref<'all' | 'on' | 'off'>('all');
 const items = ref<ProductListRow[]>([]);
 const total = ref(0);
 const loading = ref(false);
+
+// 批量管理模式
+const bulkMode = ref(false);
+const selected = reactive(new Set<string>());
+const selectedCount = computed(() => selected.size);
+
+function enterBulk() {
+  bulkMode.value = true;
+  selected.clear();
+}
+function exitBulk() {
+  bulkMode.value = false;
+  selected.clear();
+}
+function toggleSel(p: ProductListRow) {
+  if (selected.has(p.id)) selected.delete(p.id);
+  else selected.add(p.id);
+}
 
 const tabs: Array<{ value: 'all' | 'on' | 'off'; label: string }> = [
   { value: 'all', label: '全部' },
@@ -126,6 +173,74 @@ function onSubmitMarketplace(p: ProductListRow) {
     },
   });
 }
+
+// ---- 批量操作 ----
+async function onBulkSet(enabled: boolean) {
+  if (!selectedCount.value) return;
+  const ids = Array.from(selected);
+  const label = enabled ? '上架' : '下架';
+  const ok = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: `批量${label}`,
+      content: `确定${label}选中的 ${ids.length} 个商品？`,
+      success: (r: any) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!ok) return;
+  try {
+    const count = await bulkSetProductsEnabled(ids, enabled);
+    uni.showToast({ title: `已${label} ${count} 个商品`, icon: 'success' });
+    exitBulk();
+    load(0);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || `${label}失败`, icon: 'none' });
+  }
+}
+
+async function onBulkStock() {
+  if (!selectedCount.value) return;
+  const targets = items.value.filter(
+    (p) => selected.has(p.id) && p.firstVariantId,
+  );
+  if (!targets.length) {
+    uni.showToast({ title: '选中商品无可设库存的变体', icon: 'none' });
+    return;
+  }
+  uni.showModal({
+    title: `库存数量（${targets.length} 个）`,
+    editable: true,
+    // editable 弹窗的 content 即输入框初始值：必须留空，否则会把说明文字当输入文本预填，
+    // 用户得先清空才能输入。提示文案放 placeholderText。
+    content: '',
+    placeholderText: '输入统一库存数量',
+    success: async (r: any) => {
+      if (!r.confirm) return;
+      const text = (r.content ?? '').toString().trim();
+      if (!text) {
+        uni.showToast({ title: '请输入库存数量', icon: 'none' });
+        return;
+      }
+      const stock = parseInt(text, 10);
+      if (isNaN(stock) || stock < 0) {
+        uni.showToast({ title: '请输入有效库存数量（≥0）', icon: 'none' });
+        return;
+      }
+      const updates = targets.map((p) => ({
+        variantId: p.firstVariantId!,
+        stock,
+      }));
+      try {
+        const count = await bulkSetVariantsStock(updates);
+        uni.showToast({ title: `已更新 ${count} 个商品库存`, icon: 'success' });
+        exitBulk();
+        load(0);
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || '设置库存失败', icon: 'none' });
+      }
+    },
+  });
+}
 </script>
 <style lang="scss" scoped>
 .page {
@@ -175,6 +290,38 @@ function onSubmitMarketplace(p: ProductListRow) {
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
   .more {
     text-align: center; color: $wa-accent; font-size: 28rpx; padding: 24rpx 0;
+  }
+  .bulkbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20rpx; padding: 16rpx 24rpx; border-radius: $wa-radius;
+    background: $wa-card;
+    &.on { background: rgba(243, 214, 73, 0.14); }
+    .bulk-left {
+      .bulk-tip { font-size: 28rpx; color: $wa-ink;
+        .bulk-count { color: $wa-accent; font-weight: 700; }
+      }
+      .bulk-off { font-size: 26rpx; color: $wa-muted; }
+    }
+    .bulk-right {
+      .bulk-enter { font-size: 26rpx; color: $wa-accent; font-weight: 600; }
+      .bulk-cancel { font-size: 26rpx; color: $wa-muted; }
+    }
+  }
+  .check {
+    width: 44rpx; height: 44rpx; border-radius: 50%;
+    border: 2rpx solid #c9cdd4; margin-right: 20rpx; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; background: #fff;
+    .tick { color: #fff; font-size: 26rpx; line-height: 1; }
+    &.on { background: $wa-accent; border-color: $wa-accent; }
+  }
+  .bulk-ops {
+    position: fixed; left: 0; right: 0; bottom: 100rpx; z-index: 20;
+    display: flex; justify-content: space-around; align-items: center;
+    background: $wa-ink; padding: 24rpx 0;
+    .op {
+      font-size: 30rpx; color: #fff; text-align: center; flex: 1;
+      &.danger { color: #ff7875; }
+    }
   }
 }
 </style>

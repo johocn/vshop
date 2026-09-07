@@ -26,7 +26,8 @@
 
       <view class="methods" v-for="(e, i) in methodEntries" :key="e.paymentMethodId">
         <view class="method-row">
-          <text class="method-code">{{ e.code }}</text>
+          <text class="method-code">{{ e.name }}</text>
+          <text class="method-code-tag">{{ e.code }}</text>
           <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
         </view>
 
@@ -79,12 +80,13 @@ import {
 interface MethodEntry {
   paymentMethodId: string;
   code: string;
+  name: string;
   mode: string; // 'installment'
   options: Record<string, unknown> | null;
 }
 
 const items = ref<any[]>([]);
-const methods = ref<{ id: string; code: string }[]>([]);
+const methods = ref<{ id: string; code: string; name?: string }[]>([]);
 
 const creating = ref(false);
 const editing = ref(false);
@@ -123,11 +125,13 @@ function onEdit(s: PaymentProfileItem) {
     acc[c.paymentMethodId] = c;
     return acc;
   }, {});
+  const nameByCode = new Map(methods.value.map((m) => [m.code, (m.name || m.code)]));
   methodEntries.value = (s.paymentMethods || []).map((m: { id: string; code: string }) => {
     const cfg = cfgs[m.id];
     return {
       paymentMethodId: m.id,
       code: m.code,
+      name: nameByCode.get(m.code) || m.code,
       mode: cfg?.mode || 'installment',
       options: cfg?.options ?? null,
     };
@@ -152,11 +156,11 @@ async function onAddMethod() {
     return;
   }
   uni.showActionSheet({
-    itemList: avail.map((m) => m.code),
+    itemList: avail.map((m) => m.name || m.code),
     success: (res) => {
       const m = avail[res.tapIndex];
       if (!m) return;
-      methodEntries.value.push({ paymentMethodId: m.id, code: m.code, mode: 'installment', options: null });
+      methodEntries.value.push({ paymentMethodId: m.id, code: m.code, name: m.name || m.code, mode: 'installment', options: null });
     },
     fail: () => {},
   });
@@ -284,6 +288,7 @@ function onDel(s: PaymentProfileItem) {
     .methods { border: 1rpx solid $wa-rule; border-radius: $wa-radius; padding: 20rpx; margin-bottom: 16rpx;
       .method-row { display: flex; align-items: center; justify-content: space-between;
         .method-code { font-size: 28rpx; color: $wa-ink; font-weight: 500; }
+        .method-code-tag { font-size: 22rpx; color: $wa-muted; margin-left: 12rpx; }
         .method-del { font-size: 24rpx; color: #e64340; }
       }
       .entry-ops { margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx dashed $wa-rule; display: flex; align-items: center; flex-wrap: wrap;
