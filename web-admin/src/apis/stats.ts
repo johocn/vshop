@@ -18,6 +18,13 @@ export interface TodayOverview {
   lowStock: number;
 }
 
+/** 首页工作台 KPI：今日销售额 / 待发货 / 库存预警 */
+export interface HomeKpis {
+  revenue: number;
+  toShip: number;
+  lowStock: number;
+}
+
 const LOW_STOCK_THRESHOLD = 5;
 const STOCK_PAGE_SIZE = 200;
 
@@ -57,4 +64,21 @@ export async function fetchTodayOverview(): Promise<TodayOverview> {
   }
 
   return { revenue, orderCount: orders.totalItems, lowStock };
+}
+
+export async function fetchHomeKpis(): Promise<HomeKpis> {
+  // 待发货口径与订单列表「待发货」页签一致：state ∈ PaymentAuthorized / PaymentSettled。
+  // 走 orders 查询（基于当前租户渠道上下文，与今日销售额同源，天然按登录租户隔离），
+  // 而非 myShopOrders（该接口在部分角色下返回 FORBIDDEN）。
+  const [overview, toShipRes] = await Promise.all([
+    fetchTodayOverview(),
+    getAdminClient().request<{ orders: { totalItems: number } }>(
+      `query ToShipOrders {
+        orders(options: { take: 1, filter: { state: { in: ["PaymentAuthorized", "PaymentSettled"] } } }) {
+          totalItems
+        }
+      }`,
+    ),
+  ]);
+  return { revenue: overview.revenue, toShip: toShipRes.orders.totalItems ?? 0, lowStock: overview.lowStock };
 }

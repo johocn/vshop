@@ -4,6 +4,7 @@
     <view v-if="show" class="drawer">
       <view class="head">
         <text class="store">{{ tenant.name || tenant.code || '未选店铺' }}</text>
+        <text class="store-code" v-if="tenant.name && tenant.code">{{ tenant.code }}</text>
         <text class="switch" @tap="switchStore">切换店铺 ›</text>
       </view>
       <scroll-view scroll-y class="body">
@@ -25,78 +26,14 @@
 import { computed } from 'vue';
 import { useTenantStore } from '../stores/tenantStore';
 import { useAuthStore } from '../stores/authStore';
-import { D, tierStyle } from '../theme';
+import { tierStyle } from '../theme';
+import { visibleMenus } from '../constants/menus';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
 const auth = useAuthStore();
 defineProps<{ show: boolean }>();
 
-const groups = [
-  { domain: '商品', color: D.d1.main, grad: D.d1.grad, items: [
-    { label: '分类', url: '/pages/product/categories/index', tier: 1 },
-    { label: '＋新增商品', url: '/pages/product/create/index', tier: 1 },
-    { label: '商品列表', url: '/pages/product/list/index', tier: 1 },
-    { label: '库存预警', url: '/pages/inventory/stock/index', tier: 2 },
-    { label: '图片库', url: '/pages/media/library/index', tier: 3 },
-  ]},
-  { domain: '交易', color: D.d2.main, grad: D.d2.grad, items: [
-    { label: '订单', url: '/pages/order/list/index', tier: 1 },
-    { label: '发货', url: '/pages/order/ship/index', tier: 2 },
-    { label: '售后', url: '/pages/after-sale/list/index', tier: 2 },
-    { label: '门店收银', url: '/pages/pos/index', tier: 2 },
-    { label: '收款台账', url: '/pages/settle/ledger/index', tier: 3 },
-  ]},
-  { domain: '履约', color: D.d3.main, grad: D.d3.grad, items: [
-    { label: '配送方式', url: '/pages/shipping/methods/index', tier: 2 },
-    { label: '支付方式', url: '/pages/payment/methods/index', tier: 2 },
-    { label: '自提点', url: '/pages/pickup/index', tier: 2 },
-    { label: '到店自提核销', url: '/pages/pickup/redeem/index', tier: 2 },
-    { label: '配送档案', url: '/pages/shipping/profile/index', tier: 3 },
-    { label: '支付档案', url: '/pages/payment/profile/index', tier: 3 },
-  ]},
-  { domain: '装修', color: D.d4.main, grad: D.d4.grad, items: [
-    { label: '首页装修', url: '/pages/decorate/home/index', tier: 1 },
-    { label: '主题风格', url: '/pages/decorate/theme/index', tier: 3 },
-    { label: '店铺信息', url: '/pages/decorate/shop-info/index', tier: 3 },
-  ]},
-  { domain: '营销', color: D.d5.main, grad: D.d5.grad, items: [
-    { label: '优惠券发行', url: '/pages/coupon/index', tier: 1 },
-    { label: '定向发券', url: '/pages/coupon/issue/index', tier: 3 },
-  ]},
-  { domain: '分销', color: D.d5.main, grad: D.d5.grad, items: [
-    { label: '分销关系', url: '/pages/distribution/relations/index', tier: 2 },
-    { label: '佣金结算', url: '/pages/distribution/settle/index', tier: 2 },
-  ]},
-  { domain: '系统', color: D.d6.main, grad: D.d6.grad, items: [
-    { label: '数据看板', url: '/pages/data/dashboard/index', tier: 2 },
-    { label: '使用手册', tier: 3, action: 'manual' },
-    { label: '切换店铺', tier: 3, action: 'switchStore' },
-    { label: '退出登录', tier: 3, action: 'logout' },
-  ]},
-];
-
-// 平台管理组：按权限渲染（仅持有对应权限者可见）
-const platformGroup = () => {
-  const items: { label: string; url: string; tier: number }[] = [];
-  if (auth.isSuperAdmin || auth.hasPermission('TenantManage')) {
-    items.push({ label: '租户列表', url: '/pages/platform/tenants/index', tier: 1 });
-  }
-  if (auth.hasPermission('TenantRoleManage')) {
-    items.push({ label: '角色管理', url: '/pages/platform/roles/index', tier: 2 });
-  }
-  if (auth.hasPermission('TenantMemberManage')) {
-    items.push({ label: '人员管理', url: '/pages/platform/members/index', tier: 2 });
-  }
-  if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
-    items.push({ label: '商品审批', url: '/pages/platform/product-approval/index', tier: 3 });
-  }
-  if (!items.length) return null;
-  return { domain: '平台', color: D.d7.main, grad: D.d7.grad, items };
-};
-
-const shownGroups = computed(() =>
-  [...groups, ...(platformGroup() ? [platformGroup()] : [])].filter(Boolean),
-);
+const shownGroups = computed(() => visibleMenus(auth));
 
 function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' }); }
 // 公开手册：独立新窗口打开，无需登录鉴权
@@ -115,12 +52,13 @@ function go(it: any) {
 </script>
 <style lang="scss" scoped>
 .mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 90; }
-.drawer { position: fixed; left: 0; top: 0; bottom: 0; width: 78vw; max-width: 620rpx; background: #fff; z-index: 91; display: flex; flex-direction: column; box-shadow: 4rpx 0 24rpx rgba(0,0,0,.1); }
+.drawer { position: fixed; left: 0; top: 0; bottom: 0; width: 78vw; max-width: 620rpx; background: #fff; z-index: 91; display: flex; flex-direction: column; overflow: hidden; box-shadow: 4rpx 0 24rpx rgba(0,0,0,.1); }
 .head { padding: 32rpx 32rpx 22rpx; border-bottom: 1px solid #f0f0f0;
   .store { font-size: 30rpx; font-weight: 700; color: $wa-ink; }
+  .store-code { display: inline-block; font-size: 18rpx; color: $wa-muted; margin-left: 12rpx; padding: 2rpx 12rpx; border-radius: 999rpx; background: #f5f5f5; vertical-align: middle; }
   .switch { display: block; margin-top: 8rpx; font-size: 22rpx; color: $pm-info; }
 }
-.body { flex: 1; padding: 20rpx 28rpx 40rpx; }
+.body { flex: 1; min-height: 0; padding: 20rpx 28rpx 40rpx; }
 .group { margin-bottom: 28rpx; }
 .g-band { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx;
   .band { width: 10rpx; height: 30rpx; border-radius: 6rpx; }
