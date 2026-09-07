@@ -1,5 +1,37 @@
 <template>
   <view class="page">
+    <view class="card danger-card">
+      <view class="row between">
+        <view class="info danger-info">
+          <text class="name">清空商品（从头开始）</text>
+          <text class="sub">软删该租户名下全部商品（前端不可见）。不影响配送/支付/账户等配置。</text>
+        </view>
+        <text class="danger-btn" @tap="onClearProducts">清空商品</text>
+      </view>
+    </view>
+
+    <view class="card" style="margin-bottom: 20rpx;">
+      <view class="row head">
+        <text class="title">租户基础信息</text>
+        <text class="sub-info">{{ tenantCode }}<text v-if="tenantNo != null"> · #{{ tenantNo }}</text></text>
+      </view>
+      <view class="field">
+        <text class="label">店铺名称（租户名）</text>
+        <view class="save-row">
+          <input class="input" v-model="tenantName" placeholder="请输入店铺名称" />
+          <button class="btn save-btn" @tap="saveName">保存</button>
+        </view>
+      </view>
+      <view class="field" style="margin-bottom: 0;">
+        <text class="label">默认外网访问域名</text>
+        <view class="save-row">
+          <input class="input" v-model="tenantDomain" placeholder="如 store.example.com" />
+          <button class="btn save-btn" @tap="saveDomain">保存</button>
+        </view>
+        <text class="tip">不要带 http(s):// 前缀；前端据此域名回源。</text>
+      </view>
+    </view>
+
     <view class="tabs">
       <text class="tab" :class="{ on: tab === 'admin' }" @tap="tab = 'admin'">管理员</text>
       <text class="tab" :class="{ on: tab === 'role' }" @tap="tab = 'role'">角色</text>
@@ -16,6 +48,7 @@
           <text class="name">{{ m.displayName || m.administratorId }}</text>
           <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text></text>
         </view>
+        <text class="link warn-link" @tap="onResetPwd(m)">重置密码</text>
         <switch :checked="m.enabled" color="#4f8cff" @change="onToggleAdmin(m, $event)" />
       </view>
       <view v-if="!admins.length" class="empty">暂无管理员</view>
@@ -121,9 +154,11 @@
 import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
+  fetchTenant, updateTenant, resetTenantAdministratorPassword,
   fetchTenantAdministrators, createTenantAdministrator, setTenantAdministratorEnabled,
   fetchTenantRoles, deleteTenantRole,
   searchTenantAdmins, linkTenantMember,
+  clearTenantProducts,
   type TenantMemberItem, type RoleItem, type AdminSearchCandidate,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
@@ -134,9 +169,29 @@ const tab = ref<'admin' | 'role'>('admin');
 const admins = ref<TenantMemberItem[]>([]);
 const roles = ref<RoleItem[]>([]);
 
-onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
-onShow(() => { if (channelId.value) loadAdminAndRoles(); });
+// 租户基础信息（改名 / 默认外网域名）
+const tenantName = ref('');
+const tenantDomain = ref('');
+const tenantCode = ref('');
+const tenantNo = ref<number | null>(null);
 
+onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
+onShow(() => { if (channelId.value) loadAll(); });
+
+async function loadAll() {
+  await Promise.all([loadTenant(), loadAdmins(), loadRoles()]);
+}
+async function loadTenant() {
+  try {
+    const t = await fetchTenant(channelId.value);
+    tenantName.value = t.name || '';
+    tenantDomain.value = t.domain || '';
+    tenantCode.value = t.code;
+    tenantNo.value = t.tenantNo ?? null;
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '加载租户信息失败'), icon: 'none' });
+  }
+}
 async function loadAdminAndRoles() {
   await Promise.all([loadAdmins(), loadRoles()]);
 }
@@ -145,6 +200,52 @@ async function loadAdmins() {
 }
 async function loadRoles() {
   roles.value = await fetchTenantRoles(channelId.value);
+}
+
+// 保存租户名（改名）
+async function saveName() {
+  const name = tenantName.value.trim();
+  if (!name) { uni.showToast({ title: '店铺名称不能为空', icon: 'none' }); return; }
+  try {
+    await updateTenant(channelId.value, { name });
+    uni.showToast({ title: '名称已更新', icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+  }
+}
+
+// 保存默认外网域名
+async function saveDomain() {
+  const domain = tenantDomain.value.trim();
+  if (domain && /^https?:\/\//i.test(domain)) {
+    uni.showToast({ title: '请勿包含 http(s):// 前缀', icon: 'none' });
+    return;
+  }
+  try {
+    await updateTenant(channelId.value, { domain: domain || undefined });
+    uni.showToast({ title: '域名已更新', icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+  }
+}
+
+// 重置管理员密码为默认口令 you123123
+function onResetPwd(m: TenantMemberItem) {
+  uni.showModal({
+    title: '重置密码',
+    content: `确定将 ${m.displayName || m.administratorId} 的登录密码重置为 you123123 吗？`,
+    confirmText: '重置',
+    confirmColor: '#e64340',
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        await resetTenantAdministratorPassword(m.id);
+        uni.showToast({ title: '已重置为 you123123', icon: 'none' });
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, '重置失败'), icon: 'none' });
+      }
+    },
+  });
 }
 
 // 添加管理员表单弹层
@@ -265,8 +366,24 @@ function onToggleAdmin(m: TenantMemberItem, e: any) {
     },
   });
 }
+function onClearProducts() {
+  uni.showModal({
+    title: '清空商品（从头开始）',
+    content: `确定清空该租户名下全部商品？此操作会使这些商品在前端不可见（软删），且不可恢复。`,
+    confirmText: '清空',
+    confirmColor: '#e64340',
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        const n = await clearTenantProducts(channelId.value);
+        uni.showToast({ title: `已清空商品 ${n} 件`, icon: 'none' });
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, '清空失败'), icon: 'none' });
+      }
+    },
+  });
+}
 function onAddRole() {
-  // 创建与编辑统一走角色页（含 code + 中文显示名 + 权限勾选）
   uni.navigateTo({ url: `/pages/platform/roles/index?channelId=${channelId.value}` });
 }
 function onEditRole(r: RoleItem) {
@@ -279,9 +396,20 @@ function onEditRole(r: RoleItem) {
 .tab { padding: 12rpx 30rpx; background: #fff; border-radius: 999rpx; font-size: 26rpx; color: #666; }
 .tab.on { background: $pm-info; color: #fff; }
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx; }
+.danger-card { margin-bottom: 20rpx; border: 1px solid #ffe2e2; background: #fffafa; }
+.danger-info { flex: 1; }
+.danger-info .name { display: block; font-size: 28rpx; font-weight: 600; color: #e64340; }
+.danger-info .sub { display: block; font-size: 22rpx; color: #b05757; margin-top: 6rpx; }
+.danger-btn { flex: 0 0 auto; padding: 10rpx 30rpx; background: #e64340; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .title { font-size: 30rpx; font-weight: 700; }
+.sub-info { font-size: 24rpx; color: #999; }
 .head-btn { flex: 0 0 auto; padding: 8rpx 26rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
+.save-row { display: flex; align-items: center; gap: 16rpx; }
+.save-row .input { flex: 1; }
+.save-btn { flex: 0 0 auto; padding: 0 30rpx; line-height: 2.4; border-radius: 12rpx; background: $pm-info; }
+.tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: #bbb; }
+.warn-link { color: #e64340; flex: 0 0 auto; }
 .row { display: flex; align-items: center; }
 .between { justify-content: space-between; }
 .item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }

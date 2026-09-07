@@ -86,10 +86,10 @@ export async function deletePaymentProfile(id: string): Promise<void> {
   );
 }
 
-export interface PaymentMethodRef { id: string; code: string; }
+export interface PaymentMethodRef { id: string; code: string; name?: string; }
 export async function fetchPaymentMethods(): Promise<PaymentMethodRef[]> {
   const { paymentMethods } = await getAdminClient().request<{ paymentMethods: { items: PaymentMethodRef[] } }>(
-    `query { paymentMethods { items { id code } } }`,
+    `query { paymentMethods { items { id code name } } }`,
   );
   return paymentMethods.items;
 }

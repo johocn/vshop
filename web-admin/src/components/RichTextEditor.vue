@@ -81,19 +81,33 @@ function syncCurrentHtml() {
 }
 
 function openLibrary(_t?: 'image' | 'video' | 'mixed') {
+  // wangEditor 在编辑器失焦时会把最后光标保存进 currentRange，
+  // 选图确认前需用 restoreSelection() 恢复，否则弹窗夺焦后
+  // dangerouslyInsertHtml 因无活动选区而静默失败（图片完全插不进）。
   libraryVisible.value = true;
 }
 
 // 媒体库确认：图片用 insertImage，视频用 insertVideo 插入正文
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 function onLibraryConfirm(assets: AssetItem[]) {
   const ed = editorRef.value;
   if (!ed) return;
+  // 弹窗已夺焦，插入前先恢复编辑器失焦前保存的光标选区，
+  // 使 dangerouslyInsertHtml 落在用户指定的光标处而非静默无效。
+  ed.restoreSelection();
   for (const a of assets) {
     const url = a.source || a.preview;
-    if ((a.mimeType || '').toLowerCase().startsWith('video')) {
-      ed.insertVideo(url, url);
+    const mime = (a.mimeType || '').toLowerCase();
+    // 本工程工具栏未启用 wangEditor 图片模块，editor 实例未挂载 insertImage/insertVideo。
+    // 用通用 dangerouslyInsertHtml 在光标处插入 <img>/<video>（H5 contenteditable 通用能力）。
+    const safeUrl = escapeAttr(url);
+    const safeName = escapeAttr(a.name || '');
+    if (mime.startsWith('video')) {
+      ed.dangerouslyInsertHtml(`<video controls src="${safeUrl}"></video>`);
     } else {
-      ed.insertImage(url, a.name || '', url);
+      ed.dangerouslyInsertHtml(`<img src="${safeUrl}" alt="${safeName}">`);
     }
   }
 }
@@ -203,6 +217,14 @@ onBeforeUnmount(() => {
 
   &__editor {
     min-height: 320rpx;
+
+    // 媒体库插入的 <img>/<video> 是 wangEditor 动态 DOM（无 scoped data 属性），
+    // 需 :deep 穿透才能命中；限制最大宽度，避免超宽图片/视频撑破编辑区
+    :deep(img),
+    :deep(video) {
+      max-width: 100%;
+      height: auto;
+    }
   }
 
   &__src {

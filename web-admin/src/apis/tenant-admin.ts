@@ -10,6 +10,7 @@ export interface TenantItem {
   tenantNo?: number | null;
   isOfficial: boolean;
   merchantStatus?: string | null;
+  domain?: string | null;
 }
 
 export interface TenantMemberItem {
@@ -67,10 +68,19 @@ function mapTenant(t: any): TenantItem {
     tenantNo: t.customFields?.tenantNo ?? null,
     isOfficial: t.customFields?.isOfficial === true,
     merchantStatus: t.customFields?.merchantStatus ?? null,
+    domain: t.customFields?.domain ?? null,
   };
 }
 
-const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus }`;
+const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus domain }`;
+
+export async function fetchTenant(id: string): Promise<TenantItem> {
+  const res = await getAdminClient().request<{ tenant: any }>(
+    `query Tenant($id: ID!) { tenant(id: $id) { ${TENANT_FIELDS} } }`,
+    { id },
+  );
+  return mapTenant(res.tenant);
+}
 
 export async function fetchTenants(skip = 0, take = 50): Promise<{ items: TenantItem[]; totalItems: number }> {
   const res = await getAdminClient().request<{ tenants: { items: any[]; totalItems: number } }>(
@@ -93,12 +103,20 @@ export async function createTenant(input: { name: string; isOfficial?: boolean }
   return mapTenant(res.createTenant);
 }
 
-export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean }): Promise<TenantItem> {
+export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean; domain?: string }): Promise<TenantItem> {
   const res = await getAdminClient().request<{ updateTenant: any }>(
     `mutation UpdateTenant($id: ID!, $input: UpdateTenantInput!) { updateTenant(id: $id, input: $input) { ${TENANT_FIELDS} } }`,
     { id, input },
   );
   return mapTenant(res.updateTenant);
+}
+
+/** 重置租户管理人密码为默认口令 you123123（仅超管） */
+export async function resetTenantAdministratorPassword(memberId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation ResetTenantAdminPassword($memberId: ID!) { resetTenantAdministratorPassword(memberId: $memberId) }`,
+    { memberId },
+  );
 }
 
 export async function setTenantEnabled(id: string, enabled: boolean): Promise<void> {
@@ -110,6 +128,26 @@ export async function setTenantEnabled(id: string, enabled: boolean): Promise<vo
 
 export async function deleteTenant(id: string): Promise<void> {
   await getAdminClient().request(`mutation DeleteTenant($id: ID!) { deleteTenant(id: $id) }`, { id });
+}
+
+// ===== 租户位（预留 20 个位置） =====
+export interface TenantSlotItem { no: number; occupied: boolean; tenantId?: string | null; name?: string | null; }
+export interface TenantSlotsResult { capacity: number; used: number; slots: TenantSlotItem[]; }
+
+export async function fetchTenantSlots(): Promise<TenantSlotsResult> {
+  const res = await getAdminClient().request<{ tenantSlots: TenantSlotsResult }>(
+    `query TenantSlots { tenantSlots { capacity used slots { no occupied tenantId name } } }`,
+  );
+  return res.tenantSlots;
+}
+
+/** 清空指定租户名下全部商品（从零开始）。返回被删除/隐藏的商品数。 */
+export async function clearTenantProducts(channelId: string): Promise<number> {
+  const res = await getAdminClient().request<{ clearTenantProducts: number }>(
+    `mutation ClearTenantProducts($channelId: ID!) { clearTenantProducts(channelId: $channelId) }`,
+    { channelId },
+  );
+  return res.clearTenantProducts;
 }
 
 export async function fetchTenantAdministrators(channelId: string): Promise<TenantMemberItem[]> {

@@ -49,9 +49,11 @@ export const useAuthStore = defineStore('auth', {
       }
       this.access = access;
       // 保留所有租户：停用租户（enabled=false）以灰态展示在前端，仅人员被停用（memberEnabled=false）的租户不展示
+      // 按 tenantNo 升序排（官方自营 1-20 在前，演示店随后，无编号者最后），保证选店页顺序稳定
       this.channels = access.channels
         .filter((c) => c.memberEnabled !== false)
-        .map((c) => ({ id: c.id, code: c.code, token: c.token, name: c.name, tenantNo: c.tenantNo ?? null, isOfficial: c.isOfficial === true, enabled: c.enabled }));
+        .map((c) => ({ id: c.id, code: c.code, token: c.token, name: c.name, tenantNo: c.tenantNo ?? null, isOfficial: c.isOfficial === true, enabled: c.enabled }))
+        .sort((a, b) => (a.tenantNo ?? Infinity) - (b.tenantNo ?? Infinity) || a.code.localeCompare(b.code));
     },
     hasPermission(p: string): boolean {
       return this.isSuperAdmin || this.permissions.includes(p);

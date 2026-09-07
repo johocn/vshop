@@ -1,5 +1,25 @@
 <template>
   <view class="page">
+    <view class="card slots-card">
+      <view class="slots-head">
+        <text class="title">租户位</text>
+        <text class="slots-meta">已用 {{ used }} / {{ capacity }}</text>
+      </view>
+      <view class="slots-grid">
+        <view
+          v-for="s in slots"
+          :key="s.no"
+          class="slot"
+          :class="{ on: s.occupied, off: !s.occupied }"
+          @tap="s.occupied && s.tenantId && goDetailById(s.tenantId, s.name)"
+        >
+          <text class="slot-no">#{{ s.no }}</text>
+          <text class="slot-name">{{ s.occupied ? (s.name || '—') : '预留' }}</text>
+        </view>
+      </view>
+      <view class="slots-tip">平台预留 {{ capacity }} 个租户位；被占用的格子为已入驻租户，点击可进入管理。空位为「预留」。</view>
+    </view>
+
     <view class="card">
       <view class="row head">
         <text class="title">租户列表</text>
@@ -49,16 +69,30 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { fetchTenants, setTenantEnabled, createTenant, type TenantItem } from '../../../apis/tenant-admin';
+import { fetchTenants, setTenantEnabled, createTenant, fetchTenantSlots, type TenantItem, type TenantSlotItem } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
 
 const tenants = ref<TenantItem[]>([]);
 const showCreate = ref(false);
 const form = ref({ name: '', isOfficial: false });
+const slots = ref<TenantSlotItem[]>([]);
+const used = ref(0);
+const capacity = ref(20);
 
 async function load() {
   const res = await fetchTenants();
   tenants.value = res.items;
+  try {
+    const s = await fetchTenantSlots();
+    slots.value = s.slots;
+    used.value = s.used;
+    capacity.value = s.capacity;
+  } catch {
+    slots.value = [];
+  }
+}
+function goDetailById(id: string, name?: string | null) {
+  uni.navigateTo({ url: `/pages/platform/tenants/detail?id=${id}&name=${encodeURIComponent(name || '')}` });
 }
 function onToggle(t: TenantItem, e: any) {
   const enabled = e.detail.value as boolean;
@@ -105,6 +139,19 @@ onMounted(load);
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .title { font-size: 30rpx; font-weight: 700; }
+.slots-card { margin-bottom: 20rpx; }
+.slots-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.slots-meta { font-size: 26rpx; color: $pm-info; font-weight: 600; }
+.slots-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14rpx; }
+.slot { border-radius: 12rpx; padding: 14rpx 8rpx; text-align: center; }
+.slot.on { background: #f0f5ff; border: 1px solid $pm-info; }
+.slot.off { background: #fafafa; border: 1px dashed #d8d8d8; }
+.slot-no { display: block; font-size: 24rpx; color: #999; font-weight: 600; }
+.slot.on .slot-no { color: $pm-info; }
+.slot-name { display: block; font-size: 20rpx; color: #666; margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot.on .slot-name { color: #333; }
+.slot.off .slot-name { color: #bbb; }
+.slots-tip { margin-top: 14rpx; font-size: 20rpx; color: #999; line-height: 1.6; }
 .head-btn { flex: 0 0 auto; padding: 8rpx 26rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
 .item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }
 .info { flex: 1; }
