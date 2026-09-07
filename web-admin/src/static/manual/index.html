@@ -418,6 +418,26 @@ var CHAPTERS = [
 <p>改密后进入商户工作台（首页），可看到「加商品」「订单」等入口，顶部为当前操作店铺上下文。</p>
 <img class="img" src="shots/m10_merchant_dashboard.png" alt="商户工作台">
 <div class="imgcap">图 B2 · 商户工作台</div>
+<h3>B2b · 工作台全景：租户标识与全量功能入口</h3>
+<p>工作台顶部卡片显示当前操作店铺的<mark class="mark">店铺名称 + 编码</mark>（第二行「编码 t2 · 经营中」），切换租户后自动更新，方便在多店铺间明确当前上下文。</p>
+<img class="img" src="shots/m15_merchant_dashboard_top.png" alt="工作台顶部-店铺名称与编码">
+<div class="imgcap">图 B2b-1 · 工作台顶部显示店铺名称与编码</div>
+<p>工作台按「商品 / 交易 / 履约 / 装修 / 营销 / 分销 / 系统 / 平台」分区铺开全量管理入口（同一数据源与侧边抽屉保持一致），平台管理区仅对持有相应角色权限者显示。各分区顶部为主功能入口（填充按钮），次要项为描边/纯文字入口。</p>
+<img class="img" src="shots/m16_merchant_dashboard_full.png" alt="工作台全部分组入口">
+<div class="imgcap">图 B2b-2 · 工作台全量功能分区入口</div>
+<p>右上角「☰」打开侧边抽屉，按分区列出全部功能；内容超出时抽屉内部可独立滚动，底部的「退出登录 / 平台管理」等始终可滚动到可见。</p>
+<img class="img" src="shots/m17_merchant_drawer.png" alt="侧边抽屉-底部可见">
+<div class="imgcap">图 B2b-3 · 侧边抽屉（底部内容可滚动查看）</div>
+<h3>B2c · 首页经营数据（今日销售额 / 待发货 / 库存预警）</h3>
+<p>工作台顶部卡片下方的三格数据为<mark class="mark">实时统计</mark>，进入工作台时自动加载，<strong>始终以当前登录租户的数据为准</strong>：切换店铺后数字相应刷新，不同租户互不串扰。</p>
+<ul>
+  <li><b>今日销售额</b>：当日（今日 0 点起）下单订单的实收金额合计，展示格式为 <code>¥ + 两位小数</code>；今日暂无订单时显示 <code>¥0.00</code>。</li>
+  <li><b>待发货</b>：状态为「待发货」（已付款、尚未发货）的订单数，口径与「订单 → 待发货」页签一致。</li>
+  <li><b>库存预警</b>：当前租户下 <mark class="mark">可用库存 ≤ 5</mark> 的库存条数，便于提前补货。</li>
+</ul>
+<p>统计加载异常时对应格子显示「—」占位（不会误显示 0 假装有数据）；下拉刷新或切店再进入会重新拉取。</p>
+<img class="img" src="shots/m18_merchant_dashboard_kpi.png" alt="首页经营数据 KPI">
+<div class="imgcap">图 B2c · 首页经营数据（按当前租户实时统计）</div>
 <h3>B3 · 新建商品</h3>
 <p>点「加商品」进入商品列表（初始为空），再进入「新增商品」表单，填写名称、Slug、描述、价格、库存，并选择配送档案、支付档案、分类与商品图片。</p>
 <img class="img" src="shots/m11_merchant_product_list_empty.png" alt="商户商品列表-空">
@@ -544,6 +564,14 @@ var CHAPTERS = [
 <div class="imgcap">图 O5 · 优惠券管理列表</div>
 <img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
 <div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<h3>定向发券与站内消息通知</h3>
+<p>管理端「营销 → 定向发券」可按关键词<mark class="mark">搜索本渠道客户</mark>（姓名/手机号/邮箱）并勾选，或一键「全部本渠道」圈选批量发券；发券时可选择<mark class="mark">发送站内消息</mark>，买家在 C 端「消息中心」收到「优惠券到账」通知，券码直达「我的券包」。</p>
+<img class="img" src="shots/o12_webadmin_coupon_issue.png" alt="定向发券页-选券选客户与通知开关">
+<div class="imgcap">图 O12 · 定向发券（①选券 → ②搜索勾选客户 → ③发券通知 → ④确认发券）</div>
+<img class="img" src="shots/o13_nshop_messages.png" alt="nshop 消息中心-优惠券到账通知">
+<div class="imgcap">图 O13 · C 端消息中心（定向发券站内通知，含券码，未读红点）</div>
+<img class="img" src="shots/o14_nshop_coupon_wallet.png" alt="nshop 我的券包-定向发放的满减券">
+<div class="imgcap">图 O14 · 我的券包（定向发放的「满100减20」券，来源 ADMIN）</div>
 <div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`},
 {book:'op', id:'op-13', title:'nshop 结账页中国本地化（cn 版式）', html:`
 <p class="lead">nshop 结账页默认采用<mark class="mark">中国本地化 cn 版式</mark>：收货信息一体卡 + 配送/自提分箱模块 + 底部吸底结算栏 + 提交前协议勾选。版式经<mark class="mark">四级可回退风格系统</mark>管控，可在 cn / jd / legacy 间切换。</p>

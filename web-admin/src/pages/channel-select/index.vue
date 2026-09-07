@@ -27,14 +27,22 @@
 </template>
 
 <script lang="ts" setup>
+import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
 
-async function pick(c: { id: string; code: string; token: string }) {
-  tenant.selectCh(c, c.code);
+// 返回用户（带登录态深链/刷新/返回本页）时店铺列表为空，需重新加载；登录流程已填充则跳过
+onShow(() => {
+  if (!auth.channels.length) {
+    auth.loadAccess().catch(() => {});
+  }
+});
+
+async function pick(c: { id: string; code: string; token: string; name?: string }) {
+  tenant.selectCh(c, c.name || c.code);
   // 按所选店铺限定权限后进入（避免跨店铺权限并集导致菜单错显）
   await auth.loadAccess(c.id);
   uni.redirectTo({ url: '/pages/dashboard/index' });
