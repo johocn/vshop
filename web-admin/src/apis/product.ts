@@ -10,9 +10,27 @@
 //     —— 若需为商品补 SKU/变体，用此 mutation（本地实测可用，无需 options/optionIds）
 //   - collections(options:{take}) { totalItems items { id name } } —— 可用
 import { getAdminClient } from './client';
+import { getChannelToken } from './session';
 
 // 本地 admin-api 实测的 LanguageCode 枚举值（zh_Hans 可用，en 也可用）
 export const PRODUCT_LANGUAGE_CODE = 'zh_Hans';
+
+/**
+ * 由当前渠道默认仓拼出库存字段。
+ * 多租户/多仓（MultiChannelStockLocationStrategy）下，「当前渠道」上下文的 stockLocations
+ * 已按渠道隔离，只返回本租户关联的默认仓；保存库存必须用 stockLevels 指定该仓，
+ * 否则顶层 stockOnHand 会写入 Vendure 全局默认仓（长春，location 1），租户页读不到更新——
+ * 这正是「商品库存失效/不更新」的根因。无仓时回退顶层 stockOnHand（单仓兜底）。
+ */
+function stockFieldWith(locationId: string | null | undefined, stock: number): Record<string, unknown> {
+  const v = Math.round(stock) || 0;
+  return locationId
+    ? { stockLevels: [{ stockLocationId: locationId, stockOnHand: v }] }
+    : { stockOnHand: v };
+}
+
+/** 商品保存路径复用 resolveStockLocationId（与库存页一致），保证同一渠道定位同一默认仓 */
+const getChannelStockLocationId = resolveStockLocationId;
 
 export interface ProductListItem {
   id: string;
@@ -183,7 +201,7 @@ export interface ProductFull {
   nameEn?: string;
   slugEn?: string;
   descriptionEn?: string;
-  featuredAsset?: { preview: string } | null;
+  featuredAsset?: { id: string; preview: string } | null;
   assets?: { id: string; preview: string }[] | null;
   videoAssetId?: string | null;
   facetValues?: Array<{
@@ -249,7 +267,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
       name: string;
       slug: string;
       enabled: boolean;
-      featuredAsset?: { preview: string } | null;
+      featuredAsset?: { id: string; preview: string } | null;
       assets?: { id: string; preview: string }[] | null;
       facetValues?: Array<{
         id: string;
@@ -266,7 +284,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         stockOnHand: number;
         trackInventory: boolean;
         options?: Array<{ id: string; code: string; name: string }>;
-        featuredAsset?: { preview: string } | null;
+        featuredAsset?: { id: string; preview: string } | null;
         assets?: Array<{ id: string; preview: string }>;
         customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null; saleStart?: string | null; saleEnd?: string | null; listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null } | null;
       }>;
@@ -275,7 +293,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     `query ProductFull($id: ID!) {
       product(id: $id) {
         id name slug enabled
-        featuredAsset { preview }
+        featuredAsset { id preview }
         assets { id preview }
         facetValues { id code name facet { id code name } }
         customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId }
@@ -283,7 +301,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         variants {
           id sku price stockOnHand trackInventory
           options { id code name }
-          featuredAsset { preview }
+          featuredAsset { id preview }
           assets { id preview }
           customFields { shippingProfileId paymentProfileId saleStart saleEnd listPrice costPrice barcode internalCode }
         }
@@ -344,6 +362,7 @@ export interface CreateVariantInput {
 }
 
 export async function createVariantsForProduct(input: CreateVariantInput): Promise<string> {
+  const locationId = await getChannelStockLocationId();
   const { createProductVariants } = await getAdminClient().request<{
     createProductVariants: Array<{ id: string }>;
   }>(
@@ -356,9 +375,9 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
           productId: input.productId,
           sku: input.sku,
           price: input.price,
-          // stockOnHand 为顶层字段（无需 StockLevelInput 的必填 stockLocationId）；trackInventory 是 GlobalFlag 枚举
+          // 多租户下必须用 stockLevels 指定当前渠道默认仓，否则写入全局默认仓致库存读不到
           trackInventory: 'TRUE',
-          stockOnHand: input.stock,
+          ...stockFieldWith(locationId, input.stock),
           assetIds: input.assetIds,
           featuredAssetId: input.featuredAssetId,
           customFields: {
@@ -417,6 +436,8 @@ function uniqueValueCodes(values: string[]): Array<{ name: string; code: string 
 }
 
 export async function createVariantMatrixForProduct(input: CreateVariantMatrixInput): Promise<number> {
+  // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
+  const locationId = await getChannelStockLocationId();
   // 1) 逐组创建规格组，收集「维度号 -> (规格值名 -> option id)」。
   //    维度口径与 buildMatrix 一致：仅统计至少含一个非空规格值的组，保持原顺序对齐 skus[i].labels[d]。
   const dims: Array<{ groupIndex: number; valueToOptionId: Map<string, string> }> = [];
@@ -494,7 +515,7 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       price: Math.round(sku.priceCents) || 0,
       optionIds,
       trackInventory: 'TRUE',
-      stockOnHand: Math.round(sku.stock) || 0,
+      ...stockFieldWith(locationId, sku.stock),
       assetIds: sku.assetIds ?? [],
       featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
       customFields: {
@@ -643,8 +664,8 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
     await createVariantsForProduct({
       productId: pid,
       sku: 'P' + Date.now(),
-      price: Math.round(input.priceYuan * 100),
-      stock: input.stock,
+      price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
+      stock: Math.round(s0?.stock != null ? s0.stock : input.stock),
       assetIds: input.assetIds,
       featuredAssetId,
       shippingProfileId: input.shippingProfileId,
@@ -680,6 +701,8 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
 }
 
 export async function updateProductFull(id: string, input: ProductSaveInput): Promise<void> {
+  // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
+  const locationId = await getChannelStockLocationId();
   // 三件套更新：
   // 1) 基本字段（enabled/name/slug/description）
   await updateProduct(id, {
@@ -736,7 +759,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
           sku: v?.sku ?? sku.sku ?? '',
           price: Math.round(sku.priceCents) || 0,
           trackInventory: 'TRUE',
-          stockOnHand: Math.round(sku.stock) || 0,
+          ...stockFieldWith(locationId, sku.stock),
           assetIds: sku.assetIds ?? [],
           featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
           customFields: {
@@ -770,12 +793,13 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
         {
           input: [
             {
-              id: v.id,
-              sku: v.sku,
-              price: Math.round(input.priceYuan * 100),
-              trackInventory: 'TRUE',
-              stockOnHand: input.stock,
-              customFields: {
+          id: v.id,
+          sku: v.sku,
+          price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
+          trackInventory: 'TRUE',
+          // 多租户需写当前渠道默认仓，否则更新落入全局默认仓、租户页读不到
+          ...stockFieldWith(locationId, s0?.stock != null ? s0.stock : input.stock),
+          customFields: {
                 shippingProfileId: input.shippingProfileId ?? '',
                 paymentProfileId: input.paymentProfileId ?? '',
                 costPrice: s0?.costPrice != null ? Math.round(s0.costPrice) : null,
@@ -894,21 +918,34 @@ export async function bulkSetProductsEnabled(
 /**
  * 解析一个可写库存的仓库 id（库存写在逐仓 StockLevel 上）。
  * 平台多仓模式下，顶层 `stockOnHand` 仅在存在「默认仓」时才能落库；
- * 无默认仓时会静默落空（表现为改库存无效）。这里显式取首个仓库，
- * 通过 `stockLevels` 携带 locationId 写入以稳定生效。取不到时返回 null。
+ * 无默认仓时会静默落空（表现为改库存无效）。这里显式取当前渠道可见的首个仓库，
+ * 通过 `stockLevels` 携带 locationId 写入以稳定生效。
+ * 实现要点：
+ *  - 「当前渠道」上下文（vendure-token 头）决定 stockLocations 返回哪些仓，
+ *    故缓存以渠道 token 为 key，切租户立即失效，避免 t2 读到 t1 的旧仓 id。
+ *  - 查询失败或返回空不缓存（返回 null），下次调用重新查询，
+ *    避免「空闲/无渠道上下文时首次置 null 后永久失效」导致的库存写不进租户仓。
  */
-let cachedStockLocationId: string | null | undefined;
+let cachedStockLocation: { channel: string; id: string | null } | null = null;
 export async function resolveStockLocationId(): Promise<string | null> {
-  if (cachedStockLocationId !== undefined) return cachedStockLocationId;
+  const ch = getChannelToken();
+  if (cachedStockLocation && cachedStockLocation.channel === ch) {
+    return cachedStockLocation.id;
+  }
+  let id: string | null = null;
   try {
     const { stockLocations } = await getAdminClient().request<{
       stockLocations: { items: Array<{ id: string }> };
     }>(`query StockLocs { stockLocations { items { id } } }`);
-    cachedStockLocationId = stockLocations?.items?.[0]?.id ?? null;
+    id = stockLocations?.items?.find((l) => l.id != null)?.id ?? null;
   } catch {
-    cachedStockLocationId = null;
+    id = null;
   }
-  return cachedStockLocationId;
+  // 命中真实仓则缓存（缓存含当前渠道 key）；空/失败不缓存，待渠道就绪后重查
+  if (id) {
+    cachedStockLocation = { channel: ch, id };
+  }
+  return id;
 }
 
 /**
