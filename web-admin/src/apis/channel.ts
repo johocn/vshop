@@ -20,6 +20,10 @@ export interface ChannelCustomFields {
   shopContent?: string;
   // 商品富文本描述多语言开关（true 时商品表单展示中文/English Tab）
   multilingualEnabled?: boolean;
+  // 税率参与计算开关（默认 true=含税；false=商品价/购物车结算直接用净价）
+  taxEnabled?: boolean;
+  // 详情页配置 JSON 串（含 blocks.price.style 价格块版式 classic/jdA/jdB）
+  detailConfig?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -33,7 +37,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxEnabled detailConfig }
       }
     }`,
   );
@@ -47,9 +51,11 @@ export async function updateChannelCustomFields(
   // 安全加固：改走插件端「仅本 channel」resolver（后端强制限定 ctx.channelId，
   // 并禁止改 enabled/tenantNo/isOfficial），租户不再持有核心 UpdateChannel 权限，
   // 从而校验跨租户改渠道画面。
+  // 注意：myUpdateChannelCustomFields 返回类型为 JSON! 标量（无子字段），
+  // 不能带 { id } 等选择集，否则 GRAPHQL_VALIDATION_FAILED。
   await getAdminClient().request(
     `mutation MyUpdateChannelCustomFields($fields: JSON!) {
-      myUpdateChannelCustomFields(input: $fields) { id }
+      myUpdateChannelCustomFields(input: $fields)
     }`,
     { fields },
   );
