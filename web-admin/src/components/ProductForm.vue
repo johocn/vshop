@@ -268,6 +268,24 @@ function submit() {
   out.brandFacetValueId = brandMarketing.value.brandFacetValueId || null;
   out.marketingTags = brandMarketing.value.tags;
   out.sellingPoint = brandMarketing.value.sellingPoint;
+  // 无规格（单品）：基本信息 Tab 的价格/库存是唯一输入源，同步进默认变体行，
+  // 保证与规格变体 Tab 的矩阵单行一致；多规格则保留各自的矩阵值。
+  const plain =
+    !(variantMatrix.value.groups || []).some((g) =>
+      (g?.values || []).some((v) => String(v ?? '').trim() !== ''),
+    );
+  if (plain) {
+    // priceYuan 是「元」，priceCents 单位是「分」，必须 ×100（与 syncPriceToSkus 口径一致；
+    // 漏乘会直接把 200 元写成 200 分 → 保存后 C 端价格缩水 100 倍）
+    const p = Math.round((Number(d.priceYuan) || 0) * 100);
+    const st = Math.round(Number(d.stock) || 0);
+    variantMatrix.value = {
+      ...variantMatrix.value,
+      skus: (variantMatrix.value.skus || []).map((s, i) =>
+        i === 0 ? { ...s, priceCents: p, stock: st } : s,
+      ),
+    };
+  }
   out.variantMatrix = JSON.parse(JSON.stringify(variantMatrix.value));
   // 所选租户分类名写入 tenantCategoryRef，作为过审归位的匹配依据（unused 时置空，避免残留）
   out.tenantCategoryRef = d.collectionId ? (catList.value.find((i) => i.id === d.collectionId)?.name ?? null) : null;

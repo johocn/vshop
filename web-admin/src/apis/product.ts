@@ -32,6 +32,29 @@ function stockFieldWith(locationId: string | null | undefined, stock: number): R
 /** 商品保存路径复用 resolveStockLocationId（与库存页一致），保证同一渠道定位同一默认仓 */
 const getChannelStockLocationId = resolveStockLocationId;
 
+// ---- 价格税率换算 ----
+// 运营端录入的是净价（不含税）。本仓库 Vendure 的 price 输入按「含税价」处理
+// （实测：写入 price=20000 回读 net=17699 / withTax=20000），故保存前须把净价
+// 换算成含税输入 gross = net × (1 + rate/100)，否则关闭税率后 C 端显示 net 会被
+// 税吃掉 13%（录入 200 显示 176.99）。税率动态取默认 TaxRate（当前生产仅 13% 一条）。
+let _taxRatePercent: number | null = null;
+
+export async function fetchTaxRatePercent(): Promise<number> {
+  if (_taxRatePercent != null) return _taxRatePercent;
+  const { taxRates } = await getAdminClient().request<{
+    taxRates: { items: Array<{ value: number; enabled: boolean }> };
+  }>(`query TaxRates { taxRates { items { value enabled } } }`);
+  const rate = (taxRates?.items || []).find((r) => r.enabled)?.value ?? 0;
+  _taxRatePercent = rate;
+  return rate;
+}
+
+/** 净价(分) -> Vendure price 输入（含税口径，分） */
+export function grossPriceFromNet(netCents: number, ratePercent: number): number {
+  if (!ratePercent) return Math.round(netCents);
+  return Math.round(netCents * (1 + ratePercent / 100));
+}
+
 export interface ProductListItem {
   id: string;
   name: string;
@@ -363,6 +386,7 @@ export interface CreateVariantInput {
 
 export async function createVariantsForProduct(input: CreateVariantInput): Promise<string> {
   const locationId = await getChannelStockLocationId();
+  const taxRate = await fetchTaxRatePercent();
   const { createProductVariants } = await getAdminClient().request<{
     createProductVariants: Array<{ id: string }>;
   }>(
@@ -374,7 +398,7 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
         {
           productId: input.productId,
           sku: input.sku,
-          price: input.price,
+          price: grossPriceFromNet(input.price, taxRate),
           // 多租户下必须用 stockLevels 指定当前渠道默认仓，否则写入全局默认仓致库存读不到
           trackInventory: 'TRUE',
           ...stockFieldWith(locationId, input.stock),
@@ -438,6 +462,7 @@ function uniqueValueCodes(values: string[]): Array<{ name: string; code: string 
 export async function createVariantMatrixForProduct(input: CreateVariantMatrixInput): Promise<number> {
   // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
   const locationId = await getChannelStockLocationId();
+  const taxRate = await fetchTaxRatePercent();
   // 1) 逐组创建规格组，收集「维度号 -> (规格值名 -> option id)」。
   //    维度口径与 buildMatrix 一致：仅统计至少含一个非空规格值的组，保持原顺序对齐 skus[i].labels[d]。
   const dims: Array<{ groupIndex: number; valueToOptionId: Map<string, string> }> = [];
@@ -512,7 +537,7 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
     return {
       productId: input.productId,
       sku: sku.sku ?? '',
-      price: Math.round(sku.priceCents) || 0,
+      price: grossPriceFromNet(Math.round(sku.priceCents) || 0, taxRate),
       optionIds,
       trackInventory: 'TRUE',
       ...stockFieldWith(locationId, sku.stock),
@@ -703,6 +728,7 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
 export async function updateProductFull(id: string, input: ProductSaveInput): Promise<void> {
   // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
   const locationId = await getChannelStockLocationId();
+  const taxRate = await fetchTaxRatePercent();
   // 三件套更新：
   // 1) 基本字段（enabled/name/slug/description）
   await updateProduct(id, {
@@ -757,7 +783,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
         return {
           id: v?.id,
           sku: v?.sku ?? sku.sku ?? '',
-          price: Math.round(sku.priceCents) || 0,
+          price: grossPriceFromNet(Math.round(sku.priceCents) || 0, taxRate),
           trackInventory: 'TRUE',
           ...stockFieldWith(locationId, sku.stock),
           assetIds: sku.assetIds ?? [],
@@ -795,7 +821,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
             {
           id: v.id,
           sku: v.sku,
-          price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
+          price: grossPriceFromNet(Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100), taxRate),
           trackInventory: 'TRUE',
           // 多租户需写当前渠道默认仓，否则更新落入全局默认仓、租户页读不到
           ...stockFieldWith(locationId, s0?.stock != null ? s0.stock : input.stock),
