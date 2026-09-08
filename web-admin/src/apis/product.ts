@@ -827,6 +827,14 @@ export interface ProductListRow {
 
 const LOW_STOCK = 5;
 
+/** 列表小图强制走小尺寸预设（vendor 资产预览预设 thumb≈150px），
+ *  否则直接使用 featuredAsset.preview 会返回原始大图（如 3MB PNG），拖慢列表首屏。 */
+function assetThumbUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}preset=thumb`;
+}
+
 export async function fetchProductList(
   q: ProductListQuery = {},
 ): Promise<{ totalItems: number; items: ProductListRow[] }> {
@@ -854,7 +862,7 @@ export async function fetchProductList(
       name: p.name,
       slug: p.slug,
       enabled: p.enabled,
-      thumb: p.featuredAsset?.preview,
+      thumb: assetThumbUrl(p.featuredAsset?.preview),
       priceYuan: (first?.price ?? 0) / 100,
       stock,
       low: stock <= LOW_STOCK,
