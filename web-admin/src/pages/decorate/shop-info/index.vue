@@ -32,19 +32,22 @@
       </view>
       <view class="hint">详情页价格块版式：经典（跟随主题主色）；京东A（横幅促销价：现价+划线价+降价+标签）；京东B（深色价签条：整条京东红价签+白字现价+划线价）。注：京东A/B 固定走京东红 #E1251B，不随主题色。</view>
     </view>
-    <button class="save" @tap="save">保存</button>
+    <button class="save" :disabled="saving" @tap="save">{{ saveText }}</button>
   </view>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
+import { graphQlErrorMsg } from '../../../apis/client';
 
 const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxEnabled?: boolean; priceStyle: string }>({
   shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxEnabled: true, priceStyle: 'classic',
 });
 let channelId = '';
 let rawDetailConfig = '';
+const saving = ref(false);
+const saveText = ref('保存');
 
 function onTaxToggle(e: any) {
   f.value.taxEnabled = !!e.detail.value;
@@ -77,6 +80,9 @@ onMounted(async () => {
 });
 
 async function save() {
+  if (saving.value) return;
+  saving.value = true;
+  saveText.value = '正在保存…';
   // 合并 price.style 进 detailConfig，保留原 detailConfig 其余字段
   const payload = { ...f.value } as any;
   delete payload.priceStyle;
@@ -85,8 +91,15 @@ async function save() {
   cfg.blocks.price = cfg.blocks.price || {};
   cfg.blocks.price.style = f.value.priceStyle;
   payload.detailConfig = JSON.stringify(cfg);
-  await updateChannelCustomFields(channelId, payload);
-  uni.showToast({ title: '已保存', icon: 'success' });
+  try {
+    await updateChannelCustomFields(channelId, payload);
+    uni.showToast({ title: '已保存', icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+  } finally {
+    saving.value = false;
+    saveText.value = '保存';
+  }
 }
 
 function safeParse(raw: string): any {
