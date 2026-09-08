@@ -80,6 +80,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import {
   fetchProductList,
@@ -147,6 +148,13 @@ function switchFilter(v: 'all' | 'on' | 'off') {
 }
 
 onMounted(() => load(0));
+
+// 页面开启了 enablePullDownRefresh，但此前未实现 onPullDownRefresh，
+// 下拉时刷新圈出现后永远不消失、也无数据重载，表现为「下拉刷新加载缓慢/卡住」。
+onPullDownRefresh(async () => {
+  await load(0);
+  uni.stopPullDownRefresh();
+});
 
 function goCats() { uni.navigateTo({ url: '/pages/product/categories/index' }); }
 function edit(p: ProductListRow) { uni.navigateTo({ url: `/pages/product/edit/index?id=${p.id}` }); }
