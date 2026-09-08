@@ -81,7 +81,6 @@ function parseTags(raw: unknown): string[] {
 export interface BrandMarketingState {
   brandFacetValueId: string;
   brandName: string;
-  listPriceYuan: string; // 划线价，单位：元（输入框显示）
   saleStart: string;
   saleEnd: string;
   tags: string[];
@@ -100,7 +99,6 @@ export function defaultBrandMarketing(): BrandMarketingState {
   return {
     brandFacetValueId: '',
     brandName: '',
-    listPriceYuan: '',
     saleStart: '',
     saleEnd: '',
     tags: [],
@@ -147,14 +145,12 @@ export function hydrateEditState(product: ProductFull): {
   const v = product.variant ?? (product as unknown as { variants?: Array<{ id: string }> }).variants?.[0];
   const vcf =
     (v && (v as unknown as { customFields?: { listPrice?: number | null; saleStart?: string | null; saleEnd?: string | null } }).customFields) || null;
-  const listPriceYuan = vcf?.listPrice != null ? String(Math.round(vcf.listPrice) / 100) : '';
   const saleStart = vcf?.saleStart ?? '';
   const saleEnd = vcf?.saleEnd ?? '';
 
   const brandMarketing: BrandMarketingState = {
     brandFacetValueId,
     brandName,
-    listPriceYuan,
     saleStart,
     saleEnd,
     tags,

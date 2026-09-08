@@ -32,10 +32,6 @@
     </view>
 
     <view class="card">
-      <view class="cell">
-        <text class="lbl">划线价（元）</text>
-        <input class="inp" :value="value.listPriceYuan" type="digit" placeholder="0.00" @input="onField('listPriceYuan', $event)" />
-      </view>
       <picker mode="date" :value="value.saleStart" @change="onDatePick('saleStart', $event)">
         <view class="cell row-in">
           <text class="lbl">促销开始</text>
@@ -78,7 +74,6 @@ import { fetchBrands } from '../../apis/product';
 export interface BrandMarketingValue {
   brandFacetValueId: string;
   brandName: string;
-  listPriceYuan: string;
   saleStart: string;
   saleEnd: string;
   tags: string[];
@@ -166,7 +161,7 @@ function onBrandPick(e: any) {
     newBrand: '',
   });
 }
-function onField(field: 'listPriceYuan' | 'sellingPoint', e: any) {
+function onField(field: 'sellingPoint', e: any) {
   emit('update:value', { ...props.value, [field]: e.detail.value || '' });
 }
 function onDatePick(field: 'saleStart' | 'saleEnd', e: any) {
