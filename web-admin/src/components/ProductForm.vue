@@ -36,12 +36,30 @@
             v-model="d.priceYuan"
             type="digit"
             placeholder="0.00"
-            @blur="syncPriceToSkus"
+            @blur="syncBaseToSkus"
+          />
+        </view>
+        <view class="cell">
+          <text class="lbl">划线价（元）</text>
+          <input
+            v-model="d.listPriceYuan"
+            type="digit"
+            placeholder="0.00"
+            @blur="syncBaseToSkus"
+          />
+        </view>
+        <view class="cell">
+          <text class="lbl">成本价（元）</text>
+          <input
+            v-model="d.costYuan"
+            type="digit"
+            placeholder="0.00"
+            @blur="syncBaseToSkus"
           />
         </view>
         <view class="cell">
           <text class="lbl">库存（件）</text>
-          <input v-model="d.stock" type="number" placeholder="0" />
+          <input v-model="d.stock" type="number" placeholder="0" @blur="syncBaseToSkus" />
         </view>
       </view>
 
@@ -107,6 +125,7 @@ import {
   hydrateEditState,
   defaultBrandMarketing,
   defaultVariantMatrix,
+  batchFillFromBase,
   type BrandMarketingState,
   type VariantMatrixState,
 } from '../composables/useVariantMatrix';
@@ -125,6 +144,8 @@ interface ProductDraft {
   slugEn?: string;
   descriptionEn?: string;
   priceYuan: number;
+  listPriceYuan: number;
+  costYuan: number;
   stock: number;
   enabled: boolean;
   assetIds: string[];
@@ -155,6 +176,8 @@ const props = defineProps<{
     slugEn?: string;
     descriptionEn?: string;
     priceYuan?: number;
+    listPriceYuan?: number;
+    costYuan?: number;
     stock?: number;
     enabled?: boolean;
     assetIds?: string[];
@@ -176,6 +199,8 @@ const d = reactive<ProductDraft>({
   slugEn: props.initial?.slugEn || '',
   descriptionEn: props.initial?.descriptionEn || '',
   priceYuan: props.initial?.priceYuan ?? 0,
+  listPriceYuan: props.initial?.listPriceYuan ?? baseYuanFromVariants((cf: any) => cf?.listPrice),
+  costYuan: props.initial?.costYuan ?? baseYuanFromVariants((cf: any) => cf?.costPrice),
   stock: props.initial?.stock ?? 0,
   enabled: props.initial?.enabled ?? false,
   assetIds: props.initial?.assetIds ? [...props.initial.assetIds] : [],
@@ -244,13 +269,26 @@ function onVideo(ids: string[]) {
   d.videoAssetId = ids[0] || null;
 }
 
-// 基本信息「价格」失焦时，将当前价（元→分）默认填充到全部变体 SKU 的销售价（仍可逐个修改）
-function syncPriceToSkus() {
-  const yuan = Number(d.priceYuan) || 0;
-  if (!yuan) return;
-  const cents = Math.round(yuan * 100);
-  const skus = (variantMatrix.value.skus || []).map((s) => ({ ...s, priceCents: cents }));
-  variantMatrix.value = { ...variantMatrix.value, skus };
+// 从 full 首个变体 customFields 取划线价/成本价（分→元），用于基础信息的初始回填
+function baseYuanFromVariants(pick: (cf: any) => number | null | undefined): number {
+  const v = props.full as unknown as {
+    variants?: Array<{ customFields?: { listPrice?: number | null; costPrice?: number | null } }>;
+  };
+  const cf = v?.variants?.[0]?.customFields as { listPrice?: number | null; costPrice?: number | null } | undefined;
+  const raw = cf ? pick(cf) : undefined;
+  return typeof raw === 'number' ? Math.round(raw / 100) : 0;
+}
+
+// 基本信息「价格/划线价/成本价/库存」失焦时，将当前基准值（元→分）联动到全部变体 SKU；
+// 已被手动修改的行（_baseSynced === false）不覆盖
+function syncBaseToSkus() {
+  const base = {
+    priceCents: Math.round((Number(d.priceYuan) || 0) * 100),
+    stock: Math.round(Number(d.stock) || 0),
+    listPriceCents: Math.round((Number(d.listPriceYuan) || 0) * 100),
+    costPrice: Math.round((Number(d.costYuan) || 0) * 100),
+  };
+  variantMatrix.value = { ...variantMatrix.value, skus: batchFillFromBase(variantMatrix.value.skus, base) };
 }
 
 function submit() {
@@ -268,25 +306,33 @@ function submit() {
   out.brandFacetValueId = brandMarketing.value.brandFacetValueId || null;
   out.marketingTags = brandMarketing.value.tags;
   out.sellingPoint = brandMarketing.value.sellingPoint;
-  // 无规格（单品）：基本信息 Tab 的价格/库存是唯一输入源，同步进默认变体行，
+  // 无规格（单品）：基本信息 Tab 的价格/划线价/成本价/库存是唯一输入源，四值联动进默认变体行；
   // 保证与规格变体 Tab 的矩阵单行一致；多规格则保留各自的矩阵值。
+  // 已手动改过变体行（_baseSynced === false）不覆盖。
   const plain =
     !(variantMatrix.value.groups || []).some((g) =>
       (g?.values || []).some((v) => String(v ?? '').trim() !== ''),
     );
   if (plain) {
-    // priceYuan 是「元」，priceCents 单位是「分」，必须 ×100（与 syncPriceToSkus 口径一致；
-    // 漏乘会直接把 200 元写成 200 分 → 保存后 C 端价格缩水 100 倍）
-    const p = Math.round((Number(d.priceYuan) || 0) * 100);
-    const st = Math.round(Number(d.stock) || 0);
-    variantMatrix.value = {
-      ...variantMatrix.value,
-      skus: (variantMatrix.value.skus || []).map((s, i) =>
-        i === 0 ? { ...s, priceCents: p, stock: st } : s,
-      ),
+    // 元→分 口径与 syncBaseToSkus 一致；漏乘会直接把 200 元写成 200 分 → 保存后 C 端价格缩水 100 倍
+    const base = {
+      priceCents: Math.round((Number(d.priceYuan) || 0) * 100),
+      stock: Math.round(Number(d.stock) || 0),
+      listPriceCents: Math.round((Number(d.listPriceYuan) || 0) * 100),
+      costPrice: Math.round((Number(d.costYuan) || 0) * 100),
     };
+    variantMatrix.value = { ...variantMatrix.value, skus: batchFillFromBase(variantMatrix.value.skus, base) };
   }
-  out.variantMatrix = JSON.parse(JSON.stringify(variantMatrix.value));
+  // 序列化提交前剔除内部标记 _baseSynced，绝不写入 API/后端字段
+  out.variantMatrix = JSON.parse(
+    JSON.stringify({
+      ...variantMatrix.value,
+      skus: (variantMatrix.value.skus || []).map((s) => {
+        const { _baseSynced, ...rest } = s as { _baseSynced?: boolean };
+        return rest;
+      }),
+    }),
+  );
   // 所选租户分类名写入 tenantCategoryRef，作为过审归位的匹配依据（unused 时置空，避免残留）
   out.tenantCategoryRef = d.collectionId ? (catList.value.find((i) => i.id === d.collectionId)?.name ?? null) : null;
   emit('submit', out);

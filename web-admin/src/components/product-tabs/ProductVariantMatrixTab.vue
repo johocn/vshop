@@ -249,7 +249,9 @@ async function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
 // 直接写入字符串字段，复用 onSkuField 的语义
 function onSkuFieldLiteral(si: number, field: 'barcode' | 'internalCode', val: string) {
   const skus = props.value.skus.map((s, i) =>
-    i === si ? { ...s, [field]: val } : s,
+    i === si
+      ? { ...s, [field]: val, _baseSynced: false } as MatrixSku
+      : s,
   );
   emit('update:value', { ...props.value, skus });
 }
@@ -336,12 +338,14 @@ function onSkuField(
   const raw = e.detail.value ?? '';
   const skus = props.value.skus.map((s, i) => {
     if (i !== si) return s;
+    // 任一字段被手动编辑 → 置 _baseSynced=false，此后不再被基础信息联动覆盖
+    const next = { ...s, _baseSynced: false } as MatrixSku;
     // 条形码/内部码为字符串；可选数字字段（划线价/成本价）留空则置 undefined，价格/库存留空按 0
-    if (field === 'barcode' || field === 'internalCode') return { ...s, [field]: raw };
+    if (field === 'barcode' || field === 'internalCode') return { ...next, [field]: raw };
     if (field === 'listPriceCents' || field === 'costPrice') {
-      return { ...s, [field]: raw === '' ? undefined : Number(raw) || 0 };
+      return { ...next, [field]: raw === '' ? undefined : Number(raw) || 0 };
     }
-    return { ...s, [field]: Number(raw) || 0 };
+    return { ...next, [field]: Number(raw) || 0 };
   });
   emit('update:value', { ...props.value, skus });
 }
