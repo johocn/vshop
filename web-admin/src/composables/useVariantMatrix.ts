@@ -23,10 +23,11 @@ export interface MatrixSku {
   barcode?: string; // 条形码
   internalCode?: string; // 内部编码
   assetIds?: string[]; // 变体图片（规格组合独立图）；首张作为变体主图 featuredAsset
+  _baseSynced?: boolean; // 内部标记：是否由基础信息同步，false 表示已手动修改不覆盖
 }
 
 export function defaultSku(): MatrixSku {
-  return { key: 'default', labels: [], optionValueIds: [], sku: '', priceCents: 0, stock: 0 };
+  return { key: 'default', labels: [], optionValueIds: [], sku: '', priceCents: 0, stock: 0, _baseSynced: true };
 }
 
 // 无/空规格组 -> 返回单 SKU；否则对各组 values 做笛卡尔积（组合去空）。
@@ -53,7 +54,27 @@ export function buildMatrix(groups: SpecGroup[]): MatrixSku[] {
     sku: c.join('-'),
     priceCents: 0,
     stock: 0,
+    _baseSynced: true,
   }));
+}
+
+// 将基础信息四值（价格/库存/划线价/成本价）批量填充到各行变体；
+// 已被手动修改的行（_baseSynced === false）不覆盖，其余行置 _baseSynced: true。
+export function batchFillFromBase(
+  skus: MatrixSku[],
+  base: { priceCents: number; stock: number; listPriceCents: number; costPrice: number },
+): MatrixSku[] {
+  return skus.map((s) => {
+    if (s._baseSynced === false) return s; // 已手动改过 → 不覆盖
+    return {
+      ...s,
+      priceCents: base.priceCents,
+      stock: base.stock,
+      listPriceCents: base.listPriceCents,
+      costPrice: base.costPrice,
+      _baseSynced: true,
+    };
+  });
 }
 
 export function batchFill(
@@ -191,6 +212,7 @@ export function hydrateEditState(product: ProductFull): {
             (first as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
           _preview:
             (first as unknown as { assets?: Array<{ id: string; preview: string }> })?.assets?.[0]?.preview ?? '',
+          _baseSynced: true,
         } as MatrixSku,
       ];
     }
@@ -221,6 +243,7 @@ export function hydrateEditState(product: ProductFull): {
         (x as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
       _preview:
         (x as unknown as { assets?: Array<{ id: string; preview: string }> })?.assets?.[0]?.preview ?? '',
+      _baseSynced: true,
     })) as MatrixSku[];
     variantMatrix = { noSpec: false, groups, skus, showListPrice: true };
   }
