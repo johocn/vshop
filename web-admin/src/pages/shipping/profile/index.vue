@@ -52,7 +52,10 @@
               <view class="pickup-item" v-for="p in grp.list" :key="p.id">
                 <checkbox :value="p.id" :checked="isPickupChecked(e, p.id)" @tap.stop="togglePickup(e, p.id)" style="transform: scale(0.7);" />
                 <view class="pickup-info">
-                  <text class="pickup-name">{{ p.name }}</text>
+                  <view class="pickup-name-row">
+                    <text class="pickup-name">{{ p.name }}</text>
+                    <text v-if="!isChannelVisible(p.id)" class="pickup-cross">跨租户绑定</text>
+                  </view>
                   <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
                   <text v-if="p.phoneNumber" class="pickup-meta">☎ {{ p.phoneNumber }}</text>
                   <text v-if="p.coordinates" class="pickup-meta">📍 {{ p.coordinates.lat }}, {{ p.coordinates.lng }}</text>
@@ -63,7 +66,7 @@
                 </view>
               </view>
             </view>
-            <view v-if="!pickupLocations.length" class="pickup-empty">暂无自提点</view>
+            <view v-if="!pickupPool(e).length" class="pickup-empty">暂无自提点</view>
             <view v-else-if="!groupedPickups(e).length" class="pickup-empty">暂无可用的该类型自提点</view>
           </view>
           <button class="mini" @tap="onAddPickup(e)">＋ 新增自提点</button>
@@ -87,9 +90,28 @@
         <switch :checked="form.requiresAddress" @change="form.requiresAddress = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
+      <!-- 超管：可切换（新建=开；编辑全局=开→关 归属当前渠道） -->
+      <view v-if="isSuperAdmin" class="field row">
+        <view class="flag-label">
+          <text class="label">设为全局</text>
+          <text class="hint">{{ editingProfile?.isGlobal ? '全局档案对所有租户可见，仅超管可维护' : '开启后对所有租户可见' }}</text>
+        </view>
+        <switch :checked="isGlobal" color="#2563eb" style="transform: scale(0.8);" @change="onIsGlobalChange($event)" />
+      </view>
+      <!-- 非超管（防御）：全局档案编辑只读锁定 -->
+      <view v-else-if="editingProfile?.isGlobal" class="field row">
+        <view class="flag-label">
+          <text class="label">设为全局</text>
+          <text class="hint">全局档案 · 仅超管可维护</text>
+        </view>
+        <switch :checked="true" disabled color="#2563eb" style="transform: scale(0.8);" />
+      </view>
       <view class="field row">
-        <text class="label">设为租户默认</text>
-        <switch :checked="setDefault" @change="setDefault = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
+        <view class="flag-label">
+          <text class="label">设为租户默认</text>
+          <text v-if="isGlobal" class="hint">全局档案不可设为租户默认</text>
+        </view>
+        <switch :checked="setDefault" :disabled="isGlobal" @change="setDefault = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
       <view class="panel-ops">
@@ -103,24 +125,29 @@
         <view class="row-left">
           <text class="name">{{ s.name }}</text>
           <text v-if="s.isTenantDefault" class="default-badge">默认</text>
+          <text v-if="s.isGlobal" class="global-badge">全局</text>
           <text v-if="!s.enabled" class="off-badge">停用</text>
           <text class="code">{{ s.code }}</text>
         </view>
-        <switch :checked="s.enabled" color="#2563eb" style="transform: scale(.7);" @change="onToggle(s, $event)" />
+        <switch v-if="!s.isGlobal || isSuperAdmin" :checked="s.enabled" color="#2563eb" style="transform: scale(.7);" @change="onToggle(s, $event)" />
       </view>
       <text class="desc">{{ s.description || '—' }}</text>
-      <view class="ops">
+      <view class="ops" v-if="!s.isGlobal || isSuperAdmin">
         <text @tap="onEdit(s)">编辑</text>
         <text v-if="!s.isTenantDefault" class="setdefault" @tap="onSetDefault(s)">设为默认</text>
         <text class="del" @tap="onDel(s)">删除</text>
+      </view>
+      <view class="ops readonly" v-else>
+        <text class="readonly-tip">仅超管可维护 · 不可编辑</text>
       </view>
     </view>
     <view v-if="!items.length" class="empty">暂无配送档案</view>
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { useAuthStore } from '../../../stores/authStore';
 import {
   fetchShippingProfiles, createShippingProfile,
   updateShippingProfile, deleteShippingProfile, setTenantDefaultShippingProfile,
@@ -128,6 +155,9 @@ import {
 } from '../../../apis/shipping-profile';
 import { fetchShippingMethods as fetchAllShippingMethods } from '../../../apis/shipping';
 import { fetchPickupLocations, deletePickupLocation, PickupLocationItem } from '../../../apis/pickup-location';
+
+const auth = useAuthStore();
+const isSuperAdmin = computed(() => auth.isSuperAdmin);
 
 interface MethodEntry {
   shippingMethodId: string;
@@ -146,7 +176,9 @@ const pickupLocations = ref<PickupLocationItem[]>([]);
 const creating = ref(false);
 const editing = ref(false);
 const editingId = ref<string | null>(null);
+const editingProfile = ref<ShippingProfileItem | null>(null);
 const setDefault = ref(false);
+const isGlobal = ref(false);
 
 const form = ref({ name: '', code: '', description: '', requiresAddress: true, requiresContact: false });
 const methodEntries = ref<MethodEntry[]>([]);
@@ -187,9 +219,29 @@ const groupedPickups = (e: MethodEntry) => {
   const types = pickupTypeForEntry(e);
   if (!types) return [];
   return types
-    .map((t) => ({ label: PICKUP_LABEL[t], list: pickupLocations.value.filter((p) => p.type === t) }))
+    .map((t) => ({ label: PICKUP_LABEL[t], list: pickupPool(e).filter((p) => p.type === t) }))
     .filter((g) => g.list.length > 0);
 };
+
+/**
+ * 自提点候选池 = 档案真实绑定（boundPickupLocations，不受租户可见性过滤）
+ * ∪ 当前渠道可见列表，按 id 去重。
+ * 保证全局档案绑定某租户私有点时，其他租户上下文编辑仍能看到该点并可取消勾选。
+ */
+const pickupPool = (e: MethodEntry): PickupLocationItem[] => {
+  const map = new Map<string, PickupLocationItem>();
+  for (const p of editingProfile.value?.boundPickupLocations ?? []) {
+    map.set(String(p.id), p);
+  }
+  for (const p of pickupLocations.value) {
+    if (!map.has(String(p.id))) map.set(String(p.id), p);
+  }
+  return [...map.values()];
+};
+
+/** 该点是否当前渠道可见（不可见则为跨租户绑定，仅展示可取消） */
+const isChannelVisible = (pid: string) =>
+  pickupLocations.value.some((p) => String(p.id) === String(pid));
 
 async function reload() {
   items.value = await fetchShippingProfiles();
@@ -220,15 +272,18 @@ function onCreate() {
   creating.value = true;
   editing.value = false;
   editingId.value = null;
+  editingProfile.value = null;
   form.value = { name: '', code: '', description: '', requiresAddress: true, requiresContact: false };
   methodEntries.value = [];
   setDefault.value = false;
+  isGlobal.value = false;
 }
 
 function onEdit(s: ShippingProfileItem) {
   creating.value = false;
   editing.value = true;
   editingId.value = s.id;
+  editingProfile.value = s;
   form.value = {
     name: s.name,
     code: s.code,
@@ -237,6 +292,7 @@ function onEdit(s: ShippingProfileItem) {
     requiresContact: s.requiresContact ?? false,
   };
   setDefault.value = false;
+  isGlobal.value = s.isGlobal ?? false;
   const ids = (s.shippingMethods || []).map((m: any) => m.id);
   const cfgs = (s.methodConfigs || []).reduce<Record<string, any>>((acc, c) => {
     acc[c.shippingMethodId] = c;
@@ -262,6 +318,7 @@ function onClose() {
   creating.value = false;
   editing.value = false;
   editingId.value = null;
+  editingProfile.value = null;
 }
 
 async function onAddMethod() {
@@ -355,6 +412,7 @@ async function onSave() {
         methodConfigs,
         requiresAddress: form.value.requiresAddress,
         requiresContact: form.value.requiresContact,
+        ...(isSuperAdmin.value ? { isGlobal: isGlobal.value } : {}),
       });
     } else {
       await updateShippingProfile(id, {
@@ -365,6 +423,7 @@ async function onSave() {
         methodConfigs,
         requiresAddress: form.value.requiresAddress,
         requiresContact: form.value.requiresContact,
+        ...(isSuperAdmin.value ? { isGlobal: isGlobal.value } : {}),
       });
     }
     if (setDefault.value && id) {
@@ -373,6 +432,7 @@ async function onSave() {
     creating.value = false;
     editing.value = false;
     editingId.value = null;
+    editingProfile.value = null;
     await reload();
     uni.showToast({ title: '保存成功' });
   } catch (err: any) {
@@ -388,6 +448,26 @@ async function onSetDefault(s: ShippingProfileItem) {
   } catch (err: any) {
     uni.showToast({ title: err?.message || '设置失败', icon: 'none' });
   }
+}
+
+function onIsGlobalChange(e: any) {
+  const v = Boolean(e.detail.value);
+  if (!v) { // 关闭——仅超管在编辑态可关；关闭后归属当前渠道，允许设租户默认
+    isGlobal.value = v;
+    return;
+  }
+  uni.showModal({
+    title: '设为全局',
+    content: editingProfile.value?.isTenantDefault
+      ? '开启后所有租户可见，且将自动取消「租户默认」，确认？'
+      : '开启后所有租户可见，确认？',
+    success: (r) => {
+      if (r.confirm) {
+        isGlobal.value = true;
+        setDefault.value = false; // 互斥：全局档案不能是租户默认
+      }
+    },
+  });
 }
 
 async function onToggle(s: ShippingProfileItem, e: any) {
@@ -452,7 +532,9 @@ function onDel(s: ShippingProfileItem) {
           .pickup-group { display: block; font-size: 24rpx; color: $wa-muted; margin-bottom: 6rpx; }
           .pickup-item { display: flex; align-items: center; min-height: 52rpx;
             .pickup-info { display: flex; flex-direction: column; line-height: 1.5; flex: 1; min-width: 0;
+              .pickup-name-row { display: flex; align-items: center; gap: 12rpx; }
               .pickup-name { font-size: 26rpx; color: $wa-ink; }
+              .pickup-cross { font-size: 20rpx; color: #b45309; background: #fef3c7; border-radius: 8rpx; padding: 2rpx 10rpx; }
               .pickup-addr { font-size: 22rpx; color: $wa-muted; }
               .pickup-meta { font-size: 22rpx; color: $wa-muted; opacity: .85; }
             }
@@ -482,6 +564,7 @@ function onDel(s: ShippingProfileItem) {
         .code { font-size: 24rpx; color: $wa-muted; margin-left: 16rpx; }
       }
       .default-badge { font-size: 22rpx; color: #fff; background: $wa-accent; border-radius: 20rpx; padding: 2rpx 16rpx; margin-left: 16rpx; }
+      .global-badge { font-size: 22rpx; color: #fff; background: #7c5cfc; border-radius: 20rpx; padding: 2rpx 16rpx; margin-left: 16rpx; }
       .off-badge { font-size: 22rpx; color: #fff; background: #bbb; border-radius: 20rpx; padding: 2rpx 16rpx; margin-left: 16rpx; }
     }
     .desc { display: block; margin-top: 8rpx; font-size: 26rpx; color: $wa-muted; }
@@ -490,6 +573,7 @@ function onDel(s: ShippingProfileItem) {
         &.setdefault { color: $wa-accent; }
         &.del { color: #e64340; }
       }
+      &.readonly { .readonly-tip { font-size: 24rpx; color: $wa-muted; } }
     }
   }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
