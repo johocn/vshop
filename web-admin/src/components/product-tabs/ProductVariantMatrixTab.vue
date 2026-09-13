@@ -79,14 +79,27 @@
               <text v-else class="cover-plus">＋图</text>
             </view>
             <view class="field">
-              <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
-              <text class="scan-btn" @tap="scanSkuField(si, 'barcode')">📷</text>
+              <text class="flabel">条形码</text>
+              <view class="frow">
+                <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
+                <text class="scan-btn" @tap="scanSkuField(si, 'barcode')">📷</text>
+              </view>
+            </view>
+          </view>
+          <view class="mrow sub">
+            <view class="field">
+              <text class="flabel">内部码</text>
+              <view class="frow">
+                <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
+                <text class="scan-btn" @tap="scanSkuField(si, 'internalCode')">📷</text>
+              </view>
             </view>
             <view class="field">
-              <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
-              <text class="scan-btn" @tap="scanSkuField(si, 'internalCode')">📷</text>
+              <text class="flabel">成本价(分)</text>
+              <view class="frow">
+                <input class="c-p" type="number" placeholder="成本价" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
+              </view>
             </view>
-            <input class="c-p" type="number" placeholder="成本价(分)" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
           </view>
         </view>
       </template>
@@ -133,7 +146,13 @@
 <script lang="ts" setup>
 import { reactive, ref } from 'vue';
 import ImagePicker from '../../components/ImagePicker.vue';
-import { buildMatrix, batchFill, type SpecGroup, type MatrixSku } from '../../composables/useVariantMatrix';
+import {
+  buildMatrix,
+  batchFill,
+  mergeMatrixFromSkus,
+  type SpecGroup,
+  type MatrixSku,
+} from '../../composables/useVariantMatrix';
 import { fetchReusableOptionGroups } from '../../apis/product';
 import { scanCode, ScannerError } from '../../utils/scanner';
 
@@ -144,14 +163,28 @@ export interface VariantMatrixValue {
   showListPrice: boolean;
 }
 
-const props = defineProps<{ value: VariantMatrixValue }>();
+export interface BaseFill {
+  priceCents: number;
+  stock: number;
+  listPriceCents: number;
+  costPrice: number;
+}
+
+const props = defineProps<{ value: VariantMatrixValue; base?: BaseFill }>();
 const emit = defineEmits<{ (e: 'update:value', v: VariantMatrixValue): void }>();
 
 const newVal = reactive<Record<number, string>>({});
 
+// 重建矩阵的统一入口：buildMatrix 生成骨架后，与既有 skus 合并（保留同 key 变体的差异化值），
+// 新增组合行用基础信息四值（base）填充，从而修复新建/编辑时基础信息不自动的 bug。
+function rebuild(groups: SpecGroup[]) {
+  const base = props.base ?? { priceCents: 0, stock: 0, listPriceCents: 0, costPrice: 0 };
+  return mergeMatrixFromSkus(buildMatrix(groups), props.value.skus, base);
+}
+
 function setNoSpec(noSpec: boolean) {
   if (noSpec === props.value.noSpec) return;
-  const skus = noSpec ? buildMatrix([]) : (props.value.skus.length ? props.value.skus : buildMatrix(props.value.groups));
+  const skus = noSpec ? rebuild([]) : rebuild(props.value.groups);
   emit('update:value', { ...props.value, noSpec, skus });
 }
 
@@ -163,7 +196,7 @@ function onGroupName(gi: number, e: any) {
     const next: SpecGroup = { name: e.detail.value || '', values: g.values };
     return next;
   });
-  const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
+  const skus = props.value.noSpec ? props.value.skus : rebuild(groups);
   emit('update:value', { ...props.value, groups, skus });
 }
 
@@ -184,7 +217,7 @@ function addValue(gi: number) {
       : g,
   );
   newVal[gi] = '';
-  const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
+  const skus = props.value.noSpec ? props.value.skus : rebuild(groups);
   emit('update:value', { ...props.value, groups, skus });
 }
 
@@ -195,7 +228,7 @@ function removeGroup(gi: number) {
     return;
   }
   const groups = props.value.groups.filter((_, i) => i !== gi);
-  const skus = buildMatrix(groups);
+  const skus = rebuild(groups);
   emit('update:value', { ...props.value, groups, skus });
 }
 
@@ -213,7 +246,7 @@ function removeValue(gi: number, vi: number) {
     setNoSpec(true);
     return;
   }
-  const skus = buildMatrix(cleaned);
+  const skus = rebuild(cleaned);
   emit('update:value', { ...props.value, noSpec: false, groups: cleaned, skus });
 }
 
@@ -259,7 +292,7 @@ function onSkuFieldLiteral(si: number, field: 'barcode' | 'internalCode', val: s
 function addGroup() {
   if (props.value.groups.length >= 3) return;
   const groups = [...props.value.groups, { name: `规格${props.value.groups.length + 1}`, values: [] }];
-  const skus = buildMatrix(groups);
+  const skus = rebuild(groups);
   emit('update:value', { ...props.value, noSpec: false, groups, skus });
 }
 
@@ -300,7 +333,7 @@ function selectSystemGroup(g: ReusableSysGroup) {
   const groups = props.value.groups.map((grp, i) =>
     i === gi ? { name: g.name, values, groupId: g.id, valueIds } : grp,
   );
-  const skus = props.value.noSpec ? props.value.skus : buildMatrix(groups);
+  const skus = props.value.noSpec ? props.value.skus : rebuild(groups);
   emit('update:value', { ...props.value, groups, skus });
   sysGroupsOpen.value = false;
   uni.showToast({ title: '已引用规格组，可修改名称/值', icon: 'none' });
@@ -399,8 +432,11 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
     &.sub {
       padding: 12rpx 0 12rpx 12rpx; border-bottom: 1rpx solid $wa-rule;
       background: rgba(0,0,0,0.02);
-      .field { flex: 1; display: flex; align-items: center; margin-right: 12rpx; }
+      .field { flex: 1; display: flex; flex-direction: column; min-width: 0; margin-right: 12rpx; }
+      .flabel { font-size: 22rpx; color: $wa-muted; margin-bottom: 6rpx; }
+      .frow { display: flex; align-items: center; }
       .c-b { flex: 1; font-size: 24rpx; color: $wa-ink; min-width: 0; }
+      .c-p { flex: 0.5; font-size: 24rpx; color: $wa-ink; min-width: 0; text-align: left; }
     }
     .scan-btn { font-size: 26rpx; margin-left: 8rpx; padding: 4rpx; color: $wa-accent; }
     .c-lab { flex: 1.4; font-size: 26rpx; color: $wa-ink; word-break: break-all; padding-right: 8rpx; }
