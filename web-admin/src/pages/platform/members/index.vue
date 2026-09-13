@@ -3,12 +3,16 @@
     <view class="card">
       <view class="row head">
         <text class="title">本租户人员</text>
-        <text class="head-btn" @tap="onAdd">＋添加人员</text>
+        <view class="head-ops">
+          <text class="head-link" @tap="onChangeMyPassword">修改密码</text>
+          <text class="head-btn" @tap="onAdd">＋添加人员</text>
+        </view>
       </view>
       <view class="item" v-for="m in members" :key="m.id">
         <view class="info">
           <text class="name">{{ m.displayName || m.administratorId }}</text>
           <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text> · <text class="link" @tap="openRoles(m)">角色</text></text>
+          <text v-if="m.canResetPassword" class="reset" @tap="onResetPassword(m)">重置密码</text>
         </view>
         <switch :checked="m.enabled" color="#4f8cff" @change="onToggle(m, $event)" />
         <text class="link" @tap="onRemove(m)">移除</text>
@@ -45,9 +49,10 @@
     <view class="pop" @tap.stop>
       <text class="pop-title">选择角色</text>
       <view class="pick-list">
-        <view v-for="r in roles" :key="r.id" class="pick-item" @tap="togglePickRole(r.id)">
-          <text class="pick-item-name" :class="{ on: addForm.roleIds.includes(r.id) }">{{ r.description || r.code }}</text>
-          <text class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
+        <view v-for="r in grantableRoles" :key="r.id" class="pick-item" @tap="togglePickRole(r.id)">
+          <text class="pick-item-name" :class="{ on: addForm.roleIds.includes(r.id), dis: r.grantable === false }">{{ r.description || r.code }}</text>
+          <text v-if="r.grantable === false" class="dis-tag">不可授</text>
+          <text v-else class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
         <view v-if="!roles.length" class="empty">该租户暂无角色，<text class="link" @tap="gotoRoles">去创建 ›</text></view>
       </view>
@@ -62,9 +67,10 @@
     <view class="pop" @tap.stop>
       <text class="pop-title">分配角色</text>
       <view class="pick-list">
-        <view v-for="r in roles" :key="r.id" class="pick-item" @tap="toggleTargetRole(r.id)">
-          <text class="pick-item-name" :class="{ on: roleTargetIds.includes(r.id) }">{{ r.description || r.code }}</text>
-          <text class="check" :class="{ on: roleTargetIds.includes(r.id) }">{{ roleTargetIds.includes(r.id) ? '✓' : '' }}</text>
+        <view v-for="r in grantableRoles" :key="r.id" class="pick-item" @tap="toggleTargetRole(r.id)">
+          <text class="pick-item-name" :class="{ on: roleTargetIds.includes(r.id), dis: r.grantable === false }">{{ r.description || r.code }}</text>
+          <text v-if="r.grantable === false" class="dis-tag">不可授</text>
+          <text v-else class="check" :class="{ on: roleTargetIds.includes(r.id) }">{{ roleTargetIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
         <view v-if="!roles.length" class="empty">该租户暂无角色</view>
       </view>
@@ -80,9 +86,10 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { changeMyPassword } from '../../../apis/auth';
 import {
   fetchMyTenantMembers, createTenantMember, setTenantMemberEnabled, deleteTenantMember,
-  fetchMyTenantRoles, updateTenantMemberRolesToMember,
+  fetchMyTenantRoles, updateTenantMemberRolesToMember, resetTenantMemberPasswordToDefault,
   type TenantMemberItem, type RoleItem,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
@@ -108,8 +115,11 @@ const roleTargetIds = ref([] as string[]);
 onShow(load);
 async function load() {
   members.value = await fetchMyTenantMembers();
-  roles.value = await fetchMyTenantRoles();
+  const list = await fetchMyTenantRoles();
+  roles.value = Array.from(new Map(list.map((r) => [r.id, r])).values());
 }
+
+const grantableRoles = computed(() => roles.value.filter((r) => r.grantable !== false));
 
 function onAdd() {
   addForm.value = { email: '', displayName: '', phone: '', roleIds: [] };
@@ -117,6 +127,8 @@ function onAdd() {
 }
 function openPickRole() { showRolePick.value = true; }
 function togglePickRole(id: string) {
+  const r = roles.value.find((x) => x.id === id);
+  if (r && r.grantable === false) return;
   const i = addForm.value.roleIds.indexOf(id);
   if (i >= 0) addForm.value.roleIds.splice(i, 1);
   else addForm.value.roleIds.push(id);
@@ -155,6 +167,8 @@ function openRoles(m: TenantMemberItem) {
   showRoles.value = true;
 }
 function toggleTargetRole(id: string) {
+  const r = roles.value.find((x) => x.id === id);
+  if (r && r.grantable === false) return;
   const i = roleTargetIds.value.indexOf(id);
   if (i >= 0) roleTargetIds.value.splice(i, 1);
   else roleTargetIds.value.push(id);
@@ -202,6 +216,26 @@ function onRemove(m: TenantMemberItem) {
     },
   });
 }
+
+function onResetPassword(m: TenantMemberItem) {
+  uni.showModal({
+    title: '重置密码',
+    content: `确定将「${m.displayName || m.administratorId}」的密码重置为默认口令 you123123？`,
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        await resetTenantMemberPasswordToDefault(m.id);
+        uni.showToast({ title: '已重置为默认口令 you123123', icon: 'none' });
+      } catch (err: any) {
+        uni.showToast({ title: err?.message || '重置失败', icon: 'none' });
+      }
+    },
+  });
+}
+
+function onChangeMyPassword() {
+  uni.navigateTo({ url: '/pages/change-password/index?manual=1' });
+}
 </script>
 <style lang="scss" scoped>
 .page { padding: 24rpx; }
@@ -239,4 +273,9 @@ function onRemove(m: TenantMemberItem) {
 .actions { display: flex; gap: 24rpx; margin-top: 8rpx; }
 .btn { flex: 1; border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; }
 .ghost { background: #f2f2f2; color: #666; }
+.head-ops { display: flex; align-items: center; gap: 16rpx; }
+.head-link { font-size: 26rpx; color: #666; }
+.reset { display: block; font-size: 22rpx; color: #e64340; margin-top: 4rpx; }
+.pick-item-name.dis { color: #bbb; }
+.dis-tag { font-size: 22rpx; color: #bbb; }
 </style>
