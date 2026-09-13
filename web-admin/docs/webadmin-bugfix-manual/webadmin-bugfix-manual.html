@@ -125,6 +125,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#accept">验收与回滚指引</a></li>
       <li><a href="#files">涉及文件与修订记录</a></li>
       <li><a href="#pickup-global">自提点「全局可用」开关</a></li>
+      <li><a href="#followups">商品详情三问题修复（就近库存 / 标题SKU / 9图保存）</a></li>
     </ol>
   </nav>
 
@@ -546,7 +547,57 @@ flowchart TD
     <figure style="margin:0;"><img src="assets/superadmin_global_btn_pickup_edit.png" style="width:42%;border:1px solid var(--line);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">超级管理员新增自提点（手机 390×844）：「全局可用」开关显示于「启用」下方</figcaption></figure>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04 · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="followups">
+    <h2>12 商品详情三问题修复（2026-09-13：就近库存 / 标题SKU / 9图保存）</h2>
+    <p class="muted" style="font-size:12px;">说明：本批修复横跨商城前端（nshop 站点 <code class="mono">www.youshop.cn</code>）、管理端（<code class="mono">e.joho.cn/guanli</code>）与后端（vendure），按同一产品线一并归档于此。核心结论：就近库存不再因「城市/坐标」双重过滤而空白；商品标题与 SKU 区不再暴露 <code class="mono">P+时间戳</code> 自动编码；商品 9 张图片编辑保存后跨渠道不再丢失。</p>
+
+    <h3>12.1 就近库存：全仓库展示，距离未知 / 服务全城</h3>
+    <p><strong>现象</strong>：带定位或选定城市后，「就近库存」区显示「暂无可查看的门店库存」——即使平台默认仓明明有货。</p>
+    <p><strong>根因</strong>：后端 <code class="mono">findNearbyStock</code> 对仓库做了两重过滤：服务城市不匹配当前城市 → 跳过；带定位时无坐标仓库 → 跳过。默认仓无坐标且服务城市为空，带定位用户查询时两条过滤同时命中，结果集为空。</p>
+    <p><strong>修复</strong>：删除两处过滤，全部仓库参与距离计算与排序；无坐标仓库无法计算距离时后端返回极大值、前端统一显示「距离未知」；服务城市为空时前端显示「服务城市：全城」。</p>
+    <div class="callout ok">
+      <h4>线上验证（手机 390×844，城市=长春、无定位）</h4>
+      <p>就近库存区展示 <strong>3 个仓库</strong>：长春仓（服务城市：长春市）、Test-Marketplace-Shop Warehouse（服务城市：全城）、默认仓（服务城市：全城）；无定位场景距离一律「距离未知」；默认仓「96 件可售」正确展示，不再出现「暂无可查看的门店库存」。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/followups_nearby_region_390.png" style="width:42%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">就近库存区域（手机 390×844）：全仓库展示，距离未知，服务城市：全城 / 长春市</figcaption></figure>
+    <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/inventory-plugin/src/inventory.service.ts</code>；前端 <code class="mono">nshop/layers/base/app/utils/nearby-stock.ts</code>（新建，含 <code class="mono">formatNearbyDistance</code> / <code class="mono">serviceCityLabel</code>）、<code class="mono">components/product/NearbyStores.vue</code>。</p>
+
+    <h3>12.2 标题与 SKU 区：隐藏无意义自动编码</h3>
+    <p><strong>现象</strong>：如「国信南山温泉节假日房间」这类单规格商品，标题尾部与「商品信息 SKU 区」出现 <code class="mono">p1788780326947</code> 之类 P+时间戳编码，对用户毫无意义。</p>
+    <p><strong>根因</strong>：web-admin 新建商品时，单变体 <code class="mono">translations.name</code> 直接用了 <code class="mono">input.sku</code>（系统自动生成的 <code class="mono">P+时间戳</code>），变体名即自动编码；前端详情页标题把变体名拼接到商品名后，SKU 区又直接渲染 <code class="mono">selectedVariant.sku</code>。</p>
+    <p><strong>修复</strong>（双层）：</p>
+    <ul>
+      <li>管理端：<code class="mono">createVariantsForProduct</code> 变体名改用 <code class="mono">input.productName || input.sku</code>，新建单规格商品时变体名 = 商品名。</li>
+      <li>商城端：标题拼接规则改为「<strong>无规格隐藏变体名、多规格显示『商品名 规格组合』</strong>」；SKU 区识别 <code class="mono">/^[Pp]\d+$/</code> 自动编码并降级显示「规格: 默认」（多规格显示规格名）；真实 SKU 照常显示。</li>
+    </ul>
+    <div class="callout ok">
+      <h4>线上验证（手机 390×844）</h4>
+      <p>标题 =「国信南山温泉节假日房间」无编码；SKU 区显示「规格: 默认」；整页正则扫描无 <code class="mono">P\d{13}</code> 残留。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/followups_title_sku_390.png" style="width:42%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品详情首屏（手机 390×844）：标题无自动编码，SKU 区显示「规格: 默认」</figcaption></figure>
+    <p class="muted" style="font-size:13px;">涉及文件：管理端 <code class="mono">vshop/web-admin/src/apis/product.ts</code>；商城端 <code class="mono">nshop/layers/base/app/utils/product-title.ts</code>（新建）、<code class="mono">composables/useProductDetailView.ts</code>、<code class="mono">components/product-detail/DetailClassic.vue</code> / <code class="mono">DetailFloor.vue</code>、12 个 i18n 语言包（新增 <code class="mono">messages.detail.spec / specDefault</code>）。</p>
+
+    <h3>12.3 商品 9 张图片保存：跨渠道资产绑定修复</h3>
+    <p><strong>现象</strong>：商品 72 在管理端编辑页选满 9 张图片点「保存」，表面提示成功，但刷新后只剩 6 张，C 端详情页同样缺失；此前甚至出现过保存后 <code class="mono">product_asset</code> 被清空。</p>
+    <p><strong>根因</strong>（两层）：</p>
+    <ol>
+      <li>前端保险函数 <code class="mono">ensureAssetsInCurrentChannel</code> 静默吞错（<code class="mono">catch {}</code>），且未把 <code class="mono">featuredAssetId</code> 纳入分配集合——主图一旦不在当前渠道就分配不进去，失败无任何日志。</li>
+      <li>后端 <code class="mono">AssetService.assignToChannel</code> 用 <code class="mono">findByIdsInChannel(ctx, Asset, ids, ctx.channelId)</code> 按<strong>当前渠道过滤</strong>资产：跨渠道资产（如从 t1 渠道媒体库选的图）永远查不到，<code class="mono">assignAssetsToChannel</code> 即使被调用也无法把资产绑定到新渠道，保存后资产随即丢失。</li>
+    </ol>
+    <p><strong>修复</strong>：前端保险函数去掉静默、<code class="mono">catch</code> 中 <code class="mono">console.error('[ensureAssetsInCurrentChannel] assignAssetsToChannel 失败', err)</code> 留痕，并把 <code class="mono">featuredAssetId</code> 并入分配 ID 集合；后端改为按 ID 直取全部资产（<code class="mono">where: { id: In(input.assetIds) }</code>，Asset 为全局实体可跨渠道分配）再逐条写入目标渠道。</p>
+    <div class="callout ok">
+      <h4>线上回归（管理端手机 390×844 + API 断言）</h4>
+      <p>登录 t2 店铺 → 商品 72 编辑页 → 媒体库选满 9 张 → 保存：前端按序提交 <code class="mono">assignAssetsToChannel(assetIds: [42,48,47,46,45,44,43,41,40], channelId: 37)</code> → <code class="mono">UpdateProductAssets</code> / <code class="mono">UpdateProductVariants</code> 均携带 9 个 <code class="mono">assetIds</code> + <code class="mono">featuredAssetId: 42</code>。保存后 API 断言 <code class="mono">assets=9</code>、featured=42；C 端 t2 详情页画廊 <code class="mono">assets=9</code>。脚本输出 <code class="mono">P72_SAVE_REGRESSION_PASSED</code>。</p>
+    </div>
+    <figure style="margin:0;"><img src="assets/followups_product72_saved_390.png" style="width:42%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">商品 72 编辑保存后（手机 390×844）：「已关联 9 张」3×3 网格满额，已选 9/9</figcaption></figure>
+    <div class="callout warn">
+      <h4>故障排查指引</h4>
+      <p>若再次出现「保存后图片数量不对」：① 管理端浏览器 Console 搜索 <code class="mono">ensureAssetsInCurrentChannel</code>——有红色错误即渠道分配失败（多为权限/网络）；② 用超管查 <code class="mono">asset_channel</code> 确认每个 <code class="mono">assetId</code> 是否已写入商品所在渠道；③ 历史被清空的商品，在修复后的后台重新编辑保存一次即回填（媒体库资产仍在）。</p>
+    </div>
+    <p class="muted" style="font-size:13px;">涉及文件：管理端 <code class="mono">vshop/web-admin/src/apis/product.ts</code>（保险函数签名 <code class="mono">ensureAssetsInCurrentChannel(assetIds, featuredAssetId?)</code>）；后端 <code class="mono">vendure/packages/core/src/service/services/asset.service.ts</code>（<code class="mono">assignToChannel</code> 按 ID 直取）。部署：后端 <code class="mono">_deploy.ps1</code>（git pull + pm2 restart），管理端/商城端 <code class="mono">scripts/deploy.mjs</code>。</p>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
