@@ -56,6 +56,28 @@
       </checkbox-group>
     </view>
 
+    <view class="card">
+      <view class="img-title">促销方案</view>
+      <checkbox-group class="tags" @change="onPromos">
+        <label class="tag" v-for="s in promoOptions" :key="s.code">
+          <checkbox :value="s.code" :checked="value.promos.includes(s.code)" />
+          <text>{{ s.label }}</text>
+        </label>
+        <view v-if="!promoOptions.length" class="tip">频道方案库为空，请先在「店铺信息-促销方案库」配置</view>
+      </checkbox-group>
+    </view>
+
+    <view class="card">
+      <view class="img-title">服务保障</view>
+      <checkbox-group class="tags" @change="onServices">
+        <label class="tag" v-for="s in serviceOptions" :key="s.code">
+          <checkbox :value="s.code" :checked="value.services.includes(s.code)" />
+          <text>{{ s.label }}</text>
+        </label>
+        <view v-if="!serviceOptions.length" class="tip">频道方案库为空，请先在「店铺信息-服务保障库」配置</view>
+      </checkbox-group>
+    </view>
+
     <view class="card col">
       <text class="lbl">卖点</text>
       <textarea class="ta" :value="value.sellingPoint" placeholder="商品核心卖点，最多一行" @input="onField('sellingPoint', $event)" />
@@ -78,6 +100,8 @@ export interface BrandMarketingValue {
   saleEnd: string;
   tags: string[];
   sellingPoint: string;
+  promos: string[];
+  services: string[];
   newBrand: string;
 }
 
@@ -116,6 +140,38 @@ async function reloadBrands() {
     brands.value = [];
     brandNames.value = [];
   }
+}
+
+const promoOptions = ref<Array<{ code: string; label: string }>>([]);
+const serviceOptions = ref<Array<{ code: string; label: string }>>([]);
+
+function parseWebSchemes(raw?: string): Array<{ code: string; label: string }> {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((s: any) => ({
+      code: s.code ?? '',
+      label: s.text?.zh_Hans || s.text?.en || s.code || '',
+    }));
+  } catch {
+    return [];
+  }
+}
+async function loadSchemes() {
+  try {
+    const { fetchActiveChannel } = await import('../../apis/channel');
+    const ch = await fetchActiveChannel();
+    const cfs = (ch.customFields ?? {}) as any;
+    promoOptions.value = parseWebSchemes(cfs.promoSchemes);
+    serviceOptions.value = parseWebSchemes(cfs.serviceSchemes);
+  } catch { /* 方案库拉取失败则仅显示 i18n 兜底，不阻塞保存 */ }
+}
+function onPromos(e: any) {
+  emit('update:value', { ...props.value, promos: (e.detail.value || []) as string[] });
+}
+function onServices(e: any) {
+  emit('update:value', { ...props.value, services: (e.detail.value || []) as string[] });
 }
 
 function openBrandModal() {
@@ -171,7 +227,7 @@ function onTags(e: any) {
   emit('update:value', { ...props.value, tags: (e.detail.value || []) as string[] });
 }
 
-onMounted(reloadBrands);
+onMounted(() => { reloadBrands(); loadSchemes(); });
 </script>
 
 <style lang="scss" scoped>

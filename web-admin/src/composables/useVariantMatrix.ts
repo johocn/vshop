@@ -86,6 +86,32 @@ export function batchFill(
   return skus.map((s) => ({ ...s, [field]: n }));
 }
 
+// 重建矩阵时合并既有变体值 + 用基础信息填充新增组合行：
+//  - 与既有 sku 同 key 的行保留其价格/库存/划线价/成本价/条码/手改标记（_baseSynced），
+//    避免编辑多规格时重建（增删规格组/值）把已有变体的差异化价格清成 0
+//  - 新增组合行（_baseSynced !== false）用 base 四值填充，保证新建多规格时基础信息能自动代入
+export function mergeMatrixFromSkus(
+  fresh: MatrixSku[],
+  existing: MatrixSku[],
+  base: { priceCents: number; stock: number; listPriceCents: number; costPrice: number },
+): MatrixSku[] {
+  const byKey = new Map<string, MatrixSku>();
+  for (const s of existing) if (s.key !== undefined) byKey.set(String(s.key), s);
+  return fresh.map((row) => {
+    const prev = byKey.get(String(row.key));
+    if (prev) return { ...row, ...prev };
+    if (row._baseSynced === false) return row;
+    return {
+      ...row,
+      priceCents: base.priceCents,
+      stock: base.stock,
+      listPriceCents: base.listPriceCents,
+      costPrice: base.costPrice,
+      _baseSynced: true,
+    };
+  });
+}
+
 function parseTags(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x) => typeof x === 'string');
   if (typeof raw === 'string' && raw.trim()) {
@@ -106,6 +132,8 @@ export interface BrandMarketingState {
   saleEnd: string;
   tags: string[];
   sellingPoint: string;
+  promos: string[];
+  services: string[];
   newBrand: string; // 本期仅收集品牌名（暂不落库）
 }
 
@@ -124,6 +152,8 @@ export function defaultBrandMarketing(): BrandMarketingState {
     saleEnd: '',
     tags: [],
     sellingPoint: '',
+    promos: [],
+    services: [],
     newBrand: '',
   };
 }
@@ -161,6 +191,8 @@ export function hydrateEditState(product: ProductFull): {
   // 营销/卖点
   const tags = parseTags(product.productCustomFields?.marketingTags ?? '');
   const sellingPoint = product.productCustomFields?.sellingPoint ?? '';
+  const promos = parseTags(product.productCustomFields?.promos ?? '');
+  const services = parseTags(product.productCustomFields?.services ?? '');
 
   // 促销（取首个变体）
   const v = product.variant ?? (product as unknown as { variants?: Array<{ id: string }> }).variants?.[0];
@@ -176,6 +208,8 @@ export function hydrateEditState(product: ProductFull): {
     saleEnd,
     tags,
     sellingPoint,
+    promos,
+    services,
     newBrand: '',
   };
 
@@ -184,6 +218,7 @@ export function hydrateEditState(product: ProductFull): {
     variants?: Array<{
       sku: string;
       price: number;
+      priceWithTax?: number;
       stockOnHand: number;
       options?: Array<{ id: string; name: string }>;
       customFields?: { listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null };
@@ -202,7 +237,7 @@ export function hydrateEditState(product: ProductFull): {
         {
           ...defaultSku(),
           sku: first.sku || '',
-          priceCents: Number(first.price) || 0,
+          priceCents: Number(first.priceWithTax ?? first.price) || 0,
           stock: Number(first.stockOnHand) || 0,
           listPriceCents: first.customFields?.listPrice ?? undefined,
           costPrice: first.customFields?.costPrice ?? undefined,
@@ -233,7 +268,7 @@ export function hydrateEditState(product: ProductFull): {
       labels: (x.options || []).map((o) => o.name),
       optionValueIds: (x.options || []).map((o) => o.id).filter(Boolean),
       sku: x.sku || '',
-      priceCents: Number(x.price) || 0,
+      priceCents: Number(x.priceWithTax ?? x.price) || 0,
       stock: Number(x.stockOnHand) || 0,
       listPriceCents: x.customFields?.listPrice ?? undefined,
       costPrice: x.customFields?.costPrice ?? undefined,

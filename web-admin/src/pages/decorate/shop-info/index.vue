@@ -18,10 +18,14 @@
         <input v-model="f.shopLogo" placeholder="图片上传见 Task 7，先填 URL" />
       </view>
       <view class="cell row-in">
-        <text class="lbl">启用含税价</text>
-        <switch :checked="f.taxEnabled !== false" @change="onTaxToggle" />
+        <text class="lbl">税率方式</text>
+        <view class="seg">
+          <text :class="{ on: f.taxMode === 'inclusive' }" @tap="setTaxMode('inclusive')">含税价</text>
+          <text :class="{ on: f.taxMode === 'zero' }" @tap="setTaxMode('zero')">零税率</text>
+          <text :class="{ on: f.taxMode === 'exclusive' }" @tap="setTaxMode('exclusive')">不含税价</text>
+        </view>
       </view>
-      <view class="hint">默认开启（商品价含税）。关闭后：C 端商品展示价与购物车结算价将直接使用后台录入的净价，不再加税率。</view>
+      <view class="hint">含税价：录入价即价内含税（结算拆税展示但应付总额=录入价）；零税率：录入价即免税最终价，结算不拆税；不含税价：录入价为净价（净价×1.13=含税应付价，价税分离）。</view>
       <view class="cell row-in">
         <text class="lbl">详情页价格块样式</text>
         <view class="seg">
@@ -32,6 +36,27 @@
       </view>
       <view class="hint">详情页价格块版式：经典（跟随主题主色）；京东A（横幅促销价：现价+划线价+降价+标签）；京东B（深色价签条：整条京东红价签+白字现价+划线价）。注：京东A/B 固定走京东红 #E1251B，不随主题色。</view>
     </view>
+    <view class="card">
+      <view class="img-title">促销方案库（频道默认；商品可覆盖）</view>
+      <view class="scheme-row" v-for="(s, i) in promoSchemes" :key="i">
+        <input class="inp" v-model="s.code" placeholder="code，如 freeShip99" />
+        <input class="inp" v-model="s.zh" placeholder="中文文案" />
+        <input class="inp" v-model="s.en" placeholder="English" />
+        <button class="del" @tap="promoSchemes.splice(i, 1)">删</button>
+      </view>
+      <button class="add" @tap="promoSchemes.push({ code: '', zh: '', en: '' })">+ 添加方案</button>
+    </view>
+
+    <view class="card">
+      <view class="img-title">服务保障库（频道默认；商品可覆盖）</view>
+      <view class="scheme-row" v-for="(s, i) in serviceSchemes" :key="i">
+        <input class="inp" v-model="s.code" placeholder="code，如 genuine" />
+        <input class="inp" v-model="s.zh" placeholder="中文文案" />
+        <input class="inp" v-model="s.en" placeholder="English" />
+        <button class="del" @tap="serviceSchemes.splice(i, 1)">删</button>
+      </view>
+      <button class="add" @tap="serviceSchemes.push({ code: '', zh: '', en: '' })">+ 添加方案</button>
+    </view>
     <button class="save" :disabled="saving" @tap="save">{{ saveText }}</button>
   </view>
 </template>
@@ -41,16 +66,40 @@ import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
 
-const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxEnabled?: boolean; priceStyle: string }>({
-  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxEnabled: true, priceStyle: 'classic',
+const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string }>({
+  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic',
 });
 let channelId = '';
 let rawDetailConfig = '';
+const promoSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
+const serviceSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
 const saving = ref(false);
 const saveText = ref('保存');
 
-function onTaxToggle(e: any) {
-  f.value.taxEnabled = !!e.detail.value;
+function loadSchemeList(raw: string | undefined): Array<{ code: string; zh: string; en: string }> {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((s: any) => ({
+      code: s.code ?? '',
+      zh: s.text?.zh_Hans ?? '',
+      en: s.text?.en ?? '',
+    }));
+  } catch {
+    return [];
+  }
+}
+function toSchemePayload(list: Array<{ code: string; zh: string; en: string }>): string {
+  return JSON.stringify(
+    list
+      .filter((s) => s.code.trim())
+      .map((s) => ({ code: s.code.trim(), text: { zh_Hans: s.zh.trim(), en: s.en.trim() } })),
+  );
+}
+
+function setTaxMode(s: string) {
+  f.value.taxMode = s;
 }
 
 function setPriceStyle(s: string) {
@@ -62,6 +111,8 @@ onMounted(async () => {
   channelId = ch.id;
   const cf = ch.customFields as any;
   rawDetailConfig = cf.detailConfig ?? '';
+  promoSchemes.value = loadSchemeList(cf.promoSchemes);
+  serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
   let style = 'classic';
   if (rawDetailConfig) {
     try {
@@ -74,7 +125,7 @@ onMounted(async () => {
     shopLogo: cf.shopLogo ?? '',
     shopIntro: cf.shopIntro ?? '',
     servicePhone: cf.servicePhone ?? '',
-    taxEnabled: cf.taxEnabled !== false,
+    taxMode: cf.taxMode || 'inclusive',
     priceStyle: style,
   };
 });
@@ -91,6 +142,8 @@ async function save() {
   cfg.blocks.price = cfg.blocks.price || {};
   cfg.blocks.price.style = f.value.priceStyle;
   payload.detailConfig = JSON.stringify(cfg);
+  payload.promoSchemes = toSchemePayload(promoSchemes.value);
+  payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
     await updateChannelCustomFields(channelId, payload);
     uni.showToast({ title: '已保存', icon: 'success' });
@@ -126,6 +179,12 @@ function safeParse(raw: string): any {
     }
   }
   .hint { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; padding: 0 8rpx; }
+  .img-title { font-size: 28rpx; color: $wa-ink; padding: 24rpx 0 8rpx; }
+  .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center;
+    .inp { flex: 1; min-width: 0; background: $wa-bg; border-radius: 8rpx; padding: 12rpx; font-size: 26rpx; }
+    .del { color: #e6162d; font-size: 26rpx; }
+  }
+  .add { margin: 16rpx 0 24rpx; color: $wa-accent; font-size: 28rpx; }
   .save { margin-top: 48rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
 }
 </style>

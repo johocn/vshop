@@ -20,10 +20,13 @@ export interface ChannelCustomFields {
   shopContent?: string;
   // 商品富文本描述多语言开关（true 时商品表单展示中文/English Tab）
   multilingualEnabled?: boolean;
-  // 税率参与计算开关（默认 true=含税；false=商品价/购物车结算直接用净价）
-  taxEnabled?: boolean;
+  // 税率三态：inclusive=含税价 / zero=零税价 / exclusive=不含税价（默认 inclusive）
+  taxMode?: string;
   // 详情页配置 JSON 串（含 blocks.price.style 价格块版式 classic/jdA/jdB）
   detailConfig?: string;
+  // 促销/服务方案库 JSON 字符串（[{code,text:{zh_Hans,en}}]）
+  promoSchemes?: string;
+  serviceSchemes?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -37,7 +40,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxEnabled detailConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode detailConfig promoSchemes serviceSchemes }
       }
     }`,
   );
