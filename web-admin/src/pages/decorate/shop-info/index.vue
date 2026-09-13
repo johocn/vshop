@@ -38,6 +38,19 @@
     </view>
     <view class="card">
       <view class="img-title">促销方案库（频道默认；商品可覆盖）</view>
+      <view class="tpl-wrap">
+        <view
+          class="tpl"
+          :class="{ added: hasScheme(promoSchemes, t.code) }"
+          v-for="t in PROMO_TEMPLATES"
+          :key="t.code"
+          @tap="addPromoTemplate(t)"
+        >
+          <text class="tpl-zh">{{ t.zh }}</text>
+          <text class="tpl-en">{{ t.en }}</text>
+          <text class="tpl-plus">{{ hasScheme(promoSchemes, t.code) ? '✓' : '＋' }}</text>
+        </view>
+      </view>
       <view class="scheme-row" v-for="(s, i) in promoSchemes" :key="i">
         <input class="inp" v-model="s.code" placeholder="code，如 freeShip99" />
         <input class="inp" v-model="s.zh" placeholder="中文文案" />
@@ -49,6 +62,19 @@
 
     <view class="card">
       <view class="img-title">服务保障库（频道默认；商品可覆盖）</view>
+      <view class="tpl-wrap">
+        <view
+          class="tpl"
+          :class="{ added: hasScheme(serviceSchemes, t.code) }"
+          v-for="t in SERVICE_TEMPLATES"
+          :key="t.code"
+          @tap="addServiceTemplate(t)"
+        >
+          <text class="tpl-zh">{{ t.zh }}</text>
+          <text class="tpl-en">{{ t.en }}</text>
+          <text class="tpl-plus">{{ hasScheme(serviceSchemes, t.code) ? '✓' : '＋' }}</text>
+        </view>
+      </view>
       <view class="scheme-row" v-for="(s, i) in serviceSchemes" :key="i">
         <input class="inp" v-model="s.code" placeholder="code，如 genuine" />
         <input class="inp" v-model="s.zh" placeholder="中文文案" />
@@ -65,6 +91,7 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 
 const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string }>({
   shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic',
@@ -104,6 +131,13 @@ function setTaxMode(s: string) {
 
 function setPriceStyle(s: string) {
   f.value.priceStyle = s;
+}
+
+function addPromoTemplate(t: { code: string; zh: string; en: string }) {
+  promoSchemes.value = upsertScheme(promoSchemes.value, t);
+}
+function addServiceTemplate(t: { code: string; zh: string; en: string }) {
+  serviceSchemes.value = upsertScheme(serviceSchemes.value, t);
 }
 
 onMounted(async () => {
@@ -183,6 +217,17 @@ function safeParse(raw: string): any {
   .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center;
     .inp { flex: 1; min-width: 0; background: $wa-bg; border-radius: 8rpx; padding: 12rpx; font-size: 26rpx; }
     .del { color: #e6162d; font-size: 26rpx; }
+  }
+  .tpl-wrap { display: flex; flex-wrap: wrap; gap: 16rpx; padding: 16rpx 0 8rpx; }
+  .tpl {
+    display: inline-flex; align-items: center; gap: 8rpx;
+    border: 1rpx solid $wa-rule; border-radius: 999rpx;
+    padding: 8rpx 22rpx; font-size: 26rpx; color: $wa-ink;
+    background: $wa-card;
+    .tpl-en { font-size: 22rpx; color: $wa-muted; }
+    .tpl-plus { color: $wa-accent; font-size: 26rpx; }
+    &.added { background: $wa-bg; color: $wa-muted; border-style: dashed; }
+    &.added .tpl-plus { color: $wa-muted; }
   }
   .add { margin: 16rpx 0 24rpx; color: $wa-accent; font-size: 28rpx; }
   .save { margin-top: 48rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
