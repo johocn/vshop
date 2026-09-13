@@ -275,6 +275,28 @@ var CHAPTERS = [
 <div class="card"><b>库存核查</b><br/>若发现长期占用不释放，优先核查订单是否停在「支付中」被卡住的状态。</div>
 <div class="note"><b>温馨提示：</b>库存释放逻辑已内置，正常情况下无需手工干预；退款、取消等售后动作都会带动库存回补。</div>`},
 
+{book:'op', id:'op-7b', title:'商品价格 · 库存 · 图片（含税率开关）', html:`
+<p class="lead">商户录入商品时最常关心的三件事：<mark class="mark">价格为什么和录的不一样</mark>、<mark class="mark">库存改了不生效</mark>、<mark class="mark">编辑商品时图片不见了</mark>。本节说明这三类问题的成因与正确用法，并按「修复后」的口径给出操作结果。</p>
+<h3>1. 税率开关（价格显示的关键）</h3>
+<p>后台「店铺信息 → 启用含税价」控制<mark class="mark">税率是否参与价格计算</mark>（默认开启）：</p>
+<ul>
+  <li><b>开启（默认）</b>：录入的是<mark class="mark">税前净价</mark>，C 端按 <code>净价 × (1 + 税率)</code> 展示含税价并结算。由于 <code>pricesIncludeTax</code>，重新打开商品时表单显示的是折算后的净价（如录 168、含 13% 税则显示 148.67），这属正常换算，非价格丢失。</li>
+  <li><b>关闭</b>：税率不再参与，C 端商品展示价与购物车结算价<mark class="mark">直接用后台录入的净价</mark>，录 168 就全程显示 168。适用于免税 / 海外 / B2B 等场景。</li>
+</ul>
+<img class="img" src="shots/cjk_tax_switch.png" alt="店铺信息-启用含税价开关">
+<div class="imgcap">图 W1 · 店铺信息「启用含税价」开关（默认开启）</div>
+
+<h3>2. 库存更新（多租户口径一致）</h3>
+<p>新建/编辑商品改动库存后，系统<mark class="mark">写入当前店铺（租户）的默认库存仓</mark>，不再落入全局默认仓导致「改了没反应」。以「库存 76 改为 88」为例，保存并<mark class="mark">硬刷新</mark>后，编辑页库存字段仍显示新值 88，跨刷新持久化。</p>
+<div class="warn"><b>提示：</b>C 端购物车/结算库存占用与释放口径不变；后台修改后立即对买家生效。</div>
+
+<h3>3. 商品图片（编辑时不丢失）</h3>
+<p>进入编辑页会自动<mark class="mark">按已选图片 ID 预加载</mark>（含只设主图 <code>featuredAsset</code>、<code>assets</code> 为空的商品），旧图不会因超出「最新 30 条」列表而展示空白；保存时图片随 <code>assetIds</code> 一起持久化，硬刷新后主图依旧保留。</p>
+<img class="img" src="shots/cjk_edit_preload_stock.png" alt="编辑商品-图片预加载+库存76">
+<div class="imgcap">图 W2 · 编辑商品：主图预加载、库存显示 76</div>
+<img class="img" src="shots/cjk_persist_stock88.png" alt="保存并硬刷新-主图保留+库存88">
+<div class="imgcap">图 W3 · 改库存 88 并保存、硬刷新后：主图保留 + 库存 88（持久化）</div>`},
+
 {book:'op', id:'op-8', title:'订单与售后', html:`
 <p class="lead">订单从生成到完结按固定状态流转，读懂这条链路就能在后台准确跟进每一单。</p>
 <h3>订单状态机</h3>
@@ -318,6 +340,22 @@ var CHAPTERS = [
   <li><b>确认核销</b>：核销即视为已收款，系统自动标记，订单方可进入发货/履约环节。</li>
 </ol>
 <div class="tip"><b>为什么扫码即可：</b>店员到店核销即确认已收款（到店收银单必须 <code>collect=true</code> 后端才放行），从机制上杜绝「没收款就交付」。</div>`},
+{book:'op', id:'op-12', title:'收款台账（核销人即收款人）', html:`
+<p class="lead">每笔成功的到店核销收款都会登记进「收款台账」。台账按<mark class="mark">当前门店渠道</mark>隔离——既看本店作为<mark class="mark">商品归属方</mark>的分账，也看本店<mark class="mark">经手核销收款</mark>记录，因此<mark class="mark">核销人即收款人</mark>，两语等同。</p>
+<h3>台账顶部汇总</h3>
+<table>
+  <thead><tr><th>卡片</th><th>口径</th></tr></thead>
+  <tbody>
+    <tr><td>今日收款</td><td>本店今日核销收款的合计金额与笔数（橙色高亮）</td></tr>
+    <tr><td>已收</td><td>累计已收款金额与笔数（PAID 状态）</td></tr>
+    <tr><td>待收款</td><td>仍处待到店核销确认中的金额与笔数（PENDING_SIGN）</td></tr>
+  </tbody>
+</table>
+<h3>今日收款明细</h3>
+<p>顶部汇总下方单列「今日收款明细」，逐笔展示：<mark class="mark">单号、收款金额、收款人（核销人）、收款方式、归属商户、入账时间</mark>。同一笔也会出现在下方「收款台账」列表中。核销码完成后，台账应按核销码查询到对应金额的已收款记录（收款人即核销的店员）。</p>
+<div class="warn"><b>收款归属修正：</b>早期版本存在「门店核销收款后，台账因按商品归属渠道过滤而看不到」的问题。现已将台账同时记录<mark class="mark">核销渠道（collectorChannelId）</mark>与<mark class="mark">收款人（collectorName）</mark>，按 <code>tenantChannelId OR collectorChannelId</code> 过滤，确保本店可见自己经手的每笔收款。</div>
+<img class="img" src="shots/xledger_t2_g723zm.png" alt="收款台账-今日汇总与 g723zm 明细">
+<div class="imgcap">图 O2 · 收款台账（今日收款 ¥200 1 笔 / 已收 ¥3145.07 25 笔；明细含 g723zm ¥200 收款人=陈店长）</div>`},
 
 {book:'op', id:'op-11', title:'商户订单可见性（本店商品单）', html:`
 <p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
@@ -418,6 +456,26 @@ var CHAPTERS = [
 <p>改密后进入商户工作台（首页），可看到「加商品」「订单」等入口，顶部为当前操作店铺上下文。</p>
 <img class="img" src="shots/m10_merchant_dashboard.png" alt="商户工作台">
 <div class="imgcap">图 B2 · 商户工作台</div>
+<h3>B2b · 工作台全景：租户标识与全量功能入口</h3>
+<p>工作台顶部卡片显示当前操作店铺的<mark class="mark">店铺名称 + 编码</mark>（第二行「编码 t2 · 经营中」），切换租户后自动更新，方便在多店铺间明确当前上下文。</p>
+<img class="img" src="shots/m15_merchant_dashboard_top.png" alt="工作台顶部-店铺名称与编码">
+<div class="imgcap">图 B2b-1 · 工作台顶部显示店铺名称与编码</div>
+<p>工作台按「商品 / 交易 / 履约 / 装修 / 营销 / 分销 / 系统 / 平台」分区铺开全量管理入口（同一数据源与侧边抽屉保持一致），平台管理区仅对持有相应角色权限者显示。各分区顶部为主功能入口（填充按钮），次要项为描边/纯文字入口。</p>
+<img class="img" src="shots/m16_merchant_dashboard_full.png" alt="工作台全部分组入口">
+<div class="imgcap">图 B2b-2 · 工作台全量功能分区入口</div>
+<p>右上角「☰」打开侧边抽屉，按分区列出全部功能；内容超出时抽屉内部可独立滚动，底部的「退出登录 / 平台管理」等始终可滚动到可见。</p>
+<img class="img" src="shots/m17_merchant_drawer.png" alt="侧边抽屉-底部可见">
+<div class="imgcap">图 B2b-3 · 侧边抽屉（底部内容可滚动查看）</div>
+<h3>B2c · 首页经营数据（今日销售额 / 待发货 / 库存预警）</h3>
+<p>工作台顶部卡片下方的三格数据为<mark class="mark">实时统计</mark>，进入工作台时自动加载，<strong>始终以当前登录租户的数据为准</strong>：切换店铺后数字相应刷新，不同租户互不串扰。</p>
+<ul>
+  <li><b>今日销售额</b>：当日（今日 0 点起）下单订单的实收金额合计，展示格式为 <code>¥ + 两位小数</code>；今日暂无订单时显示 <code>¥0.00</code>。</li>
+  <li><b>待发货</b>：状态为「待发货」（已付款、尚未发货）的订单数，口径与「订单 → 待发货」页签一致。</li>
+  <li><b>库存预警</b>：当前租户下 <mark class="mark">可用库存 ≤ 5</mark> 的库存条数，便于提前补货。</li>
+</ul>
+<p>统计加载异常时对应格子显示「—」占位（不会误显示 0 假装有数据）；下拉刷新或切店再进入会重新拉取。</p>
+<img class="img" src="shots/m18_merchant_dashboard_kpi.png" alt="首页经营数据 KPI">
+<div class="imgcap">图 B2c · 首页经营数据（按当前租户实时统计）</div>
 <h3>B3 · 新建商品</h3>
 <p>点「加商品」进入商品列表（初始为空），再进入「新增商品」表单，填写名称、Slug、描述、价格、库存，并选择配送档案、支付档案、分类与商品图片。</p>
 <img class="img" src="shots/m11_merchant_product_list_empty.png" alt="商户商品列表-空">
@@ -544,6 +602,14 @@ var CHAPTERS = [
 <div class="imgcap">图 O5 · 优惠券管理列表</div>
 <img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
 <div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<h3>定向发券与站内消息通知</h3>
+<p>管理端「营销 → 定向发券」可按关键词<mark class="mark">搜索本渠道客户</mark>（姓名/手机号/邮箱）并勾选，或一键「全部本渠道」圈选批量发券；发券时可选择<mark class="mark">发送站内消息</mark>，买家在 C 端「消息中心」收到「优惠券到账」通知，券码直达「我的券包」。</p>
+<img class="img" src="shots/o12_webadmin_coupon_issue.png" alt="定向发券页-选券选客户与通知开关">
+<div class="imgcap">图 O12 · 定向发券（①选券 → ②搜索勾选客户 → ③发券通知 → ④确认发券）</div>
+<img class="img" src="shots/o13_nshop_messages.png" alt="nshop 消息中心-优惠券到账通知">
+<div class="imgcap">图 O13 · C 端消息中心（定向发券站内通知，含券码，未读红点）</div>
+<img class="img" src="shots/o14_nshop_coupon_wallet.png" alt="nshop 我的券包-定向发放的满减券">
+<div class="imgcap">图 O14 · 我的券包（定向发放的「满100减20」券，来源 ADMIN）</div>
 <div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`},
 {book:'op', id:'op-13', title:'nshop 结账页中国本地化（cn 版式）', html:`
 <p class="lead">nshop 结账页默认采用<mark class="mark">中国本地化 cn 版式</mark>：收货信息一体卡 + 配送/自提分箱模块 + 底部吸底结算栏 + 提交前协议勾选。版式经<mark class="mark">四级可回退风格系统</mark>管控，可在 cn / jd / legacy 间切换。</p>
@@ -570,7 +636,24 @@ var CHAPTERS = [
 <p>物流配送地址表单字段严格对齐 Vendure <code>Address</code>：<mark class="mark">收货人 / 电话 / 省市区 / 详细地址 / 邮编必填</mark>，其中<mark class="mark">邮政编码为物流必填</mark>（自提无地址不涉及）；<mark class="mark">公司、地址2（楼栋/楼层/门牌）为选填</mark>，空表提交会本地校验拦截。</p>
 <img class="img" src="shots/o11_address_company_postal.png" alt="地址表单-公司选填与邮政编码必填">
 <div class="imgcap">图 O11 · 地址表单（公司（选填）+ 邮政编码必填）</div>
-<div class="note"><b>说明：</b>自提订单不采集收货地址因此无邮编；仅物流配送需邮编。合并支付时各商户分账按台账记账，通道级分账属后续 Roadmap。</div>`}
+<div class="note"><b>说明：</b>自提订单不采集收货地址因此无邮编；仅物流配送需邮编。合并支付时各商户分账按台账记账，通道级分账属后续 Roadmap。</div>`},
+{book:'op', id:'op-15', title:'订单确认页与售后：游客查询与联系客服增强', html:`
+<p class="lead">两块 C 端增强：<mark class="mark">①订单确认页对游客/无效订单码快速友好报错</mark>（不再长时间空转）；<mark class="mark">②售后列表/详情页</mark>完善进度与凭证展示、修复详情「售後記錄不存在」、并统一提供<mark class="mark">联系客服（电话 / 微信 / 服务时间）</mark>入口。</p>
+<h3>1) 确认页：游客/无效码快速判定，不轮询</h3>
+<p>此前访问 <code>/checkout/confirmation/无效码</code>（未登录）会因 <code>orderByCode</code> 权限不足返回 FORBIDDEN，且前端误判为「待支付中转态」持续轮询约 40 秒。现改为<mark class="mark">首次查询即快速判定订单不可用</mark>：立即停止轮询，改用<mark class="mark">游客公开查询 <code>GuestOrderLookup</code></mark>兜底核对；仍查无则该码视为「订单不存在或链接已失效」，快速呈现友好错误页。无效码从「约 40 秒 + 英文 FORBIDDEN」降为「1~5 秒 + 中文友好提示」，并给出「查询订单」「首页」跳转。</p>
+<img class="img" src="shots/o15_nshop_confirm_guest_lookup.png" alt="游客无效码确认页-快速友好报错">
+<div class="imgcap">图 O15 · 确认页游客/无效码快速友好报错（404 + 查询订单 / 首页）</div>
+<h3>2) 售后列表页：刷新/重试 + 联系客服</h3>
+<p>列表页新增<mark class="mark">「刷新」</mark>按钮与加载失败时的<mark class="mark">「重试」</mark>兜底；页面底部常驻<mark class="mark">联系客服卡片</mark>（电话可一键拨打、微信一键复制、服务时间提示），数据源为 <code>app.config.ts</code> 的 <code>customerService</code>，可按需修改，无需改代码。</p>
+<img class="img" src="shots/o16_nshop_aftersales_list.png" alt="售后列表页-刷新与底部联系客服卡片">
+<div class="imgcap">图 O16 · 售后列表页（筛选 + 单据卡片 + 底部联系客服卡片）</div>
+<h3>3) 售后详情页：进度时间线 + 凭证 + 客服 + 取消确认</h3>
+<p>详情页展示<mark class="mark">五段进度时间线</mark>（申请 → 审核通过 → 退货中 → 已收货 → 已退款）并高亮当前节点，附<mark class="mark">申请时间 / 最近更新时间</mark>；凭证图片以缩略图网格展示并可点击全屏预览（无凭证显示占位提示），复用联系客服卡片；取消申请经<mark class="mark">「保留申请 / 确认取消」</mark>确认弹窗防止误操作，弹窗默认不弹出。</p>
+<img class="img" src="shots/o17_nshop_aftersales_detail.png" alt="售后详情页-进度时间线与客服卡片">
+<div class="imgcap">图 O17 · 售后详情页（进度时间线 + 单据 + 联系/凭证 + 客服卡片）</div>
+<img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="取消售后确认弹窗-保留申请与确认取消">
+<div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
+<div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
