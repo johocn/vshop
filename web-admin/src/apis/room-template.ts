@@ -54,3 +54,52 @@ export async function deleteRoomTemplate(id: string): Promise<boolean> {
   );
   return res.deleteRoomTemplate;
 }
+
+// ---- 商品变体酒店配置（商品编辑页接入，Task 7）----
+
+/** 读取变体的 hotelRoomConfig 快照（未配置返回 null） */
+export async function fetchVariantHotelConfig(
+  variantId: string,
+): Promise<Record<string, any> | null> {
+  const res = await getAdminClient().request<{
+    productVariant: { customFields: { hotelRoomConfig?: Record<string, any> | null } } | null;
+  }>(
+    `query VariantHotelConfig($id: ID!) {
+      productVariant(id: $id) { customFields { hotelRoomConfig } }
+    }`,
+    { id: variantId },
+  );
+  return res.productVariant?.customFields?.hotelRoomConfig ?? null;
+}
+
+/** 套用房型模板 → 后端深拷贝快照进变体 customFields.hotelRoomConfig（模板后续修改不影响本变体） */
+export async function applyRoomTemplate(variantId: string, templateId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ applyRoomTemplate: boolean }>(
+    `mutation ApplyRoomTemplate($variantId: ID!, $templateId: ID!) {
+      applyRoomTemplate(variantId: $variantId, templateId: $templateId)
+    }`,
+    { variantId, templateId },
+  );
+  return !!res.applyRoomTemplate;
+}
+
+/**
+ * 局部更新变体酒店配置：patch 并入该变体现有 customFields.hotelRoomConfig 后整体写回。
+ * 无现成变体 customFields 专用接口，复用 Vendure 标准 updateProductVariants mutation。
+ */
+export async function updateVariantHotelConfig(
+  variantId: string,
+  patch: Record<string, any>,
+): Promise<boolean> {
+  const existing = (await fetchVariantHotelConfig(variantId)) ?? {};
+  const merged = { ...existing, ...patch };
+  const res = await getAdminClient().request<{
+    updateProductVariants: Array<{ id: string }>;
+  }>(
+    `mutation UpdateVariantHotelConfig($input: [UpdateProductVariantInput!]!) {
+      updateProductVariants(input: $input) { id }
+    }`,
+    { input: [{ id: variantId, customFields: { hotelRoomConfig: merged } }] },
+  );
+  return !!res.updateProductVariants?.length;
+}

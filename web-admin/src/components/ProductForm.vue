@@ -110,6 +110,7 @@
       v-else-if="activeTab === '规格变体'"
       :value="variantMatrix"
       :base="baseFill"
+      :variant-id="primaryVariantId"
       @update:value="(o:any)=>variantMatrix=o"
     />
   </view>
@@ -224,6 +225,9 @@ const variantMatrix = ref<VariantMatrixState>({ ..._hydrated.variantMatrix });
 const spList = ref<ShippingProfileItem[]>([]);
 const ppList = ref<PaymentProfileItem[]>([]);
 const catList = ref<CollectionItem[]>([]);
+
+// 商品首个变体 id（编辑态存在；创建态 full 为空 → 传空串，规格变体 Tab 的酒店配置分组隐藏）
+const primaryVariantId = computed(() => (props.full as any)?.variants?.[0]?.id ?? '');
 
 const spNames = computed(() => spList.value.map((i) => i.name));
 const ppNames = computed(() => ppList.value.map((i) => i.name));

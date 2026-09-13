@@ -44,6 +44,35 @@
       </view>
     </template>
 
+    <!-- 酒店房型配置（仅编辑态有变体 id 时显示；创建态无变体 id 隐藏） -->
+    <view class="card hotel-card" v-if="variantId">
+      <view class="hotel-title">酒店房型配置</view>
+      <view v-if="hotelLoading" class="tip">加载中…</view>
+      <template v-else-if="!hotelConfig">
+        <view class="field">
+          <text class="flabel">选择房型模板</text>
+          <picker :range="roomTemplateNames" @change="onPickTemplate">
+            <view class="hotel-picker">{{ pickedTemplateName || '点击选择模板' }}</view>
+          </picker>
+        </view>
+        <button class="ghost" :disabled="!pickedTemplateId || hotelSaving" @tap="applyTemplate">
+          {{ hotelSaving ? '套用中…' : '套用模板生成快照' }}
+        </button>
+      </template>
+      <template v-else>
+        <view class="info-row">已应用模板：{{ hotelConfig.templateCode || '（手动配置）' }}</view>
+        <view class="field">
+          <text class="flabel">房间明细 JSON</text>
+          <textarea class="hotel-ta" v-model="hotelForm.roomsJson" placeholder='[{"no":"801","floor":8,"view":"湖景"}]' />
+        </view>
+        <view class="field">
+          <text class="flabel">日历价格段 JSON</text>
+          <textarea class="hotel-ta" v-model="hotelForm.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' />
+        </view>
+        <button class="ghost" :disabled="hotelSaving" @tap="saveHotelConfig">{{ hotelSaving ? '保存中…' : '保存酒店配置' }}</button>
+      </template>
+    </view>
+
     <view class="card">
       <view class="row-in title">
         <text>规格矩阵</text>
@@ -144,7 +173,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import ImagePicker from '../../components/ImagePicker.vue';
 import {
   buildMatrix,
@@ -154,6 +183,14 @@ import {
   type MatrixSku,
 } from '../../composables/useVariantMatrix';
 import { fetchReusableOptionGroups } from '../../apis/product';
+import {
+  fetchRoomTemplates,
+  fetchVariantHotelConfig,
+  applyRoomTemplate,
+  updateVariantHotelConfig,
+  type RoomTemplate,
+} from '../../apis/room-template';
+import { graphQlErrorMsg } from '../../apis/client';
 import { scanCode, ScannerError } from '../../utils/scanner';
 
 export interface VariantMatrixValue {
@@ -170,8 +207,94 @@ export interface BaseFill {
   costPrice: number;
 }
 
-const props = defineProps<{ value: VariantMatrixValue; base?: BaseFill }>();
+const props = defineProps<{
+  value: VariantMatrixValue;
+  base?: BaseFill;
+  /** 商品首个变体 id（编辑态传入；创建态为空 → 酒店房型配置分组隐藏） */
+  variantId?: string;
+}>();
 const emit = defineEmits<{ (e: 'update:value', v: VariantMatrixValue): void }>();
+
+// ---- 酒店房型配置（Task 7：模板套用快照 + 房间明细/日历价格段 JSON 编辑）----
+const roomTemplateList = ref<RoomTemplate[]>([]);
+const roomTemplateNames = ref<string[]>([]);
+const pickedTemplateId = ref('');
+const pickedTemplateName = ref('');
+const hotelConfig = ref<Record<string, any> | null>(null);
+const hotelLoading = ref(false);
+const hotelSaving = ref(false);
+const hotelForm = reactive({ roomsJson: '', priceCalendarJson: '' });
+
+// 编辑已配置变体时回填两个 textarea；变体 id 变化（切换商品/进入编辑）时重载
+function fillHotelForm(cfg: Record<string, any> | null) {
+  hotelForm.roomsJson = cfg?.rooms ? JSON.stringify(cfg.rooms, null, 2) : '';
+  hotelForm.priceCalendarJson = cfg?.priceCalendar ? JSON.stringify(cfg.priceCalendar, null, 2) : '';
+}
+
+async function loadHotelData() {
+  if (!props.variantId) {
+    hotelConfig.value = null;
+    return;
+  }
+  hotelLoading.value = true;
+  try {
+    const [tpls, cfg] = await Promise.all([
+      fetchRoomTemplates().catch(() => []),
+      fetchVariantHotelConfig(props.variantId).catch(() => null),
+    ]);
+    roomTemplateList.value = tpls;
+    roomTemplateNames.value = tpls.map((t) => t.name);
+    hotelConfig.value = cfg;
+    fillHotelForm(cfg);
+  } finally {
+    hotelLoading.value = false;
+  }
+}
+
+watch(() => props.variantId, loadHotelData, { immediate: true });
+
+function onPickTemplate(e: any) {
+  const t = roomTemplateList.value[Number(e.detail.value)];
+  pickedTemplateId.value = t?.id ?? '';
+  pickedTemplateName.value = t?.name ?? '';
+}
+
+async function applyTemplate() {
+  if (!props.variantId || !pickedTemplateId.value || hotelSaving.value) return;
+  hotelSaving.value = true;
+  try {
+    await applyRoomTemplate(props.variantId, pickedTemplateId.value);
+    uni.showToast({ title: '已生成快照', icon: 'success' });
+    await loadHotelData();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '套用失败'), icon: 'none' });
+  } finally {
+    hotelSaving.value = false;
+  }
+}
+
+async function saveHotelConfig() {
+  if (!props.variantId || hotelSaving.value) return;
+  let rooms: any[] = [];
+  let priceCalendar: any[] = [];
+  try {
+    rooms = JSON.parse(hotelForm.roomsJson || '[]');
+    priceCalendar = JSON.parse(hotelForm.priceCalendarJson || '[]');
+  } catch {
+    uni.showToast({ title: 'JSON 不合法，请检查后重试', icon: 'none' });
+    return;
+  }
+  hotelSaving.value = true;
+  try {
+    await updateVariantHotelConfig(props.variantId, { rooms, priceCalendar });
+    uni.showToast({ title: '已保存', icon: 'success' });
+    await loadHotelData();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+  } finally {
+    hotelSaving.value = false;
+  }
+}
 
 const newVal = reactive<Record<number, string>>({});
 
@@ -456,6 +579,20 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
     &[disabled] { opacity: 0.4; color: $wa-muted; }
   }
   .tip { padding: 20rpx 0; font-size: 26rpx; color: $wa-muted; }
+}
+.hotel-card {
+  .hotel-title { font-size: 30rpx; color: $wa-ink; padding: 20rpx 0 8rpx; font-weight: 500; }
+  .info-row { font-size: 24rpx; color: $wa-muted; padding: 12rpx 0; }
+  .field { margin-bottom: 24rpx; }
+  .flabel { display: block; font-size: 24rpx; color: $wa-muted; margin-bottom: 8rpx; }
+  .hotel-picker {
+    border: 1rpx solid $wa-rule; border-radius: 12rpx; padding: 16rpx 20rpx;
+    font-size: 26rpx; color: $wa-ink; background: #fff;
+  }
+  .hotel-ta {
+    width: 100%; box-sizing: border-box; border: 1rpx solid $wa-rule; border-radius: 12rpx;
+    padding: 16rpx 20rpx; font-size: 24rpx; height: 160rpx;
+  }
 }
 .seg {
   display: flex; padding: 20rpx 0;

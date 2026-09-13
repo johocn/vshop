@@ -35,6 +35,16 @@
         </view>
       </view>
       <view class="hint">详情页价格块版式：经典（跟随主题主色）；京东A（横幅促销价：现价+划线价+降价+标签）；京东B（深色价签条：整条京东红价签+白字现价+划线价）。注：京东A/B 固定走京东红 #E1251B，不随主题色。</view>
+      <view class="cell row-in">
+        <text class="lbl">详情页版式</text>
+        <view class="seg">
+          <text :class="{ on: f.layout === 'classic' }" @tap="setLayout('classic')">经典</text>
+          <text :class="{ on: f.layout === 'floor' }" @tap="setLayout('floor')">楼层</text>
+          <text :class="{ on: f.layout === 'dualBuy' }" @tap="setLayout('dualBuy')">双买</text>
+          <text :class="{ on: f.layout === 'hotel' }" @tap="setLayout('hotel')">酒店</text>
+        </view>
+      </view>
+      <view class="hint">详情页版式：经典 / 楼层 / 双买 / 酒店（酒店版式需商品变体已配置 hotelRoomConfig，否则回退经典版式）。</view>
     </view>
     <view class="card">
       <view class="img-title">促销方案库（频道默认；商品可覆盖）</view>
@@ -93,8 +103,8 @@ import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/cha
 import { graphQlErrorMsg } from '../../../apis/client';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 
-const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string }>({
-  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic',
+const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string }>({
+  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic',
 });
 let channelId = '';
 let rawDetailConfig = '';
@@ -133,6 +143,10 @@ function setPriceStyle(s: string) {
   f.value.priceStyle = s;
 }
 
+function setLayout(s: string) {
+  f.value.layout = s;
+}
+
 function addPromoTemplate(t: { code: string; zh: string; en: string }) {
   promoSchemes.value = upsertScheme(promoSchemes.value, t);
 }
@@ -148,10 +162,12 @@ onMounted(async () => {
   promoSchemes.value = loadSchemeList(cf.promoSchemes);
   serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
   let style = 'classic';
+  let layout = 'classic';
   if (rawDetailConfig) {
     try {
       const cfg = JSON.parse(rawDetailConfig);
       style = cfg?.blocks?.price?.style || 'classic';
+      layout = cfg?.layout || 'classic';
     } catch { /* 坏 JSON 忽略，兜底 classic */ }
   }
   f.value = {
@@ -161,6 +177,7 @@ onMounted(async () => {
     servicePhone: cf.servicePhone ?? '',
     taxMode: cf.taxMode || 'inclusive',
     priceStyle: style,
+    layout,
   };
 });
 
@@ -168,13 +185,15 @@ async function save() {
   if (saving.value) return;
   saving.value = true;
   saveText.value = '正在保存…';
-  // 合并 price.style 进 detailConfig，保留原 detailConfig 其余字段
+  // 合并 price.style 与 layout 进 detailConfig，保留原 detailConfig 其余字段
   const payload = { ...f.value } as any;
   delete payload.priceStyle;
+  delete payload.layout;
   const cfg = rawDetailConfig ? safeParse(rawDetailConfig) : { version: 2, layout: 'classic', blocks: {} };
   cfg.blocks = cfg.blocks || {};
   cfg.blocks.price = cfg.blocks.price || {};
   cfg.blocks.price.style = f.value.priceStyle;
+  cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
   payload.promoSchemes = toSchemePayload(promoSchemes.value);
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
