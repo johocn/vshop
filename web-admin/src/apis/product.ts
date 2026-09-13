@@ -64,8 +64,13 @@ export function grossPriceFromNet(netCents: number, ratePercent: number): number
  * 该商品「全局」的 ProductAsset 关联项清空（实测商品 60 被误清）。
  * 此处幂等保险：保存前把选中资产 assign 到当前渠道，保证写入不丢、图片各端可见。
  */
-async function ensureAssetsInCurrentChannel(assetIds: string[]): Promise<void> {
-  const ids = (assetIds || []).filter(Boolean);
+async function ensureAssetsInCurrentChannel(
+  assetIds: string[],
+  featuredAssetId?: string,
+): Promise<void> {
+  const ids = Array.from(
+    new Set([...(assetIds || []).filter(Boolean), ...(featuredAssetId ? [featuredAssetId] : [])]),
+  );
   if (!ids.length) return;
   try {
     const { activeChannel } = await getAdminClient().request<{ activeChannel: { id: string } }>(
@@ -79,8 +84,9 @@ async function ensureAssetsInCurrentChannel(assetIds: string[]): Promise<void> {
       }`,
       { input: { assetIds: ids, channelId } },
     );
-  } catch {
-    // 幂等且非阻断：权限/网络异常不影响主体保存（资产也已存在，assign 失败仅个别渠道临时不可见）
+  } catch (err) {
+    // 幂等且非阻断：assign 失败仅个别渠道临时不可见；但必须留痕，避免跨渠道图片被静默清空难排查
+    console.error('[ensureAssetsInCurrentChannel] assignAssetsToChannel 失败', err);
   }
 }
 
@@ -423,6 +429,8 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
 export interface CreateVariantInput {
   productId: string;
   sku: string;
+  /** 变体显示名；缺省回退 sku（多规格矩阵由调用方传规格组合，单品传商品名） */
+  productName?: string;
   price: number;
   stock: number;
   assetIds: string[];
@@ -461,7 +469,7 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
             barcode: input.barcode ?? '',
             internalCode: input.internalCode ?? '',
           },
-          translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: input.sku }],
+          translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name: input.productName || input.sku }],
         },
       ],
     },
@@ -721,7 +729,9 @@ export async function upsertProductTranslation(
 }
 
 export async function createProductFull(input: ProductSaveInput): Promise<string> {
-  if (input.assetIds?.length) await ensureAssetsInCurrentChannel(input.assetIds);
+  if (input.assetIds?.length || input.featuredAssetId) {
+    await ensureAssetsInCurrentChannel(input.assetIds, input.featuredAssetId);
+  }
   const pid = await createProduct(input.name, input.slug, input.description ?? '');
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
   const vm = input.variantMatrix;
@@ -740,6 +750,7 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
     const s0 = vm?.skus?.[0];
     await createVariantsForProduct({
       productId: pid,
+      productName: input.name,
       sku: 'P' + Date.now(),
       price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
       stock: Math.round(s0?.stock != null ? s0.stock : input.stock),
@@ -783,7 +794,9 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
   // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
   const locationId = await getChannelStockLocationId();
   // 保险：先把选中图片绑定到当前渠道，避免跨渠道共享商品在本渠道保存把全局 asset 关联清空
-  if (input.assetIds?.length) await ensureAssetsInCurrentChannel(input.assetIds);
+  if (input.assetIds?.length || input.featuredAssetId) {
+    await ensureAssetsInCurrentChannel(input.assetIds, input.featuredAssetId);
+  }
   // 三件套更新：
   // 1) 基本字段（enabled/name/slug/description）
   await updateProduct(id, {
