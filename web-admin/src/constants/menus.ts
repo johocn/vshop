@@ -112,6 +112,9 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
     items.push({ label: '人员管理', url: '/pages/platform/members/index', tier: 2 });
   }
   if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
+    items.push({ label: '房型模板库', url: '/pages/platform/room-templates/index', tier: 3 });
+  }
+  if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
     items.push({ label: '商品审批', url: '/pages/platform/product-approval/index', tier: 3 });
   }
   if (!items.length) return null;
