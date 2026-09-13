@@ -2,14 +2,15 @@
   <view class="chg">
     <view class="brand">
       <view class="dot" />
-      <text class="t1">设置新密码</text>
-      <text class="t2">首次登录需修改初始密码后方可使用</text>
+      <text class="t1">{{ isManual ? '修改密码' : '设置新密码' }}</text>
+      <text class="t2">{{ isManual ? '修改后下次登录使用新密码' : '首次登录需修改初始密码后方可使用' }}</text>
     </view>
     <view class="card">
+      <input v-if="isManual" v-model="oldPw" class="field" :password="!showPwd" placeholder="原密码" />
       <input v-model="pw1" class="field" :password="!showPwd" placeholder="新密码（≥8位，含大小写/数字）" />
       <input v-model="pw2" class="field" :password="!showPwd" placeholder="再次输入新密码" @confirm="submit" />
       <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}</text></view>
-      <button class="btn" :disabled="loading" @tap="submit">{{ loading ? '提交中…' : '绑定新密码' }}</button>
+      <button class="btn" :disabled="loading" @tap="submit">{{ loading ? '提交中…' : (isManual ? '确认修改' : '绑定新密码') }}</button>
       <view v-if="err" class="err">{{ err }}</view>
     </view>
   </view>
@@ -17,20 +18,31 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { changeMyPassword } from '../../apis/auth';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
+const isManual = ref(false);
+const oldPw = ref('');
 const pw1 = ref('');
 const pw2 = ref('');
 const showPwd = ref(false);
 const loading = ref(false);
 const err = ref('');
 
+onLoad((q) => {
+  isManual.value = q?.manual === '1';
+});
+
 async function submit() {
   err.value = '';
+  if (isManual.value && !oldPw.value) {
+    err.value = '请输入原密码';
+    return;
+  }
   if (!pw1.value || pw1.value.length < 8) {
     err.value = '密码至少 8 位';
     return;
@@ -41,9 +53,12 @@ async function submit() {
   }
   loading.value = true;
   try {
-    await changeMyPassword(pw1.value);
+    await changeMyPassword(pw1.value, isManual.value ? oldPw.value : undefined);
     await auth.loadAccess(); // 刷新 mustChangePassword 标志
-    if (tenant.token) {
+    if (isManual.value) {
+      uni.navigateBack();
+      uni.showToast({ title: '密码已修改', icon: 'none' });
+    } else if (tenant.token) {
       uni.redirectTo({ url: '/pages/dashboard/index' });
     } else {
       uni.redirectTo({ url: '/pages/channel-select/index' });
