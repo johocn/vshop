@@ -1,7 +1,7 @@
 {
   "pages": [
     { "path": "pages/login/index", "style": { "navigationStyle": "custom", "navigationBarTitleText": "登录" } },
-    { "path": "pages/change-password/index", "style": { "navigationStyle": "custom", "navigationBarTitleText": "设置新密码" } },
+    { "path": "pages/change-password/index", "style": { "navigationBarTitleText": "设置新密码" } },
     { "path": "pages/channel-select/index", "style": { "navigationBarTitleText": "选择店铺" } },
     { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "工作台" } },
     { "path": "pages/decorate/home/index", "style": { "navigationBarTitleText": "首页装修" } },
