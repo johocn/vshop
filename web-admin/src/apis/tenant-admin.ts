@@ -22,6 +22,7 @@ export interface TenantMemberItem {
   remark?: string | null;
   phone?: string | null;
   roleIds?: string[];
+  canResetPassword?: boolean;
   createdAt: string;
 }
 
@@ -30,6 +31,7 @@ export interface RoleItem {
   code: string;
   description: string;
   permissions: string[];
+  grantable?: boolean;
   channels?: { id: string }[];
 }
 
@@ -291,7 +293,7 @@ export async function myImportDefaultRoles(): Promise<RoleItem[]> {
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
-    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone roleIds createdAt } }`,
+    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone roleIds createdAt canResetPassword } }`,
   );
   return res.tenantMembers;
 }
@@ -317,7 +319,7 @@ export async function deleteTenantMember(id: string): Promise<void> {
 
 export async function fetchMyTenantRoles(): Promise<RoleItem[]> {
   const res = await getAdminClient().request<{ myTenantRoles: RoleItem[] }>(
-    `query MyTenantRoles { myTenantRoles { id code description permissions } }`,
+    `query MyTenantRoles { myTenantRoles { id code description permissions grantable } }`,
   );
   return res.myTenantRoles;
 }
@@ -326,6 +328,14 @@ export async function updateTenantMemberRolesToMember(id: string, roleIds: strin
   await getAdminClient().request(
     `mutation MyUpdateTenantMemberRoles($id: ID!, $roleIds: [ID!]!) { myUpdateTenantMemberRoles(id: $id, roleIds: $roleIds) }`,
     { id, roleIds },
+  );
+}
+
+/** 租户自助重置本租户成员密码为默认口令 you123123 */
+export async function resetTenantMemberPasswordToDefault(memberId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation MyResetTenantMemberPassword($id: ID!) { myResetTenantMemberPassword(id: $id) }`,
+    { id: memberId },
   );
 }
 
