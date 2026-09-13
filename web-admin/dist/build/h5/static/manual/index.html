@@ -653,7 +653,29 @@ var CHAPTERS = [
 <div class="imgcap">图 O17 · 售后详情页（进度时间线 + 单据 + 联系/凭证 + 客服卡片）</div>
 <img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="取消售后确认弹窗-保留申请与确认取消">
 <div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
-<div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`}
+<div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`},
+
+{book:'op', id:'op-16', title:'成员密码管理与角色授权', html:`
+<p class="lead">「本租户人员」页提供<mark class="mark">成员密码管理</mark>与<mark class="mark">角色授权</mark>：租户管理员可为低权限成员重置密码、本人可自助修改密码；授予角色时<mark class="mark">只能授予权限小于自己的角色</mark>。</p>
+<h3>人员列表与密码管理入口</h3>
+<p>进入「人员管理 → 本租户人员」，顶部有<mark class="mark">「修改密码」</mark>与<mark class="mark">「＋添加人员」</mark>两个入口。成员行展示姓名、ID、角色与启停开关：低权限成员行显示<mark class="mark">「重置密码」</mark>链接，<mark class="mark">自己的行不显示</mark>（防止误重置本人口令）。</p>
+<img class="img" src="shots/r01_tenant_members.png" alt="本租户人员列表-修改密码入口与重置密码">
+<div class="imgcap">图 R1 · 本租户人员（低权限成员有「重置密码」，本人无）</div>
+<h3>添加人员与角色选择</h3>
+<p>点「＋添加人员」填写邮箱（全局唯一）、姓名、手机号并选择角色；角色下拉<mark class="mark">按 id 去重</mark>，且仅列出<mark class="mark">可授予</mark>的角色——<code>grantable=false</code> 的「租户管理员」等不可授项被过滤，无重复项。</p>
+<img class="img" src="shots/r02_add_member_roles.png" alt="添加人员弹层-角色下拉">
+<div class="imgcap">图 R2 · 添加人员（角色下拉无重复、无不可授项）</div>
+<h3>分配角色</h3>
+<p>点成员行的「角色」打开分配角色弹层，勾选后保存即生效。可授范围与添加人员一致：<mark class="mark">只能授予权限小于自己的角色</mark>，避免越权。</p>
+<img class="img" src="shots/r03_assign_roles.png" alt="分配角色弹层">
+<div class="imgcap">图 R3 · 分配角色（销售 / 库存）</div>
+<h3>修改密码</h3>
+<p>点顶部「修改密码」进入改密页，需填写<mark class="mark">原密码</mark>验证身份，再输入新密码（≥8 位，含大小写/数字）并再次确认；提交后下次登录使用新密码。</p>
+<img class="img" src="shots/r04_change_password.png" alt="修改密码页-原密码与新密码">
+<div class="imgcap">图 R4 · 修改密码（原密码 + 新密码 + 确认）</div>
+<h3>重置密码</h3>
+<p>对低权限成员点「重置密码」，确认后其口令重置为<mark class="mark">默认口令 you123123</mark>；被重置成员下次登录建议尽快修改。</p>
+<div class="warn"><b>安全边界：</b>重置仅对<mark class="mark">低权限成员</mark>开放；<mark class="mark">租户管理员角色不可被授予、本人口令不可被他人重置</mark>，本人改密必须提供原密码。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
