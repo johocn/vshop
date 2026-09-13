@@ -245,9 +245,29 @@ watch(
       expandedGroup.value = defaultGroupKey.value;
       loadTags();
       if (!allItems.value.length) load(false);
+      // 已选历史图可能不在浏览网格（最近 take 条）内——按 id 精确预取并并入「已选」，
+      // 否则打开媒体库确认时这些旧图会被漏掉，导致保存后商品图片消失。
+      preLoadSelectedByIds(v, m);
     }
   },
 );
+
+async function preLoadSelectedByIds(open: boolean, existing: Map<string, AssetItem>) {
+  if (!open) return;
+  const ids = (props.value || []).filter(Boolean);
+  if (!ids.length) return;
+  try {
+    const r = await fetchAssets(10, 0, undefined, ids);
+    const resolved = new Map(r.items.map((a) => [a.id, a]));
+    const keep = new Map(selected.value.map((a) => [a.id, a]));
+    for (const a of r.items) keep.set(a.id, a);
+    selected.value = (props.value || [])
+      .map((id) => keep.get(id) ?? resolved.get(id) ?? existing.get(id))
+      .filter((a): a is AssetItem => !!a);
+  } catch (e) {
+    // 预取失败不阻断，用户仍可手动重选
+  }
+}
 
 const tagCountMap = ref<Record<string, number>>({});
 async function loadTags() {

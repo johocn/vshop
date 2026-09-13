@@ -29,7 +29,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { fetchAssets, type AssetItem } from '../apis/asset';
 import MediaLibraryModal from './MediaLibraryModal.vue';
 
@@ -96,11 +96,32 @@ function getSelectedAssets(): AssetItem[] {
 defineExpose({ refresh, getSelectedAssets });
 
 onMounted(() => {
-  // 预加载一次，便于触发区展示已选缩略图
-  fetchAssets(30, 0).then((r) => {
-    allItems.value = r.items;
-  });
+  loadSelected();
 });
+
+// 已选资源可能不在最近 take 条内（多租户/历史图），须按 id 精确预取，
+// 否则编辑回填时缩略图不显示、保存时又被媒体库的确定动作丢掉。
+async function loadSelected() {
+  const ids = selectedIds.value.filter(Boolean);
+  if (!ids.length) return;
+  try {
+    const r = await fetchAssets(10, 0, undefined, ids);
+    if (!r.items.length) return;
+    const m = new Map(allItems.value.map((a) => [a.id, a]));
+    for (const a of r.items) m.set(a.id, a);
+    allItems.value = Array.from(m.values());
+  } catch (e) {
+    // 预取失败不阻断编辑，缩略图缺失时用户仍可在媒体库手动重选
+  }
+}
+
+watch(
+  () => props.value,
+  () => {
+    syncSelected();
+    loadSelected();
+  },
+);
 </script>
 
 <style lang="scss" scoped>
