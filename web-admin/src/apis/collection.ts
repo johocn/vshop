@@ -105,6 +105,17 @@ export async function renameCollection(id: string, name: string): Promise<void> 
   );
 }
 
+// 把商品挂入分类（Collection）：调用后端 mapProductToPlatformCollection，追加进该分类的 product-id-filter
+// 并重新计算成员，使商品立即出现在分类商品列表（新增/编辑保存商品且选了「分类」时调用）。
+export async function mapProductToCollection(productId: string, collectionId: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation MapProductToCollection($productId: ID!, $collectionId: ID!) {
+      mapProductToPlatformCollection(productId: $productId, collectionId: $collectionId)
+    }`,
+    { productId, collectionId },
+  );
+}
+
 // 租户分类隔离创建：createTenantCollection（backend cjk-plugin adminApiExtensions 提供），
 // 创建租户分类并从默认渠道摘除（隔离）。走平台的 product-id-filter 过滤器，含无商品时空 filters。
 export async function createTenantCollection(input: CollectionInput): Promise<string> {
