@@ -10,7 +10,7 @@
       </view>
       <view class="item" v-for="m in members" :key="m.id">
         <view class="info">
-          <text class="name">{{ m.displayName || m.administratorId }}</text>
+          <text class="name" @tap="showInfo(m)">{{ m.displayName || m.administratorId }}</text>
           <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text> · <text class="link" @tap="openRoles(m)">角色</text></text>
           <text v-if="m.canResetPassword" class="reset" @tap="onResetPassword(m)">重置密码</text>
         </view>
@@ -81,6 +81,26 @@
     </view>
   </view>
 
+  <!-- 用户信息弹窗 -->
+  <view class="mask" v-if="infoVisible && infoTarget" @tap="infoVisible = false">
+    <view class="pop" @tap.stop>
+      <view class="pop-head">
+        <text class="pop-title">用户信息</text>
+        <text class="pop-close" @tap="infoVisible = false">×</text>
+      </view>
+      <view class="name-row">
+        <text class="info-name">{{ infoTarget.displayName || infoTarget.administratorId }}</text>
+        <text class="badge" :class="infoTarget.enabled ? 'on' : ''">{{ infoTarget.enabled ? '启用' : '停用' }}</text>
+      </view>
+      <view class="kv"><text class="k">登录用户名</text><text class="v">{{ infoTarget.emailAddress || '—' }}</text></view>
+      <view class="kv"><text class="k">手机号</text><text class="v">{{ infoTarget.phone || '—' }}</text></view>
+      <view class="kv"><text class="k">角色</text><text class="v">{{ infoRoleNames }}</text></view>
+      <view class="kv"><text class="k">备注</text><text class="v">{{ infoTarget.remark || '—' }}</text></view>
+      <view class="kv"><text class="k">人员 ID</text><text class="v">{{ infoTarget.administratorId }}</text></view>
+      <view class="kv"><text class="k">加入时间</text><text class="v">{{ fmtTime(infoTarget.createdAt) }}</text></view>
+    </view>
+  </view>
+
   <PasswordPopup v-if="pwdPop" :title="'初始口令（仅显示一次）'" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
 </template>
 <script lang="ts" setup>
@@ -111,6 +131,30 @@ const selectedRoleNames = computed(() =>
 const showRoles = ref(false);
 const roleTarget = ref<TenantMemberItem | null>(null);
 const roleTargetIds = ref([] as string[]);
+
+const infoVisible = ref(false);
+const infoTarget = ref<TenantMemberItem | null>(null);
+
+const infoRoleNames = computed(() => {
+  const t = infoTarget.value;
+  if (!t || !t.roleIds?.length) return '—';
+  return t.roleIds
+    .map((id) => roles.value.find((r) => r.id === id)?.description || id)
+    .join('、');
+});
+
+function showInfo(m: TenantMemberItem) {
+  infoTarget.value = m;
+  infoVisible.value = true;
+}
+
+function fmtTime(t?: string | null): string {
+  if (!t) return '—';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return '—';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 onShow(load);
 async function load() {
@@ -252,6 +296,16 @@ function onChangeMyPassword() {
 .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
 .pop { width: 600rpx; background: #fff; border-radius: 20rpx; padding: 40rpx; }
 .pop-title { display: block; font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
+.pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+.pop-head .pop-title { margin-bottom: 0; }
+.pop-close { font-size: 36rpx; color: #999; line-height: 1; padding: 8rpx; }
+.name-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; }
+.info-name { font-size: 32rpx; font-weight: 700; }
+.badge { font-size: 22rpx; color: #999; background: #f2f2f2; border-radius: 999rpx; padding: 4rpx 16rpx; }
+.badge.on { color: #07c160; background: #e8f8f0; }
+.kv { display: flex; justify-content: space-between; gap: 24rpx; padding: 16rpx 0; border-bottom: 1px solid #f2f2f2; }
+.kv .k { font-size: 24rpx; color: #999; flex: 0 0 auto; }
+.kv .v { font-size: 26rpx; color: #333; text-align: right; word-break: break-all; }
 .field { margin-bottom: 24rpx; }
 .req { color: #e64340; }
 .label { display: block; font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
