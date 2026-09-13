@@ -58,7 +58,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/auth';
 import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
-import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login, ssoLogin } from '../../api/mutations/auth';
+import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login, ssoLogin, authenticateSsoWithToken } from '../../api/mutations/auth';
 import { getGraphQLClient } from '../../api/client';
 import { detectPlatform } from '../../utils/detect-env';
 
@@ -130,7 +130,14 @@ onMounted(async () => {
         return;
     }
 
-    // 环境侦测：自动触发对应三方登录（受 authMethods 控制）
+    // SSO 自动跳转（所有环境）：未登录且存在 SSO 提供商时，自动跳 h.joho.cn 统一登录页
+    if (!authStore.token && ssoProviders.value.length && !sessionStorage.getItem('sso_auto_jumped')) {
+        sessionStorage.setItem('sso_auto_jumped', '1');
+        loginWithSso(ssoProviders.value[0]);
+        return;
+    }
+
+    // 环境侦测：自动触发对应三方登录（受 authMethods 控制；仅当未走 SSO 自动跳转时）
     if (!authStore.token && !lastWechatAuthFailed.value) {
         const platform = detectPlatform();
         if (platform === 'wechat' && wechatAppId.value && authMethods.value.includes('wechat')) {
@@ -333,63 +340,82 @@ async function handleDouyinH5Callback(code: string) {
     // #endif
 }
 
+// H5 hash 路由下，SSO 统一页回跳的 token/code 落在 hash query 而非 window.location.search
+function getHashQueryParams(): Record<string, string> {
+    // #ifdef H5
+    try {
+        const hs = window.location.hash.split('?')[1] || '';
+        const params: Record<string, string> = {};
+        for (const [k, v] of new URLSearchParams(hs).entries()) params[k] = v;
+        return params;
+    } catch { return {}; }
+    // #endif
+    return {};
+}
+
 function loginWithSso(provider: any) {
     // #ifdef H5
-    const redirectUri = `${window.location.origin}/pages/login/index`;
-    const state = Math.random().toString(36).substring(2);
-    sessionStorage.setItem('sso_state', state);
-    sessionStorage.setItem('sso_provider', provider.providerKey);
-
-    let authorizeUrl: string;
+    let unifiedLoginUrl: string;
     let params: Record<string, string>;
 
     if (provider.protocol === 'zhao-sso') {
-        authorizeUrl = `${provider.baseUrl.replace(/\/$/, '')}/v1/auth/authorize`;
+        // 统一页 token 直验流：跳 h.joho.cn 统一登录页，登录成功回跳携带 token
+        const origin = new URL(provider.baseUrl).origin;
+        unifiedLoginUrl = `${origin}/#/pages/sso/login`;
         params = {
             app_code: provider.clientId,
-            redirect_uri: redirectUri,
-            response_type: 'code',
-            state,
+            return_url: window.location.origin + '/#/pages/login/index',
         };
         if (provider.channelCode) params.channel_code = provider.channelCode;
     } else {
-        authorizeUrl = provider.authorizeUrl;
+        // 通用 OAuth2 authorize 流（保持原逻辑，给非 zhao-sso 协议兜底）
+        unifiedLoginUrl = provider.authorizeUrl;
         params = {
             client_id: provider.clientId,
-            redirect_uri: redirectUri,
+            redirect_uri: window.location.origin + '/#/pages/login/index',
             response_type: 'code',
             scope: (provider.scopes || []).join(' '),
-            state,
         };
     }
 
+    sessionStorage.setItem('sso_provider', provider.providerKey);
     const query = new URLSearchParams(params).toString();
-    window.location.href = `${authorizeUrl}?${query}`;
+    window.location.href = `${unifiedLoginUrl}?${query}`;
     // #endif
 }
 
 // 处理 SSO 回调：靠 sessionStorage 的 sso_provider 标识区分于现有 OAuth 回调
+// 统一页 token 直验流回跳 ?token=xxx；旧 code 流保留兜底
 async function handleSsoCallback(): Promise<boolean> {
     // #ifdef H5
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
+    const hashParams = getHashQueryParams();
+    const token = urlParams.get('token') ?? hashParams.token ?? '';
+    const code = urlParams.get('code') ?? hashParams.code ?? '';
     const providerKey = sessionStorage.getItem('sso_provider');
-    if (code && providerKey) {
+    const cleanUrl = () => {
+        const hash = window.location.hash.split('?')[0] || '';
+        return window.location.origin + window.location.pathname + hash;
+    };
+    if ((token || code) && providerKey) {
         try {
-            const result = await ssoLogin(providerKey, code);
+            const result = token
+                ? await authenticateSsoWithToken(providerKey, token)
+                : await ssoLogin(providerKey, code);
             if (result.userId) {
                 sessionStorage.removeItem('sso_provider');
                 sessionStorage.removeItem('sso_state');
+                sessionStorage.removeItem('sso_auto_jumped');
                 authStore.setAuth(result.token, result.userId);
                 ui.showToast('登录成功', 'success');
-                window.history.replaceState({}, '', window.location.pathname);
+                window.history.replaceState({}, '', cleanUrl());
                 navigateAfterLogin();
                 return true;
             }
         } catch (e: any) {
             sessionStorage.removeItem('sso_provider');
             sessionStorage.removeItem('sso_state');
-            window.history.replaceState({}, '', window.location.pathname);
+            window.history.replaceState({}, '', cleanUrl());
             ui.showToast('SSO 登录失败: ' + e.message);
             mode.value = 'select';
             return true;
