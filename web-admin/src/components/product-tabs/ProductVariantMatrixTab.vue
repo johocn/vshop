@@ -226,9 +226,20 @@ const hotelSaving = ref(false);
 const hotelForm = reactive({ roomsJson: '', priceCalendarJson: '' });
 
 // 编辑已配置变体时回填两个 textarea；变体 id 变化（切换商品/进入编辑）时重载
-function fillHotelForm(cfg: Record<string, any> | null) {
-  hotelForm.roomsJson = cfg?.rooms ? JSON.stringify(cfg.rooms, null, 2) : '';
-  hotelForm.priceCalendarJson = cfg?.priceCalendar ? JSON.stringify(cfg.priceCalendar, null, 2) : '';
+// hotelRoomConfig 落 text 列，GraphQL 返回 JSON 字符串：先解析为对象再取 rooms/priceCalendar
+function fillHotelForm(cfg: Record<string, any> | string | null) {
+  let parsed: Record<string, any> | null = null;
+  if (typeof cfg === 'string') {
+    try {
+      parsed = JSON.parse(cfg);
+    } catch {
+      parsed = null;
+    }
+  } else {
+    parsed = cfg;
+  }
+  hotelForm.roomsJson = parsed?.rooms ? JSON.stringify(parsed.rooms, null, 2) : '';
+  hotelForm.priceCalendarJson = parsed?.priceCalendar ? JSON.stringify(parsed.priceCalendar, null, 2) : '';
 }
 
 async function loadHotelData() {
