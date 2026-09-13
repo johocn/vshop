@@ -157,6 +157,23 @@ export async function ssoLogin(providerKey: string, code: string): Promise<AuthR
     return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
 }
 
+/** SSO 统一页（h.joho.cn）token 直验：统一页登录成功回跳携带 accessToken，直验换 Vendure 会话 */
+export async function authenticateSsoWithToken(providerKey: string, accessToken: string): Promise<AuthResult> {
+    const { data, authToken } = await authRequest(
+        `mutation Authenticate($input: AuthenticationInput!) {
+            authenticate(input: $input) {
+                ... on CurrentUser { id identifier }
+                ... on ErrorResult { errorCode message }
+            }
+        }`,
+        { input: { sso: { providerKey, accessToken } } }
+    );
+    if (data?.authenticate?.errorCode) {
+        throw new Error(data.authenticate.message);
+    }
+    return { token: authToken || '', userId: data?.authenticate?.id || '', identifier: data?.authenticate?.identifier || '' };
+}
+
 export async function sendPhoneVerificationCode(phoneNumber: string): Promise<boolean> {
     const { data } = await authRequest(
         `mutation SendPhoneCode($phoneNumber: String!) { sendPhoneVerificationCode(phoneNumber: $phoneNumber) }`,
