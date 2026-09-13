@@ -89,7 +89,7 @@
       </view>
 
       <view class="card">
-        <view class="img-title">商品图片</view>
+        <view class="img-title">商品图片<text v-if="d.assetIds.length" class="img-count">（已关联 {{ d.assetIds.length }} 张）</text></view>
         <ImagePicker :max="9" :value="d.assetIds" @change="onImg" />
       </view>
 
@@ -109,13 +109,14 @@
     <ProductVariantMatrixTab
       v-else-if="activeTab === '规格变体'"
       :value="variantMatrix"
+      :base="baseFill"
       @update:value="(o:any)=>variantMatrix=o"
     />
   </view>
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import ImagePicker from './ImagePicker.vue';
 import MediaPicker from './MediaPicker.vue';
 import RichTextEditor from './RichTextEditor.vue';
@@ -155,6 +156,8 @@ interface ProductDraft {
   // 品牌/营销（随保存落库，apis 的 applyBrandAndMarketing 消费）
   brandFacetValueId?: string | null;
   marketingTags?: string[];
+  promos?: string[];
+  services?: string[];
   sellingPoint?: string;
   // 商品所属租户分类名，作过审归位的匹配依据（保存落库）
   tenantCategoryRef?: string | null;
@@ -291,6 +294,21 @@ function syncBaseToSkus() {
   variantMatrix.value = { ...variantMatrix.value, skus: batchFillFromBase(variantMatrix.value.skus, base) };
 }
 
+// 基础信息四值 → 供规格变体 Tab 重建矩阵时自动代入（元→分）
+const baseFill = computed(() => ({
+  priceCents: Math.round((Number(d.priceYuan) || 0) * 100),
+  stock: Math.round(Number(d.stock) || 0),
+  listPriceCents: Math.round((Number(d.listPriceYuan) || 0) * 100),
+  costPrice: Math.round((Number(d.costYuan) || 0) * 100),
+}));
+
+// 基础信息四值变化即联动到变体矩阵（不依赖 blur 时序，覆盖「改动即填」场景）；
+// 已手动改过的行（_baseSynced === false）不覆盖
+watch(
+  () => [d.priceYuan, d.listPriceYuan, d.costYuan, d.stock],
+  syncBaseToSkus,
+);
+
 function submit() {
   if (!d.name) return uni.showToast({ title: '请填商品名', icon: 'none' });
   d.priceYuan = Number(d.priceYuan);
@@ -305,6 +323,8 @@ function submit() {
   // 汇入品牌/营销到最终 ProductSaveInput（apis 内 applyBrandAndMarketing 落库）
   out.brandFacetValueId = brandMarketing.value.brandFacetValueId || null;
   out.marketingTags = brandMarketing.value.tags;
+  out.promos = brandMarketing.value.promos;
+  out.services = brandMarketing.value.services;
   out.sellingPoint = brandMarketing.value.sellingPoint;
   // 无规格（单品）：基本信息 Tab 的价格/划线价/成本价/库存是唯一输入源，四值联动进默认变体行；
   // 保证与规格变体 Tab 的矩阵单行一致；多规格则保留各自的矩阵值。
@@ -452,6 +472,8 @@ defineExpose({ submit, brandMarketing, variantMatrix });
       font-size: 28rpx;
       color: $wa-ink;
     }
+
+    .img-count { font-size: 24rpx; color: $wa-muted; margin-left: 12rpx; }
 
     .vid-hint {
       font-size: 24rpx;

@@ -11,6 +11,7 @@
 //   - collections(options:{take}) { totalItems items { id name } } —— 可用
 import { getAdminClient } from './client';
 import { getChannelToken } from './session';
+import { mapProductToCollection } from './collection';
 
 // 本地 admin-api 实测的 LanguageCode 枚举值（zh_Hans 可用，en 也可用）
 export const PRODUCT_LANGUAGE_CODE = 'zh_Hans';
@@ -53,6 +54,34 @@ export async function fetchTaxRatePercent(): Promise<number> {
 export function grossPriceFromNet(netCents: number, ratePercent: number): number {
   if (!ratePercent) return Math.round(netCents);
   return Math.round(netCents * (1 + ratePercent / 100));
+}
+
+/**
+ * 把选中图片资产先绑定到当前渠道（vendure-token 所在渠道）。
+ * 背景：Vendure 的 asset 关联按渠道隔离（AssetService.updateEntityAssets 用
+ * findByIdsInChannel 只接受属于当前渠道的资产）。若商品是跨渠道共享、图片先挂在
+ * 另一渠道，商户在本渠道保存时 assetIds 会被判定为 0 张，导致 updateProduct 把
+ * 该商品「全局」的 ProductAsset 关联项清空（实测商品 60 被误清）。
+ * 此处幂等保险：保存前把选中资产 assign 到当前渠道，保证写入不丢、图片各端可见。
+ */
+async function ensureAssetsInCurrentChannel(assetIds: string[]): Promise<void> {
+  const ids = (assetIds || []).filter(Boolean);
+  if (!ids.length) return;
+  try {
+    const { activeChannel } = await getAdminClient().request<{ activeChannel: { id: string } }>(
+      `query ActiveChannel { activeChannel { id } }`,
+    );
+    const channelId = activeChannel?.id;
+    if (!channelId) return;
+    await getAdminClient().request(
+      `mutation AssignAssets($input: AssignAssetsToChannelInput!) {
+        assignAssetsToChannel(input: $input) { id }
+      }`,
+      { input: { assetIds: ids, channelId } },
+    );
+  } catch {
+    // 幂等且非阻断：权限/网络异常不影响主体保存（资产也已存在，assign 失败仅个别渠道临时不可见）
+  }
 }
 
 export interface ProductListItem {
@@ -195,7 +224,8 @@ export async function fetchCollections(): Promise<CollectionListItem[]> {
 export interface VariantRef {
   id: string;
   sku: string;
-  price: number; // 单位：分
+  price: number; // 单位：分（净价）
+  priceWithTax?: number; // 单位：分（含税=对客最终价，后台统一读写此值）
   stockOnHand: number;
   trackInventory: boolean;
   options?: Array<{ id: string; code: string; name: string }> | null;
@@ -238,6 +268,7 @@ export interface ProductFull {
     id: string;
     sku: string;
     price: number;
+    priceWithTax?: number;
     stockOnHand: number;
     trackInventory: boolean;
     featuredAsset?: { preview: string } | null;
@@ -255,7 +286,7 @@ export interface ProductFull {
     } | null;
   }> | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
-  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null; tenantCategoryRef?: string | null } | null;
+  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; promos?: string[] | null; services?: string[] | null } | null;
 }
 
 export interface ProductSaveInput {
@@ -276,8 +307,11 @@ export interface ProductSaveInput {
   paymentProfileId?: string;
   brandFacetValueId?: string | null; // 品牌
   marketingTags?: string[]; // 营销标签 code 数组
+  promos?: string[]; // 促销方案 code 数组（customFields.promos JSON）
+  services?: string[]; // 服务保障 code 数组（customFields.services JSON）
   sellingPoint?: string; // 卖点
   tenantCategoryRef?: string | null; // 商品所属租户分类名（过审归位匹配依据）
+  collectionId?: string; // 归属分类 id：保存时经 mapProductToCollection 把商品挂入该分类 filter，建立关联
   videoAssetId?: string | null; // 商品主视频资产 id（随 customFields 落库）
   // 多规格变体矩阵（新建落库 / 编辑同结构数值更新用）。productId 由 create/update 补齐。
   variantMatrix?: CreateVariantMatrixInput | null;
@@ -298,7 +332,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         name: string;
         facet?: { name: string; code: string; id: string };
       }>;
-      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; videoAssetId?: string | null } | null;
+      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; videoAssetId?: string | null; promos?: string | null; services?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -319,10 +353,10 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         featuredAsset { id preview }
         assets { id preview }
         facetValues { id code name facet { id code name } }
-        customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId }
+        customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId promos services }
         translations { languageCode name slug description }
         variants {
-          id sku price stockOnHand trackInventory
+          id sku price priceWithTax stockOnHand trackInventory
           options { id code name }
           featuredAsset { id preview }
           assets { id preview }
@@ -343,6 +377,20 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     if (!Array.isArray(marketingTags)) marketingTags = [];
   } catch {
     marketingTags = [];
+  }
+  let promos: string[] = [];
+  try {
+    promos = product.customFields?.promos ? JSON.parse(product.customFields.promos) : [];
+    if (!Array.isArray(promos)) promos = [];
+  } catch {
+    promos = [];
+  }
+  let services: string[] = [];
+  try {
+    services = product.customFields?.services ? JSON.parse(product.customFields.services) : [];
+    if (!Array.isArray(services)) services = [];
+  } catch {
+    services = [];
   }
   return {
     id: product.id,
@@ -365,6 +413,8 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
           marketingTags: marketingTags,
           sellingPoint: product.customFields.sellingPoint ?? '',
           tenantCategoryRef: product.customFields.tenantCategoryRef ?? null,
+          promos: promos,
+          services: services,
         }
       : null,
   };
@@ -386,7 +436,6 @@ export interface CreateVariantInput {
 
 export async function createVariantsForProduct(input: CreateVariantInput): Promise<string> {
   const locationId = await getChannelStockLocationId();
-  const taxRate = await fetchTaxRatePercent();
   const { createProductVariants } = await getAdminClient().request<{
     createProductVariants: Array<{ id: string }>;
   }>(
@@ -398,7 +447,8 @@ export async function createVariantsForProduct(input: CreateVariantInput): Promi
         {
           productId: input.productId,
           sku: input.sku,
-          price: grossPriceFromNet(input.price, taxRate),
+          // 直接存录入净价(分)：价格含税口径由渠道 pricesIncludeTax 解释（inclusive=立即售价 / exclusive=净价）
+          price: Math.round(input.price),
           // 多租户下必须用 stockLevels 指定当前渠道默认仓，否则写入全局默认仓致库存读不到
           trackInventory: 'TRUE',
           ...stockFieldWith(locationId, input.stock),
@@ -462,7 +512,6 @@ function uniqueValueCodes(values: string[]): Array<{ name: string; code: string 
 export async function createVariantMatrixForProduct(input: CreateVariantMatrixInput): Promise<number> {
   // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
   const locationId = await getChannelStockLocationId();
-  const taxRate = await fetchTaxRatePercent();
   // 1) 逐组创建规格组，收集「维度号 -> (规格值名 -> option id)」。
   //    维度口径与 buildMatrix 一致：仅统计至少含一个非空规格值的组，保持原顺序对齐 skus[i].labels[d]。
   const dims: Array<{ groupIndex: number; valueToOptionId: Map<string, string> }> = [];
@@ -537,7 +586,7 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
     return {
       productId: input.productId,
       sku: sku.sku ?? '',
-      price: grossPriceFromNet(Math.round(sku.priceCents) || 0, taxRate),
+      price: Math.round(sku.priceCents) || 0,
       optionIds,
       trackInventory: 'TRUE',
       ...stockFieldWith(locationId, sku.stock),
@@ -625,11 +674,13 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
   // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
   // tenantCategoryRef 为 Product 自定义 string 字段，随 customFields 落库，null 则清除。
-  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null) return;
+  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null && !input.promos?.length && !input.services?.length) return;
   const updated: Record<string, unknown> = { id };
   if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
   if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
+  if (input.promos?.length) customFields.promos = JSON.stringify(input.promos);
+  if (input.services?.length) customFields.services = JSON.stringify(input.services);
   if (input.tenantCategoryRef != null) customFields.tenantCategoryRef = input.tenantCategoryRef;
   if (input.videoAssetId != null) customFields.videoAssetId = input.videoAssetId;
   if (Object.keys(customFields).length) updated.customFields = customFields;
@@ -670,6 +721,7 @@ export async function upsertProductTranslation(
 }
 
 export async function createProductFull(input: ProductSaveInput): Promise<string> {
+  if (input.assetIds?.length) await ensureAssetsInCurrentChannel(input.assetIds);
   const pid = await createProduct(input.name, input.slug, input.description ?? '');
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
   const vm = input.variantMatrix;
@@ -722,13 +774,16 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
       sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
     });
   }
+  // 归属分类：保存即建立商品→分类关联，使商品出现在该分类商品列表
+  if (input.collectionId) await mapProductToCollection(pid, input.collectionId);
   return pid;
 }
 
 export async function updateProductFull(id: string, input: ProductSaveInput): Promise<void> {
   // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
   const locationId = await getChannelStockLocationId();
-  const taxRate = await fetchTaxRatePercent();
+  // 保险：先把选中图片绑定到当前渠道，避免跨渠道共享商品在本渠道保存把全局 asset 关联清空
+  if (input.assetIds?.length) await ensureAssetsInCurrentChannel(input.assetIds);
   // 三件套更新：
   // 1) 基本字段（enabled/name/slug/description）
   await updateProduct(id, {
@@ -783,7 +838,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
         return {
           id: v?.id,
           sku: v?.sku ?? sku.sku ?? '',
-          price: grossPriceFromNet(Math.round(sku.priceCents) || 0, taxRate),
+          price: Math.round(sku.priceCents) || 0,
           trackInventory: 'TRUE',
           ...stockFieldWith(locationId, sku.stock),
           assetIds: sku.assetIds ?? [],
@@ -821,13 +876,19 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
             {
           id: v.id,
           sku: v.sku,
-          price: grossPriceFromNet(Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100), taxRate),
+          price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
           trackInventory: 'TRUE',
           // 多租户需写当前渠道默认仓，否则更新落入全局默认仓、租户页读不到
           ...stockFieldWith(locationId, s0?.stock != null ? s0.stock : input.stock),
+          // 编辑时商品图片以「商品级 assets」为准（上方 UpdateProductAssets 已写入），
+          // 这里同步到变体，确保 C 端变体图与商品图一致、多图都能显示、删图能生效
+          ...(input.assetIds?.length
+            ? { assetIds: input.assetIds, featuredAssetId: featuredAssetId }
+            : {}),
           customFields: {
                 shippingProfileId: input.shippingProfileId ?? '',
                 paymentProfileId: input.paymentProfileId ?? '',
+                listPrice: s0?.listPriceCents != null ? Math.round(s0.listPriceCents) : null,
                 costPrice: s0?.costPrice != null ? Math.round(s0.costPrice) : null,
                 barcode: s0?.barcode ?? '',
                 internalCode: s0?.internalCode ?? '',
@@ -848,6 +909,8 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
       sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
     });
   }
+  // 归属分类：保存即建立商品→分类关联（幂等，追加进分类 filter；分类未变/未选则跳过）
+  if (input.collectionId) await mapProductToCollection(id, input.collectionId);
 }
 
 // ---- Task 10：商品列表增强 ----
@@ -897,7 +960,7 @@ export async function fetchProductList(
     `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
       products(options: { take: $take, skip: $skip, filter: $filter }) {
         totalItems
-        items { id name slug enabled featuredAsset { preview } variants { id price stockOnHand } customFields { marketplaceStatus } }
+        items { id name slug enabled featuredAsset { preview } variants { id price priceWithTax stockOnHand } customFields { marketplaceStatus } }
       }
     }`,
     { take: q.take ?? 20, skip: q.skip ?? 0, filter },
@@ -913,7 +976,7 @@ export async function fetchProductList(
       slug: p.slug,
       enabled: p.enabled,
       thumb: assetThumbUrl(p.featuredAsset?.preview),
-      priceYuan: (first?.price ?? 0) / 100,
+      priceYuan: (first?.priceWithTax ?? first?.price ?? 0) / 100,
       stock,
       low: stock <= LOW_STOCK,
       marketplaceStatus: p.customFields?.marketplaceStatus ?? null,
