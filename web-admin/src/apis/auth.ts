@@ -70,10 +70,10 @@ export async function fetchMyTenantAccess(channelId?: string): Promise<MyTenantA
   return res.myTenantAccess;
 }
 
-/** 修改当前登录者自身密码（首登强改密时后端自动清除标志） */
-export async function changeMyPassword(newPassword: string): Promise<void> {
+/** 修改当前登录者自身密码（主动改密传 oldPassword；首登强改密不传，后端跳过旧密码校验） */
+export async function changeMyPassword(newPassword: string, oldPassword?: string): Promise<void> {
   await getAdminClient().request(
-    `mutation ChangeMyPassword($newPassword: String!) { tenantChangeMyPassword(newPassword: $newPassword) }`,
-    { newPassword },
+    `mutation ChangeMyPassword($oldPassword: String, $newPassword: String!) { tenantChangeMyPassword(oldPassword: $oldPassword, newPassword: $newPassword) }`,
+    { oldPassword: oldPassword ?? null, newPassword },
   );
 }
