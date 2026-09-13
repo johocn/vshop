@@ -678,7 +678,35 @@ var CHAPTERS = [
 <div class="warn"><b>安全边界：</b>重置仅对<mark class="mark">低权限成员</mark>开放；<mark class="mark">租户管理员角色不可被授予、本人口令不可被他人重置</mark>，本人改密必须提供原密码。</div>
 <h3>查看成员信息</h3>
 <p>点击成员列表中的「显示姓名」，可查看该成员的完整信息，包括登录用户名（邮箱）、手机号、角色、状态、人员 ID 与加入时间。</p>
-<img class="img" src="shots/r05_member_info.png" alt="成员信息弹窗">`}
+<img class="img" src="shots/r05_member_info.png" alt="成员信息弹窗">`},
+{book:'op', id:'op-17', title:'房型模板库与酒店版式', html:`
+<p class="lead">酒店房型商品采用「<mark class="mark">房型模板库 → 商品变体酒店配置 → 店铺酒店版式</mark>」三级配置：先在「平台 → 房型模板库」沉淀可复用的房型模板，再到商品编辑页为变体套用模板生成配置快照，最后在店铺信息中把详情页版式切到「酒店」，前台即渲染酒店版式详情页（日期条 + 房型卡 + 逐日计价 + 预订规则）。</p>
+<h3>房型模板库</h3>
+<p>入口：<mark class="mark">平台 → 房型模板库</mark>。列表展示每张模板的名称、标识 code、基准价（元/晚）、可住晚数区间与排序号；右上角「＋新建模板」打开表单，点模板行进入编辑，行内开关可启停模板，右侧「删除」可移除（已应用该模板的商品不受影响）。</p>
+<img class="img" src="shots/r06_hotel_room_templates.png" alt="房型模板库列表-豪华套房">
+<div class="imgcap">图 R6 · 房型模板库（样例模板「豪华套房」）</div>
+<h3>新建模板</h3>
+<p>表单必填：<code>名称</code>（如「豪华套房」）、<code>标识 code</code>（如 <code>suite</code>）、<code>基准价（元/晚）</code>；其余为启用开关、排序号与多段 JSON：</p>
+<ul>
+<li><b>规格 specs JSON</b>：床型/面积/人数/早餐，如 <code>{"bedType":"大床","area":40,"capacity":2,"maxCapacity":2,"breakfast":"included","breakfastCount":2}</code>。</li>
+<li><b>默认房间 defaultRooms JSON</b>：房间号/楼层/景观，如 <code>[{"no":"801","floor":8,"view":"湖景"}]</code>，套用后成为商品房型明细。</li>
+<li><b>日历价格段 JSON</b>：周内/周末倍率，如 <code>[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]</code>。</li>
+<li><b>连住优惠 JSON</b>：满晚数折扣，如 <code>[{"minNights":3,"rate":0.9}]</code>。</li>
+<li><b>预订规则 JSON</b>：最少/最多晚数、提前预订天数、入住/离店时间、取消政策与押金方式，如 <code>{"minNights":1,"maxNights":30,"advanceDays":30,"checkInTime":"14:00","checkOutTime":"12:00","cancelPolicy":{"type":"freeUntil","freeUntilHours":24},"depositType":"payAtHotel"}</code>。</li>
+</ul>
+<img class="img" src="shots/r07_hotel_template_form.png" alt="新建模板弹层表单">
+<div class="imgcap">图 R7 · 新建模板（名称/code/基准价/日历价格段/连住优惠/预订规则 JSON）</div>
+<div class="warn"><b>JSON 校验：</b>四段 JSON 任一格式非法都会拦截保存并提示对应字段；价格段 <code>type</code> 仅支持 <code>weekday</code>/<code>weekend</code>，取消政策与押金方式需符合后端枚举。</div>
+<h3>套用模板到商品变体</h3>
+<p>进入商品编辑页的「规格矩阵」标签页，滚动到<mark class="mark">「酒店房型配置」</mark>分组（仅编辑态、有变体 id 时显示）：未配置时先点「点击选择模板」从房型模板库挑选，再点「套用模板生成快照」一次性回填规格/默认房间/日历价格段/预订规则；套用后显示已应用模板标识，并可在 <code>房间明细 JSON</code>、<code>日历价格段 JSON</code> 中微调，点「保存酒店配置」落库。</p>
+<img class="img" src="shots/r08_hotel_product_config.png" alt="商品编辑页-酒店房型配置分组">
+<div class="imgcap">图 R8 · 商品编辑「酒店房型配置」（已套用模板快照态）</div>
+<h3>店铺详情页版式</h3>
+<p>入口：<mark class="mark">店铺装修 → 店铺信息</mark>，「详情页版式」选择<mark class="mark">「酒店」</mark>并保存。此后该店商品详情页按酒店版式渲染；<mark class="mark">若商品变体未配置 hotelRoomConfig 则自动回退经典版式</mark>，普通商品不受影响。</p>
+<h3>前台酒店版式详情页</h3>
+<p>手机端打开已配置的酒店商品，自上而下依次为：<mark class="mark">入住/离店日期条</mark>（自动计算晚数与每晚价）、<mark class="mark">房型卡</mark>（床型/面积/人数/含早）、<mark class="mark">房间明细</mark>（可展开查看每间房号/楼层/景观并选择）、<mark class="mark">逐日计价</mark>（按所选日期逐日列价、预估总价与日均价）、<mark class="mark">预订规则</mark>（入住/离店时间、取消政策、押金与加床费）。</p>
+<img class="img" src="shots/r09_hotel_detail.png" alt="nshop 手机端酒店详情页">
+<div class="imgcap">图 R9 · 酒店版式详情页（日期条 + 房型卡 + 房间明细展开 + 逐日计价 + 预订规则）</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
