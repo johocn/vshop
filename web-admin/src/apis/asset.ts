@@ -21,17 +21,18 @@ export async function fetchAssets(
   take = 30,
   skip = 0,
   tags?: string[],
+  ids?: string[],
 ): Promise<{ totalItems: number; items: AssetItem[] }> {
   const { assetLibrary } = await getAdminClient().request<{
     assetLibrary: { totalItems: number; items: AssetItem[] };
   }>(
-    `query AssetLibrary($take: Int, $skip: Int, $tags: [String]) {
-      assetLibrary(take: $take, skip: $skip, tags: $tags) {
+    `query AssetLibrary($take: Int, $skip: Int, $tags: [String], $ids: [String]) {
+      assetLibrary(take: $take, skip: $skip, tags: $tags, ids: $ids) {
         totalItems
         items { id name preview source mimeType width height assetTags }
       }
     }`,
-    { take, skip, tags: tags && tags.length ? tags : null },
+    { take, skip, tags: tags && tags.length ? tags : null, ids: ids && ids.length ? ids : null },
   );
   return assetLibrary;
 }
