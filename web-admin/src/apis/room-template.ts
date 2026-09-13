@@ -57,19 +57,33 @@ export async function deleteRoomTemplate(id: string): Promise<boolean> {
 
 // ---- 商品变体酒店配置（商品编辑页接入，Task 7）----
 
+/**
+ * hotelRoomConfig 落 text 列（Vendure 3.6.4 customFields 无 json 类型），
+ * GraphQL 返回 JSON 字符串：统一解析为对象，缺失/非法返回 null。
+ */
+function parseHotelRoomConfig(raw: unknown): Record<string, any> | null {
+  if (raw == null) return null;
+  if (typeof raw === 'object') return raw as Record<string, any>;
+  try {
+    return JSON.parse(String(raw));
+  } catch {
+    return null;
+  }
+}
+
 /** 读取变体的 hotelRoomConfig 快照（未配置返回 null） */
 export async function fetchVariantHotelConfig(
   variantId: string,
 ): Promise<Record<string, any> | null> {
   const res = await getAdminClient().request<{
-    productVariant: { customFields: { hotelRoomConfig?: Record<string, any> | null } } | null;
+    productVariant: { customFields: { hotelRoomConfig?: unknown } } | null;
   }>(
     `query VariantHotelConfig($id: ID!) {
       productVariant(id: $id) { customFields { hotelRoomConfig } }
     }`,
     { id: variantId },
   );
-  return res.productVariant?.customFields?.hotelRoomConfig ?? null;
+  return parseHotelRoomConfig(res.productVariant?.customFields?.hotelRoomConfig);
 }
 
 /** 套用房型模板 → 后端深拷贝快照进变体 customFields.hotelRoomConfig（模板后续修改不影响本变体） */
@@ -86,12 +100,13 @@ export async function applyRoomTemplate(variantId: string, templateId: string): 
 /**
  * 局部更新变体酒店配置：patch 并入该变体现有 customFields.hotelRoomConfig 后整体写回。
  * 无现成变体 customFields 专用接口，复用 Vendure 标准 updateProductVariants mutation。
+ * 现有值若为 JSON 字符串（text 列）先解析为对象再并入；写回前整体 JSON.stringify。
  */
 export async function updateVariantHotelConfig(
   variantId: string,
   patch: Record<string, any>,
 ): Promise<boolean> {
-  const existing = (await fetchVariantHotelConfig(variantId)) ?? {};
+  const existing = parseHotelRoomConfig(await fetchVariantHotelConfig(variantId)) ?? {};
   const merged = { ...existing, ...patch };
   const res = await getAdminClient().request<{
     updateProductVariants: Array<{ id: string }>;
@@ -99,7 +114,7 @@ export async function updateVariantHotelConfig(
     `mutation UpdateVariantHotelConfig($input: [UpdateProductVariantInput!]!) {
       updateProductVariants(input: $input) { id }
     }`,
-    { input: [{ id: variantId, customFields: { hotelRoomConfig: merged } }] },
+    { input: [{ id: variantId, customFields: { hotelRoomConfig: JSON.stringify(merged) } }] },
   );
   return !!res.updateProductVariants?.length;
 }
