@@ -6,6 +6,7 @@
 //   - createShippingProfile(输入 CreateShippingProfileInput!)，shippingMethodIds 必填且非空
 //   - deleteShippingProfile(id) 返回 Boolean!（实测为 true）
 import { getAdminClient } from './client';
+import type { PickupLocationItem } from './pickup-location';
 
 export interface ShippingProfileItem {
   id: string;
@@ -21,6 +22,8 @@ export interface ShippingProfileItem {
   shippingMethodIds: string[];
   pickupLocationIds: string[];
   methodConfigs?: { shippingMethodId: string; mode: string; options?: Record<string, unknown> | null }[];
+  /** 档案真实绑定的自提点（档案级 + 方式级，不受租户可见性过滤） */
+  boundPickupLocations?: PickupLocationItem[];
 }
 
 export interface ShippingProfileInput {
@@ -52,6 +55,7 @@ export async function fetchShippingProfiles(): Promise<ShippingProfileItem[]> {
         requiresAddress requiresContact
         shippingMethods { id code name }
         pickupLocations { id }
+        boundPickupLocations { id name type address phoneNumber coordinates isPublic }
         methodConfigs { shippingMethodId mode options }
       }
       totalItems

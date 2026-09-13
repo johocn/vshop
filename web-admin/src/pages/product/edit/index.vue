@@ -39,11 +39,18 @@ onMounted(async () => {
     nameEn: data.nameEn,
     slugEn: data.slugEn,
     descriptionEn: data.descriptionEn,
-    priceYuan: data.variant ? data.variant.price / 100 : 0,
+    priceYuan: data.variant ? (data.variant.priceWithTax ?? data.variant.price) / 100 : 0,
     stock: data.variant?.stockOnHand ?? 0,
     enabled: data.enabled,
-    // ImagePicker 的 value 是资产 id 数组，故回填真实 id（full.assets 已带 id）
-    assetIds: (data.assets || []).map((a) => a.id).filter(Boolean),
+    // ImagePicker 的 value 是资产 id 数组，故回填真实 id（full.assets 已带 id）。
+    // 兼容「仅 featuredAsset 有图、assets 为空」的商品：把主图并入，避免编辑时
+    // 图片不预加载、保存时 assetIds=[] 把图清空（保存路径的持久化本身没问题）。
+    assetIds: Array.from(
+      new Set([
+        ...(data.assets || []).map((a) => a.id).filter(Boolean),
+        ...(data.featuredAsset?.id ? [data.featuredAsset.id] : []),
+      ]),
+    ),
     shippingProfileId: data.variant?.customFields?.shippingProfileId ?? '',
     paymentProfileId: data.variant?.customFields?.paymentProfileId ?? '',
     // 主视频资产 id 回填
