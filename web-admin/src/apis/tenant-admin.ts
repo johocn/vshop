@@ -21,6 +21,7 @@ export interface TenantMemberItem {
   displayName?: string | null;
   remark?: string | null;
   phone?: string | null;
+  emailAddress?: string | null;
   roleIds?: string[];
   canResetPassword?: boolean;
   createdAt: string;
@@ -293,7 +294,7 @@ export async function myImportDefaultRoles(): Promise<RoleItem[]> {
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
-    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone roleIds createdAt canResetPassword } }`,
+    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone emailAddress roleIds createdAt canResetPassword } }`,
   );
   return res.tenantMembers;
 }
