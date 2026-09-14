@@ -85,7 +85,7 @@
           </view>
           <view class="gl"><text class="glk">含早 / 押金</text></view>
           <view class="chips">
-            <text v-for="o in BREAKFAST_OPTIONS" :key="o.label" class="cdot" @tap="applyBreakfast(o)">{{ o.label }}</text>
+            <text v-for="o in BREAKFAST_OPTIONS" :key="o.label" class="cdot" @tap="applyBreakfast(o.value)">{{ o.label }}</text>
             <text v-for="o in DEPOSIT_OPTIONS" :key="o.label" class="cdot" @tap="applyDeposit(o.value)">{{ o.label }}</text>
           </view>
         </view>
