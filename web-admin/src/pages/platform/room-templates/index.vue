@@ -7,7 +7,23 @@
           <text class="head-btn" @tap="onAdd">＋新建模板</text>
         </view>
       </view>
-      <view class="item" v-for="t in templates" :key="t.id" @tap="onEdit(t)">
+      <view class="filter-bar">
+        <input class="q" v-model="query" placeholder="搜索房型名 / code / 床型 / 标签" />
+        <scroll-view class="chips-x" scroll-x :show-scrollbar="false">
+          <view class="chips">
+            <text v-for="c in catOpts" :key="c.key" class="chip" :class="{ on: category === c.key }" @tap="category = c.key">{{ c.label }}</text>
+          </view>
+        </scroll-view>
+        <view class="chips">
+          <text v-for="b in bedOpts" :key="b.key" class="chip" :class="{ on: bed === b.key }" @tap="bed = b.key">{{ b.label }}</text>
+        </view>
+        <view class="chips">
+          <text class="chip" :class="{ on: enabled === 'enabled' }" @tap="enabled = enabled === 'enabled' ? 'all' : 'enabled'">仅看启用</text>
+          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'asc' }" @tap="sortField = 'price'; sortDir = 'asc'">基准价 ↑</text>
+          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'desc' }" @tap="sortField = 'price'; sortDir = 'desc'">基准价 ↓</text>
+        </view>
+      </view>
+      <view class="item" v-for="t in filteredTemplates" :key="t.id" @tap="onEdit(t)">
         <view class="info">
           <text class="name">{{ t.name }} <text class="code">{{ t.code }}</text></text>
           <text class="sub">基准价 ¥{{ (t.basePriceCent / 100).toFixed(0) }} · {{ t.minNights }}-{{ t.maxNights }} 晚 · 排序 {{ t.sortOrder }}</text>
@@ -16,6 +32,11 @@
         <text class="link" @tap.stop="onRemove(t)">删除</text>
       </view>
       <view v-if="!templates.length" class="empty">暂无模板，点击右上角新建</view>
+      <view v-else-if="!filteredTemplates.length" class="empty">
+        <text class="empty-tip">未找到匹配模板</text>
+        <text class="clear-btn" @tap="clearFilters">清除筛选</text>
+      </view>
+      <view v-if="templates.length" class="count">共 {{ templateCount }} 个模板</view>
     </view>
   </view>
 
@@ -48,19 +69,52 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
   fetchRoomTemplates, createRoomTemplate, updateRoomTemplate, deleteRoomTemplate,
   type RoomTemplate,
 } from '../../../apis/room-template';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { filterRoomTemplates, categorize, bedLabel, CATEGORY_MAP } from '@/utils/room-template-guide';
 
 const templates = ref<RoomTemplate[]>([]);
 const showForm = ref(false);
 const editingId = ref('');
 const saving = ref(false);
 const err = ref('');
+
+// ---- 列表检索状态 ----
+const query = ref('');
+const category = ref('all');
+const bed = ref('all');
+const enabled = ref('all');
+const sortField = ref('sortOrder');
+const sortDir = ref('asc');
+
+const catOpts = [{ key: 'all', label: '全部' }, ...CATEGORY_MAP, { key: 'other', label: '其他' }];
+const bedOpts = [
+  { key: 'all', label: '全部床型' },
+  { key: 'king', label: '大床' },
+  { key: 'twin', label: '双床' },
+  { key: 'triple', label: '三床' },
+  { key: 'family', label: '多床' },
+];
+
+const filteredTemplates = computed(() => filterRoomTemplates(templates.value, {
+  q: query.value, category: category.value, bed: bed.value, enabled: enabled.value,
+  sort: sortField.value, order: sortDir.value,
+}));
+const templateCount = computed(() => filteredTemplates.value.length);
+
+function clearFilters() {
+  query.value = '';
+  category.value = 'all';
+  bed.value = 'all';
+  enabled.value = 'all';
+  sortField.value = 'sortOrder';
+  sortDir.value = 'asc';
+}
 
 const DEFAULT_RULE = {
   minNights: 1, maxNights: 30, advanceDays: 30,
@@ -262,6 +316,16 @@ function onRemove(t: RoomTemplate) {
 .title { font-size: 30rpx; font-weight: 700; }
 .head-ops { display: flex; align-items: center; gap: 16rpx; }
 .head-btn { flex: 0 0 auto; padding: 8rpx 26rpx; background: $pm-info; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
+.filter-bar { margin-bottom: 8rpx; }
+.q { box-sizing: border-box; width: 100%; border: 1px solid #eee; border-radius: 12rpx; padding: 14rpx 20rpx; font-size: 26rpx; margin-bottom: 16rpx; }
+.chips-x { white-space: nowrap; }
+.chips-x .chips { display: inline-flex; flex-wrap: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 12rpx; }
+.chip { flex: 0 0 auto; padding: 6rpx 22rpx; border: 1px solid #eee; border-radius: 999rpx; font-size: 24rpx; color: #666; background: #fafafa; }
+.chip.on { background: #4f8cff; border-color: #4f8cff; color: #fff; }
+.count { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx 0 4rpx; }
+.empty-tip { display: block; }
+.clear-btn { display: inline-block; margin-top: 16rpx; padding: 8rpx 28rpx; border: 1px solid #4f8cff; color: #4f8cff; border-radius: 999rpx; font-size: 26rpx; }
 .item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }
 .info { flex: 1; }
 .name { display: block; font-size: 28rpx; font-weight: 600; }
