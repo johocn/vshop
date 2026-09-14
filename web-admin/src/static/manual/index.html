@@ -745,7 +745,35 @@ var CHAPTERS = [
 </ul>
 <img class="img" src="shots/r12_room_template_create_guide.png" alt="新建模板-JSON录入引导条">
 <div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
-<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`}
+<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`},
+
+{book:'op', id:'op-20', title:'详情页库存展示（虚拟库存 + 附近库存）', html:`
+<p class="lead">商品详情页的库存展示分两层：<mark class="mark">所有租户一律默认只显示虚拟库存数量</mark>（可售总数）；<mark class="mark">仅开启物理库存的租户</mark>，其「物理驱动」商品额外显示<mark class="mark">附近库存</mark>折叠明细（各物理仓 + 库存 + 距离）。</p>
+<h3>库存模型速览</h3>
+<p>系统为每个租户维护两类仓库：<mark class="mark">虚拟仓</mark>（网络销售可售源，前台「库存 N 件」即虚拟仓 onHand）与<mark class="mark">物理仓</mark>（真实库存）。商品变体绑定物理仓后成为「物理驱动变体」：其虚拟库存由系统<mark class="mark">自动镜像为 Σ 绑定物理仓库存</mark>，销售扣减也落到物理仓，保证线上线下同源不超卖。</p>
+<div class="card"><b>三类展示形态</b><br/>① 未开物理库存的租户：仅「库存 N 件」数量行；② 开启物理库存 + 物理驱动变体：数量行 + 「附近库存」折叠明细；③ 开启物理库存 + 纯虚拟变体：仅数量行（无绑定仓，不显示附近库存）。</div>
+<h3>后台配置（开启物理库存）</h3>
+<p>物理库存开关在<mark class="mark">租户（店铺）配置</mark>中开启（<code>physicalStockEnabled</code>，默认关闭）。开启后创建物理仓（仓库性质 = 物理仓），把商品变体<mark class="mark">绑定到物理仓</mark>（一个变体可绑多仓，可标记默认仓），再为物理仓设置库存。平台侧以管理接口完成（参考脚本 <code>scripts/_seed_d4_stock.mjs</code>）：</p>
+<ul>
+<li><b>开启开关</b>：<code>updateChannel</code> 写入 <code>customFields.physicalStockEnabled=true</code>。</li>
+<li><b>建物理仓</b>：<code>createStockLocation</code>，仓库性质 <code>kind="physical"</code>、编码 <code>code</code>（租户内唯一）。</li>
+<li><b>绑定变体</b>：<code>setVariantBindings(variantId, [{ locationId, isDefault }])</code> —— 有绑定即物理驱动。</li>
+<li><b>设库存</b>：<code>setVariantStock</code> 写入物理仓 onHand；虚拟仓镜像在销售事务内自动同步为 Σ 物理仓，无需手工双写。</li>
+</ul>
+<h3>前台展示（手机端）</h3>
+<p>物理驱动变体（以「国信南山温泉工作日门票」为例）：详情页显示<mark class="mark">「库存 50 件」</mark>，其下出现<mark class="mark">附近库存</mark>折叠条——汇总可售件数与门店数，并在绑定物理仓配置坐标时显示<mark class="mark">距您最近距离</mark>（未配置坐标则显示「距离未知」）。</p>
+<img class="img" src="shots/s01_stock_physical_line.png" alt="物理驱动变体-库存数量行与附近库存折叠">
+<div class="imgcap">图 S1 · 物理驱动变体：库存数量行 + 附近库存折叠入口</div>
+<img class="img" src="shots/s02_stock_nearby_collapsed.png" alt="附近库存折叠态-汇总件数与门店数">
+<div class="imgcap">图 S2 · 附近库存折叠态（合计可售 + 门店数 + 最近距离）</div>
+<p>点折叠条展开：列出<mark class="mark">各物理仓名称、库存件数、距客户距离</mark>，按距离就近排序；距离缺失的仓库排后显示「距离未知」。</p>
+<img class="img" src="shots/s03_stock_nearby_expanded.png" alt="附近库存展开态-各仓名称库存距离">
+<div class="imgcap">图 S3 · 附近库存展开（仓名 + 库存 + 距离，就近排序）</div>
+<h3>纯虚拟变体 / 未开物理租户</h3>
+<p>开启物理库存租户内的<mark class="mark">纯虚拟变体</mark>（未绑定任何物理仓）只显示虚拟库存数量，<mark class="mark">不出现附近库存面板</mark>（以「国信南山温泉节假日房间」为例显示「库存 30 件」）。未开启物理库存的租户展示与此一致——仅虚拟数量行。</p>
+<img class="img" src="shots/s04_stock_virtual_no_nearby.png" alt="纯虚拟变体-仅库存数量行无附近库存">
+<div class="imgcap">图 S4 · 纯虚拟变体：仅「库存 N 件」，无附近库存面板</div>
+<div class="warn"><b>口径说明：</b>已售罄按 <code>saleableStock=0</code> 判定显示缺货态；详情页只读不改库存，库存修正走后台库存管理 / 对账入口。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
