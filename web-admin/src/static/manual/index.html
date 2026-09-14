@@ -706,7 +706,46 @@ var CHAPTERS = [
 <h3>前台酒店版式详情页</h3>
 <p>手机端打开已配置的酒店商品，自上而下依次为：<mark class="mark">入住/离店日期条</mark>（自动计算晚数与每晚价）、<mark class="mark">房型卡</mark>（床型/面积/人数/含早）、<mark class="mark">房间明细</mark>（可展开查看每间房号/楼层/景观并选择）、<mark class="mark">逐日计价</mark>（按所选日期逐日列价、预估总价与日均价）、<mark class="mark">预订规则</mark>（入住/离店时间、取消政策、押金与加床费）。</p>
 <img class="img" src="shots/r09_hotel_detail.png" alt="nshop 手机端酒店详情页">
-<div class="imgcap">图 R9 · 酒店版式详情页（日期条 + 房型卡 + 房间明细展开 + 逐日计价 + 预订规则）</div>`}
+<div class="imgcap">图 R9 · 酒店版式详情页（日期条 + 房型卡 + 房间明细展开 + 逐日计价 + 预订规则）</div>
+<h3>默认房型模板（18 种）</h3>
+<p>系统启动时自动<mark class="mark">幂等补种 18 种默认房型模板</mark>：按 <code>code</code> 判定，<mark class="mark">已存在或曾删除的 code 不会重复插入</mark>；若客户删除了默认房型，重启后<mark class="mark">不会自动补回</mark>，需要时手动新建即可。每张默认模板预置 6 间默认房间与完整预订规则（价格段/连住优惠/含早押金），可直接套用或微调：</p>
+<ul>
+<li><code>standard-twin</code> 标准双床房（双床 1.2m×2，¥288/晚）</li>
+<li><code>standard-king</code> 标准大床房（¥288/晚）</li>
+<li><code>superior-king</code> 高级大床房（¥358/晚，城景）</li>
+<li><code>superior-twin</code> 高级双床房（双床 1.35m×2，¥358/晚）</li>
+<li><code>deluxe-king</code> 豪华大床房（大床 2.0m，¥458/晚，湖景/高层）</li>
+<li><code>deluxe-twin</code> 豪华双床房（双床 1.5m×2，可住 3 人，¥458/晚）</li>
+<li><code>business-king</code> 商务大床房（含 1 份早，¥428/晚）</li>
+<li><code>business-twin</code> 商务双床房（双床 1.35m×2，含 1 份早，¥428/晚）</li>
+<li><code>triple</code> 三人间（单人床 1.2m×3，¥398/晚）</li>
+<li><code>family-child</code> 家庭亲子房（大床+1.2m 小床，¥518/晚，亲子设施）</li>
+<li><code>executive-king</code> 行政大床房（¥688/晚，行政酒廊）</li>
+<li><code>executive-suite</code> 行政套房（¥888/晚，独立会客区）</li>
+<li><code>deluxe-suite</code> 豪华套房（¥1188/晚，48h 免费取消、预付）</li>
+<li><code>presidential-suite</code> 总统套房（¥3888/晚，管家服务、节假日 2.0 倍价）</li>
+<li><code>theme-game</code> 电竞主题房（电竞双床，¥498/晚，不含早、不可退）</li>
+<li><code>theme-movie</code> 影音主题房（¥468/晚，不含早、不可退）</li>
+<li><code>theme-romantic</code> 情侣蜜月房（¥588/晚，蜜月布置）</li>
+<li><code>apartment-family</code> 公寓家庭套房（¥728/晚，含厨房，最少连住 2 晚）</li>
+</ul>
+<div class="warn"><b>标识：</b>code 是模板唯一标识；套用到商品后快照固化，<mark class="mark">此后修改模板不影响已套用商品</mark>。</div>
+<h3>列表检索</h3>
+<p>模板库列表自带检索栏，方便在 18+ 张模板中快速定位：<mark class="mark">关键词搜索</mark>（按名称 / code / 床型描述 / 标签 / 设施模糊匹配）、<mark class="mark">分类 chips</mark>（全部 / 标准 / 行政套房 / 豪华 / 家庭 / 主题房 / 其他）、<mark class="mark">床型 chips</mark>（全部床型 / 大床 / 双床 / 三床 / 多床）、<mark class="mark">仅看启用</mark>开关与<mark class="mark">基准价 ↑ / ↓</mark>排序。列表底部实时显示<mark class="mark">「共 N 个模板」</mark>，无匹配时出现「清除筛选」一键复位。</p>
+<img class="img" src="shots/r11_room_templates_list.png" alt="房型模板库列表-检索栏与18种默认模板">
+<div class="imgcap">图 R10 · 房型模板库列表（检索栏 + 18 种默认模板 + 计数）</div>
+<h3>JSON 录入引导（三合一）</h3>
+<p>新建/编辑弹层底部提供<mark class="mark">录入引导条</mark>，点选即可把合法片段写入对应 JSON 字段，避免手写格式错误：</p>
+<ul>
+<li><b>常用价格段</b>：平日 1.0 / 周末 1.2 / 国庆 1.8 / 春节 2.0 / 寒暑假 1.5，点选并入<code>日历价格段 JSON</code>（同 type 去重更新）。</li>
+<li><b>连住优惠 / 取消政策</b>：连住 3 晚 9 折、5 晚 8 折写入<code>连住优惠 JSON</code>；24h / 48h 免费取消、全程不可退覆盖<code>预订规则 JSON</code> 的 cancelPolicy。</li>
+<li><b>快捷输入房间</b>：填房间号（必填）+ 楼层 + 特色景观后点「＋添加」，追加进<code>默认房间 JSON</code>（同房间号覆盖），并显示已加间数。</li>
+<li><b>床型</b>：大床 / 双床 / 单人床 / 三床 / 亲子床，写入<code>规格 specs JSON</code> 的 bedType。</li>
+<li><b>含早 / 押金</b>：含 2 份 / 含 1 份 / 不含早写入 specs 的 breakfast 与 breakfastCount；到店付 / 预付 / 无需担保覆盖 ruleJson 的 depositType。</li>
+</ul>
+<img class="img" src="shots/r12_room_template_create_guide.png" alt="新建模板-JSON录入引导条">
+<div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
+<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
