@@ -46,6 +46,34 @@ longStayDiscount: [{ minNights: 3, rate: 0.9 }, { minNights: 5, rate: 0.8 }]
 cancelPolicy: { type:'freeUntil', freeUntilHours:24 } depositType:'payAtHotel'
 ```
 
+### 2.1 各房型详细默认配置（默认英雄 `specs` / 价格段 / 规则）
+
+> 设施池 `common` = `空调，液晶电视，独立卫浴，无线网络`（每种房型默认含）；基准价见 §2 表格；`breakfast` 为 0 时表示 `notIncluded`（其余为 `included` + 份数）。
+
+| code | 床型/床描述 | 面积/人数(N/M) | 含早 | 设施（common 基础上追加） | 特色标签 | 价格段差异 | 规则差异 |
+|---|---|---|---|---|---|---|---|
+| standard-twin | twin·双床1.2m×2 | 28 / 2 / 2 | 2 | — | 安静,禁烟 | 默认 | 默认 |
+| standard-king | king·大床1.8m | 28 / 2 / 2 | 2 | — | 安静,禁烟 | 默认 | 默认 |
+| superior-king | king·大床1.8m | 35 / 2 / 2 | 2 | 房内躺椅 | 城景 | 默认 | 默认 |
+| superior-twin | twin·双床1.35m×2 | 35 / 2 / 2 | 2 | 房内躺椅 | 城景 | 默认 | 默认 |
+| deluxe-king | king·大床2.0m | 42 / 2 / 2 | 2 | 浴缸,小吧台 | 湖景,高层 | 默认 | 默认 |
+| deluxe-twin | twin·双床1.5m×2 | 42 / 3 / 3 | 2 | 浴缸,小吧台 | 湖景 | 默认 | 默认 |
+| business-king | king·大床1.8m | 38 / 2 / 2 | 1 | 办公桌,人体工学椅 | 商务,静音 | 默认 | 默认 |
+| business-twin | twin·双床1.35m×2 | 38 / 2 / 2 | 1 | 办公桌,人体工学椅 | 商务,静音 | 默认 | 默认 |
+| triple | twin·1.2m×3 | 45 / 3 / 3 | 3 | — | 宽敞,家庭 | 默认 | 默认 |
+| family-child | family·大床1.8m+1.2m | 50 / 3 / 4 | 3 | 儿童洗漱用品,城堡小帐篷 | 亲子,卡通 | 默认 | 默认 |
+| executive-king | king·大床2.0m | 46 / 2 / 2 | 2 | 行政酒廊,胶囊咖啡机 | 行政酒廊,高层 | 默认 | 默认 |
+| executive-suite | king·大床2.0m | 65 / 2 / 2 | 2 | 行政酒廊,独立会客区 | 行政酒廊,会客 | holiday 1.8 | 默认 |
+| deluxe-suite | king·大床2.0m | 75 / 3 / 3 | 2 | 客厅,按摩浴缸 | 客厅,泡浴 | holiday 1.8 | cancel 48h, prepay |
+| presidential-suite | suite·大床2.0m | 130 / 4 / 4 | 4 | 独立客厅,管家服务,按摩浴缸 | 顶层,管家服务 | weekend 1.3, holiday 2.0 | cancel 48h, prepay |
+| theme-game | twin·电竞双床 | 40 / 2 / 2 | 0 | 电竞桌椅,电竞主机,降噪耳机 | 电竞,高配 | + custom 寒暑假 1.5 | nonRefundable, prepay |
+| theme-movie | king·大床1.8m | 40 / 2 / 2 | 0 | 投影,环绕音响,氛围灯 | 影音,影院 | + custom 寒暑假 1.5 | nonRefundable, prepay |
+| theme-romantic | king·大床2.0m | 45 / 2 / 2 | 2 | 浴缸,香薰,玫瑰布置 | 蜜月,浪漫 | 默认 | prepay |
+| apartment-family | family·1.8m+1.5m | 80 / 4 / 5 | 4 | 厨房,洗衣机,冰箱 | 家庭,长住 | 默认 | minNights 2, prepay |
+
+> 默认价格段：`[{weekday 1.0},{weekend 1.2},{holiday 1.8,dates:2026-10-01..10-05}]`；默认连住：`[{3晚 0.9},{5晚 0.8}]`；默认规则：`minNights 1, maxNights 30, advanceDays 30, 14:00/12:00, cancel freeUntil 24h, deposit payAtHotel`。表中「默认」即取此默认；差异项才列出覆盖值。
+> 房间明细默认（物理房间）：每房型 `defaultRooms` 预设 6 间（如 6F/7F/8F 各 2 间），房间号如 601/602/701/702/801/802，景观取首个特色标签值（如 `湖景`）。
+
 ## 3. 承载方式：后端 seed + 前端预设清单（都要）
 
 ### 3.1 后端种子（vendure cjk-plugin）
@@ -84,6 +112,17 @@ cancelPolicy: { type:'freeUntil', freeUntilHours:24 } depositType:'payAtHotel'
 - 所有引导操作直接读写各 JSON textarea 的当前值 → 用户可在引导生成后继续手工微调 JSON。
 - 提交保存逻辑不变：`JSON.parse` 逐 JSON 字段校验，失败 toast 中断；`basePriceYuan ×100` 转 `basePriceCent`。
 
+### 4.4 列表检索便利性（模板库列表页）
+
+> 模板数量体量小（默认 18 + 客户自建），采用**纯前端客户端过滤**，零额外请求；仅当模板数超阈值（如 >200）再引入服务端分页预留。
+
+1. **搜索框**：列表顶部常驻搜索（防抖 300ms），模糊匹配字段：`name` / `code` / 床描述 `bedDesc` / `tags` / `amenities`。命中高亮可选。
+2. **分类筛选 chips**：`全部 / 标准 / 高级 / 豪华 / 商务 / 家庭 / 行政套房 / 主题房 / 公寓`。前端内置 `CATEGORY_TAG_MAP`（code 前缀 → 分类），归组：`standard/superior`→标准高级、`deluxe/business`→豪华商务、`triple/family-child/apartment`→家庭、`executive-*/*-suite/presidential`→行政套房、`theme-*`→主题房。客户自建模板无匹配前缀时归「全部」分组（按 name 关键词二次匹配，如含「电竞/影音」归主题）。
+3. **床型筛选**：`全部 / 大床 / 双床 / 三床 / 主题multi床`，按 `specs.bedType`（king→大床、twin→双床、triple→三床、family→family、suite→大床）。
+4. **状态/排序**：启用/停用过滤；排序支持 `sortOrder 升序（默认）` / `基准价 升/降` / `最近创建`。
+5. **结果反馈**：筛选后计数 `共 N 个模板`；空态提示「未找到匹配模板」+ 一键清除筛选。
+6. **联动引导**：新建/编辑弹层的「选择房型模板」picker 同样支持按 name/code 搜索过滤（复用同一过滤函数），避免模板多时下拉难找。
+
 ## 5. 边界与不破坏原则
 
 - seed 仅在缺 code 时补充，绝不覆盖/绝不删除客户改动；删除的模板不因重启补回。
@@ -94,10 +133,10 @@ cancelPolicy: { type:'freeUntil', freeUntilHours:24 } depositType:'payAtHotel'
 ## 6. 测试与交付
 
 - 后端：`seed()` 幂等单测（首次插入 N / 二次跳过 / 客户删除后不补回 / 校验失败回滚）；`delete()` 记录 deleted。
-- 前端：引导区生成 JSON 的纯函数单测（追加 vs 覆盖、楼层缺省、标签去重、含 dates 段补全）。
+- 前端：引导区生成 JSON 的纯函数单测（追加 vs 覆盖、楼层缺省、标签去重、含 dates 段补全）；列表过滤纯函数单测（搜索/分类/床型筛选、排序、空态）。
 - 两端本地构建验证 → 部署（vendure `_deploy.ps1` 服务器 pull/restart；web-admin deploy.mjs）。
-- 手机视口（390×844）回归截图：模板库列表显示 18+ 默认模板；新建弹层引导条三区块；引导后 JSON 已填充。
-- 操作手册 op-17 追加：默认房型清单说明 + JSON 录入引导使用截图。
+- 手机视口（390×844）回归截图：模板库列表显示 18+ 默认模板 + 检索栏（搜索/分类 chips/排序）；新建弹层引导条三区块；引导后 JSON 已填充。
+- 操作手册 op-17 追加：默认房型清单说明 + 列表检索使用 + JSON 录入引导使用截图。
 
 ## 7. 非目标（YAGNI，留待后续）
 
