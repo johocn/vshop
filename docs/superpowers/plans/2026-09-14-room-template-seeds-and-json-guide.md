@@ -1,5 +1,8 @@
 # 房型模板库默认房型与 JSON 录入引导 实施计划
 
+> **方案标识：方案 1**（实施要点：后端 seed 18 种默认房型 + 内部表 `RoomTemplateControl` 幂等补种；前端 `room-template-guide.js` 纯函数驱动列表检索与三合一 JSON 引导）。
+> **状态：已存档，暂缓执行。** 待其他方案设计完成后一次性统一执行（用户指令 2026-09-14）。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 为酒店房型模板库内置 18 种国内常用默认房型（幂等 seed），并为建模管理加入 JSON 录入引导与列表检索便利性，全程不破坏既有系统。
