@@ -61,6 +61,34 @@
         <view class="field"><text class="label">日历价格段 JSON</text><textarea class="ta" v-model="form.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' /></view>
         <view class="field"><text class="label">连住优惠 JSON</text><textarea class="ta" v-model="form.longStayJson" placeholder='[{"minNights":3,"rate":0.9}]' /></view>
         <view class="field"><text class="label">预订规则 JSON</text><textarea class="ta" v-model="form.ruleJson" placeholder='{"minNights":1,"maxNights":30,"advanceDays":30,"checkInTime":"14:00","checkOutTime":"12:00","cancelPolicy":{"type":"freeUntil","freeUntilHours":24},"depositType":"payAtHotel"}' /></view>
+        <view v-if="showForm" class="guide">
+          <view class="gl"><text class="glk">常用价格段</text> · 点选插入 priceCalendar</view>
+          <view class="chips">
+            <text v-for="p in PRICE_SEGMENT_PRESETS" :key="p.label" class="cdot" @tap="applyPresetSegment(p)">{{ p.label }}</text>
+          </view>
+          <view class="gl"><text class="glk">连住优惠 / 取消政策</text></view>
+          <view class="chips">
+            <text v-for="p in LONG_STAY_PRESETS" :key="p.label" class="cdot" @tap="applyLongStay(p)">{{ p.label }}</text>
+            <text v-for="p in CANCEL_POLICY_PRESETS" :key="p.label" class="cdot" @tap="applyCancelPolicy(p)">{{ p.label }}</text>
+          </view>
+          <view class="gl"><text class="glk">快捷输入房间</text></view>
+          <view class="qr">
+            <input class="inp" v-model="roomNo" placeholder="房间号 如802" />
+            <input class="inp" v-model="roomFloor" placeholder="楼层 如8" type="number" />
+            <input class="inp" v-model="roomView" placeholder="特色景观" />
+            <text class="add-btn" @tap="addRoomQuick">＋ 添加</text>
+            <text class="badge" v-if="roomCount">已加 {{ roomCount }} 间</text>
+          </view>
+          <view class="gl"><text class="glk">床型</text></view>
+          <view class="chips">
+            <text v-for="b in BED_OPTIONS" :key="b.value" class="cdot" @tap="applyBed(b.value)">{{ b.label }}</text>
+          </view>
+          <view class="gl"><text class="glk">含早 / 押金</text></view>
+          <view class="chips">
+            <text v-for="o in BREAKFAST_OPTIONS" :key="o.label" class="cdot" @tap="applyBreakfast(o)">{{ o.label }}</text>
+            <text v-for="o in DEPOSIT_OPTIONS" :key="o.label" class="cdot" @tap="applyDeposit(o.value)">{{ o.label }}</text>
+          </view>
+        </view>
         <view v-if="err" class="err">{{ err }}</view>
         <button class="btn" :disabled="saving" @tap="submit">{{ saving ? '保存中…' : '保存' }}</button>
       </scroll-view>
@@ -76,7 +104,7 @@ import {
   type RoomTemplate,
 } from '../../../apis/room-template';
 import { graphQlErrorMsg } from '../../../apis/client';
-import { filterRoomTemplates, categorize, bedLabel, CATEGORY_MAP } from '@/utils/room-template-guide';
+import { filterRoomTemplates, categorize, bedLabel, CATEGORY_MAP, PRICE_SEGMENT_PRESETS, LONG_STAY_PRESETS, CANCEL_POLICY_PRESETS, BED_OPTIONS, BREAKFAST_OPTIONS, DEPOSIT_OPTIONS, appendSegmentToList, appendRoom, overrideSpecsKey, expandDateRange } from '@/utils/room-template-guide';
 
 const templates = ref<RoomTemplate[]>([]);
 const showForm = ref(false);
@@ -136,6 +164,85 @@ const form = ref({
   ruleJson: '',
 });
 
+// ---- 三合一 JSON 引导条状态 ----
+const roomNo = ref('');
+const roomFloor = ref('');
+const roomView = ref('');
+const roomCount = ref(0);
+
+/** JSON 数组字段解析：空/非法 → []（引导条只负责生成合法 JSON，保存校验仍由 submit 把关） */
+function parseJsonArr(text: string): any[] {
+  if (!text || !text.trim()) return [];
+  try {
+    const v = JSON.parse(text);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+/** JSON 对象字段解析：空/非法 → null */
+function parseJsonObj(text: string): Record<string, any> | null {
+  if (!text || !text.trim()) return null;
+  try {
+    const v = JSON.parse(text);
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 覆盖 ruleJson 中的某个键（cancelPolicy / depositType） */
+function updateRule(key: string, value: any) {
+  const rule = parseJsonObj(form.value.ruleJson) || { ...DEFAULT_RULE };
+  rule[key] = value;
+  form.value.ruleJson = JSON.stringify(rule, null, 2);
+}
+
+/** 点选常用价格段：expandDateRange 展开年份 → appendSegmentToList 并入 priceCalendarJson */
+function applyPresetSegment(preset: any) {
+  const seg = expandDateRange(preset.value, new Date().getFullYear());
+  form.value.priceCalendarJson = appendSegmentToList(parseJsonArr(form.value.priceCalendarJson), seg);
+}
+
+/** 连住优惠：按 minNights 去重并入 longStayJson */
+function applyLongStay(p: any) {
+  form.value.longStayJson = appendSegmentToList(parseJsonArr(form.value.longStayJson), p.value, 'minNights');
+}
+
+/** 取消政策：覆盖 ruleJson.cancelPolicy */
+function applyCancelPolicy(p: any) {
+  updateRule('cancelPolicy', p.value);
+}
+
+/** 快捷输入房间：房间号必填，追加进 defaultRoomsJson，之后清空输入并刷新已加数量 */
+function addRoomQuick() {
+  const no = roomNo.value.trim();
+  if (!no) { uni.showToast({ title: '请输入房间号', icon: 'none' }); return; }
+  const arr = parseJsonArr(form.value.defaultRoomsJson);
+  form.value.defaultRoomsJson = appendRoom(arr, no, Number(roomFloor.value) || null, roomView.value.trim() || '');
+  roomNo.value = '';
+  roomView.value = '';
+  roomCount.value = parseJsonArr(form.value.defaultRoomsJson).length;
+}
+
+/** 床型：覆盖 specs.bedType */
+function applyBed(bed: string) {
+  form.value.specsJson = overrideSpecsKey(parseJsonObj(form.value.specsJson), 'bedType', bed);
+}
+
+/** 含早：依次覆盖 specs.breakfast 与 specs.breakfastCount */
+function applyBreakfast(o: any) {
+  let specs = parseJsonObj(form.value.specsJson) || {};
+  specs = JSON.parse(overrideSpecsKey(specs, 'breakfast', o.breakfast, false));
+  form.value.specsJson = overrideSpecsKey(specs, 'breakfastCount', o.breakfastCount, false);
+}
+
+/** 押金：覆盖 ruleJson.depositType */
+function applyDeposit(v: string) {
+  updateRule('depositType', v);
+}
+
 onLoad(load);
 async function load() {
   try {
@@ -153,6 +260,10 @@ function onAdd() {
     specsJson: '', defaultRoomsJson: '', priceCalendarJson: '', longStayJson: '',
     ruleJson: JSON.stringify(DEFAULT_RULE, null, 2),
   };
+  roomNo.value = '';
+  roomFloor.value = '';
+  roomView.value = '';
+  roomCount.value = 0;
   showForm.value = true;
 }
 
@@ -175,6 +286,10 @@ function onEdit(t: RoomTemplate) {
       cancelPolicy: t.cancelPolicy, depositType: t.depositType,
     }, null, 2),
   };
+  roomNo.value = '';
+  roomFloor.value = '';
+  roomView.value = '';
+  roomCount.value = parseJsonArr(form.value.defaultRoomsJson).length;
   showForm.value = true;
 }
 
@@ -344,6 +459,14 @@ function onRemove(t: RoomTemplate) {
 .label { display: block; font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
 .input { border: 1px solid #eee; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
 .ta { width: 100%; box-sizing: border-box; border: 1px solid #eee; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 24rpx; height: 160rpx; }
+.guide { margin-bottom: 24rpx; padding: 20rpx; border: 1px dashed #d9e4ff; border-radius: 16rpx; background: #f7faff; }
+.gl { font-size: 24rpx; color: #666; margin-bottom: 12rpx; }
+.glk { color: #4f8cff; font-weight: 600; }
+.cdot { flex: 0 0 auto; padding: 6rpx 22rpx; border: 1px solid #d9e4ff; border-radius: 999rpx; font-size: 24rpx; color: #4f8cff; background: #fff; }
+.qr { display: flex; flex-wrap: wrap; gap: 12rpx; align-items: center; margin-bottom: 12rpx; }
+.inp { flex: 1 1 140rpx; box-sizing: border-box; border: 1px solid #eee; border-radius: 12rpx; padding: 10rpx 16rpx; font-size: 24rpx; background: #fff; }
+.add-btn { flex: 0 0 auto; padding: 10rpx 28rpx; background: #4f8cff; color: #fff; border-radius: 999rpx; font-size: 24rpx; }
+.badge { flex: 0 0 auto; font-size: 22rpx; color: #4f8cff; background: #e8f1ff; padding: 6rpx 16rpx; border-radius: 999rpx; }
 .err { color: #e64340; font-size: 24rpx; margin-bottom: 16rpx; }
 .btn { border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; }
 .btn[disabled] { opacity: .6; }
