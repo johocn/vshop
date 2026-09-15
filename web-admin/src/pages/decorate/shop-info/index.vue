@@ -17,6 +17,11 @@
         <text class="lbl">店铺 Logo</text>
         <input v-model="f.shopLogo" placeholder="图片上传见 Task 7，先填 URL" />
       </view>
+      <view class="cell col">
+        <text class="lbl">默认分享图</text>
+        <MediaPicker :max="1" :value="shareImageIds" @change="onShareImageChange" />
+        <text class="hint-inline">商品无主图时，微信转发的图片兜底。选图后点保存生效。</text>
+      </view>
       <view class="cell row-in">
         <text class="lbl">税率方式</text>
         <view class="seg">
@@ -102,10 +107,25 @@ import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
+import { fetchAssets } from '../../../apis/asset';
+import MediaPicker from '../../../components/MediaPicker.vue';
 
 const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string }>({
   shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic',
 });
+const shareImageIds = ref<string[]>([]);
+const shareImageUrl = ref('');
+
+function onShareImageChange(ids: string[]) {
+  shareImageIds.value = ids;
+  if (ids.length) {
+    fetchAssets(1, 0, undefined, ids)
+      .then((r) => { shareImageUrl.value = r.items[0]?.preview || ''; })
+      .catch(() => {});
+  } else {
+    shareImageUrl.value = '';
+  }
+}
 let channelId = '';
 let rawDetailConfig = '';
 const promoSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
@@ -179,6 +199,7 @@ onMounted(async () => {
     priceStyle: style,
     layout,
   };
+  shareImageUrl.value = cf.shareImageUrl ?? '';
 });
 
 async function save() {
@@ -195,6 +216,7 @@ async function save() {
   cfg.blocks.price.style = f.value.priceStyle;
   cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
+  payload.shareImageUrl = shareImageUrl.value || null;
   payload.promoSchemes = toSchemePayload(promoSchemes.value);
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
@@ -232,6 +254,7 @@ function safeParse(raw: string): any {
     }
   }
   .hint { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; padding: 0 8rpx; }
+  .hint-inline { display: block; margin-top: 12rpx; font-size: 22rpx; color: $wa-muted; }
   .img-title { font-size: 28rpx; color: $wa-ink; padding: 24rpx 0 8rpx; }
   .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center;
     .inp { flex: 1; min-width: 0; background: $wa-bg; border-radius: 8rpx; padding: 12rpx; font-size: 26rpx; }
