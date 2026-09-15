@@ -747,6 +747,21 @@ var CHAPTERS = [
 <div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
 <div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`},
 
+{book:'op', id:'op-19', title:'四流对账：批次 / 差异 / 重跑闭环', html:`
+<p class="lead">「平台 → 四流对账」为开启<mark class="mark">物理库存</mark>的租户提供<mark class="mark">业务 / 资金 / 库存 / 配送</mark>四流日对账：按「租户 × 日期」生成对账批次，逐单比对并用 <code>D1-D4</code> 差异类型标记异常订单，支持<mark class="mark">手动立即对账</mark>与<mark class="mark">每日 2:00 后自动日批</mark>（幂等，同日不重复跑），对差异行可<mark class="mark">重跑</mark>复核、闭环确认。</p>
+<h3>四流与差异类型</h3>
+<p>系统以订单为核对主体，比对四类数据源：<mark class="mark">业务流</mark>（订单应付款与状态）、<mark class="mark">资金流</mark>（分账台账已收金额）、<mark class="mark">库存流</mark>（库存流水扣仓记录）、<mark class="mark">配送流</mark>（配送记录）。发现不一致时按类型标记：</p>
+<div class="card"><b>D1 缺配送</b>：已发货/已交付订单缺少有效的配送记录（self / express / pickup 且非草稿态）。<br/><b>D2 扣仓</b>：库存流扣减仓与配送记录出库仓不一致。<br/><b>D3 金额</b>：订单应付 ≠ 线上已收（退款单自动跳过）。<br/><b>D4 镜像</b>：虚拟仓库存与绑定物理仓库存之和不一致。</div>
+<h3>批次列表与手动对账</h3>
+<p>入口：<mark class="mark">平台 → 四流对账</mark>。顶部提供<mark class="mark">日期选择 + 「立即对账」</mark>按钮：选日期后点击即对该租户执行当日对账，<mark class="mark">同日已有完成批次则幂等跳过</mark>并提示。顶部 KPI 汇总<mark class="mark">全闭环率 / 批次 / 核对订单</mark>；批次卡片展示日期、状态（运行中 / 已完成）与 <mark class="mark">D1-D4 四类差异计数</mark>，存在差异的类别红色高亮。</p>
+<img class="img" src="shots/r13_reconcile.png" alt="四流对账页-批次列表与差异计数">
+<div class="imgcap">图 R13 · 四流对账批次列表（全闭环率 / D1-D4 差异计数，红色高亮异常）</div>
+<h3>批次明细与重跑闭环</h3>
+<p>点批次卡片打开明细弹层：逐单列出<mark class="mark">订单号 + 差异标签</mark>（如「D1 缺配送」「D3 金额」，一单可多类并存）；点右侧<mark class="mark">「重跑」</mark>按当前四流数据重新判定该单：仍有差异则保持待处理，已闭环自动标记「已闭环」。差异行的处理建议回到对应业务入口修正（补配送记录 / 修正扣仓 / 补齐回款 / 修正库存镜像）后再重跑确认。</p>
+<img class="img" src="shots/r14_reconcile_lines.png" alt="批次明细弹层-差异标签与重跑操作">
+<div class="imgcap">图 R14 · 批次明细（D1 缺配送 / D3 金额 标签 + 重跑操作）</div>
+<div class="note"><b>自动日批：</b>开启物理库存的租户，系统每日 2:00 后自动执行当日批次（约每 5 分钟检查一次，同日仅跑一次）；未开启物理库存的租户不参与。手动对账不受开关限制，随时可跑。</div>`},
+
 {book:'op', id:'op-20', title:'详情页库存展示（虚拟库存 + 附近库存）', html:`
 <p class="lead">商品详情页的库存展示分两层：<mark class="mark">所有租户一律默认只显示虚拟库存数量</mark>（可售总数）；<mark class="mark">仅开启物理库存的租户</mark>，其「物理驱动」商品额外显示<mark class="mark">附近库存</mark>折叠明细（各物理仓 + 库存 + 距离）。</p>
 <h3>库存模型速览</h3>
