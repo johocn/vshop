@@ -706,7 +706,89 @@ var CHAPTERS = [
 <h3>前台酒店版式详情页</h3>
 <p>手机端打开已配置的酒店商品，自上而下依次为：<mark class="mark">入住/离店日期条</mark>（自动计算晚数与每晚价）、<mark class="mark">房型卡</mark>（床型/面积/人数/含早）、<mark class="mark">房间明细</mark>（可展开查看每间房号/楼层/景观并选择）、<mark class="mark">逐日计价</mark>（按所选日期逐日列价、预估总价与日均价）、<mark class="mark">预订规则</mark>（入住/离店时间、取消政策、押金与加床费）。</p>
 <img class="img" src="shots/r09_hotel_detail.png" alt="nshop 手机端酒店详情页">
-<div class="imgcap">图 R9 · 酒店版式详情页（日期条 + 房型卡 + 房间明细展开 + 逐日计价 + 预订规则）</div>`}
+<div class="imgcap">图 R9 · 酒店版式详情页（日期条 + 房型卡 + 房间明细展开 + 逐日计价 + 预订规则）</div>
+<h3>默认房型模板（18 种）</h3>
+<p>系统启动时自动<mark class="mark">幂等补种 18 种默认房型模板</mark>：按 <code>code</code> 判定，<mark class="mark">已存在或曾删除的 code 不会重复插入</mark>；若客户删除了默认房型，重启后<mark class="mark">不会自动补回</mark>，需要时手动新建即可。每张默认模板预置 6 间默认房间与完整预订规则（价格段/连住优惠/含早押金），可直接套用或微调：</p>
+<ul>
+<li><code>standard-twin</code> 标准双床房（双床 1.2m×2，¥288/晚）</li>
+<li><code>standard-king</code> 标准大床房（¥288/晚）</li>
+<li><code>superior-king</code> 高级大床房（¥358/晚，城景）</li>
+<li><code>superior-twin</code> 高级双床房（双床 1.35m×2，¥358/晚）</li>
+<li><code>deluxe-king</code> 豪华大床房（大床 2.0m，¥458/晚，湖景/高层）</li>
+<li><code>deluxe-twin</code> 豪华双床房（双床 1.5m×2，可住 3 人，¥458/晚）</li>
+<li><code>business-king</code> 商务大床房（含 1 份早，¥428/晚）</li>
+<li><code>business-twin</code> 商务双床房（双床 1.35m×2，含 1 份早，¥428/晚）</li>
+<li><code>triple</code> 三人间（单人床 1.2m×3，¥398/晚）</li>
+<li><code>family-child</code> 家庭亲子房（大床+1.2m 小床，¥518/晚，亲子设施）</li>
+<li><code>executive-king</code> 行政大床房（¥688/晚，行政酒廊）</li>
+<li><code>executive-suite</code> 行政套房（¥888/晚，独立会客区）</li>
+<li><code>deluxe-suite</code> 豪华套房（¥1188/晚，48h 免费取消、预付）</li>
+<li><code>presidential-suite</code> 总统套房（¥3888/晚，管家服务、节假日 2.0 倍价）</li>
+<li><code>theme-game</code> 电竞主题房（电竞双床，¥498/晚，不含早、不可退）</li>
+<li><code>theme-movie</code> 影音主题房（¥468/晚，不含早、不可退）</li>
+<li><code>theme-romantic</code> 情侣蜜月房（¥588/晚，蜜月布置）</li>
+<li><code>apartment-family</code> 公寓家庭套房（¥728/晚，含厨房，最少连住 2 晚）</li>
+</ul>
+<div class="warn"><b>标识：</b>code 是模板唯一标识；套用到商品后快照固化，<mark class="mark">此后修改模板不影响已套用商品</mark>。</div>
+<h3>列表检索</h3>
+<p>模板库列表自带检索栏，方便在 18+ 张模板中快速定位：<mark class="mark">关键词搜索</mark>（按名称 / code / 床型描述 / 标签 / 设施模糊匹配）、<mark class="mark">分类 chips</mark>（全部 / 标准 / 行政套房 / 豪华 / 家庭 / 主题房 / 其他）、<mark class="mark">床型 chips</mark>（全部床型 / 大床 / 双床 / 三床 / 多床）、<mark class="mark">仅看启用</mark>开关与<mark class="mark">基准价 ↑ / ↓</mark>排序。列表底部实时显示<mark class="mark">「共 N 个模板」</mark>，无匹配时出现「清除筛选」一键复位。</p>
+<img class="img" src="shots/r11_room_templates_list.png" alt="房型模板库列表-检索栏与18种默认模板">
+<div class="imgcap">图 R10 · 房型模板库列表（检索栏 + 18 种默认模板 + 计数）</div>
+<h3>JSON 录入引导（三合一）</h3>
+<p>新建/编辑弹层底部提供<mark class="mark">录入引导条</mark>，点选即可把合法片段写入对应 JSON 字段，避免手写格式错误：</p>
+<ul>
+<li><b>常用价格段</b>：平日 1.0 / 周末 1.2 / 国庆 1.8 / 春节 2.0 / 寒暑假 1.5，点选并入<code>日历价格段 JSON</code>（同 type 去重更新）。</li>
+<li><b>连住优惠 / 取消政策</b>：连住 3 晚 9 折、5 晚 8 折写入<code>连住优惠 JSON</code>；24h / 48h 免费取消、全程不可退覆盖<code>预订规则 JSON</code> 的 cancelPolicy。</li>
+<li><b>快捷输入房间</b>：填房间号（必填）+ 楼层 + 特色景观后点「＋添加」，追加进<code>默认房间 JSON</code>（同房间号覆盖），并显示已加间数。</li>
+<li><b>床型</b>：大床 / 双床 / 单人床 / 三床 / 亲子床，写入<code>规格 specs JSON</code> 的 bedType。</li>
+<li><b>含早 / 押金</b>：含 2 份 / 含 1 份 / 不含早写入 specs 的 breakfast 与 breakfastCount；到店付 / 预付 / 无需担保覆盖 ruleJson 的 depositType。</li>
+</ul>
+<img class="img" src="shots/r12_room_template_create_guide.png" alt="新建模板-JSON录入引导条">
+<div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
+<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`},
+
+{book:'op', id:'op-19', title:'四流对账：批次 / 差异 / 重跑闭环', html:`
+<p class="lead">「平台 → 四流对账」为开启<mark class="mark">物理库存</mark>的租户提供<mark class="mark">业务 / 资金 / 库存 / 配送</mark>四流日对账：按「租户 × 日期」生成对账批次，逐单比对并用 <code>D1-D4</code> 差异类型标记异常订单，支持<mark class="mark">手动立即对账</mark>与<mark class="mark">每日 2:00 后自动日批</mark>（幂等，同日不重复跑），对差异行可<mark class="mark">重跑</mark>复核、闭环确认。</p>
+<h3>四流与差异类型</h3>
+<p>系统以订单为核对主体，比对四类数据源：<mark class="mark">业务流</mark>（订单应付款与状态）、<mark class="mark">资金流</mark>（分账台账已收金额）、<mark class="mark">库存流</mark>（库存流水扣仓记录）、<mark class="mark">配送流</mark>（配送记录）。发现不一致时按类型标记：</p>
+<div class="card"><b>D1 缺配送</b>：已发货/已交付订单缺少有效的配送记录（self / express / pickup 且非草稿态）。<br/><b>D2 扣仓</b>：库存流扣减仓与配送记录出库仓不一致。<br/><b>D3 金额</b>：订单应付 ≠ 线上已收（退款单自动跳过）。<br/><b>D4 镜像</b>：虚拟仓库存与绑定物理仓库存之和不一致。</div>
+<h3>批次列表与手动对账</h3>
+<p>入口：<mark class="mark">平台 → 四流对账</mark>。顶部提供<mark class="mark">日期选择 + 「立即对账」</mark>按钮：选日期后点击即对该租户执行当日对账，<mark class="mark">同日已有完成批次则幂等跳过</mark>并提示。顶部 KPI 汇总<mark class="mark">全闭环率 / 批次 / 核对订单</mark>；批次卡片展示日期、状态（运行中 / 已完成）与 <mark class="mark">D1-D4 四类差异计数</mark>，存在差异的类别红色高亮。</p>
+<img class="img" src="shots/r13_reconcile.png" alt="四流对账页-批次列表与差异计数">
+<div class="imgcap">图 R13 · 四流对账批次列表（全闭环率 / D1-D4 差异计数，红色高亮异常）</div>
+<h3>批次明细与重跑闭环</h3>
+<p>点批次卡片打开明细弹层：逐单列出<mark class="mark">订单号 + 差异标签</mark>（如「D1 缺配送」「D3 金额」，一单可多类并存）；点右侧<mark class="mark">「重跑」</mark>按当前四流数据重新判定该单：仍有差异则保持待处理，已闭环自动标记「已闭环」。差异行的处理建议回到对应业务入口修正（补配送记录 / 修正扣仓 / 补齐回款 / 修正库存镜像）后再重跑确认。</p>
+<img class="img" src="shots/r14_reconcile_lines.png" alt="批次明细弹层-差异标签与重跑操作">
+<div class="imgcap">图 R14 · 批次明细（D1 缺配送 / D3 金额 标签 + 重跑操作）</div>
+<div class="note"><b>自动日批：</b>开启物理库存的租户，系统每日 2:00 后自动执行当日批次（约每 5 分钟检查一次，同日仅跑一次）；未开启物理库存的租户不参与。手动对账不受开关限制，随时可跑。</div>`},
+
+{book:'op', id:'op-20', title:'详情页库存展示（虚拟库存 + 附近库存）', html:`
+<p class="lead">商品详情页的库存展示分两层：<mark class="mark">所有租户一律默认只显示虚拟库存数量</mark>（可售总数）；<mark class="mark">仅开启物理库存的租户</mark>，其「物理驱动」商品额外显示<mark class="mark">附近库存</mark>折叠明细（各物理仓 + 库存 + 距离）。</p>
+<h3>库存模型速览</h3>
+<p>系统为每个租户维护两类仓库：<mark class="mark">虚拟仓</mark>（网络销售可售源，前台「库存 N 件」即虚拟仓 onHand）与<mark class="mark">物理仓</mark>（真实库存）。商品变体绑定物理仓后成为「物理驱动变体」：其虚拟库存由系统<mark class="mark">自动镜像为 Σ 绑定物理仓库存</mark>，销售扣减也落到物理仓，保证线上线下同源不超卖。</p>
+<div class="card"><b>三类展示形态</b><br/>① 未开物理库存的租户：仅「库存 N 件」数量行；② 开启物理库存 + 物理驱动变体：数量行 + 「附近库存」折叠明细；③ 开启物理库存 + 纯虚拟变体：仅数量行（无绑定仓，不显示附近库存）。</div>
+<h3>后台配置（开启物理库存）</h3>
+<p>物理库存开关在<mark class="mark">租户（店铺）配置</mark>中开启（<code>physicalStockEnabled</code>，默认关闭）。开启后创建物理仓（仓库性质 = 物理仓），把商品变体<mark class="mark">绑定到物理仓</mark>（一个变体可绑多仓，可标记默认仓），再为物理仓设置库存。平台侧以管理接口完成（参考脚本 <code>scripts/_seed_d4_stock.mjs</code>）：</p>
+<ul>
+<li><b>开启开关</b>：<code>updateChannel</code> 写入 <code>customFields.physicalStockEnabled=true</code>。</li>
+<li><b>建物理仓</b>：<code>createStockLocation</code>，仓库性质 <code>kind="physical"</code>、编码 <code>code</code>（租户内唯一）。</li>
+<li><b>绑定变体</b>：<code>setVariantBindings(variantId, [{ locationId, isDefault }])</code> —— 有绑定即物理驱动。</li>
+<li><b>设库存</b>：<code>setVariantStock</code> 写入物理仓 onHand；虚拟仓镜像在销售事务内自动同步为 Σ 物理仓，无需手工双写。</li>
+</ul>
+<h3>前台展示（手机端）</h3>
+<p>物理驱动变体（以「国信南山温泉工作日门票」为例）：详情页显示<mark class="mark">「库存 50 件」</mark>，其下出现<mark class="mark">附近库存</mark>折叠条——汇总可售件数与门店数，并在绑定物理仓配置坐标时显示<mark class="mark">距您最近距离</mark>（未配置坐标则显示「距离未知」）。</p>
+<img class="img" src="shots/s01_stock_physical_line.png" alt="物理驱动变体-库存数量行与附近库存折叠">
+<div class="imgcap">图 S1 · 物理驱动变体：库存数量行 + 附近库存折叠入口</div>
+<img class="img" src="shots/s02_stock_nearby_collapsed.png" alt="附近库存折叠态-汇总件数与门店数">
+<div class="imgcap">图 S2 · 附近库存折叠态（合计可售 + 门店数 + 最近距离）</div>
+<p>点折叠条展开：列出<mark class="mark">各物理仓名称、库存件数、距客户距离</mark>，按距离就近排序；距离缺失的仓库排后显示「距离未知」。</p>
+<img class="img" src="shots/s03_stock_nearby_expanded.png" alt="附近库存展开态-各仓名称库存距离">
+<div class="imgcap">图 S3 · 附近库存展开（仓名 + 库存 + 距离，就近排序）</div>
+<h3>纯虚拟变体 / 未开物理租户</h3>
+<p>开启物理库存租户内的<mark class="mark">纯虚拟变体</mark>（未绑定任何物理仓）只显示虚拟库存数量，<mark class="mark">不出现附近库存面板</mark>（以「国信南山温泉节假日房间」为例显示「库存 30 件」）。未开启物理库存的租户展示与此一致——仅虚拟数量行。</p>
+<img class="img" src="shots/s04_stock_virtual_no_nearby.png" alt="纯虚拟变体-仅库存数量行无附近库存">
+<div class="imgcap">图 S4 · 纯虚拟变体：仅「库存 N 件」，无附近库存面板</div>
+<div class="warn"><b>口径说明：</b>已售罄按 <code>saleableStock=0</code> 判定显示缺货态；详情页只读不改库存，库存修正走后台库存管理 / 对账入口。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
