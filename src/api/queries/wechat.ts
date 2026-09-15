@@ -1,14 +1,7 @@
 import { getGraphQLClient } from '../client';
 
-export async function getJsapiSignature(url: string) {
-    const client = getGraphQLClient();
-    const res: any = await client.request(`query WechatJsapiSignature($url: String!) {
-        wechatJsapiSignature(url: $url) {
-            appId timestamp nonceStr signature
-        }
-    }`, { url });
-    return res.wechatJsapiSignature;
-}
+// 说明：getJsapiSignature 已弃用——微信 JS-SDK 签名改由 zhao-sso REST 接口提供（见 src/utils/wechat.ts），
+// 不再依赖 Vendure 的 wechatJsapiSignature 字段（e.joho.cn 上未暴露）。
 
 export async function getWxacode(scene: string, path?: string): Promise<{ contentType: string; base64: string }> {
     const client = getGraphQLClient();
