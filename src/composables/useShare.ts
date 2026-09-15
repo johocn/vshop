@@ -37,7 +37,7 @@ export function useShare(options: ShareOptions = {}) {
 }
 
 /** Share product detail */
-export function useProductShare(productName: string, slug: string, imageUrl?: string) {
+export function useProductShare(productName: string, slug: string, imageUrl?: string, desc?: string) {
     // #ifdef MP-WEIXIN
     useShare({
         title: productName,
@@ -46,6 +46,6 @@ export function useProductShare(productName: string, slug: string, imageUrl?: st
     });
     // #endif
     // #ifdef H5
-    useH5ProductShare(productName, slug, imageUrl);
+    useH5ProductShare(productName, slug, imageUrl, desc);
     // #endif
 }
