@@ -24,11 +24,42 @@ export function isWechatBrowser(): boolean {
     try { return /MicroMessenger/i.test(navigator.userAgent); } catch { return false; }
 }
 
-/** Initialize wx.config with backend signature */
+/** 从当前渠道 zhao-sso provider 取 JS-SDK 签名（与 youshop.cn 同款接口，多域名共用同一公众号签名） */
+async function fetchJssdkSignature(url: string): Promise<{ appId?: string; timestamp?: number; nonceStr?: string; signature?: string } | null> {
+    const { useTenantStore } = await import('../stores/tenant');
+    let tenant = useTenantStore();
+    let provider = tenant.ssoProviders.find((p) => p.protocol === 'zhao-sso');
+    // ssoProviders 通常仅在登录页加载；直接在分享页签名时懒加载一次后重试
+    if (!provider) {
+        try { await tenant.loadSsoProviders(); } catch { /* 忽略 */ }
+        provider = tenant.ssoProviders.find((p) => p.protocol === 'zhao-sso');
+    }
+    if (!provider?.baseUrl) {
+        console.warn('[wechat] signature: no zhao-sso provider baseUrl');
+        return null;
+    }
+    try {
+        const res = await fetch(`${provider.baseUrl}/v1/auth/jssdk-signature`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, appType: 'official_account' }),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (e) {
+        console.warn('[wechat] signature fetch failed:', e);
+        return null;
+    }
+}
+
+/** Initialize wx.config with zhao-sso signature */
 async function initWxConfig(): Promise<void> {
-    const { getJsapiSignature } = await import('../api/queries/wechat');
     const url = window.location.href.split('#')[0];
-    const sig = await getJsapiSignature(url);
+    const sig = await fetchJssdkSignature(url);
+    if (!sig?.signature) {
+        // 签名不可用时静默降级：抛错由 ensureWxReady 的调用方(catch)兜底
+        throw new Error('jssdk signature unavailable');
+    }
     wx.config({
         debug: false,
         appId: sig.appId,
