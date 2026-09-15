@@ -43,11 +43,13 @@ import { addItemToOrder } from '../../api/mutations/cart';
 import { useCartStore } from '../../stores/cart';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
+import { useTenantStore } from '../../stores/tenant';
 import { getActiveOrder } from '../../api/queries/order';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import ProductPoster from '../../components/product-poster/product-poster.vue';
 import { pickTranslation } from '../../utils/locale';
+import { stripHtmlToText, buildShareMeta } from '../../utils/html';
 import MpHtml from 'mp-html/dist/uni-app/components/mp-html/mp-html.vue';
 
 const product = ref<any>(null);
@@ -55,6 +57,7 @@ const selectedOptions = ref<Record<string, string>>({});
 const cart = useCartStore();
 const auth = useAuthStore();
 const ui = useUIStore();
+const tenant = useTenantStore();
 const showPoster = ref(false);
 
 let pendingAction: 'cart' | 'buy' | null = null;
@@ -92,7 +95,22 @@ onMounted(async () => {
         }
     } catch (e) { console.error(e); }
     // WeChat share
-    if (product.value) { useProductShare(product.value.name, slug, product.value.featuredAsset?.preview); }
+    if (product.value) {
+      const meta = buildShareMeta({
+        productName: product.value.name || '',
+        featureImage: product.value.featuredAsset?.preview || '',
+        assetsImages: (product.value.assets || []).map((a: any) => a.preview).filter(Boolean),
+        textDescription: stripHtmlToText(pickTranslation(product.value.translations || [])),
+        shareImageUrl: tenant.shareImageUrl || '',
+        shopName: tenant.shopName || '',
+        shopIntro: tenant.shopIntro || '',
+        origin: window.location.origin,
+        defaultImage: '/static/share-default.jpg',
+        defaultTitle: 'VShop - 精选好物',
+        defaultDesc: '精选好物推荐',
+      });
+      useProductShare(meta.title, slug, meta.imgUrl, meta.desc);
+    }
 });
 
 function selectOption(groupId: string, optionId: string) {

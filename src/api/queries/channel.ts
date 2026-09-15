@@ -56,6 +56,7 @@ export async function resolveChannelByCode(code: string) {
                 shopContent
                 displayTemplate
                 themeId
+                shareImageUrl
             }
         }
     }`, { code });

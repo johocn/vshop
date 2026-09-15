@@ -41,6 +41,7 @@ export const useTenantStore = defineStore('tenant', () => {
     const shopLogo = ref('');
     const shopIntro = ref('');
     const servicePhone = ref('');
+    const shareImageUrl = ref('');
 
     const tenantName = computed(() => shopName.value || tenantCode.value);
 
@@ -112,6 +113,7 @@ export const useTenantStore = defineStore('tenant', () => {
                 shopLogo.value = cf.shopLogo || '';
                 shopIntro.value = cf.shopIntro || '';
                 servicePhone.value = cf.servicePhone || '';
+                shareImageUrl.value = cf.shareImageUrl || '';
                 templateCode.value = cf.displayTemplate || 'default';
                 shopContent.value = parseShopContent(cf.shopContent);
                 uni.setStorageSync('tenant_code', data.code);
@@ -128,6 +130,7 @@ export const useTenantStore = defineStore('tenant', () => {
         shopLogo.value = '';
         shopIntro.value = '';
         servicePhone.value = '';
+        shareImageUrl.value = '';
     }
 
     async function switchTenant(code: string) {
@@ -180,7 +183,7 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, shopContent, shopName, shopLogo, shopIntro, servicePhone,
+        tenantReady, shopContent, shopName, shopLogo, shopIntro, servicePhone, shareImageUrl,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };

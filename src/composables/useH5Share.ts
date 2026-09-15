@@ -27,7 +27,7 @@ export function useH5Share(options: H5ShareOptions = {}) {
     ensureWxReady().then(() => {
         const shareData = {
             title: options.title || defaultTitle,
-            desc: options.desc || '',
+            desc: options.desc || '精选好物推荐',
             link: buildShareLink(options.link || defaultLink),
             imgUrl: options.imageUrl || '',
         };
@@ -40,11 +40,11 @@ export function useH5Share(options: H5ShareOptions = {}) {
     }).catch((e: any) => console.warn('[useH5Share] init failed:', e));
 }
 
-export function useH5ProductShare(productName: string, slug: string, imageUrl?: string) {
+export function useH5ProductShare(productName: string, slug: string, imageUrl?: string, desc?: string) {
     const base = window.location.origin + '/#/pkg-product/pages/detail?slug=' + slug;
     useH5Share({
         title: productName,
-        desc: 'VShop 精选好物推荐',
+        desc,
         link: base,
         imageUrl,
     });
