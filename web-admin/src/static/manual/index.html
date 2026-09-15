@@ -788,7 +788,23 @@ var CHAPTERS = [
 <p>开启物理库存租户内的<mark class="mark">纯虚拟变体</mark>（未绑定任何物理仓）只显示虚拟库存数量，<mark class="mark">不出现附近库存面板</mark>（以「国信南山温泉节假日房间」为例显示「库存 30 件」）。未开启物理库存的租户展示与此一致——仅虚拟数量行。</p>
 <img class="img" src="shots/s04_stock_virtual_no_nearby.png" alt="纯虚拟变体-仅库存数量行无附近库存">
 <div class="imgcap">图 S4 · 纯虚拟变体：仅「库存 N 件」，无附近库存面板</div>
-<div class="warn"><b>口径说明：</b>已售罄按 <code>saleableStock=0</code> 判定显示缺货态；详情页只读不改库存，库存修正走后台库存管理 / 对账入口。</div>`}
+<div class="warn"><b>口径说明：</b>已售罄按 <code>saleableStock=0</code> 判定显示缺货态；详情页只读不改库存，库存修正走后台库存管理 / 对账入口。</div>`},
+
+{book:'op', id:'op-21', title:'微信分享兜底：标题 / 描述 / 主图', html:`
+<p class="lead">微信内转发商品详情页到好友或朋友圈时，分享卡片的<mark class="mark">标题 / 描述 / 主图</mark>各自按<mark class="mark">逐级兜底链</mark>取值：商品信息缺失时依次回退到店铺级配置，再回退到内置默认值，保证<mark class="mark">任何商品转发出去的分享卡片都完整可用</mark>（不会出现空白图 / 空描述 / 带 HTML 标签的乱码）。</p>
+<h3>逐级兜底链</h3>
+<div class="card"><b>标题</b>：商品名 → 店铺名 → 内置站点名。<br/><b>描述</b>：商品描述（<mark class="mark">自动过滤 HTML 标签</mark>，截取前 100 字）→ 店铺简介 → 内置推荐语。<br/><b>主图</b>：商品主图 → 商品相册首图 → <mark class="mark">店铺默认分享图</mark> → 内置默认图。</div>
+<h3>配置入口：店铺默认分享图</h3>
+<p>后台<mark class="mark">店铺信息</mark>页提供<mark class="mark">「默认分享图」</mark>配置单元：选择图片后点保存即持久化。商品<mark class="mark">无主图且无相册图</mark>时，微信转发使用此店级图片作为卡片主图；留空则回退内置默认图。</p>
+<img class="img" src="shots/r16_share_default_cfg.png" alt="店铺信息页-默认分享图配置">
+<div class="imgcap">图 R16 · 店铺信息页「默认分享图」配置（MediaPicker 选图保存）</div>
+<h3>商品详情页分享效果</h3>
+<p>以有主图商品转发为例：卡片用<mark class="mark">商品主图</mark>，描述为<mark class="mark">过滤 HTML 后的纯文本介绍</mark>。无图商品则自动落到店铺默认分享图或内置默认图。</p>
+<img class="img" src="shots/r17_vshop_share.png" alt="vshop 商品详情分享兜底">
+<div class="imgcap">图 R17 · vshop 商品详情页分享取值（主图 + 纯文本描述）</div>
+<img class="img" src="shots/r18_nshop_share.png" alt="nshop 商品详情分享兜底">
+<div class="imgcap">图 R18 · nshop 商品详情页分享取值（主图 + 纯文本描述）</div>
+<div class="warn"><b>说明：</b>描述过滤对 <code>&lt;p&gt;/&lt;b&gt;/&lt;img&gt;</code> 等富文本一律剥离并解码实体，天然避免 HTML 乱码；分享动作本身由微信 JSSDK 触发，此处保证各取值的兜底完整性。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
