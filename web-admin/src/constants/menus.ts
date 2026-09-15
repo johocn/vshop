@@ -64,6 +64,10 @@ export const menuGroups: MenuGroup[] = [
     grad: D.d4.grad,
     items: [
       { label: '首页装修', url: '/pages/decorate/home/index', tier: 1 },
+      { label: '详情页装修', url: '/pages/decorate/product/index', tier: 2 },
+      { label: '分类页装修', url: '/pages/decorate/category/index', tier: 2 },
+      { label: '购物车页装修', url: '/pages/decorate/cart/index', tier: 2 },
+      { label: '我的页装修', url: '/pages/decorate/profile/index', tier: 2 },
       { label: '主题风格', url: '/pages/decorate/theme/index', tier: 3 },
       { label: '店铺信息', url: '/pages/decorate/shop-info/index', tier: 3 },
     ],
@@ -113,6 +117,12 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   }
   if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
     items.push({ label: '房型模板库', url: '/pages/platform/room-templates/index', tier: 3 });
+  }
+  if (auth.isSuperAdmin || auth.hasPermission('ShopTemplatesRead')) {
+    items.push({ label: '风格模板库', url: '/pages/platform/templates/index', tier: 3 });
+  }
+  if (auth.isSuperAdmin || auth.hasPermission('ShopTemplatesUpdate')) {
+    items.push({ label: '全局配置', url: '/pages/platform/global-config/index', tier: 3 });
   }
   if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
     items.push({ label: '商品审批', url: '/pages/platform/product-approval/index', tier: 3 });

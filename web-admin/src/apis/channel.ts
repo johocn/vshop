@@ -27,6 +27,12 @@ export interface ChannelCustomFields {
   // 促销/服务方案库 JSON 字符串（[{code,text:{zh_Hans,en}}]）
   promoSchemes?: string;
   serviceSchemes?: string;
+  // 店铺引用的风格模板 id（模板库 shop-template-plugin 的 ShopTemplate）
+  templateId?: string;
+  // 分类/购物车/我的 页面装修 JSON 字符串（web-admin 装修表单写入）
+  pageCategoryConfig?: string;
+  pageCartConfig?: string;
+  pageProfileConfig?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -40,7 +46,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode detailConfig promoSchemes serviceSchemes }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode detailConfig promoSchemes serviceSchemes templateId pageCategoryConfig pageCartConfig pageProfileConfig }
       }
     }`,
   );
