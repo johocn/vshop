@@ -52,6 +52,28 @@
       <view class="hint">详情页版式：经典 / 楼层 / 双买 / 酒店（酒店版式需商品变体已配置 hotelRoomConfig，否则回退经典版式）。</view>
     </view>
     <view class="card">
+      <view class="img-title">风格模板（模板库选择，未选时用全局默认）</view>
+      <view class="tpl-wrap">
+        <view class="tpl" :class="{ added: !templateId }" @tap="templateId = ''">
+          <text class="tpl-zh">不使用模板</text>
+          <text class="tpl-en">global default</text>
+          <text class="tpl-plus">{{ !templateId ? '✓' : '' }}</text>
+        </view>
+        <view
+          class="tpl"
+          :class="{ added: templateId === t.id }"
+          v-for="t in enabledTemplates"
+          :key="t.id"
+          @tap="templateId = t.id"
+        >
+          <text class="tpl-zh">{{ t.name }}</text>
+          <text class="tpl-en">{{ appLabel(t.app) }} · v{{ t.version }}</text>
+          <text class="tpl-plus">{{ templateId === t.id ? '✓' : '' }}</text>
+        </view>
+      </view>
+      <text v-if="!enabledTemplates.length" class="hint-inline">暂无启用中的模板，可先到「平台 → 风格模板库」新建。</text>
+    </view>
+    <view class="card">
       <view class="img-title">促销方案库（频道默认；商品可覆盖）</view>
       <view class="tpl-wrap">
         <view
@@ -103,9 +125,10 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { templateApi, type ShopTemplate } from '../../../apis/template';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 import { fetchAssets } from '../../../apis/asset';
 import MediaPicker from '../../../components/MediaPicker.vue';
@@ -115,6 +138,13 @@ const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePh
 });
 const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
+const templateId = ref('');
+const templateList = ref<ShopTemplate[]>([]);
+const enabledTemplates = computed(() => templateList.value.filter((t) => t.enabled));
+
+function appLabel(a: string): string {
+  return a === 'vshop' ? 'vshop' : 'nshop';
+}
 
 function onShareImageChange(ids: string[]) {
   shareImageIds.value = ids;
@@ -179,8 +209,10 @@ onMounted(async () => {
   channelId = ch.id;
   const cf = ch.customFields as any;
   rawDetailConfig = cf.detailConfig ?? '';
+  templateId.value = cf.templateId ?? '';
   promoSchemes.value = loadSchemeList(cf.promoSchemes);
   serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
+  templateApi.list().then((list) => { templateList.value = list; }).catch(() => {});
   let style = 'classic';
   let layout = 'classic';
   if (rawDetailConfig) {
@@ -217,6 +249,7 @@ async function save() {
   cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
   payload.shareImageUrl = shareImageUrl.value || null;
+  payload.templateId = templateId.value || null;
   payload.promoSchemes = toSchemePayload(promoSchemes.value);
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
@@ -268,8 +301,8 @@ function safeParse(raw: string): any {
     background: $wa-card;
     .tpl-en { font-size: 22rpx; color: $wa-muted; }
     .tpl-plus { color: $wa-accent; font-size: 26rpx; }
-    &.added { background: $wa-bg; color: $wa-muted; border-style: dashed; }
-    &.added .tpl-plus { color: $wa-muted; }
+    &.added { background: rgba(255, 102, 0, 0.08); color: $wa-ink; border-color: $wa-accent; border-style: solid; }
+    &.added .tpl-plus { color: $wa-accent; }
   }
   .add { margin: 16rpx 0 24rpx; color: $wa-accent; font-size: 28rpx; }
   .save { margin-top: 48rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
