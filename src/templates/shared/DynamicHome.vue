@@ -19,7 +19,7 @@ import GoodsSection from './sections/GoodsSection.vue';
 import RichTextSection from './sections/RichTextSection.vue';
 
 const tenantStore = useTenantStore();
-const sections = computed(() => tenantStore.shopContent?.sections || []);
+const sections = computed(() => tenantStore.mergedShopContent?.sections || tenantStore.shopContent?.sections || []);
 
 const componentMap: Record<string, any> = {
   banner: BannerSection,

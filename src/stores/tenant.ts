@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode } from '../api/queries/channel';
+import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode, getShopTemplate, getShopGlobalConfig } from '../api/queries/channel';
 import { parseShopContent, ShopContent } from '../templates/shared/schema';
+import { mergeThemeTokens, mergePageConfig, ThemeTokens } from '../utils/merge-config';
 
 interface SsoProviderInfo {
     name: string;
@@ -37,6 +38,9 @@ export const useTenantStore = defineStore('tenant', () => {
     const ssoProviders = ref<SsoProviderInfo[]>([]);
     const tenantReady = ref(false);
     const shopContent = ref<ShopContent | null>(null);
+    const rawShopContent = ref<string | null>(null);
+    const themeTokens = ref<ThemeTokens>({});
+    const mergedShopContent = ref<ShopContent | null>(null);
     const shopName = ref('');
     const shopLogo = ref('');
     const shopIntro = ref('');
@@ -115,7 +119,9 @@ export const useTenantStore = defineStore('tenant', () => {
                 servicePhone.value = cf.servicePhone || '';
                 shareImageUrl.value = cf.shareImageUrl || '';
                 templateCode.value = cf.displayTemplate || 'default';
+                rawShopContent.value = cf.shopContent || null;
                 shopContent.value = parseShopContent(cf.shopContent);
+                await loadTemplateConfig();
                 uni.setStorageSync('tenant_code', data.code);
                 return;
             }
@@ -126,11 +132,40 @@ export const useTenantStore = defineStore('tenant', () => {
         token.value = 'default-token';
         templateCode.value = 'default';
         shopContent.value = null;
+        rawShopContent.value = null;
+        themeTokens.value = {};
+        mergedShopContent.value = null;
         shopName.value = '';
         shopLogo.value = '';
         shopIntro.value = '';
         servicePhone.value = '';
         shareImageUrl.value = '';
+    }
+
+    // 模板库五级合并：L1 全局配置 → L2 风格模板 → L3 店铺覆盖（channel customFields）
+    async function loadTemplateConfig() {
+        try {
+            const [tplRes, cfgRes] = await Promise.all([
+                getShopTemplate('vshop'),
+                getShopGlobalConfig('vshop'),
+            ]);
+            const template: any = tplRes?.shopTemplate ?? null;
+            const globalConfig: any = cfgRes?.shopGlobalConfig ?? null;
+            themeTokens.value = mergeThemeTokens(globalConfig, template);
+            const merged = mergePageConfig(
+                globalConfig,
+                template,
+                { shopContent: rawShopContent.value },
+                'home',
+            );
+            const sections = merged?.sections;
+            mergedShopContent.value =
+                Array.isArray(sections) && sections.length
+                    ? { version: 1, sections: sections as any[] }
+                    : null;
+        } catch (e) {
+            console.warn('[tenant] loadTemplateConfig failed', e);
+        }
     }
 
     async function switchTenant(code: string) {
@@ -183,7 +218,8 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, shopContent, shopName, shopLogo, shopIntro, servicePhone, shareImageUrl,
+        tenantReady, shopContent, rawShopContent, themeTokens, mergedShopContent,
+        shopName, shopLogo, shopIntro, servicePhone, shareImageUrl,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };

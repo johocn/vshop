@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onLaunch } from '@dcloudio/uni-app';
+import { watch } from 'vue';
 import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
@@ -7,11 +8,36 @@ import { setupRouteGuard } from './composables/useAuthGuard';
 import { getActiveOrder } from './api/queries/order';
 import { setSessionToken } from './api/client';
 
+// 模板库主题令牌 → 根节点 CSS 变量（H5；小程序由 uni.scss 兜底编译色）
+function applyThemeTokens(tokens: Record<string, any>) {
+    // #ifdef H5
+    const el = document.documentElement;
+    if (!el) return;
+    if (tokens.primaryColor) {
+        el.style.setProperty('--brand-color', tokens.primaryColor);
+        el.style.setProperty('--theme-primary', tokens.primaryColor);
+    }
+    if (tokens.accentColor) {
+        el.style.setProperty('--brand-color-light', tokens.accentColor);
+        el.style.setProperty('--theme-accent', tokens.accentColor);
+    }
+    if (tokens.radius !== undefined && tokens.radius !== '') {
+        el.style.setProperty('--theme-radius', String(tokens.radius));
+    }
+    // #endif
+}
+
 onLaunch(async (options: any) => {
     console.log('App Launch');
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
     const cartStore = useCartStore();
+
+    watch(
+        () => tenantStore.themeTokens,
+        (tokens) => applyThemeTokens(tokens || {}),
+        { immediate: true },
+    );
 
     // Initialize tenant from domain or URL (async)
     await tenantStore.initTenant();
