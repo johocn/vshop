@@ -117,6 +117,9 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   if (auth.isSuperAdmin || auth.hasPermission('UpdateProduct')) {
     items.push({ label: '商品审批', url: '/pages/platform/product-approval/index', tier: 3 });
   }
+  if (auth.isSuperAdmin || auth.hasPermission('ReadOrder')) {
+    items.push({ label: '四流对账', url: '/pages/platform/reconcile/index', tier: 3 });
+  }
   if (!items.length) return null;
   return { domain: '平台', color: D.d7.main, grad: D.d7.grad, items };
 }

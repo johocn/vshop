@@ -39,7 +39,8 @@
     { "path": "pages/platform/roles/index", "style": { "navigationBarTitleText": "角色管理" } },
     { "path": "pages/platform/members/index", "style": { "navigationBarTitleText": "人员管理" } },
     { "path": "pages/platform/room-templates/index", "style": { "navigationBarTitleText": "房型模板库" } },
-    { "path": "pages/platform/product-approval/index", "style": { "navigationBarTitleText": "商品上架审批" } }
+    { "path": "pages/platform/product-approval/index", "style": { "navigationBarTitleText": "商品上架审批" } },
+    { "path": "pages/platform/reconcile/index", "style": { "navigationBarTitleText": "四流对账" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
