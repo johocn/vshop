@@ -61,3 +61,31 @@ export async function resolveChannelByCode(code: string) {
         }
     }`, { code });
 }
+
+export async function getShopTemplate(app: string) {
+    const client = getGraphQLClient();
+    return client.request(`query GetShopTemplate($app: String!) {
+        shopTemplate(app: $app) {
+            id
+            name
+            app
+            theme
+            pages
+            version
+            enabled
+            updatedAt
+        }
+    }`, { app });
+}
+
+export async function getShopGlobalConfig(app: string) {
+    const client = getGraphQLClient();
+    return client.request(`query GetShopGlobalConfig($app: String!) {
+        shopGlobalConfig(app: $app) {
+            id
+            app
+            themeTokens
+            defaults
+        }
+    }`, { app });
+}

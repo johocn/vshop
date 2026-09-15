@@ -22,7 +22,7 @@ const authStore = useAuthStore();
 const { templateCode } = tenantStore;
 const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
-const hasShopContent = computed(() => !!tenantStore.shopContent?.sections?.length);
+const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
 const templateMap: Record<string, any> = { default: DefaultHome, fresh: FreshHome, marketplace: MarketplaceHome };
 const currentHome = computed(() => templateMap[templateCode] || DefaultHome);
 

@@ -1,6 +1,7 @@
 /* Theme Variables */
-$brand-color: #ff6600;
-$brand-color-light: #fff3e6;
+/* 品牌色走 CSS 变量（运行时由模板库主题令牌注入），未注入时兜底默认橙 */
+$brand-color: var(--brand-color, #ff6600);
+$brand-color-light: var(--brand-color-light, #fff3e6);
 $text-color: #333333;
 $text-color-secondary: #666666;
 $text-color-placeholder: #999999;
