@@ -5,6 +5,12 @@
 // 授权：租户管理员/superadmin 均有 Permission.UpdateOrder
 import { getAdminClient, graphQlErrorMsg } from './client';
 
+export interface PendingRedemptionLine {
+  name: string;
+  quantity: number;
+  lineTotalWithTax: number;
+}
+
 export interface PendingRedemption {
   orderId: string;
   orderCode: string;
@@ -17,6 +23,8 @@ export interface PendingRedemption {
   paymentType?: string | null;
   /** 是否已确认到店收款 */
   collected?: boolean;
+  /** 本单交付商品清单 */
+  lines: PendingRedemptionLine[];
 }
 
 export interface RedemptionOrder {
@@ -64,9 +72,12 @@ export function isCodPaymentType(paymentType?: string | null): boolean {
   return !!paymentType && IS_COD_CODES.includes(paymentType);
 }
 
-const PENDING_FIELDS = 'orderId orderCode code status expiresAt version claimed paymentType collected';
+const PENDING_FIELDS =
+  'orderId orderCode code status expiresAt version claimed paymentType collected lines { name quantity lineTotalWithTax }';
 
-export async function fetchPendingRedemptions(take = 100): Promise<PendingRedemption[]> {
+export async function fetchPendingRedemptions(
+  take = 100,
+): Promise<{ items: PendingRedemption[]; totalItems: number }> {
   const res = await getAdminClient().request<{
     myPendingRedemptions: { items: PendingRedemption[]; totalItems: number };
   }>(
@@ -78,7 +89,10 @@ export async function fetchPendingRedemptions(take = 100): Promise<PendingRedemp
     }`,
     { options: { take, skip: 0 } },
   );
-  return res.myPendingRedemptions?.items ?? [];
+  return {
+    items: res.myPendingRedemptions?.items ?? [],
+    totalItems: res.myPendingRedemptions?.totalItems ?? 0,
+  };
 }
 
 export async function lookupRedemption(
