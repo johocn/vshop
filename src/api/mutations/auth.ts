@@ -20,7 +20,7 @@ function getAuthHeaders(): Record<string, string> {
     const authStore = useAuthStore();
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'vendure-channel-token': tenantStore.token,
+        'vendure-token': tenantStore.token,
     };
     if (authStore.token) {
         headers['Authorization'] = 'Bearer ' + authStore.token;

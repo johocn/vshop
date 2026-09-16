@@ -43,7 +43,7 @@ export function getGraphQLClient(): GraphQLClient {
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
     const headers: Record<string, string> = {
-        'vendure-channel-token': tenantStore.token,
+        'vendure-token': tenantStore.token,
     };
     if (authStore.token) {
         headers['Authorization'] = 'Bearer ' + authStore.token;
