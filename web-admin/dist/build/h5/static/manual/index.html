@@ -804,7 +804,57 @@ var CHAPTERS = [
 <div class="imgcap">图 R17 · vshop 商品详情页分享取值（主图 + 纯文本描述）</div>
 <img class="img" src="shots/r18_nshop_share.png" alt="nshop 商品详情分享兜底">
 <div class="imgcap">图 R18 · nshop 商品详情页分享取值（主图 + 纯文本描述）</div>
-<div class="warn"><b>说明：</b>描述过滤对 <code>&lt;p&gt;/&lt;b&gt;/&lt;img&gt;</code> 等富文本一律剥离并解码实体，天然避免 HTML 乱码；分享动作本身由微信 JSSDK 触发，此处保证各取值的兜底完整性。</div>`}
+<div class="warn"><b>说明：</b>描述过滤对 <code>&lt;p&gt;/&lt;b&gt;/&lt;img&gt;</code> 等富文本一律剥离并解码实体，天然避免 HTML 乱码；分享动作本身由微信 JSSDK 触发，此处保证各取值的兜底完整性。</div>`},
+
+{book:'op', id:'op-22', title:'首页「城市 · 配送」过滤与风格配置', html:`
+<p class="lead">首页商品按<mark class="mark">当前城市 × 配送方式</mark>实时过滤：每个商品声明<mark class="mark">配送方式</mark>（仅邮寄 / 仅自提 / 两者均可，<code>deliveryMethods</code>）与<mark class="mark">服务城市</mark>（邮寄看 <code>serviceCities</code>，空 = 全城；自提看 <code>belongCity</code> 精确匹配）。未选择城市时不过滤。过滤条支持<mark class="mark">segmented（胶囊）/ tabs（下划线）</mark>两种版式，由店铺装修配置（<code>shopContent.filter</code>）控制。</p>
+<h3>邮寄 / 自提切换（以北京为例）</h3>
+<p>进入首页默认<mark class="mark">邮寄</mark>：自提-only 商品（温泉工作日门票，belongCity=长春）在「北京 · 邮寄」下自动隐藏，全国可寄的邮寄品正常展示。</p>
+<img class="img" src="shots/f1_s1_home_beijing_mail.png" alt="首页-北京邮寄-自提only商品隐藏">
+<div class="imgcap">图 F1 · 北京 · 邮寄：自提-only 商品隐藏，邮寄品可见</div>
+<p>点击过滤条「自提」切换配送方式：北京无自提门店 → 商品列表<mark class="mark">空态</mark>，提示「当前城市/配送方式下暂无可用商品」。</p>
+<img class="img" src="shots/f1_s2_home_beijing_pickup.png" alt="首页-北京自提-空态提示">
+<div class="imgcap">图 F2 · 北京 · 自提：无自提门店 → 空态提示</div>
+<h3>多语言（英文）</h3>
+<p>切换英文（<code>/en</code>）后，过滤条按钮与空态文案自动翻译：<mark class="mark">Mail / Self Pickup</mark>、<mark class="mark">No products available for your city / delivery method</mark>。</p>
+<img class="img" src="shots/f1_s3_home_en_pickup.png" alt="首页-英文-自提过滤与空态翻译">
+<div class="imgcap">图 F3 · 英文首页：Self Pickup 过滤条 + 翻译空态</div>
+<h3>正向切换（以长春为例）</h3>
+<p>切换到长春并选「自提」：自提-only 商品（温泉工作日门票，belongCity=长春）出现，仅邮寄品（黄金珠宝）隐藏——城市与配送双重过滤双向成立。</p>
+<img class="img" src="shots/f1_s4_home_changchun_pickup.png" alt="首页-长春自提-自提only商品出现">
+<div class="imgcap">图 F4 · 长春 · 自提：自提-only 商品出现、仅邮寄品隐藏</div>
+<h3>风格配置（segmented / tabs / 关闭）</h3>
+<p>店铺装修配置 <code>shopContent.filter</code> 支持三档：<code>bar.variant="tabs"</code> 切换为下划线页签样式（激活项橙色下划线）；<code>enabled=false</code> 关闭过滤（无过滤条、商品全量展示）；默认配置为 segmented + 邮寄 + 开启。</p>
+<img class="img" src="shots/f2_v1_tabs_style.png" alt="首页过滤条-tabs下划线版式">
+<div class="imgcap">图 F5 · tabs 下划线版式（激活「邮寄」橙色下划线）</div>
+<img class="img" src="shots/f2_v2_filter_disabled.png" alt="首页过滤条-关闭过滤全量展示">
+<div class="imgcap">图 F6 · 关闭过滤：无过滤条、全量商品展示</div>
+<div class="note"><b>配置说明：</b>过滤配置走五级合并（全局默认 → 全局配置 → 风格模板 → 店铺 <code>shopContent</code> → 页面内建默认），店铺未配置时回退全局默认（segmented + 邮寄 + 开启）。</div>`},
+
+{book:'op', id:'op-23', title:'详情页配送口径切换 + 租户网点管理', html:`
+<p class="lead">商品详情页新增<mark class="mark">「邮寄 / 自提」配送切换</mark>：库存数字随口径联动——<mark class="mark">邮寄 = 可发仓 + 虚拟可售</mark>、<mark class="mark">自提 = 可自提点合计</mark>。后台（web-admin）<mark class="mark">网点管理</mark>支持创建 / 编辑 / 删除租户物理网点，并为网点声明<mark class="mark">配送方式三态</mark>（仅邮寄 / 仅自提 / 两者，空 = 两者都支持）。</p>
+<h3>详情页配送切换与库存口径</h3>
+<p>双模式商品（配送方式未配置 = 两者都支持）在详情页显示切换条：默认<mark class="mark">邮寄</mark>，库存行显示「库存 N 件」（邮寄可发口径）。</p>
+<img class="img" src="shots/f3_p1_detail_mail.png" alt="详情页-邮寄口径库存">
+<div class="imgcap">图 F7 · 详情页默认邮寄：库存「库存 196 件」</div>
+<p>点「自提」切换后，库存行切换为<mark class="mark">自提口径</mark>（自提点合计 + 「自提」语义标签）。单模式商品不显示切换条并强制到该口径。</p>
+<img class="img" src="shots/f3_p2_detail_pickup.png" alt="详情页-自提口径库存">
+<div class="imgcap">图 F8 · 切换自提：库存行切为自提口径</div>
+<h3>网点管理（web-admin）</h3>
+<p>入口：租户后台 → 网点管理。列表展示网点名称、仓库性质、配送方式与城市范围，右侧提供编辑 / 删除。</p>
+<img class="img" src="shots/s05_locations_list.png" alt="网点管理-列表">
+<div class="imgcap">图 F9 · 网点管理列表（名称 / 性质 / 配送方式 / 城市）</div>
+<p>「新建网点」进入表单：填写网点名称、<mark class="mark">配送方式多选</mark>（邮寄 / 自提）、城市与坐标（坐标用于就近距离计算）。</p>
+<img class="img" src="shots/s06_location_edit_form.png" alt="网点管理-新建表单">
+<div class="imgcap">图 F10 · 新建网点表单（配送方式多选 + 城市 + 坐标）</div>
+<img class="img" src="shots/s06b_location_form_filled.png" alt="网点管理-表单已填写">
+<div class="imgcap">图 F11 · 表单填写完成（名称 / 配送方式 / 长春 / 坐标）</div>
+<p>保存后返回列表，新网点即时出现；删除需弹层确认，删除后网点从列表移除。网点与商品配送过滤、库存分配查询同源（<code>deliveryMethods</code> 三态）。</p>
+<img class="img" src="shots/s07_locations_with_item.png" alt="网点管理-保存后新网点出现在列表">
+<div class="imgcap">图 F12 · 保存后新网点出现在列表</div>
+<img class="img" src="shots/s08_locations_after_delete.png" alt="网点管理-删除后列表">
+<div class="imgcap">图 F13 · 删除确认后网点从列表移除</div>
+<div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */

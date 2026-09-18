@@ -33,7 +33,8 @@
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { useTenantStore } from '../../../stores/tenantStore';
 import { fetchLocations, deleteLocation, type LocationRow } from '../../../apis/inventory';
 
@@ -75,13 +76,15 @@ async function reload() {
   all.value = await fetchLocations();
 }
 
-onMounted(reload);
+// onShow 每次页面显示都刷新（新建/编辑返回后能看到最新网点；onMounted 只执行一次）
+onShow(reload);
 
 function onCreate() {
-  uni.navigateTo({ url: '/pages/inventory/locations/edit/index' });
+  uni.navigateTo({ url: '/pages/inventory/locations/edit' });
 }
+
 function onEdit(s: LocationRow) {
-  uni.navigateTo({ url: `/pages/inventory/locations/edit/index?id=${s.id}` });
+  uni.navigateTo({ url: `/pages/inventory/locations/edit?id=${s.id}` });
 }
 
 function onDel(s: LocationRow) {
