@@ -30,6 +30,7 @@ export const menuGroups: MenuGroup[] = [
       { label: '＋新增商品', url: '/pages/product/create/index', tier: 1 },
       { label: '商品列表', url: '/pages/product/list/index', tier: 1 },
       { label: '库存预警', url: '/pages/inventory/stock/index', tier: 2 },
+      { label: '网点管理', url: '/pages/inventory/locations/index', tier: 2 },
       { label: '图片库', url: '/pages/media/library/index', tier: 3 },
     ],
   },

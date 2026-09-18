@@ -63,3 +63,74 @@ export async function adjustStock(
   );
   return setVariantStock;
 }
+
+// ---- 租户物理网点管理（方案3）：StockLocation customFields 由 cjk-plugin（kind/code/channelCode/deliveryMethods）
+//      与 logistics-plugin（lat/lng/serviceCities）共同声明，经 admin API 原样读写。 ----
+
+export interface LocationRow {
+  id: string;
+  name: string;
+  description: string | null;
+  customFields?: {
+    channelCode?: string | null;
+    deliveryMethods?: string[] | null;
+    lat?: number | null;
+    lng?: number | null;
+    serviceCities?: string[] | null;
+    kind?: string | null;
+    code?: string | null;
+  } | null;
+}
+
+export interface LocationInput {
+  name: string;
+  customFields?: {
+    channelCode?: string | null;
+    deliveryMethods?: string[] | null;
+    lat?: number | null;
+    lng?: number | null;
+    serviceCities?: string[] | null;
+  } | null;
+}
+
+export async function fetchLocations(): Promise<LocationRow[]> {
+  const { stockLocations } = await getAdminClient().request<{
+    stockLocations: { items: LocationRow[] };
+  }>(`query Locations {
+    stockLocations { items { id name description customFields } }
+  }`);
+  return stockLocations.items;
+}
+
+export async function createLocation(input: LocationInput): Promise<string> {
+  const { createStockLocation } = await getAdminClient().request<{
+    createStockLocation: { id: string };
+  }>(
+    `mutation CreateLocation($input: CreateStockLocationInput!) {
+      createStockLocation(input: $input) { id }
+    }`,
+    { input },
+  );
+  return createStockLocation.id;
+}
+
+export async function updateLocation(id: string, input: LocationInput): Promise<string> {
+  const { updateStockLocation } = await getAdminClient().request<{
+    updateStockLocation: { id: string };
+  }>(
+    `mutation UpdateLocation($input: UpdateStockLocationInput!) {
+      updateStockLocation(input: $input) { id }
+    }`,
+    { input: { id, ...input } },
+  );
+  return updateStockLocation.id;
+}
+
+export async function deleteLocation(id: string): Promise<void> {
+  await getAdminClient().request(
+    `mutation DeleteLocation($id: ID!) {
+      deleteStockLocation(id: $id) { result }
+    }`,
+    { id },
+  );
+}
