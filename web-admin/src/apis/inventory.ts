@@ -97,7 +97,7 @@ export async function fetchLocations(): Promise<LocationRow[]> {
   const { stockLocations } = await getAdminClient().request<{
     stockLocations: { items: LocationRow[] };
   }>(`query Locations {
-    stockLocations { items { id name description customFields } }
+    stockLocations { items { id name description customFields { channelCode deliveryMethods lat lng serviceCities kind code } } }
   }`);
   return stockLocations.items;
 }
@@ -128,9 +128,9 @@ export async function updateLocation(id: string, input: LocationInput): Promise<
 
 export async function deleteLocation(id: string): Promise<void> {
   await getAdminClient().request(
-    `mutation DeleteLocation($id: ID!) {
-      deleteStockLocation(id: $id) { result }
+    `mutation DeleteLocation($input: DeleteStockLocationInput!) {
+      deleteStockLocation(input: $input) { result }
     }`,
-    { id },
+    { input: { id } },
   );
 }
