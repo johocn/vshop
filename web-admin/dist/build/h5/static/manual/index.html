@@ -908,7 +908,51 @@ var CHAPTERS = [
 <p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
 <img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
 <div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
-<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-23）中定义。</div>`}
+<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-23）中定义。</div>`},
+
+{book:'op', id:'op-26', title:'多仓拆分发货（预留单）', html:`
+<p class="lead">物理仓多仓租户下单后自动生成<mark class="mark">预留单</mark>；发货时订单行可按仓库拆分，各仓分别生成独立发货单（各自快递/运单号）。本节覆盖预留单的查看与拆分发货操作。</p>
+<h3>1. 查看预留单</h3>
+<p>入口：后台 → 订单 → 发货（或多仓订单详情）。系统按订单行展示各仓库应发数量与状态（待分配/已分配/已完成）。</p>
+<h3>2. 按仓库拆分发货</h3>
+<p>预留单存在时，发货页中每个订单行按仓库分组（出现仓库选择器），可分配到多个仓库，提交后逐仓生成独立发货单；各仓 SALE 后预留明细自动核销。当前示例为<mark class="mark">无预留单/单仓视图</mark>：订单行直接显示可发数量与「＋/−」控件，不出现仓库选择器。</p>
+<img class="img" src="shots/r15_reservation_ship.png" alt="发货页-单仓视图">
+<div class="imgcap">图 R15 · 发货页（无预留单的单仓视图：可发数量/± 控件 + 快递公司 + 确认发货；预留单存在时此处按仓库分组出现仓库选择器）</div>
+<h3>3. 对账</h3>
+<p>预留单对账校验 Σ物理 − 虚拟 == Σ待发，偏差行会在预留单对账视图列出。</p>`},
+
+{book:'op', id:'op-27', title:'订单列表多版式', html:`
+<p class="lead">订单列表提供<mark class="mark">三套版式</mark>：经典 / 状态优先 / 按状态分组，顶部「版式」按钮可随时切换，选择会被记住（下次进入保持）。</p>
+<h3>1. 经典版式</h3>
+<p>现状的手机卡片 + 桌面表格，补齐配送方式全名与收货地址行。</p>
+<img class="img" src="shots/order_classic.png" alt="订单列表经典版式">
+<div class="imgcap">图 O1 · 经典版式（手机）</div>
+<h3>2. 状态优先版式</h3>
+<p>状态列/状态色前置，方便运维按状态快速扫描。</p>
+<img class="img" src="shots/order_status_first.png" alt="订单列表状态优先版式">
+<div class="imgcap">图 O2 · 状态优先版式（手机）</div>
+<h3>3. 按状态分组版式</h3>
+<p>手机按状态分组并显示组内小计；桌面左侧状态导航 + 右侧明细。</p>
+<img class="img" src="shots/order_status_group.png" alt="订单列表按状态分组版式">
+<div class="imgcap">图 O3 · 按状态分组版式（手机）</div>`},
+
+{book:'op', id:'op-28', title:'风格模板库管理', html:`
+<p class="lead">风格模板库支持<mark class="mark">版本历史/回滚</mark>、<mark class="mark">店铺引用可见性</mark>与<mark class="mark">合并预览</mark>（L1 全局配置→L2 模板→L3 店铺覆盖深合并），便于安全迭代店铺风格。</p>
+<h3>1. 列表引用徽标</h3>
+<p>模板列表行显示「引用 N 店」徽标；删除/停用被引用模板时会弹确认框并列出将回退的店铺。</p>
+<img class="img" src="shots/tpl_list_badges.png" alt="模板列表引用徽标">
+<div class="imgcap">图 T1 · 模板列表引用徽标</div>
+<h3>2. 历史版本与回滚</h3>
+<p>编辑弹层「历史版本」Tab 查看各版本快照（时间+备注），可预览 JSON 或一键回滚。</p>
+<img class="img" src="shots/tpl_history.png" alt="模板历史版本">
+<div class="imgcap">图 T2 · 历史版本 Tab</div>
+<h3>3. 合并预览</h3>
+<p>「合并预览」Tab 选择覆盖场景后生成最终合并 JSON，逐键标注来源 L1/L2/L3。</p>
+<img class="img" src="shots/tpl_preview.png" alt="模板合并预览">
+<div class="imgcap">图 T3 · 合并预览与键来源</div>
+<h3>4. 删除/停用警示</h3>
+<img class="img" src="shots/tpl_warn.png" alt="模板删除警示">
+<div class="imgcap">图 T4 · 删除被引用模板的确认警示</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */

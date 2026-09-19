@@ -1,0 +1,1 @@
+import{$ as e,a3 as t,R as o,a4 as s}from"./index-qlJasbMn.js";const a=e("tenant",{state:()=>({code:s(),token:o(),name:""}),actions:{selectCh(e,o){this.code=e.code,this.token=e.token,this.name=o??e.code,t(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{a as u};
