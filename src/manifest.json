@@ -1,6 +1,6 @@
 {
-    "name": "vshop",
-    "appid": "__UNI__VSHOP",
+    "name": "youshop",
+    "appid": "__UNI__YOUSHOP",
     "description": "Vendure C-End Storefront",
     "versionName": "1.0.0",
     "versionCode": "100",
