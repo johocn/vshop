@@ -854,7 +854,61 @@ var CHAPTERS = [
 <div class="imgcap">图 F12 · 保存后新网点出现在列表</div>
 <img class="img" src="shots/s08_locations_after_delete.png" alt="网点管理-删除后列表">
 <div class="imgcap">图 F13 · 删除确认后网点从列表移除</div>
-<div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`}
+<div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`},
+{book:'op', id:'op-24', title:'商品专属优惠券（绑定商品 + 凭码兑换）', html:`
+<p class="lead">优惠券支持<mark class="mark">绑定到指定商品（SKU）</mark>，详情页自动展示领券块；券模板可设置<mark class="mark">凭码兑换、仅限新客、有效天数</mark>等领取设置，买家在「我的券包」凭码兑换后，下单时<mark class="mark">仅绑定商品行享受折扣</mark>，非绑定商品行正常计价。</p>
+<h3>券模板「领取设置」（web-admin）</h3>
+<p>编辑券模板时，「领取设置」区可配置：<mark class="mark">凭码兑换</mark>（生成唯一兑换码，买家凭码领取）、<mark class="mark">仅限新客</mark>（有历史订单客户不可领）、<mark class="mark">有效天数</mark>（领后按天计过期）等；「领取设置」上方的「领取方式」决定是否公开展示。保存后 C 端立即生效。</p>
+<img class="img" src="shots/d2_05_admin_coupon_edit.png" alt="券模板编辑-领取设置区">
+<div class="imgcap">图 D5 · 券模板编辑：领取设置（凭码兑换 / 仅限新客 / 有效天数）</div>
+<h3>商品页「商品专属券」绑定（web-admin）</h3>
+<p>商品编辑页新增<mark class="mark">「商品专属券」区块</mark>：为商品选择模板并绑定，可指定<mark class="mark">适用规格（variantIds）</mark>、备注与排序。绑定后模板自动转为 SKU 范围；未指定规格 = 商品全部 SKU 可用。</p>
+<img class="img" src="shots/d2_06_admin_product_bind.png" alt="商品编辑-商品专属券绑定">
+<div class="imgcap">图 D6 · 商品编辑：商品专属券绑定（选模板 + 指定规格）</div>
+<h3>C 端：详情页领券</h3>
+<p>绑定商品详情页展示<mark class="mark">领券块</mark>（徽标 + 券名 + 门槛 + 领取按钮）。未领时显示「领取」，领取成功后按钮态切换为已领，买家可去「我的券包」查看。</p>
+<img class="img" src="shots/d2_01_detail_coupon_block.png" alt="详情页-商品专属券领券块">
+<div class="imgcap">图 D7 · 详情页领券块（商品专属券）</div>
+<img class="img" src="shots/d2_02_detail_coupon_claimed.png" alt="详情页-领券成功状态">
+<div class="imgcap">图 D8 · 领券成功后按钮态切换</div>
+<h3>C 端：领券中心凭码兑换</h3>
+<p>领券中心（我的券包内）提供<mark class="mark">凭码兑换</mark>入口：输入兑换码（如 <code>T2SKU08518</code>）点击兑换，校验通过后券即时入包。仅限新客的券，老客兑换会被拦截并提示。</p>
+<img class="img" src="shots/d2_03_coupon_centre_redeem.png" alt="领券中心-凭码兑换入口">
+<div class="imgcap">图 D9 · 领券中心凭码兑换入口</div>
+<img class="img" src="shots/d2_04_redeem_success.png" alt="凭码兑换成功-券入包">
+<div class="imgcap">图 D10 · 凭码兑换成功，券入包</div>
+<h3>下单结算：仅绑定行折扣</h3>
+<p>购物车同时含绑定商品与非绑定商品时，用券后<mark class="mark">折扣只作用于绑定商品行</mark>（如绑定行 88000×85%=74800），非绑定行 16800 正常计价不参与折扣——保证券不会误伤其他商品。</p>
+<div class="warn"><b>使用提示：</b>① 商品绑定的券默认仅该商品 SKU 可用；② 「仅限新客」以本租户是否有历史有效订单判定；③ 模板被商品绑定时不可直接删除，须先解绑。</div>`},
+
+{book:'op', id:'op-25', title:'库存单据操作手册（库存管理方式 / 采购 / 移库 / 盘库 / 出库 / 流水）', html:`
+<p class="lead">库存单据是租户对<mark class="mark">物理仓库存</mark>做增减调整的入口，配合<mark class="mark">店铺信息页的「库存管理方式」开关</mark>使用。本节覆盖：库存管理方式的含义、采购入库 / 移库 / 盘库 / 手动出库四类单据的操作步骤，以及<mark class="mark">库存流水</mark>的查看方式。</p>
+<h3>1. 库存管理方式（简单库存 / Odoo库存）</h3>
+<p>入口：租户后台 → <mark class="mark">店铺信息</mark> → <mark class="mark">库存管理方式</mark>。两种模式：<mark class="mark">简单库存</mark>（默认）= 由平台 Vendure 库存体系承载，用本手册所述单据调整仓库库存；<mark class="mark">Odoo库存（预留）</mark> = 预留的第三方 ERP 对接位，当前为占位，选中后可在下方填选<mark class="mark">Odoo 地址 / API Key</mark>（均选填）。一般租户保持「简单库存」即可。</p>
+<img class="img" src="shots/inv_shopinfo_toggle.png" alt="店铺信息-库存管理方式toggle">
+<div class="imgcap">图 I1 · 店铺信息页「库存管理方式」：简单库存 / Odoo库存（预留）选择</div>
+<h3>2. 采购入库（stock-doc/purchase）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">采购入库</mark>。用于向目标仓库补货入库。表单字段：</p>
+<ol class="steps">
+  <li><b>目标仓库 *</b>：选择本次入库的物理仓。</li>
+  <li><b>变体 ID (variantId) *</b>：填写入库的商品变体 ID（数字，如 42）。</li>
+  <li><b>采购数量 *</b>：入库数量，须大于 0。</li>
+  <li><b>成本价（分）</b>：选填，单位分为币种最小单位。</li>
+  <li>点底部<mark class="mark">「入库」</mark>提交，校验通过即写入库存流水。</li>
+</ol>
+<img class="img" src="shots/inv_purchase.png" alt="采购入库-表单">
+<div class="imgcap">图 I2 · 采购入库页：目标仓库 + 变体 ID + 数量 + 成本价</div>
+<h3>3. 移库（stock-doc/transfer）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">移库</mark>，用于在<mark class="mark">两个仓库之间调拨</mark>库存。字段：<mark class="mark">源仓库 *</mark>、<mark class="mark">目标仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">移库数量 *</mark>，点「移库」提交。</p>
+<h3>4. 盘库（stock-doc/stocktake）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">盘库</mark>，用于<mark class="mark">以盘点实数为准覆盖库存</mark>。字段：<mark class="mark">盘库仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">实盘数量 (realQty) *</mark>（按此值覆盖该仓库这一变体的库存），点「盘库」提交。适合盘点修正差异。</p>
+<h3>5. 手动出库（stock-doc/issue）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">手动出库</mark>，用于报损、领用等一般性出库。字段：<mark class="mark">源仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">出库数量 *</mark>，<mark class="mark">原因</mark>（选填，如 报损/领用），点「出库」提交。</p>
+<h3>6. 库存流水（movements）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
+<img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
+<div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
+<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-23）中定义。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
