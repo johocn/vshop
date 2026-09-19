@@ -72,6 +72,29 @@
         <textarea class="area" v-model="form.descEn" placeholder="选填"></textarea>
       </view>
 
+      <text class="lang-hd">领取设置</text>
+      <view class="field">
+        <text class="label">允许用户自行领取</text>
+        <switch :checked="form.claimable" @change="form.claimable = $event.detail.value" color="#2563eb" />
+      </view>
+      <view class="field">
+        <text class="label">凭码领券 <text class="opt">选填</text></text>
+        <input class="ipt" v-model="form.claimCode" placeholder="不填则不开放凭码兑换" />
+      </view>
+      <view class="field">
+        <text class="label">领取后 N 天内有效 <text class="opt">选填</text></text>
+        <input class="ipt" v-model="form.validDays" type="number" placeholder="如 30" />
+        <text class="tip">0/留空=按失效时间</text>
+      </view>
+      <view class="field">
+        <text class="label">仅限新客领取</text>
+        <switch :checked="form.newCustomerOnly" @change="form.newCustomerOnly = $event.detail.value" color="#2563eb" />
+      </view>
+      <view class="field">
+        <text class="label">会员等级限制 <text class="opt">选填</text></text>
+        <input class="ipt" v-model="form.memberLevel" placeholder="如 GOLD，留空不限" />
+      </view>
+
       <view class="field">
         <text class="label">是否可用</text>
         <switch :checked="form.enabled" @change="form.enabled = $event.detail.value" color="#2563eb" />
@@ -109,6 +132,11 @@ const form = ref({
   nameEn: '',
   descZh: '',
   descEn: '',
+  claimable: true,
+  claimCode: '',
+  validDays: '',
+  newCustomerOnly: false,
+  memberLevel: '',
   enabled: true,
 });
 
@@ -133,6 +161,8 @@ function buildInput(): CouponTemplateInput {
     type: f.type,
     discountValue,
     enabled: f.enabled,
+    claimable: f.claimable,
+    newCustomerOnly: f.newCustomerOnly,
   };
   if (f.descZh.trim() || f.descEn.trim()) {
     model.description = buildLocalized(f.descZh.trim(), f.descEn.trim()) as unknown as string;
@@ -144,6 +174,11 @@ function buildInput(): CouponTemplateInput {
   if (f.endsAt) model.endsAt = `${f.endsAt}T23:59:59.999Z`;
   model.totalCount = toInt(f.totalCount);
   model.perUserLimit = toInt(f.perUserLimit);
+  // 领取设置：空串/0 按后端语义不传（空 = 不限 / 按失效时间）
+  if (f.claimCode.trim()) model.claimCode = f.claimCode.trim();
+  const vd = f.validDays.trim();
+  if (vd && Number(vd) > 0) model.validDays = toInt(vd);
+  if (f.memberLevel.trim()) model.memberLevel = f.memberLevel.trim();
   return model;
 }
 
@@ -191,6 +226,11 @@ onMounted(async () => {
       nameEn: '',
       descZh: c.description || '',
       descEn: '',
+      claimable: c.claimable ?? true,
+      claimCode: c.claimCode || '',
+      validDays: c.validDays != null ? String(c.validDays) : '',
+      newCustomerOnly: c.newCustomerOnly ?? false,
+      memberLevel: c.memberLevel || '',
       enabled: c.enabled,
     };
   }
