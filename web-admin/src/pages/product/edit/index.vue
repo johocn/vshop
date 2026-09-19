@@ -40,7 +40,10 @@
         </picker>
         <view v-else-if="templatesLoading" class="bind-empty small">加载券模板中…</view>
         <view v-else-if="templatesFailed" class="bind-empty small" @tap="loadTemplates">券模板加载失败，点击重试</view>
-        <view v-else class="bind-empty small">暂无可用券模板，请先在优惠券管理中创建</view>
+        <view v-else class="bind-empty small">暂无可用券模板，请先创建</view>
+
+        <!-- 快捷建券：直接新建券模板并自动绑定本商品 -->
+        <view class="add-btn ghost" @tap="onQuickCreateTemplate">{{ bindBusy ? '处理中…' : '＋ 新建券模板并绑定本商品' }}</view>
       </view>
 
       <button class="save" @tap="doSave">保存</button>
@@ -50,6 +53,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import ProductForm from '../../../components/ProductForm.vue';
 import { fetchProductFull, updateProductFull, type ProductFull } from '../../../apis/product';
 import { fetchCollectionsOptimized } from '../../../apis/collection';
@@ -92,6 +96,12 @@ const pickTemplates = computed(() => {
   return templates.value.filter((t) => t.enabled && !boundIds.has(t.id));
 });
 const pickTemplateNames = computed(() => pickTemplates.value.map((t) => t.name));
+
+/** 快捷建券：跳到券模板编辑页（新建），返回后刷新绑定 */
+function onQuickCreateTemplate() {
+  if (bindBusy.value || !id.value) return;
+  uni.navigateTo({ url: `/pages/coupon/edit/index?productId=${id.value}` });
+}
 
 async function loadBindings() {
   if (!id.value) return;
@@ -242,6 +252,14 @@ onMounted(async () => {
   loadTemplates();
 });
 
+// 从快捷建券/优惠券管理页返回后刷新绑定与可选券模板
+onShow(() => {
+  if (id.value && loaded.value) {
+    loadBindings();
+    loadTemplates();
+  }
+});
+
 async function doSave() {
   if (!busy) await form.value?.submit?.();
 }
@@ -309,7 +327,9 @@ async function onSubmit(d: any) {
     .bind-empty { text-align: center; color: $wa-muted; font-size: 24rpx; padding: 40rpx 0;
       &.small { padding: 24rpx 0; font-size: 22rpx; }
     }
-    .add-btn { margin-top: 8rpx; text-align: center; border: 1rpx dashed $wa-rule; border-radius: $wa-radius; padding: 18rpx 0; font-size: 26rpx; color: $wa-accent; }
+    .add-btn { margin-top: 8rpx; text-align: center; border: 1rpx dashed $wa-rule; border-radius: $wa-radius; padding: 18rpx 0; font-size: 26rpx; color: $wa-accent;
+      &.ghost { border-style: solid; background: $wa-bg; color: $wa-muted; }
+    }
   }
   .empty {
     padding: 80rpx 0;

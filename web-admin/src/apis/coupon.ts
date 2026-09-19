@@ -16,7 +16,11 @@ export type CouponScope = 'ALL' | 'CATEGORY' | 'SKU';
 export interface CouponTemplateItem {
   id: string;
   name: string;
+  nameZh?: string | null;
+  nameEn?: string | null;
   description: string | null;
+  descZh?: string | null;
+  descEn?: string | null;
   type: CouponType;
   discountValue: number;
   minSpend: number;
@@ -62,7 +66,7 @@ export interface CouponTemplateInput {
   memberLevel?: string | null;
 }
 
-const FIELDS = `id name description type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId createdAt updatedAt`;
+const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId createdAt updatedAt`;
 
 const TYPE_LABEL: Record<CouponType, string> = {
   FIXED: '满减',

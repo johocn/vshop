@@ -111,11 +111,13 @@
 import { ref, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
-  fetchCouponTemplate, createCouponTemplate, updateCouponTemplate,
+  fetchCouponTemplate, createCouponTemplate, updateCouponTemplate, createProductCouponBinding,
   couponTypeLabel, buildLocalized, CouponType, CouponTemplateInput,
 } from '../../../apis/coupon';
 
 const id = ref<string | null>(null);
+// 支持「商品页快捷建券」：带 productId 时，新建的模板自动绑定到该商品
+const bindProductId = ref<string | null>(null);
 const typeKeys: CouponType[] = ['FIXED', 'PERCENT', 'FULL', 'FREE_SHIPPING'];
 const typeLabels = ['满减', '折扣', '直减', '免邮'];
 const typeLabel = (t: CouponType) => couponTypeLabel(t);
@@ -197,7 +199,11 @@ async function onSave() {
     if (id.value) {
       await updateCouponTemplate({ id: id.value, ...buildInput() });
     } else {
-      await createCouponTemplate(buildInput());
+      const newId = await createCouponTemplate(buildInput());
+      // 商品页快捷建券：新建成功后自动绑定到该商品（商品详情高亮展示）
+      if (bindProductId.value && newId) {
+        await createProductCouponBinding({ productId: bindProductId.value, couponTemplateId: newId, enabled: true, displayOrder: 0 });
+      }
     }
     uni.showToast({ title: '保存成功' });
     setTimeout(() => uni.navigateBack(), 600);
@@ -208,36 +214,38 @@ async function onSave() {
 
 onLoad((query: any) => {
   if (query?.id) id.value = query?.id as string;
+  if (query?.productId) bindProductId.value = query?.productId as string;
 });
 
 onMounted(async () => {
-  if (!id.value) return;
-  const c = await fetchCouponTemplate(id.value);
-  if (c) {
-    form.value = {
-      type: c.type,
-      discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
-      minSpendYuan: String((c.minSpend || 0) / 100),
-      startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',
-      endsAt: c.endsAt ? c.endsAt.slice(0, 10) : '',
-      totalCount: String(c.totalCount ?? 0),
-      perUserLimit: String(c.perUserLimit ?? 0),
-      nameZh: plainName(c.name),
-      nameEn: '',
-      descZh: c.description || '',
-      descEn: '',
-      claimable: c.claimable ?? true,
-      claimCode: c.claimCode || '',
-      validDays: c.validDays != null ? String(c.validDays) : '',
-      newCustomerOnly: c.newCustomerOnly ?? false,
-      memberLevel: c.memberLevel || '',
-      enabled: c.enabled,
-    };
-  }
-});
+    if (!id.value) return;
+    const c = await fetchCouponTemplate(id.value);
+    if (c) {
+      form.value = {
+        type: c.type,
+        discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
+        minSpendYuan: String((c.minSpend || 0) / 100),
+        startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',
+        endsAt: c.endsAt ? c.endsAt.slice(0, 10) : '',
+        totalCount: String(c.totalCount ?? 0),
+        perUserLimit: String(c.perUserLimit ?? 0),
+        // 后台已按原值回传 zh_Hans/en，直接回显；无多语言时回退当前语言 name
+        nameZh: c.nameZh ?? plainName(c.name),
+        nameEn: c.nameEn ?? '',
+        descZh: c.descZh ?? c.description || '',
+        descEn: c.descEn ?? '',
+        claimable: c.claimable ?? true,
+        claimCode: c.claimCode || '',
+        validDays: c.validDays != null ? String(c.validDays) : '',
+        newCustomerOnly: c.newCustomerOnly ?? false,
+        memberLevel: c.memberLevel || '',
+        enabled: c.enabled,
+      };
+    }
+  });
 
-// 后端 field resolver 返回的是按会话语言本地化后的纯字符串，直接回显到中文框
-function plainName(name: string): string { return name || ''; }
+  // 后端 field resolver 返回的 name 为按会话语言本地化后的纯字符串，仅作 zh 兜底
+  function plainName(name: string): string { return name || ''; }
 
 function goBack() { uni.navigateBack(); }
 </script>
