@@ -253,3 +253,22 @@ export async function partialShip(
   if ('errorCode' in r) { const e = r as any; throw new Error(`发货失败: ${e.message || e.errorCode}`); }
   return r as FulfillmentResult;
 }
+
+// 多仓拆分发货：按仓库逐仓调用 addFulfillmentToOrder（每仓独立 fulfillment）
+export async function shipByWarehouse(
+  orderId: string,
+  shipments: Array<{ stockLocationId: string; parts: ShipLinePart[]; method?: string; trackingCode?: string }>,
+): Promise<{ ok: string[]; fails: string[] }> {
+  const ok: string[] = [];
+  const fails: string[] = [];
+  for (const s of shipments) {
+    if (!s.parts.length) continue;
+    try {
+      await partialShip(orderId, s.parts, s.method || 'standard', s.trackingCode || undefined);
+      ok.push(s.stockLocationId);
+    } catch (e: any) {
+      fails.push(`${s.stockLocationId}:${e?.message || '发货失败'}`);
+    }
+  }
+  return { ok, fails };
+}
