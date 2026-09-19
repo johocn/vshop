@@ -112,7 +112,7 @@ import { ref, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplate, createCouponTemplate, updateCouponTemplate, createProductCouponBinding,
-  couponTypeLabel, buildLocalized, CouponType, CouponTemplateInput,
+  couponTypeLabel, CouponType, CouponTemplateInput,
 } from '../../../apis/coupon';
 
 const id = ref<string | null>(null);
@@ -159,15 +159,17 @@ function buildInput(): CouponTemplateInput {
     ? Math.round(discountYuan * 10)   // 折 → 1-99 整数（8.5 折 → 85）
     : Math.round(discountYuan * 100); // 元 → 分
   const model: CouponTemplateInput = {
-    name: buildLocalized(f.nameZh.trim(), f.nameEn.trim()),
+    // 后端 admin input 的 name/description 为 String!，仅能传纯字符串（当前仅提交 zh）；
+    // en 多语言需后端补充多语言输入后才可投递（见问题清单），此处不组装 LocalizedText 对象。
+    name: f.nameZh.trim(),
     type: f.type,
     discountValue,
     enabled: f.enabled,
     claimable: f.claimable,
     newCustomerOnly: f.newCustomerOnly,
   };
-  if (f.descZh.trim() || f.descEn.trim()) {
-    model.description = buildLocalized(f.descZh.trim(), f.descEn.trim()) as unknown as string;
+  if (f.descZh.trim()) {
+    model.description = f.descZh.trim();
   }
   if (f.type === 'FIXED' || f.type === 'PERCENT') {
     model.minSpend = Math.round((Number(f.minSpendYuan) || 0) * 100);

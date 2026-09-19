@@ -3,10 +3,12 @@
 //   - Query  couponTemplates(options: {...}): { items: [CouponTemplate], totalItems }
 //            couponTemplate(id: ID!) : CouponTemplate
 //            customerCoupons(options) : { items, totalItems }
-//   - Mutation create/updateCouponTemplate(input: JSON)、deleteCouponTemplate(id)、
+//   - Mutation createCouponTemplate(input: CreateCouponTemplateInput!)、
+//            updateCouponTemplate(input: UpdateCouponTemplateInput!)、deleteCouponTemplate(id)、
 //            grantCoupon(templateId, customerIds): [String!]、revokeCustomerCoupon(id)
 //   - CouponTemplate.name/description 由后端 field resolver 按会话语言本地化为纯字符串输出；
-//     创建/更新时需传多语言对象 { zh_Hans, en }（input 是 JSON 标量，直接传对象即可）。
+//     创建/更新时 name/description 为 String!/String 标量，只能传纯字符串（当前仅提交 zh）。
+//     （实体 name 虽为 LocalizedText，但 admin input schema 未开放多语言输入，en 投递需后端增强。）
 //   - shopId 由后端从当前管理员店铺自动解析并做属店隔离，前端不传。
 import { getAdminClient, graphQlErrorMsg } from './client';
 
@@ -80,11 +82,6 @@ export const couponTypeLabel = (t: string): string => TYPE_LABEL[t as CouponType
 export function fmtCNY(cents: number | null | undefined): string {
   if (cents == null) return '-';
   return (cents / 100).toFixed(0);
-}
-
-/** 组装多语言 name/description 提交对象 */
-export function buildLocalized(zh: string, en: string): { zh_Hans: string; en: string } {
-  return { zh_Hans: zh, en };
 }
 
 /** 从后端返回的本地化纯字符串回显到中文框（en 框无法从单值重建，保持独立编辑） */
