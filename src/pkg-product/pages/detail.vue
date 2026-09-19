@@ -106,7 +106,7 @@ onMounted(async () => {
         shopIntro: tenant.shopIntro || '',
         origin: window.location.origin,
         defaultImage: '/static/share-default.jpg',
-        defaultTitle: 'VShop - 精选好物',
+        defaultTitle: 'Youshop - 精选好物',
         defaultDesc: '精选好物推荐',
       });
       useProductShare(meta.title, slug, meta.imgUrl, meta.desc);

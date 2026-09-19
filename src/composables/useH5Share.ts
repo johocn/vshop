@@ -21,7 +21,7 @@ function buildShareLink(baseUrl: string): string {
 }
 
 export function useH5Share(options: H5ShareOptions = {}) {
-    const defaultTitle = 'VShop - 精选好物';
+    const defaultTitle = 'Youshop - 精选好物';
     const defaultLink = window.location.href.split('#')[0];
 
     ensureWxReady().then(() => {

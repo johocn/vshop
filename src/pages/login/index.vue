@@ -2,7 +2,7 @@
   <view class="login-page">
     <view class="login-page__logo">
       <text class="login-logo-icon">🛒</text>
-      <text class="login-logo-text">VShop</text>
+      <text class="login-logo-text">Youshop</text>
     </view>
     <view class="login-page__form" v-if="mode === 'phone'">
       <input class="login-page__input" v-model="phone" type="number" placeholder="请输入手机号" />

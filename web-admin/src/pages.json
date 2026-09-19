@@ -52,7 +52,7 @@
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "vshop 管理后台",
+    "navigationBarTitleText": "Youshop 管理后台",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f5f5f5"
   }

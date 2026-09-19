@@ -20,9 +20,9 @@ test('toAbsoluteUrl: 相对补origin绝对保留', () => {
   assert.strictEqual(toAbsoluteUrl('https://x.com/a.png', 'https://y.com'), 'https://x.com/a.png');
 });
 test('buildShareMeta: 无图无描述逐级兜底', () => {
-  const m = buildShareMeta({ productName: '', featureImage: '', assetsImages: [], textDescription: '', shareImageUrl: '', shopName: '', shopIntro: '', origin: 'https://x.com', defaultImage: '/static/share-default.jpg', defaultTitle: 'VShop - 精选好物', defaultDesc: '精选好物推荐' });
+  const m = buildShareMeta({ productName: '', featureImage: '', assetsImages: [], textDescription: '', shareImageUrl: '', shopName: '', shopIntro: '', origin: 'https://x.com', defaultImage: '/static/share-default.jpg', defaultTitle: 'Youshop - 精选好物', defaultDesc: '精选好物推荐' });
   assert.strictEqual(m.imgUrl, 'https://x.com/static/share-default.jpg');
-  assert.strictEqual(m.title, 'VShop - 精选好物');
+  assert.strictEqual(m.title, 'Youshop - 精选好物');
   assert.strictEqual(m.desc, '精选好物推荐');
 });
 test('buildShareMeta: 主图链 featuredAsset→assets0→店铺→默认', () => {
