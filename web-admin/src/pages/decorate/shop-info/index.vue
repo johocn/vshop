@@ -32,6 +32,24 @@
       </view>
       <view class="hint">含税价：录入价即价内含税（结算拆税展示但应付总额=录入价）；零税率：录入价即免税最终价，结算不拆税；不含税价：录入价为净价（净价×1.13=含税应付价，价税分离）。</view>
       <view class="cell row-in">
+        <text class="lbl">库存管理方式</text>
+        <view class="seg">
+          <text :class="{ on: f.inventoryMode === 'simple' }" @tap="setInventoryMode('simple')">简单库存</text>
+          <text :class="{ on: f.inventoryMode === 'odoo' }" @tap="setInventoryMode('odoo')">Odoo库存(预留)</text>
+        </view>
+      </view>
+      <block v-if="f.inventoryMode === 'odoo'">
+        <view class="cell">
+          <text class="lbl">Odoo 地址</text>
+          <input v-model="f.odooBaseUrl" placeholder="请输入 Odoo 地址（选填）" />
+        </view>
+        <view class="cell">
+          <text class="lbl">API Key</text>
+          <input v-model="f.odooApiKey" placeholder="请输入 API Key（选填）" />
+        </view>
+        <view class="hint">预留接口，后续开发</view>
+      </block>
+      <view class="cell row-in">
         <text class="lbl">详情页价格块样式</text>
         <view class="seg">
           <text :class="{ on: f.priceStyle === 'classic' }" @tap="setPriceStyle('classic')">经典</text>
@@ -142,8 +160,8 @@ import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../
 import { fetchAssets } from '../../../apis/asset';
 import MediaPicker from '../../../components/MediaPicker.vue';
 
-const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string }>({
-  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic',
+const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; odooBaseUrl: string; odooApiKey: string }>({
+  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', odooBaseUrl: '', odooApiKey: '',
 });
 const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
@@ -208,6 +226,10 @@ function setTaxMode(s: string) {
   f.value.taxMode = s;
 }
 
+function setInventoryMode(s: string) {
+  f.value.inventoryMode = s;
+}
+
 function setPriceStyle(s: string) {
   f.value.priceStyle = s;
 }
@@ -249,6 +271,9 @@ onMounted(async () => {
     taxMode: cf.taxMode || 'inclusive',
     priceStyle: style,
     layout,
+    inventoryMode: cf.inventoryMode || 'simple',
+    odooBaseUrl: cf.odooBaseUrl ?? '',
+    odooApiKey: cf.odooApiKey ?? '',
   };
   shareImageUrl.value = cf.shareImageUrl ?? '';
 });

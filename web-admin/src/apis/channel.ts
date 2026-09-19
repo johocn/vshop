@@ -22,6 +22,12 @@ export interface ChannelCustomFields {
   multilingualEnabled?: boolean;
   // 税率三态：inclusive=含税价 / zero=零税价 / exclusive=不含税价（默认 inclusive）
   taxMode?: string;
+  // 库存管理方式：simple=简单库存 / odoo=Odoo库存(预留)
+  inventoryMode?: string;
+  // Odoo 地址（inventoryMode=odoo 时选填）
+  odooBaseUrl?: string;
+  // Odoo API Key（inventoryMode=odoo 时选填）
+  odooApiKey?: string;
   // 详情页配置 JSON 串（含 blocks.price.style 价格块版式 classic/jdA/jdB）
   detailConfig?: string;
   // 促销/服务方案库 JSON 字符串（[{code,text:{zh_Hans,en}}]）
@@ -46,7 +52,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode detailConfig promoSchemes serviceSchemes templateId pageCategoryConfig pageCartConfig pageProfileConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId pageCategoryConfig pageCartConfig pageProfileConfig }
       }
     }`,
   );
