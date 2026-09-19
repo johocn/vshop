@@ -53,6 +53,15 @@
     </view>
     <view class="card">
       <view class="img-title">风格模板（模板库选择，未选时用全局默认）</view>
+      <view class="chips">
+        <text
+          v-for="a in APP_OPTS"
+          :key="a.key"
+          class="chip"
+          :class="{ on: tplApp === a.key }"
+          @tap="switchTplApp(a.key)"
+        >{{ a.label }}</text>
+      </view>
       <view class="tpl-wrap">
         <view class="tpl" :class="{ added: !templateId }" @tap="templateId = ''">
           <text class="tpl-zh">不使用模板</text>
@@ -140,10 +149,20 @@ const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
 const templateId = ref('');
 const templateList = ref<ShopTemplate[]>([]);
-const enabledTemplates = computed(() => templateList.value.filter((t) => t.enabled));
+const tplApp = ref<'nshop' | 'vshop'>('nshop');
+const APP_OPTS = [
+  { key: 'nshop', label: 'nshop 商城' },
+  { key: 'vshop', label: 'vshop 商城' },
+] as const;
+const enabledTemplates = computed(() => templateList.value.filter((t) => t.enabled && t.app === tplApp.value));
+
+function switchTplApp(a: 'nshop' | 'vshop') {
+  tplApp.value = a;
+  templateApi.list(a).then((list) => { templateList.value = list; }).catch(() => {});
+}
 
 function appLabel(a: string): string {
-  return a === 'vshop' ? 'vshop' : 'nshop';
+  return a === 'vshop' ? 'vshop 商城' : 'nshop 商城';
 }
 
 function onShareImageChange(ids: string[]) {
@@ -212,7 +231,7 @@ onMounted(async () => {
   templateId.value = cf.templateId ?? '';
   promoSchemes.value = loadSchemeList(cf.promoSchemes);
   serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
-  templateApi.list().then((list) => { templateList.value = list; }).catch(() => {});
+  templateApi.list(tplApp.value).then((list) => { templateList.value = list; }).catch(() => {});
   let style = 'classic';
   let layout = 'classic';
   if (rawDetailConfig) {
@@ -287,6 +306,9 @@ function safeParse(raw: string): any {
     }
   }
   .hint { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; padding: 0 8rpx; }
+  .chips { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 16rpx 0 0; }
+  .chip { flex: 0 0 auto; padding: 6rpx 22rpx; border: 1px solid $wa-rule; border-radius: 999rpx; font-size: 24rpx; color: $wa-muted; background: $wa-card; }
+  .chip.on { background: $wa-accent; border-color: $wa-accent; color: #fff; }
   .hint-inline { display: block; margin-top: 12rpx; font-size: 22rpx; color: $wa-muted; }
   .img-title { font-size: 28rpx; color: $wa-ink; padding: 24rpx 0 8rpx; }
   .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center;
