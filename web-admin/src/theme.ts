@@ -1,4 +1,4 @@
-// 业务域主色 + 七档语义色（vshop 唯一视觉来源，2026-08-23）
+// 业务域主色 + 七档语义色（youshop 唯一视觉来源，2026-08-23）
 // 对应设计文档：docs/superpowers/specs/2026-08-23-vshop-tenant-admin-design.md
 export const D = {
   // 业务域

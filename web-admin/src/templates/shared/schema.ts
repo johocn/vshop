@@ -1,4 +1,4 @@
-// 装修 JSON schema（web-admin 独立工程，无法 import 主 vshop 的 schema.ts，本地复制一份）
+// 装修 JSON schema（web-admin 独立工程，无法 import 主 youshop 的 schema.ts，本地复制一份）
 export interface ShopTheme { primaryColor?: string; accentColor?: string; }
 export interface BannerImage { image: string; link?: string; }
 export interface BannerSection { type: 'banner'; images: BannerImage[]; }
