@@ -68,7 +68,7 @@ export function usePosterData() {
             // #endif
 
             return {
-                channelName: tenantStore.tenantName || 'VShop 商城',
+                channelName: tenantStore.tenantName || 'Youshop 商城',
                 productImage: product.featuredAsset?.preview || '',
                 productTitle: product.name || '',
                 price: String(product.priceWithTax?.value ?? ''),
