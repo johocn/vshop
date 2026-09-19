@@ -14,7 +14,7 @@ interface ShareOptions {
 /** WeChat share composable - call in page setup */
 export function useShare(options: ShareOptions = {}) {
     // #ifdef MP-WEIXIN
-    const defaultTitle = 'VShop - 精选好物';
+    const defaultTitle = 'Youshop - 精选好物';
     const defaultPath = '/pages/home/index';
     onShareAppMessage(() => ({
         title: options.title || defaultTitle,
