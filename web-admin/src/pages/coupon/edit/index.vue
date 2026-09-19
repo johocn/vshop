@@ -232,7 +232,7 @@ onMounted(async () => {
         // 后台已按原值回传 zh_Hans/en，直接回显；无多语言时回退当前语言 name
         nameZh: c.nameZh ?? plainName(c.name),
         nameEn: c.nameEn ?? '',
-        descZh: c.descZh ?? c.description || '',
+        descZh: c.descZh ?? (c.description || ''),
         descEn: c.descEn ?? '',
         claimable: c.claimable ?? true,
         claimCode: c.claimCode || '',
