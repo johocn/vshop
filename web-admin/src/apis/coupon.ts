@@ -199,3 +199,112 @@ export async function grantCouponIssue(templateId: string, customerIds: string[]
     throw new Error(graphQlErrorMsg(e, '发券失败'));
   }
 }
+
+/* ------------------------- 商品专属券（商品-券绑定，coupon-plugin 后台） ------------------------- */
+
+/** 绑定项内嵌套模板的摘要字段（name 为后端按会话语言本地化后的纯字符串） */
+const BINDING_TEMPLATE_FIELDS = `id name type discountValue minSpend scope enabled claimable claimCode`;
+
+export interface ProductCouponBindingTemplate {
+  id: string;
+  name: string;
+  type: CouponType;
+  discountValue: number;
+  minSpend: number;
+  scope?: string;
+  enabled?: boolean;
+  claimable?: boolean;
+  claimCode?: string | null;
+}
+
+export interface ProductCouponBindingItem {
+  id: string;
+  productId: string;
+  variantIds: string[] | null;
+  couponTemplateId: string;
+  enabled: boolean;
+  displayOrder: number;
+  badgeText?: string | null;
+  promoTitle?: string | null;
+  remark?: string | null;
+  template: ProductCouponBindingTemplate | null;
+}
+
+/** 创建入参：variantIds 不传即 null（全规格适用） */
+export interface CreateProductCouponBindingInput {
+  productId: string;
+  variantIds?: string[] | null;
+  couponTemplateId: string;
+  enabled?: boolean;
+  displayOrder?: number;
+  badgeText?: string;
+  promoTitle?: string;
+  remark?: string;
+}
+
+/** 更新入参：只传需要变更的字段即可局部更新（如仅 id + enabled） */
+export interface UpdateProductCouponBindingInput {
+  id: string;
+  variantIds?: string[] | null;
+  enabled?: boolean;
+  displayOrder?: number;
+  badgeText?: string;
+  promoTitle?: string;
+  remark?: string;
+}
+
+export async function fetchProductCouponBindings(productId: string): Promise<ProductCouponBindingItem[]> {
+  try {
+    const { productCouponBindings } = await getAdminClient().request<{ productCouponBindings: ProductCouponBindingItem[] }>(
+      `query ProductCouponBindings($productId: ID!) {
+        productCouponBindings(productId: $productId) {
+          id productId variantIds couponTemplateId enabled displayOrder badgeText promoTitle remark
+          template { ${BINDING_TEMPLATE_FIELDS} }
+        }
+      }`,
+      { productId },
+    );
+    return productCouponBindings ?? [];
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载商品专属券失败'));
+  }
+}
+
+export async function createProductCouponBinding(input: CreateProductCouponBindingInput): Promise<string> {
+  try {
+    const { createProductCouponBinding } = await getAdminClient().request<{ createProductCouponBinding: { id: string } }>(
+      `mutation CreateProductCouponBinding($input: CreateProductCouponBindingInput!) {
+        createProductCouponBinding(input: $input) { id }
+      }`,
+      { input },
+    );
+    return createProductCouponBinding.id;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '添加商品专属券失败'));
+  }
+}
+
+export async function updateProductCouponBinding(input: UpdateProductCouponBindingInput): Promise<string> {
+  try {
+    const { updateProductCouponBinding } = await getAdminClient().request<{ updateProductCouponBinding: { id: string } }>(
+      `mutation UpdateProductCouponBinding($input: UpdateProductCouponBindingInput!) {
+        updateProductCouponBinding(input: $input) { id }
+      }`,
+      { input },
+    );
+    return updateProductCouponBinding.id;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '更新商品专属券失败'));
+  }
+}
+
+export async function deleteProductCouponBinding(id: string): Promise<void> {
+  try {
+    await getAdminClient().request<{ deleteProductCouponBinding: boolean }>(
+      `mutation DeleteProductCouponBinding($id: ID!) { deleteProductCouponBinding(id: $id) }`,
+      { id },
+    );
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '删除商品专属券失败'));
+  }
+}
