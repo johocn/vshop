@@ -1,1 +1,0 @@
-import{d as a,o as e,c as m}from"./index-BrCXeczT.js";import{M as s}from"./MediaPicker.D8OMG6-D.js";const i=a({__name:"ImagePicker",props:{max:{},value:{}},emits:["change"],setup:a=>(a,i)=>(e(),m(s,{max:a.max,value:a.value,mediaType:"image",onChange:i[0]||(i[0]=e=>a.$emit("change",e))},null,8,["max","value"]))});export{i as _};
