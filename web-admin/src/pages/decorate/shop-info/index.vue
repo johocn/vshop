@@ -13,9 +13,11 @@
         <text class="lbl">店铺简介</text>
         <textarea v-model="f.shopIntro" placeholder="请输入店铺简介" />
       </view>
-      <view class="cell">
+      <view class="cell col">
         <text class="lbl">店铺 Logo</text>
-        <input v-model="f.shopLogo" placeholder="图片上传见 Task 7，先填 URL" />
+        <image v-if="logoPreview" class="logo-pv" :src="logoPreview" mode="aspectFill" @tap="previewLogo" />
+        <MediaPicker :max="1" :value="logoIds" @change="onLogoChange" />
+        <text class="hint-inline">店铺 Logo 用于买家端展示。选图后点保存生效；历史 URL 值兼容显示。</text>
       </view>
       <view class="cell col">
         <text class="lbl">默认分享图</text>
@@ -165,6 +167,24 @@ const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePh
 });
 const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
+const logoIds = ref<string[]>([]);
+const logoPreview = ref('');
+
+function onLogoChange(ids: string[]) {
+  logoIds.value = ids;
+  if (ids.length) {
+    fetchAssets(1, 0, undefined, ids)
+      .then((r) => { logoPreview.value = r.items[0]?.preview || ''; f.value.shopLogo = logoPreview.value; })
+      .catch(() => {});
+  } else {
+    logoPreview.value = '';
+    f.value.shopLogo = '';
+  }
+}
+
+function previewLogo() {
+  if (logoPreview.value) uni.previewImage({ urls: [logoPreview.value] });
+}
 const templateId = ref('');
 const templateList = ref<ShopTemplate[]>([]);
 const tplApp = ref<'nshop' | 'vshop'>('nshop');
@@ -276,6 +296,7 @@ onMounted(async () => {
     odooApiKey: cf.odooApiKey ?? '',
   };
   shareImageUrl.value = cf.shareImageUrl ?? '';
+  logoPreview.value = cf.shopLogo ?? '';
 });
 
 async function save() {
@@ -322,6 +343,7 @@ function safeParse(raw: string): any {
       .lbl { width: auto; margin-bottom: 16rpx; }
       textarea { width: 100%; height: 160rpx; font-size: 28rpx; }
     }
+    .logo-pv { width: 160rpx; height: 160rpx; border-radius: 16rpx; margin-bottom: 16rpx; background: $wa-bg; }
     &.row-in { justify-content: space-between; }
     &:last-child { border-bottom: none; }
     .seg { display: flex; background: $wa-rule; border-radius: 999rpx; padding: 4rpx;
