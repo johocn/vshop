@@ -19,6 +19,10 @@ export interface ShopGlobalConfig {
   defaults: Record<string, any> | null;
 }
 
+export interface TemplateVersion { id: string; templateId: string; version: number; name: string | null; theme: any; pages: any; enabled: boolean; note: string | null; createdAt: string }
+export interface TemplateReference { channelId: string; channelCode: string; channelName: string; app: string }
+export interface MergedPreview { merged: any; sourceByKey: Record<string, string> }
+
 const TPL_FIELDS = `id name app theme pages version enabled updatedAt`;
 
 export const templateApi = {
@@ -105,5 +109,26 @@ export const templateApi = {
     } catch (e: any) {
       throw new Error(graphQlErrorMsg(e, '全局配置保存失败'));
     }
+  },
+  async versions(id: string): Promise<TemplateVersion[]> {
+    const r = await getAdminClient().request<{ templateVersions: TemplateVersion[] }>(
+      `query ($id: ID!) { templateVersions(id: $id) { id templateId version name theme pages enabled note createdAt } }`, { id });
+    return r.templateVersions;
+  },
+  async references(id: string): Promise<TemplateReference[]> {
+    const r = await getAdminClient().request<{ templateReferences: TemplateReference[] }>(
+      `query ($id: ID!) { templateReferences(id: $id) { channelId channelCode channelName app } }`, { id });
+    return r.templateReferences;
+  },
+  async mergedPreview(app: string, templateId?: string, overrides?: any): Promise<MergedPreview> {
+    const r = await getAdminClient().request<{ templateMergedPreview: MergedPreview }>(
+      `query ($app: String!, $templateId: ID, $overrides: JSON) { templateMergedPreview(app: $app, templateId: $templateId, overrides: $overrides) { merged sourceByKey } }`,
+      { app, templateId, overrides });
+    return r.templateMergedPreview;
+  },
+  async restore(id: string, version: number): Promise<ShopTemplate> {
+    const r = await getAdminClient().request<{ restoreTemplateVersion: ShopTemplate }>(
+      `mutation ($id: ID!, $version: Int!) { restoreTemplateVersion(id: $id, version: $version) { ${TPL_FIELDS} } }`, { id, version });
+    return r.restoreTemplateVersion;
   },
 };
