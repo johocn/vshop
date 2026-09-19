@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url)); // scripts/
-const REMOTE = process.env.WA_REMOTE || 'qing'; // ~/.ssh/config 主机
+const REMOTE = process.env.WA_REMOTE || 'joho'; // ~/.ssh/config 主机
 // 容器 /www/sites/e.joho.cn 挂载自宿主机 /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn
 const SITE = process.env.WA_SITE || '/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/guanli';
 const BUILD = path.resolve(ROOT, '..', 'dist', 'build', 'h5');

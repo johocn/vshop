@@ -1306,7 +1306,7 @@ cd d:\zhao\vendure; powershell -ExecutionPolicy Bypass -File .\_deploy.ps1 -Mess
 ```
 Expected: 推送成功 + ssh 服务器 `git pull && pm2 restart vendure` 成功；随后验证：
 ```powershell
-ssh qing "curl -s -o /dev/null -w '%{http_code}' https://e.joho.cn/admin-api"
+ssh joho "curl -s -o /dev/null -w '%{http_code}' https://e.joho.cn/admin-api"
 ```
 Expected: 200
 
