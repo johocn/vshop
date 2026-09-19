@@ -9,6 +9,11 @@
         <view class="head">
           <text class="name">{{ c.name }}</text>
           <text class="badge" :class="c.type.toLowerCase()">{{ typeLabel(c.type) }}</text>
+          <text class="badge tag" v-if="c.claimable">可领取</text>
+          <text class="badge tag" v-if="c.claimCode">凭码领券</text>
+          <text class="badge tag" v-if="c.newCustomerOnly">仅新客</text>
+          <text class="badge tag" v-if="c.scope === 'SKU'">指定商品</text>
+          <text class="badge tag" v-if="c.scope === 'CATEGORY'">指定分类</text>
           <text class="badge off" v-if="!c.enabled">停用</text>
         </view>
         <view class="value">{{ valueText(c) }}</view>
@@ -160,6 +165,7 @@ onReachBottom(loadMore);
           &.full { background: #0a9c6e; }
           &.free_shipping { background: #7c3aed; }
           &.off { background: #bbb; }
+          &.tag { background: transparent; color: #2563eb; border: 1rpx solid #2563eb; }
         }
       }
       .value { font-size: 28rpx; color: $wa-danger; font-weight: 700; flex-shrink: 0; margin-left: 12rpx; }

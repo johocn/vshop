@@ -1,1 +1,0 @@
-import{Z as e,a2 as t,R as o,a3 as s}from"./index-DaPENHue.js";const a=e("tenant",{state:()=>({code:s(),token:o(),name:""}),actions:{selectCh(e,o){this.code=e.code,this.token=e.token,this.name=o??e.code,t(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{a as u};
