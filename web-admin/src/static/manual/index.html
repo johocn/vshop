@@ -225,8 +225,11 @@ var CHAPTERS = [
 <div class="warn"><b>常见坑：</b>买家打开域名却显示「默认风」，大概率是<mark class="mark">Channel 域名映射没填/填错</mark>，系统没认领到你的租户。</div>`},
 {book:'op', id:'op-4', title:'登录管理后台', html:`
 <p class="lead">所有店铺配置都在管理后台完成，它和买家看到的商城是两回事。</p>
-<div class="card"><b>后台地址</b><br/>平台的 Admin UI 入口（如 <code>https://e.joho.cn/admin</code>），运营者专用，买家看不到。</div>
+<div class="card"><b>后台地址</b><br/>平台的 Admin UI 入口（如 <code>https://e.joho.cn/guanli</code>），运营者专用，买家看不到。</div>
 <div class="card"><b>账号与权限</b><br/>用平台分配的账号登录，请<mark class="mark">妥善保管凭据</mark>，必要时可按角色申请只读/编辑权限。</div>
+<div class="card"><b>多店铺切换</b><br/>登录后如持有多个店铺（Channel），先进入「选择要经营的店铺」页，选中所经营的店铺后进入工作台；后续请求均以该店铺上下文为准。</div>
+<img class="img" src="shots/op_dashboard.png" alt="工作台-店铺上下文与功能入口">
+<div class="imgcap">图 W0 · 登录并选定店铺后的工作台（顶部显示当前店铺上下文）</div>
 <div class="note"><b>安全提示：</b>后台仅管理员可访问；商城面向买家完全公开。若媒体文件（视频/PDF）被误开放，可能是走错了鉴权通道。</div>`},
 {book:'op', id:'op-5', title:'店铺装修与主题', html:`
 <p class="lead">商城首页由「板块组件」搭成，配合「通道主题」整体换肤。你在后台的装修会<mark class="mark">按板块的排序（sort）依次渲染</mark>成买家看到的第一屏。</p>
@@ -244,7 +247,11 @@ var CHAPTERS = [
   <li><b>排商品楼层</b>：按主营类目添加 Floor，并为每个商品设定合适的展示模板。</li>
   <li><b>检查排序</b>：确认各板块的 <code>sort</code> 顺序，前端严格按此渲染。</li>
 </ol>
-<div class="warn"><b>注意排序：</b>板块顺序由 <mark class="mark">sort 字段</mark>决定，新增板块后务必核对，否则可能出现「楼层在 Banner 上面」。</div>`},
+<div class="warn"><b>注意排序：</b>板块顺序由 <mark class="mark">sort 字段</mark>决定，新增板块后务必核对，否则可能出现「楼层在 Banner 上面」。</div>
+<h3>店铺信息（名称 / 电话 / Logo / 税率 / 库存）</h3>
+<p>后台「店铺装修 → 店铺信息」维护店铺基础资料：店铺名、客服电话、简介、<mark class="mark">店铺 Logo</mark>（选图后点保存生效，历史 URL 值兼容显示）、默认分享图，以及税率方式（含税价 / 零税率 / 不含税价）与库存管理方式（简单库存 / Odoo 库存预留）。</p>
+<img class="img" src="shots/op05_shop_info.png" alt="店铺信息-名称电话Logo税率库存">
+<div class="imgcap">图 W2 · 店铺信息（Logo 从图片库选图，税率/库存方式分段切换）</div>`},
 {book:'op', id:'op-6', title:'商品管理', html:`
 <p class="lead">商品是你与买家交易的基础。合理分类、维护规格、挑选展示模板，能极大提升成交率。</p>
 <div class="card"><b>分类（Collection）</b><br/>先用分类给商品归类，首页的「分类导航」和「商品楼层」都依赖它。建议先画好类目树再上架。</div>
@@ -301,7 +308,15 @@ var CHAPTERS = [
 <div class="card"><b>履约</b><br/>订单支付后依次经历配货、发货直至完成，及时更新物流信息有助体验。</div>
 <div class="card"><b>售后</b><br/>退款、退货、换货等申请在后台处理，库存回补在售后完成时体现。</div>
 <div class="card"><b>超时取消</b><br/>长时间未支付订单会被取消，<mark class="mark">占用库存同步释放</mark>。</div>
-<div class="card"><b>查询</b><br/>按订单号、买家、状态检索，或导出数据复盘。</div>`},
+<div class="card"><b>查询</b><br/>按订单号、买家、状态检索，或导出数据复盘。</div>
+<img class="img" src="shots/op09_order_list.png" alt="订单列表-状态筛选与卡片">
+<div class="imgcap">图 O2 · 订单列表（状态统计 / 筛选 Tab / 卡片操作区：发货、详情）</div>
+<h3>订单详情：备注与改价</h3>
+<p>进入订单详情可查看状态、金额明细、商品明细、支付与物流信息。<mark class="mark">「备注」恒显示</mark>，可记录内部备注（不发给买家）；订单处于<mark class="mark">待支付 / 支付中（可修改状态）</mark>时，操作区出现「改价」，输入目标金额后按差额生成后台改价 surcharge，改价成功即刷新页面。</p>
+<img class="img" src="shots/op09_order_detail.png" alt="订单详情-待发货单与备注按钮">
+<div class="imgcap">图 O3 · 订单详情（备注按钮；待发货单操作：去发货 / 取消订单 / 去核销）</div>
+<img class="img" src="shots/op09_order_detail_adjust.png" alt="订单详情-加购中单显示备注与改价">
+<div class="imgcap">图 O4 · 加购中订单：备注 + 改价按钮（仅可修改状态显示改价）</div>`},
 {book:'op', id:'op-10', title:'常见问题（FAQ）· 运营', html:`
 <details><summary>买家打开域名却看不到我的品牌主题，像「默认店铺」</summary><p>大概率是<mark class="mark">Channel 域名映射未配置</mark>，系统没能通过 <code>resolveChannelByDomain</code> 认领到你的租户，回退到默认主题。请确认后台 Channel 的域名字段与访问域名完全一致。</p></details>
 <details><summary>首页板块顺序不对，楼层跑到 Banner 上面了</summary><p>板块按 <mark class="mark"><code>sort</code> 排序渲染</mark>。请重新核对各板块排序值，让 Banner/导航在前、商品楼层在后。</p></details>
@@ -346,7 +361,13 @@ var CHAPTERS = [
 <p>顶部汇总下方单列「今日收款明细」，逐笔展示：<mark class="mark">单号、收款金额、收款人（核销人）、收款方式、归属商户、入账时间</mark>。同一笔也会出现在下方「收款台账」列表中。核销码完成后，台账应按核销码查询到对应金额的已收款记录（收款人即核销的店员）。</p>
 <div class="warn"><b>收款归属修正：</b>早期版本存在「门店核销收款后，台账因按商品归属渠道过滤而看不到」的问题。现已将台账同时记录<mark class="mark">核销渠道（collectorChannelId）</mark>与<mark class="mark">收款人（collectorName）</mark>，按 <code>tenantChannelId OR collectorChannelId</code> 过滤，确保本店可见自己经手的每笔收款。</div>
 <img class="img" src="shots/xledger_t2_g723zm.png" alt="收款台账-今日汇总与 g723zm 明细">
-<div class="imgcap">图 O2 · 收款台账（今日收款 ¥200 1 笔 / 已收 ¥3145.07 25 笔；明细含 g723zm ¥200 收款人=陈店长）</div>`},
+<div class="imgcap">图 O2 · 收款台账（今日收款 ¥200 1 笔 / 已收 ¥3145.07 25 笔；明细含 g723zm ¥200 收款人=陈店长）</div>
+<h3>状态筛选与 CSV 导出</h3>
+<p>工具栏提供「全部 / 已收 / 待收」三段筛选与「导出 CSV」按钮。导出<mark class="mark">按当前筛选结果</mark>生成 CSV（含 UTF-8 BOM，Excel 打开中文不乱码），列依次为：时间、订单号、收款人、收款渠道、收款方式、金额、状态，文件名形如 <code>收款台账_20260920_1015.csv</code>。</p>
+<img class="img" src="shots/op12_ledger.png" alt="收款台账-筛选与导出CSV">
+<div class="imgcap">图 O2a · 收款台账（已收 5 笔，工具栏：全部/已收/待收 + 导出 CSV）</div>
+<img class="img" src="shots/op12_ledger_pending.png" alt="收款台账-待收筛选">
+<div class="imgcap">图 O2b · 切「待收」筛选后的台账（0 笔空态）</div>`},
 {book:'op', id:'op-13', title:'商户订单可见性（本店商品单）', html:`
 <p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
 <h3>双维度切换</h3>
@@ -395,6 +416,12 @@ var CHAPTERS = [
 <div class="imgcap">图 O5 · 优惠券管理列表</div>
 <img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
 <div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<img class="img" src="shots/op14_coupons.png" alt="优惠券管理-列表与操作">
+<div class="imgcap">图 O6a · 优惠券列表（发行量 / 有效期 / 归属店铺，操作：停用 / 编辑 / 明细 / 删除）</div>
+<h3>券使用明细（领取 / 核销双页签）</h3>
+<p>点列表任意券的「明细」弹出<mark class="mark">券使用明细</mark>弹层，默认「领取明细」页签逐笔展示领取人（姓名 + 手机号）、券码、状态（未使用 / 已核销 / 已退回 / 已过期 / 已失效）、来源（领取 / 定向发放 / 兑换）与领取时间；切「核销明细」页签仅展示已核销记录及核销订单号 / 时间。列表分页懒加载，滚动到底自动加载更多。</p>
+<img class="img" src="shots/op14_coupon_detail.png" alt="券使用明细-领取页签">
+<div class="imgcap">图 O6b · 券使用明细（领取明细页签：客户 / 券码 / 状态 / 来源 / 时间）</div>
 <h3>定向发券与站内消息通知</h3>
 <p>管理端「营销 → 定向发券」可按关键词<mark class="mark">搜索本渠道客户</mark>（姓名/手机号/邮箱）并勾选，或一键「全部本渠道」圈选批量发券；发券时可选择<mark class="mark">发送站内消息</mark>，买家在 C 端「消息中心」收到「优惠券到账」通知，券码直达「我的券包」。</p>
 <img class="img" src="shots/o12_webadmin_coupon_issue.png" alt="定向发券页-选券选客户与通知开关">
@@ -700,7 +727,7 @@ var CHAPTERS = [
 <div class="note"><b>口径：</b>「可提现」为已结算可提余额，「冻结」为在途 / 未结算金额。</div>
 <h3>2. 佣金结算</h3>
 <p>在「分销 → 佣金结算」页签按周期查看佣金明细与结算状态，确认后发起提现 / 打款。</p>
-<div class="shot-box"><img class="img" src="shots/op27_distribution.png" alt="分销-关系与结算"><div class="imgcap">图 D1 · 分销关系与结算</div></div>`},
+<div class="shot-box"><img class="img" src="shots/op27_distributors.png" alt="分销-关系与结算"><div class="imgcap">图 D1 · 分销关系与结算</div></div>`},
 {book:'op', id:'op-28', title:'图片库（媒体资源）', html:`
 <p class="lead">图片库是店铺的媒体资源中心：集中上传、管理与复用店铺图片，一次上传多处引用（Logo、分享图、自提点照片、商品图等）。</p>
 <h3>1. 上传与管理</h3>
