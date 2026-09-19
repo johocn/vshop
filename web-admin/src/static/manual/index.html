@@ -879,7 +879,36 @@ var CHAPTERS = [
 <div class="imgcap">图 D10 · 凭码兑换成功，券入包</div>
 <h3>下单结算：仅绑定行折扣</h3>
 <p>购物车同时含绑定商品与非绑定商品时，用券后<mark class="mark">折扣只作用于绑定商品行</mark>（如绑定行 88000×85%=74800），非绑定行 16800 正常计价不参与折扣——保证券不会误伤其他商品。</p>
-<div class="warn"><b>使用提示：</b>① 商品绑定的券默认仅该商品 SKU 可用；② 「仅限新客」以本租户是否有历史有效订单判定；③ 模板被商品绑定时不可直接删除，须先解绑。</div>`}
+<div class="warn"><b>使用提示：</b>① 商品绑定的券默认仅该商品 SKU 可用；② 「仅限新客」以本租户是否有历史有效订单判定；③ 模板被商品绑定时不可直接删除，须先解绑。</div>`},
+
+{book:'op', id:'op-25', title:'库存单据操作手册（库存管理方式 / 采购 / 移库 / 盘库 / 出库 / 流水）', html:`
+<p class="lead">库存单据是租户对<mark class="mark">物理仓库存</mark>做增减调整的入口，配合<mark class="mark">店铺信息页的「库存管理方式」开关</mark>使用。本节覆盖：库存管理方式的含义、采购入库 / 移库 / 盘库 / 手动出库四类单据的操作步骤，以及<mark class="mark">库存流水</mark>的查看方式。</p>
+<h3>1. 库存管理方式（简单库存 / Odoo库存）</h3>
+<p>入口：租户后台 → <mark class="mark">店铺信息</mark> → <mark class="mark">库存管理方式</mark>。两种模式：<mark class="mark">简单库存</mark>（默认）= 由平台 Vendure 库存体系承载，用本手册所述单据调整仓库库存；<mark class="mark">Odoo库存（预留）</mark> = 预留的第三方 ERP 对接位，当前为占位，选中后可在下方填选<mark class="mark">Odoo 地址 / API Key</mark>（均选填）。一般租户保持「简单库存」即可。</p>
+<img class="img" src="shots/inv_shopinfo_toggle.png" alt="店铺信息-库存管理方式toggle">
+<div class="imgcap">图 I1 · 店铺信息页「库存管理方式」：简单库存 / Odoo库存（预留）选择</div>
+<h3>2. 采购入库（stock-doc/purchase）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">采购入库</mark>。用于向目标仓库补货入库。表单字段：</p>
+<ol class="steps">
+  <li><b>目标仓库 *</b>：选择本次入库的物理仓。</li>
+  <li><b>变体 ID (variantId) *</b>：填写入库的商品变体 ID（数字，如 42）。</li>
+  <li><b>采购数量 *</b>：入库数量，须大于 0。</li>
+  <li><b>成本价（分）</b>：选填，单位分为币种最小单位。</li>
+  <li>点底部<mark class="mark">「入库」</mark>提交，校验通过即写入库存流水。</li>
+</ol>
+<img class="img" src="shots/inv_purchase.png" alt="采购入库-表单">
+<div class="imgcap">图 I2 · 采购入库页：目标仓库 + 变体 ID + 数量 + 成本价</div>
+<h3>3. 移库（stock-doc/transfer）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">移库</mark>，用于在<mark class="mark">两个仓库之间调拨</mark>库存。字段：<mark class="mark">源仓库 *</mark>、<mark class="mark">目标仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">移库数量 *</mark>，点「移库」提交。</p>
+<h3>4. 盘库（stock-doc/stocktake）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">盘库</mark>，用于<mark class="mark">以盘点实数为准覆盖库存</mark>。字段：<mark class="mark">盘库仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">实盘数量 (realQty) *</mark>（按此值覆盖该仓库这一变体的库存），点「盘库」提交。适合盘点修正差异。</p>
+<h3>5. 手动出库（stock-doc/issue）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">手动出库</mark>，用于报损、领用等一般性出库。字段：<mark class="mark">源仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">出库数量 *</mark>，<mark class="mark">原因</mark>（选填，如 报损/领用），点「出库」提交。</p>
+<h3>6. 库存流水（movements）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
+<img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
+<div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
+<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-23）中定义。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
