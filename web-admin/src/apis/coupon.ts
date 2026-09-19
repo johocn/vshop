@@ -49,6 +49,10 @@ export interface CouponTemplateItem {
 export interface CouponTemplateInput {
   name: string;
   description?: string;
+  nameZh?: string;
+  nameEn?: string;
+  descZh?: string;
+  descEn?: string;
   type: CouponType;
   discountValue: number;
   minSpend?: number;
