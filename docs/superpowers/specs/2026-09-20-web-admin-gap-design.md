@@ -98,7 +98,7 @@
 ### F2 收款台账导出 CSV（`pages/settle/ledger/index.vue` + 新增 `utils/csv.ts`）
 - 工具栏：**状态筛选**（全部 / 已收 PAID / 待收 PENDING_SIGN）+ **「导出 CSV」**。
 - 数据源：`fetchSettlementLedgers()`（无分页，全量返回，客户端过滤），导出范围 = 当前筛选结果。
-- CSV 列：时间（`rowTime`，YYYY-MM-DD HH:mm）、订单号（`orderCode`）、收款人（`collectorName`）、收款渠道（`collectorChannelId` 门店名）、收款方式（`settleMethodLabel`）、金额（元）、状态（已收/待收）。
+- CSV 列：时间（`rowTime`，YYYY-MM-DD HH:mm）、订单号（`orderCode`）、收款人（`collectorName`）、收款渠道（`collectorChannelId` 非空显示「门店收款(id)」，空显示「在线分账」）、收款方式（`settleMethodLabel`）、金额（元）、状态（已收/待收）。
 - 导出：H5 用 Blob + `\uFEFF` BOM（Excel 中文）+ `<a download>` 触发，文件名 `收款台账_YYYYMMDD_HHmm.csv`；空结果 toast 提示不导出。
 
 ### F3 优惠券使用明细弹层（`pages/coupon/index.vue` + `apis/coupon.ts` + vendure coupon-plugin 小改）
@@ -106,7 +106,7 @@
   - **领取明细**：客户（姓名/手机号）、券码、状态（UNUSED/USED/RETURNED/EXPIRED/INVALID）、领取时间（issuedAt）、来源（领取 CENTRE / 定向发放 ADMIN / 兑换 EXCHANGE）。
   - **核销明细**：客户、券码、核销时间（usedAt）、核销订单号（usedOrderId）。
 - 数据源（已核实契约）：`customerCoupons(options: { filter: { templateId: { eq } }, sort: { issuedAt: DESC }, skip, take }) { items { customerId code status issuedBy issuedAt usedAt usedOrderId } totalItems }`（`CustomerCouponListOptions` 走标准 ListQuery，可按 templateId 过滤；`@Allow(UpdateOrder)`）。
-- **后端小改（vendure coupon-plugin）**：`CustomerCouponResolver` 增加 `customer` resolve field（按 `customerId` 取 `Customer { id firstName lastName emailAddress phoneNumber }`，未命中返回 null）。前端明细行展示客户名/手机号，缺失显示 `customerId` 兜底。
+- **后端小改（vendure coupon-plugin）**：`packages/coupon-plugin/src/coupon-customer-coupon.resolver.ts` 增加 `customer` resolve field（按 `customerId` 取 `Customer { id firstName lastName emailAddress phoneNumber }`，未命中返回 null）。前端明细行展示客户名/手机号，缺失显示 `customerId` 兜底。
 - 权限前置验证：当前角色需具备 `UpdateOrder` 权限（coupon 管理既用同一权限，正常已具备；回归时验证）。
 
 ### F4 订单详情备注 / 改价（`pages/order/detail/index.vue` + `apis/order.ts`）
@@ -161,4 +161,5 @@
 - **shopLogo 格式**：实现时先核验 assetId vs URL，两端兼容。
 - **ViewDashboard 权限**：验证 + roles 勾选；不可用则降级提示。
 - **CSV 纯前端生成**：不新增后端接口。
+- **Roadmap 预留不动**：Odoo 库存（预留开关）、品牌名暂不落库、商品关联活动暂不配置，均不在本次范围。
 - **不在本次范围**：分销/图片库/POS/首页工作台 KPI 的功能本身不改（仅补手册章节）；mp 手册不动。
