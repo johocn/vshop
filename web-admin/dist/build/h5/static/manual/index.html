@@ -180,11 +180,12 @@ var BOOKS = {
   op: { id:'op', title:'vshop 租户运营手册', short:'运营手册', icon:'🏪',
         desc:'开店、绑定域名、装修首页、上架商品、处理订单的日常运营指南。' },
   mp: { id:'mp', title:'商户入驻与商品上架审批流程', short:'入驻审批', icon:'📋',
-        desc:'平台建商户 → 商户提交商品 → 审批上架 → 真实下单拆单验证。' }
+        desc:'平台建商户 → 商户提交商品 → 审批上架 → 真实下单拆单验证。' },
+  cx: { id:'cx', title:'nshop 商城 C 端手册', short:'C端手册', icon:'📱',
+        desc:'nshop 商城买家视角：结账本地化、逐箱结算、订单确认与售后。' }
 };
 
 var CHAPTERS = [
-/* ===================== 运营手册 ===================== */
 {book:'op', id:'op-1', title:'这是一本什么手册', html:`
 <p class="lead">vshop 是一个基于 Vendure 的 <span class="mark">多租户 C 端商城</span>：一个平台服务多个商家（租户），每个租户拥有独立的域名、店铺装修、商品与订单，数据相互隔离。</p>
 <p>本手册站在<strong>租户运营者</strong>视角，带你走完从「拿到店铺」到「日常运营」的全流程。你无需了解后端技术——只需在管理后台配置，前端商城会<mark class="mark">自动按你的配置渲染</mark>。</p>
@@ -194,7 +195,6 @@ var CHAPTERS = [
 <div class="card"><b>装修</b> —— 用首页组件与主题，搭建自己的品牌门面。</div>
 <div class="card"><b>经营</b> —— 商品、价格、库存、订单与售后，一整套日常运营。</div>
 <div class="warn"><b>约定：</b>手册中的「后台」均指管理后台（Admin）界面；「商城」指你的租户向用户展示的 C 端 H5 页面。</div>`},
-
 {book:'op', id:'op-2', title:'认识多租户商城', html:`
 <p class="lead">先理解你的店铺在整体架构里的位置，后面的配置就会顺理成章。</p>
 <h3>整体架构</h3>
@@ -208,7 +208,6 @@ var CHAPTERS = [
 <div class="card"><b>通道主题 themeId</b><br/>每个 Channel 有主题标识（如 <code>taobao-orange</code>），商城用它切换整体配色与风格。</div>
 <div class="card"><b>展示模板 displayTemplate</b><br/>每个商品可选展示模板（如 <code>standard</code>），控制商品详情页版式，承载不同营销展示。</div>
 <div class="tip"><b>一句话：</b>你是「租户」→ 在后台是「一个 Channel」→ 买家看到的是「绑定你域名的一套商城」。</div>`},
-
 {book:'op', id:'op-3', title:'开通并绑定你的店铺', html:`
 <p class="lead">上架任何内容之前，先确保你的店铺能被正确访问、且归属准确的租户。</p>
 <h3>开通 CheckList</h3>
@@ -224,13 +223,14 @@ var CHAPTERS = [
   <div class="frow"><span class="fnode">买家访问域名</span><span class="farrow">→</span><span class="fnode primary">命中?命中→你的商城<br/>未配置→回退默认租户</span></div>
 </div>
 <div class="warn"><b>常见坑：</b>买家打开域名却显示「默认风」，大概率是<mark class="mark">Channel 域名映射没填/填错</mark>，系统没认领到你的租户。</div>`},
-
 {book:'op', id:'op-4', title:'登录管理后台', html:`
 <p class="lead">所有店铺配置都在管理后台完成，它和买家看到的商城是两回事。</p>
-<div class="card"><b>后台地址</b><br/>平台的 Admin UI 入口（如 <code>https://e.joho.cn/admin</code>），运营者专用，买家看不到。</div>
+<div class="card"><b>后台地址</b><br/>平台的 Admin UI 入口（如 <code>https://e.joho.cn/guanli</code>），运营者专用，买家看不到。</div>
 <div class="card"><b>账号与权限</b><br/>用平台分配的账号登录，请<mark class="mark">妥善保管凭据</mark>，必要时可按角色申请只读/编辑权限。</div>
+<div class="card"><b>多店铺切换</b><br/>登录后如持有多个店铺（Channel），先进入「选择要经营的店铺」页，选中所经营的店铺后进入工作台；后续请求均以该店铺上下文为准。</div>
+<img class="img" src="shots/op_dashboard.png" alt="工作台-店铺上下文与功能入口">
+<div class="imgcap">图 W0 · 登录并选定店铺后的工作台（顶部显示当前店铺上下文）</div>
 <div class="note"><b>安全提示：</b>后台仅管理员可访问；商城面向买家完全公开。若媒体文件（视频/PDF）被误开放，可能是走错了鉴权通道。</div>`},
-
 {book:'op', id:'op-5', title:'店铺装修与主题', html:`
 <p class="lead">商城首页由「板块组件」搭成，配合「通道主题」整体换肤。你在后台的装修会<mark class="mark">按板块的排序（sort）依次渲染</mark>成买家看到的第一屏。</p>
 <h3>首页组件（板块）</h3>
@@ -247,8 +247,11 @@ var CHAPTERS = [
   <li><b>排商品楼层</b>：按主营类目添加 Floor，并为每个商品设定合适的展示模板。</li>
   <li><b>检查排序</b>：确认各板块的 <code>sort</code> 顺序，前端严格按此渲染。</li>
 </ol>
-<div class="warn"><b>注意排序：</b>板块顺序由 <mark class="mark">sort 字段</mark>决定，新增板块后务必核对，否则可能出现「楼层在 Banner 上面」。</div>`},
-
+<div class="warn"><b>注意排序：</b>板块顺序由 <mark class="mark">sort 字段</mark>决定，新增板块后务必核对，否则可能出现「楼层在 Banner 上面」。</div>
+<h3>店铺信息（名称 / 电话 / Logo / 税率 / 库存）</h3>
+<p>后台「店铺装修 → 店铺信息」维护店铺基础资料：店铺名、客服电话、简介、<mark class="mark">店铺 Logo</mark>（选图后点保存生效，历史 URL 值兼容显示）、默认分享图，以及税率方式（含税价 / 零税率 / 不含税价）与库存管理方式（简单库存 / Odoo 库存预留）。</p>
+<img class="img" src="shots/op05_shop_info.png" alt="店铺信息-名称电话Logo税率库存">
+<div class="imgcap">图 W2 · 店铺信息（Logo 从图片库选图，税率/库存方式分段切换）</div>`},
 {book:'op', id:'op-6', title:'商品管理', html:`
 <p class="lead">商品是你与买家交易的基础。合理分类、维护规格、挑选展示模板，能极大提升成交率。</p>
 <div class="card"><b>分类（Collection）</b><br/>先用分类给商品归类，首页的「分类导航」和「商品楼层」都依赖它。建议先画好类目树再上架。</div>
@@ -266,7 +269,6 @@ var CHAPTERS = [
     <tr><td>5</td><td>预览后启用</td><td>确认无误再启用上架。</td></tr>
   </tbody>
 </table>`},
-
 {book:'op', id:'op-7', title:'价格与库存', html:`
 <p class="lead">价格决定毛利，库存决定履约。vshop 的库存是<mark class="mark">「下单即占用、成交/取消即释放」</mark>的动态机制。</p>
 <div class="card"><b>价格</b><br/>在 SKU 上维护，支持一口价与促销价位。</div>
@@ -274,8 +276,7 @@ var CHAPTERS = [
 <div class="card"><b>订单取消释放</b><br/>订单取消/超时未支付时，占用的库存<mark class="mark">自动释放</mark>回可售库存，不泄漏。</div>
 <div class="card"><b>库存核查</b><br/>若发现长期占用不释放，优先核查订单是否停在「支付中」被卡住的状态。</div>
 <div class="note"><b>温馨提示：</b>库存释放逻辑已内置，正常情况下无需手工干预；退款、取消等售后动作都会带动库存回补。</div>`},
-
-{book:'op', id:'op-7b', title:'商品价格 · 库存 · 图片（含税率开关）', html:`
+{book:'op', id:'op-8', title:'商品价格 · 库存 · 图片（含税率开关）', html:`
 <p class="lead">商户录入商品时最常关心的三件事：<mark class="mark">价格为什么和录的不一样</mark>、<mark class="mark">库存改了不生效</mark>、<mark class="mark">编辑商品时图片不见了</mark>。本节说明这三类问题的成因与正确用法，并按「修复后」的口径给出操作结果。</p>
 <h3>1. 税率开关（价格显示的关键）</h3>
 <p>后台「店铺信息 → 启用含税价」控制<mark class="mark">税率是否参与价格计算</mark>（默认开启）：</p>
@@ -296,8 +297,7 @@ var CHAPTERS = [
 <div class="imgcap">图 W2 · 编辑商品：主图预加载、库存显示 76</div>
 <img class="img" src="shots/cjk_persist_stock88.png" alt="保存并硬刷新-主图保留+库存88">
 <div class="imgcap">图 W3 · 改库存 88 并保存、硬刷新后：主图保留 + 库存 88（持久化）</div>`},
-
-{book:'op', id:'op-8', title:'订单与售后', html:`
+{book:'op', id:'op-9', title:'订单与售后', html:`
 <p class="lead">订单从生成到完结按固定状态流转，读懂这条链路就能在后台准确跟进每一单。</p>
 <h3>订单状态机</h3>
 <div class="flow">
@@ -308,17 +308,23 @@ var CHAPTERS = [
 <div class="card"><b>履约</b><br/>订单支付后依次经历配货、发货直至完成，及时更新物流信息有助体验。</div>
 <div class="card"><b>售后</b><br/>退款、退货、换货等申请在后台处理，库存回补在售后完成时体现。</div>
 <div class="card"><b>超时取消</b><br/>长时间未支付订单会被取消，<mark class="mark">占用库存同步释放</mark>。</div>
-<div class="card"><b>查询</b><br/>按订单号、买家、状态检索，或导出数据复盘。</div>`},
-
-{book:'op', id:'op-9', title:'常见问题（FAQ）· 运营', html:`
+<div class="card"><b>查询</b><br/>按订单号、买家、状态检索，或导出数据复盘。</div>
+<img class="img" src="shots/op09_order_list.png" alt="订单列表-状态筛选与卡片">
+<div class="imgcap">图 O2 · 订单列表（状态统计 / 筛选 Tab / 卡片操作区：发货、详情）</div>
+<h3>订单详情：备注与改价</h3>
+<p>进入订单详情可查看状态、金额明细、商品明细、支付与物流信息。<mark class="mark">「备注」恒显示</mark>，可记录内部备注（不发给买家）；订单处于<mark class="mark">待支付 / 支付中（可修改状态）</mark>时，操作区出现「改价」，输入目标金额后按差额生成后台改价 surcharge，改价成功即刷新页面。</p>
+<img class="img" src="shots/op09_order_detail.png" alt="订单详情-待发货单与备注按钮">
+<div class="imgcap">图 O3 · 订单详情（备注按钮；待发货单操作：去发货 / 取消订单 / 去核销）</div>
+<img class="img" src="shots/op09_order_detail_adjust.png" alt="订单详情-加购中单显示备注与改价">
+<div class="imgcap">图 O4 · 加购中订单：备注 + 改价按钮（仅可修改状态显示改价）</div>`},
+{book:'op', id:'op-10', title:'常见问题（FAQ）· 运营', html:`
 <details><summary>买家打开域名却看不到我的品牌主题，像「默认店铺」</summary><p>大概率是<mark class="mark">Channel 域名映射未配置</mark>，系统没能通过 <code>resolveChannelByDomain</code> 认领到你的租户，回退到默认主题。请确认后台 Channel 的域名字段与访问域名完全一致。</p></details>
 <details><summary>首页板块顺序不对，楼层跑到 Banner 上面了</summary><p>板块按 <mark class="mark"><code>sort</code> 排序渲染</mark>。请重新核对各板块排序值，让 Banner/导航在前、商品楼层在后。</p></details>
 <details><summary>为什么有的商品详情页版式不一样</summary><p>每个商品可选独立<mark class="mark">展示模板 <code>displayTemplate</code></mark>。版式不同通常是选了不同模板；找回后台把模板设为一致即可。</p></details>
 <details><summary>上传的视频/PDF 买家访问提示 403</summary><p>这是<mark class="mark">媒体鉴权正常生效</mark>，此类媒体不支持匿名直访，需登录或通过签名播放接口（<code>stream-token</code>）播放，防止资源被爬取。</p></details>
 <details><summary>改完装修/商品，买家看到的还是旧样</summary><p>部分环境（尤其微信浏览器）会缓存 <code>index.html</code>。系统已对首页设置 <code>no-cache</code>，正常情况下刷新即可。</p></details>
 <details><summary>订单取消了，为什么库存看起来还占着</summary><p>请核查订单是否还停在「支付中」等中间态。确认订单确实取消/退款后库存会自动回补；若长期异常可联系平台核查该单。</p></details>`},
-
-{book:'op', id:'op-10', title:'到店自提核销与收款', html:`
+{book:'op', id:'op-11', title:'到店自提核销与收款', html:`
 <p class="lead">到店自提是<mark class="mark">线上支付 / 到店收款</mark>两种资金形态并存的一种履约方式。本手册带你掌握「扫码核销」、「收款确认」与「防漏收」的运营要点。</p>
 <h3>两种收款形态</h3>
 <table>
@@ -355,9 +361,14 @@ var CHAPTERS = [
 <p>顶部汇总下方单列「今日收款明细」，逐笔展示：<mark class="mark">单号、收款金额、收款人（核销人）、收款方式、归属商户、入账时间</mark>。同一笔也会出现在下方「收款台账」列表中。核销码完成后，台账应按核销码查询到对应金额的已收款记录（收款人即核销的店员）。</p>
 <div class="warn"><b>收款归属修正：</b>早期版本存在「门店核销收款后，台账因按商品归属渠道过滤而看不到」的问题。现已将台账同时记录<mark class="mark">核销渠道（collectorChannelId）</mark>与<mark class="mark">收款人（collectorName）</mark>，按 <code>tenantChannelId OR collectorChannelId</code> 过滤，确保本店可见自己经手的每笔收款。</div>
 <img class="img" src="shots/xledger_t2_g723zm.png" alt="收款台账-今日汇总与 g723zm 明细">
-<div class="imgcap">图 O2 · 收款台账（今日收款 ¥200 1 笔 / 已收 ¥3145.07 25 笔；明细含 g723zm ¥200 收款人=陈店长）</div>`},
-
-{book:'op', id:'op-11', title:'商户订单可见性（本店商品单）', html:`
+<div class="imgcap">图 O2 · 收款台账（今日收款 ¥200 1 笔 / 已收 ¥3145.07 25 笔；明细含 g723zm ¥200 收款人=陈店长）</div>
+<h3>状态筛选与 CSV 导出</h3>
+<p>工具栏提供「全部 / 已收 / 待收」三段筛选与「导出 CSV」按钮。导出<mark class="mark">按当前筛选结果</mark>生成 CSV（含 UTF-8 BOM，Excel 打开中文不乱码），列依次为：时间、订单号、收款人、收款渠道、收款方式、金额、状态，文件名形如 <code>收款台账_20260920_1015.csv</code>。</p>
+<img class="img" src="shots/op12_ledger.png" alt="收款台账-筛选与导出CSV">
+<div class="imgcap">图 O2a · 收款台账（已收 5 笔，工具栏：全部/已收/待收 + 导出 CSV）</div>
+<img class="img" src="shots/op12_ledger_pending.png" alt="收款台账-待收筛选">
+<div class="imgcap">图 O2b · 切「待收」筛选后的台账（0 笔空态）</div>`},
+{book:'op', id:'op-13', title:'商户订单可见性（本店商品单）', html:`
 <p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
 <h3>双维度切换</h3>
 <table>
@@ -377,204 +388,7 @@ var CHAPTERS = [
   <li><b>保证金流对照</b>：对本店商品单同样遵守上述到店自提核销收款规则，避免漏收。</li>
 </ol>
 <div class="tip"><b>口径说明：</b>「本店商品单」忽略渠道状态筛选，展示的是<mark class="mark">所有含本店商品的成交</mark>，含默认商城等外部渠道；金额为含税总价，与渠道单互补但不重复计数。</div>`},
-
-/* ===================== 入驻审批 ===================== */
-{book:'mp', id:'mp-1', title:'概述', html:`
-<p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
-<table>
-  <thead><tr><th>阶段</th><th>角色</th><th>操作内容</th><th>截图</th></tr></thead>
-  <tbody>
-    <tr><td>A</td><td>平台超管</td><td>创建商户租户、添加管理员、生成初始口令</td><td>m01~m07</td></tr>
-    <tr><td>B</td><td>商户管理员</td><td>首次登录强制改密、创建商品、提交上架审核</td><td>m08~m14</td></tr>
-    <tr><td>C</td><td>平台超管</td><td>在待审列表审批（通过/驳回）</td><td>c02~c05</td></tr>
-    <tr><td>D</td><td>商户管理员</td><td>复看商品状态变为「已在默认站点上架」</td><td>d01</td></tr>
-  </tbody>
-</table>
-<div class="note"><b>演示账号：</b>商户邮箱 <code>chendi-mobile@joho.cn</code>，商品「手工黄油曲奇礼盒」。全程截图由自动化测试驱动真实界面抓取（手机视口），所见即所得。</div>`},
-
-{book:'mp', id:'mp-2', title:'前置条件', html:`
-<ul>
-  <li>平台超管账号可登录管理后台，具备「租户管理」「商品上架审批」菜单权限。</li>
-  <li>默认商城（<code>default</code> 租户）已配置好配送档案、支付档案、分类与税率。</li>
-  <li>商户提交商品时未配置配送/支付档案/分类将被校验拦截，需先创建这些基础档案。</li>
-</ul>`},
-
-{book:'mp', id:'mp-3', title:'流程总览', html:`
-<div class="flow">
-  <div class="fphase">阶段 A · 平台超管</div>
-  <div class="frow"><span class="fnode primary">登录后台</span><span class="farrow">→</span><span class="fnode">租户管理</span><span class="farrow">→</span><span class="fnode">新建商户</span></div>
-  <div class="frow"><span class="fnode">租户详情</span><span class="farrow">→</span><span class="fnode">添加管理员</span><span class="farrow">→</span><span class="fnode primary">生成初始口令</span></div>
-  <div class="fphase">↓ 将初始口令转交商户</div>
-  <div class="fphase">阶段 B · 商户管理员</div>
-  <div class="frow"><span class="fnode">首次登录</span><span class="farrow">→</span><span class="fnode">强制改密</span><span class="farrow">→</span><span class="fnode">加商品</span><span class="farrow">→</span><span class="fnode primary">提交上架(待审)</span></div>
-  <div class="fphase">↓ 平台收到待审通知</div>
-  <div class="fphase">阶段 C · 平台超管</div>
-  <div class="frow"><span class="fnode">商品上架审批</span><span class="farrow">→</span><span class="fnode">定位商品</span><span class="farrow">→</span><span class="fnode primary">通过(或驳回)</span></div>
-  <div class="frow"><span class="fnode">状态流转</span><span class="farrow">→</span><span class="fnode primary">pending → approved</span></div>
-  <div class="fphase">阶段 D · 商户复核</div>
-  <div class="frow"><span class="fnode">商户复看</span><span class="farrow">→</span><span class="fnode primary">已在默认站点上架</span></div>
-</div>`},
-
-{book:'mp', id:'mp-4', title:'阶段 A：平台超管创建商户', html:`
-<h3>A1 · 登录管理后台</h3>
-<p>使用平台超管账号登录，进入「工作台」。登录页输入用户名与密码后点击登录。</p>
-<img class="img" src="shots/m01_login.png" alt="登录页">
-<div class="imgcap">图 A1 · 后台登录页</div>
-<h3>A2 · 进入租户管理</h3>
-<p>登录后从底部切入「我的」→ 平台管理入口进入租户列表。列表展示所有已创建的商户（含官方店与第三方商户）。</p>
-<img class="img" src="shots/m02_tenants.png" alt="租户列表">
-<div class="imgcap">图 A2 · 租户列表</div>
-<h3>A3 · 新建商户租户</h3>
-<p>点击「新建」弹出创建弹窗，填写商户名称（店名），系统为新商户分配独立信道（Channel）与租户编号。第三方商户默认 <code>isOfficial=false</code>。</p>
-<img class="img" src="shots/m03_create_tenant_dialog.png" alt="新建租户弹窗">
-<div class="imgcap">图 A3 · 新建租户弹窗</div>
-<p>创建成功后，新商户出现在租户列表，并拥有独立的 <code>token</code>（用于 API 侧商户上下文隔离）。</p>
-<img class="img" src="shots/m04_tenants_after_create.png" alt="创建后租户列表">
-<div class="imgcap">图 A4 · 创建后有独立 token</div>
-<h3>A4 · 添加管理员</h3>
-<p>点击商户进入「租户详情」，默认展示「管理员 / 角色」页签。在「管理员授权」区点「添加管理员」，为该商户创建后台账号。</p>
-<img class="img" src="shots/m05_tenant_detail_admins.png" alt="租户详情-管理员">
-<div class="imgcap">图 A5 · 租户详情-管理员</div>
-<p>填写管理员邮箱、姓名，并勾选角色权限。</p>
-<img class="img" src="shots/m06_add_admin_dialog_filled.png" alt="添加管理员弹窗">
-<img class="img" src="shots/m06b_role_pick.png" alt="角色选择">
-<div class="imgcap">图 A6 · 添加管理员并勾选角色</div>
-<h3>A5 · 领取初始口令</h3>
-<p>创建成功后系统弹窗显示<mark class="mark">一次性初始口令</mark>，并提示「仅显示一次，请复制并转发给本人；首次登录后强制修改密码」。可「一键复制」后安全转交商户人员。</p>
-<img class="img" src="shots/m07_initial_password.png" alt="初始口令弹窗">
-<div class="imgcap">图 A7 · 一次性初始口令</div>
-<div class="tip"><b>安全设计：</b>初始口令为随机强口令（≥12 位，含大小写/数字/符号），仅展示一次，首次登录强制改密。</div>`},
-
-{book:'mp', id:'mp-5', title:'阶段 B：商户登录并提交商品', html:`
-<h3>B1 · 首次登录、强制修改密码</h3>
-<p>商户用邮箱与初始口令登录，系统判定需强制改密，引导进入「修改密码」页，保证账户安全闭环（提交会销毁会话，仅演示界面）。</p>
-<img class="img" src="shots/m08_merchant_login_filled.png" alt="商户登录">
-<img class="img" src="shots/m09_change_password.png" alt="改密页">
-<img class="img" src="shots/m09b_change_password_filled.png" alt="改密页已填写">
-<div class="imgcap">图 B1 · 首登强制改密</div>
-<h3>B2 · 进入商户工作台</h3>
-<p>改密后进入商户工作台（首页），可看到「加商品」「订单」等入口，顶部为当前操作店铺上下文。</p>
-<img class="img" src="shots/m10_merchant_dashboard.png" alt="商户工作台">
-<div class="imgcap">图 B2 · 商户工作台</div>
-<h3>B2b · 工作台全景：租户标识与全量功能入口</h3>
-<p>工作台顶部卡片显示当前操作店铺的<mark class="mark">店铺名称 + 编码</mark>（第二行「编码 t2 · 经营中」），切换租户后自动更新，方便在多店铺间明确当前上下文。</p>
-<img class="img" src="shots/m15_merchant_dashboard_top.png" alt="工作台顶部-店铺名称与编码">
-<div class="imgcap">图 B2b-1 · 工作台顶部显示店铺名称与编码</div>
-<p>工作台按「商品 / 交易 / 履约 / 装修 / 营销 / 分销 / 系统 / 平台」分区铺开全量管理入口（同一数据源与侧边抽屉保持一致），平台管理区仅对持有相应角色权限者显示。各分区顶部为主功能入口（填充按钮），次要项为描边/纯文字入口。</p>
-<img class="img" src="shots/m16_merchant_dashboard_full.png" alt="工作台全部分组入口">
-<div class="imgcap">图 B2b-2 · 工作台全量功能分区入口</div>
-<p>右上角「☰」打开侧边抽屉，按分区列出全部功能；内容超出时抽屉内部可独立滚动，底部的「退出登录 / 平台管理」等始终可滚动到可见。</p>
-<img class="img" src="shots/m17_merchant_drawer.png" alt="侧边抽屉-底部可见">
-<div class="imgcap">图 B2b-3 · 侧边抽屉（底部内容可滚动查看）</div>
-<h3>B2c · 首页经营数据（今日销售额 / 待发货 / 库存预警）</h3>
-<p>工作台顶部卡片下方的三格数据为<mark class="mark">实时统计</mark>，进入工作台时自动加载，<strong>始终以当前登录租户的数据为准</strong>：切换店铺后数字相应刷新，不同租户互不串扰。</p>
-<ul>
-  <li><b>今日销售额</b>：当日（今日 0 点起）下单订单的实收金额合计，展示格式为 <code>¥ + 两位小数</code>；今日暂无订单时显示 <code>¥0.00</code>。</li>
-  <li><b>待发货</b>：状态为「待发货」（已付款、尚未发货）的订单数，口径与「订单 → 待发货」页签一致。</li>
-  <li><b>库存预警</b>：当前租户下 <mark class="mark">可用库存 ≤ 5</mark> 的库存条数，便于提前补货。</li>
-</ul>
-<p>统计加载异常时对应格子显示「—」占位（不会误显示 0 假装有数据）；下拉刷新或切店再进入会重新拉取。</p>
-<img class="img" src="shots/m18_merchant_dashboard_kpi.png" alt="首页经营数据 KPI">
-<div class="imgcap">图 B2c · 首页经营数据（按当前租户实时统计）</div>
-<h3>B3 · 新建商品</h3>
-<p>点「加商品」进入商品列表（初始为空），再进入「新增商品」表单，填写名称、Slug、描述、价格、库存，并选择配送档案、支付档案、分类与商品图片。</p>
-<img class="img" src="shots/m11_merchant_product_list_empty.png" alt="商户商品列表-空">
-<img class="img" src="shots/m12_merchant_create_product_form.png" alt="新增商品表单">
-<div class="imgcap">图 B3 · 新建商品（配送/支付/分类必选）</div>
-<div class="warn"><b>注意：</b>表单中的「配送档案 / 支付档案 / 分类」为必选，与拆单、结算规则强相关。</div>
-<p>创建成功后商品出现在「全部」列表，即进入「待审」状态。</p>
-<img class="img" src="shots/m13_merchant_product_pending.png" alt="商品已创建-待审">
-<div class="imgcap">图 B4 · 商品进入待审</div>
-<h3>B4 · 提交上架到默认站点</h3>
-<p>在商品操作区点击「提交上架到默认站点」，弹窗确认后状态由「待提交」变为「已提交，待审核」（<code>marketplaceStatus: pending</code>），等待平台审批。</p>
-<img class="img" src="shots/m14_submit_confirm_modal.png" alt="提交上架确认">
-<div class="imgcap">图 B5 · 提交上架确认</div>`},
-
-{book:'mp', id:'mp-6', title:'阶段 C：平台超管审批商品', html:`
-<h3>C1 · 进入「商品上架审批」</h3>
-<p>平台超管在侧栏/工作台进入「商品上架审批」，页面列出所有<mark class="mark">待审商品</mark>，每条卡片显示商品名、状态徽标及「驳回 / 通过」两个操作按钮。</p>
-<img class="img" src="shots/c02_pending_list.png" alt="待审商品列表">
-<div class="imgcap">图 C1 · 待审商品列表</div>
-<h3>C2 · 定位目标商品</h3>
-<p>在列表中找到本次提交的「手工黄油曲奇礼盒」（可结合提交时间核对），卡片展示清晰名称与「待审」徽标。</p>
-<img class="img" src="shots/c03_found_card.png" alt="定位目标商品">
-<div class="imgcap">图 C2 · 定位目标商品卡片</div>
-<h3>C3 · 通过审批</h3>
-<p>点击「通过」弹出确认弹窗，确认后即完成审批，商品从待审列表移除（<code>marketplaceStatus: approved</code>）。</p>
-<img class="img" src="shots/c04_approve_modal.png" alt="通过-确认弹窗">
-<img class="img" src="shots/c05_after_approve.png" alt="通过后列表刷新">
-<div class="imgcap">图 C3 · 通过审批</div>
-<div class="warn"><b>如需驳回：</b>点击「驳回」并填写必填的驳回原因，商品进入「已驳回」态并回显原因，商户可据此修正后再次提交。</div>`},
-
-{book:'mp', id:'mp-7', title:'阶段 D：商户复看上架结果', html:`
-<p>商户重新登录进入商品列表，目标商品状态已更新为「<mark class="mark">已在默认站点上架</mark>」，标识其可在默认商场完成销售。</p>
-<img class="img" src="shots/d01_merchant_approved_product.png" alt="商户端-已在默认站点上架">
-<div class="imgcap">图 D1 · 商户端已上架</div>
-<p>至此，<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效</mark> 的完整流程验证通过。</p>`},
-
-{book:'mp', id:'mp-8', title:'状态与规则说明', html:`
-<table>
-  <thead><tr><th>状态码(市场)</th><th>界面显示</th><th>含义</th></tr></thead>
-  <tbody>
-    <tr><td><code>null</code></td><td>待提交</td><td>商品尚未提交上架</td></tr>
-    <tr><td><code>pending</code></td><td>已提交，待审核</td><td>已提交，等待平台审批</td></tr>
-    <tr><td><code>approved</code></td><td>已在默认站点上架</td><td>审批通过，可在默认商城销售（独立店不受审批约束）</td></tr>
-    <tr><td><code>rejected</code></td><td>已驳回</td><td>审批未通过，回显原因，可修正后重提</td></tr>
-  </tbody>
-</table>
-<ul>
-  <li><b>租户规则：</b>前 20 个租户预留官方自营；第 21+ 为第三方商户，其商品需经平台审批后方可在默认商城销售。</li>
-  <li><b>审批权限：</b>仅平台超管可见「商品上架审批」入口并执行通过/驳回。</li>
-</ul>`},
-
-{book:'mp', id:'mp-9', title:'商家商品真实下单拆单验证（e2e）', html:`
-<p>审核通过后，商家商品在默认商城即可被真实下单。本节验证在<mark class="mark">同一笔订单</mark>里，商家商品与普通商品因<mark class="mark">配送档案不同</mark>而自动分箱、按箱配送的拆单能力。</p>
-<h3>拆单原理</h3>
-<p>分箱以<mark class="mark">配送档案</mark>（<code>shippingProfileId</code>，见变体级 <code>customFields</code>）为唯一划分单元：</p>
-<ul>
-  <li>同一送达档案 → 合箱；跨档案 / 跨租户 → 分箱，零交集；</li>
-  <li>未绑定档案的变体回退到当前租户<mark class="mark">默认配送档案</mark>并入其分组；</li>
-  <li>前端按 <code>orderBoxes</code> 分箱结果，每箱单独选配送方式、生成独立的配送线（ShippingLine）。</li>
-</ul>
-<h3>场景数据</h3>
-<table>
-  <thead><tr><th>商品</th><th>绑定配送档案</th><th>配送方式</th><th>归属箱</th></tr></thead>
-  <tbody>
-    <tr><td>商家「手工黄油曲奇礼盒」(变体31)</td><td>8「拆单验证-自提点档案」</td><td>自提点配送</td><td>箱A</td></tr>
-    <tr><td>商家「陈记手工蛋卷」(变体32)</td><td>未绑定 → 回退默认档案5</td><td>门店自提</td><td>箱B</td></tr>
-  </tbody>
-</table>
-<h3>验证结果（订单 75 <code>YZWKW3Z6PW3R8AZD</code>）</h3>
-<ol>
-  <li><b>同单加购：</b>曲奇 + 蛋卷落入同一活动订单（此前「分开建单」实为会话 token 未持久化，非拆单问题）。</li>
-  <li><b>分箱查询 <code>orderBoxes</code> 返回 2 箱：</b>
-    <table>
-      <thead><tr><th>boxKey</th><th>生效档案</th><th>落入行</th><th>可用配送</th><th>默认配送</th></tr></thead>
-      <tbody>
-        <tr><td><code>box:8</code></td><td>拆单验证-自提点档案</td><td>曲奇</td><td>自提点配送</td><td>自提点配送</td></tr>
-        <tr><td><code>box:5</code></td><td>default默认配送档案</td><td>蛋卷</td><td>门店自提</td><td>门店自提</td></tr>
-      </tbody>
-    </table>
-  </li>
-  <li><b>按箱设配送：</b>对每箱调用 <code>setOrderBoxShippingMethod</code> 成功后，订单出现 <strong>2 条配送线</strong>：
-    <pre><code>shippingLines:
-  - id58  pickup-point-template  自提点配送  ← 箱A（商家曲奇）
-  - id59  store-pickup           门店自提    ← 箱B（蛋卷）</code></pre>
-  </li>
-  <li><b>状态流转：</b>订单由 <code>AddingItems</code> 顺利推进到 <code>ArrangingPayment</code>。</li>
-  <li><b>支付：</b>生成支付记录；余额支付因测试顾客<mark class="mark">钱包无余额</mark>返回 <code>PAYMENT_DECLINED_ERROR</code>（属支付网关余额问题，与分箱无关）。</li>
-</ol>
-<h3>结论</h3>
-<p>商家商品在默认商城完成审批上架后，与普通商品<mark class="mark">同单加购即可自动按配送档案拆分为多个包裹</mark>，每个包裹独立配送、独立结算行，拆单能力闭环验证通过。</p>
-<div class="note"><b>说明：</b>本节为 Shop API 层的地基验证（订单/分箱/配送线/状态流水）。结算页按箱展示配送的 UI 截图见前端联调记录。</div>`},
-
-{book:'mp', id:'mp-10', title:'常见问题（FAQ）· 入驻审批', html:`
-<details><summary>商户提交商品时报「配送档案/支付档案/分类」必选？</summary><p>请先在该商户后台为商品配置对应的配送档案、支付档案与分类；这些档案与拆单、结算规则强相关，属校验拦截而非异常。</p></details>
-<details><summary>为什么找不到「商品上架审批」菜单？</summary><p>该入口仅对平台超管开放，请确认当前登录账号为平台超管角色。</p></details>
-<details><summary>驳回后商品还能再提交吗？</summary><p>可以。查看驳回原因并修正后，再次执行「提交上架到默认站点」即可重新进入待审队列。</p></details>
-<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`},
-
-{book:'op', id:'op-12', title:'优惠券（多租户发行与使用）', html:`
+{book:'op', id:'op-14', title:'优惠券（多租户发行与使用）', html:`
 <p class="lead">优惠券由<mark class="mark">每个租户（店铺）独立发行</mark>，买家可在本店或默认商城领取使用。系统支持满减、折扣、无门槛直减与<mark class="mark">免邮券</mark>四种类型，券名与说明支持多语言。</p>
 <h3>优惠券类型</h3>
 <table>
@@ -602,6 +416,12 @@ var CHAPTERS = [
 <div class="imgcap">图 O5 · 优惠券管理列表</div>
 <img class="img" src="shots/o06_coupon_admin_edit.png" alt="优惠券编辑-类型与多语言配置">
 <div class="imgcap">图 O6 · 优惠券编辑（类型 + 多语言名称）</div>
+<img class="img" src="shots/op14_coupons.png" alt="优惠券管理-列表与操作">
+<div class="imgcap">图 O6a · 优惠券列表（发行量 / 有效期 / 归属店铺，操作：停用 / 编辑 / 明细 / 删除）</div>
+<h3>券使用明细（领取 / 核销双页签）</h3>
+<p>点列表任意券的「明细」弹出<mark class="mark">券使用明细</mark>弹层，默认「领取明细」页签逐笔展示领取人（姓名 + 手机号）、券码、状态（未使用 / 已核销 / 已退回 / 已过期 / 已失效）、来源（领取 / 定向发放 / 兑换）与领取时间；切「核销明细」页签仅展示已核销记录及核销订单号 / 时间。列表分页懒加载，滚动到底自动加载更多。</p>
+<img class="img" src="shots/op14_coupon_detail.png" alt="券使用明细-领取页签">
+<div class="imgcap">图 O6b · 券使用明细（领取明细页签：客户 / 券码 / 状态 / 来源 / 时间）</div>
 <h3>定向发券与站内消息通知</h3>
 <p>管理端「营销 → 定向发券」可按关键词<mark class="mark">搜索本渠道客户</mark>（姓名/手机号/邮箱）并勾选，或一键「全部本渠道」圈选批量发券；发券时可选择<mark class="mark">发送站内消息</mark>，买家在 C 端「消息中心」收到「优惠券到账」通知，券码直达「我的券包」。</p>
 <img class="img" src="shots/o12_webadmin_coupon_issue.png" alt="定向发券页-选券选客户与通知开关">
@@ -611,50 +431,6 @@ var CHAPTERS = [
 <img class="img" src="shots/o14_nshop_coupon_wallet.png" alt="nshop 我的券包-定向发放的满减券">
 <div class="imgcap">图 O14 · 我的券包（定向发放的「满100减20」券，来源 ADMIN）</div>
 <div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`},
-{book:'op', id:'op-13', title:'nshop 结账页中国本地化（cn 版式）', html:`
-<p class="lead">nshop 结账页默认采用<mark class="mark">中国本地化 cn 版式</mark>：收货信息一体卡 + 配送/自提分箱模块 + 底部吸底结算栏 + 提交前协议勾选。版式经<mark class="mark">四级可回退风格系统</mark>管控，可在 cn / jd / legacy 间切换。</p>
-<h3>收货信息一体卡</h3>
-<p>物流箱的收货信息以<mark class="mark">收货人 + 电话 + 省市区 + 详细地址</mark>一体卡片展示，右上「切换地址」可换地址或新增；自提单不显示地址块，仅在需联系方式时展示联系人。</p>
-<img class="img" src="shots/o08_checkout_cn_contact.png" alt="收货信息一体卡-姓名电话省市区">
-<div class="imgcap">图 O8 · 收货信息一体卡（赵测试 / 13800138000 / 北京市·北京·测试路1号）</div>
-<h3>底部吸底结算栏</h3>
-<p>移动端底部吸底栏显示<mark class="mark">应付合计 + 「去结算」按钮 + 协议勾选</mark>，可展开/收起订单明细，支持安全区适配（<code>safe-area-inset-bottom</code>）。有可用券时经「优惠券」抽屉选择抵扣。</p>
-<img class="img" src="shots/o07_checkout_cn_bar.png" alt="底部吸底结算栏-合计去结算与协议勾选">
-<div class="imgcap">图 O7 · 底部吸底结算栏（合计 ¥687.74 + 去结算 + 协议勾选）</div>
-<h3>提交前协议拦截</h3>
-<p>未勾选《用户服务协议》/《隐私政策》点「去结算」时，系统弹出<mark class="mark">黄色提示「请先勾选同意服务协议与隐私政策后再提交订单」</mark>并<mark class="mark">阻断提交</mark>，不会生成订单。</p>
-<img class="img" src="shots/o09_checkout_cn_agreement.png" alt="未勾选协议去结算的拦截提示">
-<div class="imgcap">图 O9 · 未勾选协议时的提交拦截提示</div>
-<div class="note"><b>版式回退：</b>cn 为默认版式；若需切换京东新版 jd 或旧版 legacy，改结算页 <code>checkLayout</code> 配置即可降落回退，无需改动功能块。</div>`},
-{book:'op', id:'op-14', title:'结算页逐箱结算：商户分账与地址字段', html:`
-<p class="lead">结算页按<mark class="mark">商家分组 → 逐箱卡片</mark>组织，多商家/多配送档案各自成箱；下方「分账明细」汇总各商户应收金额，与订单实收口径一致。</p>
-<h3>分账明细与应付款总额</h3>
-<p>结算提交前，页面展示<mark class="mark">「分账明细」列表 + 应付款总额</mark>：按商户逐行列出其应计入金额，并显式提示<mark class="mark">「将合并为 1 单支付」</mark>。各箱商品小计、运费逐行核算，实收按商户分账记账。</p>
-<img class="img" src="shots/o10_checkout_merchant_split.png" alt="结算页分账明细-应按商户分账与应付款总额">
-<div class="imgcap">图 O10 · 结算页分账明细（校验商户分账金额 + 应付款总额 + 合并一单提示）</div>
-<h3>地址字段对齐（邮编物流必填 + 公司选填）</h3>
-<p>物流配送地址表单字段严格对齐 Vendure <code>Address</code>：<mark class="mark">收货人 / 电话 / 省市区 / 详细地址 / 邮编必填</mark>，其中<mark class="mark">邮政编码为物流必填</mark>（自提无地址不涉及）；<mark class="mark">公司、地址2（楼栋/楼层/门牌）为选填</mark>，空表提交会本地校验拦截。</p>
-<img class="img" src="shots/o11_address_company_postal.png" alt="地址表单-公司选填与邮政编码必填">
-<div class="imgcap">图 O11 · 地址表单（公司（选填）+ 邮政编码必填）</div>
-<div class="note"><b>说明：</b>自提订单不采集收货地址因此无邮编；仅物流配送需邮编。合并支付时各商户分账按台账记账，通道级分账属后续 Roadmap。</div>`},
-{book:'op', id:'op-15', title:'订单确认页与售后：游客查询与联系客服增强', html:`
-<p class="lead">两块 C 端增强：<mark class="mark">①订单确认页对游客/无效订单码快速友好报错</mark>（不再长时间空转）；<mark class="mark">②售后列表/详情页</mark>完善进度与凭证展示、修复详情「售後記錄不存在」、并统一提供<mark class="mark">联系客服（电话 / 微信 / 服务时间）</mark>入口。</p>
-<h3>1) 确认页：游客/无效码快速判定，不轮询</h3>
-<p>此前访问 <code>/checkout/confirmation/无效码</code>（未登录）会因 <code>orderByCode</code> 权限不足返回 FORBIDDEN，且前端误判为「待支付中转态」持续轮询约 40 秒。现改为<mark class="mark">首次查询即快速判定订单不可用</mark>：立即停止轮询，改用<mark class="mark">游客公开查询 <code>GuestOrderLookup</code></mark>兜底核对；仍查无则该码视为「订单不存在或链接已失效」，快速呈现友好错误页。无效码从「约 40 秒 + 英文 FORBIDDEN」降为「1~5 秒 + 中文友好提示」，并给出「查询订单」「首页」跳转。</p>
-<img class="img" src="shots/o15_nshop_confirm_guest_lookup.png" alt="游客无效码确认页-快速友好报错">
-<div class="imgcap">图 O15 · 确认页游客/无效码快速友好报错（404 + 查询订单 / 首页）</div>
-<h3>2) 售后列表页：刷新/重试 + 联系客服</h3>
-<p>列表页新增<mark class="mark">「刷新」</mark>按钮与加载失败时的<mark class="mark">「重试」</mark>兜底；页面底部常驻<mark class="mark">联系客服卡片</mark>（电话可一键拨打、微信一键复制、服务时间提示），数据源为 <code>app.config.ts</code> 的 <code>customerService</code>，可按需修改，无需改代码。</p>
-<img class="img" src="shots/o16_nshop_aftersales_list.png" alt="售后列表页-刷新与底部联系客服卡片">
-<div class="imgcap">图 O16 · 售后列表页（筛选 + 单据卡片 + 底部联系客服卡片）</div>
-<h3>3) 售后详情页：进度时间线 + 凭证 + 客服 + 取消确认</h3>
-<p>详情页展示<mark class="mark">五段进度时间线</mark>（申请 → 审核通过 → 退货中 → 已收货 → 已退款）并高亮当前节点，附<mark class="mark">申请时间 / 最近更新时间</mark>；凭证图片以缩略图网格展示并可点击全屏预览（无凭证显示占位提示），复用联系客服卡片；取消申请经<mark class="mark">「保留申请 / 确认取消」</mark>确认弹窗防止误操作，弹窗默认不弹出。</p>
-<img class="img" src="shots/o17_nshop_aftersales_detail.png" alt="售后详情页-进度时间线与客服卡片">
-<div class="imgcap">图 O17 · 售后详情页（进度时间线 + 单据 + 联系/凭证 + 客服卡片）</div>
-<img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="取消售后确认弹窗-保留申请与确认取消">
-<div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
-<div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`},
-
 {book:'op', id:'op-16', title:'成员密码管理与角色授权', html:`
 <p class="lead">「本租户人员」页提供<mark class="mark">成员密码管理</mark>与<mark class="mark">角色授权</mark>：租户管理员可为低权限成员重置密码、本人可自助修改密码；授予角色时<mark class="mark">只能授予权限小于自己的角色</mark>。</p>
 <h3>人员列表与密码管理入口</h3>
@@ -746,8 +522,7 @@ var CHAPTERS = [
 <img class="img" src="shots/r12_room_template_create_guide.png" alt="新建模板-JSON录入引导条">
 <div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
 <div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`},
-
-{book:'op', id:'op-19', title:'四流对账：批次 / 差异 / 重跑闭环', html:`
+{book:'op', id:'op-18', title:'四流对账：批次 / 差异 / 重跑闭环', html:`
 <p class="lead">「平台 → 四流对账」为开启<mark class="mark">物理库存</mark>的租户提供<mark class="mark">业务 / 资金 / 库存 / 配送</mark>四流日对账：按「租户 × 日期」生成对账批次，逐单比对并用 <code>D1-D4</code> 差异类型标记异常订单，支持<mark class="mark">手动立即对账</mark>与<mark class="mark">每日 2:00 后自动日批</mark>（幂等，同日不重复跑），对差异行可<mark class="mark">重跑</mark>复核、闭环确认。</p>
 <h3>四流与差异类型</h3>
 <p>系统以订单为核对主体，比对四类数据源：<mark class="mark">业务流</mark>（订单应付款与状态）、<mark class="mark">资金流</mark>（分账台账已收金额）、<mark class="mark">库存流</mark>（库存流水扣仓记录）、<mark class="mark">配送流</mark>（配送记录）。发现不一致时按类型标记：</p>
@@ -761,8 +536,7 @@ var CHAPTERS = [
 <img class="img" src="shots/r14_reconcile_lines.png" alt="批次明细弹层-差异标签与重跑操作">
 <div class="imgcap">图 R14 · 批次明细（D1 缺配送 / D3 金额 标签 + 重跑操作）</div>
 <div class="note"><b>自动日批：</b>开启物理库存的租户，系统每日 2:00 后自动执行当日批次（约每 5 分钟检查一次，同日仅跑一次）；未开启物理库存的租户不参与。手动对账不受开关限制，随时可跑。</div>`},
-
-{book:'op', id:'op-20', title:'详情页库存展示（虚拟库存 + 附近库存）', html:`
+{book:'op', id:'op-19', title:'详情页库存展示（虚拟库存 + 附近库存）', html:`
 <p class="lead">商品详情页的库存展示分两层：<mark class="mark">所有租户一律默认只显示虚拟库存数量</mark>（可售总数）；<mark class="mark">仅开启物理库存的租户</mark>，其「物理驱动」商品额外显示<mark class="mark">附近库存</mark>折叠明细（各物理仓 + 库存 + 距离）。</p>
 <h3>库存模型速览</h3>
 <p>系统为每个租户维护两类仓库：<mark class="mark">虚拟仓</mark>（网络销售可售源，前台「库存 N 件」即虚拟仓 onHand）与<mark class="mark">物理仓</mark>（真实库存）。商品变体绑定物理仓后成为「物理驱动变体」：其虚拟库存由系统<mark class="mark">自动镜像为 Σ 绑定物理仓库存</mark>，销售扣减也落到物理仓，保证线上线下同源不超卖。</p>
@@ -789,8 +563,7 @@ var CHAPTERS = [
 <img class="img" src="shots/s04_stock_virtual_no_nearby.png" alt="纯虚拟变体-仅库存数量行无附近库存">
 <div class="imgcap">图 S4 · 纯虚拟变体：仅「库存 N 件」，无附近库存面板</div>
 <div class="warn"><b>口径说明：</b>已售罄按 <code>saleableStock=0</code> 判定显示缺货态；详情页只读不改库存，库存修正走后台库存管理 / 对账入口。</div>`},
-
-{book:'op', id:'op-21', title:'微信分享兜底：标题 / 描述 / 主图', html:`
+{book:'op', id:'op-20', title:'微信分享兜底：标题 / 描述 / 主图', html:`
 <p class="lead">微信内转发商品详情页到好友或朋友圈时，分享卡片的<mark class="mark">标题 / 描述 / 主图</mark>各自按<mark class="mark">逐级兜底链</mark>取值：商品信息缺失时依次回退到店铺级配置，再回退到内置默认值，保证<mark class="mark">任何商品转发出去的分享卡片都完整可用</mark>（不会出现空白图 / 空描述 / 带 HTML 标签的乱码）。</p>
 <h3>逐级兜底链</h3>
 <div class="card"><b>标题</b>：商品名 → 店铺名 → 内置站点名。<br/><b>描述</b>：商品描述（<mark class="mark">自动过滤 HTML 标签</mark>，截取前 100 字）→ 店铺简介 → 内置推荐语。<br/><b>主图</b>：商品主图 → 商品相册首图 → <mark class="mark">店铺默认分享图</mark> → 内置默认图。</div>
@@ -805,8 +578,7 @@ var CHAPTERS = [
 <img class="img" src="shots/r18_nshop_share.png" alt="nshop 商品详情分享兜底">
 <div class="imgcap">图 R18 · nshop 商品详情页分享取值（主图 + 纯文本描述）</div>
 <div class="warn"><b>说明：</b>描述过滤对 <code>&lt;p&gt;/&lt;b&gt;/&lt;img&gt;</code> 等富文本一律剥离并解码实体，天然避免 HTML 乱码；分享动作本身由微信 JSSDK 触发，此处保证各取值的兜底完整性。</div>`},
-
-{book:'op', id:'op-22', title:'首页「城市 · 配送」过滤与风格配置', html:`
+{book:'op', id:'op-21', title:'首页「城市 · 配送」过滤与风格配置', html:`
 <p class="lead">首页商品按<mark class="mark">当前城市 × 配送方式</mark>实时过滤：每个商品声明<mark class="mark">配送方式</mark>（仅邮寄 / 仅自提 / 两者均可，<code>deliveryMethods</code>）与<mark class="mark">服务城市</mark>（邮寄看 <code>serviceCities</code>，空 = 全城；自提看 <code>belongCity</code> 精确匹配）。未选择城市时不过滤。过滤条支持<mark class="mark">segmented（胶囊）/ tabs（下划线）</mark>两种版式，由店铺装修配置（<code>shopContent.filter</code>）控制。</p>
 <h3>邮寄 / 自提切换（以北京为例）</h3>
 <p>进入首页默认<mark class="mark">邮寄</mark>：自提-only 商品（温泉工作日门票，belongCity=长春）在「北京 · 邮寄」下自动隐藏，全国可寄的邮寄品正常展示。</p>
@@ -830,8 +602,7 @@ var CHAPTERS = [
 <img class="img" src="shots/f2_v2_filter_disabled.png" alt="首页过滤条-关闭过滤全量展示">
 <div class="imgcap">图 F6 · 关闭过滤：无过滤条、全量商品展示</div>
 <div class="note"><b>配置说明：</b>过滤配置走五级合并（全局默认 → 全局配置 → 风格模板 → 店铺 <code>shopContent</code> → 页面内建默认），店铺未配置时回退全局默认（segmented + 邮寄 + 开启）。</div>`},
-
-{book:'op', id:'op-23', title:'详情页配送口径切换 + 租户网点管理', html:`
+{book:'op', id:'op-22', title:'详情页配送口径切换 + 租户网点管理', html:`
 <p class="lead">商品详情页新增<mark class="mark">「邮寄 / 自提」配送切换</mark>：库存数字随口径联动——<mark class="mark">邮寄 = 可发仓 + 虚拟可售</mark>、<mark class="mark">自提 = 可自提点合计</mark>。后台（web-admin）<mark class="mark">网点管理</mark>支持创建 / 编辑 / 删除租户物理网点，并为网点声明<mark class="mark">配送方式三态</mark>（仅邮寄 / 仅自提 / 两者，空 = 两者都支持）。</p>
 <h3>详情页配送切换与库存口径</h3>
 <p>双模式商品（配送方式未配置 = 两者都支持）在详情页显示切换条：默认<mark class="mark">邮寄</mark>，库存行显示「库存 N 件」（邮寄可发口径）。</p>
@@ -855,7 +626,7 @@ var CHAPTERS = [
 <img class="img" src="shots/s08_locations_after_delete.png" alt="网点管理-删除后列表">
 <div class="imgcap">图 F13 · 删除确认后网点从列表移除</div>
 <div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`},
-{book:'op', id:'op-24', title:'商品专属优惠券（绑定商品 + 凭码兑换）', html:`
+{book:'op', id:'op-15', title:'商品专属优惠券（绑定商品 + 凭码兑换）', html:`
 <p class="lead">优惠券支持<mark class="mark">绑定到指定商品（SKU）</mark>，详情页自动展示领券块；券模板可设置<mark class="mark">凭码兑换、仅限新客、有效天数</mark>等领取设置，买家在「我的券包」凭码兑换后，下单时<mark class="mark">仅绑定商品行享受折扣</mark>，非绑定商品行正常计价。</p>
 <h3>券模板「领取设置」（web-admin）</h3>
 <p>编辑券模板时，「领取设置」区可配置：<mark class="mark">凭码兑换</mark>（生成唯一兑换码，买家凭码领取）、<mark class="mark">仅限新客</mark>（有历史订单客户不可领）、<mark class="mark">有效天数</mark>（领后按天计过期）等；「领取设置」上方的「领取方式」决定是否公开展示。保存后 C 端立即生效。</p>
@@ -880,8 +651,7 @@ var CHAPTERS = [
 <h3>下单结算：仅绑定行折扣</h3>
 <p>购物车同时含绑定商品与非绑定商品时，用券后<mark class="mark">折扣只作用于绑定商品行</mark>（如绑定行 88000×85%=74800），非绑定行 16800 正常计价不参与折扣——保证券不会误伤其他商品。</p>
 <div class="warn"><b>使用提示：</b>① 商品绑定的券默认仅该商品 SKU 可用；② 「仅限新客」以本租户是否有历史有效订单判定；③ 模板被商品绑定时不可直接删除，须先解绑。</div>`},
-
-{book:'op', id:'op-25', title:'库存单据操作手册（库存管理方式 / 采购 / 移库 / 盘库 / 出库 / 流水）', html:`
+{book:'op', id:'op-23', title:'库存单据操作手册（库存管理方式 / 采购 / 移库 / 盘库 / 出库 / 流水）', html:`
 <p class="lead">库存单据是租户对<mark class="mark">物理仓库存</mark>做增减调整的入口，配合<mark class="mark">店铺信息页的「库存管理方式」开关</mark>使用。本节覆盖：库存管理方式的含义、采购入库 / 移库 / 盘库 / 手动出库四类单据的操作步骤，以及<mark class="mark">库存流水</mark>的查看方式。</p>
 <h3>1. 库存管理方式（简单库存 / Odoo库存）</h3>
 <p>入口：租户后台 → <mark class="mark">店铺信息</mark> → <mark class="mark">库存管理方式</mark>。两种模式：<mark class="mark">简单库存</mark>（默认）= 由平台 Vendure 库存体系承载，用本手册所述单据调整仓库库存；<mark class="mark">Odoo库存（预留）</mark> = 预留的第三方 ERP 对接位，当前为占位，选中后可在下方填选<mark class="mark">Odoo 地址 / API Key</mark>（均选填）。一般租户保持「简单库存」即可。</p>
@@ -908,9 +678,8 @@ var CHAPTERS = [
 <p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
 <img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
 <div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
-<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-23）中定义。</div>`},
-
-{book:'op', id:'op-26', title:'多仓拆分发货（预留单）', html:`
+<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-22）中定义。</div>`},
+{book:'op', id:'op-24', title:'多仓拆分发货（预留单）', html:`
 <p class="lead">物理仓多仓租户下单后自动生成<mark class="mark">预留单</mark>；发货时订单行可按仓库拆分，各仓分别生成独立发货单（各自快递/运单号）。本节覆盖预留单的查看与拆分发货操作。</p>
 <h3>1. 查看预留单</h3>
 <p>入口：后台 → 订单 → 发货（或多仓订单详情）。系统按订单行展示各仓库应发数量与状态（待分配/已分配/已完成）。</p>
@@ -920,8 +689,7 @@ var CHAPTERS = [
 <div class="imgcap">图 R15 · 发货页（无预留单的单仓视图：可发数量/± 控件 + 快递公司 + 确认发货；预留单存在时此处按仓库分组出现仓库选择器）</div>
 <h3>3. 对账</h3>
 <p>预留单对账校验 Σ物理 − 虚拟 == Σ待发，偏差行会在预留单对账视图列出。</p>`},
-
-{book:'op', id:'op-27', title:'订单列表多版式', html:`
+{book:'op', id:'op-25', title:'订单列表多版式', html:`
 <p class="lead">订单列表提供<mark class="mark">三套版式</mark>：经典 / 状态优先 / 按状态分组，顶部「版式」按钮可随时切换，选择会被记住（下次进入保持）。</p>
 <h3>1. 经典版式</h3>
 <p>现状的手机卡片 + 桌面表格，补齐配送方式全名与收货地址行。</p>
@@ -935,8 +703,7 @@ var CHAPTERS = [
 <p>手机按状态分组并显示组内小计；桌面左侧状态导航 + 右侧明细。</p>
 <img class="img" src="shots/order_status_group.png" alt="订单列表按状态分组版式">
 <div class="imgcap">图 O3 · 按状态分组版式（手机）</div>`},
-
-{book:'op', id:'op-28', title:'风格模板库管理', html:`
+{book:'op', id:'op-26', title:'风格模板库管理', html:`
 <p class="lead">风格模板库支持<mark class="mark">版本历史/回滚</mark>、<mark class="mark">店铺引用可见性</mark>与<mark class="mark">合并预览</mark>（L1 全局配置→L2 模板→L3 店铺覆盖深合并），便于安全迭代店铺风格。</p>
 <h3>1. 列表引用徽标</h3>
 <p>模板列表行显示「引用 N 店」徽标；删除/停用被引用模板时会弹确认框并列出将回退的店铺。</p>
@@ -952,7 +719,268 @@ var CHAPTERS = [
 <div class="imgcap">图 T3 · 合并预览与键来源</div>
 <h3>4. 删除/停用警示</h3>
 <img class="img" src="shots/tpl_warn.png" alt="模板删除警示">
-<div class="imgcap">图 T4 · 删除被引用模板的确认警示</div>`}
+<div class="imgcap">图 T4 · 删除被引用模板的确认警示</div>`},
+{book:'op', id:'op-27', title:'分销：关系与结算', html:`
+<p class="lead">分销功能把买家变成推广员：买家通过邀请码推广成交后，按关系链累计收益并可提现。你可以在「分销」菜单查看关系与佣金结算。</p>
+<h3>1. 分销关系</h3>
+<p>在「分销 → 分销关系」页签查看推广员列表：等级、上级、邀请码、累计收益 / 可提现 / 冻结金额，数据按当前租户隔离。</p>
+<div class="note"><b>口径：</b>「可提现」为已结算可提余额，「冻结」为在途 / 未结算金额。</div>
+<h3>2. 佣金结算</h3>
+<p>在「分销 → 佣金结算」页签按周期查看佣金明细与结算状态，确认后发起提现 / 打款。</p>
+<div class="shot-box"><img class="img" src="shots/op27_distributors.png" alt="分销-关系与结算"><div class="imgcap">图 D1 · 分销关系与结算</div></div>`},
+{book:'op', id:'op-28', title:'图片库（媒体资源）', html:`
+<p class="lead">图片库是店铺的媒体资源中心：集中上传、管理与复用店铺图片，一次上传多处引用（Logo、分享图、自提点照片、商品图等）。</p>
+<h3>1. 上传与管理</h3>
+<p>打开「图片库」，点击上传选择本地图片；列表中可预览与删除，资源按当前租户隔离。</p>
+<h3>2. 随处引用</h3>
+<p>在店铺信息（Logo / 分享图）、自提点照片、商品图片等配置处，「从图片库选择」即可复用，无需重复上传。</p>
+<div class="shot-box"><img class="img" src="shots/op28_media.png" alt="图片库-媒体资源"><div class="imgcap">图 M1 · 图片库</div></div>`},
+{book:'op', id:'op-29', title:'数据看板（今日概览 / 7 日趋势 / 销量榜）', html:`
+<p class="lead">数据看板汇总店铺经营数据：今日订单 / 销售额（已支付口径）与库存预警，并提供近 7 日销售趋势与品类销量排行。</p>
+<h3>1. 今日概览</h3>
+<p>顶部三张卡片：今日订单数、今日销售额（gmv，已支付口径，不含未完成 / 取消单）、库存预警数（库存 ≤ 5）。</p>
+<h3>2. 近 7 日趋势</h3>
+<p>双线折线图展示近 7 日销售额（元，左轴）与订单数（单，右轴）。</p>
+<h3>3. 销量 Top 榜</h3>
+<p>近 7 日品类销量排行（GMV + 单数），辅助选品与备货。</p>
+<div class="note"><b>权限：</b>数据看板需要 ViewDashboard 权限；若提示权限不足，请在「成员管理 → 角色」为当前角色勾选该权限。</div>
+<div class="shot-box"><img class="img" src="shots/op29_dashboard.png" alt="数据看板-完整版"><div class="imgcap">图 K1 · 数据看板（批2 填充）</div></div>`},
+{book:'op', id:'op-30', title:'POS 门店收银', html:`
+<p class="lead">门店收银面向线下当面收款场景：店员输入核销码 / 订单号查询订单，确认金额后选择收款方式完成收款，收款记录自动进入台账。</p>
+<h3>1. 查询订单</h3>
+<p>在「门店收银」输入核销码或订单号查询，展示订单号、顾客、应付金额与待交付商品。</p>
+<h3>2. 确认收款</h3>
+<p>选择收款方式（固定聚合码收款等）并确认收款；收款后订单状态与台账同步更新。</p>
+<div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
+<div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div></div>`},
+{book:'mp', id:'mp-1', title:'概述', html:`
+<p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
+<table>
+  <thead><tr><th>阶段</th><th>角色</th><th>操作内容</th><th>截图</th></tr></thead>
+  <tbody>
+    <tr><td>A</td><td>平台超管</td><td>创建商户租户、添加管理员、生成初始口令</td><td>m01~m07</td></tr>
+    <tr><td>B</td><td>商户管理员</td><td>首次登录强制改密、创建商品、提交上架审核</td><td>m08~m14</td></tr>
+    <tr><td>C</td><td>平台超管</td><td>在待审列表审批（通过/驳回）</td><td>c02~c05</td></tr>
+    <tr><td>D</td><td>商户管理员</td><td>复看商品状态变为「已在默认站点上架」</td><td>d01</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>演示账号：</b>商户邮箱 <code>chendi-mobile@joho.cn</code>，商品「手工黄油曲奇礼盒」。全程截图由自动化测试驱动真实界面抓取（手机视口），所见即所得。</div>`},
+{book:'mp', id:'mp-2', title:'前置条件', html:`
+<ul>
+  <li>平台超管账号可登录管理后台，具备「租户管理」「商品上架审批」菜单权限。</li>
+  <li>默认商城（<code>default</code> 租户）已配置好配送档案、支付档案、分类与税率。</li>
+  <li>商户提交商品时未配置配送/支付档案/分类将被校验拦截，需先创建这些基础档案。</li>
+</ul>`},
+{book:'mp', id:'mp-3', title:'流程总览', html:`
+<div class="flow">
+  <div class="fphase">阶段 A · 平台超管</div>
+  <div class="frow"><span class="fnode primary">登录后台</span><span class="farrow">→</span><span class="fnode">租户管理</span><span class="farrow">→</span><span class="fnode">新建商户</span></div>
+  <div class="frow"><span class="fnode">租户详情</span><span class="farrow">→</span><span class="fnode">添加管理员</span><span class="farrow">→</span><span class="fnode primary">生成初始口令</span></div>
+  <div class="fphase">↓ 将初始口令转交商户</div>
+  <div class="fphase">阶段 B · 商户管理员</div>
+  <div class="frow"><span class="fnode">首次登录</span><span class="farrow">→</span><span class="fnode">强制改密</span><span class="farrow">→</span><span class="fnode">加商品</span><span class="farrow">→</span><span class="fnode primary">提交上架(待审)</span></div>
+  <div class="fphase">↓ 平台收到待审通知</div>
+  <div class="fphase">阶段 C · 平台超管</div>
+  <div class="frow"><span class="fnode">商品上架审批</span><span class="farrow">→</span><span class="fnode">定位商品</span><span class="farrow">→</span><span class="fnode primary">通过(或驳回)</span></div>
+  <div class="frow"><span class="fnode">状态流转</span><span class="farrow">→</span><span class="fnode primary">pending → approved</span></div>
+  <div class="fphase">阶段 D · 商户复核</div>
+  <div class="frow"><span class="fnode">商户复看</span><span class="farrow">→</span><span class="fnode primary">已在默认站点上架</span></div>
+</div>`},
+{book:'mp', id:'mp-4', title:'阶段 A：平台超管创建商户', html:`
+<h3>A1 · 登录管理后台</h3>
+<p>使用平台超管账号登录，进入「工作台」。登录页输入用户名与密码后点击登录。</p>
+<img class="img" src="shots/m01_login.png" alt="登录页">
+<div class="imgcap">图 A1 · 后台登录页</div>
+<h3>A2 · 进入租户管理</h3>
+<p>登录后从底部切入「我的」→ 平台管理入口进入租户列表。列表展示所有已创建的商户（含官方店与第三方商户）。</p>
+<img class="img" src="shots/m02_tenants.png" alt="租户列表">
+<div class="imgcap">图 A2 · 租户列表</div>
+<h3>A3 · 新建商户租户</h3>
+<p>点击「新建」弹出创建弹窗，填写商户名称（店名），系统为新商户分配独立信道（Channel）与租户编号。第三方商户默认 <code>isOfficial=false</code>。</p>
+<img class="img" src="shots/m03_create_tenant_dialog.png" alt="新建租户弹窗">
+<div class="imgcap">图 A3 · 新建租户弹窗</div>
+<p>创建成功后，新商户出现在租户列表，并拥有独立的 <code>token</code>（用于 API 侧商户上下文隔离）。</p>
+<img class="img" src="shots/m04_tenants_after_create.png" alt="创建后租户列表">
+<div class="imgcap">图 A4 · 创建后有独立 token</div>
+<h3>A4 · 添加管理员</h3>
+<p>点击商户进入「租户详情」，默认展示「管理员 / 角色」页签。在「管理员授权」区点「添加管理员」，为该商户创建后台账号。</p>
+<img class="img" src="shots/m05_tenant_detail_admins.png" alt="租户详情-管理员">
+<div class="imgcap">图 A5 · 租户详情-管理员</div>
+<p>填写管理员邮箱、姓名，并勾选角色权限。</p>
+<img class="img" src="shots/m06_add_admin_dialog_filled.png" alt="添加管理员弹窗">
+<img class="img" src="shots/m06b_role_pick.png" alt="角色选择">
+<div class="imgcap">图 A6 · 添加管理员并勾选角色</div>
+<h3>A5 · 领取初始口令</h3>
+<p>创建成功后系统弹窗显示<mark class="mark">一次性初始口令</mark>，并提示「仅显示一次，请复制并转发给本人；首次登录后强制修改密码」。可「一键复制」后安全转交商户人员。</p>
+<img class="img" src="shots/m07_initial_password.png" alt="初始口令弹窗">
+<div class="imgcap">图 A7 · 一次性初始口令</div>
+<div class="tip"><b>安全设计：</b>初始口令为随机强口令（≥12 位，含大小写/数字/符号），仅展示一次，首次登录强制改密。</div>`},
+{book:'mp', id:'mp-5', title:'阶段 B：商户登录并提交商品', html:`
+<h3>B1 · 首次登录、强制修改密码</h3>
+<p>商户用邮箱与初始口令登录，系统判定需强制改密，引导进入「修改密码」页，保证账户安全闭环（提交会销毁会话，仅演示界面）。</p>
+<img class="img" src="shots/m08_merchant_login_filled.png" alt="商户登录">
+<img class="img" src="shots/m09_change_password.png" alt="改密页">
+<img class="img" src="shots/m09b_change_password_filled.png" alt="改密页已填写">
+<div class="imgcap">图 B1 · 首登强制改密</div>
+<h3>B2 · 进入商户工作台</h3>
+<p>改密后进入商户工作台（首页），可看到「加商品」「订单」等入口，顶部为当前操作店铺上下文。</p>
+<img class="img" src="shots/m10_merchant_dashboard.png" alt="商户工作台">
+<div class="imgcap">图 B2 · 商户工作台</div>
+<h3>B2b · 工作台全景：租户标识与全量功能入口</h3>
+<p>工作台顶部卡片显示当前操作店铺的<mark class="mark">店铺名称 + 编码</mark>（第二行「编码 t2 · 经营中」），切换租户后自动更新，方便在多店铺间明确当前上下文。</p>
+<img class="img" src="shots/m15_merchant_dashboard_top.png" alt="工作台顶部-店铺名称与编码">
+<div class="imgcap">图 B2b-1 · 工作台顶部显示店铺名称与编码</div>
+<p>工作台按「商品 / 交易 / 履约 / 装修 / 营销 / 分销 / 系统 / 平台」分区铺开全量管理入口（同一数据源与侧边抽屉保持一致），平台管理区仅对持有相应角色权限者显示。各分区顶部为主功能入口（填充按钮），次要项为描边/纯文字入口。</p>
+<img class="img" src="shots/m16_merchant_dashboard_full.png" alt="工作台全部分组入口">
+<div class="imgcap">图 B2b-2 · 工作台全量功能分区入口</div>
+<p>右上角「☰」打开侧边抽屉，按分区列出全部功能；内容超出时抽屉内部可独立滚动，底部的「退出登录 / 平台管理」等始终可滚动到可见。</p>
+<img class="img" src="shots/m17_merchant_drawer.png" alt="侧边抽屉-底部可见">
+<div class="imgcap">图 B2b-3 · 侧边抽屉（底部内容可滚动查看）</div>
+<h3>B2c · 首页经营数据（今日销售额 / 待发货 / 库存预警）</h3>
+<p>工作台顶部卡片下方的三格数据为<mark class="mark">实时统计</mark>，进入工作台时自动加载，<strong>始终以当前登录租户的数据为准</strong>：切换店铺后数字相应刷新，不同租户互不串扰。</p>
+<ul>
+  <li><b>今日销售额</b>：当日（今日 0 点起）下单订单的实收金额合计，展示格式为 <code>¥ + 两位小数</code>；今日暂无订单时显示 <code>¥0.00</code>。</li>
+  <li><b>待发货</b>：状态为「待发货」（已付款、尚未发货）的订单数，口径与「订单 → 待发货」页签一致。</li>
+  <li><b>库存预警</b>：当前租户下 <mark class="mark">可用库存 ≤ 5</mark> 的库存条数，便于提前补货。</li>
+</ul>
+<p>统计加载异常时对应格子显示「—」占位（不会误显示 0 假装有数据）；下拉刷新或切店再进入会重新拉取。</p>
+<img class="img" src="shots/m18_merchant_dashboard_kpi.png" alt="首页经营数据 KPI">
+<div class="imgcap">图 B2c · 首页经营数据（按当前租户实时统计）</div>
+<h3>B3 · 新建商品</h3>
+<p>点「加商品」进入商品列表（初始为空），再进入「新增商品」表单，填写名称、Slug、描述、价格、库存，并选择配送档案、支付档案、分类与商品图片。</p>
+<img class="img" src="shots/m11_merchant_product_list_empty.png" alt="商户商品列表-空">
+<img class="img" src="shots/m12_merchant_create_product_form.png" alt="新增商品表单">
+<div class="imgcap">图 B3 · 新建商品（配送/支付/分类必选）</div>
+<div class="warn"><b>注意：</b>表单中的「配送档案 / 支付档案 / 分类」为必选，与拆单、结算规则强相关。</div>
+<p>创建成功后商品出现在「全部」列表，即进入「待审」状态。</p>
+<img class="img" src="shots/m13_merchant_product_pending.png" alt="商品已创建-待审">
+<div class="imgcap">图 B4 · 商品进入待审</div>
+<h3>B4 · 提交上架到默认站点</h3>
+<p>在商品操作区点击「提交上架到默认站点」，弹窗确认后状态由「待提交」变为「已提交，待审核」（<code>marketplaceStatus: pending</code>），等待平台审批。</p>
+<img class="img" src="shots/m14_submit_confirm_modal.png" alt="提交上架确认">
+<div class="imgcap">图 B5 · 提交上架确认</div>`},
+{book:'mp', id:'mp-6', title:'阶段 C：平台超管审批商品', html:`
+<h3>C1 · 进入「商品上架审批」</h3>
+<p>平台超管在侧栏/工作台进入「商品上架审批」，页面列出所有<mark class="mark">待审商品</mark>，每条卡片显示商品名、状态徽标及「驳回 / 通过」两个操作按钮。</p>
+<img class="img" src="shots/c02_pending_list.png" alt="待审商品列表">
+<div class="imgcap">图 C1 · 待审商品列表</div>
+<h3>C2 · 定位目标商品</h3>
+<p>在列表中找到本次提交的「手工黄油曲奇礼盒」（可结合提交时间核对），卡片展示清晰名称与「待审」徽标。</p>
+<img class="img" src="shots/c03_found_card.png" alt="定位目标商品">
+<div class="imgcap">图 C2 · 定位目标商品卡片</div>
+<h3>C3 · 通过审批</h3>
+<p>点击「通过」弹出确认弹窗，确认后即完成审批，商品从待审列表移除（<code>marketplaceStatus: approved</code>）。</p>
+<img class="img" src="shots/c04_approve_modal.png" alt="通过-确认弹窗">
+<img class="img" src="shots/c05_after_approve.png" alt="通过后列表刷新">
+<div class="imgcap">图 C3 · 通过审批</div>
+<div class="warn"><b>如需驳回：</b>点击「驳回」并填写必填的驳回原因，商品进入「已驳回」态并回显原因，商户可据此修正后再次提交。</div>`},
+{book:'mp', id:'mp-7', title:'阶段 D：商户复看上架结果', html:`
+<p>商户重新登录进入商品列表，目标商品状态已更新为「<mark class="mark">已在默认站点上架</mark>」，标识其可在默认商场完成销售。</p>
+<img class="img" src="shots/d01_merchant_approved_product.png" alt="商户端-已在默认站点上架">
+<div class="imgcap">图 D1 · 商户端已上架</div>
+<p>至此，<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效</mark> 的完整流程验证通过。</p>`},
+{book:'mp', id:'mp-8', title:'状态与规则说明', html:`
+<table>
+  <thead><tr><th>状态码(市场)</th><th>界面显示</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>null</code></td><td>待提交</td><td>商品尚未提交上架</td></tr>
+    <tr><td><code>pending</code></td><td>已提交，待审核</td><td>已提交，等待平台审批</td></tr>
+    <tr><td><code>approved</code></td><td>已在默认站点上架</td><td>审批通过，可在默认商城销售（独立店不受审批约束）</td></tr>
+    <tr><td><code>rejected</code></td><td>已驳回</td><td>审批未通过，回显原因，可修正后重提</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><b>租户规则：</b>前 20 个租户预留官方自营；第 21+ 为第三方商户，其商品需经平台审批后方可在默认商城销售。</li>
+  <li><b>审批权限：</b>仅平台超管可见「商品上架审批」入口并执行通过/驳回。</li>
+</ul>`},
+{book:'mp', id:'mp-9', title:'商家商品真实下单拆单验证（e2e）', html:`
+<p>审核通过后，商家商品在默认商城即可被真实下单。本节验证在<mark class="mark">同一笔订单</mark>里，商家商品与普通商品因<mark class="mark">配送档案不同</mark>而自动分箱、按箱配送的拆单能力。</p>
+<h3>拆单原理</h3>
+<p>分箱以<mark class="mark">配送档案</mark>（<code>shippingProfileId</code>，见变体级 <code>customFields</code>）为唯一划分单元：</p>
+<ul>
+  <li>同一送达档案 → 合箱；跨档案 / 跨租户 → 分箱，零交集；</li>
+  <li>未绑定档案的变体回退到当前租户<mark class="mark">默认配送档案</mark>并入其分组；</li>
+  <li>前端按 <code>orderBoxes</code> 分箱结果，每箱单独选配送方式、生成独立的配送线（ShippingLine）。</li>
+</ul>
+<h3>场景数据</h3>
+<table>
+  <thead><tr><th>商品</th><th>绑定配送档案</th><th>配送方式</th><th>归属箱</th></tr></thead>
+  <tbody>
+    <tr><td>商家「手工黄油曲奇礼盒」(变体31)</td><td>8「拆单验证-自提点档案」</td><td>自提点配送</td><td>箱A</td></tr>
+    <tr><td>商家「陈记手工蛋卷」(变体32)</td><td>未绑定 → 回退默认档案5</td><td>门店自提</td><td>箱B</td></tr>
+  </tbody>
+</table>
+<h3>验证结果（订单 75 <code>YZWKW3Z6PW3R8AZD</code>）</h3>
+<ol>
+  <li><b>同单加购：</b>曲奇 + 蛋卷落入同一活动订单（此前「分开建单」实为会话 token 未持久化，非拆单问题）。</li>
+  <li><b>分箱查询 <code>orderBoxes</code> 返回 2 箱：</b>
+    <table>
+      <thead><tr><th>boxKey</th><th>生效档案</th><th>落入行</th><th>可用配送</th><th>默认配送</th></tr></thead>
+      <tbody>
+        <tr><td><code>box:8</code></td><td>拆单验证-自提点档案</td><td>曲奇</td><td>自提点配送</td><td>自提点配送</td></tr>
+        <tr><td><code>box:5</code></td><td>default默认配送档案</td><td>蛋卷</td><td>门店自提</td><td>门店自提</td></tr>
+      </tbody>
+    </table>
+  </li>
+  <li><b>按箱设配送：</b>对每箱调用 <code>setOrderBoxShippingMethod</code> 成功后，订单出现 <strong>2 条配送线</strong>：
+    <pre><code>shippingLines:
+  - id58  pickup-point-template  自提点配送  ← 箱A（商家曲奇）
+  - id59  store-pickup           门店自提    ← 箱B（蛋卷）</code></pre>
+  </li>
+  <li><b>状态流转：</b>订单由 <code>AddingItems</code> 顺利推进到 <code>ArrangingPayment</code>。</li>
+  <li><b>支付：</b>生成支付记录；余额支付因测试顾客<mark class="mark">钱包无余额</mark>返回 <code>PAYMENT_DECLINED_ERROR</code>（属支付网关余额问题，与分箱无关）。</li>
+</ol>
+<h3>结论</h3>
+<p>商家商品在默认商城完成审批上架后，与普通商品<mark class="mark">同单加购即可自动按配送档案拆分为多个包裹</mark>，每个包裹独立配送、独立结算行，拆单能力闭环验证通过。</p>
+<div class="note"><b>说明：</b>本节为 Shop API 层的地基验证（订单/分箱/配送线/状态流水）。结算页按箱展示配送的 UI 截图见前端联调记录。</div>`},
+{book:'mp', id:'mp-10', title:'常见问题（FAQ）· 入驻审批', html:`
+<details><summary>商户提交商品时报「配送档案/支付档案/分类」必选？</summary><p>请先在该商户后台为商品配置对应的配送档案、支付档案与分类；这些档案与拆单、结算规则强相关，属校验拦截而非异常。</p></details>
+<details><summary>为什么找不到「商品上架审批」菜单？</summary><p>该入口仅对平台超管开放，请确认当前登录账号为平台超管角色。</p></details>
+<details><summary>驳回后商品还能再提交吗？</summary><p>可以。查看驳回原因并修正后，再次执行「提交上架到默认站点」即可重新进入待审队列。</p></details>
+<details><summary>审批通过后商品价格为何与创建时不同？</summary><p>列表展示为含税价（税后金额），创建时填写的是税前价，二者因税率换算存在差异属正常。</p></details>`},
+{book:'cx', id:'cx-1', title:'nshop 结账页中国本地化（cn 版式）', html:`
+<p class="lead">nshop 结账页默认采用<mark class="mark">中国本地化 cn 版式</mark>：收货信息一体卡 + 配送/自提分箱模块 + 底部吸底结算栏 + 提交前协议勾选。版式经<mark class="mark">四级可回退风格系统</mark>管控，可在 cn / jd / legacy 间切换。</p>
+<h3>收货信息一体卡</h3>
+<p>物流箱的收货信息以<mark class="mark">收货人 + 电话 + 省市区 + 详细地址</mark>一体卡片展示，右上「切换地址」可换地址或新增；自提单不显示地址块，仅在需联系方式时展示联系人。</p>
+<img class="img" src="shots/o08_checkout_cn_contact.png" alt="收货信息一体卡-姓名电话省市区">
+<div class="imgcap">图 O8 · 收货信息一体卡（赵测试 / 13800138000 / 北京市·北京·测试路1号）</div>
+<h3>底部吸底结算栏</h3>
+<p>移动端底部吸底栏显示<mark class="mark">应付合计 + 「去结算」按钮 + 协议勾选</mark>，可展开/收起订单明细，支持安全区适配（<code>safe-area-inset-bottom</code>）。有可用券时经「优惠券」抽屉选择抵扣。</p>
+<img class="img" src="shots/o07_checkout_cn_bar.png" alt="底部吸底结算栏-合计去结算与协议勾选">
+<div class="imgcap">图 O7 · 底部吸底结算栏（合计 ¥687.74 + 去结算 + 协议勾选）</div>
+<h3>提交前协议拦截</h3>
+<p>未勾选《用户服务协议》/《隐私政策》点「去结算」时，系统弹出<mark class="mark">黄色提示「请先勾选同意服务协议与隐私政策后再提交订单」</mark>并<mark class="mark">阻断提交</mark>，不会生成订单。</p>
+<img class="img" src="shots/o09_checkout_cn_agreement.png" alt="未勾选协议去结算的拦截提示">
+<div class="imgcap">图 O9 · 未勾选协议时的提交拦截提示</div>
+<div class="note"><b>版式回退：</b>cn 为默认版式；若需切换京东新版 jd 或旧版 legacy，改结算页 <code>checkLayout</code> 配置即可降落回退，无需改动功能块。</div>`},
+{book:'cx', id:'cx-2', title:'结算页逐箱结算：商户分账与地址字段', html:`
+<p class="lead">结算页按<mark class="mark">商家分组 → 逐箱卡片</mark>组织，多商家/多配送档案各自成箱；下方「分账明细」汇总各商户应收金额，与订单实收口径一致。</p>
+<h3>分账明细与应付款总额</h3>
+<p>结算提交前，页面展示<mark class="mark">「分账明细」列表 + 应付款总额</mark>：按商户逐行列出其应计入金额，并显式提示<mark class="mark">「将合并为 1 单支付」</mark>。各箱商品小计、运费逐行核算，实收按商户分账记账。</p>
+<img class="img" src="shots/o10_checkout_merchant_split.png" alt="结算页分账明细-应按商户分账与应付款总额">
+<div class="imgcap">图 O10 · 结算页分账明细（校验商户分账金额 + 应付款总额 + 合并一单提示）</div>
+<h3>地址字段对齐（邮编物流必填 + 公司选填）</h3>
+<p>物流配送地址表单字段严格对齐 Vendure <code>Address</code>：<mark class="mark">收货人 / 电话 / 省市区 / 详细地址 / 邮编必填</mark>，其中<mark class="mark">邮政编码为物流必填</mark>（自提无地址不涉及）；<mark class="mark">公司、地址2（楼栋/楼层/门牌）为选填</mark>，空表提交会本地校验拦截。</p>
+<img class="img" src="shots/o11_address_company_postal.png" alt="地址表单-公司选填与邮政编码必填">
+<div class="imgcap">图 O11 · 地址表单（公司（选填）+ 邮政编码必填）</div>
+<div class="note"><b>说明：</b>自提订单不采集收货地址因此无邮编；仅物流配送需邮编。合并支付时各商户分账按台账记账，通道级分账属后续 Roadmap。</div>`},
+{book:'cx', id:'cx-3', title:'订单确认页与售后：游客查询与联系客服增强', html:`
+<p class="lead">两块 C 端增强：<mark class="mark">①订单确认页对游客/无效订单码快速友好报错</mark>（不再长时间空转）；<mark class="mark">②售后列表/详情页</mark>完善进度与凭证展示、修复详情「售後記錄不存在」、并统一提供<mark class="mark">联系客服（电话 / 微信 / 服务时间）</mark>入口。</p>
+<h3>1) 确认页：游客/无效码快速判定，不轮询</h3>
+<p>此前访问 <code>/checkout/confirmation/无效码</code>（未登录）会因 <code>orderByCode</code> 权限不足返回 FORBIDDEN，且前端误判为「待支付中转态」持续轮询约 40 秒。现改为<mark class="mark">首次查询即快速判定订单不可用</mark>：立即停止轮询，改用<mark class="mark">游客公开查询 <code>GuestOrderLookup</code></mark>兜底核对；仍查无则该码视为「订单不存在或链接已失效」，快速呈现友好错误页。无效码从「约 40 秒 + 英文 FORBIDDEN」降为「1~5 秒 + 中文友好提示」，并给出「查询订单」「首页」跳转。</p>
+<img class="img" src="shots/o15_nshop_confirm_guest_lookup.png" alt="游客无效码确认页-快速友好报错">
+<div class="imgcap">图 O15 · 确认页游客/无效码快速友好报错（404 + 查询订单 / 首页）</div>
+<h3>2) 售后列表页：刷新/重试 + 联系客服</h3>
+<p>列表页新增<mark class="mark">「刷新」</mark>按钮与加载失败时的<mark class="mark">「重试」</mark>兜底；页面底部常驻<mark class="mark">联系客服卡片</mark>（电话可一键拨打、微信一键复制、服务时间提示），数据源为 <code>app.config.ts</code> 的 <code>customerService</code>，可按需修改，无需改代码。</p>
+<img class="img" src="shots/o16_nshop_aftersales_list.png" alt="售后列表页-刷新与底部联系客服卡片">
+<div class="imgcap">图 O16 · 售后列表页（筛选 + 单据卡片 + 底部联系客服卡片）</div>
+<h3>3) 售后详情页：进度时间线 + 凭证 + 客服 + 取消确认</h3>
+<p>详情页展示<mark class="mark">五段进度时间线</mark>（申请 → 审核通过 → 退货中 → 已收货 → 已退款）并高亮当前节点，附<mark class="mark">申请时间 / 最近更新时间</mark>；凭证图片以缩略图网格展示并可点击全屏预览（无凭证显示占位提示），复用联系客服卡片；取消申请经<mark class="mark">「保留申请 / 确认取消」</mark>确认弹窗防止误操作，弹窗默认不弹出。</p>
+<img class="img" src="shots/o17_nshop_aftersales_detail.png" alt="售后详情页-进度时间线与客服卡片">
+<div class="imgcap">图 O17 · 售后详情页（进度时间线 + 单据 + 联系/凭证 + 客服卡片）</div>
+<img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="取消售后确认弹窗-保留申请与确认取消">
+<div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
+<div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`},
 ];
 
 /* ============ 状态与渲染 ============ */
