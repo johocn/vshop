@@ -313,3 +313,71 @@ export async function deleteProductCouponBinding(id: string): Promise<void> {
     throw new Error(graphQlErrorMsg(e, '删除商品专属券失败'));
   }
 }
+
+/* ------------------------- 券使用明细（customerCoupons） ------------------------- */
+
+export interface CustomerCouponRow {
+  id: string;
+  customerId: string;
+  code: string;
+  status: string;
+  issuedBy: string;
+  reservedOrderId?: string | null;
+  usedOrderId?: string | null;
+  issuedAt?: string | null;
+  usedAt?: string | null;
+  expiredAt?: string | null;
+  customer?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phoneNumber?: string | null;
+  } | null;
+}
+
+export const COUPON_STATUS_LABELS: Record<string, string> = {
+  UNUSED: '未使用',
+  USED: '已核销',
+  RETURNED: '已退回',
+  EXPIRED: '已过期',
+  INVALID: '已失效',
+};
+export const COUPON_ISSUED_BY_LABELS: Record<string, string> = {
+  CENTRE: '领取',
+  ADMIN: '定向发放',
+  EXCHANGE: '兑换',
+};
+
+/** 某券模板的领取明细（分页；status 为空取全部） */
+export async function fetchCustomerCoupons(
+  templateId: string,
+  skip: number,
+  take: number,
+  status?: string,
+): Promise<{ items: CustomerCouponRow[]; totalItems: number }> {
+  try {
+    const { customerCoupons } = await getAdminClient().request<{
+      customerCoupons: { items: CustomerCouponRow[]; totalItems: number };
+    }>(
+      `query CustomerCoupons($options: CustomerCouponListOptions) {
+        customerCoupons(options: $options) {
+          items { id customerId code status issuedBy usedOrderId issuedAt usedAt expiredAt customer { id firstName lastName phoneNumber } }
+          totalItems
+        }
+      }`,
+      {
+        options: {
+          filter: status
+            ? { templateId: { eq: templateId }, status: { eq: status } }
+            : { templateId: { eq: templateId } },
+          sort: { issuedAt: 'DESC' },
+          skip,
+          take,
+        },
+      },
+    );
+    return { items: customerCoupons?.items ?? [], totalItems: customerCoupons?.totalItems ?? 0 };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询券明细失败'));
+  }
+}

@@ -42,6 +42,7 @@
       <view class="ops">
         <text @tap="onToggle(c)">{{ c.enabled ? '停用' : '启用' }}</text>
         <text @tap="onEdit(c)">编辑</text>
+        <text @tap="openDetail(c)">明细</text>
         <text class="del" @tap="onDelete(c)">删除</text>
       </view>
     </view>
@@ -49,6 +50,8 @@
     <view v-if="!items.length && !loading" class="empty">暂无优惠券</view>
     <view v-if="loading" class="empty">加载中…</view>
     <view v-if="loadingMore" class="empty">加载更多…</view>
+
+    <CouponDetailModal v-model:visible="detailVisible" :template="detailTemplate" />
   </view>
 </template>
 <script lang="ts" setup>
@@ -58,12 +61,21 @@ import {
   fetchCouponTemplates, deleteCouponTemplate, setCouponTemplateEnabled,
   couponTypeLabel, fmtCNY, CouponTemplateItem,
 } from '../../apis/coupon';
+import CouponDetailModal from './CouponDetailModal.vue';
 
 const items = ref<CouponTemplateItem[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
 const totalItems = ref(0);
 const PAGE = 20;
+
+const detailVisible = ref(false);
+const detailTemplate = ref<CouponTemplateItem | null>(null);
+
+function openDetail(c: CouponTemplateItem) {
+  detailTemplate.value = c;
+  detailVisible.value = true;
+}
 
 const typeLabel = (t: string) => couponTypeLabel(t);
 const shopText = (id?: string | null) => (id ? `店 ${id}` : '平台');
