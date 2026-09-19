@@ -1,4 +1,4 @@
-// 五级合并纯函数（vshop 侧，与 nshop 同一套语义）：
+// 五级合并纯函数（youshop 侧，与 nshop 同一套语义）：
 // L0 全局默认（代码内建） ← L1 全局配置(ShopGlobalConfig) ← L2 风格模板(ShopTemplate)
 //   ← L3 店铺覆盖(channel customFields) ← L4 页面/模块内建默认（各页消费方）
 // 合并规则：逐级深合并，未配置项回退上一级；数组/标量直接覆盖。
