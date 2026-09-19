@@ -13,7 +13,6 @@
           <text class="badge tag" v-if="c.claimCode">凭码领券</text>
           <text class="badge tag" v-if="c.newCustomerOnly">仅新客</text>
           <text class="badge tag" v-if="c.scope === 'SKU'">指定商品</text>
-          <text class="badge tag" v-if="c.scope === 'CATEGORY'">指定分类</text>
           <text class="badge off" v-if="!c.enabled">停用</text>
         </view>
         <view class="value">{{ valueText(c) }}</view>
@@ -134,7 +133,7 @@ async function onToggle(c: CouponTemplateItem) {
 
 function onDelete(c: CouponTemplateItem) {
   uni.showModal({
-    title: '删除', content: `确认删除「${c.name}」？已发放的券仍会保留，但模板删除后不可恢复。`,
+    title: '删除', content: `确认删除「${c.name}」？删除后不可恢复；若该模板已发放券，删除将被阻止并提示数量。`,
     success: async (r) => {
       if (!r.confirm) return;
       try {
