@@ -1,131 +1,73 @@
 <template>
-  <view class="page">
-    <view class="headbar">
-      <text class="title">订单</text>
-      <view class="stats">
-        <view class="stat" @tap="onStatTap('')">
-          <text class="num">{{ stats.today }}</text>
-          <text class="lbl">今日订单</text>
-        </view>
-        <view class="stat" @tap="onStatTap('ArrangingPayment')">
-          <text class="num">{{ stats.unpaid }}</text>
-          <text class="lbl">待付款</text>
-        </view>
-        <view class="stat" @tap="onStatTap('PaymentAuthorized')">
-          <text class="num">{{ stats.toShip }}</text>
-          <text class="lbl">待发货</text>
-        </view>
-        <view class="stat" @tap="onStatTap('Cancelled')">
-          <text class="num">{{ stats.refund }}</text>
-          <text class="lbl">待退款</text>
-        </view>
-      </view>
-      <view class="redeem-btn" @tap="goRedeemPage">核销码</view>
+  <view class="order-page">
+    <!-- 版式切换入口（顶部） -->
+    <view class="layout-bar">
+      <text class="layout-btn" @tap="layoutOpen = true">版式 · {{ ORDER_LIST_LAYOUTS[layoutKey].label }} ▾</text>
     </view>
 
-    <view class="scope">
-      <text v-for="s in scopes" :key="s.key" :class="{ on: s.key === scope }" @tap="onScope(s.key)">{{ s.label }}</text>
-    </view>
-    <view class="tabs">
-      <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ s.label }}</text>
-    </view>
-    <view class="search">
-      <input v-model="kw" class="kw" placeholder="订单号 / 顾客 / 手机号 / 商品名" confirm-type="search" @confirm="onSearch" />
-      <text class="btn" @tap="onSearch">搜索</text>
-    </view>
-    <view class="filters">
-      <picker :range="deliveryOpts" :value="deliveryIdx" @change="onDeliveryPick">
-        <text class="f-chip" :class="{ on: delivery }">{{ deliveryLabel || '配送' }} ▾</text>
-      </picker>
-      <picker :range="dateOpts" :value="dateIdx" @change="onDatePick">
-        <text class="f-chip" :class="{ on: dateRange }">{{ dateLabel || '时间' }} ▾</text>
-      </picker>
-      <text v-if="delivery || dateRange" class="f-clear" @tap="onClearFilter">清除</text>
-    </view>
+    <!-- 积木式渲染器：数据/筛选/分页由本页透传，操作事件全部映射到本页 handler -->
+    <OrderListRenderer
+      :views="views"
+      :stats="stats"
+      :config="config"
+      :loading="loading"
+      :loading-more="loadingMore"
+      :scopes="scopes"
+      :scope="scope"
+      :tabs="tabs"
+      :cur="cur"
+      v-model:kw="kw"
+      :delivery-label="deliveryLabel"
+      :date-label="dateLabel"
+      :delivery-idx="deliveryIdx"
+      :date-idx="dateIdx"
+      :delivery-opts="deliveryOpts"
+      :date-opts="dateOpts"
+      :redeemable-ids="redeemableIds"
+      :page="page"
+      :total-items="totalItems"
+      :per-page="perPage"
+      @stat-tap="onStatTap"
+      @redeem="onRedeem"
+      @scope-change="onScope"
+      @tab-change="onTab"
+      @search="onSearch"
+      @delivery="onDelivery"
+      @date="onDateRange"
+      @clear="onClearFilter"
+      @ship="goShip"
+      @remind="goRemind"
+      @detail="goDetail"
+      @page="onPage"
+      @perpage="onPerPage"
+    />
 
-    <!-- 手机：卡片列表（<768 显示） -->
-    <view class="card-list">
-      <view class="card" v-for="o in views" :key="o.id">
-        <view class="row head">
-          <text class="code" @tap="copyCode(o.code)">{{ o.code }}</text>
-          <text class="st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
-        </view>
-        <view class="sub">{{ o.customerName }}{{ o.phoneMask }}{{ o.delivery ? ' · ' + o.delivery : '' }}</view>
-        <view class="addr" v-if="o.address"><text class="addr-ic">📍</text><text class="addr-tx">{{ o.address }}</text></view>
-        <view class="goods" v-for="(g, gi) in o.goods" :key="gi">
-          <image v-if="g.image" class="g-thumb" :src="g.image" mode="aspectFill" />
-          <view v-else class="g-thumb"></view>
-          <text class="g-name">{{ g.name }}</text>
-          <text class="g-price">×{{ g.qty }} ¥{{ fmtMoney(g.price) }}</text>
-        </view>
-        <view class="row foot">
-          <text class="time">{{ o.payment ? o.payment + ' · ' : '' }}{{ fmtTime(o.time) }}</text>
-          <text class="total">¥{{ fmtMoney(o.total) }}</text>
-        </view>
-        <view class="actions">
-          <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
-          <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
-          <text v-if="isUnpaid(o.state)" class="act remind" @tap="goRemind(o)">催付</text>
-          <text class="act ghost" @tap="goDetail(o)">详情</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 桌面：表格（≥768 显示） -->
-    <view class="dt">
-      <view class="dt-row head">
-        <text class="c-code">订单号</text>
-        <text class="c-goods">商品</text>
-        <text class="c-cust">收货人 / 电话</text>
-        <text class="c-addr">地址</text>
-        <text class="c-deliv">配送</text>
-        <text class="c-pay">实付</text>
-        <text class="c-time">下单时间</text>
-        <text class="c-st">状态</text>
-        <text class="c-ops">操作</text>
-      </view>
-      <view class="dt-row" v-for="o in views" :key="o.id">
-        <text class="c-code" @tap="copyCode(o.code)">{{ o.code }}</text>
-        <view class="c-goods">
-          <view class="dg" v-for="(g, gi) in o.goods" :key="gi">
-            <image v-if="g.image" class="dg-thumb" :src="g.image" mode="aspectFill" />
-            <view v-else class="dg-thumb"></view>
-            <text class="dg-name">{{ g.name }}</text>
-            <text class="dg-qty">×{{ g.qty }}</text>
+    <!-- 版式选择弹层 -->
+    <view v-if="layoutOpen" class="mask" @tap="layoutOpen = false">
+      <view class="pop" @tap.stop>
+        <view class="pop-title">订单列表版式</view>
+        <view
+          v-for="k in LAYOUT_KEYS"
+          :key="k"
+          class="pop-item"
+          :class="{ on: k === layoutKey }"
+          @tap="onPickLayout(k)"
+        >
+          <view class="p-head">
+            <text class="p-label">{{ ORDER_LIST_LAYOUTS[k].label }}</text>
+            <text v-if="k === layoutKey" class="p-check">✓</text>
           </view>
-        </view>
-        <text class="c-cust">{{ o.customerName }}{{ o.phoneMask }}</text>
-        <text class="c-addr">{{ o.address || '—' }}</text>
-        <text class="c-deliv">{{ o.delivery }}</text>
-        <text class="c-pay">¥{{ fmtMoney(o.total) }}</text>
-        <text class="c-time">{{ fmtTime(o.time) }}</text>
-        <text class="c-st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
-        <view class="c-ops">
-          <text v-if="isShippable(o.state)" class="act ship" @tap="goShip(o)">发货</text>
-          <text v-if="isRedeemable(o)" class="act redeem" @tap="goRedeem(o)">去核销</text>
-          <text v-if="isUnpaid(o.state)" class="act remind" @tap="goRemind(o)">催付</text>
-          <text class="act ghost" @tap="goDetail(o)">详情</text>
+          <text class="p-desc">{{ ORDER_LIST_LAYOUTS[k].desc }}</text>
         </view>
       </view>
     </view>
-    <view class="pgbar" v-if="scope === 'channel'">
-      <text class="pg-btn" :class="{ dis: page <= 1 }" @tap="onPage(-1)">上一页</text>
-      <text class="pg-info">第 {{ page }} / {{ Math.max(1, Math.ceil(totalItems / perPage)) }} 页 · 共 {{ totalItems }} 单</text>
-      <text class="pg-btn" :class="{ dis: page >= Math.max(1, Math.ceil(totalItems / perPage)) }" @tap="onPage(1)">下一页</text>
-      <text class="pg-size" v-for="n in [20, 50, 100]" :key="n" :class="{ on: perPage === n }" @tap="onPerPage(n)">{{ n }}</text>
-    </view>
-
-    <view v-if="!views.length && !loading" class="empty">暂无订单</view>
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-if="loadingMore" class="empty">加载更多…</view>
-    <BottomBar current="order" />
   </view>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, computed } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
-import BottomBar from '../../../components/BottomBar.vue';
+import OrderListRenderer from '../../../components/order-list/OrderListRenderer.vue';
 import { fetchOrders, fetchShopOrders, fetchProductThumbs, ShopOrderRow, OrderRow } from '../../../apis/order';
 import { fetchPickupOrders } from '../../../apis/pickup';
 import {
@@ -134,15 +76,12 @@ import {
   filterChannelRows,
   filterShopRows,
   isGhostView,
-  isShippable,
   buildReminderText,
-  isUnpaid,
-  fmtMoney,
   computeStats,
-  shipColor,
   OrderView,
 } from '../../../utils/orderFormat';
-import { ORDER_STATES, stateLabel } from '../../../constants/orderState';
+import { ORDER_LIST_LAYOUTS, LAYOUT_KEYS, DEFAULT_LAYOUT, OrderListLayoutKey } from '../../../constants/orderListLayouts';
+import { parseLayout, parseOrderListConfig } from '../../../utils/orderListConfig';
 
 // 状态码对齐 Vendure 真实状态机（线上 myShopOrders state 实测）：
 //   待付款=ArrangingPayment；待发货=PaymentAuthorized/PaymentSettled；
@@ -183,15 +122,14 @@ const dateLabel = computed(() => (dateRange.value ? dateOpts[dateArr.indexOf(dat
 const stats = ref<{ today: string; unpaid: string; toShip: string; refund: string }>({ today: '—', unpaid: '—', toShip: '—', refund: '—' });
 const redeemableIds = ref<Set<string>>(new Set());
 
-function fmtTime(t: string): string {
-  if (!t) return '';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-function isRedeemable(o: OrderView): boolean {
-  return redeemableIds.value.has(o.id);
+// 版式：读取持久化布局 key，切换后立即写入；config 由 key 解析出块级配置传给渲染器
+const layoutKey = ref<OrderListLayoutKey>(parseLayout(uni.getStorageSync('orderListLayout') || DEFAULT_LAYOUT));
+const layoutOpen = ref(false);
+const config = computed(() => parseOrderListConfig(JSON.stringify({ layout: layoutKey.value })));
+function onPickLayout(k: OrderListLayoutKey) {
+  layoutKey.value = k;
+  uni.setStorageSync('orderListLayout', k);
+  layoutOpen.value = false;
 }
 
 async function loadStats() {
@@ -322,10 +260,6 @@ function goRemind(o: OrderView) {
   });
 }
 
-function copyCode(code: string) {
-  if (!code) return;
-  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '订单号已复制', icon: 'none' }) });
-}
 function resetPage() { page.value = 1; }
 function onPage(delta: number) {
   const pages = Math.max(1, Math.ceil(totalItems.value / perPage.value));
@@ -334,8 +268,6 @@ function onPage(delta: number) {
   page.value = next; load();
 }
 function onPerPage(n: number) { perPage.value = n; resetPage(); load(); }
-function onDeliveryPick(e: any) { onDelivery(deliveryArr[e.detail.value] as never); }
-function onDatePick(e: any) { onDateRange(dateArr[e.detail.value] as never); }
 function onClearFilter() { delivery.value = ''; dateRange.value = ''; resetPage(); load(); }
 function onDelivery(v: '' | 'pickup' | 'express') {
   if (delivery.value === v) v = '';
@@ -344,6 +276,12 @@ function onDelivery(v: '' | 'pickup' | 'express') {
 function onDateRange(v: '' | 'today' | '7d' | '30d') {
   if (dateRange.value === v) v = '';
   dateRange.value = v; resetPage(); load();
+}
+
+// Renderer 的 redeem 事件双义：HeadBar「核销码」无参 → 核销码页；行内「去核销」带订单 → 单笔核销
+function onRedeem(o?: OrderView) {
+  if (o) goRedeem(o);
+  else goRedeemPage();
 }
 
 onMounted(() => {
@@ -359,230 +297,63 @@ onReachBottom(loadMore);
 </script>
 
 <style lang="scss" scoped>
-.page {
+.order-page {
   min-height: 100vh;
   background: $wa-bg;
-  padding: 24rpx 32rpx 160rpx;
+}
 
-  .headbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-bottom: 20rpx;
-    .title { font-size: 34rpx; color: $wa-ink; font-weight: 700; margin-right: auto; }
-    .redeem-btn {
-      background: $wa-accent;
-      color: #fff;
-      font-size: 26rpx;
-      padding: 10rpx 28rpx;
-      border-radius: 999rpx;
-    }
-  }
+.layout-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20rpx 32rpx 0;
+}
 
-  .stats {
-    display: flex;
-    flex: 1 0 100%;
-    order: 3;
-    gap: 16rpx;
-    margin-top: 16rpx;
-    margin-bottom: 0;
-    .stat { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 20rpx 0; text-align: center; display: flex; flex-direction: column; cursor: pointer;
-      .num { font-size: 36rpx; color: $wa-ink; font-weight: 700; }
-      .lbl { margin-top: 6rpx; font-size: 22rpx; color: $wa-muted; }
-    }
-  }
+.layout-btn {
+  font-size: 24rpx;
+  color: $wa-muted;
+  background: $wa-card;
+  border: 1rpx solid #e8edf5;
+  border-radius: 999rpx;
+  padding: 8rpx 24rpx;
+  cursor: pointer;
+}
 
-  .scope {
-    display: flex;
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pop {
+  width: 600rpx;
+  max-width: 88vw;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx 32rpx 16rpx;
+
+  .pop-title { font-size: 30rpx; font-weight: 700; color: $wa-ink; margin-bottom: 24rpx; }
+
+  .pop-item {
+    padding: 20rpx 24rpx;
+    border-radius: 16rpx;
     margin-bottom: 16rpx;
-    background: $wa-card;
-    border-radius: $wa-radius;
-    padding: 8rpx;
-    text {
-      flex: 1;
-      text-align: center;
-      padding: 16rpx 0;
-      font-size: 26rpx;
-      color: $wa-muted;
-      border-radius: $wa-radius;
-      &.on { color: #fff; background: $wa-ink; font-weight: 600; }
-    }
-  }
-  .tabs {
-    display: flex;
-    margin-bottom: 24rpx;
-    background: $wa-card;
-    border-radius: $wa-radius;
-    padding: 8rpx;
-    text {
-      flex: 1;
-      text-align: center;
-      padding: 16rpx 0;
-      font-size: 26rpx;
-      color: $wa-muted;
-      border-radius: $wa-radius;
-      &.on { color: #fff; background: $wa-accent; font-weight: 600; }
-    }
-  }
-  .search {
-    display: flex;
-    align-items: center;
-    margin-bottom: 24rpx;
-    background: $wa-card;
-    border-radius: $wa-radius;
-    padding: 8rpx 16rpx 8rpx 24rpx;
-    .kw { flex: 1; font-size: 26rpx; color: $wa-ink; }
-    .btn {
-      flex-shrink: 0;
-      padding: 12rpx 32rpx;
-      font-size: 26rpx;
-      color: #fff;
-      background: $wa-accent;
-      border-radius: $wa-radius;
-    }
-  }
+    border: 1rpx solid #e8edf5;
+    cursor: pointer;
 
-  .filters {
-    display: flex;
-    align-items: center;
-    gap: 16rpx;
-    margin-bottom: 24rpx;
-    flex-wrap: wrap;
-    .f-chip {
-      font-size: 26rpx; color: $wa-muted; background: $wa-card;
-      padding: 10rpx 24rpx; border-radius: 999rpx; border: 1rpx solid #e8edf5;
-      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
-    }
-    .f-clear { font-size: 24rpx; color: $wa-muted; text-decoration: underline; cursor: pointer; }
-  }
-  .pgbar {
-    display: none;
-    align-items: center;
-    gap: 12rpx;
-    margin-top: 20rpx;
-    font-size: 13px;
-    color: $wa-muted;
-    .pg-btn { padding: 6px 14px; border: 1rpx solid #d8dee9; border-radius: 6px; cursor: pointer; background: $wa-card;
-      &.dis { opacity: 0.4; cursor: default; }
-    }
-    .pg-info { margin: 0 8px; }
-    .pg-size { padding: 4px 10px; border: 1rpx solid #d8dee9; border-radius: 6px; cursor: pointer;
-      &.on { color: #fff; background: $wa-accent; border-color: $wa-accent; }
-    }
-  }
+    &.on { border-color: $wa-accent; }
 
-  .card-list {
-    .card {
-      background: $wa-card;
-      border-radius: $wa-radius;
-      padding: 24rpx 32rpx;
-      margin-bottom: 20rpx;
-      .row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .head { margin-bottom: 14rpx;
-        .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; cursor: pointer; }
-        .st { font-size: 24rpx; }
-      }
-      .sub { font-size: 26rpx; color: $wa-muted; margin-bottom: 10rpx; }
-      .addr {
-        display: flex;
-        gap: 8rpx;
-        align-items: flex-start;
-        background: #f0f2f7;
-        border-radius: 8rpx;
-        padding: 12rpx 20rpx;
-        font-size: 24rpx;
-        color: $wa-muted;
-        line-height: 1.5;
-        margin-bottom: 10rpx;
-        .addr-ic { flex-shrink: 0; color: $wa-accent; }
-        .addr-tx { flex: 1; }
-      }
-      .goods {
-        display: flex;
-        justify-content: space-between;
-        padding-top: 8rpx;
-        border-top: 1rpx dashed #e8edf5;
-        .g-thumb { width: 56rpx; height: 56rpx; border-radius: 8rpx; background: #f0f2f7; flex-shrink: 0; margin-right: 16rpx; }
-        .g-name { font-size: 26rpx; color: $wa-ink; flex: 1; margin-right: 16rpx; }
-        .g-price { font-size: 26rpx; color: $wa-ink; }
-      }
-      .foot { margin-top: 14rpx;
-        .time { font-size: 24rpx; color: $wa-muted; }
-        .total { font-size: 30rpx; color: $wa-danger; font-weight: 600; }
-      }
-      .actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 16rpx;
-        margin-top: 20rpx;
-        .act { font-size: 26rpx; padding: 10rpx 30rpx; border-radius: 8rpx; }
-        .ship { color: #fff; background: $wa-accent; }
-        .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
-        .ghost { color: $wa-ink; background: #eef1f6; }
-        .remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
-      }
-    }
+    .p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6rpx; }
+    .p-label { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
+    .p-check { color: $wa-accent; font-size: 28rpx; font-weight: 700; }
+    .p-desc { font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
   }
-
-  // 桌面表格：默认隐藏，≥768 显示（顺带修复桌面宽屏稀松）
-  .dt {
-    display: none;
-    .dt-row {
-      display: grid;
-      grid-template-columns: 2fr 3fr 1.8fr 1.4fr 1fr 1fr 1.6fr 1fr 1.4fr;
-      gap: 16rpx;
-      align-items: center;
-      padding: 18rpx 24rpx;
-      background: $wa-card;
-      border-bottom: 1rpx solid #eef1f6;
-      &.head {
-        background: $wa-ink;
-        color: #fff;
-        border-radius: 8rpx 8rpx 0 0;
-        position: sticky;
-        top: 0;
-      }
-      .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-      .c-goods { font-size: 13px; color: $wa-ink;
-        .dg { display: flex; align-items: center; gap: 8px; padding: 2px 0; line-height: 1.5;
-          .dg-thumb { width: 20px; height: 20px; border-radius: 4px; background: #f0f2f7; flex-shrink: 0; }
-          .dg-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .dg-qty { color: $wa-muted; }
-        }
-      }
-      .c-cust { font-size: 13px; color: $wa-ink; }
-      .c-addr { font-size: 13px; color: $wa-muted; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .c-deliv { font-size: 13px; color: $wa-muted; }
-      .c-pay { font-size: 14px; color: $wa-danger; font-weight: 600; }
-      .c-time { font-size: 13px; color: $wa-muted; }
-      .c-st { font-size: 13px; font-weight: 600; }
-      .c-ops {
-        display: flex;
-        gap: 10rpx;
-        .act { font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .ship { color: #fff; background: $wa-accent; }
-        .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
-        .ghost { color: $wa-ink; background: #eef1f6; }
-        .remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
-      }
-    }
-  }
-
-  .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
 }
 
 @media (min-width: 768px) {
-  .page { padding: 24px 32px 120px; }
-  .page .card-list { display: none; }
-  .page .dt { display: block; }
-  .page .headbar { flex-wrap: nowrap; }
-  .page .headbar .stats { flex: 1; order: 1; margin: 0 24px; }
-  .page .headbar .title { order: 0; }
-  .page .headbar .redeem-btn { order: 2; }
-  .page .pgbar { display: flex; }
+  .layout-bar { padding: 24px 32px 0; }
 }
 </style>
