@@ -9,7 +9,7 @@
 //     OrderLineInput = { orderLineId: ID!, quantity: Int! }
 //     handler 用 manual-fulfillment（args: method / trackingCode），实测返回 { id state method trackingCode }
 //     （注意：OrderLine 无 productVariantId 字段，需用 productVariant { id }）
-import { getAdminClient } from './client';
+import { getAdminClient, graphQlErrorMsg } from './client';
 
 export interface OrderRow {
   id: string;
@@ -271,4 +271,43 @@ export async function shipByWarehouse(
     }
   }
   return { ok, fails };
+}
+
+// 订单备注：Vendure 内置 addNoteToOrder（只写不展示，本版本无 orderHistory 查询）
+export async function addOrderNote(orderId: string, note: string): Promise<void> {
+  try {
+    const res = await getAdminClient().request<{ addNoteToOrder?: { id?: string } | { errorCode?: string; message?: string } }>(
+      `mutation AddNote($input: AddNoteToOrderInput!) {
+        addNoteToOrder(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } }
+      }`,
+      { input: { id: orderId, note, isPublic: false } },
+    );
+    const r = res.addNoteToOrder as any;
+    if (!r || !r.id) throw new Error((r && r.message) || '备注失败');
+  } catch (e: any) {
+    throw new Error(e?.message || graphQlErrorMsg(e, '备注失败'));
+  }
+}
+
+// 后台改价：仅可修改状态（AddingItems / ArrangingPayment）下使用；负 priceDelta = 降价
+export async function modifyOrderPrice(orderId: string, priceDelta: number, note?: string): Promise<void> {
+  try {
+    const res = await getAdminClient().request<{ modifyOrder?: { id?: string } | { errorCode?: string; message?: string } }>(
+      `mutation ModifyOrder($input: ModifyOrderInput!) {
+        modifyOrder(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } }
+      }`,
+      {
+        input: {
+          dryRun: false,
+          orderId,
+          surcharges: [{ description: '后台改价', priceDelta }],
+          note: note || '后台改价',
+        },
+      },
+    );
+    const r = res.modifyOrder as any;
+    if (!r || !r.id) throw new Error((r && r.message) || '改价失败');
+  } catch (e: any) {
+    throw new Error(e?.message || graphQlErrorMsg(e, '改价失败'));
+  }
 }

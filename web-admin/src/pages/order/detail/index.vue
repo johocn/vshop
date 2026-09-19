@@ -7,6 +7,8 @@
         <button v-if="canShip" class="op main" @tap="goShip">去发货</button>
         <button v-if="canCancel" class="op" @tap="onCancel">取消订单</button>
         <button v-if="canRedeem" class="op main" @tap="goRedeem">去核销</button>
+        <button class="op" @tap="noteVisible = true">备注</button>
+        <button v-if="canAdjustPrice" class="op" @tap="openAdjust">改价</button>
       </view>
     </view>
 
@@ -69,15 +71,51 @@
         {{ (order.shippingLines && order.shippingLines[0] && order.shippingLines[0].shippingMethod && order.shippingLines[0].shippingMethod.name) || '暂无配送' }}
       </text>
     </view>
+
+    <!-- 备注弹层 -->
+    <view v-if="noteVisible" class="mask" @tap.self="noteVisible = false">
+      <view class="sheet">
+        <view class="st">订单备注</view>
+        <textarea v-model="noteText" class="ta" placeholder="输入备注（仅后台可见，写入订单内部备注）" />
+        <view class="btns">
+          <button class="bn" @tap="noteVisible = false">取消</button>
+          <button class="bn main" @tap="onSubmitNote">保存</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 改价弹层 -->
+    <view v-if="adjustVisible" class="mask" @tap.self="adjustVisible = false">
+      <view class="sheet">
+        <view class="st">后台改价 <text class="cur">当前实付 ¥{{ money(order.totalWithTax) }}</text></view>
+        <view class="amt-row">
+          <text class="pre">¥</text>
+          <input v-model="adjustInput" class="amt" type="digit" placeholder="0.00" />
+        </view>
+        <text class="tip">差额将以「后台改价」费用项计入订单；仅限未支付/待处理状态订单。</text>
+        <view class="btns">
+          <button class="bn" @tap="adjustVisible = false">取消</button>
+          <button class="bn main" :disabled="adjusting" @tap="onSubmitAdjust">{{ adjusting ? '提交中…' : '确认改价' }}</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { fetchOrderDetail, cancelOrder, OrderDetail } from '../../../apis/order';
+import { fetchOrderDetail, cancelOrder, addOrderNote, modifyOrderPrice, OrderDetail } from '../../../apis/order';
 import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
 
 const order = ref<OrderDetail | null>(null);
+
+const noteVisible = ref(false);
+const noteText = ref('');
+const adjustVisible = ref(false);
+const adjustInput = ref('');
+const adjusting = ref(false);
+
+const canAdjustPrice = computed(() => ['AddingItems', 'ArrangingPayment'].includes(order.value?.state || ''));
 
 const money = (n?: number | null): string => ((n ?? 0) / 100).toFixed(2);
 
@@ -117,6 +155,43 @@ async function onCancel() {
       }
     },
   });
+}
+
+async function onSubmitNote() {
+  const t = noteText.value.trim();
+  if (!t) { uni.showToast({ title: '请输入备注内容', icon: 'none' }); return; }
+  try {
+    await addOrderNote(order.value?.id || '', t);
+    noteVisible.value = false;
+    noteText.value = '';
+    uni.showToast({ title: '备注已写入', icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '备注失败', icon: 'none' });
+  }
+}
+
+function openAdjust() {
+  adjustInput.value = order.value ? (order.value.totalWithTax / 100).toFixed(2) : '';
+  adjustVisible.value = true;
+}
+
+async function onSubmitAdjust() {
+  if (!order.value || adjusting.value) return;
+  const v = Number(adjustInput.value);
+  if (Number.isNaN(v) || v < 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return; }
+  const delta = Math.round(v * 100) - order.value.totalWithTax;
+  if (delta === 0) { uni.showToast({ title: '金额未变化', icon: 'none' }); return; }
+  adjusting.value = true;
+  try {
+    await modifyOrderPrice(order.value.id, delta);
+    adjustVisible.value = false;
+    uni.showToast({ title: '改价成功', icon: 'success' });
+    order.value = await fetchOrderDetail(order.value.id);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '改价失败', icon: 'none' });
+  } finally {
+    adjusting.value = false;
+  }
 }
 </script>
 <style lang="scss" scoped>
@@ -160,5 +235,17 @@ async function onCancel() {
       .price { font-size: 28rpx; color: $wa-ink; }
     }
   }
+  .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 999; display: flex; align-items: flex-end; }
+  .sheet { width: 100%; background: $wa-card; border-radius: 24rpx 24rpx 0 0; padding: 32rpx;
+    .st { font-size: 30rpx; color: $wa-ink; font-weight: 600; margin-bottom: 20rpx;
+      .cur { font-size: 24rpx; color: $wa-muted; font-weight: 400; margin-left: 12rpx; } }
+    .ta { width: 100%; height: 160rpx; background: $wa-bg; border-radius: 12rpx; padding: 16rpx; font-size: 28rpx; box-sizing: border-box; }
+    .amt-row { display: flex; align-items: center; background: $wa-bg; border-radius: 12rpx; padding: 16rpx 20rpx;
+      .pre { font-size: 36rpx; color: $wa-ink; margin-right: 12rpx; }
+      .amt { flex: 1; font-size: 40rpx; font-weight: 700; color: $wa-danger; } }
+    .tip { display: block; font-size: 22rpx; color: $wa-muted; margin: 16rpx 0; line-height: 1.6; }
+    .btns { display: flex; gap: 20rpx; margin-top: 24rpx;
+      .bn { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; font-size: 30rpx; border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
+        &.main { background: $wa-accent; color: #fff; } } } }
 }
 </style>
