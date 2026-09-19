@@ -854,7 +854,32 @@ var CHAPTERS = [
 <div class="imgcap">图 F12 · 保存后新网点出现在列表</div>
 <img class="img" src="shots/s08_locations_after_delete.png" alt="网点管理-删除后列表">
 <div class="imgcap">图 F13 · 删除确认后网点从列表移除</div>
-<div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`}
+<div class="warn"><b>口径说明：</b>自提口径仅在租户开启物理库存时统计自提点合计；未开启时切自提仅显示可达性提示（「到店自提，库存以门店为准」）。</div>`},
+{book:'op', id:'op-24', title:'商品专属优惠券（绑定商品 + 凭码兑换）', html:`
+<p class="lead">优惠券支持<mark class="mark">绑定到指定商品（SKU）</mark>，详情页自动展示领券块；券模板可设置<mark class="mark">凭码兑换、仅限新客、有效天数</mark>等领取设置，买家在「我的券包」凭码兑换后，下单时<mark class="mark">仅绑定商品行享受折扣</mark>，非绑定商品行正常计价。</p>
+<h3>券模板「领取设置」（web-admin）</h3>
+<p>编辑券模板时，「领取设置」区可配置：<mark class="mark">凭码兑换</mark>（生成唯一兑换码，买家凭码领取）、<mark class="mark">仅限新客</mark>（有历史订单客户不可领）、<mark class="mark">有效天数</mark>（领后按天计过期）等；「领取设置」上方的「领取方式」决定是否公开展示。保存后 C 端立即生效。</p>
+<img class="img" src="shots/d2_05_admin_coupon_edit.png" alt="券模板编辑-领取设置区">
+<div class="imgcap">图 D5 · 券模板编辑：领取设置（凭码兑换 / 仅限新客 / 有效天数）</div>
+<h3>商品页「商品专属券」绑定（web-admin）</h3>
+<p>商品编辑页新增<mark class="mark">「商品专属券」区块</mark>：为商品选择模板并绑定，可指定<mark class="mark">适用规格（variantIds）</mark>、备注与排序。绑定后模板自动转为 SKU 范围；未指定规格 = 商品全部 SKU 可用。</p>
+<img class="img" src="shots/d2_06_admin_product_bind.png" alt="商品编辑-商品专属券绑定">
+<div class="imgcap">图 D6 · 商品编辑：商品专属券绑定（选模板 + 指定规格）</div>
+<h3>C 端：详情页领券</h3>
+<p>绑定商品详情页展示<mark class="mark">领券块</mark>（徽标 + 券名 + 门槛 + 领取按钮）。未领时显示「领取」，领取成功后按钮态切换为已领，买家可去「我的券包」查看。</p>
+<img class="img" src="shots/d2_01_detail_coupon_block.png" alt="详情页-商品专属券领券块">
+<div class="imgcap">图 D7 · 详情页领券块（商品专属券）</div>
+<img class="img" src="shots/d2_02_detail_coupon_claimed.png" alt="详情页-领券成功状态">
+<div class="imgcap">图 D8 · 领券成功后按钮态切换</div>
+<h3>C 端：领券中心凭码兑换</h3>
+<p>领券中心（我的券包内）提供<mark class="mark">凭码兑换</mark>入口：输入兑换码（如 <code>T2SKU08518</code>）点击兑换，校验通过后券即时入包。仅限新客的券，老客兑换会被拦截并提示。</p>
+<img class="img" src="shots/d2_03_coupon_centre_redeem.png" alt="领券中心-凭码兑换入口">
+<div class="imgcap">图 D9 · 领券中心凭码兑换入口</div>
+<img class="img" src="shots/d2_04_redeem_success.png" alt="凭码兑换成功-券入包">
+<div class="imgcap">图 D10 · 凭码兑换成功，券入包</div>
+<h3>下单结算：仅绑定行折扣</h3>
+<p>购物车同时含绑定商品与非绑定商品时，用券后<mark class="mark">折扣只作用于绑定商品行</mark>（如绑定行 88000×85%=74800），非绑定行 16800 正常计价不参与折扣——保证券不会误伤其他商品。</p>
+<div class="warn"><b>使用提示：</b>① 商品绑定的券默认仅该商品 SKU 可用；② 「仅限新客」以本租户是否有历史有效订单判定；③ 模板被商品绑定时不可直接删除，须先解绑。</div>`}
 ];
 
 /* ============ 状态与渲染 ============ */
