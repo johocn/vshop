@@ -661,7 +661,14 @@
     "today": "Today",
     "collectorLabel": "Collector (Redeemer)",
     "tenant": "Tenant",
-    "timeLabel": "Booked Time"
+    "timeLabel": "Booked Time",
+    "recent7": "Last 7 Days",
+    "recent30": "Last 30 Days",
+    "daySubtotal": "Day subtotal {n} records ¥{amt}",
+    "filterEmpty": "No data for current date filter",
+    "sumTitle": "Daily Summary",
+    "sumDate": "Date",
+    "sumCount": "Count"
   },
   "pickupRedeem": {
     "headTitle": "Pickup Orders to Redeem",

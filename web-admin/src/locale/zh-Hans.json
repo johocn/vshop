@@ -661,7 +661,14 @@
     "today": "今日",
     "collectorLabel": "收款人（核销人）",
     "tenant": "归属商户",
-    "timeLabel": "入账时间"
+    "timeLabel": "入账时间",
+    "recent7": "近7天",
+    "recent30": "近30天",
+    "daySubtotal": "当日小计 {n} 笔 ¥{amt}",
+    "filterEmpty": "当前日期筛选无数据",
+    "sumTitle": "按日汇总",
+    "sumDate": "日期",
+    "sumCount": "笔数"
   },
   "pickupRedeem": {
     "headTitle": "待核销自提单",
