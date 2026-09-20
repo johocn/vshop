@@ -1,6 +1,6 @@
 <template>
   <view class="pick">
-    <view class="title">选择要经营的店铺</view>
+    <view class="title">{{ $t('channelSelect.title') }}</view>
     <view
       class="item"
       :class="{ off: c.enabled === false }"
@@ -11,18 +11,18 @@
       <view class="row">
         <view class="lt">
           <text class="name">{{ c.name || c.code }}</text>
-          <text class="off-tag" v-if="c.enabled === false">已停用</text>
+          <text class="off-tag" v-if="c.enabled === false">{{ $t('channelSelect.disabled') }}</text>
         </view>
         <text class="go">›</text>
       </view>
       <view class="sub">
         <text class="code">{{ c.code }}</text>
         <text class="no" v-if="c.tenantNo != null">#{{ c.tenantNo }}</text>
-        <text class="tag official" v-if="c.isOfficial">官方自营</text>
-        <text class="tag third" v-else>第三方</text>
+        <text class="tag official" v-if="c.isOfficial">{{ $t('channelSelect.official') }}</text>
+        <text class="tag third" v-else>{{ $t('channelSelect.third') }}</text>
       </view>
     </view>
-    <view v-if="!auth.channels.length" class="empty">暂无可用店铺</view>
+    <view v-if="!auth.channels.length" class="empty">{{ $t('channelSelect.empty') }}</view>
   </view>
 </template>
 
