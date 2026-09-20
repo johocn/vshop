@@ -1704,7 +1704,15 @@
     "topTitle": "销量 Top 榜（近 7 日品类）",
     "uncategorized": "未分类",
     "orderUnit": "单",
-    "empty": "暂无数据"
+    "empty": "暂无数据",
+    "near7": "近 7 天",
+    "near30": "近 30 天",
+    "salesTrend30": "近 30 日销售趋势",
+    "topTitle30": "销量 Top 榜（近 30 日品类）",
+    "quantity": "销量",
+    "inventoryHealth": "库存健康",
+    "outOfStock": "缺货",
+    "totalSku": "总 SKU"
   },
   "changePassword": {
     "titleManual": "修改密码",

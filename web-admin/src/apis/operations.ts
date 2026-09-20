@@ -2,7 +2,7 @@
 import { getAdminClient, graphQlErrorMsg } from './client';
 
 export interface TrendPoint { date: string; orderCount: number; gmv: number }
-export interface CategoryTopRow { categoryId: string; categoryName: string; gmv: number; orderCount: number }
+export interface CategoryTopRow { categoryId: string; categoryName: string; gmv: number; orderCount: number; quantity?: number }
 
 export async function fetchSalesTrend(days: number): Promise<TrendPoint[]> {
   try {

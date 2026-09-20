@@ -9,7 +9,7 @@
 //     替代计划里的 adjustSimpleStock（本地 schema 无此 mutation；setVariantStock 为绝对值设置）
 //   - myShopStock / myShopProductStock / myShopStockAdjust —— 租户级接口，superadmin 实测
 //     "You are not currently authorized to perform this action"，不可用，故库存列表走 stockLevels
-import { getAdminClient } from './client';
+import { getAdminClient, graphQlErrorMsg } from './client';
 
 export interface StockRow {
   id: string;
@@ -47,6 +47,26 @@ export async function fetchStockLocations(): Promise<StockLocationRow[]> {
     stockLocations: { items: StockLocationRow[] };
   }>(`query { stockLocations { items { id name } } }`);
   return stockLocations.items;
+}
+
+// 库存健康概览（数据看板用）：总SKU + 缺货数。取默认仓 stockLevels：
+//  - totalSku = totalItems（服务端精确总数）
+//  - outOfStock = 当前页内 stockOnHand ≤ 0 的数量（pageSize=1000 近似，无后端时前端不伪造）
+export interface InventoryHealth {
+  totalSku: number;
+  outOfStock: number;
+}
+
+export async function fetchInventoryHealth(): Promise<InventoryHealth | null> {
+  try {
+    const locations = await fetchStockLocations();
+    if (!locations.length) return null;
+    const first = await fetchStock(locations[0].id, 1, 1000);
+    const outOfStock = first.items.filter((s) => s.stockOnHand <= 0).length;
+    return { totalSku: first.totalItems, outOfStock };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询库存健康失败'));
+  }
 }
 
 // 库存调整：setVariantStock 为绝对值设置（非增量），调用方需传目标库存数
