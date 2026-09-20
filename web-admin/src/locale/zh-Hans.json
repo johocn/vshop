@@ -1695,5 +1695,109 @@
     "toastLoadFailed": "加载资源失败",
     "toastNoLink": "暂无链接",
     "toastCopied": "已复制 URL"
+  },
+  "orderListComp": {
+    "head": {
+      "today": "今日订单",
+      "refundPending": "待退款",
+      "redeemCode": "核销码"
+    },
+    "empty": "暂无订单",
+    "loading": "加载中…",
+    "loadingMore": "加载更多…",
+    "search": {
+      "searchPlaceholder": "订单号 / 顾客 / 手机号 / 商品名",
+      "search": "搜索",
+      "delivery": "配送",
+      "date": "时间",
+      "clear": "清除"
+    },
+    "pager": {
+      "prev": "上一页",
+      "next": "下一页",
+      "info": "第 {page} / {pages} 页 · 共 {total} 单"
+    },
+    "table": {
+      "thOrder": "订单号",
+      "thGoods": "商品",
+      "thRecipient": "收货人 / 电话",
+      "thAddress": "地址",
+      "thDelivery": "配送",
+      "thPaid": "实付",
+      "thTime": "下单时间",
+      "thState": "状态",
+      "thOps": "操作"
+    },
+    "actions": {
+      "ship": "发货",
+      "goRedeem": "去核销",
+      "remind": "催付",
+      "detail": "详情"
+    },
+    "copied": "订单号已复制"
+  },
+  "mediaLibraryModal": {
+    "title": "媒体库",
+    "upload": "上传",
+    "searchPlaceholder": "搜索文件名 / 分类码",
+    "all": "全部",
+    "refreshing": "刷新中…",
+    "releaseRefresh": "释放刷新",
+    "pullRefresh": "下拉刷新",
+    "uploading": "上传中…",
+    "loading": "加载中…",
+    "loadMore": "上拉加载更多",
+    "emptyTag": "暂无【{tag}】图片",
+    "emptyGroup": "该分组下暂无可选资源",
+    "emptyAll": "媒体库暂无可选资源",
+    "noMore": "没有更多了",
+    "selectedCount": "已选 {count}/{max}",
+    "tag": "打标",
+    "confirm": "确定",
+    "tagTitle": "为已选 {n} 张图片打标",
+    "tagExists": "已有",
+    "tagInputPlaceholder": "输入新分类码，回车添加",
+    "add": "添加",
+    "clear": "清空",
+    "tagCount": "已选 {n} 个分类",
+    "tagConfirm": "确认",
+    "groups": {
+      "product": "商品图",
+      "rich": "富媒体",
+      "marketing": "营销",
+      "shop": "店铺",
+      "qual": "资质",
+      "common": "通用",
+      "custom": "自定义"
+    },
+    "maxLimit": "最多选择 {n} 个",
+    "selectFirst": "请先选择图片",
+    "delTitle": "删除资源",
+    "delContent": "确定删除这个资源？将同时删除媒体文件。若该资源正被商品/自提点等引用，删除后相关位置将无法显示。",
+    "deleted": "已删除",
+    "deleteFailed": "删除失败",
+    "uploadFailed": "上传失败",
+    "tagged": "已打标",
+    "tagFailed": "打标失败"
+  },
+  "mediaPicker": {
+    "addImage": "添加图片",
+    "addVideo": "添加视频",
+    "addMixed": "添加图片/视频",
+    "selectedCount": "已选 {count}/{max}"
+  },
+  "richTextEditor": {
+    "visual": "可视化",
+    "html": "HTML",
+    "library": "媒体库",
+    "placeholder": "请输入商品描述…"
+  },
+  "passwordPopup": {
+    "account": "账号",
+    "initialPwd": "初始口令",
+    "tip": "仅显示一次，请复制并转发给本人；首次登录后强制修改密码。",
+    "copyBtn": "一键复制密码",
+    "done": "我已经复制完成",
+    "copied": "密码已复制"
   }
 }

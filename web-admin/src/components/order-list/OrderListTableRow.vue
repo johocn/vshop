@@ -1,15 +1,15 @@
 <template>
   <view class="dt-row" :class="{ head, 'state-first': blocks.stateColumnFirst }">
     <template v-if="head">
-      <text class="c-code">订单号</text>
-      <text class="c-goods">商品</text>
-      <text class="c-cust">收货人 / 电话</text>
-      <text class="c-addr">地址</text>
-      <text class="c-deliv">配送</text>
-      <text class="c-pay">实付</text>
-      <text class="c-time">下单时间</text>
-      <text class="c-st">状态</text>
-      <text class="c-ops">操作</text>
+      <text class="c-code">{{ $t('orderListComp.table.thOrder') }}</text>
+      <text class="c-goods">{{ $t('orderListComp.table.thGoods') }}</text>
+      <text class="c-cust">{{ $t('orderListComp.table.thRecipient') }}</text>
+      <text class="c-addr">{{ $t('orderListComp.table.thAddress') }}</text>
+      <text class="c-deliv">{{ $t('orderListComp.table.thDelivery') }}</text>
+      <text class="c-pay">{{ $t('orderListComp.table.thPaid') }}</text>
+      <text class="c-time">{{ $t('orderListComp.table.thTime') }}</text>
+      <text class="c-st">{{ $t('orderListComp.table.thState') }}</text>
+      <text class="c-ops">{{ $t('orderListComp.table.thOps') }}</text>
     </template>
     <template v-else>
       <text class="c-code" @tap="copyCode(row.code)">{{ row.code }}</text>
@@ -28,10 +28,10 @@
       <text class="c-time">{{ fmtTime(row.time) }}</text>
       <text class="c-st" :style="{ color: stColor(row.state) }">{{ stLabel(row.state).label }}</text>
       <view class="c-ops">
-        <text v-if="isShippable(row.state)" class="act ship" @tap="emit('ship', row)">发货</text>
-        <text v-if="redeemable" class="act redeem" @tap="emit('redeem', row)">去核销</text>
-        <text v-if="isUnpaid(row.state)" class="act remind" @tap="emit('remind', row)">催付</text>
-        <text class="act ghost" @tap="emit('detail', row)">详情</text>
+        <text v-if="isShippable(row.state)" class="act ship" @tap="emit('ship', row)">{{ $t('orderListComp.actions.ship') }}</text>
+        <text v-if="redeemable" class="act redeem" @tap="emit('redeem', row)">{{ $t('orderListComp.actions.goRedeem') }}</text>
+        <text v-if="isUnpaid(row.state)" class="act remind" @tap="emit('remind', row)">{{ $t('orderListComp.actions.remind') }}</text>
+        <text class="act ghost" @tap="emit('detail', row)">{{ $t('orderListComp.actions.detail') }}</text>
       </view>
     </template>
   </view>
@@ -41,9 +41,11 @@
 import { computed } from 'vue';
 import { OrderView, fmtMoney, shipColor, isShippable, isUnpaid } from '../../utils/orderFormat';
 import { ORDER_STATES, stateLabel } from '../../constants/orderState';
+import { useLocaleStore } from '../../stores/localeStore';
 
 // 桌面表格行（head=true 渲染表头），自原页面 dt 块原样迁移；
 // blocks.stateColumnFirst 时状态列前置：DOM 顺序不变，用 CSS grid order 把 .c-st 移到第一轨
+const locale = useLocaleStore();
 const props = withDefaults(
   defineProps<{
     o?: OrderView;
@@ -78,7 +80,7 @@ function fmtTime(t: string): string {
 }
 function copyCode(code: string) {
   if (!code) return;
-  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '订单号已复制', icon: 'none' }) });
+  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: locale.t('orderListComp.copied'), icon: 'none' }) });
 }
 </script>
 

@@ -1,17 +1,17 @@
 <template>
   <view>
     <view class="search">
-      <input :value="kw" class="kw" placeholder="订单号 / 顾客 / 手机号 / 商品名" confirm-type="search" @confirm="emit('search')" @input="onInput" />
-      <text class="btn" @tap="emit('search')">搜索</text>
+      <input :value="kw" class="kw" :placeholder="$t('orderListComp.search.searchPlaceholder')" confirm-type="search" @confirm="emit('search')" @input="onInput" />
+      <text class="btn" @tap="emit('search')">{{ $t('orderListComp.search.search') }}</text>
     </view>
     <view class="filters">
       <picker :range="deliveryOpts" :value="deliveryIdx" @change="onDeliveryPick">
-        <text class="f-chip" :class="{ on: !!deliveryLabel }">{{ deliveryLabel || '配送' }} ▾</text>
+        <text class="f-chip" :class="{ on: !!deliveryLabel }">{{ deliveryLabel || $t('orderListComp.search.delivery') }} ▾</text>
       </picker>
       <picker :range="dateOpts" :value="dateIdx" @change="onDatePick">
-        <text class="f-chip" :class="{ on: !!dateLabel }">{{ dateLabel || '时间' }} ▾</text>
+        <text class="f-chip" :class="{ on: !!dateLabel }">{{ dateLabel || $t('orderListComp.search.date') }} ▾</text>
       </picker>
-      <text v-if="deliveryLabel || dateLabel" class="f-clear" @tap="emit('clear')">清除</text>
+      <text v-if="deliveryLabel || dateLabel" class="f-clear" @tap="emit('clear')">{{ $t('orderListComp.search.clear') }}</text>
     </view>
   </view>
 </template>

@@ -3,25 +3,27 @@
     <view class="pop" @tap.stop>
       <text class="pop-title">{{ title }}</text>
       <view class="pwd-box">
-        <text class="pwd-label">账号</text>
+        <text class="pwd-label">{{ $t('passwordPopup.account') }}</text>
         <text class="pwd-val">{{ account }}</text>
       </view>
       <view class="pwd-box">
-        <text class="pwd-label">初始口令</text>
+        <text class="pwd-label">{{ $t('passwordPopup.initialPwd') }}</text>
         <text class="pwd-val mono">{{ password }}</text>
       </view>
-      <text class="tip">仅显示一次，请复制并转发给本人；首次登录后强制修改密码。</text>
-      <button class="btn" @tap="copyPwd">一键复制密码</button>
-      <view class="done" @tap="$emit('close')">我已经复制完成</view>
+      <text class="tip">{{ $t('passwordPopup.tip') }}</text>
+      <button class="btn" @tap="copyPwd">{{ $t('passwordPopup.copyBtn') }}</button>
+      <view class="done" @tap="$emit('close')">{{ $t('passwordPopup.done') }}</view>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
+import { useLocaleStore } from '../stores/localeStore';
+const locale = useLocaleStore();
 const props = defineProps<{ title: string; account: string; password: string }>();
 function copyPwd() {
   uni.setClipboardData({
     data: props.password,
-    success: () => uni.showToast({ title: '密码已复制', icon: 'none' }),
+    success: () => uni.showToast({ title: locale.t('passwordPopup.copied'), icon: 'none' }),
   });
 }
 </script>

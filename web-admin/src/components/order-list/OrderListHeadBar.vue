@@ -1,25 +1,25 @@
 <template>
   <view class="headbar">
-    <text class="title">订单</text>
+    <text class="title">{{ $t('menu.order') }}</text>
     <view class="stats">
       <view class="stat" @tap="emit('stat-tap', '')">
         <text class="num">{{ stats.today }}</text>
-        <text class="lbl">今日订单</text>
+        <text class="lbl">{{ $t('orderListComp.head.today') }}</text>
       </view>
       <view class="stat" @tap="emit('stat-tap', 'ArrangingPayment')">
         <text class="num">{{ stats.unpaid }}</text>
-        <text class="lbl">待付款</text>
+        <text class="lbl">{{ $t('orderAdmin.orderList.tabPendingPay') }}</text>
       </view>
       <view class="stat" @tap="emit('stat-tap', 'PaymentAuthorized')">
         <text class="num">{{ stats.toShip }}</text>
-        <text class="lbl">待发货</text>
+        <text class="lbl">{{ $t('orderAdmin.orderList.tabPendingShip') }}</text>
       </view>
       <view class="stat" @tap="emit('stat-tap', 'Cancelled')">
         <text class="num">{{ stats.refund }}</text>
-        <text class="lbl">待退款</text>
+        <text class="lbl">{{ $t('orderListComp.head.refundPending') }}</text>
       </view>
     </view>
-    <view class="redeem-btn" @tap="emit('redeem')">核销码<text v-if="redeemableCount > 0" class="redeem-badge">{{ redeemableCount }}</text></view>
+    <view class="redeem-btn" @tap="emit('redeem')">{{ $t('orderListComp.head.redeemCode') }}<text v-if="redeemableCount > 0" class="redeem-badge">{{ redeemableCount }}</text></view>
   </view>
 </template>
 
