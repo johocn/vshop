@@ -47,6 +47,7 @@
     "ship": "发货",
     "afterSale": "售后",
     "pos": "门店收银",
+    "posDesktop": "桌面收银 POS",
     "settleLedger": "收款台账",
     "shippingMethod": "配送方式",
     "paymentMethod": "支付方式",

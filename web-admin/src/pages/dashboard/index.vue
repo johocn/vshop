@@ -87,6 +87,7 @@ async function loadKpis() {
 }
 const common = [
   { ic: '单', label: 'menu.order', url: '/pages/order/list/index', color: D.d2.main, grad: D.d2.grad },
+  { ic: '收', label: 'menu.posDesktop', action: 'posDesktop', color: D.d2.main, grad: D.d2.grad },
   { ic: '＋', label: 'menu.productAdd', url: '/pages/product/create/index', color: D.d1.main, grad: D.d1.grad },
   { ic: '售', label: 'menu.afterSale', url: '/pages/after-sale/list/index', color: D.d2.main, grad: D.d2.grad },
   { ic: '类', label: 'menu.category', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
@@ -98,6 +99,7 @@ const common = [
 const groups = computed(() => visibleMenus(auth));
 function go(it: any) {
   if (it.action === 'manual') return openManual();
+  if (it.action === 'posDesktop') return openPosCashier();
   if (it.action === 'switchStore') return uni.redirectTo({ url: '/pages/channel-select/index' });
   if (it.action === 'logout') return uni.redirectTo({ url: '/pages/login/index' });
   if (it.url) uni.navigateTo({ url: it.url });
@@ -107,6 +109,11 @@ function openManual() {
   const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
   const url = location.origin + base + '/static/manual/index.html';
   window.open(url, '_blank');
+}
+// 桌面收银 POS：同域独立子应用，复用 web-admin 登录态，独立新窗口打开（动态 origin，禁硬编码域名）
+function openPosCashier() {
+  const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
+  window.open(location.origin + base + '/pos/', '_blank');
 }
 </script>
 <style lang="scss" scoped>
