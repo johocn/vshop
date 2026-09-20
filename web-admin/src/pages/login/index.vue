@@ -1,5 +1,6 @@
 <template>
   <view class="login">
+    <view class="langbar" @tap="toggleLang">{{ locale.locale === 'zh-Hans' ? $t('login.en') : $t('login.zh') }}</view>
     <view class="brand">
       <view class="dot" />
       <text class="t1">{{ $t('login.title') }}</text>
@@ -30,6 +31,12 @@ const showPwd = ref(false);
 const loading = ref(false);
 const err = ref('');
 
+function toggleLang() {
+  const next = locale.locale === 'zh-Hans' ? 'en' : 'zh-Hans';
+  locale.apply(next);
+  uni.showToast({ title: next === 'en' ? locale.t('login.en') : locale.t('login.zh'), icon: 'none' });
+}
+
 async function doLogin() {
   err.value = '';
   loading.value = true;
@@ -55,7 +62,8 @@ async function doLogin() {
 </script>
 
 <style lang="scss" scoped>
-.login { min-height: 100vh; background: $wa-bg; padding: 120rpx 48rpx; box-sizing: border-box; }
+.login { min-height: 100vh; background: $wa-bg; padding: 120rpx 48rpx; box-sizing: border-box; position: relative; }
+.langbar { position: absolute; top: 32rpx; right: 32rpx; padding: 12rpx 28rpx; font-size: 26rpx; color: $wa-accent; background: $wa-card; border: 1rpx solid $wa-rule; border-radius: 999rpx; }
 .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 80rpx;
   .dot { width: 72rpx; height: 72rpx; border-radius: 18rpx; background: $wa-accent; margin-bottom: 24rpx; }
   .t1 { font-size: 44rpx; font-weight: 700; color: $wa-ink; }
