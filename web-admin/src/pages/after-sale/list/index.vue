@@ -1,22 +1,22 @@
 <template>
   <view class="page">
     <view class="tabs">
-      <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ s.label }}</text>
+      <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">{{ $t('afterSale.list.' + s.label) }}</text>
     </view>
 
     <view class="card" v-for="a in items" :key="a.id" @tap="goDetail(a)">
       <view class="row">
-        <text class="code">订单 #{{ a.orderId }}</text>
+        <text class="code">{{ $t('afterSale.list.orderPrefix') }}{{ a.orderId }}</text>
         <text class="st" :style="{ color: st(a).color }">{{ st(a).label }}</text>
       </view>
-      <text class="line">售后类型：{{ AFTER_SALE_TYPES[a.type] || a.type }}</text>
-      <text class="line" v-if="a.refundAmount != null">退款金额：¥ {{ (a.refundAmount / 100).toFixed(2) }}</text>
-      <text class="line" v-if="a.reason">原因：{{ a.reason }}</text>
-      <text class="line" v-if="a.rejectReason">驳回：{{ a.rejectReason }}</text>
+      <text class="line">{{ $t('afterSale.list.typeLabel').replace('{type}', AFTER_SALE_TYPES[a.type] || a.type) }}</text>
+      <text class="line" v-if="a.refundAmount != null">{{ $t('afterSale.list.refundAmountLabel').replace('{amount}', (a.refundAmount / 100).toFixed(2)) }}</text>
+      <text class="line" v-if="a.reason">{{ $t('afterSale.list.reasonLabel').replace('{reason}', a.reason) }}</text>
+      <text class="line" v-if="a.rejectReason">{{ $t('afterSale.list.rejectLabel').replace('{reason}', a.rejectReason) }}</text>
     </view>
 
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-else-if="!items.length" class="empty">暂无售后工单</view>
+    <view v-if="loading" class="empty">{{ $t('afterSale.list.loading') }}</view>
+    <view v-else-if="!items.length" class="empty">{{ $t('afterSale.list.empty') }}</view>
     <view style="height: 160rpx" />
     <BottomBar current="order" />
   </view>
@@ -25,14 +25,17 @@
 import { ref, onMounted } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchAfterSales, AfterSaleRow } from '../../../apis/afterSale';
 import { AFTER_SALE_STATES, AFTER_SALE_TYPES, stateLabel, StateLabel } from '../../../constants/orderState';
 
+const locale = useLocaleStore();
+
 const tabs = [
-  { key: '', label: '全部' },
-  { key: 'Pending', label: '待处理' },
-  { key: 'Refunded', label: '已退款' },
-  { key: 'Rejected', label: '已拒绝' },
+  { key: '', label: 'tabAll' },
+  { key: 'Pending', label: 'tabPending' },
+  { key: 'Refunded', label: 'tabRefunded' },
+  { key: 'Rejected', label: 'tabRejected' },
 ];
 const cur = ref('');
 const items = ref<AfterSaleRow[]>([]);

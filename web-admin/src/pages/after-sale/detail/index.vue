@@ -2,46 +2,46 @@
   <view class="page">
     <view v-if="detail" class="head card">
       <view class="row">
-        <text class="code">售后 #{{ detail.id }}</text>
+        <text class="code">{{ $t('afterSale.detail.afterSalePrefix') }}{{ detail.id }}</text>
         <text class="st" :style="{ color: stColor }">{{ stLabel }}</text>
       </view>
-      <text class="sub">订单 #{{ detail.orderId }}</text>
+      <text class="sub">{{ $t('afterSale.detail.orderPrefix') }}{{ detail.orderId }}</text>
       <view class="ops" v-if="hasOps">
-        <button v-if="can.approve" class="op main" @tap="onApprove">同意</button>
-        <button v-if="can.reject" class="op" @tap="onReject">拒绝</button>
-        <button v-if="can.receive" class="op main" @tap="onReceive">确认收货退款</button>
-        <button v-if="can.refund" class="op main" @tap="onRefund">执行退款</button>
-        <button v-if="can.retry" class="op" @tap="onRetry">重试退款</button>
+        <button v-if="can.approve" class="op main" @tap="onApprove">{{ $t('afterSale.detail.approve') }}</button>
+        <button v-if="can.reject" class="op" @tap="onReject">{{ $t('afterSale.detail.reject') }}</button>
+        <button v-if="can.receive" class="op main" @tap="onReceive">{{ $t('afterSale.detail.receive') }}</button>
+        <button v-if="can.refund" class="op main" @tap="onRefund">{{ $t('afterSale.detail.refund') }}</button>
+        <button v-if="can.retry" class="op" @tap="onRetry">{{ $t('afterSale.detail.retry') }}</button>
       </view>
     </view>
 
     <view class="card" v-if="detail">
-      <text class="sec-title">售后信息</text>
-      <view class="cell"><text>类型</text><text class="val">{{ AFTER_SALE_TYPES[detail.type] || detail.type }}</text></view>
-      <view class="cell"><text>状态</text><text class="val">{{ stLabel }}</text></view>
-      <view class="cell"><text>退款金额</text><text class="val danger">¥ {{ money(detail.refundAmount) }}</text></view>
-      <view class="cell" v-if="detail.reason"><text>原因</text><text class="val break">{{ detail.reason }}</text></view>
-      <view class="cell" v-if="detail.description"><text>说明</text><text class="val break">{{ detail.description }}</text></view>
-      <view class="cell" v-if="detail.rejectReason"><text>拒绝原因</text><text class="val break">{{ detail.rejectReason }}</text></view>
-      <view class="cell" v-if="detail.receivedQuantity != null"><text>实收数量</text><text class="val">{{ detail.receivedQuantity }}</text></view>
-      <view class="cell" v-if="detail.refundError"><text>退款错误</text><text class="val break refund-err">{{ detail.refundError }}</text></view>
-      <view class="cell" v-if="detail.actualRefundAmount != null"><text>实退金额</text><text class="val">¥ {{ money(detail.actualRefundAmount) }}</text></view>
-      <view class="cell" v-if="detail.refundedAt"><text>退款时间</text><text class="val">{{ fmtTime(detail.refundedAt) }}</text></view>
+      <text class="sec-title">{{ $t('afterSale.detail.infoTitle') }}</text>
+      <view class="cell"><text>{{ $t('afterSale.detail.type') }}</text><text class="val">{{ AFTER_SALE_TYPES[detail.type] || detail.type }}</text></view>
+      <view class="cell"><text>{{ $t('afterSale.detail.status') }}</text><text class="val">{{ stLabel }}</text></view>
+      <view class="cell"><text>{{ $t('afterSale.detail.refundAmount') }}</text><text class="val danger">¥ {{ money(detail.refundAmount) }}</text></view>
+      <view class="cell" v-if="detail.reason"><text>{{ $t('afterSale.detail.reason') }}</text><text class="val break">{{ detail.reason }}</text></view>
+      <view class="cell" v-if="detail.description"><text>{{ $t('afterSale.detail.description') }}</text><text class="val break">{{ detail.description }}</text></view>
+      <view class="cell" v-if="detail.rejectReason"><text>{{ $t('afterSale.detail.rejectReason') }}</text><text class="val break">{{ detail.rejectReason }}</text></view>
+      <view class="cell" v-if="detail.receivedQuantity != null"><text>{{ $t('afterSale.detail.receivedQuantity') }}</text><text class="val">{{ detail.receivedQuantity }}</text></view>
+      <view class="cell" v-if="detail.refundError"><text>{{ $t('afterSale.detail.refundError') }}</text><text class="val break refund-err">{{ detail.refundError }}</text></view>
+      <view class="cell" v-if="detail.actualRefundAmount != null"><text>{{ $t('afterSale.detail.actualRefundAmount') }}</text><text class="val">¥ {{ money(detail.actualRefundAmount) }}</text></view>
+      <view class="cell" v-if="detail.refundedAt"><text>{{ $t('afterSale.detail.refundedAt') }}</text><text class="val">{{ fmtTime(detail.refundedAt) }}</text></view>
     </view>
 
     <view class="card" v-if="detail">
-      <text class="sec-title">订单 / 物流 / 时间</text>
-      <view class="cell"><text>订单号</text><text class="val break">#{{ detail.orderId }}</text></view>
+      <text class="sec-title">{{ $t('afterSale.detail.orderSection') }}</text>
+      <view class="cell"><text>{{ $t('afterSale.detail.orderNo') }}</text><text class="val break">#{{ detail.orderId }}</text></view>
       <view class="cell" v-if="detail.returnTrackingNo || detail.returnCarrier">
-        <text>退货物流</text>
-        <text class="val break">{{ detail.returnCarrier || '快递' }} {{ detail.returnTrackingNo }}</text>
+        <text>{{ $t('afterSale.detail.returnLogistics') }}</text>
+        <text class="val break">{{ detail.returnCarrier || $t('afterSale.detail.express') }} {{ detail.returnTrackingNo }}</text>
       </view>
-      <view class="cell"><text>申请时间</text><text class="val">{{ fmtTime(detail.createdAt) }}</text></view>
-      <view class="cell" v-if="detail.updatedAt"><text>更新时间</text><text class="val">{{ fmtTime(detail.updatedAt) }}</text></view>
+      <view class="cell"><text>{{ $t('afterSale.detail.createdAt') }}</text><text class="val">{{ fmtTime(detail.createdAt) }}</text></view>
+      <view class="cell" v-if="detail.updatedAt"><text>{{ $t('afterSale.detail.updatedAt') }}</text><text class="val">{{ fmtTime(detail.updatedAt) }}</text></view>
     </view>
 
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-else-if="!detail" class="empty">未找到该售后工单</view>
+    <view v-if="loading" class="empty">{{ $t('afterSale.detail.loading') }}</view>
+    <view v-else-if="!detail" class="empty">{{ $t('afterSale.detail.notFound') }}</view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -57,6 +57,9 @@ import {
   AfterSaleRow,
 } from '../../../apis/afterSale';
 import { AFTER_SALE_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const detail = ref<AfterSaleRow | null>(null);
 const loading = ref(false);
@@ -107,53 +110,53 @@ async function run(action: () => Promise<AfterSaleRow>, okMsg: string) {
     uni.showToast({ title: okMsg, icon: 'success' });
     await refresh();
   } catch (e: any) {
-    toast(e?.message || '操作失败');
+    toast(e?.message || locale.t('afterSale.detail.opFailed'));
   }
 }
 
 function onApprove() {
   uni.showModal({
-    title: '同意售后',
-    content: `确认同意该售后申请并退款 ¥${money(detail.value?.refundAmount)} 吗？`,
-    success: (res) => { if (res.confirm && detail.value) run(() => approveAfterSale(detail.value!.id), '已同意'); },
+    title: locale.t('afterSale.detail.approveTitle'),
+    content: locale.t('afterSale.detail.approveContent').replace('{amount}', money(detail.value?.refundAmount)),
+    success: (res) => { if (res.confirm && detail.value) run(() => approveAfterSale(detail.value!.id), locale.t('afterSale.detail.approved')); },
   });
 }
 
 function onReject() {
   uni.showModal({
-    title: '拒绝售后',
+    title: locale.t('afterSale.detail.rejectTitle'),
     editable: true,
-    placeholderText: '请输入拒绝原因',
+    placeholderText: locale.t('afterSale.detail.rejectReasonPlaceholder'),
     success: (res) => {
       if (!res.confirm || !detail.value) return;
       const reason = (res.content || '').trim();
-      if (!reason) { toast('请输入拒绝原因'); return; }
-      run(() => rejectAfterSale(detail.value!.id, reason), '已拒绝');
+      if (!reason) { toast(locale.t('afterSale.detail.rejectReasonRequired')); return; }
+      run(() => rejectAfterSale(detail.value!.id, reason), locale.t('afterSale.detail.rejected'));
     },
   });
 }
 
 function onReceive() {
   uni.showModal({
-    title: '确认收货退款',
-    content: '确认已收到退货，将回补库存并进入退款流程？',
-    success: (res) => { if (res.confirm && detail.value) run(() => confirmAfterSaleReceived(detail.value!.id), '已确认收货'); },
+    title: locale.t('afterSale.detail.receiveTitle'),
+    content: locale.t('afterSale.detail.receiveContent'),
+    success: (res) => { if (res.confirm && detail.value) run(() => confirmAfterSaleReceived(detail.value!.id), locale.t('afterSale.detail.received')); },
   });
 }
 
 function onRefund() {
   uni.showModal({
-    title: '执行退款',
-    content: `确认执行退款 ¥${money(detail.value?.refundAmount)} 吗？`,
-    success: (res) => { if (res.confirm && detail.value) run(() => processAfterSaleRefund(detail.value!.id), '退款已发起'); },
+    title: locale.t('afterSale.detail.refundTitle'),
+    content: locale.t('afterSale.detail.refundContent').replace('{amount}', money(detail.value?.refundAmount)),
+    success: (res) => { if (res.confirm && detail.value) run(() => processAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.refundInitiated')); },
   });
 }
 
 function onRetry() {
   uni.showModal({
-    title: '重试退款',
-    content: '确认重试退款吗？',
-    success: (res) => { if (res.confirm && detail.value) run(() => retryAfterSaleRefund(detail.value!.id), '重试已发起'); },
+    title: locale.t('afterSale.detail.retryTitle'),
+    content: locale.t('afterSale.detail.retryContent'),
+    success: (res) => { if (res.confirm && detail.value) run(() => retryAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.retryInitiated')); },
   });
 }
 
