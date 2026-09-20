@@ -2,10 +2,10 @@
   <view class="page">
     <view class="toolbar">
       <view class="tenant">
-        <text class="tt">当前租户</text>
-        <text class="tc">{{ tenantCode || '未选择' }}</text>
+        <text class="tt">{{ $t('inventoryLocations.tenantLabel') }}</text>
+        <text class="tc">{{ tenantCode || $t('inventoryLocations.notSelected') }}</text>
       </view>
-      <button class="add" @tap="onCreate">＋ 新建网点</button>
+      <button class="add" @tap="onCreate">{{ $t('inventoryLocations.create') }}</button>
     </view>
 
     <view class="card" v-for="s in items" :key="s.id">
@@ -13,21 +13,21 @@
         <view class="info">
           <view class="head">
             <text class="name">{{ s.name }}</text>
-            <text class="badge" :class="s.kind === 'physical' ? 'phy' : 'vir'">{{ s.kind === 'physical' ? '物理' : '虚拟' }}</text>
+            <text class="badge" :class="s.kind === 'physical' ? 'phy' : 'vir'">{{ s.kind === 'physical' ? $t('inventoryLocations.physical') : $t('inventoryLocations.virtual') }}</text>
           </view>
           <view class="meta">
-            <text class="pm">配送：{{ deliveryLabel(s) }}</text>
-            <text class="pm">城市：{{ citiesLabel(s) }}</text>
-            <text v-if="hasCoords(s)" class="pm">坐标 {{ fmtCoord(s.customFields?.lat) }}, {{ fmtCoord(s.customFields?.lng) }}</text>
+            <text class="pm">{{ $t('inventoryLocations.deliveryPrefix').replace('{label}', deliveryLabel(s)) }}</text>
+            <text class="pm">{{ $t('inventoryLocations.cityPrefix').replace('{label}', citiesLabel(s)) }}</text>
+            <text v-if="hasCoords(s)" class="pm">{{ $t('inventoryLocations.coordsPrefix').replace('{lat}', fmtCoord(s.customFields?.lat)).replace('{lng}', fmtCoord(s.customFields?.lng)) }}</text>
           </view>
         </view>
       </view>
       <view class="ops">
-        <text @tap="onEdit(s)">编辑</text>
-        <text class="del" @tap="onDel(s)">删除</text>
+        <text @tap="onEdit(s)">{{ $t('inventoryLocations.edit') }}</text>
+        <text class="del" @tap="onDel(s)">{{ $t('inventoryLocations.del') }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无网点</view>
+    <view v-if="!items.length" class="empty">{{ $t('inventoryLocations.empty') }}</view>
 
     <view style="height: 120rpx" />
   </view>
@@ -36,9 +36,11 @@
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useTenantStore } from '../../../stores/tenantStore';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchLocations, deleteLocation, type LocationRow } from '../../../apis/inventory';
 
 const tenant = useTenantStore();
+const locale = useLocaleStore();
 const tenantCode = computed(() => tenant.code);
 const all = ref<LocationRow[]>([]);
 
@@ -54,15 +56,15 @@ function deliveryLabel(s: LocationRow): string {
   const m = (s.customFields?.deliveryMethods ?? []) as string[];
   const hasMail = m.includes('MAIL');
   const hasPickup = m.includes('SELF_PICKUP');
-  if (hasMail && hasPickup) return '邮寄 + 自提';
-  if (hasMail) return '仅邮寄';
-  if (hasPickup) return '仅自提';
-  return '邮寄 + 自提（未配置）';
+  if (hasMail && hasPickup) return locale.t('inventoryLocations.delivMailPickup');
+  if (hasMail) return locale.t('inventoryLocations.delivMailOnly');
+  if (hasPickup) return locale.t('inventoryLocations.delivPickupOnly');
+  return locale.t('inventoryLocations.delivUnconfig');
 }
 
 function citiesLabel(s: LocationRow): string {
   const c = (s.customFields?.serviceCities ?? []) as string[];
-  return c.length ? c.join('、') : '全国';
+  return c.length ? c.join('、') : locale.t('inventoryLocations.nationwide');
 }
 
 function hasCoords(s: LocationRow): boolean {
@@ -89,16 +91,16 @@ function onEdit(s: LocationRow) {
 
 function onDel(s: LocationRow) {
   uni.showModal({
-    title: '删除网点',
-    content: `删除「${s.name}」？关联库存记录将一并移除。`,
+    title: locale.t('inventoryLocations.deleteTitle'),
+    content: locale.t('inventoryLocations.deleteContent').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await deleteLocation(s.id);
         await reload();
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('inventoryLocations.deleted'), icon: 'none' });
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('inventoryLocations.deleteFailed'), icon: 'none' });
       }
     },
   });

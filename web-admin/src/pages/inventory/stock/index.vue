@@ -2,7 +2,7 @@
   <view class="page">
     <picker mode="selector" :range="locNames" @change="onLocChange">
       <view class="loc-bar">
-        <text class="loc-label">仓库</text>
+        <text class="loc-label">{{ $t('inventoryStock.warehouse') }}</text>
         <text class="loc-name">{{ curLocName }}</text>
         <text class="loc-arrow">▾</text>
       </view>
@@ -10,14 +10,14 @@
     <view class="card" v-for="s in items" :key="s.id" :class="{ low: s.stockOnHand <= 5 }">
       <view class="row">
         <text class="name">#{{ s.productVariantId }}</text>
-        <text class="num" :class="{ warn: s.stockOnHand <= 5 }">{{ s.stockOnHand }} 件</text>
+        <text class="num" :class="{ warn: s.stockOnHand <= 5 }">{{ $t('inventoryStock.stockQty').replace('{n}', s.stockOnHand) }}</text>
       </view>
       <view class="sub">
-        <text>已分配 {{ s.stockAllocated }}</text>
-        <text v-if="s.stockOnHand <= 5" class="tag">低库存</text>
+        <text>{{ $t('inventoryStock.allocated').replace('{n}', s.stockAllocated) }}</text>
+        <text v-if="s.stockOnHand <= 5" class="tag">{{ $t('inventoryStock.lowStock') }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无库存数据</view>
+    <view v-if="!items.length" class="empty">{{ $t('inventoryStock.empty') }}</view>
     <view style="height: 120rpx" />
     <BottomBar current="dashboard" />
   </view>

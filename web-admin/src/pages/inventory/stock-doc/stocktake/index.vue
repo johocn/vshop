@@ -2,29 +2,32 @@
   <view class="page">
     <view class="card">
       <view class="field">
-        <text class="label">盘库仓库 *</text>
+        <text class="label">{{ $t('stockDocStocktake.labelLoc') }}</text>
         <picker mode="selector" :range="locNames" @change="onLocChange">
-          <view class="picker">{{ curLocName || '请选择仓库' }} ▾</view>
+          <view class="picker">{{ curLocName || $t('stockDocStocktake.selectLoc') }} ▾</view>
         </picker>
       </view>
       <view class="field">
-        <text class="label">变体 ID (variantId) *</text>
-        <input class="ipt" v-model="variantId" type="number" placeholder="如 42" />
+        <text class="label">{{ $t('stockDocStocktake.labelVariant') }}</text>
+        <input class="ipt" v-model="variantId" type="number" :placeholder="$t('stockDocStocktake.placeholderVariant')" />
       </view>
       <view class="field">
-        <text class="label">实盘数量 (realQty) *</text>
-        <input class="ipt" v-model="realQty" type="number" placeholder="按此值覆盖库存" />
+        <text class="label">{{ $t('stockDocStocktake.labelRealQty') }}</text>
+        <input class="ipt" v-model="realQty" type="number" :placeholder="$t('stockDocStocktake.placeholderRealQty')" />
       </view>
     </view>
     <view class="savebar">
-      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? '提交中…' : '盘库' }}</button>
+      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? $t('stockDocStocktake.submitting') : $t('stockDocStocktake.submit') }}</button>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { useLocaleStore } from '../../../../stores/localeStore';
 import { fetchStockLocations } from '../../../../apis/inventory';
 import { createStockDoc } from '../../../../apis/stock-doc';
+
+const locale = useLocaleStore();
 
 const locations = ref<Array<{ id: string; name: string }>>([]);
 const locNames = ref<string[]>([]);
@@ -40,9 +43,9 @@ function onLocChange(e: any) {
 }
 
 async function onSave() {
-  if (locIdx.value < 0) return uni.showToast({ title: '请选择仓库', icon: 'none' });
-  if (!variantId.value.trim()) return uni.showToast({ title: '请填写变体 ID', icon: 'none' });
-  if (realQty.value === '' || Number(realQty.value) < 0) return uni.showToast({ title: '请填写正确实盘数', icon: 'none' });
+  if (locIdx.value < 0) return uni.showToast({ title: locale.t('stockDocStocktake.requireLoc'), icon: 'none' });
+  if (!variantId.value.trim()) return uni.showToast({ title: locale.t('stockDocStocktake.requireVariant'), icon: 'none' });
+  if (realQty.value === '' || Number(realQty.value) < 0) return uni.showToast({ title: locale.t('stockDocStocktake.requireRealQty'), icon: 'none' });
   saving.value = true;
   try {
     const doc = await createStockDoc({
@@ -54,10 +57,10 @@ async function onSave() {
         realQty: Number(realQty.value),
       }],
     });
-    uni.showToast({ title: `已盘库 ${doc.code}`, icon: 'success' });
+    uni.showToast({ title: locale.t('stockDocStocktake.done').replace('{code}', doc.code), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 700);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '提交失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('stockDocStocktake.submitFailed'), icon: 'none' });
   } finally {
     saving.value = false;
   }
