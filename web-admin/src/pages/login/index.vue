@@ -19,9 +19,11 @@
 import { ref } from 'vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
+import { useLocaleStore } from '../../stores/localeStore';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
+const locale = useLocaleStore();
 const username = ref('');
 const password = ref('');
 const showPwd = ref(false);
@@ -45,7 +47,7 @@ async function doLogin() {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = (e?.response?.errors?.[0]?.message) || uni.$t('login.failed' as any);
+    err.value = (e?.response?.errors?.[0]?.message) || locale.t('login.failed');
   } finally {
     loading.value = false;
   }
