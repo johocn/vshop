@@ -2,14 +2,14 @@
   <view class="login">
     <view class="brand">
       <view class="dot" />
-      <text class="t1">vshop 管理后台</text>
-      <text class="t2">店铺经营 · 一部手机搞定</text>
+      <text class="t1">{{ $t('login.title') }}</text>
+      <text class="t2">{{ $t('login.subtitle') }}</text>
     </view>
     <view class="card">
-      <input v-model="username" class="field" placeholder="账号" />
-      <input v-model="password" class="field" :password="!showPwd" placeholder="密码" @confirm="doLogin" />
-      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}密码</text></view>
-      <button class="btn" :disabled="loading" @tap="doLogin">{{ loading ? '登录中…' : '登 录' }}</button>
+      <input v-model="username" class="field" :placeholder="$t('login.account')" />
+      <input v-model="password" class="field" :password="!showPwd" :placeholder="$t('login.password')" @confirm="doLogin" />
+      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? $t('login.hide') : $t('login.show') }} {{ $t('login.password') }}</text></view>
+      <button class="btn" :disabled="loading" @tap="doLogin">{{ loading ? $t('login.logging') : $t('login.login') }}</button>
       <view v-if="err" class="err">{{ err }}</view>
     </view>
   </view>
@@ -45,7 +45,7 @@ async function doLogin() {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = (e?.response?.errors?.[0]?.message) || '登录失败，请检查账号密码';
+    err.value = (e?.response?.errors?.[0]?.message) || uni.$t('login.failed' as any);
   } finally {
     loading.value = false;
   }
