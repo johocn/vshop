@@ -6,26 +6,26 @@
           class="seg-item"
           :class="{ on: value.noSpec }"
           @tap="setNoSpec(true)"
-        >无规格（单品）</view>
+        >{{ locale.t('productVariantMatrixTab.noSpec') }}</view>
         <view
           class="seg-item"
           :class="{ on: !value.noSpec }"
           @tap="setNoSpec(false)"
-        >多规格（组合）</view>
+        >{{ locale.t('productVariantMatrixTab.multiSpec') }}</view>
       </view>
     </view>
 
     <template v-if="!value.noSpec">
       <view class="card" v-for="(g, gi) in value.groups" :key="gi">
         <view class="syshead">
-          <text class="link" @tap="openSystemGroups(gi)">从系统选择已有规格组</text>
+          <text class="link" @tap="openSystemGroups(gi)">{{ locale.t('productVariantMatrixTab.fromSystem') }}</text>
         </view>
         <view class="cell">
-          <text class="lbl">规格名</text>
-          <input class="inp" :value="g.name" placeholder="如：颜色" @input="onGroupName(gi, $event)" />
+          <text class="lbl">{{ locale.t('productVariantMatrixTab.specName') }}</text>
+          <input class="inp" :value="g.name" :placeholder="locale.t('productVariantMatrixTab.specNamePh')" @input="onGroupName(gi, $event)" />
         </view>
         <view class="cell live">
-          <text class="lbl">规格值</text>
+          <text class="lbl">{{ locale.t('productVariantMatrixTab.specValue') }}</text>
           <view class="vals">
             <view class="pills">
               <view class="pill" v-for="(vg, vi) in g.values" :key="vi">
@@ -33,65 +33,65 @@
                 <text class="pill-x" @tap="removeValue(gi, vi)">✕</text>
               </view>
             </view>
-            <input class="inp" :value="newVal[gi]" placeholder="输入后用以下按钮添加" @input="onNewVal(gi, $event)" />
+            <input class="inp" :value="newVal[gi]" :placeholder="locale.t('productVariantMatrixTab.addValPh')" @input="onNewVal(gi, $event)" />
           </view>
         </view>
-        <button class="ghost" @tap="addValue(gi)">添加规格值</button>
-        <button class="ghost danger" @tap="removeGroup(gi)">删除此规格组</button>
+        <button class="ghost" @tap="addValue(gi)">{{ locale.t('productVariantMatrixTab.addValue') }}</button>
+        <button class="ghost danger" @tap="removeGroup(gi)">{{ locale.t('productVariantMatrixTab.delGroup') }}</button>
       </view>
       <view class="card">
-        <button class="ghost" :disabled="value.groups.length >= 3" @tap="addGroup">+ 添加规格组（上限3）</button>
+        <button class="ghost" :disabled="value.groups.length >= 3" @tap="addGroup">{{ locale.t('productVariantMatrixTab.addGroup') }}</button>
       </view>
     </template>
 
     <!-- 酒店房型配置（仅编辑态有变体 id 时显示；创建态无变体 id 隐藏） -->
     <view class="card hotel-card" v-if="variantId">
-      <view class="hotel-title">酒店房型配置</view>
-      <view v-if="hotelLoading" class="tip">加载中…</view>
+      <view class="hotel-title">{{ locale.t('productVariantMatrixTab.hotelTitle') }}</view>
+      <view v-if="hotelLoading" class="tip">{{ locale.t('productVariantMatrixTab.loading') }}</view>
       <template v-else-if="!hotelConfig">
         <view class="field">
-          <text class="flabel">选择房型模板</text>
+          <text class="flabel">{{ locale.t('productVariantMatrixTab.selectRoomTpl') }}</text>
           <picker :range="roomTemplateNames" @change="onPickTemplate">
-            <view class="hotel-picker">{{ pickedTemplateName || '点击选择模板' }}</view>
+            <view class="hotel-picker">{{ pickedTemplateName || locale.t('productVariantMatrixTab.clickSelectTpl') }}</view>
           </picker>
         </view>
         <button class="ghost" :disabled="!pickedTemplateId || hotelSaving" @tap="applyTemplate">
-          {{ hotelSaving ? '套用中…' : '套用模板生成快照' }}
+          {{ hotelSaving ? locale.t('productVariantMatrixTab.applying') : locale.t('productVariantMatrixTab.applySnapshot') }}
         </button>
       </template>
       <template v-else>
-        <view class="info-row">已应用模板：{{ hotelConfig.templateCode || '（手动配置）' }}</view>
+        <view class="info-row">{{ locale.t('productVariantMatrixTab.appliedTpl').replace('{code}', hotelConfig.templateCode || locale.t('productVariantMatrixTab.manualConfig')) }}</view>
         <view class="field">
-          <text class="flabel">房间明细 JSON</text>
+          <text class="flabel">{{ locale.t('productVariantMatrixTab.roomsJson') }}</text>
           <textarea class="hotel-ta" v-model="hotelForm.roomsJson" placeholder='[{"no":"801","floor":8,"view":"湖景"}]' />
         </view>
         <view class="field">
-          <text class="flabel">日历价格段 JSON</text>
+          <text class="flabel">{{ locale.t('productVariantMatrixTab.priceCalendarJson') }}</text>
           <textarea class="hotel-ta" v-model="hotelForm.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' />
         </view>
-        <button class="ghost" :disabled="hotelSaving" @tap="saveHotelConfig">{{ hotelSaving ? '保存中…' : '保存酒店配置' }}</button>
+        <button class="ghost" :disabled="hotelSaving" @tap="saveHotelConfig">{{ hotelSaving ? locale.t('productVariantMatrixTab.saving') : locale.t('productVariantMatrixTab.saveHotel') }}</button>
       </template>
     </view>
 
     <view class="card">
       <view class="row-in title">
-        <text>规格矩阵</text>
-        <text class="lbl">划线价列：</text>
+        <text>{{ locale.t('productVariantMatrixTab.matrix') }}</text>
+        <text class="lbl">{{ locale.t('productVariantMatrixTab.listPriceCol') }}</text>
         <switch :checked="value.showListPrice" @change="onToggleListPrice" />
       </view>
 
       <template v-if="value.skus.length">
         <view class="mrow head">
-          <text v-if="!value.noSpec" class="c-lab">规格组合</text>
-          <text v-else class="c-lab">单品</text>
-          <text class="c-p">价格(分)</text>
-          <text class="c-p" v-if="value.showListPrice">划线价(分)</text>
-          <text class="c-s">库存</text>
+          <text v-if="!value.noSpec" class="c-lab">{{ locale.t('productVariantMatrixTab.specCombo') }}</text>
+          <text v-else class="c-lab">{{ locale.t('productVariantMatrixTab.single') }}</text>
+          <text class="c-p">{{ locale.t('productVariantMatrixTab.priceCents') }}</text>
+          <text class="c-p" v-if="value.showListPrice">{{ locale.t('productVariantMatrixTab.listPriceCents') }}</text>
+          <text class="c-s">{{ locale.t('productVariantMatrixTab.stock') }}</text>
         </view>
         <view class="skublock" v-for="(s, si) in value.skus" :key="si">
           <view class="mrow">
             <text v-if="!value.noSpec" class="c-lab">{{ s.labels.join(' / ') }}</text>
-            <text v-else class="c-lab">单品</text>
+            <text v-else class="c-lab">{{ locale.t('productVariantMatrixTab.single') }}</text>
             <input class="c-p" type="number" :value="String(s.priceCents)" @input="onSkuField(si, 'priceCents', $event)" />
             <input
               v-if="value.showListPrice"
@@ -108,43 +108,43 @@
               <text v-else class="cover-plus">＋图</text>
             </view>
             <view class="field">
-              <text class="flabel">条形码</text>
+              <text class="flabel">{{ locale.t('productVariantMatrixTab.barcode') }}</text>
               <view class="frow">
-                <input class="c-b" placeholder="条形码" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
+                <input class="c-b" :placeholder="locale.t('productVariantMatrixTab.barcode')" :value="s.barcode ?? ''" @input="onSkuField(si, 'barcode', $event)" />
                 <text class="scan-btn" @tap="scanSkuField(si, 'barcode')">📷</text>
               </view>
             </view>
           </view>
           <view class="mrow sub">
             <view class="field">
-              <text class="flabel">内部码</text>
+              <text class="flabel">{{ locale.t('productVariantMatrixTab.internalCode') }}</text>
               <view class="frow">
-                <input class="c-b" placeholder="内部码" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
+                <input class="c-b" :placeholder="locale.t('productVariantMatrixTab.internalCode')" :value="s.internalCode ?? ''" @input="onSkuField(si, 'internalCode', $event)" />
                 <text class="scan-btn" @tap="scanSkuField(si, 'internalCode')">📷</text>
               </view>
             </view>
             <view class="field">
-              <text class="flabel">成本价(分)</text>
+              <text class="flabel">{{ locale.t('productVariantMatrixTab.costCents') }}</text>
               <view class="frow">
-                <input class="c-p" type="number" placeholder="成本价" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
+                <input class="c-p" type="number" :placeholder="locale.t('productVariantMatrixTab.costCents')" :value="String(s.costPrice ?? '')" @input="onSkuField(si, 'costPrice', $event)" />
               </view>
             </view>
           </view>
         </view>
       </template>
-      <view v-else class="tip">暂无规格数据</view>
+      <view v-else class="tip">{{ locale.t('productVariantMatrixTab.noSpecData') }}</view>
 
       <view class="row batch">
-        <button class="ghost" @tap="batchPrice">批量设价</button>
-        <button class="ghost" @tap="batchStock">批量填库存</button>
-        <button class="ghost" v-if="value.showListPrice" @tap="batchListPrice">批量划线价</button>
+        <button class="ghost" @tap="batchPrice">{{ locale.t('productVariantMatrixTab.batchPrice') }}</button>
+        <button class="ghost" @tap="batchStock">{{ locale.t('productVariantMatrixTab.batchStock') }}</button>
+        <button class="ghost" v-if="value.showListPrice" @tap="batchListPrice">{{ locale.t('productVariantMatrixTab.batchListPrice') }}</button>
       </view>
     </view>
 
     <view v-if="pickerOpen" class="picker-mask" @tap.self="pickerOpen = false">
       <view class="picker-panel">
         <view class="picker-head">
-          <text>设置「{{ pickerLabels.join('/') || '单品' }}」的变体图片</text>
+          <text>{{ locale.t('productVariantMatrixTab.setImgTitle').replace('{name}', pickerLabels.join('/') || locale.t('productVariantMatrixTab.single')) }}</text>
           <text class="picker-close" @tap="pickerOpen = false">✕</text>
         </view>
         <ImagePicker ref="pickerRef" :max="1" :value="pickerAssetIds" @change="onPickerChange" />
@@ -154,15 +154,15 @@
     <view v-if="sysGroupsOpen" class="picker-mask" @tap.self="sysGroupsOpen = false">
       <view class="picker-panel">
         <view class="picker-head">
-          <text>选择系统已有规格组</text>
+          <text>{{ locale.t('productVariantMatrixTab.selectSystemGroup') }}</text>
           <text class="picker-close" @tap="sysGroupsOpen = false">✕</text>
         </view>
         <scroll-view scroll-y class="sys-list">
-          <view v-if="!sysGroups.length" class="sys-empty">暂无可复用的规格组</view>
+          <view v-if="!sysGroups.length" class="sys-empty">{{ locale.t('productVariantMatrixTab.noReusable') }}</view>
           <view v-else class="sys-item" v-for="(sg, si) in sysGroups" :key="sg.id" @tap="selectSystemGroup(sg)">
             <view class="sys-item-head">
               <text class="sys-name">{{ sg.name }}</text>
-              <text class="sys-count">{{ (sg.options || []).length }} 个值</text>
+              <text class="sys-count">{{ locale.t('productVariantMatrixTab.valueCount').replace('{n}', String((sg.options || []).length)) }}</text>
             </view>
             <text class="sys-opts">{{ (sg.options || []).map((o) => o.name).join(' / ') }}</text>
           </view>
@@ -174,6 +174,7 @@
 
 <script lang="ts" setup>
 import { reactive, ref, watch } from 'vue';
+import { useLocaleStore } from '../../stores/localeStore';
 import ImagePicker from '../../components/ImagePicker.vue';
 import {
   buildMatrix,
@@ -192,6 +193,8 @@ import {
 } from '../../apis/room-template';
 import { graphQlErrorMsg } from '../../apis/client';
 import { scanCode, ScannerError } from '../../utils/scanner';
+
+const locale = useLocaleStore();
 
 export interface VariantMatrixValue {
   noSpec: boolean;
@@ -275,10 +278,10 @@ async function applyTemplate() {
   hotelSaving.value = true;
   try {
     await applyRoomTemplate(props.variantId, pickedTemplateId.value);
-    uni.showToast({ title: '已生成快照', icon: 'success' });
+    uni.showToast({ title: locale.t('productVariantMatrixTab.snapshotDone'), icon: 'success' });
     await loadHotelData();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '套用失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('productVariantMatrixTab.applyFailed')), icon: 'none' });
   } finally {
     hotelSaving.value = false;
   }
@@ -292,16 +295,16 @@ async function saveHotelConfig() {
     rooms = JSON.parse(hotelForm.roomsJson || '[]');
     priceCalendar = JSON.parse(hotelForm.priceCalendarJson || '[]');
   } catch {
-    uni.showToast({ title: 'JSON 不合法，请检查后重试', icon: 'none' });
+    uni.showToast({ title: locale.t('productVariantMatrixTab.jsonInvalid'), icon: 'none' });
     return;
   }
   hotelSaving.value = true;
   try {
     await updateVariantHotelConfig(props.variantId, { rooms, priceCalendar });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('productVariantMatrixTab.saved'), icon: 'success' });
     await loadHotelData();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('productVariantMatrixTab.saveFailed')), icon: 'none' });
   } finally {
     hotelSaving.value = false;
   }
@@ -341,7 +344,7 @@ function onNewVal(gi: number, e: any) {
 function addValue(gi: number) {
   const v = (newVal[gi] || '').trim();
   if (!v) {
-    uni.showToast({ title: '请先输入规格值', icon: 'none' });
+    uni.showToast({ title: locale.t('productVariantMatrixTab.needSpecVal'), icon: 'none' });
     return;
   }
   // 复用组被手动增删规格值 -> 清除 groupId/valueIds（退化为新建组，避免 id 与值错位）
@@ -397,9 +400,9 @@ async function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
       // 能力不足/摄像头失败/用户点手动输入 → 弹可编辑输入框
       const cur = props.value.skus[si]?.[field] ?? '';
       uni.showModal({
-        title: '手动输入' + (field === 'barcode' ? '条形码' : '内部码'),
+        title: locale.t('productVariantMatrixTab.manualInput').replace('{field}', field === 'barcode' ? locale.t('productVariantMatrixTab.barcode') : locale.t('productVariantMatrixTab.internalCode')),
         editable: true,
-        placeholderText: '请输入条码',
+        placeholderText: locale.t('productVariantMatrixTab.inputCode'),
         content: String(cur ?? ''),
         success: (r) => {
           if (r.confirm) {
@@ -410,7 +413,7 @@ async function scanSkuField(si: number, field: 'barcode' | 'internalCode') {
       });
       return;
     }
-    uni.showToast({ title: (e as Error)?.message || '扫码失败', icon: 'none' });
+    uni.showToast({ title: (e as Error)?.message || locale.t('productVariantMatrixTab.scanFailed'), icon: 'none' });
   }
 }
 // 直接写入字符串字段，复用 onSkuField 的语义
@@ -425,7 +428,7 @@ function onSkuFieldLiteral(si: number, field: 'barcode' | 'internalCode', val: s
 
 function addGroup() {
   if (props.value.groups.length >= 3) return;
-  const groups = [...props.value.groups, { name: `规格${props.value.groups.length + 1}`, values: [] }];
+  const groups = [...props.value.groups, { name: locale.t('productVariantMatrixTab.genericGroupName').replace('{n}', String(props.value.groups.length + 1)), values: [] }];
   const skus = rebuild(groups);
   emit('update:value', { ...props.value, noSpec: false, groups, skus });
 }
@@ -456,7 +459,7 @@ async function openSystemGroups(gi: number) {
     sysGroups.value = await fetchReusableOptionGroups();
     sysGroupsOpen.value = true;
   } catch {
-    uni.showToast({ title: '获取规格组失败', icon: 'none' });
+    uni.showToast({ title: locale.t('productVariantMatrixTab.getGroupFailed'), icon: 'none' });
   }
 }
 
@@ -470,7 +473,7 @@ function selectSystemGroup(g: ReusableSysGroup) {
   const skus = props.value.noSpec ? props.value.skus : rebuild(groups);
   emit('update:value', { ...props.value, groups, skus });
   sysGroupsOpen.value = false;
-  uni.showToast({ title: '已引用规格组，可修改名称/值', icon: 'none' });
+  uni.showToast({ title: locale.t('productVariantMatrixTab.referencedGroup'), icon: 'none' });
 }
 
 function coverPreview(s: MatrixSku): string {

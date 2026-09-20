@@ -6,49 +6,49 @@
       <!-- 商品专属券：商品-券绑定（coupon-plugin productCouponBindings） -->
       <view class="bind-card">
         <view class="bind-hd">
-          <text class="title">商品专属券</text>
-          <text class="sub">此处绑定的券会展示在商品详情页，仅该商品可用</text>
+          <text class="title">{{ locale.t('productEdit.bindTitle') }}</text>
+          <text class="sub">{{ locale.t('productEdit.bindSub') }}</text>
         </view>
 
         <view class="bind-list" v-if="bindings.length">
           <view class="bind-item" v-for="(b, i) in bindings" :key="b.id">
             <view class="bind-top">
               <view class="bind-head">
-                <text class="name">{{ b.template?.name || '未知券模板' }}</text>
+                <text class="name">{{ b.template?.name || locale.t('productEdit.unknownTemplate') }}</text>
                 <text class="badge" :class="(b.template?.type || '').toLowerCase()">{{ typeLabel(b.template?.type) }}</text>
-                <text class="badge off" v-if="b.template && !b.template.enabled">模板停用</text>
+                <text class="badge off" v-if="b.template && !b.template.enabled">{{ locale.t('productEdit.templateOff') }}</text>
               </view>
               <text class="value">{{ valueText(b.template) }}</text>
             </view>
             <view class="bind-ops">
-              <text @tap="onMove(b, i, -1)" :class="{ disabled: i === 0 || bindBusy }">上移</text>
-              <text @tap="onMove(b, i, 1)" :class="{ disabled: i === bindings.length - 1 || bindBusy }">下移</text>
+              <text @tap="onMove(b, i, -1)" :class="{ disabled: i === 0 || bindBusy }">{{ locale.t('productEdit.moveUp') }}</text>
+              <text @tap="onMove(b, i, 1)" :class="{ disabled: i === bindings.length - 1 || bindBusy }">{{ locale.t('productEdit.moveDown') }}</text>
               <view class="switch-box">
-                <text>启用</text>
+                <text>{{ locale.t('productEdit.enable') }}</text>
                 <switch :checked="b.enabled" :disabled="bindBusy" @change="onToggle(b, $event.detail.value)" color="#2563eb" />
               </view>
-              <text class="del" @tap="onDelete(b)">删除</text>
+              <text class="del" @tap="onDelete(b)">{{ locale.t('productEdit.del') }}</text>
             </view>
           </view>
         </view>
-        <view v-else-if="loadingBindings" class="bind-empty">加载绑定中…</view>
-        <view v-else class="bind-empty">暂未绑定商品专属券</view>
+        <view v-else-if="loadingBindings" class="bind-empty">{{ locale.t('productEdit.loadingBindings') }}</view>
+        <view v-else class="bind-empty">{{ locale.t('productEdit.noBindings') }}</view>
 
         <!-- 添加入口：只展示 enabled 的券模板（过滤已绑定，避免重复） -->
         <picker v-if="pickTemplateNames.length" :range="pickTemplateNames" @change="onPickTemplate">
-          <view class="add-btn">{{ bindBusy ? '处理中…' : '＋ 添加商品专属券' }}</view>
+          <view class="add-btn">{{ bindBusy ? locale.t('productEdit.processing') : locale.t('productEdit.addBind') }}</view>
         </picker>
-        <view v-else-if="templatesLoading" class="bind-empty small">加载券模板中…</view>
-        <view v-else-if="templatesFailed" class="bind-empty small" @tap="loadTemplates">券模板加载失败，点击重试</view>
-        <view v-else class="bind-empty small">暂无可用券模板，请先创建</view>
+        <view v-else-if="templatesLoading" class="bind-empty small">{{ locale.t('productEdit.loadingTemplates') }}</view>
+        <view v-else-if="templatesFailed" class="bind-empty small" @tap="loadTemplates">{{ locale.t('productEdit.templatesFailed') }}</view>
+        <view v-else class="bind-empty small">{{ locale.t('productEdit.noTemplates') }}</view>
 
         <!-- 快捷建券：直接新建券模板并自动绑定本商品 -->
-        <view class="add-btn ghost" @tap="onQuickCreateTemplate">{{ bindBusy ? '处理中…' : '＋ 新建券模板并绑定本商品' }}</view>
+        <view class="add-btn ghost" @tap="onQuickCreateTemplate">{{ bindBusy ? locale.t('productEdit.processing') : locale.t('productEdit.quickCreate') }}</view>
       </view>
 
-      <button class="save" @tap="doSave">保存</button>
+      <button class="save" @tap="doSave">{{ locale.t('productEdit.save') }}</button>
     </view>
-    <view v-else class="empty">加载中…</view>
+    <view v-else class="empty">{{ locale.t('productEdit.loading') }}</view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -62,7 +62,9 @@ import {
   fetchCouponTemplates, couponTypeLabel, fmtCNY,
   type CouponTemplateItem, type ProductCouponBindingItem,
 } from '../../../apis/coupon';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const id = ref('');
 const loaded = ref(false);
 const form = ref<any>(null);
@@ -82,10 +84,10 @@ const typeLabel = (t?: string) => couponTypeLabel(t || '');
 const valueText = (t?: CouponTemplateItem | null): string => {
   if (!t) return '';
   switch (t.type) {
-    case 'FIXED': return `满 ${fmtCNY(t.minSpend)} 减 ${fmtCNY(t.discountValue)}`;
-    case 'PERCENT': return `满 ${fmtCNY(t.minSpend)} 打 ${t.discountValue / 10} 折`;
-    case 'FULL': return `直减 ${fmtCNY(t.discountValue)}`;
-    case 'FREE_SHIPPING': return '免邮';
+    case 'FIXED': return locale.t('productEdit.fixedValue').replace('{min}', fmtCNY(t.minSpend)).replace('{val}', fmtCNY(t.discountValue));
+    case 'PERCENT': return locale.t('productEdit.percentValue').replace('{min}', fmtCNY(t.minSpend)).replace('{disc}', String(t.discountValue / 10));
+    case 'FULL': return locale.t('productEdit.fullValue').replace('{val}', fmtCNY(t.discountValue));
+    case 'FREE_SHIPPING': return locale.t('productEdit.freeShipping');
     default: return '';
   }
 };
@@ -110,7 +112,7 @@ async function loadBindings() {
     const list = await fetchProductCouponBindings(id.value);
     bindings.value = [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载商品专属券失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productEdit.loadBindingsFailed'), icon: 'none' });
   } finally {
     loadingBindings.value = false;
   }
@@ -142,10 +144,10 @@ async function onPickTemplate(e: any) {
       enabled: true,
       displayOrder: maxOrder + 1,
     });
-    uni.showToast({ title: '已添加', icon: 'none' });
+    uni.showToast({ title: locale.t('productEdit.added'), icon: 'none' });
     await loadBindings();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '添加失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productEdit.addFailed'), icon: 'none' });
   } finally {
     bindBusy.value = false;
   }
@@ -158,9 +160,9 @@ async function onToggle(b: ProductCouponBindingItem, enabled: boolean) {
     // 只传 id + enabled，其余字段局部更新
     await updateProductCouponBinding({ id: b.id, enabled });
     b.enabled = enabled;
-    uni.showToast({ title: enabled ? '已启用' : '已停用', icon: 'none' });
+    uni.showToast({ title: enabled ? locale.t('productEdit.enabled') : locale.t('productEdit.disabled'), icon: 'none' });
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productEdit.opFailed'), icon: 'none' });
   } finally {
     bindBusy.value = false;
   }
@@ -180,7 +182,7 @@ async function onMove(b: ProductCouponBindingItem, i: number, dir: number) {
     await updateProductCouponBinding({ id: next.id, displayOrder: next.displayOrder });
     await loadBindings();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '排序失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productEdit.sortFailed'), icon: 'none' });
     await loadBindings();
   } finally {
     bindBusy.value = false;
@@ -190,17 +192,17 @@ async function onMove(b: ProductCouponBindingItem, i: number, dir: number) {
 function onDelete(b: ProductCouponBindingItem) {
   if (bindBusy.value) return;
   uni.showModal({
-    title: '删除',
-    content: `确认移除商品专属券「${b.template?.name || ''}」？`,
+    title: locale.t('productEdit.deleteTitle'),
+    content: locale.t('productEdit.deleteContent').replace('{name}', b.template?.name || ''),
     success: async (r) => {
       if (!r.confirm || bindBusy.value) return;
       bindBusy.value = true;
       try {
         await deleteProductCouponBinding(b.id);
         bindings.value = bindings.value.filter((x) => x.id !== b.id);
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('productEdit.deleted'), icon: 'none' });
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('productEdit.deleteFailed'), icon: 'none' });
       } finally {
         bindBusy.value = false;
       }
@@ -268,9 +270,9 @@ async function onSubmit(d: any) {
   busy = true;
   try {
     await updateProductFull(id.value, d);
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('productEdit.saved'), icon: 'success' });
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productEdit.saveFailed'), icon: 'none' });
   } finally {
     busy = false;
   }

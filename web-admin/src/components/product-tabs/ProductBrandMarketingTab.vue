@@ -3,29 +3,29 @@
     <view class="card">
       <picker mode="selector" :range="brandNames" :value="brandIndex" @change="onBrandPick">
         <view class="cell row-in">
-          <text class="lbl">品牌</text>
-          <text class="val">{{ value.brandName || '请选择品牌' }}</text>
+          <text class="lbl">{{ locale.t('productBrandMarketingTab.brand') }}</text>
+          <text class="val">{{ value.brandName || locale.t('productBrandMarketingTab.chooseBrand') }}</text>
         </view>
       </picker>
       <view class="cell row-in">
-        <text class="lbl">新建品牌</text>
-        <text class="val link" @tap="openBrandModal">+ 新建品牌</text>
+        <text class="lbl">{{ locale.t('productBrandMarketingTab.newBrand') }}</text>
+        <text class="val link" @tap="openBrandModal">+ {{ locale.t('productBrandMarketingTab.newBrand') }}</text>
       </view>
     </view>
 
     <view v-if="showBrandModal" class="modal-mask" @tap="closeBrandModal">
       <view class="modal" @tap.stop>
-        <view class="modal-title">新建品牌</view>
+        <view class="modal-title">{{ locale.t('productBrandMarketingTab.newBrand') }}</view>
         <input
           class="modal-inp"
           v-model="newBrandName"
-          placeholder="输入品牌名称"
+          :placeholder="locale.t('productBrandMarketingTab.inputBrandName')"
           focus
         />
         <view class="modal-btns">
-          <button class="btn cancel" @tap="closeBrandModal">取消</button>
+          <button class="btn cancel" @tap="closeBrandModal">{{ locale.t('productBrandMarketingTab.cancel') }}</button>
           <button class="btn ok" :disabled="saving" @tap="confirmCreateBrand">
-            {{ saving ? '创建中…' : '创建' }}
+            {{ saving ? locale.t('productBrandMarketingTab.creating') : locale.t('productBrandMarketingTab.create') }}
           </button>
         </view>
       </view>
@@ -34,64 +34,67 @@
     <view class="card">
       <picker mode="date" :value="value.saleStart" @change="onDatePick('saleStart', $event)">
         <view class="cell row-in">
-          <text class="lbl">促销开始</text>
-          <text class="val">{{ value.saleStart || '选择日期' }}</text>
+          <text class="lbl">{{ locale.t('productBrandMarketingTab.saleStart') }}</text>
+          <text class="val">{{ value.saleStart || locale.t('productBrandMarketingTab.chooseDate') }}</text>
         </view>
       </picker>
       <picker mode="date" :value="value.saleEnd" @change="onDatePick('saleEnd', $event)">
         <view class="cell row-in">
-          <text class="lbl">促销结束</text>
-          <text class="val">{{ value.saleEnd || '选择日期' }}</text>
+          <text class="lbl">{{ locale.t('productBrandMarketingTab.saleEnd') }}</text>
+          <text class="val">{{ value.saleEnd || locale.t('productBrandMarketingTab.chooseDate') }}</text>
         </view>
       </picker>
     </view>
 
     <view class="card">
-      <view class="img-title">营销标签</view>
+      <view class="img-title">{{ locale.t('productBrandMarketingTab.mktTags') }}</view>
       <checkbox-group class="tags" @change="onTags">
         <label class="tag" v-for="t in TAG_LIST" :key="t.code">
           <checkbox :value="t.code" :checked="value.tags.includes(t.code)" />
-          <text>{{ t.label }}</text>
+          <text>{{ locale.t('productBrandMarketingTab.tag_' + t.code) }}</text>
         </label>
       </checkbox-group>
     </view>
 
     <view class="card">
-      <view class="img-title">促销方案</view>
+      <view class="img-title">{{ locale.t('productBrandMarketingTab.promoScheme') }}</view>
       <checkbox-group class="tags" @change="onPromos">
         <label class="tag" v-for="s in promoOptions" :key="s.code">
           <checkbox :value="s.code" :checked="value.promos.includes(s.code)" />
           <text>{{ s.label }}</text>
         </label>
-        <view v-if="!promoOptions.length" class="tip">频道方案库为空，请先在「店铺信息-促销方案库」配置</view>
+        <view v-if="!promoOptions.length" class="tip">{{ locale.t('productBrandMarketingTab.promoEmptyTip') }}</view>
       </checkbox-group>
     </view>
 
     <view class="card">
-      <view class="img-title">服务保障</view>
+      <view class="img-title">{{ locale.t('productBrandMarketingTab.serviceGuarantee') }}</view>
       <checkbox-group class="tags" @change="onServices">
         <label class="tag" v-for="s in serviceOptions" :key="s.code">
           <checkbox :value="s.code" :checked="value.services.includes(s.code)" />
           <text>{{ s.label }}</text>
         </label>
-        <view v-if="!serviceOptions.length" class="tip">频道方案库为空，请先在「店铺信息-服务保障库」配置</view>
+        <view v-if="!serviceOptions.length" class="tip">{{ locale.t('productBrandMarketingTab.serviceEmptyTip') }}</view>
       </checkbox-group>
     </view>
 
     <view class="card col">
-      <text class="lbl">卖点</text>
-      <textarea class="ta" :value="value.sellingPoint" placeholder="商品核心卖点，最多一行" @input="onField('sellingPoint', $event)" />
+      <text class="lbl">{{ locale.t('productBrandMarketingTab.sellingPoint') }}</text>
+      <textarea class="ta" :value="value.sellingPoint" :placeholder="locale.t('productBrandMarketingTab.sellingPointPh')" @input="onField('sellingPoint', $event)" />
     </view>
 
     <view class="card">
-      <view class="tip">满减 / 优惠券请复用既有活动（coupon 插件），暂不在此页配置关联活动。</view>
+      <view class="tip">{{ locale.t('productBrandMarketingTab.fullMinusTip') }}</view>
     </view>
   </view>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue';
+import { useLocaleStore } from '../../stores/localeStore';
 import { fetchBrands } from '../../apis/product';
+
+const locale = useLocaleStore();
 
 export interface BrandMarketingValue {
   brandFacetValueId: string;
@@ -183,7 +186,7 @@ function closeBrandModal() {
 }
 async function confirmCreateBrand() {
   const name = (newBrandName.value || '').trim();
-  if (!name) return uni.showToast({ title: '请输入品牌名', icon: 'none' });
+  if (!name) return uni.showToast({ title: locale.t('productBrandMarketingTab.needBrandName'), icon: 'none' });
   saving.value = true;
   try {
     const created = await import('../../apis/product').then((m) => m.createBrand(name));
@@ -196,9 +199,9 @@ async function confirmCreateBrand() {
       newBrand: '',
     });
     showBrandModal.value = false;
-    uni.showToast({ title: '品牌已创建', icon: 'success' });
+    uni.showToast({ title: locale.t('productBrandMarketingTab.brandCreated'), icon: 'success' });
   } catch (e: any) {
-    uni.showToast({ title: (e?.message || '创建失败').slice(0, 20), icon: 'none' });
+    uni.showToast({ title: (e?.message || locale.t('productBrandMarketingTab.createFailed')).slice(0, 20), icon: 'none' });
   } finally {
     saving.value = false;
   }
