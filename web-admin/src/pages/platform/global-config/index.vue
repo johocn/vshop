@@ -2,9 +2,9 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">全局配置（L1 底层）</text>
+        <text class="title">{{ $t('platformGlobalConfig.title') }}</text>
         <view class="head-ops">
-          <text class="head-btn" @tap="load">刷新</text>
+          <text class="head-btn" @tap="load">{{ $t('platformGlobalConfig.refresh') }}</text>
         </view>
       </view>
       <view class="chips">
@@ -16,30 +16,30 @@
           @tap="switchApp(a.key)"
         >{{ a.label }}</text>
       </view>
-      <view class="hint">该端所有店铺的底层兜底：未配置模板/店铺覆盖时生效。</view>
+      <view class="hint">{{ $t('platformGlobalConfig.hint') }}</view>
 
-      <view class="img-title">主题令牌 themeTokens</view>
+      <view class="img-title">{{ $t('platformGlobalConfig.themeTokens') }}</view>
       <view class="cell">
-        <text class="lbl">主色 primaryColor</text>
+        <text class="lbl">{{ $t('platformGlobalConfig.primaryColor') }}</text>
         <input v-model="tokens.primaryColor" placeholder="#ff6600" />
       </view>
       <view class="cell">
-        <text class="lbl">辅色 accentColor</text>
+        <text class="lbl">{{ $t('platformGlobalConfig.accentColor') }}</text>
         <input v-model="tokens.accentColor" placeholder="#fff3e6" />
       </view>
       <view class="cell">
-        <text class="lbl">圆角 radius</text>
+        <text class="lbl">{{ $t('platformGlobalConfig.radius') }}</text>
         <input v-model="tokens.radius" placeholder="8" type="number" />
       </view>
 
-      <view class="img-title">各页默认配置 defaults JSON</view>
+      <view class="img-title">{{ $t('platformGlobalConfig.defaultsTitle') }}</view>
       <textarea
         class="ta tall"
         v-model="defaultsJson"
         placeholder='{ "product": { "layout": "classic", "blocks": {} }, "home": { "sections": [] } }'
       />
       <view v-if="err" class="err">{{ err }}</view>
-      <button class="btn" :disabled="saving" @tap="save">{{ saving ? '保存中…' : '保存' }}</button>
+      <button class="btn" :disabled="saving" @tap="save">{{ saving ? $t('platformGlobalConfig.saving') : $t('platformGlobalConfig.save') }}</button>
     </view>
   </view>
 </template>
@@ -49,6 +49,9 @@ import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { templateApi } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const APP_OPTS = [
   { key: 'nshop', label: 'nshop 商城' },
@@ -79,7 +82,7 @@ async function load() {
     }
     defaultsJson.value = cfg?.defaults ? JSON.stringify(cfg.defaults, null, 2) : '{}';
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '加载失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.loadFailed')), icon: 'none' });
   }
 }
 
@@ -93,7 +96,7 @@ async function save() {
       if (v === null || typeof v !== 'object') throw new Error('bad');
       defaults = v;
     } catch {
-      err.value = 'defaults 不是合法 JSON 对象';
+      err.value = locale.t('platformGlobalConfig.invalidDefaults');
       return;
     }
   }
@@ -108,9 +111,9 @@ async function save() {
       },
       defaults,
     });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('platformGlobalConfig.saved'), icon: 'success' });
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }

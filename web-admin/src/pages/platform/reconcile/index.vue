@@ -1,62 +1,62 @@
 <template>
   <view class="page">
     <view class="head">
-      <text class="title">四流对账</text>
+      <text class="title">{{ $t('platformReconcile.title') }}</text>
       <view class="ops">
         <picker mode="date" :value="pickDate" @change="onPickDate">
           <view class="btn ghost">{{ pickDate }} ▾</view>
         </picker>
-        <text class="btn primary" @tap="onRun">立即对账</text>
+        <text class="btn primary" @tap="onRun">{{ $t('platformReconcile.runNow') }}</text>
       </view>
     </view>
 
     <view class="sum" v-if="batches.length">
       <view class="sum-kpi">
         <text class="kpi-num">{{ closedRate }}%</text>
-        <text class="kpi-label">全闭环率</text>
+        <text class="kpi-label">{{ $t('platformReconcile.closedRate') }}</text>
       </view>
       <view class="sum-kpi">
         <text class="kpi-num">{{ batches.length }}</text>
-        <text class="kpi-label">批次</text>
+        <text class="kpi-label">{{ $t('platformReconcile.batch') }}</text>
       </view>
       <view class="sum-kpi">
         <text class="kpi-num">{{ totalOrders }}</text>
-        <text class="kpi-label">核对订单</text>
+        <text class="kpi-label">{{ $t('platformReconcile.orders') }}</text>
       </view>
     </view>
 
     <view class="card" v-for="b in batches" :key="b.id" @tap="openBatch(b)">
       <view class="row">
         <text class="name">{{ b.date }}</text>
-        <text class="tag" :class="b.status">{{ b.status === 'done' ? '已完成' : '运行中' }}</text>
+        <text class="tag" :class="b.status">{{ b.status === 'done' ? $t('platformReconcile.done') : $t('platformReconcile.running') }}</text>
       </view>
       <view class="row sub">
-        <text class="diff" :class="{ on: b.d1Count }">D1 缺配送 {{ b.d1Count }}</text>
-        <text class="diff" :class="{ on: b.d2Count }">D2 扣仓 {{ b.d2Count }}</text>
-        <text class="diff" :class="{ on: b.d3Count }">D3 金额 {{ b.d3Count }}</text>
-        <text class="diff" :class="{ on: b.d4Count }">D4 镜像 {{ b.d4Count }}</text>
+        <text class="diff" :class="{ on: b.d1Count }">{{ $t('platformReconcile.d1') }} {{ b.d1Count }}</text>
+        <text class="diff" :class="{ on: b.d2Count }">{{ $t('platformReconcile.d2') }} {{ b.d2Count }}</text>
+        <text class="diff" :class="{ on: b.d3Count }">{{ $t('platformReconcile.d3') }} {{ b.d3Count }}</text>
+        <text class="diff" :class="{ on: b.d4Count }">{{ $t('platformReconcile.d4') }} {{ b.d4Count }}</text>
       </view>
     </view>
-    <view v-if="!batches.length" class="empty">暂无对账批次，点「立即对账」开始</view>
+    <view v-if="!batches.length" class="empty">{{ $t('platformReconcile.empty') }}</view>
 
     <view class="mask" v-if="linesVisible" @tap="linesVisible = false">
       <view class="pop" @tap.stop>
         <view class="pop-head">
-          <text class="pop-title">批次明细 {{ currentBatch ? currentBatch.date : '' }}</text>
+          <text class="pop-title">{{ $t('platformReconcile.batchDetail').replace('{date}', currentBatch ? currentBatch.date : '') }}</text>
           <text class="pop-close" @tap="linesVisible = false">×</text>
         </view>
         <scroll-view scroll-y class="pop-scroll">
           <view class="line" v-for="l in lines" :key="l.id">
             <view class="line-info">
-              <text class="line-order">单 {{ l.orderId }}</text>
+              <text class="line-order">{{ $t('platformReconcile.order').replace('{id}', l.orderId) }}</text>
               <view class="line-diffs">
                 <text v-for="d in diffLabels(l.diffTypes)" :key="d.code" class="diff-tag" :class="d.code">{{ d.label }}</text>
-                <text v-if="!l.diffTypes || l.diffTypes === '[]'" class="diff-tag none">无差异</text>
+                <text v-if="!l.diffTypes || l.diffTypes === '[]'" class="diff-tag none">{{ $t('platformReconcile.noDiff') }}</text>
               </view>
             </view>
-            <text class="link" @tap="onRerun(l)">{{ l.status === 'closed' ? '已闭环' : '重跑' }}</text>
+            <text class="link" @tap="onRerun(l)">{{ l.status === 'closed' ? $t('platformReconcile.closed') : $t('platformReconcile.rerun') }}</text>
           </view>
-          <view v-if="!lines.length" class="empty">该批次无差异行</view>
+          <view v-if="!lines.length" class="empty">{{ $t('platformReconcile.emptyLines') }}</view>
         </scroll-view>
       </view>
     </view>
@@ -71,6 +71,9 @@ import {
   type ReconcileBatch, type ReconcileLine,
 } from '../../../apis/reconcile';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const batches = ref<ReconcileBatch[]>([]);
 const lines = ref<ReconcileLine[]>([]);
@@ -90,7 +93,7 @@ const closedRate = computed(() => {
 });
 
 const DIFF_META: Record<string, string> = {
-  D1: '缺配送', D2: '扣仓', D3: '金额', D4: '镜像',
+  D1: locale.t('platformReconcile.d1'), D2: locale.t('platformReconcile.d2'), D3: locale.t('platformReconcile.d3'), D4: locale.t('platformReconcile.d4'),
 };
 
 function diffLabels(json: string): Array<{ code: string; label: string }> {
@@ -107,17 +110,17 @@ async function load() {
 }
 
 async function onRun() {
-  uni.showLoading({ title: '对账中…', mask: true });
+  uni.showLoading({ title: locale.t('platformReconcile.reconciling'), mask: true });
   try {
     const b = await runReconciliation(pickDate.value);
     if (!b) {
-      uni.showToast({ title: `${pickDate.value} 当日批次已完成（幂等跳过）`, icon: 'none' });
+      uni.showToast({ title: locale.t('platformReconcile.alreadyDone').replace('{date}', pickDate.value), icon: 'none' });
     } else {
-      uni.showToast({ title: '对账完成', icon: 'none' });
+      uni.showToast({ title: locale.t('platformReconcile.doneToast'), icon: 'none' });
     }
     await load();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '对账失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformReconcile.runFailed')), icon: 'none' });
   } finally {
     uni.hideLoading();
   }
@@ -133,7 +136,7 @@ async function openBatch(b: ReconcileBatch) {
   try {
     lines.value = await fetchLines(b.id);
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '加载明细失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformReconcile.loadFailed')), icon: 'none' });
     linesVisible.value = false;
   }
 }
@@ -142,13 +145,13 @@ async function onRerun(l: ReconcileLine) {
   if (l.status === 'closed') return;
   try {
     await rerunLine(l.id);
-    uni.showToast({ title: '已重跑', icon: 'none' });
+    uni.showToast({ title: locale.t('platformReconcile.rerunDone'), icon: 'none' });
     if (currentBatch.value) {
       lines.value = await fetchLines(currentBatch.value.id);
     }
     await load();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '重跑失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformReconcile.rerunFailed')), icon: 'none' });
   }
 }
 

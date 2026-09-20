@@ -2,8 +2,8 @@
   <view class="page">
     <view class="card slots-card">
       <view class="slots-head">
-        <text class="title">租户位</text>
-        <text class="slots-meta">已用 {{ used }} / {{ capacity }}</text>
+        <text class="title">{{ $t('platformTenants.slotsTitle') }}</text>
+        <text class="slots-meta">{{ $t('platformTenants.slotsUsed').replace('{used}', used).replace('{capacity}', capacity) }}</text>
       </view>
       <view class="slots-grid">
         <view
@@ -14,23 +14,23 @@
           @tap="s.occupied && s.tenantId && goDetailById(s.tenantId, s.name)"
         >
           <text class="slot-no">#{{ s.no }}</text>
-          <text class="slot-name">{{ s.occupied ? (s.name || '—') : '预留' }}</text>
+          <text class="slot-name">{{ s.occupied ? (s.name || '—') : $t('platformTenants.reserved') }}</text>
         </view>
       </view>
-      <view class="slots-tip">平台预留 {{ capacity }} 个租户位；被占用的格子为已入驻租户，点击可进入管理。空位为「预留」。</view>
+      <view class="slots-tip">{{ $t('platformTenants.slotsTip').replace('{capacity}', capacity) }}</view>
     </view>
 
     <view class="card">
       <view class="row head">
-        <text class="title">租户列表</text>
-        <text class="head-btn" @tap="onCreate">＋新建租户</text>
+        <text class="title">{{ $t('platformTenants.listTitle') }}</text>
+        <text class="head-btn" @tap="onCreate">{{ $t('platformTenants.createBtn') }}</text>
       </view>
       <view class="item" v-for="t in tenants" :key="t.id">
         <view class="info">
           <text class="name">{{ t.name }}</text>
           <text class="sub">
             #{{ t.tenantNo ?? '—' }} · {{ t.code }} ·
-            <text v-if="t.isOfficial" class="tag official">官方自营</text>
+            <text v-if="t.isOfficial" class="tag official">{{ $t('platformTenants.official') }}</text>
             <template v-else>
               <text class="tag third" :class="t.merchantStatus || 'active'">
                 {{ merchantLabel(t.merchantStatus) }}
@@ -39,30 +39,30 @@
           </text>
         </view>
         <switch :checked="t.enabled" color="#4f8cff" @change="onToggle(t, $event)" />
-        <text class="link" @tap="goDetail(t)">管理 ›</text>
+        <text class="link" @tap="goDetail(t)">{{ $t('platformTenants.manage') }}</text>
       </view>
-      <view v-if="!tenants.length" class="empty">暂无租户</view>
+      <view v-if="!tenants.length" class="empty">{{ $t('platformTenants.empty') }}</view>
     </view>
   </view>
 
   <view class="mask" v-if="showCreate" @tap="showCreate = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">新建租户</text>
+      <text class="pop-title">{{ $t('platformTenants.createTitle') }}</text>
       <view class="field">
-        <text class="label">店铺名 <text class="req">*</text></text>
-        <input class="input" v-model="form.name" placeholder="必填，将作为租户显示名" />
+        <text class="label">{{ $t('platformTenants.shopName') }} <text class="req">*</text></text>
+        <input class="input" v-model="form.name" :placeholder="$t('platformTenants.shopNamePh')" />
       </view>
       <view class="field row">
-        <text class="label">租户编号</text>
-        <text class="auto-val">自动生成（t+顺序号）</text>
+        <text class="label">{{ $t('platformTenants.tenantNo') }}</text>
+        <text class="auto-val">{{ $t('platformTenants.autoGenerate') }}</text>
       </view>
       <view class="field row">
-        <text class="label">官方自营</text>
+        <text class="label">{{ $t('platformTenants.official') }}</text>
         <switch :checked="form.isOfficial" color="#4f8cff" @change="form.isOfficial = $event.detail.value" />
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showCreate = false">取消</button>
-        <button class="btn" @tap="submitCreate">创建</button>
+        <button class="btn ghost" @tap="showCreate = false">{{ $t('platformTenants.cancel') }}</button>
+        <button class="btn" @tap="submitCreate">{{ $t('platformTenants.create') }}</button>
       </view>
     </view>
   </view>
@@ -71,6 +71,9 @@
 import { ref, onMounted } from 'vue';
 import { fetchTenants, setTenantEnabled, createTenant, fetchTenantSlots, type TenantItem, type TenantSlotItem } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const tenants = ref<TenantItem[]>([]);
 const showCreate = ref(false);
@@ -97,16 +100,18 @@ function goDetailById(id: string, name?: string | null) {
 function onToggle(t: TenantItem, e: any) {
   const enabled = e.detail.value as boolean;
   uni.showModal({
-    title: enabled ? '启用租户' : '停用租户',
-    content: `确定${enabled ? '启用' : '停用'}「${t.name}」？停用后该租户所有后台人员无法登录（C端不受影响）。`,
+    title: enabled ? locale.t('platformTenants.enableTitle') : locale.t('platformTenants.disableTitle'),
+    content: locale.t('platformTenants.toggleContent')
+      .replace('{action}', locale.t(enabled ? 'platformTenants.enableAction' : 'platformTenants.disableAction'))
+      .replace('{name}', t.name),
     success: async (r) => {
       if (!r.confirm) return load();
       try {
         await setTenantEnabled(t.id, enabled);
         t.enabled = enabled;
-        uni.showToast({ title: '已更新', icon: 'none' });
+        uni.showToast({ title: locale.t('platformTenants.updated'), icon: 'none' });
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformTenants.opFailed'), icon: 'none' });
         load();
       }
     },
@@ -115,22 +120,22 @@ function onToggle(t: TenantItem, e: any) {
 function onCreate() { form.value = { name: '', isOfficial: false }; showCreate.value = true; }
 async function submitCreate() {
   const name = form.value.name.trim();
-  if (!name) { uni.showToast({ title: '请填写店铺名', icon: 'none' }); return; }
+  if (!name) { uni.showToast({ title: locale.t('platformTenants.requireName'), icon: 'none' }); return; }
   try {
     await createTenant({ name, isOfficial: form.value.isOfficial });
-    uni.showToast({ title: '已创建（编号自动生成）', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTenants.created'), icon: 'none' });
     showCreate.value = false;
     load();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '创建失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenants.createFailed')), icon: 'none' });
   }
 }
 function goDetail(t: TenantItem) {
   uni.navigateTo({ url: `/pages/platform/tenants/detail?id=${t.id}&name=${encodeURIComponent(t.name)}` });
 }
 function merchantLabel(s?: string | null): string {
-  if (!s || s === 'active') return '第三方·已入驻';
-  return s === 'pending' ? '第三方·待入驻' : s === 'disabled' ? '第三方·已停用' : `第三方·${s}`;
+  if (!s || s === 'active') return locale.t('platformTenants.merchantActive');
+  return s === 'pending' ? locale.t('platformTenants.merchantPending') : s === 'disabled' ? locale.t('platformTenants.merchantDisabled') : locale.t('platformTenants.merchantOther').replace('{status}', s);
 }
 onMounted(load);
 </script>

@@ -2,9 +2,9 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">风格模板库</text>
+        <text class="title">{{ $t('platformTemplates.title') }}</text>
         <view class="head-ops">
-          <text class="head-btn" @tap="onAdd">＋新建模板</text>
+          <text class="head-btn" @tap="onAdd">{{ $t('platformTemplates.add') }}</text>
         </view>
       </view>
       <view class="chips">
@@ -15,21 +15,21 @@
           :class="{ on: app === a.key }"
           @tap="switchApp(a.key)"
         >{{ a.label }}</text>
-        <text class="chip" :class="{ on: onlyEnabled }" @tap="onlyEnabled = !onlyEnabled">仅看启用</text>
+        <text class="chip" :class="{ on: onlyEnabled }" @tap="onlyEnabled = !onlyEnabled">{{ $t('platformTemplates.onlyEnabled') }}</text>
       </view>
       <view class="item" v-for="t in filteredList" :key="t.id" @tap="onEdit(t)">
         <view class="info">
           <text class="name">{{ t.name }} <text class="code">v{{ t.version }}</text></text>
-          <text class="sub">{{ appLabel(t.app) }} · {{ t.enabled ? '启用' : '停用' }} · {{ fmtTime(t.updatedAt) }}</text>
-          <text class="preview" v-if="previewText(t)">色 {{ previewText(t) }}</text>
-          <text class="ref" v-if="refCount(t) > 0">引用 {{ refCount(t) }} 店</text>
+          <text class="sub">{{ appLabel(t.app) }} · {{ t.enabled ? $t('platformTemplates.enabled') : $t('platformTemplates.disabled') }} · {{ fmtTime(t.updatedAt) }}</text>
+          <text class="preview" v-if="previewText(t)">{{ $t('platformTemplates.colorPrefix').replace('{value}', previewText(t)) }}</text>
+          <text class="ref" v-if="refCount(t) > 0">{{ $t('platformTemplates.refCount').replace('{n}', refCount(t)) }}</text>
         </view>
         <switch :checked="t.enabled" color="#4f8cff" @change="onToggle(t, $event)" @click.stop />
-        <text class="link copy" @tap.stop="onCopy(t)">复制</text>
-        <text class="link" @tap.stop="onRemove(t)">删除</text>
+        <text class="link copy" @tap.stop="onCopy(t)">{{ $t('platformTemplates.copy') }}</text>
+        <text class="link" @tap.stop="onRemove(t)">{{ $t('platformTemplates.del') }}</text>
       </view>
-      <view v-if="!filteredList.length" class="empty">{{ list.length ? '无启用中的模板' : '暂无模板，点击右上角新建' }}</view>
-      <view v-if="filteredList.length" class="count">共 {{ filteredList.length }} 个模板</view>
+      <view v-if="!filteredList.length" class="empty">{{ list.length ? $t('platformTemplates.noEnabled') : $t('platformTemplates.empty') }}</view>
+      <view v-if="filteredList.length" class="count">{{ $t('platformTemplates.count').replace('{n}', filteredList.length) }}</view>
     </view>
   </view>
 
@@ -37,54 +37,54 @@
   <view class="mask" v-if="showForm" @tap="showForm = false">
     <view class="pop" @tap.stop>
       <view class="pop-head">
-        <text class="pop-title">{{ editingId ? '编辑模板' : '新建模板' }}</text>
+        <text class="pop-title">{{ editingId ? $t('platformTemplates.editTitle') : $t('platformTemplates.newTitle') }}</text>
         <text class="pop-close" @tap="showForm = false">×</text>
       </view>
       <view class="tabs">
-        <text class="tab" :class="{ on: tab === 'form' }" @tap="onTab('form')">配置</text>
-        <text class="tab" :class="{ on: tab === 'versions' }" @tap="onTab('versions')">历史版本</text>
-        <text class="tab" :class="{ on: tab === 'preview' }" @tap="onTab('preview')">合并预览</text>
+        <text class="tab" :class="{ on: tab === 'form' }" @tap="onTab('form')">{{ $t('platformTemplates.tabForm') }}</text>
+        <text class="tab" :class="{ on: tab === 'versions' }" @tap="onTab('versions')">{{ $t('platformTemplates.tabVersions') }}</text>
+        <text class="tab" :class="{ on: tab === 'preview' }" @tap="onTab('preview')">{{ $t('platformTemplates.tabPreview') }}</text>
       </view>
       <scroll-view scroll-y class="pop-body">
         <template v-if="tab === 'form'">
-          <view class="field"><text class="label">名称 <text class="req">*</text></text><input class="input" v-model="form.name" placeholder="橙色经典" /></view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.nameLabel') }} <text class="req">*</text></text><input class="input" v-model="form.name" :placeholder="$t('platformTemplates.namePh')" /></view>
           <view class="field">
-            <text class="label">目标端 <text class="req">*</text></text>
+            <text class="label">{{ $t('platformTemplates.appLabel') }} <text class="req">*</text></text>
             <view class="chips">
               <text v-for="a in APP_OPTS" :key="a.key" class="chip" :class="{ on: form.app === a.key, off: !!editingId }" @tap="editingId || (form.app = a.key)">{{ a.label }}</text>
             </view>
-            <text v-if="editingId" class="tip">目标端创建后不可修改</text>
+            <text v-if="editingId" class="tip">{{ $t('platformTemplates.appLockTip') }}</text>
           </view>
           <view class="field">
-            <text class="label">启用</text>
+            <text class="label">{{ $t('platformTemplates.enableLabel') }}</text>
             <switch :checked="form.enabled" color="#4f8cff" @change="form.enabled = $event.detail.value" />
           </view>
-          <view class="field"><text class="label">模板级主题 theme JSON</text><textarea class="ta" v-model="form.themeJson" placeholder='{"primaryColor":"#ff6600","accentColor":"#fff3e6","radius":8}' /></view>
-          <view class="field"><text class="label">页面配置 pages JSON</text><textarea class="ta tall" v-model="form.pagesJson" placeholder='{"product":{"layout":"classic","blocks":{}},"home":{"sections":[]}}' /></view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.themeLabel') }}</text><textarea class="ta" v-model="form.themeJson" placeholder='{"primaryColor":"#ff6600","accentColor":"#fff3e6","radius":8}' /></view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.pagesLabel') }}</text><textarea class="ta tall" v-model="form.pagesJson" placeholder='{"product":{"layout":"classic","blocks":{}},"home":{"sections":[]}}' /></view>
           <view class="guide">
-            <view class="gl"><text class="glk">pages 键</text> · product / home / category / cart / profile</view>
-            <view class="gl"><text class="glk">theme 键</text> · primaryColor / accentColor / radius</view>
+            <view class="gl"><text class="glk">{{ $t('platformTemplates.pagesKey') }}</text> · product / home / category / cart / profile</view>
+            <view class="gl"><text class="glk">{{ $t('platformTemplates.themeKey') }}</text> · primaryColor / accentColor / radius</view>
           </view>
           <view v-if="err" class="err">{{ err }}</view>
-          <button class="btn" :disabled="saving" @tap="submit">{{ saving ? '保存中…' : '保存' }}</button>
+          <button class="btn" :disabled="saving" @tap="submit">{{ saving ? $t('platformTemplates.saving') : $t('platformTemplates.save') }}</button>
         </template>
 
         <!-- 历史版本 Tab -->
         <view v-else-if="tab === 'versions'" class="tabpane">
-          <view v-if="!editingId" class="empty">新建中的模板暂无历史版本</view>
+          <view v-if="!editingId" class="empty">{{ $t('platformTemplates.noHistoryNew') }}</view>
           <template v-else>
-            <view v-if="versionsLoading" class="empty">加载中…</view>
+            <view v-if="versionsLoading" class="empty">{{ $t('platformTemplates.loading') }}</view>
             <view v-else-if="versionsErr" class="err">{{ versionsErr }}</view>
-            <view v-else-if="!versions.length" class="empty">暂无历史版本，保存模板时自动生成快照</view>
+            <view v-else-if="!versions.length" class="empty">{{ $t('platformTemplates.noVersions') }}</view>
             <view v-for="v in versions" :key="v.id" class="vitem">
               <view class="vhead">
                 <text class="vname">v{{ v.version }}</text>
                 <text class="vsub">{{ fmtTime(v.createdAt) }}</text>
               </view>
-              <text class="vnote">{{ v.note || '（无备注）' }}</text>
+              <text class="vnote">{{ v.note || $t('platformTemplates.noNote') }}</text>
               <view class="vops">
-                <text class="vlink" @tap="showVerPreview(v)">预览 JSON</text>
-                <text class="vlink danger" @tap="onRestore(v)">回滚</text>
+                <text class="vlink" @tap="showVerPreview(v)">{{ $t('platformTemplates.previewJson') }}</text>
+                <text class="vlink danger" @tap="onRestore(v)">{{ $t('platformTemplates.restore') }}</text>
               </view>
             </view>
           </template>
@@ -93,28 +93,28 @@
         <!-- 合并预览 Tab -->
         <view v-else class="tabpane">
           <view class="field">
-            <text class="label">预览端</text>
+            <text class="label">{{ $t('platformTemplates.previewApp') }}</text>
             <view class="chips">
               <text v-for="a in APP_OPTS" :key="a.key" class="chip" :class="{ on: mApp === a.key }" @tap="mApp = a.key">{{ a.label }}</text>
             </view>
           </view>
           <view class="field">
-            <text class="label">覆盖场景</text>
+            <text class="label">{{ $t('platformTemplates.scenarioLabel') }}</text>
             <view class="chips">
-              <text class="chip" :class="{ on: mScenario === 'none' }" @tap="mScenario = 'none'">无覆盖（仅 L1+L2）</text>
-              <text class="chip" :class="{ on: mScenario === 'custom' }" @tap="mScenario = 'custom'">输入覆盖 JSON（L3）</text>
+              <text class="chip" :class="{ on: mScenario === 'none' }" @tap="mScenario = 'none'">{{ $t('platformTemplates.scenarioNone') }}</text>
+              <text class="chip" :class="{ on: mScenario === 'custom' }" @tap="mScenario = 'custom'">{{ $t('platformTemplates.scenarioCustom') }}</text>
             </view>
           </view>
           <view class="field" v-if="mScenario === 'custom'">
-            <text class="label">店铺覆盖 overrides JSON</text>
+            <text class="label">{{ $t('platformTemplates.overridesLabel') }}</text>
             <textarea class="ta" v-model="overridesJson" placeholder='{"theme":{"primaryColor":"#123456"},"product":{"layout":"list"}}' />
           </view>
-          <button class="btn" :disabled="previewLoading" @tap="genPreview">{{ previewLoading ? '预览中…' : '生成合并预览' }}</button>
+          <button class="btn" :disabled="previewLoading" @tap="genPreview">{{ previewLoading ? $t('platformTemplates.previewing') : $t('platformTemplates.genPreview') }}</button>
           <view v-if="previewErr" class="err">{{ previewErr }}</view>
           <view v-if="merged !== null" class="mp">
-            <text class="mp-title">merged（L1 全局 → L2 模板 → L3 店铺覆盖）</text>
+            <text class="mp-title">{{ $t('platformTemplates.mergedTitle') }}</text>
             <scroll-view scroll-y class="json-scroll tall"><text class="json">{{ mergedText }}</text></scroll-view>
-            <text class="mp-title">sourceByKey 键来源</text>
+            <text class="mp-title">{{ $t('platformTemplates.sourceTitle') }}</text>
             <view class="sk" v-for="(src, k) in sourceByKey" :key="k">
               <text class="skk">{{ k }}</text>
               <text class="sbadge" :class="'s' + src">{{ srcLabel(src) }}</text>
@@ -142,6 +142,9 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { templateApi, type ShopTemplate, type TemplateVersion, type TemplateReference } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const APP_OPTS = [
   { key: 'nshop', label: 'nshop 商城' },
@@ -212,7 +215,7 @@ async function load() {
     list.value = await templateApi.list(app.value);
     await loadRefs();
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '加载失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.loadFailed')), icon: 'none' });
   }
 }
 
@@ -294,7 +297,7 @@ async function loadVersions() {
     versions.value = await templateApi.versions(editingId.value);
     versionsLoaded.value = true;
   } catch (e: any) {
-    versionsErr.value = graphQlErrorMsg(e, '版本获取失败');
+    versionsErr.value = graphQlErrorMsg(e, locale.t('platformTemplates.versionsFailed'));
   } finally {
     versionsLoading.value = false;
   }
@@ -302,7 +305,7 @@ async function loadVersions() {
 
 function showVerPreview(v: TemplateVersion) {
   verPreview.value = {
-    title: `v${v.version} 配置快照`,
+    title: locale.t('platformTemplates.verTitle').replace('{version}', String(v.version)),
     text: JSON.stringify({ theme: v.theme, pages: v.pages }, null, 2),
   };
 }
@@ -310,28 +313,30 @@ function showVerPreview(v: TemplateVersion) {
 function onRestore(v: TemplateVersion) {
   if (!editingId.value) return;
   uni.showModal({
-    title: '回滚版本',
-    content: `确定回滚到 v${v.version}（${fmtTime(v.createdAt)}）？当前配置将被覆盖，当前状态会先自动存档。`,
+    title: locale.t('platformTemplates.restoreTitle'),
+    content: locale.t('platformTemplates.restoreContent')
+      .replace('{version}', String(v.version))
+      .replace('{time}', fmtTime(v.createdAt)),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         const tpl = await templateApi.restore(editingId.value, v.version);
-        uni.showToast({ title: `已回滚到 v${v.version}`, icon: 'none' });
+        uni.showToast({ title: locale.t('platformTemplates.restored').replace('{version}', String(v.version)), icon: 'none' });
         versionsLoaded.value = false;
         await loadVersions();
         fillForm(tpl);
         await load();
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '回滚失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.restoreFailed')), icon: 'none' });
       }
     },
   });
 }
 
 function srcLabel(src: string): string {
-  if (src === 'L1') return 'L1 全局配置';
-  if (src === 'L2') return 'L2 模板';
-  if (src === 'L3') return 'L3 店铺覆盖';
+  if (src === 'L1') return locale.t('platformTemplates.srcL1');
+  if (src === 'L2') return locale.t('platformTemplates.srcL2');
+  if (src === 'L3') return locale.t('platformTemplates.srcL3');
   return src || '?';
 }
 
@@ -344,7 +349,7 @@ async function genPreview() {
       try {
         overrides = JSON.parse(text);
       } catch {
-        previewErr.value = '覆盖 JSON 不是合法 JSON';
+        previewErr.value = locale.t('platformTemplates.invalidOverrides');
         return;
       }
     } else {
@@ -357,7 +362,7 @@ async function genPreview() {
     merged.value = r.merged;
     sourceByKey.value = r.sourceByKey ?? {};
   } catch (e: any) {
-    previewErr.value = graphQlErrorMsg(e, '合并预览失败');
+    previewErr.value = graphQlErrorMsg(e, locale.t('platformTemplates.previewFailed'));
   } finally {
     previewLoading.value = false;
   }
@@ -369,12 +374,12 @@ function tryParseJson(text: string, label: string): { ok: true; value: any } | {
   try {
     const parsed = JSON.parse(v);
     if (parsed === null || typeof parsed !== 'object') {
-      err.value = `${label} 必须为 JSON 对象`;
+      err.value = locale.t('platformTemplates.jsonObjInvalid').replace('{label}', label);
       return { ok: false };
     }
     return { ok: true, value: parsed };
   } catch {
-    err.value = `${label} 不是合法 JSON`;
+    err.value = locale.t('platformTemplates.jsonInvalid').replace('{label}', label);
     return { ok: false };
   }
 }
@@ -382,7 +387,7 @@ function tryParseJson(text: string, label: string): { ok: true; value: any } | {
 async function submit() {
   err.value = '';
   const name = form.value.name.trim();
-  if (!name) { uni.showToast({ title: '名称必填', icon: 'none' }); return; }
+  if (!name) { uni.showToast({ title: locale.t('platformTemplates.requireName'), icon: 'none' }); return; }
   const theme = tryParseJson(form.value.themeJson, 'theme');
   if (!theme.ok) return;
   const pages = tryParseJson(form.value.pagesJson, 'pages');
@@ -396,10 +401,10 @@ async function submit() {
       await templateApi.create({ name, app: form.value.app, theme: theme.value, pages: pages.value, enabled: form.value.enabled });
     }
     showForm.value = false;
-    uni.showToast({ title: '已保存', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTemplates.saved'), icon: 'none' });
     load();
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }
@@ -407,12 +412,16 @@ async function submit() {
 
 function onToggle(t: ShopTemplate, e: any) {
   const enabled = e.detail.value as boolean;
-  let content = `确定${enabled ? '启用' : '停用'}「${t.name}」？停用后该端 C 端回退到全局默认。`;
+  const action = enabled ? locale.t('platformTemplates.enableAction') : locale.t('platformTemplates.disableAction');
+  let content = locale.t('platformTemplates.toggleContent').replace('{action}', action).replace('{name}', t.name);
   if (!enabled && refCount(t) > 0) {
-    content = `「${t.name}」已被 ${refCount(t)} 家店铺引用：${refShopsText(t)}。停用后这些店铺将回退到全局默认，确定停用？`;
+    content = locale.t('platformTemplates.disableRefContent')
+      .replace('{name}', t.name)
+      .replace('{count}', String(refCount(t)))
+      .replace('{shops}', refShopsText(t));
   }
   uni.showModal({
-    title: enabled ? '启用模板' : '停用模板',
+    title: enabled ? locale.t('platformTemplates.enableTplTitle') : locale.t('platformTemplates.disableTplTitle'),
     content,
     success: async (r) => {
       if (!r.confirm) return load();
@@ -420,7 +429,7 @@ function onToggle(t: ShopTemplate, e: any) {
         await templateApi.update(t.id, { enabled });
         t.enabled = enabled;
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '操作失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.opFailed')), icon: 'none' });
         load();
       }
     },
@@ -429,37 +438,40 @@ function onToggle(t: ShopTemplate, e: any) {
 
 function onCopy(t: ShopTemplate) {
   uni.showModal({
-    title: '复制模板',
-    content: `复制「${t.name}」为新模板（版本 +1）？`,
+    title: locale.t('platformTemplates.copyTitle'),
+    content: locale.t('platformTemplates.copyContent').replace('{name}', t.name),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await templateApi.copy(t.id);
-        uni.showToast({ title: '已复制', icon: 'none' });
+        uni.showToast({ title: locale.t('platformTemplates.copied'), icon: 'none' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '复制失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.copyFailed')), icon: 'none' });
       }
     },
   });
 }
 
 function onRemove(t: ShopTemplate) {
-  let content = `确定删除「${t.name}」？已引用该模板的店铺将回退到全局默认。`;
+  let content = locale.t('platformTemplates.delContent').replace('{name}', t.name);
   if (refCount(t) > 0) {
-    content = `「${t.name}」已被 ${refCount(t)} 家店铺引用：${refShopsText(t)}。删除后这些店铺将回退到全局默认，确定删除？`;
+    content = locale.t('platformTemplates.delRefContent')
+      .replace('{name}', t.name)
+      .replace('{count}', String(refCount(t)))
+      .replace('{shops}', refShopsText(t));
   }
   uni.showModal({
-    title: '删除模板',
+    title: locale.t('platformTemplates.delTitle'),
     content,
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await templateApi.remove(t.id);
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('platformTemplates.deleted'), icon: 'none' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '删除失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformTemplates.delFailed')), icon: 'none' });
       }
     },
   });
