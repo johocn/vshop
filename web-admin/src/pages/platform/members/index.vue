@@ -2,35 +2,35 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">本租户人员</text>
+        <text class="title">{{ $t('platformMembers.title') }}</text>
         <view class="head-ops">
-          <text class="head-link" @tap="onChangeMyPassword">修改密码</text>
-          <text class="head-btn" @tap="onAdd">＋添加人员</text>
+          <text class="head-link" @tap="onChangeMyPassword">{{ $t('platformMembers.changePwd') }}</text>
+          <text class="head-btn" @tap="onAdd">{{ $t('platformMembers.add') }}</text>
         </view>
       </view>
       <view class="item" v-for="m in members" :key="m.id">
         <view class="info">
           <text class="name" @tap="showInfo(m)">{{ m.displayName || m.administratorId }}</text>
-          <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text> · <text class="link" @tap="openRoles(m)">角色</text></text>
-          <text v-if="m.canResetPassword" class="reset" @tap="onResetPassword(m)">重置密码</text>
+          <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text> · <text class="link" @tap="openRoles(m)">{{ $t('platformMembers.role') }}</text></text>
+          <text v-if="m.canResetPassword" class="reset" @tap="onResetPassword(m)">{{ $t('platformMembers.resetPwd') }}</text>
         </view>
         <switch :checked="m.enabled" color="#4f8cff" @change="onToggle(m, $event)" />
-        <text class="link" @tap="onRemove(m)">移除</text>
+        <text class="link" @tap="onRemove(m)">{{ $t('platformMembers.remove') }}</text>
       </view>
-      <view v-if="!members.length" class="empty">暂无人员</view>
+      <view v-if="!members.length" class="empty">{{ $t('platformMembers.empty') }}</view>
     </view>
   </view>
 
   <view class="mask" v-if="showAdd" @tap="showAdd = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">添加人员</text>
-      <view class="field"><text class="label">邮箱 <text class="req">*</text></text><input class="input" v-model="addForm.email" placeholder="必填（全局唯一）" /></view>
-      <view class="field"><text class="label">显示姓名</text><input class="input" v-model="addForm.displayName" placeholder="选填" /></view>
-      <view class="field"><text class="label">手机号</text><input class="input" v-model="addForm.phone" placeholder="选填" /></view>
+      <text class="pop-title">{{ $t('platformMembers.addTitle') }}</text>
+      <view class="field"><text class="label">{{ $t('platformMembers.emailLabel') }} <text class="req">*</text></text><input class="input" v-model="addForm.email" :placeholder="$t('platformMembers.emailPh')" /></view>
+      <view class="field"><text class="label">{{ $t('platformMembers.nameLabel') }}</text><input class="input" v-model="addForm.displayName" :placeholder="$t('platformMembers.optionalPh')" /></view>
+      <view class="field"><text class="label">{{ $t('platformMembers.phoneLabel') }}</text><input class="input" v-model="addForm.phone" :placeholder="$t('platformMembers.optionalPh')" /></view>
       <view class="field">
-        <text class="label">角色</text>
+        <text class="label">{{ $t('platformMembers.roleLabel') }}</text>
         <view class="pick-trigger" @tap="openPickRole">
-          <text v-if="!selectedRoleNames.length" class="ph">请选择角色（可多选）</text>
+          <text v-if="!selectedRoleNames.length" class="ph">{{ $t('platformMembers.rolePh') }}</text>
           <view v-else class="pick-tags">
             <text v-for="n in selectedRoleNames" :key="n" class="pick-tag">{{ n }}</text>
           </view>
@@ -38,8 +38,8 @@
         </view>
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showAdd = false">取消</button>
-        <button class="btn" @tap="submitAdd">添加</button>
+        <button class="btn ghost" @tap="showAdd = false">{{ $t('platformMembers.cancel') }}</button>
+        <button class="btn" @tap="submitAdd">{{ $t('platformMembers.addBtn') }}</button>
       </view>
     </view>
   </view>
@@ -47,36 +47,36 @@
   <!-- 角色多选弹层 -->
   <view class="mask" v-if="showRolePick" @tap="showRolePick = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">选择角色</text>
+      <text class="pop-title">{{ $t('platformMembers.pickRoleTitle') }}</text>
       <view class="pick-list">
         <view v-for="r in grantableRoles" :key="r.id" class="pick-item" @tap="togglePickRole(r.id)">
           <text class="pick-item-name" :class="{ on: addForm.roleIds.includes(r.id), dis: r.grantable === false }">{{ r.description || r.code }}</text>
-          <text v-if="r.grantable === false" class="dis-tag">不可授</text>
+          <text v-if="r.grantable === false" class="dis-tag">{{ $t('platformMembers.notGrantable') }}</text>
           <text v-else class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
-        <view v-if="!roles.length" class="empty">该租户暂无角色，<text class="link" @tap="gotoRoles">去创建 ›</text></view>
+        <view v-if="!roles.length" class="empty">{{ $t('platformMembers.noRole') }}<text class="link" @tap="gotoRoles">{{ $t('platformMembers.gotoCreate') }}</text></view>
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showRolePick = false">取消</button>
-        <button class="btn" @tap="showRolePick = false">确定</button>
+        <button class="btn ghost" @tap="showRolePick = false">{{ $t('platformMembers.cancel') }}</button>
+        <button class="btn" @tap="showRolePick = false">{{ $t('platformMembers.confirm') }}</button>
       </view>
     </view>
   </view>
 
   <view class="mask" v-if="showRoles" @tap="showRoles = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">分配角色</text>
+      <text class="pop-title">{{ $t('platformMembers.assignTitle') }}</text>
       <view class="pick-list">
         <view v-for="r in grantableRoles" :key="r.id" class="pick-item" @tap="toggleTargetRole(r.id)">
           <text class="pick-item-name" :class="{ on: roleTargetIds.includes(r.id), dis: r.grantable === false }">{{ r.description || r.code }}</text>
-          <text v-if="r.grantable === false" class="dis-tag">不可授</text>
+          <text v-if="r.grantable === false" class="dis-tag">{{ $t('platformMembers.notGrantable') }}</text>
           <text v-else class="check" :class="{ on: roleTargetIds.includes(r.id) }">{{ roleTargetIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
-        <view v-if="!roles.length" class="empty">该租户暂无角色</view>
+        <view v-if="!roles.length" class="empty">{{ $t('platformMembers.noRoleShort') }}</view>
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showRoles = false">取消</button>
-        <button class="btn" @tap="submitRoles">保存</button>
+        <button class="btn ghost" @tap="showRoles = false">{{ $t('platformMembers.cancel') }}</button>
+        <button class="btn" @tap="submitRoles">{{ $t('platformMembers.save') }}</button>
       </view>
     </view>
   </view>
@@ -85,23 +85,23 @@
   <view class="mask" v-if="infoVisible && infoTarget" @tap="infoVisible = false">
     <view class="pop" @tap.stop>
       <view class="pop-head">
-        <text class="pop-title">用户信息</text>
+        <text class="pop-title">{{ $t('platformMembers.infoTitle') }}</text>
         <text class="pop-close" @tap="infoVisible = false">×</text>
       </view>
       <view class="name-row">
         <text class="info-name">{{ infoTarget.displayName || infoTarget.administratorId }}</text>
-        <text class="badge" :class="infoTarget.enabled ? 'on' : ''">{{ infoTarget.enabled ? '启用' : '停用' }}</text>
+        <text class="badge" :class="infoTarget.enabled ? 'on' : ''">{{ infoTarget.enabled ? $t('platformMembers.enabled') : $t('platformMembers.disabled') }}</text>
       </view>
-      <view class="kv"><text class="k">登录用户名</text><text class="v">{{ infoTarget.emailAddress || '—' }}</text></view>
-      <view class="kv"><text class="k">手机号</text><text class="v">{{ infoTarget.phone || '—' }}</text></view>
-      <view class="kv"><text class="k">角色</text><text class="v">{{ infoRoleNames }}</text></view>
-      <view class="kv"><text class="k">备注</text><text class="v">{{ infoTarget.remark || '—' }}</text></view>
-      <view class="kv"><text class="k">人员 ID</text><text class="v">{{ infoTarget.administratorId }}</text></view>
-      <view class="kv"><text class="k">加入时间</text><text class="v">{{ fmtTime(infoTarget.createdAt) }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.loginName') }}</text><text class="v">{{ infoTarget.emailAddress || '—' }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.phone') }}</text><text class="v">{{ infoTarget.phone || '—' }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.role') }}</text><text class="v">{{ infoRoleNames }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.remark') }}</text><text class="v">{{ infoTarget.remark || '—' }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.memberId') }}</text><text class="v">{{ infoTarget.administratorId }}</text></view>
+      <view class="kv"><text class="k">{{ $t('platformMembers.joinedAt') }}</text><text class="v">{{ fmtTime(infoTarget.createdAt) }}</text></view>
     </view>
   </view>
 
-  <PasswordPopup v-if="pwdPop" :title="'初始口令（仅显示一次）'" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
+  <PasswordPopup v-if="pwdPop" :title="$t('platformMembers.initialPassword')" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
@@ -113,7 +113,10 @@ import {
   type TenantMemberItem, type RoleItem,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
+
+const locale = useLocaleStore();
 
 const members = ref<TenantMemberItem[]>([]);
 const roles = ref<RoleItem[]>([]);
@@ -184,7 +187,7 @@ function gotoRoles(e: any) {
 }
 async function submitAdd() {
   const email = addForm.value.email.trim();
-  if (!email) { uni.showToast({ title: '邮箱必填', icon: 'none' }); return; }
+  if (!email) { uni.showToast({ title: locale.t('platformMembers.requireEmail'), icon: 'none' }); return; }
   try {
     const initialPassword = await createTenantMember({
       emailAddress: email,
@@ -197,11 +200,11 @@ async function submitAdd() {
       pwdInfo.value = { account: email, password: initialPassword };
       pwdPop.value = true;
     } else {
-      uni.showToast({ title: '已添加', icon: 'none' });
+      uni.showToast({ title: locale.t('platformMembers.added'), icon: 'none' });
     }
     load();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '添加失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformMembers.addFailed')), icon: 'none' });
   }
 }
 
@@ -222,23 +225,24 @@ async function submitRoles() {
   try {
     await updateTenantMemberRolesToMember(roleTarget.value.id, roleTargetIds.value);
     showRoles.value = false;
-    uni.showToast({ title: '角色已更新', icon: 'none' });
+    uni.showToast({ title: locale.t('platformMembers.roleUpdated'), icon: 'none' });
     load();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '更新失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformMembers.updateFailed')), icon: 'none' });
   }
 }
 function onToggle(m: TenantMemberItem, e: any) {
+  const action = e.detail.value ? locale.t('platformMembers.enableAction') : locale.t('platformMembers.disableAction');
   uni.showModal({
-    title: e.detail.value ? '启用人员' : '停用人员',
-    content: `确定${e.detail.value ? '启用' : '停用'}「${m.displayName || m.administratorId}」？`,
+    title: e.detail.value ? locale.t('platformMembers.enableTitle') : locale.t('platformMembers.disableTitle'),
+    content: locale.t('platformMembers.toggleContent').replace('{action}', action).replace('{name}', m.displayName || m.administratorId),
     success: async (r) => {
       if (!r.confirm) return load();
       try {
         await setTenantMemberEnabled(m.id, e.detail.value as boolean);
         m.enabled = e.detail.value as boolean;
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformMembers.opFailed'), icon: 'none' });
         load();
       }
     },
@@ -246,16 +250,16 @@ function onToggle(m: TenantMemberItem, e: any) {
 }
 function onRemove(m: TenantMemberItem) {
   uni.showModal({
-    title: '移除人员',
-    content: `确定从本租户移除「${m.displayName || m.administratorId}」？`,
+    title: locale.t('platformMembers.removeTitle'),
+    content: locale.t('platformMembers.removeContent').replace('{name}', m.displayName || m.administratorId),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await deleteTenantMember(m.id);
-        uni.showToast({ title: '已移除', icon: 'none' });
+        uni.showToast({ title: locale.t('platformMembers.removed'), icon: 'none' });
         load();
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '移除失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformMembers.removeFailed'), icon: 'none' });
       }
     },
   });
@@ -263,15 +267,15 @@ function onRemove(m: TenantMemberItem) {
 
 function onResetPassword(m: TenantMemberItem) {
   uni.showModal({
-    title: '重置密码',
-    content: `确定将「${m.displayName || m.administratorId}」的密码重置为默认口令 you123123？`,
+    title: locale.t('platformMembers.resetTitle'),
+    content: locale.t('platformMembers.resetContent').replace('{name}', m.displayName || m.administratorId),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await resetTenantMemberPasswordToDefault(m.id);
-        uni.showToast({ title: '已重置为默认口令 you123123', icon: 'none' });
+        uni.showToast({ title: locale.t('platformMembers.resetDone'), icon: 'none' });
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '重置失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformMembers.resetFailed'), icon: 'none' });
       }
     },
   });

@@ -2,13 +2,13 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">房型模板库</text>
+        <text class="title">{{ $t('platformRoomTemplates.title') }}</text>
         <view class="head-ops">
-          <text class="head-btn" @tap="onAdd">＋新建模板</text>
+          <text class="head-btn" @tap="onAdd">{{ $t('platformRoomTemplates.add') }}</text>
         </view>
       </view>
       <view class="filter-bar">
-        <input class="q" v-model="query" placeholder="搜索房型名 / code / 床型 / 标签" />
+        <input class="q" v-model="query" :placeholder="$t('platformRoomTemplates.searchPh')" />
         <scroll-view class="chips-x" scroll-x :show-scrollbar="false">
           <view class="chips">
             <text v-for="c in catOpts" :key="c.key" class="chip" :class="{ on: category === c.key }" @tap="category = c.key">{{ c.label }}</text>
@@ -18,25 +18,25 @@
           <text v-for="b in bedOpts" :key="b.key" class="chip" :class="{ on: bed === b.key }" @tap="bed = b.key">{{ b.label }}</text>
         </view>
         <view class="chips">
-          <text class="chip" :class="{ on: enabled === 'enabled' }" @tap="enabled = enabled === 'enabled' ? 'all' : 'enabled'">仅看启用</text>
-          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'asc' }" @tap="sortField = 'price'; sortDir = 'asc'">基准价 ↑</text>
-          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'desc' }" @tap="sortField = 'price'; sortDir = 'desc'">基准价 ↓</text>
+          <text class="chip" :class="{ on: enabled === 'enabled' }" @tap="enabled = enabled === 'enabled' ? 'all' : 'enabled'">{{ $t('platformRoomTemplates.onlyEnabled') }}</text>
+          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'asc' }" @tap="sortField = 'price'; sortDir = 'asc'">{{ $t('platformRoomTemplates.priceAsc') }}</text>
+          <text class="chip" :class="{ on: sortField === 'price' && sortDir === 'desc' }" @tap="sortField = 'price'; sortDir = 'desc'">{{ $t('platformRoomTemplates.priceDesc') }}</text>
         </view>
       </view>
       <view class="item" v-for="t in filteredTemplates" :key="t.id" @tap="onEdit(t)">
         <view class="info">
           <text class="name">{{ t.name }} <text class="code">{{ t.code }}</text></text>
-          <text class="sub">基准价 ¥{{ (t.basePriceCent / 100).toFixed(0) }} · {{ t.minNights }}-{{ t.maxNights }} 晚 · 排序 {{ t.sortOrder }}</text>
+          <text class="sub">{{ $t('platformRoomTemplates.sub').replace('{price}', (t.basePriceCent / 100).toFixed(0)).replace('{min}', String(t.minNights)).replace('{max}', String(t.maxNights)).replace('{sort}', String(t.sortOrder)) }}</text>
         </view>
         <switch :checked="t.enabled" color="#4f8cff" @change="onToggle(t, $event)" @click.stop />
-        <text class="link" @tap.stop="onRemove(t)">删除</text>
+        <text class="link" @tap.stop="onRemove(t)">{{ $t('platformRoomTemplates.del') }}</text>
       </view>
-      <view v-if="!templates.length" class="empty">暂无模板，点击右上角新建</view>
+      <view v-if="!templates.length" class="empty">{{ $t('platformRoomTemplates.empty') }}</view>
       <view v-else-if="!filteredTemplates.length" class="empty">
-        <text class="empty-tip">未找到匹配模板</text>
-        <text class="clear-btn" @tap="clearFilters">清除筛选</text>
+        <text class="empty-tip">{{ $t('platformRoomTemplates.noMatch') }}</text>
+        <text class="clear-btn" @tap="clearFilters">{{ $t('platformRoomTemplates.clearFilter') }}</text>
       </view>
-      <view v-if="templates.length" class="count">共 {{ templateCount }} 个模板</view>
+      <view v-if="templates.length" class="count">{{ $t('platformRoomTemplates.count').replace('{n}', templateCount) }}</view>
     </view>
   </view>
 
@@ -44,53 +44,53 @@
   <view class="mask" v-if="showForm" @tap="showForm = false">
     <view class="pop" @tap.stop>
       <view class="pop-head">
-        <text class="pop-title">{{ editingId ? '编辑模板' : '新建模板' }}</text>
+        <text class="pop-title">{{ editingId ? $t('platformRoomTemplates.editTitle') : $t('platformRoomTemplates.newTitle') }}</text>
         <text class="pop-close" @tap="showForm = false">×</text>
       </view>
       <scroll-view scroll-y class="pop-body">
-        <view class="field"><text class="label">名称 <text class="req">*</text></text><input class="input" v-model="form.name" placeholder="豪华套房" /></view>
-        <view class="field"><text class="label">标识 code <text class="req">*</text></text><input class="input" v-model="form.code" placeholder="suite" /></view>
-        <view class="field"><text class="label">基准价（元/晚）<text class="req">*</text></text><input class="input" v-model="form.basePriceYuan" type="digit" placeholder="888" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.nameLabel') }} <text class="req">*</text></text><input class="input" v-model="form.name" :placeholder="$t('platformRoomTemplates.namePh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.codeLabel') }} <text class="req">*</text></text><input class="input" v-model="form.code" :placeholder="$t('platformRoomTemplates.codePh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.basePriceLabel') }} <text class="req">*</text></text><input class="input" v-model="form.basePriceYuan" type="digit" :placeholder="$t('platformRoomTemplates.basePricePh')" /></view>
         <view class="field">
-          <text class="label">启用</text>
+          <text class="label">{{ $t('platformRoomTemplates.enableLabel') }}</text>
           <switch :checked="form.enabled" color="#4f8cff" @change="form.enabled = $event.detail.value" />
         </view>
-        <view class="field"><text class="label">排序 sortOrder</text><input class="input" v-model="form.sortOrder" type="number" placeholder="0" /></view>
-        <view class="field"><text class="label">规格 specs JSON</text><textarea class="ta" v-model="form.specsJson" placeholder='{"bedType":"大床","area":40,"capacity":2,"maxCapacity":2,"breakfast":"included","breakfastCount":2}' /></view>
-        <view class="field"><text class="label">默认房间 defaultRooms JSON</text><textarea class="ta" v-model="form.defaultRoomsJson" placeholder='[{"no":"801","floor":8,"view":"湖景"}]' /></view>
-        <view class="field"><text class="label">日历价格段 JSON</text><textarea class="ta" v-model="form.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' /></view>
-        <view class="field"><text class="label">连住优惠 JSON</text><textarea class="ta" v-model="form.longStayJson" placeholder='[{"minNights":3,"rate":0.9}]' /></view>
-        <view class="field"><text class="label">预订规则 JSON</text><textarea class="ta" v-model="form.ruleJson" placeholder='{"minNights":1,"maxNights":30,"advanceDays":30,"checkInTime":"14:00","checkOutTime":"12:00","cancelPolicy":{"type":"freeUntil","freeUntilHours":24},"depositType":"payAtHotel"}' /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.sortLabel') }}</text><input class="input" v-model="form.sortOrder" type="number" :placeholder="$t('platformRoomTemplates.sortPh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.specsLabel') }}</text><textarea class="ta" v-model="form.specsJson" placeholder='{"bedType":"大床","area":40,"capacity":2,"maxCapacity":2,"breakfast":"included","breakfastCount":2}' /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.defaultRoomsLabel') }}</text><textarea class="ta" v-model="form.defaultRoomsJson" placeholder='[{"no":"801","floor":8,"view":"湖景"}]' /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.priceCalendarLabel') }}</text><textarea class="ta" v-model="form.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.longStayLabel') }}</text><textarea class="ta" v-model="form.longStayJson" placeholder='[{"minNights":3,"rate":0.9}]' /></view>
+        <view class="field"><text class="label">{{ $t('platformRoomTemplates.ruleLabel') }}</text><textarea class="ta" v-model="form.ruleJson" placeholder='{"minNights":1,"maxNights":30,"advanceDays":30,"checkInTime":"14:00","checkOutTime":"12:00","cancelPolicy":{"type":"freeUntil","freeUntilHours":24},"depositType":"payAtHotel"}' /></view>
         <view v-if="showForm" class="guide">
-          <view class="gl"><text class="glk">常用价格段</text> · 点选插入 priceCalendar</view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideSegments') }}</text> · 点选插入 priceCalendar</view>
           <view class="chips">
             <text v-for="p in PRICE_SEGMENT_PRESETS" :key="p.label" class="cdot" @tap="applyPresetSegment(p)">{{ p.label }}</text>
           </view>
-          <view class="gl"><text class="glk">连住优惠 / 取消政策</text></view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideStayCancel') }}</text></view>
           <view class="chips">
             <text v-for="p in LONG_STAY_PRESETS" :key="p.label" class="cdot" @tap="applyLongStay(p)">{{ p.label }}</text>
             <text v-for="p in CANCEL_POLICY_PRESETS" :key="p.label" class="cdot" @tap="applyCancelPolicy(p)">{{ p.label }}</text>
           </view>
-          <view class="gl"><text class="glk">快捷输入房间</text></view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideRooms') }}</text></view>
           <view class="qr">
-            <input class="inp" v-model="roomNo" placeholder="房间号 如802" />
-            <input class="inp" v-model="roomFloor" placeholder="楼层 如8" type="number" />
-            <input class="inp" v-model="roomView" placeholder="特色景观" />
-            <text class="add-btn" @tap="addRoomQuick">＋ 添加</text>
-            <text class="badge" v-if="roomCount">已加 {{ roomCount }} 间</text>
+            <input class="inp" v-model="roomNo" :placeholder="$t('platformRoomTemplates.roomNoPh')" />
+            <input class="inp" v-model="roomFloor" :placeholder="$t('platformRoomTemplates.roomFloorPh')" type="number" />
+            <input class="inp" v-model="roomView" :placeholder="$t('platformRoomTemplates.roomViewPh')" />
+            <text class="add-btn" @tap="addRoomQuick">{{ $t('platformRoomTemplates.addRoom') }}</text>
+            <text class="badge" v-if="roomCount">{{ $t('platformRoomTemplates.addedRooms').replace('{n}', String(roomCount)) }}</text>
           </view>
-          <view class="gl"><text class="glk">床型</text></view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideBed') }}</text></view>
           <view class="chips">
             <text v-for="b in BED_OPTIONS" :key="b.value" class="cdot" @tap="applyBed(b.value)">{{ b.label }}</text>
           </view>
-          <view class="gl"><text class="glk">含早 / 押金</text></view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideBreakfast') }}</text></view>
           <view class="chips">
             <text v-for="o in BREAKFAST_OPTIONS" :key="o.label" class="cdot" @tap="applyBreakfast(o.value)">{{ o.label }}</text>
             <text v-for="o in DEPOSIT_OPTIONS" :key="o.label" class="cdot" @tap="applyDeposit(o.value)">{{ o.label }}</text>
           </view>
         </view>
         <view v-if="err" class="err">{{ err }}</view>
-        <button class="btn" :disabled="saving" @tap="submit">{{ saving ? '保存中…' : '保存' }}</button>
+        <button class="btn" :disabled="saving" @tap="submit">{{ saving ? $t('platformRoomTemplates.saving') : $t('platformRoomTemplates.save') }}</button>
       </scroll-view>
     </view>
   </view>
@@ -104,7 +104,10 @@ import {
   type RoomTemplate,
 } from '../../../apis/room-template';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { filterRoomTemplates, categorize, bedLabel, CATEGORY_MAP, PRICE_SEGMENT_PRESETS, LONG_STAY_PRESETS, CANCEL_POLICY_PRESETS, BED_OPTIONS, BREAKFAST_OPTIONS, DEPOSIT_OPTIONS, appendSegmentToList, appendRoom, overrideSpecsKey, expandDateRange } from '@/utils/room-template-guide';
+
+const locale = useLocaleStore();
 
 const templates = ref<RoomTemplate[]>([]);
 const showForm = ref(false);
@@ -120,13 +123,13 @@ const enabled = ref('all');
 const sortField = ref('sortOrder');
 const sortDir = ref('asc');
 
-const catOpts = [{ key: 'all', label: '全部' }, ...CATEGORY_MAP, { key: 'other', label: '其他' }];
+const catOpts = [{ key: 'all', label: locale.t('platformRoomTemplates.catAll') }, ...CATEGORY_MAP, { key: 'other', label: locale.t('platformRoomTemplates.catOther') }];
 const bedOpts = [
-  { key: 'all', label: '全部床型' },
-  { key: 'king', label: '大床' },
-  { key: 'twin', label: '双床' },
-  { key: 'triple', label: '三床' },
-  { key: 'family', label: '多床' },
+  { key: 'all', label: locale.t('platformRoomTemplates.bedAll') },
+  { key: 'king', label: locale.t('platformRoomTemplates.bedKing') },
+  { key: 'twin', label: locale.t('platformRoomTemplates.bedTwin') },
+  { key: 'triple', label: locale.t('platformRoomTemplates.bedTriple') },
+  { key: 'family', label: locale.t('platformRoomTemplates.bedFamily') },
 ];
 
 const filteredTemplates = computed(() => filterRoomTemplates(templates.value, {
@@ -218,7 +221,7 @@ function applyCancelPolicy(p: any) {
 /** 快捷输入房间：房间号必填，追加进 defaultRoomsJson，之后清空输入并刷新已加数量 */
 function addRoomQuick() {
   const no = roomNo.value.trim();
-  if (!no) { uni.showToast({ title: '请输入房间号', icon: 'none' }); return; }
+  if (!no) { uni.showToast({ title: locale.t('platformRoomTemplates.requireRoomNo'), icon: 'none' }); return; }
   const arr = parseJsonArr(form.value.defaultRoomsJson);
   form.value.defaultRoomsJson = appendRoom(arr, no, Number(roomFloor.value) || null, roomView.value.trim() || '');
   roomNo.value = '';
@@ -248,7 +251,7 @@ async function load() {
   try {
     templates.value = await fetchRoomTemplates();
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '加载失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformRoomTemplates.loadFailed')), icon: 'none' });
   }
 }
 
@@ -323,7 +326,7 @@ function tryParseJson(text: string, label: string): { ok: true; value: any } | {
   try {
     return { ok: true, value: JSON.parse(v) };
   } catch {
-    err.value = `${label} 不是合法 JSON`;
+    err.value = locale.t('platformRoomTemplates.invalidJson').replace('{label}', label);
     return { ok: false };
   }
 }
@@ -333,10 +336,10 @@ async function submit() {
   const name = form.value.name.trim();
   const code = form.value.code.trim();
   const yuan = Number(form.value.basePriceYuan);
-  if (!name) { uni.showToast({ title: '名称必填', icon: 'none' }); return; }
-  if (!code) { uni.showToast({ title: '标识 code 必填', icon: 'none' }); return; }
+  if (!name) { uni.showToast({ title: locale.t('platformRoomTemplates.requireName'), icon: 'none' }); return; }
+  if (!code) { uni.showToast({ title: locale.t('platformRoomTemplates.requireCode'), icon: 'none' }); return; }
   if (!form.value.basePriceYuan || Number.isNaN(yuan) || yuan < 0) {
-    uni.showToast({ title: '基准价必须为非负数字', icon: 'none' }); return;
+    uni.showToast({ title: locale.t('platformRoomTemplates.invalidBasePrice'), icon: 'none' }); return;
   }
 
   const specs = tryParseJson(form.value.specsJson, '规格 specs');
@@ -379,10 +382,10 @@ async function submit() {
       await createRoomTemplate(input);
     }
     showForm.value = false;
-    uni.showToast({ title: '已保存', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoomTemplates.saved'), icon: 'none' });
     load();
   } catch (e: any) {
-    uni.showToast({ title: graphQlErrorMsg(e, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformRoomTemplates.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }
@@ -390,16 +393,17 @@ async function submit() {
 
 function onToggle(t: RoomTemplate, e: any) {
   const enabled = e.detail.value as boolean;
+  const action = enabled ? locale.t('platformRoomTemplates.enableAction') : locale.t('platformRoomTemplates.disableAction');
   uni.showModal({
-    title: enabled ? '启用模板' : '停用模板',
-    content: `确定${enabled ? '启用' : '停用'}「${t.name}」？`,
+    title: enabled ? locale.t('platformRoomTemplates.enableTplTitle') : locale.t('platformRoomTemplates.disableTplTitle'),
+    content: locale.t('platformRoomTemplates.toggleContent').replace('{action}', action).replace('{name}', t.name),
     success: async (r) => {
       if (!r.confirm) return load();
       try {
         await updateRoomTemplate(t.id, { ...templateToInput(t), enabled });
         t.enabled = enabled;
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '操作失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformRoomTemplates.opFailed')), icon: 'none' });
         load();
       }
     },
@@ -408,16 +412,16 @@ function onToggle(t: RoomTemplate, e: any) {
 
 function onRemove(t: RoomTemplate) {
   uni.showModal({
-    title: '删除模板',
-    content: `确定删除「${t.name}」？已应用该模板的商品不受影响。`,
+    title: locale.t('platformRoomTemplates.delTitle'),
+    content: locale.t('platformRoomTemplates.delContent').replace('{name}', t.name),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await deleteRoomTemplate(t.id);
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('platformRoomTemplates.deleted'), icon: 'none' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: graphQlErrorMsg(e, '删除失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformRoomTemplates.delFailed')), icon: 'none' });
       }
     },
   });

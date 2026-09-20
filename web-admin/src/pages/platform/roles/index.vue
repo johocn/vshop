@@ -1,8 +1,8 @@
 <template>
   <view class="page">
     <view class="tabbar" v-if="isSuperAdmin">
-      <text class="tab" :class="{ on: activeTab === 'shop' }" @tap="switchTab('shop')">本店角色</text>
-      <text class="tab" :class="{ on: activeTab === 'global' }" @tap="switchTab('global')">全局角色池</text>
+      <text class="tab" :class="{ on: activeTab === 'shop' }" @tap="switchTab('shop')">{{ $t('platformRoles.tabShop') }}</text>
+      <text class="tab" :class="{ on: activeTab === 'global' }" @tap="switchTab('global')">{{ $t('platformRoles.tabGlobal') }}</text>
     </view>
 
     <!-- 本店角色 -->
@@ -13,9 +13,9 @@
             <text class="title">{{ r.description || r.code }}</text>
             <text class="sub">{{ r.code }}</text>
           </view>
-          <text class="role-type" v-if="r.code.includes('tenant-admin')">租户管理员</text>
-          <text class="role-type sale" v-else-if="r.code.includes('-sales-')">销售</text>
-          <text class="role-type stock" v-else-if="r.code.includes('-stock-')">库存</text>
+          <text class="role-type" v-if="r.code.includes('tenant-admin')">{{ $t('platformRoles.roleTenantAdmin') }}</text>
+          <text class="role-type sale" v-else-if="r.code.includes('-sales-')">{{ $t('platformRoles.roleSales') }}</text>
+          <text class="role-type stock" v-else-if="r.code.includes('-stock-')">{{ $t('platformRoles.roleStock') }}</text>
         </view>
         <view class="group" v-for="g in catalog" :key="g.key">
           <text class="g-label">{{ g.label }}</text>
@@ -26,19 +26,19 @@
           </view>
         </view>
         <view class="row foot">
-          <text class="btn danger" @tap="onDelete(r)">删除角色</text>
-          <text class="btn" @tap="onSave(r)">保存</text>
+          <text class="btn danger" @tap="onDelete(r)">{{ $t('platformRoles.delRole') }}</text>
+          <text class="btn" @tap="onSave(r)">{{ $t('platformRoles.save') }}</text>
         </view>
       </view>
       <view v-if="!roles.length" class="empty">
-        <text>暂无角色</text>
-        <view v-if="canImport()" class="import-btn" @tap="openImport">{{ importing ? '导入中…' : '一键导入默认角色' }}</view>
+        <text>{{ $t('platformRoles.empty') }}</text>
+        <view v-if="canImport()" class="import-btn" @tap="openImport">{{ importing ? $t('platformRoles.importing') : $t('platformRoles.importDefault') }}</view>
       </view>
-      <view v-if="canImport()" class="import-row"><text class="import-btn" @tap="openImport">{{ importing ? '导入中…' : '一键导入默认角色' }}</text></view>
+      <view v-if="canImport()" class="import-row"><text class="import-btn" @tap="openImport">{{ importing ? $t('platformRoles.importing') : $t('platformRoles.importDefault') }}</text></view>
 
       <!-- 从全局角色池引用到本店（超管 / 租户自助） -->
       <view class="import-row">
-        <text class="import-btn ghost" @tap="toggleRefer">{{ referOpen ? '关闭' : '从全局角色池引用到本店' }}</text>
+        <text class="import-btn ghost" @tap="toggleRefer">{{ referOpen ? $t('platformRoles.referClose') : $t('platformRoles.referTitle') }}</text>
       </view>
       <view class="refer-list" v-if="referOpen">
         <view class="card" v-for="g in availableGlobal" :key="g.id">
@@ -47,10 +47,10 @@
               <text class="title">{{ g.description || g.code }}</text>
               <text class="sub">{{ g.code }}</text>
             </view>
-            <text class="btn" @tap="doRefer(g.id)">引用到本店</text>
+            <text class="btn" @tap="doRefer(g.id)">{{ $t('platformRoles.refer') }}</text>
           </view>
         </view>
-        <view v-if="!availableGlobal.length" class="empty">暂无可用全局角色</view>
+        <view v-if="!availableGlobal.length" class="empty">{{ $t('platformRoles.emptyGlobalAvail') }}</view>
       </view>
 
       <view class="fab" @tap="openCreate">＋</view>
@@ -59,50 +59,50 @@
     <!-- 全局角色池（超管） -->
     <template v-else>
       <!-- 默认角色模板区 -->
-      <text class="pool-sec-label">默认角色模板（导入后复制为本店独立角色）</text>
+      <text class="pool-sec-label">{{ $t('platformRoles.poolTemplateLabel') }}</text>
       <view class="card" v-for="tpl in roleTemplates" :key="tpl.key">
         <view class="row head">
           <view class="lt">
             <text class="title">{{ tpl.description }}</text>
             <text class="sub">{{ tpl.busiPrefix }}</text>
           </view>
-          <text class="btn" v-if="channelId" @tap="doImportTemplate(tpl)">导入到本店</text>
+          <text class="btn" v-if="channelId" @tap="doImportTemplate(tpl)">{{ $t('platformRoles.importToShop') }}</text>
         </view>
         <view class="group">
-          <text class="g-label">模板权限</text>
+          <text class="g-label">{{ $t('platformRoles.templatePerms') }}</text>
           <view class="perms"><text v-for="p in tpl.permissions" :key="p" class="perm">{{ p }}</text></view>
         </view>
       </view>
-      <view v-if="!roleTemplates.length" class="empty">暂无默认角色模板</view>
+      <view v-if="!roleTemplates.length" class="empty">{{ $t('platformRoles.emptyTpl') }}</view>
 
       <!-- 全局可用角色区（超管 g- 角色，含 channels 状态） -->
-      <text class="pool-sec-label pool-sec-gap">全局可用角色（引用/分发到租户）</text>
+      <text class="pool-sec-label pool-sec-gap">{{ $t('platformRoles.poolAvailLabel') }}</text>
       <view class="card" v-for="g in globalRoles" :key="g.id">
         <view class="row head">
           <view class="lt"><text class="title">{{ g.description || g.code }}</text><text class="sub">{{ g.code }}</text></view>
-          <text class="btn" @tap="openTenantManage(g)">管理租户</text>
+          <text class="btn" @tap="openTenantManage(g)">{{ $t('platformRoles.manageTenant') }}</text>
         </view>
         <view class="group">
-          <text class="g-label">已绑定权限</text>
+          <text class="g-label">{{ $t('platformRoles.boundPerms') }}</text>
           <view class="perms"><text v-for="p in g.permissions" :key="p" class="perm">{{ p }}</text></view>
         </view>
         <view class="group">
-          <text class="g-label">已入本地（{{ poolChannelIds(g).length }} 店）</text>
+          <text class="g-label">{{ $t('platformRoles.poolChannels').replace('{n}', poolChannelIds(g).length) }}</text>
           <view class="perms"><text v-for="c in (g.channels || [])" :key="c.id" class="perm">{{ tenantNameById(c.id) }}</text></view>
         </view>
       </view>
-      <view v-if="!globalRoles.length" class="empty">暂无全局可用角色</view>
+      <view v-if="!globalRoles.length" class="empty">{{ $t('platformRoles.emptyGlobalAvail') }}</view>
       <view class="fab" @tap="openGlobalCreate">＋</view>
     </template>
 
     <!-- 新建角色表单弹层（本店） -->
     <view class="mask" v-if="showCreate" @tap="showCreate = false">
       <view class="pop" @tap.stop>
-        <text class="pop-title">新建角色</text>
-        <view class="field"><text class="label">角色编码（英文，如 kefu）<text class="req">*</text></text><input class="input" v-model="createForm.code" placeholder="唯一英文标识" /></view>
-        <view class="field"><text class="label">显示名称（中文）<text class="req">*</text></text><input class="input" v-model="createForm.description" placeholder="如：客服" /></view>
+        <text class="pop-title">{{ $t('platformRoles.createTitle') }}</text>
+        <view class="field"><text class="label">{{ $t('platformRoles.codeLabel') }} <text class="req">*</text></text><input class="input" v-model="createForm.code" :placeholder="$t('platformRoles.codePh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoles.descLabel') }} <text class="req">*</text></text><input class="input" v-model="createForm.description" :placeholder="$t('platformRoles.descPh')" /></view>
         <view class="field">
-          <text class="label">选择权限</text>
+          <text class="label">{{ $t('platformRoles.permsLabel') }}</text>
           <view class="perms">
             <text v-for="p in permissionOptions" :key="p.code" class="perm" :class="{ on: createForm.permissions.includes(p.code) }" @tap="toggleCreate(p.code)">
               {{ p.label }}
@@ -110,8 +110,8 @@
           </view>
         </view>
         <view class="actions">
-          <text class="btn ghost" @tap="showCreate = false">取消</text>
-          <text class="btn" @tap="submitCreate">创建</text>
+          <text class="btn ghost" @tap="showCreate = false">{{ $t('platformRoles.cancel') }}</text>
+          <text class="btn" @tap="submitCreate">{{ $t('platformRoles.create') }}</text>
         </view>
       </view>
     </view>
@@ -119,16 +119,16 @@
     <!-- 新建全局角色弹层（超管） -->
     <view class="mask" v-if="showGlobalCreate" @tap="showGlobalCreate = false">
       <view class="pop" @tap.stop>
-        <text class="pop-title">新建全局角色</text>
-        <view class="field"><text class="label">角色编码（英文，如 kefu）<text class="req">*</text></text><input class="input" v-model="globalForm.code" placeholder="全局唯一英文标识" /></view>
-        <view class="field"><text class="label">显示名称（中文）<text class="req">*</text></text><input class="input" v-model="globalForm.description" placeholder="如：客服" /></view>
+        <text class="pop-title">{{ $t('platformRoles.globalCreateTitle') }}</text>
+        <view class="field"><text class="label">{{ $t('platformRoles.codeLabel') }} <text class="req">*</text></text><input class="input" v-model="globalForm.code" :placeholder="$t('platformRoles.globalCodePh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformRoles.descLabel') }} <text class="req">*</text></text><input class="input" v-model="globalForm.description" :placeholder="$t('platformRoles.descPh')" /></view>
         <view class="field">
-          <text class="label">角色范围<text class="req">*</text></text>
-          <view class="perm" :class="{ on: createScope === 'globalAvail' }" @tap="createScope = 'globalAvail'">全局可用（入池，可被租户引用）</view>
-          <view class="perm" :class="{ on: createScope === 'globalDefault' }" @tap="createScope = 'globalDefault'">全局默认（创建即分发到所选租户）</view>
+          <text class="label">{{ $t('platformRoles.scopeLabel') }} <text class="req">*</text></text>
+          <view class="perm" :class="{ on: createScope === 'globalAvail' }" @tap="createScope = 'globalAvail'">{{ $t('platformRoles.scopeAvail') }}</view>
+          <view class="perm" :class="{ on: createScope === 'globalDefault' }" @tap="createScope = 'globalDefault'">{{ $t('platformRoles.scopeDefault') }}</view>
         </view>
         <view class="field">
-          <text class="label">选择权限</text>
+          <text class="label">{{ $t('platformRoles.permsLabel') }}</text>
           <view class="perms">
             <text v-for="p in permissionOptions" :key="p.code" class="perm" :class="{ on: globalForm.permissions.includes(p.code) }" @tap="toggleGlobalCreate(p.code)">
               {{ p.label }}
@@ -136,7 +136,7 @@
           </view>
         </view>
         <view class="field" v-if="createScope === 'globalDefault'">
-          <text class="label">创建即分发到租户（必选）</text>
+          <text class="label">{{ $t('platformRoles.distributeOnCreate') }}</text>
           <view class="perms">
             <text v-for="t in tenants" :key="t.id" class="perm tenant" :class="{ on: globalForm.channelIds.includes(t.id) }" @tap="toggleTenant(t.id)">
               {{ t.name }}
@@ -144,8 +144,8 @@
           </view>
         </view>
         <view class="actions">
-          <text class="btn ghost" @tap="showGlobalCreate = false">取消</text>
-          <text class="btn" @tap="submitGlobalCreate">创建</text>
+          <text class="btn ghost" @tap="showGlobalCreate = false">{{ $t('platformRoles.cancel') }}</text>
+          <text class="btn" @tap="submitGlobalCreate">{{ $t('platformRoles.create') }}</text>
         </view>
       </view>
     </view>
@@ -153,9 +153,9 @@
     <!-- 分发到租户弹层（超管） -->
     <view class="mask" v-if="showDistribute" @tap="showDistribute = false">
       <view class="pop" @tap.stop>
-        <text class="pop-title">分发「{{ distributeRole?.description || distributeRole?.code }}」到租户</text>
+        <text class="pop-title">{{ $t('platformRoles.distributeTitle').replace('{name}', distributeRole?.description || distributeRole?.code || '') }}</text>
         <view class="field">
-          <text class="g-label">从「全局角色池」分发该角色到以下租户（引用到店）</text>
+          <text class="g-label">{{ $t('platformRoles.distributeDesc') }}</text>
           <view class="perms">
             <text v-for="t in tenants" :key="t.id" class="perm tenant" :class="{ on: distributeSel.includes(t.id) }" @tap="toggleDistribute(t.id)">
               {{ t.name }}
@@ -163,8 +163,8 @@
           </view>
         </view>
         <view class="actions">
-          <text class="btn ghost" @tap="showDistribute = false">取消</text>
-          <text class="btn" @tap="submitDistribute">分发</text>
+          <text class="btn ghost" @tap="showDistribute = false">{{ $t('platformRoles.cancel') }}</text>
+          <text class="btn" @tap="submitDistribute">{{ $t('platformRoles.distribute') }}</text>
         </view>
       </view>
     </view>
@@ -172,20 +172,20 @@
     <!-- 管理租户弹层（超管：池内每个全局角色的已入本地/可引用状态 + 分发/取消） -->
     <view class="mask" v-if="showTenantManage" @tap="showTenantManage = false">
       <view class="pop" @tap.stop>
-        <text class="pop-title">管理「{{ manageRole?.description || manageRole?.code }}」引用的租户</text>
+        <text class="pop-title">{{ $t('platformRoles.manageTitle').replace('{name}', manageRole?.description || manageRole?.code || '') }}</text>
         <view class="group">
           <view class="perm tenant" v-for="t in tenants" :key="t.id"
                 :class="{ on: manageChannelIds.includes(t.id) }"
                 @tap="toggleManageTenant(t.id)">
             <text>{{ t.name }}</text>
             <text class="state-tag" :class="{ on: manageChannelIds.includes(t.id) }">
-              {{ manageChannelIds.includes(t.id) ? '已入本地' : '可引用' }}
+              {{ manageChannelIds.includes(t.id) ? $t('platformRoles.stateLocal') : $t('platformRoles.stateAvail') }}
             </text>
           </view>
         </view>
         <view class="actions">
-          <text class="btn ghost" @tap="showTenantManage = false">关闭</text>
-          <text class="btn" @tap="applyTenantManage">保存变更</text>
+          <text class="btn ghost" @tap="showTenantManage = false">{{ $t('platformRoles.close') }}</text>
+          <text class="btn" @tap="applyTenantManage">{{ $t('platformRoles.saveChanges') }}</text>
         </view>
       </view>
     </view>
@@ -204,7 +204,9 @@ import {
   fetchMyGlobalRolesAvailable, myReferGlobalRole,
   type RoleItem, type RoleTemplateItem, type PermissionCatalogGroup, type TenantItem,
 } from '../../../apis/tenant-admin';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const auth = useAuthStore();
 const channelId = ref('');
 const activeTab = ref<'shop' | 'global'>('shop');
@@ -254,10 +256,10 @@ async function openImport() {
   try {
     if (channelId.value) await importTenantDefaultRoles(channelId.value);
     else await myImportDefaultRoles();
-    uni.showToast({ title: '已导入', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.imported'), icon: 'none' });
     load();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '导入失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.importFailed'), icon: 'none' });
   } finally {
     importing.value = false;
   }
@@ -266,10 +268,10 @@ async function openImport() {
 async function doImportTemplate(tpl: RoleTemplateItem) {
   try {
     await importTenantDefaultRoles(channelId.value);
-    uni.showToast({ title: `已导入${tpl.description}`, icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.importedTpl').replace('{name}', tpl.description), icon: 'none' });
     load();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '导入失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.importFailed'), icon: 'none' });
   }
 }
 
@@ -312,15 +314,15 @@ async function onSave(r: RoleItem) {
   try {
     if (channelId.value) await updateTenantRole(r.id, { description: r.description, permissions: r.permissions });
     else await myUpdateTenantRole(r.id, { description: r.description, permissions: r.permissions });
-    uni.showToast({ title: '已保存', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.saved'), icon: 'none' });
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.saveFailed'), icon: 'none' });
   }
 }
 function onDelete(r: RoleItem) {
   uni.showModal({
-    title: '删除角色',
-    content: `确定删除「${r.description || r.code}」？`,
+    title: locale.t('platformRoles.delRoleTitle'),
+    content: locale.t('platformRoles.delContent').replace('{name}', r.description || r.code),
     success: async (d) => {
       if (!d.confirm) return;
       try {
@@ -328,7 +330,7 @@ function onDelete(r: RoleItem) {
         else await myDeleteTenantRole(r.id);
         load();
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformRoles.delFailed'), icon: 'none' });
       }
     },
   });
@@ -350,16 +352,16 @@ function toggleCreate(p: string) {
 async function submitCreate() {
   const code = createForm.value.code.trim();
   const description = createForm.value.description.trim();
-  if (!code) { uni.showToast({ title: '角色编码必填', icon: 'none' }); return; }
-  if (!description) { uni.showToast({ title: '显示名称必填', icon: 'none' }); return; }
+  if (!code) { uni.showToast({ title: locale.t('platformRoles.requireCode'), icon: 'none' }); return; }
+  if (!description) { uni.showToast({ title: locale.t('platformRoles.requireDesc'), icon: 'none' }); return; }
   try {
     if (channelId.value) await createTenantRole(channelId.value, { code, description, permissions: createForm.value.permissions });
     else await myCreateTenantRole({ code, description, permissions: createForm.value.permissions });
-    uni.showToast({ title: '已创建', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.created'), icon: 'none' });
     showCreate.value = false;
     load();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '创建失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.createFailed'), icon: 'none' });
   }
 }
 
@@ -376,11 +378,11 @@ async function doRefer(roleId: string) {
     } else {
       await myReferGlobalRole(roleId);
     }
-    uni.showToast({ title: '已引用到本店', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.referenced'), icon: 'none' });
     referOpen.value = false;
     load();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '引用失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.referFailed'), icon: 'none' });
   }
 }
 
@@ -407,19 +409,19 @@ function toggleTenant(id: string) {
 async function submitGlobalCreate() {
   const code = globalForm.value.code.trim();
   const description = globalForm.value.description.trim();
-  if (!code) { uni.showToast({ title: '角色编码必填', icon: 'none' }); return; }
-  if (!description) { uni.showToast({ title: '显示名称必填', icon: 'none' }); return; }
+  if (!code) { uni.showToast({ title: locale.t('platformRoles.requireCode'), icon: 'none' }); return; }
+  if (!description) { uni.showToast({ title: locale.t('platformRoles.requireDesc'), icon: 'none' }); return; }
   if (createScope.value === 'globalDefault' && !globalForm.value.channelIds.length) {
-    uni.showToast({ title: '全局默认需选择至少一家租户', icon: 'none' }); return;
+    uni.showToast({ title: locale.t('platformRoles.requireDistribute'), icon: 'none' }); return;
   }
   const channelIds = createScope.value === 'globalDefault' ? globalForm.value.channelIds : [];
   try {
     await createGlobalRole(channelIds, { code, description, permissions: globalForm.value.permissions });
-    uni.showToast({ title: '已创建', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.created'), icon: 'none' });
     showGlobalCreate.value = false;
     loadGlobal();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '创建失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.createFailed'), icon: 'none' });
   }
 }
 
@@ -439,16 +441,16 @@ function toggleDistribute(id: string) {
 }
 async function submitDistribute() {
   if (!distributeRole.value) return;
-  if (!distributeSel.value.length) { uni.showToast({ title: '请选择租户', icon: 'none' }); return; }
+  if (!distributeSel.value.length) { uni.showToast({ title: locale.t('platformRoles.requireTenant'), icon: 'none' }); return; }
   try {
     for (const cid of distributeSel.value) {
       await referGlobalRoleToChannel(distributeRole.value.id, cid);
     }
-    uni.showToast({ title: '已分发', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.distributed'), icon: 'none' });
     showDistribute.value = false;
     loadGlobal();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '分发失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.distributeFailed'), icon: 'none' });
   }
 }
 
@@ -475,11 +477,11 @@ async function applyTenantManage() {
     for (const cid of current) {
       if (!manageChannelIds.value.includes(cid)) await unreferGlobalRoleFromChannel(roleId, cid);
     }
-    uni.showToast({ title: '已更新', icon: 'none' });
+    uni.showToast({ title: locale.t('platformRoles.updated'), icon: 'none' });
     showTenantManage.value = false;
     loadGlobal();
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '更新失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('platformRoles.updateFailed'), icon: 'none' });
   }
 }
 </script>

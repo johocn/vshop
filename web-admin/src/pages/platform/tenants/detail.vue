@@ -3,102 +3,102 @@
     <view class="card danger-card">
       <view class="row between">
         <view class="info danger-info">
-          <text class="name">清空商品（从头开始）</text>
-          <text class="sub">软删该租户名下全部商品（前端不可见）。不影响配送/支付/账户等配置。</text>
+          <text class="name">{{ $t('platformTenantsDetail.clearTitle') }}</text>
+          <text class="sub">{{ $t('platformTenantsDetail.clearSub') }}</text>
         </view>
-        <text class="danger-btn" @tap="onClearProducts">清空商品</text>
+        <text class="danger-btn" @tap="onClearProducts">{{ $t('platformTenantsDetail.clearBtn') }}</text>
       </view>
     </view>
 
     <view class="card" style="margin-bottom: 20rpx;">
       <view class="row head">
-        <text class="title">租户基础信息</text>
+        <text class="title">{{ $t('platformTenantsDetail.baseInfo') }}</text>
         <text class="sub-info">{{ tenantCode }}<text v-if="tenantNo != null"> · #{{ tenantNo }}</text></text>
       </view>
       <view class="field">
-        <text class="label">店铺名称（租户名）</text>
+        <text class="label">{{ $t('platformTenantsDetail.shopNameLabel') }}</text>
         <view class="save-row">
-          <input class="input" v-model="tenantName" placeholder="请输入店铺名称" />
-          <button class="btn save-btn" @tap="saveName">保存</button>
+          <input class="input" v-model="tenantName" :placeholder="$t('platformTenantsDetail.shopNamePh')" />
+          <button class="btn save-btn" @tap="saveName">{{ $t('platformTenantsDetail.save') }}</button>
         </view>
       </view>
       <view class="field" style="margin-bottom: 0;">
-        <text class="label">默认外网访问域名</text>
+        <text class="label">{{ $t('platformTenantsDetail.domainLabel') }}</text>
         <view class="save-row">
-          <input class="input" v-model="tenantDomain" placeholder="如 store.example.com" />
-          <button class="btn save-btn" @tap="saveDomain">保存</button>
+          <input class="input" v-model="tenantDomain" :placeholder="$t('platformTenantsDetail.domainPh')" />
+          <button class="btn save-btn" @tap="saveDomain">{{ $t('platformTenantsDetail.save') }}</button>
         </view>
-        <text class="tip">不要带 http(s):// 前缀；前端据此域名回源。</text>
+        <text class="tip">{{ $t('platformTenantsDetail.domainTip') }}</text>
       </view>
     </view>
 
     <view class="tabs">
-      <text class="tab" :class="{ on: tab === 'admin' }" @tap="tab = 'admin'">管理员</text>
-      <text class="tab" :class="{ on: tab === 'role' }" @tap="tab = 'role'">角色</text>
+      <text class="tab" :class="{ on: tab === 'admin' }" @tap="tab = 'admin'">{{ $t('platformTenantsDetail.tabAdmin') }}</text>
+      <text class="tab" :class="{ on: tab === 'role' }" @tap="tab = 'role'">{{ $t('platformTenantsDetail.tabRole') }}</text>
     </view>
 
     <!-- 管理员 Tab -->
     <view v-if="tab === 'admin'" class="card">
       <view class="row head">
-        <text class="title">管理员授权</text>
-        <text class="head-btn" @tap="onAddAdmin">＋添加管理员</text>
+        <text class="title">{{ $t('platformTenantsDetail.adminTitle') }}</text>
+        <text class="head-btn" @tap="onAddAdmin">{{ $t('platformTenantsDetail.addAdmin') }}</text>
       </view>
       <view class="item" v-for="m in admins" :key="m.id">
         <view class="info">
           <text class="name">{{ m.displayName || m.administratorId }}</text>
           <text class="sub">ID: {{ m.administratorId }}<text v-if="m.phone"> · {{ m.phone }}</text></text>
         </view>
-        <text class="link warn-link" @tap="onResetPwd(m)">重置密码</text>
+        <text class="link warn-link" @tap="onResetPwd(m)">{{ $t('platformTenantsDetail.resetPwd') }}</text>
         <switch :checked="m.enabled" color="#4f8cff" @change="onToggleAdmin(m, $event)" />
       </view>
-      <view v-if="!admins.length" class="empty">暂无管理员</view>
+      <view v-if="!admins.length" class="empty">{{ $t('platformTenantsDetail.emptyAdmin') }}</view>
     </view>
 
     <!-- 角色 Tab -->
     <view v-else class="card">
       <view class="row head">
-        <text class="title">角色</text>
-        <text class="head-btn" @tap="onAddRole">＋新建角色</text>
+        <text class="title">{{ $t('platformTenantsDetail.roleTitle') }}</text>
+        <text class="head-btn" @tap="onAddRole">{{ $t('platformTenantsDetail.addRole') }}</text>
       </view>
       <view class="item col" v-for="r in roles" :key="r.id">
         <view class="row between">
           <text class="name">{{ r.description || r.code }}</text>
-          <text class="link" @tap="onEditRole(r)">权限 ›</text>
+          <text class="link" @tap="onEditRole(r)">{{ $t('platformTenantsDetail.permLink') }}</text>
         </view>
-        <text class="sub">{{ r.code }} · {{ (r.permissions || []).length }} 项权限</text>
+        <text class="sub">{{ r.code }} · {{ (r.permissions || []).length }} {{ $t('platformTenantsDetail.permCount') }}</text>
       </view>
-      <view v-if="!roles.length" class="empty">暂无角色</view>
+      <view v-if="!roles.length" class="empty">{{ $t('platformTenantsDetail.emptyRole') }}</view>
     </view>
   </view>
 
   <!-- 添加管理员表单弹层 -->
   <view class="mask" v-if="showAdd" @tap="showAdd = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">添加管理员</text>
+      <text class="pop-title">{{ $t('platformTenantsDetail.addAdminTitle') }}</text>
       <view class="mode-tabs">
-        <text class="mode-tab" :class="{ on: addMode === 'create' }" @tap="switchMode('create')">新建账号</text>
-        <text class="mode-tab" :class="{ on: addMode === 'link' }" @tap="switchMode('link')">关联已有</text>
+        <text class="mode-tab" :class="{ on: addMode === 'create' }" @tap="switchMode('create')">{{ $t('platformTenantsDetail.modeCreate') }}</text>
+        <text class="mode-tab" :class="{ on: addMode === 'link' }" @tap="switchMode('link')">{{ $t('platformTenantsDetail.modeLink') }}</text>
       </view>
 
       <!-- 新建账号模式 -->
       <template v-if="addMode === 'create'">
-        <view class="field"><text class="label">邮箱 <text class="req">*</text></text><input class="input" v-model="addForm.emailAddress" placeholder="必填（全局唯一）" /></view>
-        <view class="field"><text class="label">显示姓名</text><input class="input" v-model="addForm.displayName" placeholder="选填" /></view>
-        <view class="field"><text class="label">手机号</text><input class="input" v-model="addForm.phone" placeholder="选填" /></view>
+        <view class="field"><text class="label">{{ $t('platformTenantsDetail.emailLabel') }} <text class="req">*</text></text><input class="input" v-model="addForm.emailAddress" :placeholder="$t('platformTenantsDetail.emailPh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformTenantsDetail.displayNameLabel') }}</text><input class="input" v-model="addForm.displayName" :placeholder="$t('platformTenantsDetail.optionalPh')" /></view>
+        <view class="field"><text class="label">{{ $t('platformTenantsDetail.phoneLabel') }}</text><input class="input" v-model="addForm.phone" :placeholder="$t('platformTenantsDetail.optionalPh')" /></view>
       </template>
 
       <!-- 关联已有账号模式 -->
       <template v-else>
         <view class="field">
-          <text class="label">搜索账号</text>
+          <text class="label">{{ $t('platformTenantsDetail.searchAccount') }}</text>
           <view class="search-row">
-            <input class="input link-search" v-model="linkKeyword" placeholder="邮箱或姓名" />
-            <button class="btn link-btn" @tap="doSearch">搜索</button>
+            <input class="input link-search" v-model="linkKeyword" :placeholder="$t('platformTenantsDetail.searchPh')" />
+            <button class="btn link-btn" @tap="doSearch">{{ $t('platformTenantsDetail.search') }}</button>
           </view>
         </view>
         <view class="field">
-          <text class="label">候选账号</text>
-          <view v-if="searched && !candidates.length" class="empty hint">未找到可关联的账号，可切回「新建账号」</view>
+          <text class="label">{{ $t('platformTenantsDetail.candidate') }}</text>
+          <view v-if="searched && !candidates.length" class="empty hint">{{ $t('platformTenantsDetail.noCandidate') }}</view>
           <view class="cand-list" v-if="candidates.length">
             <view
               class="cand-item" :class="{ on: selectedAdminId === c.id }"
@@ -106,9 +106,9 @@
             >
               <view class="cand-info">
                 <text class="name">{{ c.displayName || c.emailAddress }}</text>
-                <text class="sub">{{ c.emailAddress }} · 已关联 {{ c.linkedCount }} 个租户</text>
+                <text class="sub">{{ c.emailAddress }} · {{ $t('platformTenantsDetail.linkedCount').replace('{n}', c.linkedCount) }}</text>
               </view>
-              <text class="cand-tag" v-if="c.alreadyLinked">已在本租户</text>
+              <text class="cand-tag" v-if="c.alreadyLinked">{{ $t('platformTenantsDetail.alreadyLinked') }}</text>
               <text class="check" :class="{ on: selectedAdminId === c.id }">{{ selectedAdminId === c.id ? '✓' : '' }}</text>
             </view>
           </view>
@@ -116,16 +116,16 @@
       </template>
 
       <view class="field">
-        <text class="label">角色</text>
+        <text class="label">{{ $t('platformTenantsDetail.roleLabel') }}</text>
         <view class="pick-trigger" @tap="showRolePick = true">
-          <text v-if="!selectedRoleNames.length" class="ph">请选择角色</text>
+          <text v-if="!selectedRoleNames.length" class="ph">{{ $t('platformTenantsDetail.selectRolePh') }}</text>
           <view v-else class="pick-tags"><text v-for="n in selectedRoleNames" :key="n" class="pick-tag">{{ n }}</text></view>
           <text class="arrow">▾</text>
         </view>
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showAdd = false">取消</button>
-        <button class="btn" @tap="submitAdd">{{ addMode === 'link' ? '关联' : '添加' }}</button>
+        <button class="btn ghost" @tap="showAdd = false">{{ $t('platformTenantsDetail.cancel') }}</button>
+        <button class="btn" @tap="submitAdd">{{ addMode === 'link' ? $t('platformTenantsDetail.linkBtn') : $t('platformTenantsDetail.addBtn') }}</button>
       </view>
     </view>
   </view>
@@ -133,22 +133,22 @@
   <!-- 角色多选弹层 -->
   <view class="mask" v-if="showRolePick" @tap="showRolePick = false">
     <view class="pop" @tap.stop>
-      <text class="pop-title">选择角色</text>
+      <text class="pop-title">{{ $t('platformTenantsDetail.selectRoleTitle') }}</text>
       <view class="pick-list">
         <view v-for="r in roles" :key="r.id" class="pick-item" @tap="toggleRole(r.id)">
           <text class="pick-item-name" :class="{ on: addForm.roleIds.includes(r.id) }">{{ r.description || r.code }}</text>
           <text class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
-        <view v-if="!roles.length" class="empty">暂无角色，请先在「角色」Tab 创建</view>
+        <view v-if="!roles.length" class="empty">{{ $t('platformTenantsDetail.noRolePick') }}</view>
       </view>
       <view class="actions">
-        <button class="btn ghost" @tap="showRolePick = false">取消</button>
-        <button class="btn" @tap="showRolePick = false">确定</button>
+        <button class="btn ghost" @tap="showRolePick = false">{{ $t('platformTenantsDetail.cancel') }}</button>
+        <button class="btn" @tap="showRolePick = false">{{ $t('platformTenantsDetail.confirm') }}</button>
       </view>
     </view>
   </view>
 
-  <PasswordPopup v-if="pwdPop" :title="'初始口令（仅显示一次）'" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
+  <PasswordPopup v-if="pwdPop" :title="$t('platformTenantsDetail.initialPassword')" :account="pwdInfo.account" :password="pwdInfo.password" @close="pwdPop = false" />
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
@@ -163,6 +163,9 @@ import {
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const channelId = ref('');
 const tab = ref<'admin' | 'role'>('admin');
@@ -189,7 +192,7 @@ async function loadTenant() {
     tenantCode.value = t.code;
     tenantNo.value = t.tenantNo ?? null;
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '加载租户信息失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
   }
 }
 async function loadAdminAndRoles() {
@@ -205,12 +208,12 @@ async function loadRoles() {
 // 保存租户名（改名）
 async function saveName() {
   const name = tenantName.value.trim();
-  if (!name) { uni.showToast({ title: '店铺名称不能为空', icon: 'none' }); return; }
+  if (!name) { uni.showToast({ title: locale.t('platformTenantsDetail.requireShopName'), icon: 'none' }); return; }
   try {
     await updateTenant(channelId.value, { name });
-    uni.showToast({ title: '名称已更新', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTenantsDetail.nameUpdated'), icon: 'none' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
   }
 }
 
@@ -218,31 +221,31 @@ async function saveName() {
 async function saveDomain() {
   const domain = tenantDomain.value.trim();
   if (domain && /^https?:\/\//i.test(domain)) {
-    uni.showToast({ title: '请勿包含 http(s):// 前缀', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTenantsDetail.domainPrefix'), icon: 'none' });
     return;
   }
   try {
     await updateTenant(channelId.value, { domain: domain || undefined });
-    uni.showToast({ title: '域名已更新', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTenantsDetail.domainUpdated'), icon: 'none' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
   }
 }
 
 // 重置管理员密码为默认口令 you123123
 function onResetPwd(m: TenantMemberItem) {
   uni.showModal({
-    title: '重置密码',
-    content: `确定将 ${m.displayName || m.administratorId} 的登录密码重置为 you123123 吗？`,
-    confirmText: '重置',
+    title: locale.t('platformTenantsDetail.resetTitle'),
+    content: locale.t('platformTenantsDetail.resetContent').replace('{name}', m.displayName || m.administratorId),
+    confirmText: locale.t('platformTenantsDetail.resetBtn'),
     confirmColor: '#e64340',
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await resetTenantAdministratorPassword(m.id);
-        uni.showToast({ title: '已重置为 you123123', icon: 'none' });
+        uni.showToast({ title: locale.t('platformTenantsDetail.resetDone'), icon: 'none' });
       } catch (err: any) {
-        uni.showToast({ title: graphQlErrorMsg(err, '重置失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.resetFailed')), icon: 'none' });
       }
     },
   });
@@ -293,19 +296,19 @@ function toggleRole(id: string) {
 }
 async function doSearch() {
   const kw = linkKeyword.value.trim();
-  if (!kw) { uni.showToast({ title: '请输入邮箱或姓名', icon: 'none' }); return; }
+  if (!kw) { uni.showToast({ title: locale.t('platformTenantsDetail.searchRequired'), icon: 'none' }); return; }
   try {
     candidates.value = await searchTenantAdmins(channelId.value, kw);
     searched.value = true;
     selectedAdminId.value = '';
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '搜索失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.searchFailed')), icon: 'none' });
   }
 }
 async function submitAdd() {
   if (addMode.value === 'link') return submitLink();
   const email = addForm.value.emailAddress.trim();
-  if (!email) { uni.showToast({ title: '邮箱必填', icon: 'none' }); return; }
+  if (!email) { uni.showToast({ title: locale.t('platformTenantsDetail.emailRequired'), icon: 'none' }); return; }
   try {
     // 不传密码：后端生成随机强口令并标记首次登录强制改密，initialPassword 仅本次返回展示一次
     const pwd = await createTenantAdministrator(channelId.value, {
@@ -319,16 +322,16 @@ async function submitAdd() {
       pwdInfo.value = { account: email, password: pwd };
       pwdPop.value = true;
     } else {
-      uni.showToast({ title: '已添加', icon: 'none' });
+      uni.showToast({ title: locale.t('platformTenantsDetail.added'), icon: 'none' });
     }
     loadAdminAndRoles();
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '添加失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.addFailed')), icon: 'none' });
   }
 }
 async function submitLink() {
-  if (!selectedAdminId.value) { uni.showToast({ title: '请选择要关联的账号', icon: 'none' }); return; }
-  if (!addForm.value.roleIds.length) { uni.showToast({ title: '请选择角色', icon: 'none' }); return; }
+  if (!selectedAdminId.value) { uni.showToast({ title: locale.t('platformTenantsDetail.selectLink'), icon: 'none' }); return; }
+  if (!addForm.value.roleIds.length) { uni.showToast({ title: locale.t('platformTenantsDetail.selectRole'), icon: 'none' }); return; }
   try {
     await linkTenantMember(channelId.value, {
       administratorId: selectedAdminId.value,
@@ -338,29 +341,29 @@ async function submitLink() {
       remark: undefined,
     });
     showAdd.value = false;
-    uni.showToast({ title: '已关联', icon: 'none' });
+    uni.showToast({ title: locale.t('platformTenantsDetail.linked'), icon: 'none' });
     loadAdminAndRoles();
   } catch (err: any) {
     if (/ALREADY_IN_CHANNEL/.test(graphQlErrorMsg(err, ''))) {
-      uni.showToast({ title: '该账号已在本租户', icon: 'none' });
+      uni.showToast({ title: locale.t('platformTenantsDetail.alreadyInTenant'), icon: 'none' });
     } else {
-      uni.showToast({ title: graphQlErrorMsg(err, '关联失败'), icon: 'none' });
+      uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.linkFailed')), icon: 'none' });
     }
   }
 }
 
 function onToggleAdmin(m: TenantMemberItem, e: any) {
   uni.showModal({
-    title: e.detail.value ? '启用人员' : '停用人员',
-    content: `确定${e.detail.value ? '启用' : '停用'}该管理员？`,
+    title: e.detail.value ? locale.t('platformTenantsDetail.enableTitle') : locale.t('platformTenantsDetail.disableTitle'),
+    content: locale.t('platformTenantsDetail.toggleContent').replace('{action}', locale.t(e.detail.value ? 'platformTenantsDetail.enableAction' : 'platformTenantsDetail.disableAction')),
     success: async (r) => {
       if (!r.confirm) return loadAdmins();
       try {
         await setTenantAdministratorEnabled(m.id, e.detail.value as boolean);
         m.enabled = e.detail.value as boolean;
-        uni.showToast({ title: '已更新', icon: 'none' });
+        uni.showToast({ title: locale.t('platformTenantsDetail.updated'), icon: 'none' });
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('platformTenantsDetail.opFailed'), icon: 'none' });
         loadAdmins();
       }
     },
@@ -368,17 +371,17 @@ function onToggleAdmin(m: TenantMemberItem, e: any) {
 }
 function onClearProducts() {
   uni.showModal({
-    title: '清空商品（从头开始）',
-    content: `确定清空该租户名下全部商品？此操作会使这些商品在前端不可见（软删），且不可恢复。`,
-    confirmText: '清空',
+    title: locale.t('platformTenantsDetail.clearConfirmTitle'),
+    content: locale.t('platformTenantsDetail.clearConfirmContent'),
+    confirmText: locale.t('platformTenantsDetail.clearBtnConfirm'),
     confirmColor: '#e64340',
     success: async (r) => {
       if (!r.confirm) return;
       try {
         const n = await clearTenantProducts(channelId.value);
-        uni.showToast({ title: `已清空商品 ${n} 件`, icon: 'none' });
+        uni.showToast({ title: locale.t('platformTenantsDetail.clearedProducts').replace('{n}', n), icon: 'none' });
       } catch (err: any) {
-        uni.showToast({ title: graphQlErrorMsg(err, '清空失败'), icon: 'none' });
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.clearFailed')), icon: 'none' });
       }
     },
   });

@@ -1,12 +1,12 @@
 <template>
   <view class="page">
     <view class="seg">
-      <view class="seg-item" :class="{ on: tab === 'pending' }" @tap="switchTab('pending')">待审</view>
-      <view class="seg-item" :class="{ on: tab === 'approved' }" @tap="switchTab('approved')">已过审</view>
+      <view class="seg-item" :class="{ on: tab === 'pending' }" @tap="switchTab('pending')">{{ $t('platformProductApproval.tabPending') }}</view>
+      <view class="seg-item" :class="{ on: tab === 'approved' }" @tap="switchTab('approved')">{{ $t('platformProductApproval.tabApproved') }}</view>
     </view>
 
     <view class="head-row">
-      <text class="head-title">{{ tab === 'pending' ? '待审商品' : '已过审商品' }}</text>
+      <text class="head-title">{{ tab === 'pending' ? $t('platformProductApproval.pendingTitle') : $t('platformProductApproval.approvedTitle') }}</text>
       <text class="head-ops">{{ tab === 'pending' ? vendors : approvedCount }}</text>
     </view>
 
@@ -20,21 +20,21 @@
           <text class="badge">{{ badgeText(p.marketplaceStatus) }}</text>
         </view>
         <view class="reject" v-if="p.marketplaceStatus === 'rejected' && p.rejectReason">
-          驳回原因：{{ p.rejectReason }}
+          {{ $t('platformProductApproval.rejectReason').replace('{reason}', p.rejectReason) }}
         </view>
         <view class="meta-row">
-          <text class="tl">平台分类</text>
+          <text class="tl">{{ $t('platformProductApproval.platformCategory') }}</text>
           <text class="cat" :class="{ todo: !p.platformCategoryId }">
-            {{ p.platformCategoryId ? catName(p.platformCategoryId) : '待归类' }}
+            {{ p.platformCategoryId ? catName(p.platformCategoryId) : $t('platformProductApproval.pendingClassify') }}
           </text>
         </view>
         <view class="row foot">
-          <text class="btn danger" @tap="onReject(p)">驳回</text>
-          <text class="btn primary" @tap="onPickCategory(p)">设置分类</text>
-          <text class="btn success" @tap="onApprove(p)">通过</text>
+          <text class="btn danger" @tap="onReject(p)">{{ $t('platformProductApproval.reject') }}</text>
+          <text class="btn primary" @tap="onPickCategory(p)">{{ $t('platformProductApproval.setCategory') }}</text>
+          <text class="btn success" @tap="onApprove(p)">{{ $t('platformProductApproval.approve') }}</text>
         </view>
       </view>
-      <view v-if="!products.length" class="empty">暂无待审商品</view>
+      <view v-if="!products.length" class="empty">{{ $t('platformProductApproval.emptyPending') }}</view>
     </template>
 
     <!-- 已过审：产品名称一行 + 状态 + 平台分类(或待归类) + 设置分类 -->
@@ -42,23 +42,23 @@
       <view class="card" v-for="p in approved" :key="p.id">
         <view class="row head">
           <view class="lt">
-            <text class="tl">产品名称</text>
+            <text class="tl">{{ $t('platformProductApproval.productName') }}</text>
             <text class="title">{{ p.name }}</text>
           </view>
-          <text class="badge good">已通过</text>
+          <text class="badge good">{{ $t('platformProductApproval.approvedBadge') }}</text>
         </view>
         <view class="meta-row">
-          <text class="tl">平台分类</text>
+          <text class="tl">{{ $t('platformProductApproval.platformCategory') }}</text>
           <text class="cat" :class="{ todo: !p.platformCategoryId }">
-            {{ p.platformCategoryId ? catName(p.platformCategoryId) : '待归类' }}
+            {{ p.platformCategoryId ? catName(p.platformCategoryId) : $t('platformProductApproval.pendingClassify') }}
           </text>
         </view>
         <view class="row foot">
-          <text class="btn plain" v-if="p.platformCategoryId" @tap="onClearCategory(p)">清除归类</text>
-          <text class="btn primary" @tap="onPickCategory(p)">设置分类</text>
+          <text class="btn plain" v-if="p.platformCategoryId" @tap="onClearCategory(p)">{{ $t('platformProductApproval.clearCategory') }}</text>
+          <text class="btn primary" @tap="onPickCategory(p)">{{ $t('platformProductApproval.setCategory') }}</text>
         </view>
       </view>
-      <view v-if="!approved.length" class="empty">暂无已过审商品</view>
+      <view v-if="!approved.length" class="empty">{{ $t('platformProductApproval.emptyApproved') }}</view>
     </template>
   </view>
 </template>
@@ -75,6 +75,9 @@ import {
   type ApprovedItem,
 } from '@/apis/marketplace';
 import { fetchPlatformCollections, buildCollectionTree } from '@/apis/collection';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const tab = ref<'pending' | 'approved'>('pending');
 const products = ref<MarketplaceApprovalItem[]>([]);
@@ -104,7 +107,7 @@ async function load() {
       collTree.value = c;
     }
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('platformProductApproval.loadFailed'), icon: 'none' });
   }
 }
 
@@ -124,26 +127,26 @@ function catName(id: string): string {
 }
 
 function badgeText(status: string | null) {
-  if (status === 'rejected') return '已驳回';
-  return '待审';
+  if (status === 'rejected') return locale.t('platformProductApproval.badgeRejected');
+  return locale.t('platformProductApproval.tabPending');
 }
 
 function onApprove(p: MarketplaceApprovalItem) {
   if (!p.platformCategoryId) {
-    uni.showToast({ title: '请先设置平台分类', icon: 'none' });
+    uni.showToast({ title: locale.t('platformProductApproval.needCategory'), icon: 'none' });
     return;
   }
   uni.showModal({
-    title: '通过',
-    content: `确定通过「${p.name}」的上架审批？`,
+    title: locale.t('platformProductApproval.approveTitle'),
+    content: locale.t('platformProductApproval.approveContent').replace('{name}', p.name),
     success: async (r: any) => {
       if (!r.confirm) return;
       try {
         await approveProduct(p.id);
-        uni.showToast({ title: '已通过', icon: 'success' });
+        uni.showToast({ title: locale.t('platformProductApproval.approvedToast'), icon: 'success' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('platformProductApproval.opFailed'), icon: 'none' });
       }
     },
   });
@@ -151,22 +154,22 @@ function onApprove(p: MarketplaceApprovalItem) {
 
 function onReject(p: MarketplaceApprovalItem) {
   uni.showModal({
-    title: '驳回',
+    title: locale.t('platformProductApproval.rejectTitle'),
     editable: true,
-    placeholderText: '请输入驳回原因（必填）',
+    placeholderText: locale.t('platformProductApproval.rejectPh'),
     success: async (r: any) => {
       if (!r.confirm) return;
       const reason = (r.content || '').trim();
       if (!reason) {
-        uni.showToast({ title: '请输入驳回原因', icon: 'none' });
+        uni.showToast({ title: locale.t('platformProductApproval.rejectNeedReason'), icon: 'none' });
         return;
       }
       try {
         await rejectProduct(p.id, reason);
-        uni.showToast({ title: '已驳回', icon: 'success' });
+        uni.showToast({ title: locale.t('platformProductApproval.rejectedToast'), icon: 'success' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('platformProductApproval.opFailed'), icon: 'none' });
       }
     },
   });
@@ -174,7 +177,7 @@ function onReject(p: MarketplaceApprovalItem) {
 
 function onPickCategory(p: { id: string }) {
   if (!collTree.value.length) {
-    uni.showToast({ title: '暂无平台分类可选', icon: 'none' });
+    uni.showToast({ title: locale.t('platformProductApproval.noCategory'), icon: 'none' });
     return;
   }
   uni.showActionSheet({
@@ -184,10 +187,10 @@ function onPickCategory(p: { id: string }) {
       if (!c) return;
       try {
         await setProductPlatformCategory(p.id, String(c.id));
-        uni.showToast({ title: '已归类', icon: 'success' });
+        uni.showToast({ title: locale.t('platformProductApproval.categorized'), icon: 'success' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '设置失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('platformProductApproval.setFailed'), icon: 'none' });
       }
     },
   });
@@ -195,16 +198,16 @@ function onPickCategory(p: { id: string }) {
 
 function onClearCategory(p: ApprovedItem) {
   uni.showModal({
-    title: '清除归类',
-    content: `确定将「${p.name}」置为待归类？`,
+    title: locale.t('platformProductApproval.clearTitle'),
+    content: locale.t('platformProductApproval.clearContent').replace('{name}', p.name),
     success: async (r: any) => {
       if (!r.confirm) return;
       try {
         await setProductPlatformCategory(p.id, '');
-        uni.showToast({ title: '已置待归类', icon: 'success' });
+        uni.showToast({ title: locale.t('platformProductApproval.cleared'), icon: 'success' });
         load();
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('platformProductApproval.opFailed'), icon: 'none' });
       }
     },
   });
