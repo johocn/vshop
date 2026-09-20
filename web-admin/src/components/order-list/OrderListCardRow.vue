@@ -24,10 +24,10 @@
       <text class="total">¥{{ fmtMoney(o.total) }}</text>
     </view>
     <view class="actions">
-      <text v-if="isShippable(o.state)" class="act ship" @tap="emit('ship', o)">发货</text>
-      <text v-if="redeemable" class="act redeem" @tap="emit('redeem', o)">去核销</text>
-      <text v-if="isUnpaid(o.state)" class="act remind" @tap="emit('remind', o)">催付</text>
-      <text class="act ghost" @tap="emit('detail', o)">详情</text>
+      <text v-if="isShippable(o.state)" class="act ship" @tap="emit('ship', o)">{{ $t('orderListComp.actions.ship') }}</text>
+      <text v-if="redeemable" class="act redeem" @tap="emit('redeem', o)">{{ $t('orderListComp.actions.goRedeem') }}</text>
+      <text v-if="isUnpaid(o.state)" class="act remind" @tap="emit('remind', o)">{{ $t('orderListComp.actions.remind') }}</text>
+      <text class="act ghost" @tap="emit('detail', o)">{{ $t('orderListComp.actions.detail') }}</text>
     </view>
   </view>
 </template>
@@ -36,9 +36,11 @@
 import { computed } from 'vue';
 import { OrderView, fmtMoney, shipColor, isShippable, isUnpaid } from '../../utils/orderFormat';
 import { ORDER_STATES, stateLabel } from '../../constants/orderState';
+import { useLocaleStore } from '../../stores/localeStore';
 
 // 手机卡片行，自原页面 card-list 块原样迁移；blocks 控制：showAddress/showDeliveryName/stateColors/groupByState/stateColumnFirst
 // 分组容器由 Renderer 包裹，本组件只渲染单行（groupByState 时仅行样式适配容器）
+const locale = useLocaleStore();
 const props = withDefaults(
   defineProps<{
     o: OrderView;
@@ -71,7 +73,7 @@ function fmtTime(t: string): string {
 }
 function copyCode(code: string) {
   if (!code) return;
-  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '订单号已复制', icon: 'none' }) });
+  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: locale.t('orderListComp.copied'), icon: 'none' }) });
 }
 </script>
 

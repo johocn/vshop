@@ -24,7 +24,7 @@
         <view v-for="g in grouped" :key="g.state" class="card-group">
           <view class="group-head">
             <text class="g-label" :style="{ color: stColor(g.state) }">{{ g.label }}</text>
-            <text class="g-sub">{{ g.orders.length }} 单 · ¥{{ fmtMoney(g.total) }}</text>
+            <text class="g-sub">{{ g.orders.length }} {{ $t('dataDashboard.orderUnit') }} · ¥{{ fmtMoney(g.total) }}</text>
           </view>
           <OrderListCardRow
             v-for="o in g.orders"
@@ -115,9 +115,9 @@
       @perpage="emit('perpage', $event)"
     />
 
-    <view v-if="!views.length && !loading" class="empty">暂无订单</view>
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-if="loadingMore" class="empty">加载更多…</view>
+    <view v-if="!views.length && !loading" class="empty">{{ $t('orderListComp.empty') }}</view>
+    <view v-if="loading" class="empty">{{ $t('orderListComp.loading') }}</view>
+    <view v-if="loadingMore" class="empty">{{ $t('orderListComp.loadingMore') }}</view>
     <BottomBar current="order" />
   </view>
 </template>

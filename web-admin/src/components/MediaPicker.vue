@@ -14,7 +14,7 @@
       <view class="mp__add" @tap="open_visible = true">
         <text class="mp__add-plus">＋</text>
         <text class="mp__add-text">{{ triggerText }}</text>
-        <text class="mp__add-count">已选 {{ selectedIds.length }}/{{ max }}</text>
+        <text class="mp__add-count">{{ $t('mediaPicker.selectedCount').replace('{count}', selectedIds.length).replace('{max}', max) }}</text>
       </view>
     </view>
 
@@ -31,7 +31,10 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { fetchAssets, type AssetItem } from '../apis/asset';
+import { useLocaleStore } from '../stores/localeStore';
 import MediaLibraryModal from './MediaLibraryModal.vue';
+
+const locale = useLocaleStore();
 
 const props = withDefaults(
   defineProps<{ max?: number; value?: string[]; mediaType?: 'image' | 'video' | 'mixed' }>(),
@@ -53,9 +56,9 @@ function syncSelected() {
 syncSelected();
 
 const triggerText = computed(() => {
-  if (props.mediaType === 'video') return '添加视频';
-  if (props.mediaType === 'mixed') return '添加图片/视频';
-  return '添加图片';
+  if (props.mediaType === 'video') return locale.t('mediaPicker.addVideo');
+  if (props.mediaType === 'mixed') return locale.t('mediaPicker.addMixed');
+  return locale.t('mediaPicker.addImage');
 });
 
 const selectedDocs = computed<AssetItem[]>(() => {

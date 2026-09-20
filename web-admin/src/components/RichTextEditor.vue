@@ -6,8 +6,8 @@
         v-for="m in ['visual','html']" :key="m"
         class="rte__mode-btn" :class="{ on: mode === m }"
         @click="mode = m"
-      >{{ m === 'visual' ? '可视化' : 'HTML' }}</view>
-      <view class="rte__library" @click="openLibrary('mixed')">媒体库</view>
+      >{{ m === 'visual' ? $t('richTextEditor.visual') : $t('richTextEditor.html') }}</view>
+      <view class="rte__library" @click="openLibrary('mixed')">{{ $t('richTextEditor.library') }}</view>
     </view>
     <!-- 可视化模式：wangEditor 挂载点 -->
     <view v-if="mode === 'visual'">
@@ -30,6 +30,7 @@
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { createEditor, createToolbar } from '@wangeditor/editor';
 import '@wangeditor/editor/dist/css/style.css';
+import { useLocaleStore } from '../stores/localeStore';
 import MediaLibraryModal from './MediaLibraryModal.vue';
 import type { AssetItem } from '../apis/asset';
 
@@ -118,7 +119,7 @@ function initEditor(html = props.modelValue || '') {
     selector: '#' + editorId,
     html,
     config: {
-      placeholder: '请输入商品描述…',
+      placeholder: useLocaleStore().t('richTextEditor.placeholder'),
     },
     mode: 'default',
   });

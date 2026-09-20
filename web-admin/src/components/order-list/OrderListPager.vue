@@ -1,8 +1,8 @@
 <template>
   <view class="pgbar">
-    <text class="pg-btn" :class="{ dis: page <= 1 }" @tap="emit('page', -1)">上一页</text>
-    <text class="pg-info">第 {{ page }} / {{ pages }} 页 · 共 {{ totalItems }} 单</text>
-    <text class="pg-btn" :class="{ dis: page >= pages }" @tap="emit('page', 1)">下一页</text>
+    <text class="pg-btn" :class="{ dis: page <= 1 }" @tap="emit('page', -1)">{{ $t('orderListComp.pager.prev') }}</text>
+    <text class="pg-info">{{ $t('orderListComp.pager.info').replace('{page}', page).replace('{pages}', pages).replace('{total}', totalItems) }}</text>
+    <text class="pg-btn" :class="{ dis: page >= pages }" @tap="emit('page', 1)">{{ $t('orderListComp.pager.next') }}</text>
     <text class="pg-size" v-for="n in [20, 50, 100]" :key="n" :class="{ on: perPage === n }" @tap="emit('perpage', n)">{{ n }}</text>
   </view>
 </template>

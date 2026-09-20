@@ -1695,5 +1695,109 @@
     "toastLoadFailed": "Failed to load assets",
     "toastNoLink": "No links",
     "toastCopied": "URLs copied"
+  },
+  "orderListComp": {
+    "head": {
+      "today": "Today's Orders",
+      "refundPending": "Refund Pending",
+      "redeemCode": "Redeem Code"
+    },
+    "empty": "No orders",
+    "loading": "Loading…",
+    "loadingMore": "Load More…",
+    "search": {
+      "searchPlaceholder": "Order No. / Customer / Phone / Product",
+      "search": "Search",
+      "delivery": "Delivery",
+      "date": "Time",
+      "clear": "Clear"
+    },
+    "pager": {
+      "prev": "Prev",
+      "next": "Next",
+      "info": "Page {page} / {pages} · {total} orders"
+    },
+    "table": {
+      "thOrder": "Order No.",
+      "thGoods": "Items",
+      "thRecipient": "Recipient / Phone",
+      "thAddress": "Address",
+      "thDelivery": "Shipping",
+      "thPaid": "Paid",
+      "thTime": "Order Time",
+      "thState": "Status",
+      "thOps": "Actions"
+    },
+    "actions": {
+      "ship": "Ship",
+      "goRedeem": "Redeem",
+      "remind": "Remind",
+      "detail": "Details"
+    },
+    "copied": "Order no. copied"
+  },
+  "mediaLibraryModal": {
+    "title": "Media Library",
+    "upload": "Upload",
+    "searchPlaceholder": "Search file name / tag code",
+    "all": "All",
+    "refreshing": "Refreshing…",
+    "releaseRefresh": "Release to refresh",
+    "pullRefresh": "Pull to refresh",
+    "uploading": "Uploading…",
+    "loading": "Loading…",
+    "loadMore": "Pull up to load more",
+    "emptyTag": "No images for \"{tag}\"",
+    "emptyGroup": "No assets available in this group",
+    "emptyAll": "No assets available in the library",
+    "noMore": "No more",
+    "selectedCount": "{count}/{max} selected",
+    "tag": "Tag",
+    "confirm": "OK",
+    "tagTitle": "Tag {n} selected images",
+    "tagExists": "Added",
+    "tagInputPlaceholder": "Enter a new tag code, press Enter to add",
+    "add": "Add",
+    "clear": "Clear",
+    "tagCount": "{n} tags selected",
+    "tagConfirm": "Confirm",
+    "groups": {
+      "product": "Product",
+      "rich": "Rich Media",
+      "marketing": "Marketing",
+      "shop": "Shop",
+      "qual": "Certifications",
+      "common": "General",
+      "custom": "Custom"
+    },
+    "maxLimit": "Select up to {n}",
+    "selectFirst": "Please select images first",
+    "delTitle": "Delete Asset",
+    "delContent": "Delete this asset? The media file will also be removed. If it is referenced by products/pickup points, those places will no longer display.",
+    "deleted": "Deleted",
+    "deleteFailed": "Delete failed",
+    "uploadFailed": "Upload failed",
+    "tagged": "Tagged",
+    "tagFailed": "Tag failed"
+  },
+  "mediaPicker": {
+    "addImage": "Add Image",
+    "addVideo": "Add Video",
+    "addMixed": "Add Image/Video",
+    "selectedCount": "{count}/{max} selected"
+  },
+  "richTextEditor": {
+    "visual": "Visual",
+    "html": "HTML",
+    "library": "Media Library",
+    "placeholder": "Enter product description…"
+  },
+  "passwordPopup": {
+    "account": "Account",
+    "initialPwd": "Initial Password",
+    "tip": "Shown only once, copy and forward to the owner; password change is required after first login.",
+    "copyBtn": "Copy Password",
+    "done": "I've copied it",
+    "copied": "Password copied"
   }
 }

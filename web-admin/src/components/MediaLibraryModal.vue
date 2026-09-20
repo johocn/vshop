@@ -2,9 +2,9 @@
   <view v-show="visible" class="mlm__overlay" @tap="onClose">
     <view class="mlm__panel" @tap.stop>
       <view class="mlm__header">
-        <text class="mlm__title">媒体库</text>
+        <text class="mlm__title">{{ $t('mediaLibraryModal.title') }}</text>
         <view class="mlm__header-actions">
-          <view class="mlm__upload" @tap="chooseAndUpload">上传</view>
+          <view class="mlm__upload" @tap="chooseAndUpload">{{ $t('mediaLibraryModal.upload') }}</view>
           <text class="mlm__refresh" @tap="refresh">⟳</text>
           <text class="mlm__close" @tap="onClose">×</text>
         </view>
@@ -14,7 +14,7 @@
         <input
           v-model="searchKeyword"
           class="mlm__search-input"
-          placeholder="搜索文件名 / 分类码"
+          :placeholder="$t('mediaLibraryModal.searchPlaceholder')"
           confirm-type="search"
           @confirm="doSearch"
         />
@@ -24,7 +24,7 @@
       <!-- 主分类一行（紧凑）+ 子分类（仅展开组显示，从左到右换行） -->
       <view class="mlm__filters">
         <view class="mlm__group-row">
-          <view class="mlm__chip mlm__chip-main" :class="{ on: !activeGroup && !activeTag }" @tap="selectTag('')">全部</view>
+          <view class="mlm__chip mlm__chip-main" :class="{ on: !activeGroup && !activeTag }" @tap="selectTag('')">{{ $t('mediaLibraryModal.all') }}</view>
           <view
             v-for="g in tagGroups"
             :key="g.key"
@@ -57,7 +57,7 @@
       >
         <view class="mlm__pull-area" :style="{ transform: pullOffset ? `translateY(${pullOffset}px)` : '' }">
           <view v-if="pulling || refreshing" class="mlm__pull-hint" :class="{ releasing: pullOffset >= PULL_THRESHOLD }">
-            {{ refreshing ? '刷新中…' : pullOffset >= PULL_THRESHOLD ? '释放刷新' : '下拉刷新' }}
+            {{ refreshing ? $t('mediaLibraryModal.refreshing') : pullOffset >= PULL_THRESHOLD ? $t('mediaLibraryModal.releaseRefresh') : $t('mediaLibraryModal.pullRefresh') }}
           </view>
           <view class="mlm__grid">
             <view
@@ -88,20 +88,20 @@
               </view>
             </view>
           </view>
-          <view v-if="uploading" class="mlm__tip">上传中…</view>
-          <view v-else-if="loadingMore" class="mlm__tip">加载中…</view>
-          <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">上拉加载更多</view>
-          <view v-else-if="!filteredItems.length" class="mlm__empty">{{ activeTag ? '暂无【' + activeTag + '】图片' : activeGroup ? '该分组下暂无可选资源' : '媒体库暂无可选资源' }}</view>
-          <view v-else class="mlm__tip">没有更多了</view>
+          <view v-if="uploading" class="mlm__tip">{{ $t('mediaLibraryModal.uploading') }}</view>
+          <view v-else-if="loadingMore" class="mlm__tip">{{ $t('mediaLibraryModal.loading') }}</view>
+          <view v-else-if="!loadedAll" class="mlm__tip" @tap="loadMore">{{ $t('mediaLibraryModal.loadMore') }}</view>
+          <view v-else-if="!filteredItems.length" class="mlm__empty">{{ emptyMsg }}</view>
+          <view v-else class="mlm__tip">{{ $t('mediaLibraryModal.noMore') }}</view>
         </view>
       </scroll-view>
 
       <!-- 底部操作条：已选 + 打标 + 确定 -->
       <view class="mlm__footer">
-        <text class="mlm__picked">已选 {{ selected.length }}/{{ max }}</text>
+        <text class="mlm__picked">{{ $t('mediaLibraryModal.selectedCount').replace('{count}', selected.length).replace('{max}', max) }}</text>
         <view class="mlm__footer-actions">
-          <view class="mlm__tag-main" :class="{ disabled: !selected.length }" @tap="openTagPanel">打标</view>
-          <view class="mlm__confirm" @tap="confirm">确定</view>
+          <view class="mlm__tag-main" :class="{ disabled: !selected.length }" @tap="openTagPanel">{{ $t('mediaLibraryModal.tag') }}</view>
+          <view class="mlm__confirm" @tap="confirm">{{ $t('mediaLibraryModal.confirm') }}</view>
         </view>
       </view>
     </view>
@@ -110,7 +110,7 @@
     <view v-if="panelVisible" class="mlm__panel-mask" @tap.stop="closePanel">
       <view class="mlm__tag-panel" @tap.stop>
         <view class="mlm__tag-panel-head">
-          <text class="mlm__tag-panel-title">为已选 {{ selected.length }} 张图片打标</text>
+          <text class="mlm__tag-panel-title">{{ $t('mediaLibraryModal.tagTitle').replace('{n}', selected.length) }}</text>
           <text class="mlm__tag-panel-x" @tap="closePanel">×</text>
         </view>
         <view class="mlm__tag-panel-body">
@@ -123,18 +123,18 @@
                 class="mlm__panel-chip"
                 :class="{ on: selectedTags.includes(t.name) }"
                 @tap="toggleTagOnSelected(t.name)"
-              >{{ t.name }}<text v-if="hasTagOnSelected(t.name)" class="mlm__panel-chip-exists">已有</text></view>
+              >{{ t.name }}<text v-if="hasTagOnSelected(t.name)" class="mlm__panel-chip-exists">{{ $t('mediaLibraryModal.tagExists') }}</text></view>
             </view>
           </view>
           <view class="mlm__panel-add">
-            <input v-model="tagInput" class="mlm__tag-input" placeholder="输入新分类码，回车添加" confirm-type="done" @confirm="addTag" />
-            <view class="mlm__panel-add-btn" @tap="addTag">添加</view>
+            <input v-model="tagInput" class="mlm__tag-input" :placeholder="$t('mediaLibraryModal.tagInputPlaceholder')" confirm-type="done" @confirm="addTag" />
+            <view class="mlm__panel-add-btn" @tap="addTag">{{ $t('mediaLibraryModal.add') }}</view>
           </view>
         </view>
         <view class="mlm__panel-foot">
-          <text class="mlm__panel-clear" @tap="clearPanelTags">清空</text>
-          <text class="mlm__panel-count">已选 {{ selectedTags.length }} 个分类</text>
-          <view class="mlm__panel-confirm" :class="{ disabled: !selectedTags.length }" @tap="confirmTags">确认</view>
+          <text class="mlm__panel-clear" @tap="clearPanelTags">{{ $t('mediaLibraryModal.clear') }}</text>
+          <text class="mlm__panel-count">{{ $t('mediaLibraryModal.tagCount').replace('{n}', selectedTags.length) }}</text>
+          <view class="mlm__panel-confirm" :class="{ disabled: !selectedTags.length }" @tap="confirmTags">{{ $t('mediaLibraryModal.tagConfirm') }}</view>
         </view>
       </view>
     </view>
@@ -151,6 +151,9 @@ import {
   deleteAsset,
   type AssetItem,
 } from '../apis/asset';
+import { useLocaleStore } from '../stores/localeStore';
+
+const locale = useLocaleStore();
 
 /** 分组成员常量（覆盖 PRESET_ASSET_TAGS 全部预设） */
 const TAG_GROUPS = [
@@ -286,7 +289,7 @@ async function loadTags() {
 const tagGroups = computed(() => {
   const groups = TAG_GROUPS.map((g) => ({
     key: g.key,
-    title: g.title,
+    title: locale.t('mediaLibraryModal.groups.' + g.key),
     count: g.tags.reduce((sum, n) => sum + (tagCountMap.value[n] ?? 0), 0),
     tags: g.tags.map((n) => ({ name: n, count: tagCountMap.value[n] ?? 0 })),
   }));
@@ -298,12 +301,19 @@ const tagGroups = computed(() => {
   if (extras.length) {
     groups.push({
       key: 'custom',
-      title: '自定义',
+      title: locale.t('mediaLibraryModal.groups.custom'),
       count: extras.reduce((s, t) => s + t.count, 0),
       tags: extras,
     });
   }
   return groups;
+});
+
+// 空态文案：按当前筛选层级选择对应空态提示
+const emptyMsg = computed(() => {
+  if (activeTag.value) return locale.t('mediaLibraryModal.emptyTag').replace('{tag}', activeTag.value);
+  if (activeGroup.value) return locale.t('mediaLibraryModal.emptyGroup');
+  return locale.t('mediaLibraryModal.emptyAll');
 });
 
 const filteredItems = computed(() => {
@@ -456,7 +466,7 @@ function toggle(it: AssetItem) {
     selected.value = selected.value.filter((x) => x.id !== it.id);
   } else {
     if (selected.value.length >= props.max) {
-      uni.showToast({ title: `最多选择 ${props.max} 个`, icon: 'none' });
+      uni.showToast({ title: locale.t('mediaLibraryModal.maxLimit').replace('{n}', props.max.toString()), icon: 'none' });
       return;
     }
     selected.value.push(it);
@@ -465,8 +475,8 @@ function toggle(it: AssetItem) {
 
 function onDelete(it: AssetItem) {
   uni.showModal({
-    title: '删除资源',
-    content: '确定删除这个资源？将同时删除媒体文件。若该资源正被商品/自提点等引用，删除后相关位置将无法显示。',
+    title: locale.t('mediaLibraryModal.delTitle'),
+    content: locale.t('mediaLibraryModal.delContent'),
     success: async (r) => {
       if (!r.confirm) return;
       try {
@@ -475,9 +485,9 @@ function onDelete(it: AssetItem) {
         allItems.value = allItems.value.filter((x) => x.id !== it.id);
         await load(false);
         await loadTags();
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('mediaLibraryModal.deleted'), icon: 'none' });
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('mediaLibraryModal.deleteFailed'), icon: 'none' });
       }
     },
   });
@@ -546,7 +556,7 @@ function chooseFilesMixedH5(_remain: number): Promise<any[]> {
 async function chooseAndUpload() {
   const remain = props.max - selected.value.length;
   if (remain <= 0) {
-    uni.showToast({ title: `最多选择 ${props.max} 个`, icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibraryModal.maxLimit').replace('{n}', props.max.toString()), icon: 'none' });
     return;
   }
   uploading.value = true;
@@ -560,7 +570,7 @@ async function chooseAndUpload() {
     await load(false);
     await loadTags();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('mediaLibraryModal.uploadFailed'), icon: 'none' });
   } finally {
     uploading.value = false;
   }
@@ -599,7 +609,7 @@ function imageMimeFromPath(path: string): string {
 // ---- 打标面板 ----
 function openTagPanel() {
   if (!selected.value.length) {
-    uni.showToast({ title: '请先选择图片', icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibraryModal.selectFirst'), icon: 'none' });
     return;
   }
   panelVisible.value = true;
@@ -625,9 +635,9 @@ async function confirmTags() {
     selectedTags.value = [];
     await loadTags();
     await load(false);
-    uni.showToast({ title: '已打标', icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibraryModal.tagged'), icon: 'none' });
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '打标失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('mediaLibraryModal.tagFailed'), icon: 'none' });
   } finally {
     tagSaving.value = false;
   }
@@ -635,7 +645,7 @@ async function confirmTags() {
 
 function confirm() {
   if (!selected.value.length) {
-    uni.showToast({ title: '请先选择图片', icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibraryModal.selectFirst'), icon: 'none' });
     return;
   }
   emit('confirm', [...selected.value]);
