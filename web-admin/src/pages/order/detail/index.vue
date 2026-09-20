@@ -4,39 +4,39 @@
       <text class="code">{{ order.code }}</text>
       <text class="st" :style="{ color: stateLabel(ORDER_STATES, order.state).color }">{{ stateLabel(ORDER_STATES, order.state).label }}</text>
       <view class="ops">
-        <button v-if="canShip" class="op main" @tap="goShip">去发货</button>
-        <button v-if="canCancel" class="op" @tap="onCancel">取消订单</button>
-        <button v-if="canRedeem" class="op main" @tap="goRedeem">去核销</button>
-        <button class="op" @tap="noteVisible = true">备注</button>
-        <button v-if="canAdjustPrice" class="op" @tap="openAdjust">改价</button>
+        <button v-if="canShip" class="op main" @tap="goShip">{{ $t('orderAdmin.orderDetail.goShip') }}</button>
+        <button v-if="canCancel" class="op" @tap="onCancel">{{ $t('orderAdmin.orderDetail.cancel') }}</button>
+        <button v-if="canRedeem" class="op main" @tap="goRedeem">{{ $t('orderAdmin.orderDetail.goRedeem') }}</button>
+        <button class="op" @tap="noteVisible = true">{{ $t('orderAdmin.orderDetail.note') }}</button>
+        <button v-if="canAdjustPrice" class="op" @tap="openAdjust">{{ $t('orderAdmin.orderDetail.adjust') }}</button>
       </view>
     </view>
 
     <!-- 收货 / 自提信息 -->
     <view class="card" v-if="isPickup">
-      <text class="sec-title">自提信息</text>
-      <text class="line">{{ isPickupClaimed ? '已提货' : '未核销' }}</text>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.pickupInfo') }}</text>
+      <text class="line">{{ isPickupClaimed ? $t('orderAdmin.orderDetail.claimed') : $t('orderAdmin.orderDetail.notClaimed') }}</text>
       <text class="line" v-if="order.customer">
-        提货人：{{ order.customer.firstName }} {{ order.customer.lastName }} {{ order.customer.phoneNumber || '' }}
+        {{ $t('orderAdmin.orderDetail.pickupPerson') }}：{{ order.customer.firstName }} {{ order.customer.lastName }} {{ order.customer.phoneNumber || '' }}
       </text>
     </view>
     <view class="card" v-else-if="order.shippingAddress">
-      <text class="sec-title">收货信息</text>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.shipInfo') }}</text>
       <text class="line">{{ order.shippingAddress.province }} {{ order.shippingAddress.city }} {{ order.shippingAddress.streetLine1 }}</text>
       <text class="line">{{ order.shippingAddress.fullName }} {{ order.shippingAddress.phoneNumber }}</text>
     </view>
 
     <!-- 金额明细 -->
     <view class="card">
-      <text class="sec-title">金额明细</text>
-      <view class="cell"><text>商品小计</text><text class="val">¥ {{ money(order.subTotalWithTax) }}</text></view>
-      <view class="cell"><text>运费</text><text class="val">¥ {{ money(order.shippingWithTax) }}</text></view>
-      <view class="cell total"><text>实付</text><text class="val danger">¥ {{ money(order.totalWithTax) }}</text></view>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.amountSection') }}</text>
+      <view class="cell"><text>{{ $t('orderAdmin.orderDetail.subTotal') }}</text><text class="val">¥ {{ money(order.subTotalWithTax) }}</text></view>
+      <view class="cell"><text>{{ $t('orderAdmin.orderDetail.shipping') }}</text><text class="val">¥ {{ money(order.shippingWithTax) }}</text></view>
+      <view class="cell total"><text>{{ $t('orderAdmin.orderDetail.paid') }}</text><text class="val danger">¥ {{ money(order.totalWithTax) }}</text></view>
     </view>
 
     <!-- 商品明细 -->
     <view class="card" v-if="order.lines && order.lines.length">
-      <text class="sec-title">商品明细</text>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.itemsSection') }}</text>
       <view class="item" v-for="l in order.lines" :key="l.id">
         <view class="left">
           <text class="name">{{ l.productVariant?.name }}</text>
@@ -48,19 +48,19 @@
 
     <!-- 支付 -->
     <view class="card">
-      <text class="sec-title">支付信息</text>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.paymentSection') }}</text>
       <template v-if="order.payments && order.payments.length">
         <view class="cell" v-for="p in order.payments" :key="p.id">
           <text>{{ p.method }} · {{ p.state }}</text>
           <text class="val">¥ {{ money(p.amount) }}</text>
         </view>
       </template>
-      <text class="line muted" v-else>未支付</text>
+      <text class="line muted" v-else>{{ $t('orderAdmin.orderDetail.notPaid') }}</text>
     </view>
 
     <!-- 物流 -->
     <view class="card">
-      <text class="sec-title">物流信息</text>
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.fulfillmentSection') }}</text>
       <template v-if="order.fulfillments && order.fulfillments.length">
         <view class="cell" v-for="f in order.fulfillments" :key="f.id">
           <text>{{ f.method }} · {{ f.state }}</text>
@@ -68,18 +68,18 @@
         </view>
       </template>
       <text class="line muted" v-else>
-        {{ (order.shippingLines && order.shippingLines[0] && order.shippingLines[0].shippingMethod && order.shippingLines[0].shippingMethod.name) || '暂无配送' }}
+        {{ (order.shippingLines && order.shippingLines[0] && order.shippingLines[0].shippingMethod && order.shippingLines[0].shippingMethod.name) || $t('orderAdmin.orderDetail.noShipping') }}
       </text>
     </view>
 
     <!-- 备注弹层 -->
     <view v-if="noteVisible" class="mask" @tap.self="noteVisible = false">
       <view class="sheet">
-        <view class="st">订单备注</view>
-        <textarea v-model="noteText" class="ta" placeholder="输入备注（仅后台可见，写入订单内部备注）" />
+        <view class="st">{{ $t('orderAdmin.orderDetail.noteTitle') }}</view>
+        <textarea v-model="noteText" class="ta" :placeholder="$t('orderAdmin.orderDetail.notePlaceholder')" />
         <view class="btns">
-          <button class="bn" @tap="noteVisible = false">取消</button>
-          <button class="bn main" @tap="onSubmitNote">保存</button>
+          <button class="bn" @tap="noteVisible = false">{{ $t('orderAdmin.orderDetail.cancelBtn') }}</button>
+          <button class="bn main" @tap="onSubmitNote">{{ $t('orderAdmin.orderDetail.saveBtn') }}</button>
         </view>
       </view>
     </view>
@@ -87,15 +87,15 @@
     <!-- 改价弹层 -->
     <view v-if="adjustVisible" class="mask" @tap.self="adjustVisible = false">
       <view class="sheet">
-        <view class="st">后台改价 <text class="cur">当前实付 ¥{{ money(order.totalWithTax) }}</text></view>
+        <view class="st">{{ $t('orderAdmin.orderDetail.adjustTitle') }} <text class="cur">{{ $t('orderAdmin.orderDetail.currentPaid').replace('{amount}', money(order.totalWithTax)) }}</text></view>
         <view class="amt-row">
           <text class="pre">¥</text>
           <input v-model="adjustInput" class="amt" type="digit" placeholder="0.00" />
         </view>
-        <text class="tip">差额将以「后台改价」费用项计入订单；仅限未支付/待处理状态订单。</text>
+        <text class="tip">{{ $t('orderAdmin.orderDetail.adjustTip') }}</text>
         <view class="btns">
-          <button class="bn" @tap="adjustVisible = false">取消</button>
-          <button class="bn main" :disabled="adjusting" @tap="onSubmitAdjust">{{ adjusting ? '提交中…' : '确认改价' }}</button>
+          <button class="bn" @tap="adjustVisible = false">{{ $t('orderAdmin.orderDetail.cancelBtn') }}</button>
+          <button class="bn main" :disabled="adjusting" @tap="onSubmitAdjust">{{ adjusting ? $t('orderAdmin.orderDetail.submitting') : $t('orderAdmin.orderDetail.confirmAdjust') }}</button>
         </view>
       </view>
     </view>
@@ -106,6 +106,9 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { fetchOrderDetail, cancelOrder, addOrderNote, modifyOrderPrice, OrderDetail } from '../../../apis/order';
 import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const order = ref<OrderDetail | null>(null);
 
@@ -142,16 +145,16 @@ function goRedeem() {
 
 async function onCancel() {
   uni.showModal({
-    title: '取消订单',
-    content: `确认取消订单 ${order.value?.code} 吗？`,
+    title: locale.t('orderAdmin.orderDetail.confirmCancelTitle'),
+    content: locale.t('orderAdmin.orderDetail.confirmCancelContent').replace('{code}', order.value?.code || ''),
     success: async (res) => {
       if (!res.confirm) return;
       try {
         await cancelOrder(order.value?.id || '');
-        uni.showToast({ title: '已取消', icon: 'success' });
+        uni.showToast({ title: locale.t('orderAdmin.orderDetail.cancelled'), icon: 'success' });
         if (order.value?.id) order.value = await fetchOrderDetail(order.value.id);
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '取消失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('orderAdmin.orderDetail.cancelFailed'), icon: 'none' });
       }
     },
   });
@@ -159,14 +162,14 @@ async function onCancel() {
 
 async function onSubmitNote() {
   const t = noteText.value.trim();
-  if (!t) { uni.showToast({ title: '请输入备注内容', icon: 'none' }); return; }
+  if (!t) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.requireNote'), icon: 'none' }); return; }
   try {
     await addOrderNote(order.value?.id || '', t);
     noteVisible.value = false;
     noteText.value = '';
-    uni.showToast({ title: '备注已写入', icon: 'success' });
+    uni.showToast({ title: locale.t('orderAdmin.orderDetail.noteWritten'), icon: 'success' });
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '备注失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.orderDetail.noteFailed'), icon: 'none' });
   }
 }
 
@@ -178,17 +181,17 @@ function openAdjust() {
 async function onSubmitAdjust() {
   if (!order.value || adjusting.value) return;
   const v = Number(adjustInput.value);
-  if (Number.isNaN(v) || v < 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return; }
+  if (Number.isNaN(v) || v < 0) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.invalidAmount'), icon: 'none' }); return; }
   const delta = Math.round(v * 100) - order.value.totalWithTax;
-  if (delta === 0) { uni.showToast({ title: '金额未变化', icon: 'none' }); return; }
+  if (delta === 0) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.noChange'), icon: 'none' }); return; }
   adjusting.value = true;
   try {
     await modifyOrderPrice(order.value.id, delta);
     adjustVisible.value = false;
-    uni.showToast({ title: '改价成功', icon: 'success' });
+    uni.showToast({ title: locale.t('orderAdmin.orderDetail.adjustSuccess'), icon: 'success' });
     order.value = await fetchOrderDetail(order.value.id);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '改价失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.orderDetail.adjustFailed'), icon: 'none' });
   } finally {
     adjusting.value = false;
   }

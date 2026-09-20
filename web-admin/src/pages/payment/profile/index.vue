@@ -1,51 +1,51 @@
 <template>
   <view class="page">
-    <view class="toolbar"><button class="add" @tap="onCreate">＋ 新建支付档案</button></view>
+    <view class="toolbar"><button class="add" @tap="onCreate">＋ {{ $t('paymentShipping.payment.profile.createNew') }}</button></view>
 
     <!-- 内联编辑面板 -->
     <view v-if="creating || editing" class="panel">
-      <view class="panel-title">{{ editing ? '编辑支付档案' : '新建支付档案' }}</view>
+      <view class="panel-title">{{ editing ? $t('paymentShipping.payment.profile.editTitle') : $t('paymentShipping.payment.profile.newTitle') }}</view>
 
       <view class="field">
-        <text class="label">名称</text>
-        <input class="ipt" v-model="form.name" placeholder="如 全国标准支付" />
+        <text class="label">{{ $t('paymentShipping.payment.profile.labelName') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('paymentShipping.payment.profile.placeholderName')" />
       </view>
       <view class="field">
-        <text class="label">Code</text>
-        <input class="ipt" v-model="form.code" placeholder="如 wechat" />
+        <text class="label">{{ $t('paymentShipping.payment.profile.labelCode') }}</text>
+        <input class="ipt" v-model="form.code" :placeholder="$t('paymentShipping.payment.profile.placeholderCode')" />
       </view>
       <view class="field">
-        <text class="label">描述</text>
-        <textarea class="area" v-model="form.description" placeholder="选填"></textarea>
+        <text class="label">{{ $t('paymentShipping.payment.profile.labelDesc') }}</text>
+        <textarea class="area" v-model="form.description" :placeholder="$t('paymentShipping.payment.profile.placeholderOptional')"></textarea>
       </view>
 
       <view class="field">
-        <text class="label">支付方式</text>
-        <button class="mini" @tap="onAddMethod">＋ 添加支付方式</button>
+        <text class="label">{{ $t('paymentShipping.payment.profile.labelMethods') }}</text>
+        <button class="mini" @tap="onAddMethod">＋ {{ $t('paymentShipping.payment.profile.addMethod') }}</button>
       </view>
 
       <view class="methods" v-for="(e, i) in methodEntries" :key="e.paymentMethodId">
         <view class="method-row">
           <text class="method-code">{{ e.name }}</text>
           <text class="method-code-tag">{{ e.code }}</text>
-          <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
+          <text class="method-del" @tap="onRemoveMethod(i)">{{ $t('paymentShipping.payment.profile.remove') }}</text>
         </view>
 
         <view class="entry-ops">
-          <button class="mini" @tap="onConfigInstallment(i)">分期配置</button>
+          <button class="mini" @tap="onConfigInstallment(i)">{{ $t('paymentShipping.payment.profile.configInstallment') }}</button>
           <text v-if="e.options" class="options-preview">{{ optionsPreview(e.options) }}</text>
-          <text v-else class="options-empty">未配置分期</text>
+          <text v-else class="options-empty">{{ $t('paymentShipping.payment.profile.notConfigured') }}</text>
         </view>
       </view>
 
       <view class="field row">
-        <text class="label">设为租户默认</text>
+        <text class="label">{{ $t('paymentShipping.payment.profile.setTenantDefault') }}</text>
         <switch :checked="setDefault" @change="setDefault = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
       <view class="panel-ops">
-        <button class="btn ghost" @tap="onClose">取消</button>
-        <button class="btn main" @tap="onSave">保存</button>
+        <button class="btn ghost" @tap="onClose">{{ $t('paymentShipping.payment.profile.cancel') }}</button>
+        <button class="btn main" @tap="onSave">{{ $t('paymentShipping.payment.profile.save') }}</button>
       </view>
     </view>
 
@@ -53,20 +53,20 @@
       <view class="row">
         <view class="row-left">
           <text class="name">{{ s.name }}</text>
-          <text v-if="s.isTenantDefault" class="default-badge">默认</text>
-          <text v-if="!s.enabled" class="off-badge">停用</text>
+          <text v-if="s.isTenantDefault" class="default-badge">{{ $t('paymentShipping.payment.profile.default') }}</text>
+          <text v-if="!s.enabled" class="off-badge">{{ $t('paymentShipping.payment.profile.disabled') }}</text>
           <text class="code">{{ s.code }}</text>
         </view>
         <switch :checked="s.enabled" color="#2563eb" style="transform: scale(.7);" @change="onToggle(s, $event)" />
       </view>
       <text class="desc">{{ s.description || '—' }}</text>
       <view class="ops">
-        <text @tap="onEdit(s)">编辑</text>
-        <text v-if="!s.isTenantDefault" @tap="onSetDefault(s)">设为默认</text>
-        <text class="del" @tap="onDel(s)">删除</text>
+        <text @tap="onEdit(s)">{{ $t('paymentShipping.payment.profile.edit') }}</text>
+        <text v-if="!s.isTenantDefault" @tap="onSetDefault(s)">{{ $t('paymentShipping.payment.profile.setDefault') }}</text>
+        <text class="del" @tap="onDel(s)">{{ $t('paymentShipping.payment.profile.del') }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无支付档案</view>
+    <view v-if="!items.length" class="empty">{{ $t('paymentShipping.payment.profile.empty') }}</view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -76,6 +76,9 @@ import {
   updatePaymentProfile, deletePaymentProfile, setTenantDefaultPaymentProfile,
   PaymentProfileItem,
 } from '../../../apis/payment-profile';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 interface MethodEntry {
   paymentMethodId: string;
@@ -146,13 +149,13 @@ function onClose() {
 
 async function onAddMethod() {
   if (!methods.value.length) {
-    uni.showToast({ title: '请先在「支付方式」页面配置支付方式', icon: 'none' });
+    uni.showToast({ title: locale.t('paymentShipping.payment.profile.needConfigMethods'), icon: 'none' });
     return;
   }
   const selected = new Set(methodEntries.value.map((e) => e.paymentMethodId));
   const avail = methods.value.filter((m) => !selected.has(m.id));
   if (!avail.length) {
-    uni.showToast({ title: '已全部添加', icon: 'none' });
+    uni.showToast({ title: locale.t('paymentShipping.payment.profile.allAdded'), icon: 'none' });
     return;
   }
   uni.showActionSheet({
@@ -180,7 +183,7 @@ function onConfigInstallment(i: number) {
   if (!e) return;
   const oldText = e.options ? JSON.stringify(e.options) : '{}';
   uni.showModal({
-    title: `分期配置（${e.code}）`,
+    title: locale.t('paymentShipping.payment.profile.configInstallmentTitle').replace('{code}', e.code),
     editable: true,
     content: oldText,
     success: (r) => {
@@ -190,16 +193,16 @@ function onConfigInstallment(i: number) {
         e.options = parsed;
         e.mode = 'installment';
       } catch (err) {
-        uni.showToast({ title: 'JSON 无效', icon: 'none' });
+        uni.showToast({ title: locale.t('paymentShipping.payment.profile.jsonInvalid'), icon: 'none' });
       }
     },
   });
 }
 
 async function onSave() {
-  if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }
-  if (!form.value.code.trim()) { uni.showToast({ title: '请填写 Code', icon: 'none' }); return; }
-  if (!methodEntries.value.length) { uni.showToast({ title: '请至少选择一个支付方式', icon: 'none' }); return; }
+  if (!form.value.name.trim()) { uni.showToast({ title: locale.t('paymentShipping.payment.profile.requireName'), icon: 'none' }); return; }
+  if (!form.value.code.trim()) { uni.showToast({ title: locale.t('paymentShipping.payment.profile.requireCode'), icon: 'none' }); return; }
+  if (!methodEntries.value.length) { uni.showToast({ title: locale.t('paymentShipping.payment.profile.requireMethod'), icon: 'none' }); return; }
 
   const paymentMethodIds = methodEntries.value.map((e) => e.paymentMethodId);
   const methodConfigs = methodEntries.value.map((e) => ({
@@ -234,9 +237,9 @@ async function onSave() {
     editing.value = false;
     editingId.value = null;
     await reload();
-    uni.showToast({ title: '保存成功' });
+    uni.showToast({ title: locale.t('paymentShipping.payment.profile.saveSuccess') });
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('paymentShipping.payment.profile.saveFailed'), icon: 'none' });
   }
 }
 
@@ -244,9 +247,9 @@ async function onSetDefault(s: PaymentProfileItem) {
   try {
     await setTenantDefaultPaymentProfile(s.id);
     await reload();
-    uni.showToast({ title: '已设为默认' });
+    uni.showToast({ title: locale.t('paymentShipping.payment.profile.setDefaultSuccess') });
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '设置失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('paymentShipping.payment.profile.setDefaultFailed'), icon: 'none' });
   }
 }
 
@@ -256,17 +259,17 @@ async function onToggle(s: PaymentProfileItem, e: any) {
     await updatePaymentProfile(s.id, { enabled });
     s.enabled = enabled;
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('paymentShipping.payment.profile.opFailed'), icon: 'none' });
   }
 }
 
 function onDel(s: PaymentProfileItem) {
   uni.showModal({
-    title: '删除',
-    content: `删除「${s.name}」？`,
+    title: locale.t('paymentShipping.payment.profile.confirmDel'),
+    content: locale.t('paymentShipping.payment.profile.confirmDelContent').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
-      try { await deletePaymentProfile(s.id); await reload(); } catch (e: any) { uni.showToast({ title: e?.message || '删除失败', icon: 'none' }); }
+      try { await deletePaymentProfile(s.id); await reload(); } catch (e: any) { uni.showToast({ title: e?.message || locale.t('paymentShipping.payment.profile.delFailed'), icon: 'none' }); }
     },
   });
 }

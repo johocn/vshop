@@ -6,10 +6,10 @@
         <text class="sku">{{ l.sku }}</text>
       </view>
       <view class="row row-bottom">
-        <text class="avail">可发 {{ l.availQty }}</text>
+        <text class="avail">{{ $t('orderAdmin.ship.availQty').replace('{qty}', l.availQty) }}</text>
         <view class="wh-pick" v-if="l.whOptions.length > 0">
           <picker :range="whLabels(l)" :value="l.whIdx" @change="l.whIdx = Number($event.detail.value)">
-            <view class="wh-txt">仓库：{{ whLabels(l)[l.whIdx] }} ›</view>
+            <view class="wh-txt">{{ $t('orderAdmin.ship.warehouse').replace('{name}', whLabels(l)[l.whIdx]) }} ›</view>
           </picker>
         </view>
         <view class="qty-op" v-if="l.availQty > 0">
@@ -17,18 +17,18 @@
           <text class="num">{{ l.picked }}</text>
           <text class="btn" :class="{ off: l.picked >= l.availQty }" @tap="inc(l)">+</text>
         </view>
-        <text class="muted" v-else>无剩余可发</text>
+        <text class="muted" v-else>{{ $t('orderAdmin.ship.noAvail') }}</text>
       </view>
     </view>
 
     <view class="card">
       <picker :range="dispatchOptions" :value="dispatchIdx" @change="dispatchIdx = $event.detail.value">
-        <view class="row">快递公司：{{ dispatchOptions[dispatchIdx] }} ›</view>
+        <view class="row">{{ $t('orderAdmin.ship.carrierLabel').replace('{name}', dispatchOptions[dispatchIdx]) }} ›</view>
       </picker>
-      <input class="tracking" v-model="tracking" placeholder="运单号（选填）" />
+      <input class="tracking" v-model="tracking" :placeholder="$t('orderAdmin.ship.trackingPlaceholder')" />
     </view>
 
-    <button class="submit" @tap="submit">确认发货</button>
+    <button class="submit" @tap="submit">{{ $t('orderAdmin.ship.submit') }}</button>
   </view>
 </template>
 <script lang="ts" setup>
@@ -36,6 +36,9 @@ import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { fetchOrderDetail, partialShip, shipByWarehouse, ShipLinePart } from '../../../apis/order';
 import { fetchReservationByOrder, Reservation } from '../../../apis/reservation';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 interface WhOption {
   stockLocationId: string;
@@ -96,7 +99,7 @@ function emptySelected() {
 
 async function submit() {
   if (emptySelected()) {
-    uni.showToast({ title: '请选择商品', icon: 'none' });
+    uni.showToast({ title: locale.t('orderAdmin.ship.selectItem'), icon: 'none' });
     return;
   }
   const method = dispatch(dispatchIdx.value);
@@ -121,7 +124,7 @@ async function submit() {
       }));
       const { fails } = await shipByWarehouse(orderId.value, shipments);
       if (fails.length) {
-        uni.showToast({ title: `部分发货失败：${fails.join('；')}`, icon: 'none', duration: 3000 });
+        uni.showToast({ title: locale.t('orderAdmin.ship.partialFail').replace('{msg}', fails.join('；')), icon: 'none', duration: 3000 });
         return;
       }
     } else {
@@ -131,10 +134,10 @@ async function submit() {
         .map((l) => ({ orderLineId: l.id, quantity: l.picked }));
       await partialShip(orderId.value, parts, method, trackingCode);
     }
-    uni.showToast({ title: '发货成功', icon: 'success' });
+    uni.showToast({ title: locale.t('orderAdmin.ship.shipSuccess'), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 600);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '发货失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.ship.shipFailed'), icon: 'none' });
   }
 }
 
@@ -142,7 +145,7 @@ onLoad(async (q) => {
   const id: string = (q && (q.id as string)) || '';
   orderId.value = id;
   if (!id) {
-    uni.showToast({ title: '缺少订单', icon: 'none' });
+    uni.showToast({ title: locale.t('orderAdmin.ship.noOrder'), icon: 'none' });
     return;
   }
   // 预留单查询失败静默降级：无预留单走原单仓路径，不影响现有流程

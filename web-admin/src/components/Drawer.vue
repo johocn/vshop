@@ -3,19 +3,19 @@
     <view v-if="show" class="mask" @tap="$emit('close')" />
     <view v-if="show" class="drawer">
       <view class="head">
-        <text class="store">{{ tenant.name || tenant.code || '未选店铺' }}</text>
+        <text class="store">{{ tenant.name || tenant.code || locale.t('menu.noStore') }}</text>
         <text class="store-code" v-if="tenant.name && tenant.code">{{ tenant.code }}</text>
-        <text class="switch" @tap="switchStore">切换店铺 ›</text>
+        <text class="switch" @tap="switchStore">{{ locale.t('menu.switchStore') }} ›</text>
       </view>
       <scroll-view scroll-y class="body">
         <view class="group" v-for="g in shownGroups" :key="g.domain">
           <view class="g-band">
             <view class="band" :style="{ background: g.color }" />
-            <text class="g-title">{{ g.domain }}</text>
+            <text class="g-title">{{ locale.t(g.domain) }}</text>
           </view>
           <view class="tags">
             <text v-for="it in g.items" :key="it.label" class="tag"
-              :style="tierStyle(g.color, g.grad, it.tier)" @tap="go(it)">{{ it.label }}</text>
+              :style="tierStyle(g.color, g.grad, it.tier)" @tap="go(it)">{{ locale.t(it.label) }}</text>
           </view>
         </view>
       </scroll-view>
@@ -26,11 +26,13 @@
 import { computed } from 'vue';
 import { useTenantStore } from '../stores/tenantStore';
 import { useAuthStore } from '../stores/authStore';
+import { useLocaleStore } from '../stores/localeStore';
 import { tierStyle } from '../theme';
 import { visibleMenus } from '../constants/menus';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
 const auth = useAuthStore();
+const locale = useLocaleStore();
 defineProps<{ show: boolean }>();
 
 const shownGroups = computed(() => visibleMenus(auth));

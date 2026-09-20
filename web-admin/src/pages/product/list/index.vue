@@ -4,11 +4,11 @@
       <input
         v-model="term"
         class="search"
-        placeholder="按名称搜索商品"
+        placeholder="{{ locale.t('productList.searchPlaceholder') }}"
         confirm-type="search"
         @confirm="load(0)"
       />
-      <text class="link" @tap="goCats">分类</text>
+      <text class="link" @tap="goCats">{{ locale.t('menu.category') }}</text>
     </view>
     <view class="tabs">
       <text
@@ -17,20 +17,20 @@
         class="tab"
         :class="{ on: filter === t.value }"
         @tap="switchFilter(t.value)"
-      >{{ t.label }}</text>
+      >{{ locale.t(t.label) }}</text>
     </view>
 
     <!-- 批量选择工具栏入口 -->
     <view class="bulkbar" :class="{ on: bulkMode }">
       <view class="bulk-left">
         <text v-if="bulkMode" class="bulk-tip">
-          <text class="bulk-count">{{ selectedCount }}</text> 个选中
+          <text class="bulk-count">{{ selectedCount }}</text> {{ locale.t('productList.bulkSelectedSuffix') }}
         </text>
-        <text v-else class="bulk-off">单件操作</text>
+        <text v-else class="bulk-off">{{ locale.t('productList.bulkSingle') }}</text>
       </view>
       <view class="bulk-right">
-        <text v-if="bulkMode" class="bulk-cancel" @tap="exitBulk">取消</text>
-        <text v-else class="bulk-enter" @tap="enterBulk">批量管理</text>
+        <text v-if="bulkMode" class="bulk-cancel" @tap="exitBulk">{{ locale.t('productList.cancel') }}</text>
+        <text v-else class="bulk-enter" @tap="enterBulk">{{ locale.t('productList.bulkManage') }}</text>
       </view>
     </view>
 
@@ -45,33 +45,33 @@
           :src="p.thumb"
           mode="aspectFill"
         />
-        <view v-else class="thumb thumb-empty">无</view>
+        <view v-else class="thumb thumb-empty">{{ locale.t('productList.thumbEmpty') }}</view>
         <view class="meta">
           <text class="name">{{ p.name }}</text>
           <text class="slug">{{ p.slug }}</text>
           <view class="price-row">
             <text class="price">¥{{ p.priceYuan }}</text>
-            <text class="stock" :class="{ low: p.low }">库存 {{ p.stock }}<text v-if="p.low"> · 缺货</text></text>
+            <text class="stock" :class="{ low: p.low }">{{ locale.t('productList.stockLabel').replace('{n}', p.stock) }}<text v-if="p.low"> · {{ locale.t('productList.lowStock') }}</text></text>
           </view>
-          <text class="st" :class="{ off: !p.enabled }">{{ p.enabled ? '在售' : '下架' }}</text>
+          <text class="st" :class="{ off: !p.enabled }">{{ p.enabled ? locale.t('productList.tabOn') : locale.t('productList.tabOff') }}</text>
           <view v-if="!bulkMode" class="mkt-ops">
-            <text v-if="mktStatus(p) === '审核中'" class="mkt-txt pending">已提交，待审核</text>
-            <text v-else-if="mktStatus(p) === '已上架'" class="mkt-txt ok">已在默认站点上架</text>
-            <text v-else-if="mktStatus(p) === '已驳回'" class="mkt-txt rej">已驳回</text>
-            <text v-else class="mkt-btn" @tap.stop="onSubmitMarketplace(p)">提交上架到默认站点</text>
+            <text v-if="mktStatus(p) === 'productList.mktPending'" class="mkt-txt pending">{{ locale.t('productList.mktPending') }}</text>
+            <text v-else-if="mktStatus(p) === 'productList.mktListed'" class="mkt-txt ok">{{ locale.t('productList.mktListed') }}</text>
+            <text v-else-if="mktStatus(p) === 'productList.mktRejected'" class="mkt-txt rej">{{ locale.t('productList.mktRejected') }}</text>
+            <text v-else class="mkt-btn" @tap.stop="onSubmitMarketplace(p)">{{ locale.t('productList.mktSubmit') }}</text>
           </view>
         </view>
       </view>
     </view>
 
-    <view v-if="!items.length" class="empty">暂无商品</view>
-    <view v-else-if="hasMore" class="more" @tap="load()">加载更多</view>
+    <view v-if="!items.length" class="empty">{{ locale.t('productList.empty') }}</view>
+    <view v-else-if="hasMore" class="more" @tap="load()">{{ locale.t('productList.loadMore') }}</view>
 
     <!-- 批量操作栏 -->
     <view v-if="bulkMode" class="bulk-ops">
-      <text class="op" @tap="onBulkSet(true)">上架</text>
-      <text class="op danger" @tap="onBulkSet(false)">下架</text>
-      <text class="op" @tap="onBulkStock">库存数量</text>
+      <text class="op" @tap="onBulkSet(true)">{{ locale.t('productList.bulkEnable') }}</text>
+      <text class="op danger" @tap="onBulkSet(false)">{{ locale.t('productList.bulkDisable') }}</text>
+      <text class="op" @tap="onBulkStock">{{ locale.t('productList.bulkStock') }}</text>
     </view>
 
     <view style="height: 160rpx" />
@@ -82,6 +82,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { onPullDownRefresh } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import {
   fetchProductList,
   bulkSetProductsEnabled,
@@ -91,6 +92,7 @@ import {
 import { submitProductToMarketplace } from '../../../apis/marketplace';
 
 const term = ref('');
+const locale = useLocaleStore();
 const filter = ref<'all' | 'on' | 'off'>('all');
 const items = ref<ProductListRow[]>([]);
 const total = ref(0);
@@ -115,9 +117,9 @@ function toggleSel(p: ProductListRow) {
 }
 
 const tabs: Array<{ value: 'all' | 'on' | 'off'; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'on', label: '在售' },
-  { value: 'off', label: '下架' },
+  { value: 'all', label: 'productList.tabAll' },
+  { value: 'on', label: 'productList.tabOn' },
+  { value: 'off', label: 'productList.tabOff' },
 ];
 
 const hasMore = computed(() => items.value.length < total.value);
@@ -160,23 +162,23 @@ function goCats() { uni.navigateTo({ url: '/pages/product/categories/index' }); 
 function edit(p: ProductListRow) { uni.navigateTo({ url: `/pages/product/edit/index?id=${p.id}` }); }
 
 function mktStatus(p: { marketplaceStatus?: string | null }): string | null {
-  if (p.marketplaceStatus === 'approved') return '已上架';
-  if (p.marketplaceStatus === 'pending') return '审核中';
-  if (p.marketplaceStatus === 'rejected') return '已驳回';
+  if (p.marketplaceStatus === 'approved') return 'productList.mktListed';
+  if (p.marketplaceStatus === 'pending') return 'productList.mktPending';
+  if (p.marketplaceStatus === 'rejected') return 'productList.mktRejected';
   return null; // 未提审
 }
 function onSubmitMarketplace(p: ProductListRow) {
   uni.showModal({
-    title: '提交上架',
-    content: `确定将「${p.name}」提交到默认站点销售？（需平台审核）`,
+    title: locale.t('productList.submitListTitle'),
+    content: locale.t('productList.submitListContent').replace('{name}', p.name),
     success: async (r: any) => {
       if (!r.confirm) return;
       try {
         await submitProductToMarketplace(p.id);
-        uni.showToast({ title: '已提交，待审核', icon: 'success' });
+        uni.showToast({ title: locale.t('productList.mktPending'), icon: 'success' });
         load(0);
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '提交失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('productList.submitFailed'), icon: 'none' });
       }
     },
   });
@@ -186,11 +188,11 @@ function onSubmitMarketplace(p: ProductListRow) {
 async function onBulkSet(enabled: boolean) {
   if (!selectedCount.value) return;
   const ids = Array.from(selected);
-  const label = enabled ? '上架' : '下架';
+  const label = enabled ? locale.t('productList.bulkEnable') : locale.t('productList.bulkDisable');
   const ok = await new Promise<boolean>((resolve) => {
     uni.showModal({
-      title: `批量${label}`,
-      content: `确定${label}选中的 ${ids.length} 个商品？`,
+      title: locale.t('productList.bulkDialogTitle').replace('{label}', label),
+      content: locale.t('productList.bulkDialogContent').replace('{label}', label).replace('{n}', ids.length),
       success: (r: any) => resolve(!!r.confirm),
       fail: () => resolve(false),
     });
@@ -198,11 +200,11 @@ async function onBulkSet(enabled: boolean) {
   if (!ok) return;
   try {
     const count = await bulkSetProductsEnabled(ids, enabled);
-    uni.showToast({ title: `已${label} ${count} 个商品`, icon: 'success' });
+    uni.showToast({ title: locale.t('productList.bulkDone').replace('{label}', label).replace('{n}', count), icon: 'success' });
     exitBulk();
     load(0);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || `${label}失败`, icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('productList.bulkFailed').replace('{label}', label), icon: 'none' });
   }
 }
 
@@ -212,26 +214,26 @@ async function onBulkStock() {
     (p) => selected.has(p.id) && p.firstVariantId,
   );
   if (!targets.length) {
-    uni.showToast({ title: '选中商品无可设库存的变体', icon: 'none' });
+    uni.showToast({ title: locale.t('productList.bulkNoVariant'), icon: 'none' });
     return;
   }
   uni.showModal({
-    title: `库存数量（${targets.length} 个）`,
+    title: locale.t('productList.bulkStockTitle').replace('{n}', targets.length),
     editable: true,
     // editable 弹窗的 content 即输入框初始值：必须留空，否则会把说明文字当输入文本预填，
     // 用户得先清空才能输入。提示文案放 placeholderText。
     content: '',
-    placeholderText: '输入统一库存数量',
+    placeholderText: locale.t('productList.bulkStockPlaceholder'),
     success: async (r: any) => {
       if (!r.confirm) return;
       const text = (r.content ?? '').toString().trim();
       if (!text) {
-        uni.showToast({ title: '请输入库存数量', icon: 'none' });
+        uni.showToast({ title: locale.t('productList.bulkStockEmpty'), icon: 'none' });
         return;
       }
       const stock = parseInt(text, 10);
       if (isNaN(stock) || stock < 0) {
-        uni.showToast({ title: '请输入有效库存数量（≥0）', icon: 'none' });
+        uni.showToast({ title: locale.t('productList.bulkStockInvalid'), icon: 'none' });
         return;
       }
       const updates = targets.map((p) => ({
@@ -240,11 +242,11 @@ async function onBulkStock() {
       }));
       try {
         const count = await bulkSetVariantsStock(updates);
-        uni.showToast({ title: `已更新 ${count} 个商品库存`, icon: 'success' });
+        uni.showToast({ title: locale.t('productList.bulkStockDone').replace('{n}', count), icon: 'success' });
         exitBulk();
         load(0);
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '设置库存失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('productList.bulkStockFailed'), icon: 'none' });
       }
     },
   });
