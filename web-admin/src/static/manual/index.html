@@ -751,16 +751,19 @@ var CHAPTERS = [
 <p>近 7 日品类销量排行（GMV + 单数），辅助选品与备货。</p>
 <div class="note"><b>权限：</b>数据看板需要 ViewDashboard 权限；若提示权限不足，请在「成员管理 → 角色」为当前角色勾选该权限。</div>
 <div class="shot-box"><img class="img" src="shots/op29_dashboard.png" alt="数据看板-完整版"><div class="imgcap">图 K1 · 数据看板</div></div>`},
-{book:'op', id:'op-30', title:'POS 门店收银', html:`
-<p class="lead">门店收银面向线下当面收款场景：店员输入核销码 / 订单号查询订单，确认金额后选择收款方式完成收款，收款记录自动进入台账。</p>
+{book:'op', id:'op-30', title:'POS 门店收银（收银员）', html:`
+<p class="lead">门店收银面向线下当面收款场景：店员（租户「收银员」角色）输入核销码 / 订单号查询订单，确认金额后完成收款。系统已为每个租户内置「收银员」角色，租户管理员可将其分配给成员使用 POS。</p>
+<h3>0. 内置角色：收银员</h3>
+<p>每个租户开通后默认生成「<span class="mark mark-blue">收银员</span>」角色（权限含：订单·读、订单·改、收银/POS·POS 收银操作），租户管理员保留 <mark class="mark">POS 收银操作</mark> 权限，两者均可进入「门店收银」。在「<span class="mark mark-blue">角色管理</span>」页可查看 / 调整「收银员」角色，或在「人员管理」给成员分配该角色。</p>
+<div class="shot-box"><img class="img" src="shots/pos20_roles.png" alt="角色管理-收银员与POS权限"><div class="imgcap">图 P0 · 角色管理（收银员角色；权限组含「收银/POS → POS 收银操作」）</div></div>
 <h3>1. 查询订单</h3>
-<p>在「门店收银」输入核销码或订单号查询，展示订单号、顾客、应付金额与待交付商品。</p>
+<p>在「门店收银」输入核销码或订单号查询，展示订单号、应付金额与待交付商品。</p>
 <h3>2. 确认收款</h3>
-<p>选择收款方式（固定聚合码收款等）并确认收款；收款后订单状态与台账同步更新。</p>
+<p>点击「<mark class="mark">确认收款</mark>」弹出确认框，核对订单号、应付金额与商品后确认，完成收款成交；售后 / 台账同步更新。</p>
 <div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
-<div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div>
-<img class="img" src="shots/g2_f5_pos_confirm.png" alt="POS-真实核销码查询报权限不足">
-<div class="imgcap">图 P2 · 门店收银（输入真实核销码 ATK6XM 查询；当前账号对 POS 数据源 <code>myPickupOrders</code> 权限不足 FORBIDDEN，弹不出「确认收款」modal，如实呈现错误提示）</div>`},
+<div class="shot-box"><img class="img" src="shots/pos31_result.png" alt="POS-查单命中"><div class="imgcap">图 P1 · 门店收银（输入核销码 ATK6XM 命中订单）</div>
+<img class="img" src="shots/pos32_confirm_modal.png" alt="POS-确认收款modal">
+<div class="imgcap">图 P2 · 门店收银（点「确认收款」弹出核对确认框）</div></div>`},
 {book:'op', id:'op-31', title:'售后处理流程', html:`
 <p class="lead">买家发起的退款 / 退货 / 换货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
 <h3>入口与筛选</h3>

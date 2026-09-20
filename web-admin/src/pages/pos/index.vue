@@ -38,7 +38,7 @@
 
         <!-- 待交付商品 -->
         <view class="sec">待交付商品</view>
-        <view class="li" v-for="l in result.lines" :key="l.id">
+        <view class="li" v-for="(l, i) in result.lines" :key="i">
           <view class="li-left">
             <text class="name">{{ l.name }}</text>
             <text class="sku">{{ l.sku }}</text>
@@ -66,17 +66,22 @@
 </template>
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { fetchPickupOrders, claimPickup, PickupRedemptionItem } from '../../apis/pickup';
-import { fetchOrderDetail } from '../../apis/order';
+import {
+  fetchPendingRedemptions,
+  lookupRedemption,
+  claimRedemption,
+  isCodPaymentType,
+  PendingRedemption,
+} from '../../apis/redemption';
 import { REDEMPTION_STATES, stateLabel } from '../../constants/orderState';
 
-interface PosLine { id: string; name: string; sku: string; quantity: number; amount: number }
+interface PosLine { name: string; sku: string; quantity: number; amount: number }
 interface PosResult {
   id: string;                // 订单 id
   code: string;              // 订单号
   totalWithTax: number;
   pickupCode: string;        // 核销码
-  claimStatus: string;       // 核销状态
+  claimStatus: string;       // 核销状态（映射到 REDEMPTION_STATES）
   customer?: string;
   lines: PosLine[];
 }
@@ -91,9 +96,17 @@ function money(n?: number | null): string {
   return ((n ?? 0) / 100).toFixed(2);
 }
 
+// redemption-* 渠道域状态 → 通用核销展示状态
+function mapStatus(r: PendingRedemption): string {
+  if (r.claimed) return 'redeemed';
+  if (r.status === 'expired') return 'void';
+  return 'generated';
+}
+
 /**
- * 查单：用核销码或订单号在「待/已核销自提单」中匹配到 redemption，
- * 再用 orderId 取订单详情（应付金额 + 商品 + 顾客）。
+ * 查单：用核销码或订单号在「本租户渠道待核销自提单」中匹配到 redemption，
+ * 再按核销码取订单（应付金额），商品明细取自待核销清单。
+ * 走 redemption-* 渠道域接口（@Allow(UpdateOrder)），租户管理员/收银员均可访问。
  */
 async function onLookup(): Promise<void> {
   const v = kw.value.trim();
@@ -103,32 +116,35 @@ async function onLookup(): Promise<void> {
   }
   loading.value = true;
   try {
-    const list: PickupRedemptionItem[] = await fetchPickupOrders();
-    const hit = list.find((r) => r.code === v || String(r.orderId) === v || String(r.orderCode) === v);
-    if (!hit) {
+    const { items } = await fetchPendingRedemptions(100);
+    const first = items.find((r) => r.code === v || String(r.orderId) === v || String(r.orderCode) === v);
+    if (!first) {
       result.value = null;
       state.value = 'empty';
       return;
     }
-    let detail: Awaited<ReturnType<typeof fetchOrderDetail>> = null;
-    if (hit.orderId) {
-      try { detail = await fetchOrderDetail(hit.orderId); } catch (_e) { detail = null; }
+    let totalWithTax = 0;
+    let customer: string | undefined;
+    let orderCode = first.orderCode || first.orderId;
+    try {
+      const look = await lookupRedemption(first.code);
+      totalWithTax = look?.order?.totalWithTax ?? 0;
+      orderCode = look?.order?.code ?? orderCode;
+    } catch (_e) {
+      totalWithTax = 0; // lookup 失败不阻塞，金额退 0（正常不出现）
     }
     result.value = {
-      id: hit.orderId,
-      code: detail?.code ?? hit.orderCode ?? hit.orderId,
-      totalWithTax: detail?.totalWithTax ?? 0,
-      pickupCode: hit.code,
-      claimStatus: hit.status,
-      customer: detail?.customer
-        ? `${detail.customer.lastName || ''}${detail.customer.firstName || ''}`.trim() || detail.customer.emailAddress || undefined
-        : undefined,
-      lines: (detail?.lines || []).map((l) => ({
-        id: l.id,
-        name: l.productVariant?.name || '—',
-        sku: l.productVariant?.sku || '',
+      id: first.orderId,
+      code: orderCode,
+      totalWithTax,
+      pickupCode: first.code,
+      claimStatus: mapStatus(first),
+      customer,
+      lines: (first.lines || []).map((l) => ({
+        name: l.name,
+        sku: '',
         quantity: l.quantity,
-        amount: l.linePriceWithTax,
+        amount: l.lineTotalWithTax,
       })),
     };
     state.value = 'result';
@@ -141,7 +157,7 @@ async function onLookup(): Promise<void> {
 
 /**
  * 确认收款：固定聚合码收款场景下，顾客已扫码付清，店员核销本轮成交。
- * 对已就绪自提单，核销（claimPickup）即完成交易/扣库存（后端负责）。
+ * 走 redemptionClaim（@Allow(UpdateOrder)，租户渠道域），collect=true 表示同步确认到店收款。
  */
 function buildConfirmContent(r: PosResult): string {
   const summary =
@@ -172,10 +188,14 @@ async function onConfirmCollect(): Promise<void> {
   collecting.value = true;
   try {
     uni.showLoading({ title: '处理中…' });
-    await claimPickup(r.pickupCode);
+    const rr = await claimRedemption(r.pickupCode, true);
     uni.hideLoading();
-    uni.showToast({ title: '收款并完成', icon: 'success' });
-    reset();
+    if (rr.ok && rr.result?.claimed) {
+      uni.showToast({ title: '收款并完成', icon: 'success' });
+      reset();
+    } else {
+      uni.showToast({ title: rr.message || '处理失败', icon: 'none' });
+    }
   } catch (e: any) {
     uni.hideLoading();
     uni.showToast({ title: e?.message || '处理失败', icon: 'none' });
