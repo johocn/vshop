@@ -1704,7 +1704,15 @@
     "topTitle": "Sales Top Ranking (Last 7 Days Category)",
     "uncategorized": "Uncategorized",
     "orderUnit": "orders",
-    "empty": "No data"
+    "empty": "No data",
+    "near7": "Last 7 Days",
+    "near30": "Last 30 Days",
+    "salesTrend30": "Last 30 Days Sales Trend",
+    "topTitle30": "Sales Top Ranking (Last 30 Days Category)",
+    "quantity": "Quantity",
+    "inventoryHealth": "Inventory Health",
+    "outOfStock": "Out of Stock",
+    "totalSku": "Total SKUs"
   },
   "changePassword": {
     "titleManual": "Change Password",
