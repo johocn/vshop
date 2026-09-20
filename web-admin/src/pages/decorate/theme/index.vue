@@ -1,19 +1,21 @@
 <template>
   <view class="page">
-    <view class="tip">选择店铺整体视觉风格，保存后对所有端生效</view>
+    <view class="tip">{{ $t('decorateTheme.tip') }}</view>
     <view class="theme" v-for="t in themes" :key="t.id" :class="{ on: t.id === cur }" @tap="pick(t)">
       <view class="swatch" :style="{ background: t.color }" />
       <text class="t-name">{{ t.name }}</text>
       <text v-if="t.id === cur" class="t-on">✓</text>
     </view>
-    <button class="save" @tap="save">保存主题</button>
+    <button class="save" @tap="save">{{ $t('decorateTheme.save') }}</button>
   </view>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const themes = [
   { id: 'taobao-orange', name: '淘宝橙', color: '#ff6600' },
   { id: 'fresh', name: '生鲜绿', color: '#43a047' },
@@ -32,7 +34,7 @@ function pick(t: any) { cur.value = t.id; }
 
 async function save() {
   await updateChannelCustomFields(channelId, { themeId: cur.value });
-  uni.showToast({ title: '主题已保存', icon: 'success' });
+  uni.showToast({ title: locale.t('decorateTheme.saved'), icon: 'success' });
 }
 </script>
 

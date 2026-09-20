@@ -2,30 +2,30 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">购物车页装修</text>
-        <text class="sub">保存到 pageCartConfig，逐级覆盖模板/全局默认</text>
+        <text class="title">{{ $t('decorateCart.title') }}</text>
+        <text class="sub">{{ $t('decorateCart.sub') }}</text>
       </view>
       <view class="cell">
-        <text class="lbl">标题</text>
-        <input v-model="f.title" placeholder="购物车" />
+        <text class="lbl">{{ $t('decorateCart.titleLabel') }}</text>
+        <input v-model="f.title" :placeholder="$t('decorateCart.titlePlaceholder')" />
       </view>
       <view class="cell row-in">
-        <text class="lbl">推荐区</text>
+        <text class="lbl">{{ $t('decorateCart.recommend') }}</text>
         <view class="seg">
-          <text :class="{ on: f.showRecommend }" @tap="f.showRecommend = true">显示</text>
-          <text :class="{ on: !f.showRecommend }" @tap="f.showRecommend = false">隐藏</text>
+          <text :class="{ on: f.showRecommend }" @tap="f.showRecommend = true">{{ $t('decorateCart.show') }}</text>
+          <text :class="{ on: !f.showRecommend }" @tap="f.showRecommend = false">{{ $t('decorateCart.hide') }}</text>
         </view>
       </view>
       <view class="cell row-in">
-        <text class="lbl">结算按钮样式</text>
+        <text class="lbl">{{ $t('decorateCart.checkoutStyle') }}</text>
         <view class="seg">
-          <text :class="{ on: f.checkoutStyle === 'classic' }" @tap="f.checkoutStyle = 'classic'">经典</text>
-          <text :class="{ on: f.checkoutStyle === 'full' }" @tap="f.checkoutStyle = 'full'">通栏</text>
+          <text :class="{ on: f.checkoutStyle === 'classic' }" @tap="f.checkoutStyle = 'classic'">{{ $t('decorateCart.checkoutClassic') }}</text>
+          <text :class="{ on: f.checkoutStyle === 'full' }" @tap="f.checkoutStyle = 'full'">{{ $t('decorateCart.checkoutFull') }}</text>
         </view>
       </view>
-      <view class="hint">「通栏」结算按钮横贯整行；「经典」为右侧常规宽度。</view>
+      <view class="hint">{{ $t('decorateCart.hint') }}</view>
     </view>
-    <button class="save" :disabled="saving" @tap="save">{{ saving ? '保存中…' : '保存' }}</button>
+    <button class="save" :disabled="saving" @tap="save">{{ saving ? $t('decorateCart.saving') : $t('decorateCart.save') }}</button>
   </view>
 </template>
 
@@ -33,7 +33,9 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const f = ref({ title: '购物车', showRecommend: true, checkoutStyle: 'classic' });
 const saving = ref(false);
 let channelId = '';
@@ -65,9 +67,9 @@ async function save() {
   saving.value = true;
   try {
     await updateChannelCustomFields(channelId, { pageCartConfig: JSON.stringify({ version: 1, ...f.value }) });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateCart.saved'), icon: 'success' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateCart.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }

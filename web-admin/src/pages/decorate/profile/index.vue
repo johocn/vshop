@@ -2,29 +2,29 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">我的页装修</text>
-        <text class="sub">保存到 pageProfileConfig，逐级覆盖模板/全局默认</text>
+        <text class="title">{{ $t('decorateProfile.title') }}</text>
+        <text class="sub">{{ $t('decorateProfile.sub') }}</text>
       </view>
       <view class="cell row-in">
-        <text class="lbl">头像样式</text>
+        <text class="lbl">{{ $t('decorateProfile.avatarStyle') }}</text>
         <view class="seg">
-          <text :class="{ on: f.avatarStyle === 'round' }" @tap="f.avatarStyle = 'round'">圆形</text>
-          <text :class="{ on: f.avatarStyle === 'square' }" @tap="f.avatarStyle = 'square'">圆角方形</text>
+          <text :class="{ on: f.avatarStyle === 'round' }" @tap="f.avatarStyle = 'round'">{{ $t('decorateProfile.avatarRound') }}</text>
+          <text :class="{ on: f.avatarStyle === 'square' }" @tap="f.avatarStyle = 'square'">{{ $t('decorateProfile.avatarSquare') }}</text>
         </view>
       </view>
     </view>
 
     <view class="card">
-      <view class="img-title">菜单项列表（icon / 标题 / 链接）</view>
+      <view class="img-title">{{ $t('decorateProfile.menuListTitle') }}</view>
       <view class="menu-row" v-for="(m, i) in f.menus" :key="i">
-        <input class="inp" v-model="m.icon" placeholder="icon" />
-        <input class="inp" v-model="m.title" placeholder="标题" />
+        <input class="inp" v-model="m.icon" :placeholder="$t('decorateProfile.menuIconPlaceholder')" />
+        <input class="inp" v-model="m.title" :placeholder="$t('decorateProfile.menuTitlePlaceholder')" />
         <input class="inp" v-model="m.url" placeholder="/pages/xxx/index" />
-        <button class="del" @tap="f.menus.splice(i, 1)">删</button>
+        <button class="del" @tap="f.menus.splice(i, 1)">{{ $t('decorateProfile.del') }}</button>
       </view>
-      <button class="add" @tap="f.menus.push({ icon: '', title: '', url: '' })">+ 添加菜单项</button>
+      <button class="add" @tap="f.menus.push({ icon: '', title: '', url: '' })">{{ $t('decorateProfile.addMenu') }}</button>
     </view>
-    <button class="save" :disabled="saving" @tap="save">{{ saving ? '保存中…' : '保存' }}</button>
+    <button class="save" :disabled="saving" @tap="save">{{ saving ? $t('decorateProfile.saving') : $t('decorateProfile.save') }}</button>
   </view>
 </template>
 
@@ -32,7 +32,9 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const f = ref({
   avatarStyle: 'round',
   menus: [] as Array<{ icon: string; title: string; url: string }>,
@@ -71,9 +73,9 @@ async function save() {
     await updateChannelCustomFields(channelId, {
       pageProfileConfig: JSON.stringify({ version: 1, avatarStyle: f.value.avatarStyle, menus }),
     });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateProfile.saved'), icon: 'success' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateProfile.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }

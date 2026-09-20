@@ -1,113 +1,113 @@
 <template>
   <view class="page">
-    <view v-if="sections.length === 0" class="muted empty">还没有装修区块，点击下方按钮添加</view>
+    <view v-if="sections.length === 0" class="muted empty">{{ $t('decorateHome.empty') }}</view>
 
     <view class="block" v-for="(sec, si) in sections" :key="si">
       <view class="block-head">
         <text class="block-title">{{ typeLabel(sec.type) }}</text>
-        <text class="del" @tap="removeSection(si)">删除区块</text>
+        <text class="del" @tap="removeSection(si)">{{ $t('decorateHome.deleteSection') }}</text>
       </view>
 
       <!-- banner：轮播图 -->
       <template v-if="sec.type === 'banner'">
         <view class="item" v-for="(im, ii) in sec.images" :key="ii">
           <view class="field">
-            <text class="lbl">图片 URL</text>
-            <input v-model="im.image" placeholder="请输入图片地址" />
+            <text class="lbl">{{ $t('decorateHome.imgUrl') }}</text>
+            <input v-model="im.image" :placeholder="$t('decorateHome.imgUrlPlaceholder')" />
           </view>
           <view class="field">
-            <text class="lbl">跳转链接</text>
-            <input v-model="im.link" placeholder="可选" />
+            <text class="lbl">{{ $t('decorateHome.link') }}</text>
+            <input v-model="im.link" :placeholder="$t('decorateHome.optional')" />
           </view>
           <view class="item-foot">
-            <text class="pill">第 {{ ii + 1 }} 张</text>
-            <text class="del" @tap="removeBannerItem(sec, ii)">删除该图</text>
+            <text class="pill">{{ $t('decorateHome.bannerIndex').replace('{n}', ii + 1) }}</text>
+            <text class="del" @tap="removeBannerItem(sec, ii)">{{ $t('decorateHome.deleteBannerItem') }}</text>
           </view>
         </view>
-        <view class="add" @tap="addBannerItem(sec)">+ 轮播图</view>
+        <view class="add" @tap="addBannerItem(sec)">{{ $t('decorateHome.addBanner') }}</view>
       </template>
 
       <!-- notice：公告 -->
       <view v-else-if="sec.type === 'notice'" class="field">
-        <text class="lbl">公告文本</text>
-        <input v-model="sec.text" placeholder="请输入公告内容" />
+        <text class="lbl">{{ $t('decorateHome.noticeText') }}</text>
+        <input v-model="sec.text" :placeholder="$t('decorateHome.noticePlaceholder')" />
       </view>
 
       <!-- nav：宫格导航 -->
       <template v-else-if="sec.type === 'nav'">
         <view class="field">
-          <text class="lbl">图标形状</text>
+          <text class="lbl">{{ $t('decorateHome.iconShape') }}</text>
           <view class="btns">
-            <text class="btn" :class="{ active: sec.shape !== 'round' }" @tap="sec.shape = 'square'">方形（京东）</text>
-            <text class="btn" :class="{ active: sec.shape === 'round' }" @tap="sec.shape = 'round'">圆形（淘宝）</text>
+            <text class="btn" :class="{ active: sec.shape !== 'round' }" @tap="sec.shape = 'square'">{{ $t('decorateHome.shapeSquareJd') }}</text>
+            <text class="btn" :class="{ active: sec.shape === 'round' }" @tap="sec.shape = 'round'">{{ $t('decorateHome.shapeRoundTb') }}</text>
           </view>
         </view>
         <view class="field">
-          <text class="lbl">宫格排布</text>
+          <text class="lbl">{{ $t('decorateHome.gridLayout') }}</text>
           <view class="btns">
-            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'grid5x2' }" @tap="sec.layout = 'grid5x2'">京东十宫格</text>
-            <text class="btn" :class="{ active: sec.layout === 'grid4x2' }" @tap="sec.layout = 'grid4x2'">淘宝八宫格</text>
-            <text class="btn" :class="{ active: sec.layout === 'row' }" @tap="sec.layout = 'row'">极简单行</text>
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'grid5x2' }" @tap="sec.layout = 'grid5x2'">{{ $t('decorateHome.grid5x2') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'grid4x2' }" @tap="sec.layout = 'grid4x2'">{{ $t('decorateHome.grid4x2') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'row' }" @tap="sec.layout = 'row'">{{ $t('decorateHome.layoutRow') }}</text>
           </view>
         </view>
         <view class="item" v-for="(it, ii) in sec.items" :key="ii">
           <view class="field">
-            <text class="lbl">名称</text>
-            <input v-model="it.label" placeholder="如：分类" />
+            <text class="lbl">{{ $t('decorateHome.name') }}</text>
+            <input v-model="it.label" :placeholder="$t('decorateHome.namePlaceholder')" />
           </view>
           <view class="field">
-            <text class="lbl">图标</text>
-            <input v-model="it.image" placeholder="可选，图标图片 URL，如：https://…/icon.png" />
+            <text class="lbl">{{ $t('decorateHome.icon') }}</text>
+            <input v-model="it.image" :placeholder="$t('decorateHome.iconPlaceholder')" />
           </view>
           <view class="field">
-            <text class="lbl">链接</text>
-            <input v-model="it.link" placeholder="可选" />
+            <text class="lbl">{{ $t('decorateHome.link') }}</text>
+            <input v-model="it.link" :placeholder="$t('decorateHome.optional')" />
           </view>
           <view class="item-foot">
-            <text class="pill">第 {{ ii + 1 }} 项</text>
-            <text class="del" @tap="removeNavItem(sec, ii)">删除该格</text>
+            <text class="pill">{{ $t('decorateHome.navIndex').replace('{n}', ii + 1) }}</text>
+            <text class="del" @tap="removeNavItem(sec, ii)">{{ $t('decorateHome.deleteNavItem') }}</text>
           </view>
         </view>
-        <view class="add" @tap="addNavItem(sec)">+ 宫格</view>
+        <view class="add" @tap="addNavItem(sec)">{{ $t('decorateHome.addNav') }}</view>
       </template>
 
       <!-- goods：商品推荐 -->
       <template v-else-if="sec.type === 'goods'">
         <view class="field">
-          <text class="lbl">区块标题</text>
-          <input v-model="sec.title" placeholder="可选，如：热销推荐" />
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
         </view>
         <view class="field">
-          <text class="lbl">商品集合 ID (collectionId)</text>
-          <input v-model="sec.collectionId" placeholder="留空 = 自动推荐" />
+          <text class="lbl">{{ $t('decorateHome.collectionId') }}</text>
+          <input v-model="sec.collectionId" :placeholder="$t('decorateHome.collectionIdPlaceholder')" />
         </view>
         <view class="field">
-          <text class="lbl">卡片布局</text>
+          <text class="lbl">{{ $t('decorateHome.cardLayout') }}</text>
           <view class="btns">
-            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">京东紧凑</text>
-            <text class="btn" :class="{ active: sec.layout === 'masonry' }" @tap="sec.layout = 'masonry'">淘宝瀑布流</text>
-            <text class="btn" :class="{ active: sec.layout === 'single' }" @tap="sec.layout = 'single'">极简单列</text>
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">{{ $t('decorateHome.layoutCompact') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'masonry' }" @tap="sec.layout = 'masonry'">{{ $t('decorateHome.layoutMasonry') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'single' }" @tap="sec.layout = 'single'">{{ $t('decorateHome.layoutSingle') }}</text>
           </view>
         </view>
-        <view class="muted hint">提示：同一店铺商品区块建议 ≤2 个，以免影响首页加载速度</view>
+        <view class="muted hint">{{ $t('decorateHome.goodsHint') }}</view>
       </template>
 
       <!-- richText：富文本 -->
       <view v-else-if="sec.type === 'richText'" class="field">
-        <text class="lbl">富文本 HTML</text>
-        <textarea v-model="sec.html" placeholder="粘贴 HTML 片段" auto-height />
+        <text class="lbl">{{ $t('decorateHome.richText') }}</text>
+        <textarea v-model="sec.html" :placeholder="$t('decorateHome.richTextPlaceholder')" auto-height />
       </view>
     </view>
 
     <view class="addbar">
-      <button class="mini" @tap="addBanner">+ 轮播图</button>
-      <button class="mini" @tap="addNotice">+ 公告</button>
-      <button class="mini" @tap="addNav">+ 宫格</button>
-      <button class="mini" @tap="addGoods">+ 商品推荐</button>
-      <button class="mini" @tap="addRichText">+ 富文本</button>
+      <button class="mini" @tap="addBanner">{{ $t('decorateHome.addBanner') }}</button>
+      <button class="mini" @tap="addNotice">{{ $t('decorateHome.addNotice') }}</button>
+      <button class="mini" @tap="addNav">{{ $t('decorateHome.addNav') }}</button>
+      <button class="mini" @tap="addGoods">{{ $t('decorateHome.addGoods') }}</button>
+      <button class="mini" @tap="addRichText">{{ $t('decorateHome.addRichText') }}</button>
     </view>
 
-    <button class="save" @tap="save" :disabled="saving">保存装修</button>
+    <button class="save" @tap="save" :disabled="saving">{{ $t('decorateHome.save') }}</button>
   </view>
 </template>
 
@@ -115,6 +115,7 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { parseShopContent, isValidShopContent, ShopSection, ShopContent } from '../../../templates/shared/schema';
+import { useLocaleStore } from '../../../stores/localeStore';
 
 // 编辑态视图模型：可选字段覆盖所有 section type，便于模板直接访问（vue-tsc 不会在模板内做联合类型收窄）
 interface SectionVM {
@@ -129,6 +130,7 @@ interface SectionVM {
   html?: string;
 }
 
+const locale = useLocaleStore();
 const sections = ref<SectionVM[]>([]);
 const channelId = ref('');
 const saving = ref(false);
@@ -148,11 +150,11 @@ onMounted(async () => {
 
 function typeLabel(t: string): string {
   switch (t) {
-    case 'banner': return '轮播图';
-    case 'notice': return '公告';
-    case 'nav': return '宫格导航';
-    case 'goods': return '商品推荐';
-    case 'richText': return '富文本';
+    case 'banner': return locale.t('decorateHome.typeBanner');
+    case 'notice': return locale.t('decorateHome.typeNotice');
+    case 'nav': return locale.t('decorateHome.typeNav');
+    case 'goods': return locale.t('decorateHome.typeGoods');
+    case 'richText': return locale.t('decorateHome.typeRichText');
     default: return t;
   }
 }
@@ -171,12 +173,12 @@ function removeNavItem(sec: SectionVM, i: number) { sec.items?.splice(i, 1); }
 
 async function save() {
   if (sections.value.length === 0) {
-    uni.showToast({ title: '请至少添加一个区块', icon: 'none' });
+    uni.showToast({ title: locale.t('decorateHome.needSection'), icon: 'none' });
     return;
   }
   const content = buildContent();
   if (!content) {
-    uni.showToast({ title: '内容不完整或格式非法', icon: 'none' });
+    uni.showToast({ title: locale.t('decorateHome.invalidContent'), icon: 'none' });
     return;
   }
   saving.value = true;
@@ -189,9 +191,9 @@ async function save() {
       channelId.value = id;
     }
     await updateChannelCustomFields(id, { shopContent: JSON.stringify(content) });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateHome.saved'), icon: 'success' });
   } catch {
-    uni.showToast({ title: '保存失败', icon: 'none' });
+    uni.showToast({ title: locale.t('decorateHome.saveFailed'), icon: 'none' });
   } finally {
     saving.value = false;
   }

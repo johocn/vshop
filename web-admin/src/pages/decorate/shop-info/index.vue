@@ -2,77 +2,77 @@
   <view class="page">
     <view class="card">
       <view class="cell">
-        <text class="lbl">店铺名</text>
-        <input v-model="f.shopName" placeholder="请输入店铺名" />
+        <text class="lbl">{{ $t('decorateShopInfo.shopName') }}</text>
+        <input v-model="f.shopName" :placeholder="$t('decorateShopInfo.shopNamePlaceholder')" />
       </view>
       <view class="cell">
-        <text class="lbl">客服电话</text>
-        <input v-model="f.servicePhone" placeholder="请输入客服电话" />
+        <text class="lbl">{{ $t('decorateShopInfo.servicePhone') }}</text>
+        <input v-model="f.servicePhone" :placeholder="$t('decorateShopInfo.servicePhonePlaceholder')" />
       </view>
       <view class="cell col">
-        <text class="lbl">店铺简介</text>
-        <textarea v-model="f.shopIntro" placeholder="请输入店铺简介" />
+        <text class="lbl">{{ $t('decorateShopInfo.shopIntro') }}</text>
+        <textarea v-model="f.shopIntro" :placeholder="$t('decorateShopInfo.shopIntroPlaceholder')" />
       </view>
       <view class="cell col">
-        <text class="lbl">店铺 Logo</text>
+        <text class="lbl">{{ $t('decorateShopInfo.shopLogo') }}</text>
         <image v-if="logoPreview" class="logo-pv" :src="logoPreview" mode="aspectFill" @tap="previewLogo" />
         <MediaPicker :max="1" :value="logoIds" @change="onLogoChange" />
-        <text class="hint-inline">店铺 Logo 用于买家端展示。选图后点保存生效；历史 URL 值兼容显示。</text>
+        <text class="hint-inline">{{ $t('decorateShopInfo.shopLogoHint') }}</text>
       </view>
       <view class="cell col">
-        <text class="lbl">默认分享图</text>
+        <text class="lbl">{{ $t('decorateShopInfo.shareImage') }}</text>
         <MediaPicker :max="1" :value="shareImageIds" @change="onShareImageChange" />
-        <text class="hint-inline">商品无主图时，微信转发的图片兜底。选图后点保存生效。</text>
+        <text class="hint-inline">{{ $t('decorateShopInfo.shareImageHint') }}</text>
       </view>
       <view class="cell row-in">
-        <text class="lbl">税率方式</text>
+        <text class="lbl">{{ $t('decorateShopInfo.taxMode') }}</text>
         <view class="seg">
-          <text :class="{ on: f.taxMode === 'inclusive' }" @tap="setTaxMode('inclusive')">含税价</text>
-          <text :class="{ on: f.taxMode === 'zero' }" @tap="setTaxMode('zero')">零税率</text>
-          <text :class="{ on: f.taxMode === 'exclusive' }" @tap="setTaxMode('exclusive')">不含税价</text>
+          <text :class="{ on: f.taxMode === 'inclusive' }" @tap="setTaxMode('inclusive')">{{ $t('decorateShopInfo.taxInclusive') }}</text>
+          <text :class="{ on: f.taxMode === 'zero' }" @tap="setTaxMode('zero')">{{ $t('decorateShopInfo.taxZero') }}</text>
+          <text :class="{ on: f.taxMode === 'exclusive' }" @tap="setTaxMode('exclusive')">{{ $t('decorateShopInfo.taxExclusive') }}</text>
         </view>
       </view>
-      <view class="hint">含税价：录入价即价内含税（结算拆税展示但应付总额=录入价）；零税率：录入价即免税最终价，结算不拆税；不含税价：录入价为净价（净价×1.13=含税应付价，价税分离）。</view>
+      <view class="hint">{{ $t('decorateShopInfo.taxModeHint') }}</view>
       <view class="cell row-in">
-        <text class="lbl">库存管理方式</text>
+        <text class="lbl">{{ $t('decorateShopInfo.inventoryMode') }}</text>
         <view class="seg">
-          <text :class="{ on: f.inventoryMode === 'simple' }" @tap="setInventoryMode('simple')">简单库存</text>
-          <text :class="{ on: f.inventoryMode === 'odoo' }" @tap="setInventoryMode('odoo')">Odoo库存(预留)</text>
+          <text :class="{ on: f.inventoryMode === 'simple' }" @tap="setInventoryMode('simple')">{{ $t('decorateShopInfo.inventorySimple') }}</text>
+          <text :class="{ on: f.inventoryMode === 'odoo' }" @tap="setInventoryMode('odoo')">{{ $t('decorateShopInfo.inventoryOdoo') }}</text>
         </view>
       </view>
       <block v-if="f.inventoryMode === 'odoo'">
         <view class="cell">
-          <text class="lbl">Odoo 地址</text>
-          <input v-model="f.odooBaseUrl" placeholder="请输入 Odoo 地址（选填）" />
+          <text class="lbl">{{ $t('decorateShopInfo.odooBaseUrl') }}</text>
+          <input v-model="f.odooBaseUrl" :placeholder="$t('decorateShopInfo.odooBaseUrlPlaceholder')" />
         </view>
         <view class="cell">
-          <text class="lbl">API Key</text>
-          <input v-model="f.odooApiKey" placeholder="请输入 API Key（选填）" />
+          <text class="lbl">{{ $t('decorateShopInfo.apiKey') }}</text>
+          <input v-model="f.odooApiKey" :placeholder="$t('decorateShopInfo.apiKeyPlaceholder')" />
         </view>
-        <view class="hint">预留接口，后续开发</view>
+        <view class="hint">{{ $t('decorateShopInfo.odooHint') }}</view>
       </block>
       <view class="cell row-in">
-        <text class="lbl">详情页价格块样式</text>
+        <text class="lbl">{{ $t('decorateShopInfo.priceStyle') }}</text>
         <view class="seg">
-          <text :class="{ on: f.priceStyle === 'classic' }" @tap="setPriceStyle('classic')">经典</text>
-          <text :class="{ on: f.priceStyle === 'jdA' }" @tap="setPriceStyle('jdA')">京东A</text>
-          <text :class="{ on: f.priceStyle === 'jdB' }" @tap="setPriceStyle('jdB')">京东B</text>
+          <text :class="{ on: f.priceStyle === 'classic' }" @tap="setPriceStyle('classic')">{{ $t('decorateShopInfo.priceClassic') }}</text>
+          <text :class="{ on: f.priceStyle === 'jdA' }" @tap="setPriceStyle('jdA')">{{ $t('decorateShopInfo.priceJdA') }}</text>
+          <text :class="{ on: f.priceStyle === 'jdB' }" @tap="setPriceStyle('jdB')">{{ $t('decorateShopInfo.priceJdB') }}</text>
         </view>
       </view>
-      <view class="hint">详情页价格块版式：经典（跟随主题主色）；京东A（横幅促销价：现价+划线价+降价+标签）；京东B（深色价签条：整条京东红价签+白字现价+划线价）。注：京东A/B 固定走京东红 #E1251B，不随主题色。</view>
+      <view class="hint">{{ $t('decorateShopInfo.priceStyleHint') }}</view>
       <view class="cell row-in">
-        <text class="lbl">详情页版式</text>
+        <text class="lbl">{{ $t('decorateShopInfo.layoutLabel') }}</text>
         <view class="seg">
-          <text :class="{ on: f.layout === 'classic' }" @tap="setLayout('classic')">经典</text>
-          <text :class="{ on: f.layout === 'floor' }" @tap="setLayout('floor')">楼层</text>
-          <text :class="{ on: f.layout === 'dualBuy' }" @tap="setLayout('dualBuy')">双买</text>
-          <text :class="{ on: f.layout === 'hotel' }" @tap="setLayout('hotel')">酒店</text>
+          <text :class="{ on: f.layout === 'classic' }" @tap="setLayout('classic')">{{ $t('decorateProduct.layoutClassic') }}</text>
+          <text :class="{ on: f.layout === 'floor' }" @tap="setLayout('floor')">{{ $t('decorateProduct.layoutFloor') }}</text>
+          <text :class="{ on: f.layout === 'dualBuy' }" @tap="setLayout('dualBuy')">{{ $t('decorateProduct.layoutDualBuy') }}</text>
+          <text :class="{ on: f.layout === 'hotel' }" @tap="setLayout('hotel')">{{ $t('decorateProduct.layoutHotel') }}</text>
         </view>
       </view>
-      <view class="hint">详情页版式：经典 / 楼层 / 双买 / 酒店（酒店版式需商品变体已配置 hotelRoomConfig，否则回退经典版式）。</view>
+      <view class="hint">{{ $t('decorateShopInfo.layoutHint') }}</view>
     </view>
     <view class="card">
-      <view class="img-title">风格模板（模板库选择，未选时用全局默认）</view>
+      <view class="img-title">{{ $t('decorateShopInfo.tplTitle') }}</view>
       <view class="chips">
         <text
           v-for="a in APP_OPTS"
@@ -80,12 +80,12 @@
           class="chip"
           :class="{ on: tplApp === a.key }"
           @tap="switchTplApp(a.key)"
-        >{{ a.label }}</text>
+        >{{ appLabel(a.key) }}</text>
       </view>
       <view class="tpl-wrap">
         <view class="tpl" :class="{ added: !templateId }" @tap="templateId = ''">
-          <text class="tpl-zh">不使用模板</text>
-          <text class="tpl-en">global default</text>
+          <text class="tpl-zh">{{ $t('decorateShopInfo.tplNone') }}</text>
+          <text class="tpl-en">{{ $t('decorateShopInfo.tplNoneEn') }}</text>
           <text class="tpl-plus">{{ !templateId ? '✓' : '' }}</text>
         </view>
         <view
@@ -100,10 +100,10 @@
           <text class="tpl-plus">{{ templateId === t.id ? '✓' : '' }}</text>
         </view>
       </view>
-      <text v-if="!enabledTemplates.length" class="hint-inline">暂无启用中的模板，可先到「平台 → 风格模板库」新建。</text>
+      <text v-if="!enabledTemplates.length" class="hint-inline">{{ $t('decorateShopInfo.tplEmpty') }}</text>
     </view>
     <view class="card">
-      <view class="img-title">促销方案库（频道默认；商品可覆盖）</view>
+      <view class="img-title">{{ $t('decorateShopInfo.promoSchemesTitle') }}</view>
       <view class="tpl-wrap">
         <view
           class="tpl"
@@ -118,16 +118,16 @@
         </view>
       </view>
       <view class="scheme-row" v-for="(s, i) in promoSchemes" :key="i">
-        <input class="inp" v-model="s.code" placeholder="code，如 freeShip99" />
-        <input class="inp" v-model="s.zh" placeholder="中文文案" />
-        <input class="inp" v-model="s.en" placeholder="English" />
-        <button class="del" @tap="promoSchemes.splice(i, 1)">删</button>
+        <input class="inp" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderFreeShip')" />
+        <input class="inp" v-model="s.zh" :placeholder="$t('decorateShopInfo.zhPlaceholder')" />
+        <input class="inp" v-model="s.en" :placeholder="$t('decorateShopInfo.enPlaceholder')" />
+        <button class="del" @tap="promoSchemes.splice(i, 1)">{{ $t('decorateShopInfo.del') }}</button>
       </view>
-      <button class="add" @tap="promoSchemes.push({ code: '', zh: '', en: '' })">+ 添加方案</button>
+      <button class="add" @tap="promoSchemes.push({ code: '', zh: '', en: '' })">{{ $t('decorateShopInfo.addScheme') }}</button>
     </view>
 
     <view class="card">
-      <view class="img-title">服务保障库（频道默认；商品可覆盖）</view>
+      <view class="img-title">{{ $t('decorateShopInfo.serviceSchemesTitle') }}</view>
       <view class="tpl-wrap">
         <view
           class="tpl"
@@ -142,12 +142,12 @@
         </view>
       </view>
       <view class="scheme-row" v-for="(s, i) in serviceSchemes" :key="i">
-        <input class="inp" v-model="s.code" placeholder="code，如 genuine" />
-        <input class="inp" v-model="s.zh" placeholder="中文文案" />
-        <input class="inp" v-model="s.en" placeholder="English" />
-        <button class="del" @tap="serviceSchemes.splice(i, 1)">删</button>
+        <input class="inp" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderGenuine')" />
+        <input class="inp" v-model="s.zh" :placeholder="$t('decorateShopInfo.zhPlaceholder')" />
+        <input class="inp" v-model="s.en" :placeholder="$t('decorateShopInfo.enPlaceholder')" />
+        <button class="del" @tap="serviceSchemes.splice(i, 1)">{{ $t('decorateShopInfo.del') }}</button>
       </view>
-      <button class="add" @tap="serviceSchemes.push({ code: '', zh: '', en: '' })">+ 添加方案</button>
+      <button class="add" @tap="serviceSchemes.push({ code: '', zh: '', en: '' })">{{ $t('decorateShopInfo.addScheme') }}</button>
     </view>
     <button class="save" :disabled="saving" @tap="save">{{ saveText }}</button>
   </view>
@@ -160,8 +160,10 @@ import { graphQlErrorMsg } from '../../../apis/client';
 import { templateApi, type ShopTemplate } from '../../../apis/template';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 import { fetchAssets } from '../../../apis/asset';
+import { useLocaleStore } from '../../../stores/localeStore';
 import MediaPicker from '../../../components/MediaPicker.vue';
 
+const locale = useLocaleStore();
 const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; odooBaseUrl: string; odooApiKey: string }>({
   shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', odooBaseUrl: '', odooApiKey: '',
 });
@@ -189,8 +191,8 @@ const templateId = ref('');
 const templateList = ref<ShopTemplate[]>([]);
 const tplApp = ref<'nshop' | 'vshop'>('nshop');
 const APP_OPTS = [
-  { key: 'nshop', label: 'nshop 商城' },
-  { key: 'vshop', label: 'vshop 商城' },
+  { key: 'nshop', label: '' },
+  { key: 'vshop', label: '' },
 ] as const;
 const enabledTemplates = computed(() => templateList.value.filter((t) => t.enabled && t.app === tplApp.value));
 
@@ -200,7 +202,7 @@ function switchTplApp(a: 'nshop' | 'vshop') {
 }
 
 function appLabel(a: string): string {
-  return a === 'vshop' ? 'vshop 商城' : 'nshop 商城';
+  return a === 'vshop' ? locale.t('decorateShopInfo.appVshop') : locale.t('decorateShopInfo.appNshop');
 }
 
 function onShareImageChange(ids: string[]) {
@@ -218,7 +220,7 @@ let rawDetailConfig = '';
 const promoSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
 const serviceSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
 const saving = ref(false);
-const saveText = ref('保存');
+const saveText = ref(locale.t('decorateShopInfo.save'));
 
 function loadSchemeList(raw: string | undefined): Array<{ code: string; zh: string; en: string }> {
   if (!raw) return [];
@@ -302,7 +304,7 @@ onMounted(async () => {
 async function save() {
   if (saving.value) return;
   saving.value = true;
-  saveText.value = '正在保存…';
+  saveText.value = locale.t('decorateShopInfo.saving');
   // 合并 price.style 与 layout 进 detailConfig，保留原 detailConfig 其余字段
   const payload = { ...f.value } as any;
   delete payload.priceStyle;
@@ -319,12 +321,12 @@ async function save() {
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
     await updateChannelCustomFields(channelId, payload);
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateShopInfo.saved'), icon: 'success' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateShopInfo.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
-    saveText.value = '保存';
+    saveText.value = locale.t('decorateShopInfo.save');
   }
 }
 
