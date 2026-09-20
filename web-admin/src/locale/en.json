@@ -443,7 +443,14 @@
     "delTitle": "Delete",
     "delContent": "Confirm to delete \"{name}\"? Deletion cannot be undone; if coupons have been issued from this template, deletion will be blocked and the count shown.",
     "deleted": "Deleted",
-    "delFailed": "Delete failed"
+    "delFailed": "Delete failed",
+    "opsIssued": "Issued",
+    "opsUsed": "Used",
+    "opsAvailable": "Remaining",
+    "goIssue": "Issue",
+    "kpiIssued": "Total issued",
+    "kpiUsed": "Total used",
+    "kpiAvailable": "Available"
   },
   "couponEdit": {
     "typeLabel": "Coupon type *",
