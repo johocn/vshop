@@ -2,38 +2,38 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">分类页装修</text>
-        <text class="sub">保存到 pageCategoryConfig，逐级覆盖模板/全局默认</text>
+        <text class="title">{{ $t('decorateCategory.title') }}</text>
+        <text class="sub">{{ $t('decorateCategory.sub') }}</text>
       </view>
       <view class="cell">
-        <text class="lbl">标题</text>
-        <input v-model="f.title" placeholder="分类" />
+        <text class="lbl">{{ $t('decorateCategory.titleLabel') }}</text>
+        <input v-model="f.title" :placeholder="$t('decorateCategory.titlePlaceholder')" />
       </view>
       <view class="cell">
-        <text class="lbl">副标题</text>
-        <input v-model="f.subtitle" placeholder="可选" />
+        <text class="lbl">{{ $t('decorateCategory.subtitleLabel') }}</text>
+        <input v-model="f.subtitle" :placeholder="$t('decorateCategory.optional')" />
       </view>
       <view class="cell">
-        <text class="lbl">背景色</text>
+        <text class="lbl">{{ $t('decorateCategory.bgColor') }}</text>
         <input v-model="f.bgColor" placeholder="#ffffff" />
       </view>
       <view class="cell row-in">
-        <text class="lbl">列表样式</text>
+        <text class="lbl">{{ $t('decorateCategory.listStyle') }}</text>
         <view class="seg">
-          <text :class="{ on: f.listStyle === 'grid' }" @tap="f.listStyle = 'grid'">网格</text>
-          <text :class="{ on: f.listStyle === 'list' }" @tap="f.listStyle = 'list'">列表</text>
+          <text :class="{ on: f.listStyle === 'grid' }" @tap="f.listStyle = 'grid'">{{ $t('decorateCategory.grid') }}</text>
+          <text :class="{ on: f.listStyle === 'list' }" @tap="f.listStyle = 'list'">{{ $t('decorateCategory.list') }}</text>
         </view>
       </view>
       <view class="cell">
-        <text class="lbl">楼层标题</text>
-        <input v-model="f.floorTitle" placeholder="可选，展示在分类上方" />
+        <text class="lbl">{{ $t('decorateCategory.floorTitle') }}</text>
+        <input v-model="f.floorTitle" :placeholder="$t('decorateCategory.floorTitlePlaceholder')" />
       </view>
       <view class="cell">
-        <text class="lbl">楼层副标题</text>
-        <input v-model="f.floorSubtitle" placeholder="可选" />
+        <text class="lbl">{{ $t('decorateCategory.floorSubtitle') }}</text>
+        <input v-model="f.floorSubtitle" :placeholder="$t('decorateCategory.optional')" />
       </view>
     </view>
-    <button class="save" :disabled="saving" @tap="save">{{ saving ? '保存中…' : '保存' }}</button>
+    <button class="save" :disabled="saving" @tap="save">{{ saving ? $t('decorateCategory.saving') : $t('decorateCategory.save') }}</button>
   </view>
 </template>
 
@@ -41,7 +41,9 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 
+const locale = useLocaleStore();
 const f = ref({
   title: '分类',
   subtitle: '',
@@ -83,9 +85,9 @@ async function save() {
   saving.value = true;
   try {
     await updateChannelCustomFields(channelId, { pageCategoryConfig: JSON.stringify({ version: 1, ...f.value }) });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateCategory.saved'), icon: 'success' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateCategory.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }

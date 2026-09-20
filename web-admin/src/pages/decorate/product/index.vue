@@ -2,30 +2,30 @@
   <view class="page">
     <view class="card">
       <view class="row head">
-        <text class="title">详情页装修</text>
-        <text class="sub">保存到本店铺 detailConfig，逐级覆盖模板/全局默认</text>
+        <text class="title">{{ $t('decorateProduct.title') }}</text>
+        <text class="sub">{{ $t('decorateProduct.sub') }}</text>
       </view>
       <view class="cell row-in">
-        <text class="lbl">页面版式</text>
+        <text class="lbl">{{ $t('decorateProduct.layout') }}</text>
         <view class="seg">
-          <text :class="{ on: f.layout === 'classic' }" @tap="setLayout('classic')">经典</text>
-          <text :class="{ on: f.layout === 'floor' }" @tap="setLayout('floor')">楼层</text>
-          <text :class="{ on: f.layout === 'dualBuy' }" @tap="setLayout('dualBuy')">双买</text>
-          <text :class="{ on: f.layout === 'hotel' }" @tap="setLayout('hotel')">酒店</text>
+          <text :class="{ on: f.layout === 'classic' }" @tap="setLayout('classic')">{{ $t('decorateProduct.layoutClassic') }}</text>
+          <text :class="{ on: f.layout === 'floor' }" @tap="setLayout('floor')">{{ $t('decorateProduct.layoutFloor') }}</text>
+          <text :class="{ on: f.layout === 'dualBuy' }" @tap="setLayout('dualBuy')">{{ $t('decorateProduct.layoutDualBuy') }}</text>
+          <text :class="{ on: f.layout === 'hotel' }" @tap="setLayout('hotel')">{{ $t('decorateProduct.layoutHotel') }}</text>
         </view>
       </view>
-      <view class="hint">版式缺省/非法时回退「经典」。酒店版式需商品变体已配置 hotelRoomConfig。</view>
+      <view class="hint">{{ $t('decorateProduct.layoutHint') }}</view>
     </view>
 
     <view class="card" v-for="b in BLOCKS" :key="b.key">
       <view class="cell row-in block-head">
-        <text class="lbl">{{ b.label }}</text>
+        <text class="lbl">{{ $t('decorateProduct.block.' + b.key) }}</text>
         <view class="seg">
-          <text :class="{ on: visibleOf(b.key) }" @tap="toggleVisible(b.key)">{{ visibleOf(b.key) ? '显示' : '隐藏' }}</text>
+          <text :class="{ on: visibleOf(b.key) }" @tap="toggleVisible(b.key)">{{ visibleOf(b.key) ? $t('decorateProduct.show') : $t('decorateProduct.hide') }}</text>
         </view>
       </view>
       <view class="cell col">
-        <text class="lbl small">样式 style JSON（可选）</text>
+        <text class="lbl small">{{ $t('decorateProduct.styleJson') }}</text>
         <textarea
           class="ta"
           v-model="styleText[b.key]"
@@ -35,7 +35,7 @@
       </view>
     </view>
 
-    <button class="save" :disabled="saving" @tap="save">{{ saving ? '保存中…' : '保存' }}</button>
+    <button class="save" :disabled="saving" @tap="save">{{ saving ? $t('decorateProduct.saving') : $t('decorateProduct.save') }}</button>
   </view>
 </template>
 
@@ -43,26 +43,28 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { useLocaleStore } from '../../../stores/localeStore';
 
 // 对齐 nshop layers/base/app/utils/detail-config.ts 的块键与兜底语义
 const BLOCKS = [
-  { key: 'gallery', label: '图集 Gallery', placeholder: '{ "imageWidth": 750 }' },
-  { key: 'info', label: '商品信息 Info', placeholder: '{}' },
-  { key: 'price', label: '价格块 Price', placeholder: '{ "style": "classic" }' },
-  { key: 'promo', label: '促销 Promo', placeholder: '{ "style": "classic" }' },
-  { key: 'service', label: '服务保障 Service', placeholder: '{ "style": "classic" }' },
-  { key: 'variants', label: '规格选择 Variants', placeholder: '{}' },
-  { key: 'purchase', label: '购买栏 PurchaseBar', placeholder: '{ "style": "classic" }' },
-  { key: 'description', label: '图文详情 Description', placeholder: '{}' },
-  { key: 'reviews', label: '评价 Reviews', placeholder: '{ "visible": true }' },
-  { key: 'nearby', label: '周边推荐 Nearby', placeholder: '{}' },
-  { key: 'related', label: '相关推荐 Related', placeholder: '{}' },
-  { key: 'datebar', label: '日期栏 Datebar', placeholder: '{}' },
-  { key: 'roomList', label: '房型列表 RoomList', placeholder: '{}' },
-  { key: 'pricePreview', label: '价格预览 PricePreview', placeholder: '{}' },
-  { key: 'policy', label: '政策说明 Policy', placeholder: '{}' },
+  { key: 'gallery', placeholder: '{ "imageWidth": 750 }' },
+  { key: 'info', placeholder: '{}' },
+  { key: 'price', placeholder: '{ "style": "classic" }' },
+  { key: 'promo', placeholder: '{ "style": "classic" }' },
+  { key: 'service', placeholder: '{ "style": "classic" }' },
+  { key: 'variants', placeholder: '{}' },
+  { key: 'purchase', placeholder: '{ "style": "classic" }' },
+  { key: 'description', placeholder: '{}' },
+  { key: 'reviews', placeholder: '{ "visible": true }' },
+  { key: 'nearby', placeholder: '{}' },
+  { key: 'related', placeholder: '{}' },
+  { key: 'datebar', placeholder: '{}' },
+  { key: 'roomList', placeholder: '{}' },
+  { key: 'pricePreview', placeholder: '{}' },
+  { key: 'policy', placeholder: '{}' },
 ] as const;
 
+const locale = useLocaleStore();
 const f = ref({ layout: 'classic' as string });
 const styleText = ref<Record<string, string>>({});
 const styleErr = ref<Record<string, string>>({});
@@ -124,8 +126,8 @@ async function save() {
     const raw = styleText.value[k]?.trim();
     if (!raw) continue;
     try { JSON.parse(raw); } catch {
-      styleErr.value[k] = `${k} 不是合法 JSON`;
-      uni.showToast({ title: '有非法 JSON，请修正', icon: 'none' });
+      styleErr.value[k] = locale.t('decorateProduct.invalidJson').replace('{key}', k);
+      uni.showToast({ title: locale.t('decorateProduct.invalidJsonToast'), icon: 'none' });
       return;
     }
   }
@@ -138,9 +140,9 @@ async function save() {
   const cfg = { version: 2, layout: f.value.layout, blocks };
   try {
     await updateChannelCustomFields(channelId, { detailConfig: JSON.stringify(cfg) });
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('decorateProduct.saved'), icon: 'success' });
   } catch (err: any) {
-    uni.showToast({ title: graphQlErrorMsg(err, '保存失败'), icon: 'none' });
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateProduct.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
   }
