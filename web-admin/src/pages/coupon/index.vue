@@ -4,6 +4,21 @@
       <button class="add" @tap="onCreate">＋ {{ $t('couponList.createNew') }}</button>
     </view>
 
+    <view class="kpi">
+      <view class="kpi-item">
+        <text class="kpi-num">{{ kpiIssued }}</text>
+        <text class="kpi-label">{{ $t('couponList.kpiIssued') }}</text>
+      </view>
+      <view class="kpi-item">
+        <text class="kpi-num">{{ kpiUsed }}</text>
+        <text class="kpi-label">{{ $t('couponList.kpiUsed') }}</text>
+      </view>
+      <view class="kpi-item">
+        <text class="kpi-num">{{ kpiAvailable }}</text>
+        <text class="kpi-label">{{ $t('couponList.kpiAvailable') }}</text>
+      </view>
+    </view>
+
     <view class="card" v-for="c in items" :key="c.id">
       <view class="top" @tap="onEdit(c)">
         <view class="head">
@@ -38,8 +53,23 @@
             <text class="v">{{ shopText(c.shopId) }}</text>
           </view>
         </view>
+        <view class="row ops-row">
+          <view class="kv">
+            <text class="k">{{ $t('couponList.opsIssued') }}</text>
+            <text class="v">{{ c.claimedCount ?? '−' }}</text>
+          </view>
+          <view class="kv">
+            <text class="k">{{ $t('couponList.opsUsed') }}</text>
+            <text class="v">−</text>
+          </view>
+          <view class="kv">
+            <text class="k">{{ $t('couponList.opsAvailable') }}</text>
+            <text class="v">{{ availableText(c) }}</text>
+          </view>
+        </view>
       </view>
       <view class="ops">
+        <text class="issue" @tap="goIssue(c)">{{ $t('couponList.goIssue') }}</text>
         <text @tap="onToggle(c)">{{ c.enabled ? $t('couponList.disabled') : $t('couponList.enabled') }}</text>
         <text @tap="onEdit(c)">{{ $t('couponList.edit') }}</text>
         <text @tap="openDetail(c)">{{ $t('couponList.detail') }}</text>
@@ -55,7 +85,7 @@
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplates, deleteCouponTemplate, setCouponTemplateEnabled,
@@ -135,6 +165,32 @@ async function loadMore() {
 
 function onCreate() { uni.navigateTo({ url: '/pages/coupon/edit/index' }); }
 function onEdit(c: CouponTemplateItem) { uni.navigateTo({ url: `/pages/coupon/edit/index?id=${c.id}` }); }
+function goIssue(c: CouponTemplateItem) {
+  uni.navigateTo({ url: `/pages/coupon/issue/index?templateId=${c.id}` });
+}
+
+/** 剩余可用于领取：无上限显示不限；无 totalCount/claimedCount 显示 − */
+function availableText(c: CouponTemplateItem): string {
+  if (c.totalCount == null || c.claimedCount == null) return '−';
+  if (c.totalCount === 0) return locale.t('couponList.unlimited');
+  const rest = c.totalCount - c.claimedCount;
+  return rest > 0 ? String(rest) : '−';
+}
+
+/** 顶部 KPI 汇总 */
+const kpiIssued = computed(() => items.value.reduce((s, c) => s + (c.claimedCount || 0), 0));
+// 后端暂无已核销/used 统计字段，整体显示 −
+const kpiUsed = computed(() => '−');
+const kpiAvailable = computed(() => {
+  let total = 0, any = false;
+  for (const c of items.value) {
+    if (c.totalCount == null || c.claimedCount == null) continue;
+    if (c.totalCount === 0) { any = true; continue; }
+    const rest = c.totalCount - c.claimedCount;
+    if (rest > 0) { total += rest; any = true; }
+  }
+  return any ? total : '−';
+});
 
 const toggling = ref(false);
 
@@ -186,6 +242,12 @@ onReachBottom(loadMore);
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
   .toolbar .add { width: 300rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
+  .kpi { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 24rpx 0; margin-bottom: 24rpx;
+    .kpi-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+      .kpi-num { font-size: 40rpx; color: $wa-ink; font-weight: 700; }
+      .kpi-label { font-size: 22rpx; color: $wa-muted; margin-top: 6rpx; }
+    }
+  }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .top { display: flex; align-items: center; justify-content: space-between;
       .head { display: flex; align-items: center; flex-wrap: wrap;
@@ -210,8 +272,9 @@ onReachBottom(loadMore);
       }
     }
     .ops { margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid $wa-rule; display: flex; flex-wrap: wrap; align-items: center;
-      text { font-size: 26rpx; color: $wa-accent; margin-right: 32rpx;
+      > text { font-size: 26rpx; color: $wa-accent; margin-right: 32rpx;
         &.del { color: #e64340; }
+        &.issue { color: #fff; background: $wa-accent; border-radius: 24rpx; padding: 6rpx 24rpx; }
       }
     }
   }
