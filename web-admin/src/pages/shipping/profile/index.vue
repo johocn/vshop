@@ -1,27 +1,27 @@
 <template>
   <view class="page">
-    <view class="toolbar"><button class="add" @tap="onCreate">＋ 新建配送档案</button></view>
+    <view class="toolbar"><button class="add" @tap="onCreate">＋ {{ $t('shippingProfile.createNew') }}</button></view>
 
     <!-- 内联编辑面板 -->
     <view v-if="creating || editing" class="panel">
-      <view class="panel-title">{{ editing ? '编辑配送档案' : '新建配送档案' }}</view>
+      <view class="panel-title">{{ editing ? $t('shippingProfile.editTitle') : $t('shippingProfile.newTitle') }}</view>
 
       <view class="field">
-        <text class="label">名称</text>
-        <input class="ipt" v-model="form.name" placeholder="如 全国标准配送" />
+        <text class="label">{{ $t('shippingProfile.labelName') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('shippingProfile.phName')" />
       </view>
       <view class="field">
-        <text class="label">编码</text>
-        <input class="ipt" v-model="form.code" placeholder="如 express" />
+        <text class="label">{{ $t('shippingProfile.labelCode') }}</text>
+        <input class="ipt" v-model="form.code" :placeholder="$t('shippingProfile.phCode')" />
       </view>
       <view class="field">
-        <text class="label">描述</text>
-        <textarea class="area" v-model="form.description" placeholder="选填"></textarea>
+        <text class="label">{{ $t('shippingProfile.labelDesc') }}</text>
+        <textarea class="area" v-model="form.description" :placeholder="$t('shippingProfile.phDesc')"></textarea>
       </view>
 
       <view class="field">
-        <text class="label">配送方式</text>
-        <button class="mini" @tap="onAddMethod">＋ 添加配送方式</button>
+        <text class="label">{{ $t('shippingProfile.labelMethods') }}</text>
+        <button class="mini" @tap="onAddMethod">＋ {{ $t('shippingProfile.addMethod') }}</button>
       </view>
 
       <view class="methods" v-for="(e, i) in methodEntries" :key="e.shippingMethodId">
@@ -32,18 +32,18 @@
             <text v-if="e.name && e.code" class="method-key">{{ e.code }}</text>
           </view>
           <view class="method-actions">
-            <text class="method-mode">{{ isPickupMode(e.mode) ? '自提' : '邮寄' }}</text>
-            <text class="method-del" @tap="onRemoveMethod(i)">移除</text>
+            <text class="method-mode">{{ isPickupMode(e.mode) ? $t('shippingProfile.modePickup') : $t('shippingProfile.modeMail') }}</text>
+            <text class="method-del" @tap="onRemoveMethod(i)">{{ $t('shippingProfile.remove') }}</text>
           </view>
         </view>
         </view>
 
         <view v-if="isPickupEntry(e)">
           <view class="range-row">
-            <text class="range-label">自提点范围</text>
+            <text class="range-label">{{ $t('shippingProfile.rangeLabel') }}</text>
             <view class="seg">
-              <text :class="{ on: e.rangeMode === 'selected' }" @tap="e.rangeMode = 'selected'">指定自提点</text>
-              <text :class="{ on: e.rangeMode === 'all' }" @tap="e.rangeMode = 'all'">同城全部</text>
+              <text :class="{ on: e.rangeMode === 'selected' }" @tap="e.rangeMode = 'selected'">{{ $t('shippingProfile.rangeSelected') }}</text>
+              <text :class="{ on: e.rangeMode === 'all' }" @tap="e.rangeMode = 'all'">{{ $t('shippingProfile.rangeAll') }}</text>
             </view>
           </view>
           <view v-if="e.rangeMode === 'selected'" class="pickup-blocks">
@@ -54,38 +54,38 @@
                 <view class="pickup-info">
                   <view class="pickup-name-row">
                     <text class="pickup-name">{{ p.name }}</text>
-                    <text v-if="!isChannelVisible(p.id)" class="pickup-cross">跨租户绑定</text>
+                    <text v-if="!isChannelVisible(p.id)" class="pickup-cross">{{ $t('shippingProfile.crossTenant') }}</text>
                   </view>
                   <text v-if="p.address" class="pickup-addr">{{ p.address }}</text>
                   <text v-if="p.phoneNumber" class="pickup-meta">☎ {{ p.phoneNumber }}</text>
                   <text v-if="p.coordinates" class="pickup-meta">📍 {{ p.coordinates.lat }}, {{ p.coordinates.lng }}</text>
                 </view>
                 <view class="pickup-ops">
-                  <text class="pk-edit" @tap.stop="editPickup(p)">编辑</text>
-                  <text v-if="!p.isPublic" class="pk-del" @tap.stop="delPickup(p)">删除</text>
+                  <text class="pk-edit" @tap.stop="editPickup(p)">{{ $t('shippingProfile.edit') }}</text>
+                  <text v-if="!p.isPublic" class="pk-del" @tap.stop="delPickup(p)">{{ $t('shippingProfile.del') }}</text>
                 </view>
               </view>
             </view>
-            <view v-if="!pickupPool(e).length" class="pickup-empty">暂无自提点</view>
-            <view v-else-if="!groupedPickups(e).length" class="pickup-empty">暂无可用的该类型自提点</view>
+            <view v-if="!pickupPool(e).length" class="pickup-empty">{{ $t('shippingProfile.pickupEmpty') }}</view>
+            <view v-else-if="!groupedPickups(e).length" class="pickup-empty">{{ $t('shippingProfile.pickupEmptyType') }}</view>
           </view>
-          <button class="mini" @tap="onAddPickup(e)">＋ 新增自提点</button>
+          <button class="mini" @tap="onAddPickup(e)">＋ {{ $t('shippingProfile.addPickup') }}</button>
         </view>
-        <view v-else class="mail-tip">范围/运费公式请在「配送方式」原实例中配置</view>
+        <view v-else class="mail-tip">{{ $t('shippingProfile.mailTip') }}</view>
       </view>
 
       <view class="field row">
         <view class="flag-label">
-          <text class="label">需要联系方式</text>
-          <text class="hint">自提时需填写收货人/电话</text>
+          <text class="label">{{ $t('shippingProfile.needsContactLabel') }}</text>
+          <text class="hint">{{ $t('shippingProfile.needsContactHint') }}</text>
         </view>
         <switch :checked="form.requiresContact" @change="form.requiresContact = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
       <view class="field row">
         <view class="flag-label">
-          <text class="label">需要收货地址</text>
-          <text class="hint">物流配送时需填写收货地址</text>
+          <text class="label">{{ $t('shippingProfile.needsAddressLabel') }}</text>
+          <text class="hint">{{ $t('shippingProfile.needsAddressHint') }}</text>
         </view>
         <switch :checked="form.requiresAddress" @change="form.requiresAddress = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
@@ -93,30 +93,30 @@
       <!-- 超管：可切换（新建=开；编辑全局=开→关 归属当前渠道） -->
       <view v-if="isSuperAdmin" class="field row">
         <view class="flag-label">
-          <text class="label">设为全局</text>
-          <text class="hint">{{ editingProfile?.isGlobal ? '全局档案对所有租户可见，仅超管可维护' : '开启后对所有租户可见' }}</text>
+          <text class="label">{{ $t('shippingProfile.setGlobalLabel') }}</text>
+          <text class="hint">{{ editingProfile?.isGlobal ? $t('shippingProfile.globalHintMaintain') : $t('shippingProfile.globalHintOn') }}</text>
         </view>
         <switch :checked="isGlobal" color="#2563eb" style="transform: scale(0.8);" @change="onIsGlobalChange($event)" />
       </view>
       <!-- 非超管（防御）：全局档案编辑只读锁定 -->
       <view v-else-if="editingProfile?.isGlobal" class="field row">
         <view class="flag-label">
-          <text class="label">设为全局</text>
-          <text class="hint">全局档案 · 仅超管可维护</text>
+          <text class="label">{{ $t('shippingProfile.setGlobalLabel') }}</text>
+          <text class="hint">{{ $t('shippingProfile.globalLocked') }}</text>
         </view>
         <switch :checked="true" disabled color="#2563eb" style="transform: scale(0.8);" />
       </view>
       <view class="field row">
         <view class="flag-label">
-          <text class="label">设为租户默认</text>
-          <text v-if="isGlobal" class="hint">全局档案不可设为租户默认</text>
+          <text class="label">{{ $t('shippingProfile.setTenantDefaultLabel') }}</text>
+          <text v-if="isGlobal" class="hint">{{ $t('shippingProfile.tenantDefaultGlobalDisallow') }}</text>
         </view>
         <switch :checked="setDefault" :disabled="isGlobal" @change="setDefault = $event.detail.value" color="#2563eb" style="transform: scale(0.8);" />
       </view>
 
       <view class="panel-ops">
-        <button class="btn ghost" @tap="onClose">取消</button>
-        <button class="btn main" @tap="onSave">保存</button>
+        <button class="btn ghost" @tap="onClose">{{ $t('shippingProfile.cancel') }}</button>
+        <button class="btn main" @tap="onSave">{{ $t('shippingProfile.save') }}</button>
       </view>
     </view>
 
@@ -124,24 +124,24 @@
       <view class="row">
         <view class="row-left">
           <text class="name">{{ s.name }}</text>
-          <text v-if="s.isTenantDefault" class="default-badge">默认</text>
-          <text v-if="s.isGlobal" class="global-badge">全局</text>
-          <text v-if="!s.enabled" class="off-badge">停用</text>
+          <text v-if="s.isTenantDefault" class="default-badge">{{ $t('shippingProfile.default') }}</text>
+          <text v-if="s.isGlobal" class="global-badge">{{ $t('shippingProfile.global') }}</text>
+          <text v-if="!s.enabled" class="off-badge">{{ $t('shippingProfile.disabled') }}</text>
           <text class="code">{{ s.code }}</text>
         </view>
         <switch v-if="!s.isGlobal || isSuperAdmin" :checked="s.enabled" color="#2563eb" style="transform: scale(.7);" @change="onToggle(s, $event)" />
       </view>
       <text class="desc">{{ s.description || '—' }}</text>
       <view class="ops" v-if="!s.isGlobal || isSuperAdmin">
-        <text @tap="onEdit(s)">编辑</text>
-        <text v-if="!s.isTenantDefault" class="setdefault" @tap="onSetDefault(s)">设为默认</text>
-        <text class="del" @tap="onDel(s)">删除</text>
+        <text @tap="onEdit(s)">{{ $t('shippingProfile.edit') }}</text>
+        <text v-if="!s.isTenantDefault" class="setdefault" @tap="onSetDefault(s)">{{ $t('shippingProfile.setDefault') }}</text>
+        <text class="del" @tap="onDel(s)">{{ $t('shippingProfile.del') }}</text>
       </view>
       <view class="ops readonly" v-else>
-        <text class="readonly-tip">仅超管可维护 · 不可编辑</text>
+        <text class="readonly-tip">{{ $t('shippingProfile.readonlyTip') }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无配送档案</view>
+    <view v-if="!items.length" class="empty">{{ $t('shippingProfile.empty') }}</view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -155,6 +155,9 @@ import {
 } from '../../../apis/shipping-profile';
 import { fetchShippingMethods as fetchAllShippingMethods } from '../../../apis/shipping';
 import { fetchPickupLocations, deletePickupLocation, PickupLocationItem } from '../../../apis/pickup-location';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const auth = useAuthStore();
 const isSuperAdmin = computed(() => auth.isSuperAdmin);
@@ -183,7 +186,7 @@ const isGlobal = ref(false);
 const form = ref({ name: '', code: '', description: '', requiresAddress: true, requiresContact: false });
 const methodEntries = ref<MethodEntry[]>([]);
 
-const PICKUP_LABEL: Record<string, string> = { point: '租户自提点', store: '租户门店', employee: '职工单位' };
+const PICKUP_LABEL: Record<string, string> = { point: 'shippingProfile.pickupTypePoint', store: 'shippingProfile.pickupTypeStore', employee: 'shippingProfile.pickupTypeEmployee' };
 // 自提类型按真实「计费计算器」判定（与方式命名后缀无关，修复模板导入后 `-template` 后缀导致匹配失败）
 const PICKUP_CALCULATORS = ['store-pickup-calculator', 'pickup-point-calculator', 'employee-pickup-calculator'];
 const CALC_TO_PICKUP_TYPES: Record<string, string[]> = {
@@ -219,7 +222,7 @@ const groupedPickups = (e: MethodEntry) => {
   const types = pickupTypeForEntry(e);
   if (!types) return [];
   return types
-    .map((t) => ({ label: PICKUP_LABEL[t], list: pickupPool(e).filter((p) => p.type === t) }))
+    .map((t) => ({ label: locale.t(PICKUP_LABEL[t]), list: pickupPool(e).filter((p) => p.type === t) }))
     .filter((g) => g.list.length > 0);
 };
 
@@ -324,13 +327,13 @@ function onClose() {
 async function onAddMethod() {
   const enabled = methods.value.filter((m) => m.enabled !== false);
   if (!enabled.length) {
-    uni.showToast({ title: '请先在「配送方式」页面启用配送方式', icon: 'none' });
+    uni.showToast({ title: locale.t('shippingProfile.needEnable'), icon: 'none' });
     return;
   }
   const selected = new Set(methodEntries.value.map((e) => e.shippingMethodId));
   const avail = enabled.filter((m) => !selected.has(m.id));
   if (!avail.length) {
-    uni.showToast({ title: '已全部添加', icon: 'none' });
+    uni.showToast({ title: locale.t('shippingProfile.allAdded'), icon: 'none' });
     return;
   }
   uni.showActionSheet({
@@ -371,8 +374,8 @@ function editPickup(p: PickupLocationItem) {
 
 function delPickup(p: PickupLocationItem) {
   uni.showModal({
-    title: '删除自提点',
-    content: `删除自提点「${p.name}」？该点将从本店所有配送档案中移除。`,
+    title: locale.t('shippingProfile.delPickupTitle'),
+    content: locale.t('shippingProfile.delPickupContent').replace('{name}', p.name),
     success: async (r) => {
       if (!r.confirm) return;
       try {
@@ -383,16 +386,16 @@ function delPickup(p: PickupLocationItem) {
         });
         await loadPickups();
       } catch (err: any) {
-        uni.showToast({ title: err?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: err?.message || locale.t('shippingProfile.delFailed'), icon: 'none' });
       }
     },
   });
 }
 
 async function onSave() {
-  if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }
-  if (!form.value.code.trim()) { uni.showToast({ title: '请填写编码', icon: 'none' }); return; }
-  if (!methodEntries.value.length) { uni.showToast({ title: '请至少选择一个配送方式', icon: 'none' }); return; }
+  if (!form.value.name.trim()) { uni.showToast({ title: locale.t('shippingProfile.requireName'), icon: 'none' }); return; }
+  if (!form.value.code.trim()) { uni.showToast({ title: locale.t('shippingProfile.requireCode'), icon: 'none' }); return; }
+  if (!methodEntries.value.length) { uni.showToast({ title: locale.t('shippingProfile.requireMethod'), icon: 'none' }); return; }
 
   const shippingMethodIds = methodEntries.value.map((e) => e.shippingMethodId);
   const methodConfigs = methodEntries.value.map((e) => ({
@@ -434,9 +437,9 @@ async function onSave() {
     editingId.value = null;
     editingProfile.value = null;
     await reload();
-    uni.showToast({ title: '保存成功' });
+    uni.showToast({ title: locale.t('shippingProfile.saveSuccess') });
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('shippingProfile.saveFailed'), icon: 'none' });
   }
 }
 
@@ -444,9 +447,9 @@ async function onSetDefault(s: ShippingProfileItem) {
   try {
     await setTenantDefaultShippingProfile(s.id);
     await reload();
-    uni.showToast({ title: '已设为默认' });
+    uni.showToast({ title: locale.t('shippingProfile.setDefaultSuccess') });
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '设置失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('shippingProfile.setDefaultFailed'), icon: 'none' });
   }
 }
 
@@ -457,10 +460,10 @@ function onIsGlobalChange(e: any) {
     return;
   }
   uni.showModal({
-    title: '设为全局',
+    title: locale.t('shippingProfile.setGlobalTitle'),
     content: editingProfile.value?.isTenantDefault
-      ? '开启后所有租户可见，且将自动取消「租户默认」，确认？'
-      : '开启后所有租户可见，确认？',
+      ? locale.t('shippingProfile.setGlobalContentDefault')
+      : locale.t('shippingProfile.setGlobalContent'),
     success: (r) => {
       if (r.confirm) {
         isGlobal.value = true;
@@ -476,17 +479,17 @@ async function onToggle(s: ShippingProfileItem, e: any) {
     await updateShippingProfile(s.id, { enabled });
     s.enabled = enabled;
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('shippingProfile.opFailed'), icon: 'none' });
   }
 }
 
 function onDel(s: ShippingProfileItem) {
   uni.showModal({
-    title: '删除',
-    content: `删除「${s.name}」？`,
+    title: locale.t('shippingProfile.delTitle'),
+    content: locale.t('shippingProfile.delContent').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
-      try { await deleteShippingProfile(s.id); await reload(); } catch (e: any) { uni.showToast({ title: e?.message || '删除失败', icon: 'none' }); }
+      try { await deleteShippingProfile(s.id); await reload(); } catch (e: any) { uni.showToast({ title: e?.message || locale.t('shippingProfile.delFailed'), icon: 'none' }); }
     },
   });
 }

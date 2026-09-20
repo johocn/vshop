@@ -2,12 +2,12 @@
   <view v-if="visible" class="mask" @tap.self="close">
     <view class="modal">
       <view class="head">
-        <text class="t">券使用明细</text>
+        <text class="t">{{ $t('couponDetailModal.title') }}</text>
         <text class="x" @tap="close">✕</text>
       </view>
       <view class="tabs">
-        <text :class="{ on: tab === 'issued' }" @tap="switchTab('issued')">领取明细</text>
-        <text :class="{ on: tab === 'used' }" @tap="switchTab('used')">核销明细</text>
+        <text :class="{ on: tab === 'issued' }" @tap="switchTab('issued')">{{ $t('couponDetailModal.tabIssued') }}</text>
+        <text :class="{ on: tab === 'used' }" @tap="switchTab('used')">{{ $t('couponDetailModal.tabUsed') }}</text>
       </view>
 
       <scroll-view scroll-y class="list">
@@ -16,10 +16,10 @@
             <text class="who">{{ customerText(r) }}</text>
             <text class="sub">
               <template v-if="tab === 'issued'">
-                券码 {{ r.code }} · {{ statusLabel(r.status) }} · {{ issuedByLabel(r.issuedBy) }}
+                {{ $t('couponDetailModal.issuedSub').replace('{code}', r.code).replace('{status}', statusLabel(r.status)).replace('{by}', issuedByLabel(r.issuedBy)) }}
               </template>
               <template v-else>
-                券码 {{ r.code }} · 订单 {{ r.usedOrderId || '—' }}
+                {{ $t('couponDetailModal.usedSub').replace('{code}', r.code).replace('{order}', r.usedOrderId || '—') }}
               </template>
             </text>
           </view>
@@ -28,9 +28,9 @@
             <template v-else>{{ fmtDT(r.usedAt) }}</template>
           </text>
         </view>
-        <view v-if="!items.length && !loading" class="empty">暂无记录</view>
-        <view v-if="loading" class="empty">加载中…</view>
-        <view v-if="items.length && hasMore" class="more" @tap="loadMore">加载更多</view>
+        <view v-if="!items.length && !loading" class="empty">{{ $t('couponDetailModal.empty') }}</view>
+        <view v-if="loading" class="empty">{{ $t('couponDetailModal.loading') }}</view>
+        <view v-if="items.length && hasMore" class="more" @tap="loadMore">{{ $t('couponDetailModal.loadMore') }}</view>
       </scroll-view>
     </view>
   </view>
@@ -42,6 +42,9 @@ import {
   fetchCustomerCoupons, COUPON_STATUS_LABELS, COUPON_ISSUED_BY_LABELS,
   type CustomerCouponRow, type CouponTemplateItem,
 } from '../../apis/coupon';
+import { useLocaleStore } from '../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const props = defineProps<{ visible: boolean; template: CouponTemplateItem | null }>();
 const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>();
@@ -62,7 +65,7 @@ function customerText(r: CustomerCouponRow): string {
     const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || '—';
     return `${name} ${c.phoneNumber || ''}`.trim();
   }
-  return `客户 #${r.customerId}`;
+  return locale.t('couponDetailModal.customerId').replace('{id}', r.customerId);
 }
 
 function fmtDT(t?: string | null): string {
@@ -83,7 +86,7 @@ async function load() {
     items.value = res.items;
     totalItems.value = res.totalItems;
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('couponDetailModal.loadFailed'), icon: 'none' });
   } finally {
     loading.value = false;
   }
@@ -97,7 +100,7 @@ async function loadMore() {
     totalItems.value = res.totalItems;
     items.value = items.value.concat(res.items);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('couponDetailModal.loadFailed'), icon: 'none' });
   } finally {
     loading.value = false;
   }
