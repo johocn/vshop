@@ -3,26 +3,26 @@
     <view class="head">
       <view class="left">
         <text class="ord">{{ displayCode }}</text>
-        <text v-if="isPendingSign(row.status)" class="tag-p">待收款</text>
-        <text v-else class="tag-d">已收款</text>
-        <text v-if="today" class="tag-today">今日</text>
+        <text v-if="isPendingSign(row.status)" class="tag-p">{{ $t('settleLedger.pendingCard') }}</text>
+        <text v-else class="tag-d">{{ $t('settleLedger.paidCard') }}</text>
+        <text v-if="today" class="tag-today">{{ $t('settleLedger.today') }}</text>
       </view>
       <text class="amt">{{ fmt(row.amount) }}</text>
     </view>
     <view class="line">
-      <text>收款人（核销人）</text>
+      <text>{{ $t('settleLedger.collectorLabel') }}</text>
       <text>{{ row.collectorName || '—' }}</text>
     </view>
     <view class="line">
-      <text>收款方式</text>
+      <text>{{ $t('settleLedger.method') }}</text>
       <text>{{ label(row.settleMethod) }}</text>
     </view>
     <view class="line" v-if="row.tenantName">
-      <text>归属商户</text>
+      <text>{{ $t('settleLedger.tenant') }}</text>
       <text>{{ row.tenantName }}</text>
     </view>
     <view class="line">
-      <text>入账时间</text>
+      <text>{{ $t('settleLedger.timeLabel') }}</text>
       <text>{{ time(row) }}</text>
     </view>
   </view>

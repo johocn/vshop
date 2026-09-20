@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="head">
-      <text class="head-title">待核销自提单</text>
+      <text class="head-title">{{ $t('pickupRedeem.headTitle') }}</text>
       <text class="badge">{{ total }}</text>
     </view>
 
@@ -11,22 +11,22 @@
         ref="codeInput"
         class="code-input"
         v-model="rawCode"
-        placeholder="输入核销码或扫一扫"
+        :placeholder="$t('pickupRedeem.inputPlaceholder')"
         :maxlength="320"
         confirm-type="done"
         @confirm="onClaim"
       />
-      <button class="scan-btn" @tap="onScan">扫一扫</button>
-      <button class="claim-btn" :disabled="claiming" @tap="onClaim">{{ claiming ? '核销中…' : '核销' }}</button>
+      <button class="scan-btn" @tap="onScan">{{ $t('pickupRedeem.scan') }}</button>
+      <button class="claim-btn" :disabled="claiming" @tap="onClaim">{{ claiming ? $t('pickupRedeem.claiming') : $t('pickupRedeem.claim') }}</button>
     </view>
 
     <!-- 待核销自提单列表 -->
-    <text class="sec-title">待核销清单</text>
+    <text class="sec-title">{{ $t('pickupRedeem.secTitle') }}</text>
     <view class="card" v-for="r in orders" :key="r.orderId" @tap="fillCode(r.code)">
       <view class="rhead">
         <view class="left">
           <text class="code">#{{ r.orderCode || r.orderId }}</text>
-          <text v-if="isCodPaymentType(r.paymentType) && !r.collected" class="tag-cod">待收款</text>
+          <text v-if="isCodPaymentType(r.paymentType) && !r.collected" class="tag-cod">{{ $t('pickupRedeem.tagCod') }}</text>
         </view>
         <text class="st" :style="{ color: st(r.status).color }">{{ st(r.status).label }}</text>
       </view>
@@ -39,7 +39,7 @@
         </view>
       </view>
       <view class="goods" v-else>
-        <view class="grow"><text class="gname">商品信息</text><text class="gqty"></text><text class="gamt">—</text></view>
+        <view class="grow"><text class="gname">{{ $t('pickupRedeem.goodsInfo') }}</text><text class="gqty"></text><text class="gamt">—</text></view>
       </view>
 
       <view class="foot">
@@ -47,7 +47,7 @@
         <text class="exp" :class="{ hot: r.status === 'expiring_soon' }">{{ formatExpiry(r.expiresAt, r.status) }}</text>
       </view>
     </view>
-    <view v-if="!orders.length" class="empty">暂无待核销自提单</view>
+    <view v-if="!orders.length" class="empty">{{ $t('pickupRedeem.empty') }}</view>
 
     <view style="height: 140rpx" />
   </view>
@@ -64,6 +64,9 @@ import {
   PendingRedemption,
 } from '../../../apis/redemption';
 import { scanCode } from '../../../utils/scanner';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const rawCode = ref('');
 const orders = ref<PendingRedemption[]>([]);
@@ -73,14 +76,15 @@ let pulseTimer: number | undefined;
 const claiming = ref(false);
 const codeInput = ref<unknown | null>(null);
 
-const REDEEM_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: '待核销', color: '#2563eb' },
-  expiring_soon: { label: '即将过期', color: '#f59e0b' },
-  expired: { label: '已过期', color: '#e64340' },
-  claimed: { label: '已核销', color: '#059669' },
+const REDEEM_LABELS: Record<string, { key: string; color: string }> = {
+  active: { key: 'statusActive', color: '#2563eb' },
+  expiring_soon: { key: 'statusExpiring', color: '#f59e0b' },
+  expired: { key: 'statusExpired', color: '#e64340' },
+  claimed: { key: 'statusClaimed', color: '#059669' },
 };
 function st(status?: string): { label: string; color: string } {
-  return (status && REDEEM_LABELS[status]) || { label: status || '—', color: '#72767b' };
+  const hit = (status && REDEEM_LABELS[status]) || { key: '', color: '#72767b' };
+  return { label: hit.key ? locale.t('pickupRedeem.' + hit.key) : status || '—', color: hit.color };
 }
 
 function formatTime(t?: string | null): string {
@@ -93,17 +97,17 @@ function formatTime(t?: string | null): string {
 /** 有效期人性化展示（状态判断优先） */
 function formatExpiry(t?: string | null, status?: string): string {
   if (!t) return '—';
-  if (status === 'expired') return '已过期';
+  if (status === 'expired') return locale.t('pickupRedeem.statusExpired');
   const d = new Date(t);
   const now = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
   const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   const ms = d.getTime() - now.getTime();
-  if (ms <= 0) return '已到期';
-  if (sameDay) return `今天 ${hm} 到期`;
-  if (ms < 24 * 3600_000) return `剩 ${Math.max(1, Math.ceil(ms / 3600_000))} 小时 ${hm} 到期`;
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${hm} 到期`;
+  if (ms <= 0) return locale.t('pickupRedeem.expired');
+  if (sameDay) return locale.t('pickupRedeem.todayExpire').replace('{hm}', hm);
+  if (ms < 24 * 3600_000) return locale.t('pickupRedeem.leftHours').replace('{hours}', String(Math.max(1, Math.ceil(ms / 3600_000)))).replace('{hm}', hm);
+  return locale.t('pickupRedeem.dateExpire').replace('{m}', p(d.getMonth() + 1)).replace('{d}', p(d.getDate())).replace('{hm}', hm);
 }
 
 /** 分（Vendure Money）→ 元 */
@@ -117,7 +121,7 @@ async function loadList(): Promise<void> {
     orders.value = r.items;
     total.value = r.totalItems || r.items.length;
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('pickupRedeem.loadFailed'), icon: 'none' });
   }
 }
 
@@ -165,7 +169,7 @@ async function onScan(): Promise<void> {
     const text = await scanCode();
     const code = decodeRedemptionInput(text || '');
     if (!code) {
-      uni.showToast({ title: '未能识别核销码，请手动输入', icon: 'none' });
+      uni.showToast({ title: locale.t('pickupRedeem.scanUnrecognized'), icon: 'none' });
       focusInput();
       return;
     }
@@ -174,10 +178,10 @@ async function onScan(): Promise<void> {
     await onClaim();
   } catch (e: any) {
     if (e?.code === 'MANUAL') {
-      uni.showToast({ title: e?.message || '请手动输入核销码', icon: 'none' });
+      uni.showToast({ title: e?.message || locale.t('pickupRedeem.scanManual'), icon: 'none' });
       focusInput();
     } else if (e?.code === 'FAILED') {
-      uni.showToast({ title: e?.message || '无法打开相机，请改用手动输入', icon: 'none' });
+      uni.showToast({ title: e?.message || locale.t('pickupRedeem.scanFailed'), icon: 'none' });
       focusInput();
     }
     // CANCEL 静默
@@ -187,7 +191,7 @@ async function onScan(): Promise<void> {
 async function onClaim(): Promise<void> {
   const code = decodeRedemptionInput(rawCode.value);
   if (!code) {
-    uni.showToast({ title: '请输入有效的 6 位核销码', icon: 'none' });
+    uni.showToast({ title: locale.t('pickupRedeem.invalidCode'), icon: 'none' });
     return;
   }
   claiming.value = true;
@@ -209,33 +213,33 @@ async function onClaim(): Promise<void> {
       if (r0.result?.collectRequired) {
         // 强制收款：必须确认收款后方可核销
         const ok = await confirmCollect(
-          '请先确认收款',
-          `该单为到店/货到付款【待收款】¥${fenToYuan(amount)}。确认已收款后方可核销。`,
-          '确认已收款并核销',
+          locale.t('pickupRedeem.confirmTitle'),
+          locale.t('pickupRedeem.forceContent').replace('{amount}', fenToYuan(amount)),
+          locale.t('pickupRedeem.forceBtn'),
         );
         if (!ok) {
-          uni.showToast({ title: '已取消核销', icon: 'none' });
+          uni.showToast({ title: locale.t('pickupRedeem.cancelled'), icon: 'none' });
           return;
         }
         const r2 = await claimRedemption(code, true);
         const done = r2.ok && r2.result?.claimed;
-        uni.showToast({ title: done ? '核销成功 · 已确认收款' : r2.message || '核销失败', icon: done ? 'success' : 'none' });
+        uni.showToast({ title: done ? locale.t('pickupRedeem.redeemedConfirmed') : r2.message || locale.t('pickupRedeem.claimFailed'), icon: done ? 'success' : 'none' });
       } else if (r0.ok && r0.result?.claimed) {
         // 可选模式：已核销但待收款 → 询问是否同步确认收款（高亮提示）
         const yes = await confirmCollect(
-          '核销成功 · 待到店收款',
-          `该单为到店/货到付款【待收款】¥${fenToYuan(amount)}。是否已收款？`,
-          '确认已收款',
+          locale.t('pickupRedeem.redeemPendingTitle'),
+          locale.t('pickupRedeem.pendingContent').replace('{amount}', fenToYuan(amount)),
+          locale.t('pickupRedeem.pendingBtn'),
         );
         if (yes) await claimRedemption(code, true);
-        uni.showToast({ title: '核销成功', icon: 'success' });
+        uni.showToast({ title: locale.t('pickupRedeem.redeemed'), icon: 'success' });
       } else {
-        uni.showToast({ title: r0.message || '核销失败', icon: 'none' });
+        uni.showToast({ title: r0.message || locale.t('pickupRedeem.claimFailed'), icon: 'none' });
       }
     } else {
       const r = await claimRedemption(code);
       const done = r.ok && r.result?.claimed;
-      uni.showToast({ title: done ? '核销成功' : r.message || '核销失败', icon: done ? 'success' : 'none' });
+      uni.showToast({ title: done ? locale.t('pickupRedeem.redeemed') : r.message || locale.t('pickupRedeem.claimFailed'), icon: done ? 'success' : 'none' });
     }
 
     rawCode.value = '';
@@ -252,7 +256,7 @@ function confirmCollect(title: string, content: string, confirmText: string): Pr
       title,
       content,
       confirmText,
-      cancelText: '取消',
+      cancelText: locale.t('pickupRedeem.cancel'),
       success: (r) => resolve(!!r.confirm),
       fail: () => resolve(false),
     });

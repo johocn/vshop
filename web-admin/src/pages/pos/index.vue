@@ -2,8 +2,8 @@
   <view class="page">
     <!-- 收款方式横幅（固定聚合码收款） -->
     <view class="method-banner">
-      <text class="method-name">固定聚合码收款</text>
-      <text class="method-desc">顾客扫门店固定聚合收款码付款到商户，店员确认到账后完成交易</text>
+      <text class="method-name">{{ $t('pos.fixedGateTitle') }}</text>
+      <text class="method-desc">{{ $t('pos.methodDesc') }}</text>
     </view>
 
     <!-- 查询输入 -->
@@ -11,11 +11,11 @@
       <input
         class="code-input"
         v-model="kw"
-        :placeholder="state === 'result' ? '输入核销码/订单号' : '输入核销码或订单号'"
+        :placeholder="state === 'result' ? $t('pos.placeholderResult') : $t('pos.placeholder')"
         confirm-type="search"
         @confirm="onLookup"
       />
-      <button class="query-btn" :disabled="loading" @tap="onLookup">{{ loading ? '查询中…' : '查询' }}</button>
+      <button class="query-btn" :disabled="loading" @tap="onLookup">{{ loading ? $t('pos.querying') : $t('pos.query') }}</button>
     </view>
 
     <!-- 查询结果：订单 + 确认收款 -->
@@ -26,18 +26,18 @@
           <text class="st" :style="{ color: stateLabel(REDEMPTION_STATES, result.claimStatus).color }">{{ stateLabel(REDEMPTION_STATES, result.claimStatus).label }}</text>
         </view>
         <view class="kv" v-if="result.customer">
-          <text class="l">顾客</text>
+          <text class="l">{{ $t('pos.customer') }}</text>
           <text class="v">{{ result.customer }}</text>
         </view>
 
         <!-- 应付金额 -->
         <view class="amount-row">
-          <text class="amount-label">应付金额</text>
+          <text class="amount-label">{{ $t('pos.amountLabel') }}</text>
           <text class="amount">¥ {{ money(result.totalWithTax) }}</text>
         </view>
 
         <!-- 待交付商品 -->
-        <view class="sec">待交付商品</view>
+        <view class="sec">{{ $t('pos.pendingTitle') }}</view>
         <view class="li" v-for="(l, i) in result.lines" :key="i">
           <view class="li-left">
             <text class="name">{{ l.name }}</text>
@@ -45,21 +45,21 @@
           </view>
           <text class="qty">×{{ l.quantity }}　¥{{ money(l.amount) }}</text>
         </view>
-        <view v-if="!result.lines || !result.lines.length" class="muted">无商品明细</view>
+        <view v-if="!result.lines || !result.lines.length" class="muted">{{ $t('pos.noItems') }}</view>
 
         <!-- 收款方式 -->
         <view class="pay-row">
-          <text class="l">收款方式</text>
-          <text class="v fixed">固定聚合码收款</text>
+          <text class="l">{{ $t('pos.payMethod') }}</text>
+          <text class="v fixed">{{ $t('pos.fixedGateTitle') }}</text>
         </view>
       </view>
 
       <!-- 确认收款 -->
-      <button class="collect-btn" :disabled="collecting" @tap="onConfirmCollect">{{ collecting ? '处理中…' : '确认收款' }}</button>
-      <text class="tip">请确认顾客已付清上方应付金额后，再点击确认收款完成交易。</text>
+      <button class="collect-btn" :disabled="collecting" @tap="onConfirmCollect">{{ collecting ? $t('pos.processing') : $t('pos.collectBtn') }}</button>
+      <text class="tip">{{ $t('pos.collectTip') }}</text>
     </view>
 
-    <view v-if="state === 'empty'" class="empty">未找到可核销的自提单，请核对核销码或订单号</view>
+    <view v-if="state === 'empty'" class="empty">{{ $t('pos.empty') }}</view>
 
     <view style="height: 140rpx" />
   </view>
@@ -74,6 +74,9 @@ import {
   PendingRedemption,
 } from '../../apis/redemption';
 import { REDEMPTION_STATES, stateLabel } from '../../constants/orderState';
+import { useLocaleStore } from '../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 interface PosLine { name: string; sku: string; quantity: number; amount: number }
 interface PosResult {
@@ -111,7 +114,7 @@ function mapStatus(r: PendingRedemption): string {
 async function onLookup(): Promise<void> {
   const v = kw.value.trim();
   if (!v) {
-    uni.showToast({ title: '请输入核销码或订单号', icon: 'none' });
+    uni.showToast({ title: locale.t('pos.invalidInput'), icon: 'none' });
     return;
   }
   loading.value = true;
@@ -149,7 +152,7 @@ async function onLookup(): Promise<void> {
     };
     state.value = 'result';
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '查询失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('pos.queryFailed'), icon: 'none' });
   } finally {
     loading.value = false;
   }
@@ -163,23 +166,26 @@ function buildConfirmContent(r: PosResult): string {
   const summary =
     r.lines.length > 0
       ? r.lines.slice(0, 2).map((l) => `${l.name}×${l.quantity}`).join('、') +
-        (r.lines.length > 2 ? ` 等${r.lines.length}项` : '')
-      : '无商品明细';
-  return `订单号：${r.code}\n应付金额：¥${money(r.totalWithTax)}\n商品：${summary}`;
+        (r.lines.length > 2 ? locale.t('pos.etcSuffix').replace('{count}', r.lines.length) : '')
+      : locale.t('pos.noItems');
+  return locale.t('pos.confirmContent')
+    .replace('{code}', r.code)
+    .replace('{amount}', money(r.totalWithTax))
+    .replace('{summary}', summary);
 }
 
 async function onConfirmCollect(): Promise<void> {
   const r = result.value;
   if (!r) return;
   if (r.claimStatus === 'redeemed') {
-    uni.showToast({ title: '该单已核销完成', icon: 'none' });
+    uni.showToast({ title: locale.t('pos.alreadyClaimed'), icon: 'none' });
     return;
   }
   const proceed = await new Promise<boolean>((resolve) => {
     uni.showModal({
-      title: '确认收款',
+      title: locale.t('pos.collectBtn'),
       content: buildConfirmContent(r),
-      confirmText: '确认收款',
+      confirmText: locale.t('pos.collectBtn'),
       success: (res) => resolve(!!res.confirm),
       fail: () => resolve(false),
     });
@@ -187,18 +193,18 @@ async function onConfirmCollect(): Promise<void> {
   if (!proceed) return;
   collecting.value = true;
   try {
-    uni.showLoading({ title: '处理中…' });
+    uni.showLoading({ title: locale.t('pos.processing') });
     const rr = await claimRedemption(r.pickupCode, true);
     uni.hideLoading();
     if (rr.ok && rr.result?.claimed) {
-      uni.showToast({ title: '收款并完成', icon: 'success' });
+      uni.showToast({ title: locale.t('pos.collectSuccess'), icon: 'success' });
       reset();
     } else {
-      uni.showToast({ title: rr.message || '处理失败', icon: 'none' });
+      uni.showToast({ title: rr.message || locale.t('pos.processFailed'), icon: 'none' });
     }
   } catch (e: any) {
     uni.hideLoading();
-    uni.showToast({ title: e?.message || '处理失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('pos.processFailed'), icon: 'none' });
   } finally {
     collecting.value = false;
   }

@@ -3,39 +3,39 @@
     <view class="kpis" v-if="rows.length">
       <view class="kpi today">
         <text class="v">{{ fmt(stat.todayPaid.amount) }}</text>
-        <text class="l">今日收款 {{ stat.todayPaid.count }} 笔</text>
+        <text class="l">{{ $t('settleLedger.todayLabel').replace('{count}', stat.todayPaid.count) }}</text>
       </view>
       <view class="kpi">
         <text class="v">{{ fmt(stat.paid.amount) }}</text>
-        <text class="l">已收 {{ stat.paid.count }} 笔</text>
+        <text class="l">{{ $t('settleLedger.paidLabel').replace('{count}', stat.paid.count) }}</text>
       </view>
       <view class="kpi">
         <text class="v warn">{{ fmt(stat.pending.amount) }}</text>
-        <text class="l">待收款 {{ stat.pending.count }} 笔</text>
+        <text class="l">{{ $t('settleLedger.pendingLabel').replace('{count}', stat.pending.count) }}</text>
       </view>
     </view>
 
     <view class="toolbar">
       <view class="seg">
-        <text :class="{ on: filter === 'all' }" @tap="filter = 'all'">全部</text>
-        <text :class="{ on: filter === 'paid' }" @tap="filter = 'paid'">已收</text>
-        <text :class="{ on: filter === 'pending' }" @tap="filter = 'pending'">待收</text>
+        <text :class="{ on: filter === 'all' }" @tap="filter = 'all'">{{ $t('settleLedger.all') }}</text>
+        <text :class="{ on: filter === 'paid' }" @tap="filter = 'paid'">{{ $t('settleLedger.paid') }}</text>
+        <text :class="{ on: filter === 'pending' }" @tap="filter = 'pending'">{{ $t('settleLedger.pending') }}</text>
       </view>
-      <button class="exp" @tap="onExport">导出 CSV</button>
+      <button class="exp" @tap="onExport">{{ $t('settleLedger.exportCsv') }}</button>
     </view>
 
-    <view class="sec-title" v-if="todayRows.length">今日收款明细（{{ todayRows.length }}）</view>
+    <view class="sec-title" v-if="todayRows.length">{{ $t('settleLedger.todayTitle').replace('{n}', todayRows.length) }}</view>
     <LedgerCard v-for="r in todayRows" :key="'t' + r.id" :row="r" :today="true" />
     <view class="empty-inline" v-if="rows.length && !todayRows.length">
-      <text>今日暂无已完成收款</text>
+      <text>{{ $t('settleLedger.todayEmpty') }}</text>
     </view>
 
-    <view class="sec-title">收款台账（{{ filteredRows.length }}）</view>
+    <view class="sec-title">{{ $t('settleLedger.ledgerTitle').replace('{n}', filteredRows.length) }}</view>
     <LedgerCard v-for="r in filteredRows" :key="r.id" :row="r" />
 
     <view v-if="!rows.length" class="empty">
-      <text class="e1">暂无收款台账记录</text>
-      <text class="e2">到店/货到付款单核销并确认收款后，会在此登记一笔收款</text>
+      <text class="e1">{{ $t('settleLedger.emptyTitle') }}</text>
+      <text class="e2">{{ $t('settleLedger.emptyDesc') }}</text>
     </view>
 
     <view style="height: 140rpx" />
@@ -54,6 +54,9 @@ import {
 } from '../../../apis/settlement';
 import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import LedgerCard from './LedgerCard.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const rows = ref<SettlementLedgerRow[]>([]);
 
@@ -68,11 +71,19 @@ function pad2(n: number): string { return String(n).padStart(2, '0'); }
 
 function onExport() {
   const list = filteredRows.value;
-  if (!list.length) { uni.showToast({ title: '当前筛选无数据', icon: 'none' }); return; }
-  const headers = ['时间', '订单号', '收款人', '收款渠道', '收款方式', '金额（元）', '状态'];
+  if (!list.length) { uni.showToast({ title: locale.t('settleLedger.noData'), icon: 'none' }); return; }
+  const headers = [
+    locale.t('settleLedger.time'),
+    locale.t('settleLedger.orderNo'),
+    locale.t('settleLedger.collector'),
+    locale.t('settleLedger.channel'),
+    locale.t('settleLedger.method'),
+    locale.t('settleLedger.amount'),
+    locale.t('settleLedger.status'),
+  ];
   const rowsCsv = list.map((r) => {
     const d = rowTime(r);
-    const ch = r.collectorChannelId ? `门店收款(${r.collectorChannelId})` : '在线分账';
+    const ch = r.collectorChannelId ? locale.t('settleLedger.channelStore').replace('{channel}', r.collectorChannelId) : locale.t('settleLedger.channelOnline');
     return [
       d ? fmtDateTime(d) : '',
       r.orderCode || '',
@@ -80,13 +91,13 @@ function onExport() {
       ch,
       settleMethodLabel(r.settleMethod),
       (r.amount / 100).toFixed(2),
-      isPendingSign(r.status) ? '待收' : '已收',
+      isPendingSign(r.status) ? locale.t('settleLedger.pending') : locale.t('settleLedger.paid'),
     ];
   });
   const now = new Date();
   const name = `收款台账_${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}.csv`;
   downloadCsv(name, headers, rowsCsv);
-  uni.showToast({ title: `已导出 ${list.length} 条`, icon: 'none' });
+  uni.showToast({ title: locale.t('settleLedger.exported').replace('{count}', list.length), icon: 'none' });
 }
 
 const paidRows = computed(() => rows.value.filter((r) => !isPendingSign(r.status)));
@@ -116,7 +127,7 @@ async function load(): Promise<void> {
     const list = await fetchSettlementLedgers();
     rows.value = list.sort((a, b) => (rowTime(b)?.getTime() ?? 0) - (rowTime(a)?.getTime() ?? 0));
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('settleLedger.loadFailed'), icon: 'none' });
   }
 }
 
