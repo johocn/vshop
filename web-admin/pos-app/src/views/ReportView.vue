@@ -17,7 +17,7 @@ const TODAY_OVERVIEW = gql`
 `;
 const SALES_REPORT = gql`
   query SalesReport($startDate: String!, $endDate: String!) {
-    salesReport(startDate: $startDate, endDate: $endDate) {
+    posSalesReport(startDate: $startDate, endDate: $endDate) {
       startDate endDate totalAmount totalOrders avgOrderValue
       daily { date totalAmount orderCount avgOrderValue }
     }
@@ -97,12 +97,12 @@ async function loadSales() {
   const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   salesLoading.value = true;
   try {
-    const { data } = await apolloClient.query<{ salesReport: SalesReport }>({
+    const { data } = await apolloClient.query<{ posSalesReport: SalesReport }>({
       query: SALES_REPORT,
       variables: { startDate: fmt(start), endDate: fmt(end) },
       fetchPolicy: 'network-only',
     });
-    salesData.value = data.salesReport;
+    salesData.value = data.posSalesReport;
   } catch (e: any) {
     ElMessage.error('加载销售报表失败: ' + (e.message ?? e));
   } finally {
