@@ -47,6 +47,7 @@
     "ship": "Shipment",
     "afterSale": "After-sale",
     "pos": "Store POS",
+    "posDesktop": "Desktop Cashier POS",
     "settleLedger": "Settlement Ledger",
     "shippingMethod": "Shipping Methods",
     "paymentMethod": "Payment Methods",
