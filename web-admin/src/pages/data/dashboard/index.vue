@@ -14,27 +14,47 @@
         <text class="lbl">库存预警</text>
       </view>
     </view>
-    <text class="muted plan">（趋势图 / 商品排行接入 dashboard 插件后补）</text>
-    <view style="height: 120rpx" />
+
+    <view class="card">
+      <text class="sec">近 7 日销售趋势</text>
+      <TrendChart :points="trend" />
+    </view>
+
+    <view class="card">
+      <text class="sec">销量 Top 榜（近 7 日品类）</text>
+      <view v-if="topList.length" class="top">
+        <view class="top-row" v-for="(t, i) in topList" :key="t.categoryId">
+          <text class="rank" :class="{ hot: i < 3 }">{{ i + 1 }}</text>
+          <text class="name">{{ t.categoryName || '未分类' }}</text>
+          <text class="cnt">{{ t.orderCount }} 单</text>
+          <text class="gmv">¥{{ (t.gmv / 100).toFixed(0) }}</text>
+        </view>
+      </view>
+      <text v-else class="muted">暂无数据</text>
+    </view>
+
+    <view style="height: 140rpx" />
     <BottomBar current="dashboard" />
   </view>
 </template>
 <script lang="ts" setup>
-// 数据看板概览（Task 10）：今日订单 / 今日销售额 / 库存预警
-// 统计源见 src/apis/stats.ts（orders createdAt 过滤 + stockLevels 低库存计数，均实测校准）。
-// 加载失败或统计源不可用时显示 "—"，不硬编码 0 假装有数据。
+// 数据看板完整版：今日概览（KPI）+ 近 7 日销售趋势（canvas 双线）+ 销量 Top 榜（品类）
+// 统计源：operations-plugin dashboardOverview / salesTrend / categoryTop（已支付口径）。
+// 任一接口失败时对应区块显示 "—"/空，不硬编码 0 假装有数据。
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
+import TrendChart from '../../../components/TrendChart.vue';
 import { fetchTodayOverview, type TodayOverview } from '../../../apis/stats';
+import { fetchSalesTrend, fetchCategoryTop, type TrendPoint, type CategoryTopRow } from '../../../apis/operations';
 
 const ov = ref<TodayOverview | null>(null);
+const trend = ref<TrendPoint[]>([]);
+const topList = ref<CategoryTopRow[]>([]);
+
 onMounted(async () => {
-  try {
-    ov.value = await fetchTodayOverview();
-  } catch (e) {
-    console.error('fetchTodayOverview failed', e);
-    ov.value = null;
-  }
+  try { ov.value = await fetchTodayOverview(); } catch (e) { console.error('fetchTodayOverview failed', e); ov.value = null; }
+  try { trend.value = await fetchSalesTrend(7); } catch (e) { console.error('fetchSalesTrend failed', e); trend.value = []; }
+  try { topList.value = await fetchCategoryTop(7); } catch (e) { console.error('fetchCategoryTop failed', e); topList.value = []; }
 });
 </script>
 <style lang="scss" scoped>
@@ -42,9 +62,16 @@ onMounted(async () => {
   .stat { display: flex; gap: 20rpx; margin-bottom: 24rpx;
     .stat-card { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 36rpx 16rpx; display: flex; flex-direction: column; align-items: center;
       .num { font-size: 40rpx; font-weight: 600; color: $wa-accent; }
-      .lbl { font-size: 24rpx; color: $wa-muted; margin-top: 12rpx; }
-    }
-  }
-  .plan { display: block; font-size: 24rpx; color: $wa-muted; text-align: center; margin-top: 24rpx; }
+      .lbl { font-size: 24rpx; color: $wa-muted; margin-top: 12rpx; } } }
+  .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 24rpx; margin-bottom: 20rpx;
+    .sec { display: block; font-size: 28rpx; color: $wa-ink; font-weight: 600; margin-bottom: 20rpx; }
+    .top-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid $wa-rule;
+      &:last-child { border-bottom: none; }
+      .rank { width: 40rpx; height: 40rpx; line-height: 40rpx; text-align: center; border-radius: 8rpx; font-size: 24rpx; color: $wa-muted; background: $wa-rule; margin-right: 16rpx;
+        &.hot { background: $wa-accent; color: #fff; font-weight: 700; } }
+      .name { flex: 1; font-size: 26rpx; color: $wa-ink; margin-right: 12rpx; }
+      .cnt { font-size: 22rpx; color: $wa-muted; margin-right: 20rpx; }
+      .gmv { font-size: 26rpx; color: $wa-danger; font-weight: 600; } } }
+  .muted { display: block; text-align: center; color: $wa-muted; font-size: 26rpx; padding: 40rpx 0; }
 }
 </style>
