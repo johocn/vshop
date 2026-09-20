@@ -75,6 +75,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .reader .steps li::before{content:counter(st);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .reader .img{display:block;width:100%;border:1px solid var(--rule);border-radius:10px;margin:12px 0;cursor:zoom-in}
 .reader .imgcap{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 12px}
+.reader .imgrow{display:flex;gap:12px;margin:12px 0}.reader .imgrow>div{flex:1;min-width:0}.reader .imgrow .img{width:100%;margin:0}
 .reader .flow{background:#fafafa;border:1px solid #eef0F6;border-radius:10px;padding:14px;margin:12px 0;overflow-x:auto}
 .reader .frow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin:6px 0;text-align:center}
 .reader .fnode{background:#fff;border:1px solid #dcdfe6;border-radius:8px;padding:8px 12px;font-size:13px;color:var(--ink);text-align:center;min-width:90px}
@@ -196,7 +197,11 @@ var CHAPTERS = [
 <div class="card"><b>经营</b> —— 商品、价格、库存、订单与售后，一整套日常运营。</div>
 <div class="warn"><b>约定：</b>手册中的「后台」均指管理后台（Admin）界面；「商城」指你的租户向用户展示的 C 端 H5 页面。</div>
 <h3>后台多语言</h3>
-<p>管理后台支持 <span class="mark mark-blue">简体中文</span> 与 <span class="mark">English</span> 双语切换。当前阶段已启用登录页、选店页等核心页面的双语文案，更多页面将逐步覆盖。语言偏好本地持久化，下次登录沿用。</p>`},
+<p>管理后台支持 <span class="mark mark-blue">简体中文</span> 与 <span class="mark">English</span> 双语，文案已<mark class="mark">覆盖登录、选店、工作台、商品、订单、库存、装修、营销、配送支付、平台系统等全部页面</mark>。语言偏好本地持久化（保存在本机 <code>wa_locale</code>），下次登录沿用，无需重复设置。金额、数量、编码等数据不随语言翻译，仅界面文案双语。</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/i18n_login_zh.png" alt="登录页-简体中文"><div class="imgcap">图 1-1 · 简体中文登录页</div></div>
+  <div><img class="img" src="shots/i18n_login_en.png" alt="登录页-English"><div class="imgcap">图 1-2 · English 登录页</div></div>
+</div>`},
 {book:'op', id:'op-2', title:'认识多租户商城', html:`
 <p class="lead">先理解你的店铺在整体架构里的位置，后面的配置就会顺理成章。</p>
 <h3>整体架构</h3>
