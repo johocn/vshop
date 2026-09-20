@@ -15,7 +15,7 @@ query TodayOverview {
 }
 
 query SalesReport($startDate: String!, $endDate: String!) {
-  salesReport(startDate: $startDate, endDate: $endDate) {
+  posSalesReport(startDate: $startDate, endDate: $endDate) {
     startDate
     endDate
     totalAmount
