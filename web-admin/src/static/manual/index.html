@@ -752,7 +752,69 @@ var CHAPTERS = [
 <h3>2. 确认收款</h3>
 <p>选择收款方式（固定聚合码收款等）并确认收款；收款后订单状态与台账同步更新。</p>
 <div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
-<div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div></div>`},
+<div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div>`},
+{book:'op', id:'op-31', title:'售后处理流程', html:`
+<p class="lead">买家发起的退款 / 退货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
+<h3>入口与筛选</h3>
+<p>在「订单」下的售后处理页查看全部售后工单，可用顶部标签 <mark class="mark">待处理 / 已退款 / 已拒绝</mark> 快速筛选重点关注状态。</p>
+<div class="shot-box"><img class="img" src="shots/b3_aftersale_list.png" alt="售后处理-列表与状态筛选"><div class="imgcap">图 S1 · 售后处理列表（按待处理/已退款/已拒绝筛选）</div></div>
+<div class="note"><b>空态说明：</b>没有售后申请时页面显示「暂无售后工单」，属正常。</div>
+<h3>处理售后</h3>
+<p>点击某个售后单进入「售后详情」，查看买家申请内容后决定 <mark class="mark">同意退款</mark> 或 <mark class="mark">拒绝</mark>。处理完成后订单与台账同步反映结果。</p>`},
+{book:'op', id:'op-32', title:'配送设置（档案 · 方式 · 区域运费）', html:`
+<p class="lead">配送由三层管理：<mark class="mark">配送方式</mark>（可启停的送达形式）→ <mark class="mark">配送档案</mark>（方式组合模板）→ <mark class="mark">区域与运费</mark>（按区域计费）。先配好方式，再在档案中引用。</p>
+<h3>1. 配送档案</h3>
+<p>「配送」下「配送档案」列出所有组合模板。带 <mark class="mark">全局</mark> 标签的系统档案仅超管可维护、不可编辑；自定义档案可 <mark class="mark">编辑 / 设为默认 / 删除</mark>。无档案时点「<mark class="mark">+ 新建配送档案</mark>」创建。</p>
+<div class="shot-box"><img class="img" src="shots/b3_shipping_profile.png" alt="配送档案-列表"><div class="imgcap">图 D1 · 配送档案（全局锁定 / 自定义 / 默认）</div></div>
+<h3>2. 配送方式</h3>
+<p>「配送方式」页维护具体送达形式（如门店自提、自提点配送、快递）。每条方式可 <mark class="mark">启用 / 停用</mark>（仅启用中可被档案引用），并可编辑、删除。</p>
+<div class="shot-box"><img class="img" src="shots/b3_shipping_methods.png" alt="配送方式-列表"><div class="imgcap">图 D2 · 配送方式（门店自提 / 自提点配送等，启用中）</div></div>
+<h3>3. 区域与运费</h3>
+<p>在配送方式内配置「区域与运费」，按配送区域（省市区）设定计费规则。未配置运费规则时列表为空，需新增运费模板。</p>
+<div class="shot-box"><img class="img" src="shots/b3_shipping_methodconfig.png" alt="区域与运费-配置"><div class="imgcap">图 D3 · 区域与运费（新增运费模板入口）</div></div>
+<div class="warn"><b>引用顺序：</b>先启用配送方式，才能在「配送档案」中引用它，否则档案不可选。</div>`},
+{book:'op', id:'op-33', title:'支付设置（档案 · 支付方式）', html:`
+<p class="lead">支付同样分两层：<mark class="mark">支付档案</mark>是收款配置的集合模板，<mark class="mark">支付方式</mark>是具体收款通道。</p>
+<h3>1. 支付档案</h3>
+<p>「支付」下的「支付档案」列出收款配置模板。无档案时点「<mark class="mark">+ 新建支付档案</mark>」创建；已建档案可启用 / 停用、编辑。</p>
+<div class="shot-box"><img class="img" src="shots/b3_payment_profile.png" alt="支付档案-列表"><div class="imgcap">图 Y1 · 支付档案（新建入口与空态）</div></div>
+<h3>2. 支付方式</h3>
+<p>「支付方式」维护可用的收款通道，控制哪些支付入口开放给买家，并按需启停。</p>
+<div class="shot-box"><img class="img" src="shots/b3_payment_methods.png" alt="支付方式-列表"><div class="imgcap">图 Y2 · 支付方式</div></div>`},
+{book:'op', id:'op-34', title:'自提点管理', html:`
+<p class="lead">「到店自提」的取货点统一在「<mark class="mark">自提点管理</mark>」维护，买家下单时可选择就近自提点。</p>
+<h3>1. 自提点列表</h3>
+<p>「配送」或「自提」下的自提点管理列出现有自提点，可新增、编辑、删除。</p>
+<div class="shot-box"><img class="img" src="shots/b3_pickup_list.png" alt="自提点-列表"><div class="imgcap">图 E1 · 自提点列表</div></div>
+<h3>2. 新增 / 编辑自提点</h3>
+<p>在编辑表单维护名称与类型（必填）、联系人 / 联系电话 / 营业时间、所在地区与详细地址（省市区三级联动，完整地址自动拼接）、经纬度，并可用「<mark class="mark">高德地图选点</mark>」自动回填位置。</p>
+<div class="shot-box"><img class="img" src="shots/b3_pickup_edit.png" alt="自提点-编辑表单"><div class="imgcap">图 E2 · 自提点编辑（地图选点自动回填）</div></div>`},
+{book:'op', id:'op-35', title:'商品分类管理', html:`
+<p class="lead">归类先于上架。<mark class="mark">分类</mark>是首页「分类导航」与「商品楼层」的数据来源，做好分类树再批量铺货。</p>
+<p>「商品 → 分类管理」列出现有分类，支持 <mark class="mark">新建分类 / 重命名 / 删除</mark>，以及「<mark class="mark">归位映射</mark>」把分类重新对齐到系统标准映射。</p>
+<div class="shot-box"><img class="img" src="shots/b3_categories.png" alt="分类管理-列表"><div class="imgcap">图 C1 · 分类管理（新建 / 重命名 / 归位 / 删除）</div></div>
+<div class="warn"><b>提示：</b>删除分类前请确认其下已无在售商品，避免商品失去归类入口。</div>`},
+{book:'op', id:'op-36', title:'店铺全局配置', html:`
+<p class="lead">平台视角的底层兜底配置（<mark class="mark">L1 底层</mark>）：当模板或店铺级配置未覆盖时的默认值，对所有店铺生效。</p>
+<p>在「全局配置」（平台）中，可切换 <mark class="mark">nshop 商城 / vshop 商城</mark> 两条线，编辑主题令牌（<mark class="mark">主色 primaryColor / 辅色 accentColor / 圆角 radius</mark>）与「各页默认配置」<code>defaults</code> JSON，完成后点「<mark class="mark">保存</mark>」。</p>
+<div class="shot-box"><img class="img" src="shots/b3_global_config.png" alt="全局配置-L1底层"><div class="imgcap">图 G1 · 全局配置（L1 底层回退值）</div></div>`},
+{book:'op', id:'op-37', title:'装修子页详解', html:`
+<p class="lead">除首页外，多个子页面也有独立的装修入口，可单独配置版式与视觉。</p>
+<table>
+  <thead><tr><th>子页</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><b>主题风格</b></td><td>整体配色 / 风格的统一开关</td></tr>
+    <tr><td><b>详情页装修</b></td><td>商品详情页的版式与展示</td></tr>
+    <tr><td><b>分类页装修</b></td><td>商品分类落地的页面</td></tr>
+    <tr><td><b>购物车页装修</b></td><td>购物车 / 结算引导</td></tr>
+    <tr><td><b>我的页装修</b></td><td>「我的」个人中心版式</td></tr>
+  </tbody>
+</table>
+<div class="shot-box"><img class="img" src="shots/b3_decorate_theme.png" alt="主题风格"><div class="imgcap">图 N1 · 主题风格</div></div>
+<div class="shot-box"><img class="img" src="shots/b3_decorate_product.png" alt="详情页装修"><div class="imgcap">图 N2 · 详情页装修</div></div>
+<div class="shot-box"><img class="img" src="shots/b3_decorate_category.png" alt="分类页装修"><div class="imgcap">图 N3 · 分类页装修</div></div>
+<div class="shot-box"><img class="img" src="shots/b3_decorate_cart.png" alt="购物车页装修"><div class="imgcap">图 N4 · 购物车页装修</div></div>
+<div class="shot-box"><img class="img" src="shots/b3_decorate_profile.png" alt="我的页装修"><div class="imgcap">图 N5 · 我的页装修</div></div>`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
