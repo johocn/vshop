@@ -5,7 +5,10 @@
       <view class="head">
         <text class="store">{{ tenant.name || tenant.code || locale.t('menu.noStore') }}</text>
         <text class="store-code" v-if="tenant.name && tenant.code">{{ tenant.code }}</text>
-        <text class="switch" @tap="switchStore">{{ locale.t('menu.switchStore') }} ›</text>
+        <view class="sub-row">
+          <text class="switch" @tap="switchStore">{{ locale.t('menu.switchStore') }} ›</text>
+          <text class="lang" @tap="toggleLang">{{ locale.locale === 'zh-Hans' ? locale.t('login.en') : locale.t('login.zh') }}</text>
+        </view>
       </view>
       <scroll-view scroll-y class="body">
         <view class="group" v-for="g in shownGroups" :key="g.domain">
@@ -38,6 +41,11 @@ defineProps<{ show: boolean }>();
 const shownGroups = computed(() => visibleMenus(auth));
 
 function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' }); }
+function toggleLang() {
+  const next = locale.locale === 'zh-Hans' ? 'en' : 'zh-Hans';
+  locale.apply(next);
+  uni.showToast({ title: next === 'en' ? locale.t('login.en') : locale.t('login.zh'), icon: 'none' });
+}
 // 公开手册：独立新窗口打开，无需登录鉴权
 function openManual() {
   const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
@@ -58,7 +66,10 @@ function go(it: any) {
 .head { padding: 32rpx 32rpx 22rpx; border-bottom: 1px solid #f0f0f0;
   .store { font-size: 30rpx; font-weight: 700; color: $wa-ink; }
   .store-code { display: inline-block; font-size: 18rpx; color: $wa-muted; margin-left: 12rpx; padding: 2rpx 12rpx; border-radius: 999rpx; background: #f5f5f5; vertical-align: middle; }
-  .switch { display: block; margin-top: 8rpx; font-size: 22rpx; color: $pm-info; }
+  .sub-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8rpx;
+    .switch { font-size: 22rpx; color: $pm-info; }
+    .lang { font-size: 22rpx; color: $wa-accent; padding: 4rpx 20rpx; border: 1rpx solid $wa-rule; border-radius: 999rpx; }
+  }
 }
 .body { flex: 1; min-height: 0; padding: 20rpx 28rpx 40rpx; }
 .group { margin-bottom: 28rpx; }

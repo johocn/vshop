@@ -6,6 +6,8 @@
     "password": "Password",
     "show": "Show",
     "hide": "Hide",
+    "zh": "中文",
+    "en": "English",
     "login": "Sign In",
     "logging": "Signing in…",
     "failed": "Login failed, please check your credentials"

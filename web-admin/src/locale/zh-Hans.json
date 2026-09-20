@@ -6,6 +6,8 @@
     "password": "密码",
     "show": "显示",
     "hide": "隐藏",
+    "zh": "中文",
+    "en": "English",
     "login": "登 录",
     "logging": "登录中…",
     "failed": "登录失败，请检查账号密码"
