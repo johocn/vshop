@@ -2,15 +2,15 @@
   <view class="chg">
     <view class="brand">
       <view class="dot" />
-      <text class="t1">{{ isManual ? '修改密码' : '设置新密码' }}</text>
-      <text class="t2">{{ isManual ? '修改后下次登录使用新密码' : '首次登录需修改初始密码后方可使用' }}</text>
+      <text class="t1">{{ isManual ? $t('changePassword.titleManual') : $t('changePassword.titleSet') }}</text>
+      <text class="t2">{{ isManual ? $t('changePassword.subManual') : $t('changePassword.subSet') }}</text>
     </view>
     <view class="card">
-      <input v-if="isManual" v-model="oldPw" class="field" :password="!showPwd" placeholder="原密码" />
-      <input v-model="pw1" class="field" :password="!showPwd" placeholder="新密码（≥8位，含大小写/数字）" />
-      <input v-model="pw2" class="field" :password="!showPwd" placeholder="再次输入新密码" @confirm="submit" />
-      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}</text></view>
-      <button class="btn" :disabled="loading" @tap="submit">{{ loading ? '提交中…' : (isManual ? '确认修改' : '绑定新密码') }}</button>
+      <input v-if="isManual" v-model="oldPw" class="field" :password="!showPwd" :placeholder="$t('changePassword.phOld')" />
+      <input v-model="pw1" class="field" :password="!showPwd" :placeholder="$t('changePassword.phNew')" />
+      <input v-model="pw2" class="field" :password="!showPwd" :placeholder="$t('changePassword.phConfirm')" @confirm="submit" />
+      <view class="opt"><text @tap="showPwd = !showPwd">{{ showPwd ? $t('changePassword.hide') : $t('changePassword.show') }}</text></view>
+      <button class="btn" :disabled="loading" @tap="submit">{{ loading ? $t('changePassword.submitting') : (isManual ? $t('changePassword.submitManual') : $t('changePassword.submitSet')) }}</button>
       <view v-if="err" class="err">{{ err }}</view>
     </view>
   </view>
@@ -20,11 +20,13 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { changeMyPassword } from '../../apis/auth';
+import { useLocaleStore } from '../../stores/localeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
+const locale = useLocaleStore();
 const isManual = ref(false);
 const oldPw = ref('');
 const pw1 = ref('');
@@ -40,15 +42,15 @@ onLoad((q) => {
 async function submit() {
   err.value = '';
   if (isManual.value && !oldPw.value) {
-    err.value = '请输入原密码';
+    err.value = locale.t('changePassword.errOldRequired');
     return;
   }
   if (!pw1.value || pw1.value.length < 8) {
-    err.value = '密码至少 8 位';
+    err.value = locale.t('changePassword.errShort');
     return;
   }
   if (pw1.value !== pw2.value) {
-    err.value = '两次输入的新密码不一致';
+    err.value = locale.t('changePassword.errMismatch');
     return;
   }
   loading.value = true;
@@ -57,14 +59,14 @@ async function submit() {
     await auth.loadAccess(); // 刷新 mustChangePassword 标志
     if (isManual.value) {
       uni.navigateBack();
-      uni.showToast({ title: '密码已修改', icon: 'none' });
+      uni.showToast({ title: locale.t('changePassword.changedToast'), icon: 'none' });
     } else if (tenant.token) {
       uni.redirectTo({ url: '/pages/dashboard/index' });
     } else {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = e?.response?.errors?.[0]?.message || '修改失败，请重试';
+    err.value = e?.response?.errors?.[0]?.message || locale.t('changePassword.errChangeFailed');
   } finally {
     loading.value = false;
   }

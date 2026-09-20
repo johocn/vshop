@@ -1628,5 +1628,72 @@
     "loadFailed": "Failed to load details",
     "rerunDone": "Re-run",
     "rerunFailed": "Re-run failed"
+  },
+  "distributionRelations": {
+    "title": "Distribution Relations",
+    "goSettle": "Commission Settlement",
+    "promoter": "Promoter #{id}",
+    "customer": "Customer #{customerId} · Code {referralCode}",
+    "level": "Level Lv{level}",
+    "parent": " · Superior #{parentId}",
+    "totalEarnings": "Accumulated",
+    "availableBalance": "Withdrawable",
+    "frozenBalance": "Frozen",
+    "empty": "No distribution relations",
+    "statusActive": "Active",
+    "statusFrozen": "Frozen",
+    "statusPending": "Pending review"
+  },
+  "distributionSettle": {
+    "goRelations": "Distribution Relations",
+    "title": "Commission Settlement",
+    "settlement": "Settlement #{id}",
+    "line": "Promoter #{distributorId} · Order #{orderId}",
+    "feeDirect": "Direct commission · Rate {rate}%",
+    "feeIndirect": "Indirect commission · Rate {rate}%",
+    "order": "Order",
+    "commission": "Commission",
+    "empty": "No commission settlement records",
+    "statusPending": "Pending settlement",
+    "statusConfirmed": "Confirmed",
+    "statusPaid": "Paid",
+    "statusCancelled": "Cancelled"
+  },
+  "dataDashboard": {
+    "todayOrders": "Today's Orders",
+    "todayRevenue": "Today's Sales",
+    "lowStock": "Stock Warning",
+    "salesTrend": "Last 7 Days Sales Trend",
+    "topTitle": "Sales Top Ranking (Last 7 Days Category)",
+    "uncategorized": "Uncategorized",
+    "orderUnit": "orders",
+    "empty": "No data"
+  },
+  "changePassword": {
+    "titleManual": "Change Password",
+    "titleSet": "Set New Password",
+    "subManual": "Use the new password to log in next time",
+    "subSet": "You must change the initial password before first use",
+    "phOld": "Current password",
+    "phNew": "New password (>=8 chars, upper/lowercase & digits)",
+    "phConfirm": "Enter new password again",
+    "hide": "Hide",
+    "show": "Show",
+    "submitting": "Submitting…",
+    "submitManual": "Confirm Change",
+    "submitSet": "Bind New Password",
+    "errOldRequired": "Please enter your current password",
+    "errShort": "Password must be at least 8 characters",
+    "errMismatch": "The two passwords do not match",
+    "changedToast": "Password changed",
+    "errChangeFailed": "Change failed, please retry"
+  },
+  "mediaLibrary": {
+    "selectedCount": "{n} selected",
+    "copyUrl": "Copy URL",
+    "clear": "Clear",
+    "toastLoadFailed": "Failed to load assets",
+    "toastNoLink": "No links",
+    "toastCopied": "URLs copied"
   }
 }
