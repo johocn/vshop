@@ -2,36 +2,36 @@
   <view class="page">
     <view class="card">
       <view class="field">
-        <text class="label">网点名称 *</text>
-        <input class="ipt" v-model="form.name" placeholder="如 长春净月自提点" />
+        <text class="label">{{ $t('inventoryLocationsEdit.labelName') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('inventoryLocationsEdit.placeholderName')" />
       </view>
       <view class="field">
-        <text class="label">归属租户编码</text>
-        <input class="ipt" v-model="form.channelCode" placeholder="默认当前租户" />
-        <text class="tip">网点按此编码归入租户；C 端可售查询仅统计本租户网点</text>
+        <text class="label">{{ $t('inventoryLocationsEdit.labelChannel') }}</text>
+        <input class="ipt" v-model="form.channelCode" :placeholder="$t('inventoryLocationsEdit.placeholderChannel')" />
+        <text class="tip">{{ $t('inventoryLocationsEdit.channelTip') }}</text>
       </view>
       <view class="field">
-        <text class="label">配送方式（都不勾 = 邮寄与自提都支持）</text>
+        <text class="label">{{ $t('inventoryLocationsEdit.labelDelivery') }}</text>
         <checkbox-group @change="onDeliveryChange">
-          <label class="ck"><checkbox value="MAIL" :checked="hasMail" />邮寄</label>
-          <label class="ck"><checkbox value="SELF_PICKUP" :checked="hasPickup" />自提</label>
+          <label class="ck"><checkbox value="MAIL" :checked="hasMail" />{{ $t('inventoryLocationsEdit.deliveryMail') }}</label>
+          <label class="ck"><checkbox value="SELF_PICKUP" :checked="hasPickup" />{{ $t('inventoryLocationsEdit.deliveryPickup') }}</label>
         </checkbox-group>
       </view>
       <view class="field">
-        <text class="label">服务城市（逗号/空格分隔，留空 = 全国）</text>
-        <input class="ipt" v-model="form.serviceCitiesText" placeholder="如 长春, 吉林" />
+        <text class="label">{{ $t('inventoryLocationsEdit.labelCities') }}</text>
+        <input class="ipt" v-model="form.serviceCitiesText" :placeholder="$t('inventoryLocationsEdit.placeholderCities')" />
       </view>
       <view class="field">
-        <text class="label">经纬度</text>
+        <text class="label">{{ $t('inventoryLocationsEdit.labelCoord') }}</text>
         <view class="coord">
-          <input class="ipt half" v-model="form.lat" type="digit" placeholder="纬度 lat" />
-          <input class="ipt half" v-model="form.lng" type="digit" placeholder="经度 lng" />
+          <input class="ipt half" v-model="form.lat" type="digit" :placeholder="$t('inventoryLocationsEdit.placeholderLat')" />
+          <input class="ipt half" v-model="form.lng" type="digit" :placeholder="$t('inventoryLocationsEdit.placeholderLng')" />
         </view>
       </view>
     </view>
 
     <view class="savebar">
-      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? '保存中…' : '保存' }}</button>
+      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? $t('inventoryLocationsEdit.saving') : $t('inventoryLocationsEdit.save') }}</button>
     </view>
   </view>
 </template>
@@ -39,9 +39,11 @@
 import { reactive, ref, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useTenantStore } from '../../../stores/tenantStore';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchLocations, createLocation, updateLocation, type LocationRow } from '../../../apis/inventory';
 
 const tenant = useTenantStore();
+const locale = useLocaleStore();
 const saving = ref(false);
 const editingId = ref<string | null>(null);
 
@@ -105,7 +107,7 @@ onLoad(async (query: any) => {
 
 async function onSave() {
   if (!form.name.trim()) {
-    uni.showToast({ title: '请填写网点名称', icon: 'none' });
+    uni.showToast({ title: locale.t('inventoryLocationsEdit.requireName'), icon: 'none' });
     return;
   }
   saving.value = true;
@@ -115,10 +117,10 @@ async function onSave() {
     } else {
       await createLocation(toInput());
     }
-    uni.showToast({ title: '已保存', icon: 'success' });
+    uni.showToast({ title: locale.t('inventoryLocationsEdit.saved'), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 600);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('inventoryLocationsEdit.saveFailed'), icon: 'none' });
   } finally {
     saving.value = false;
   }

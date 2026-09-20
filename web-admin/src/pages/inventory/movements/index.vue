@@ -12,14 +12,16 @@
       </view>
       <view class="sub dim">{{ fmtTime(m.createdAt) }}<text v-if="m.reason"> · {{ m.reason }}</text></view>
     </view>
-    <view v-if="!items.length" class="empty">暂无流水</view>
+    <view v-if="!items.length" class="empty">{{ $t('inventoryMovements.empty') }}</view>
     <view style="height: 120rpx" />
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchMovements, type MovementRow } from '../../../apis/stock-doc';
 
+const locale = useLocaleStore();
 const items = ref<MovementRow[]>([]);
 
 function fmtTime(s: string): string {
@@ -32,7 +34,7 @@ onMounted(async () => {
     const res = await fetchMovements({ page: 1, pageSize: 50 });
     items.value = res.items;
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '加载流水失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('inventoryMovements.loadFailed'), icon: 'none' });
   }
 });
 </script>

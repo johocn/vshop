@@ -2,33 +2,36 @@
   <view class="page">
     <view class="card">
       <view class="field">
-        <text class="label">源仓库 *</text>
+        <text class="label">{{ $t('stockDocIssue.labelFromLoc') }}</text>
         <picker mode="selector" :range="locNames" @change="onLocChange">
-          <view class="picker">{{ curLocName || '请选择源仓库' }} ▾</view>
+          <view class="picker">{{ curLocName || $t('stockDocIssue.selectFromLoc') }} ▾</view>
         </picker>
       </view>
       <view class="field">
-        <text class="label">变体 ID (variantId) *</text>
-        <input class="ipt" v-model="variantId" type="number" placeholder="如 42" />
+        <text class="label">{{ $t('stockDocIssue.labelVariant') }}</text>
+        <input class="ipt" v-model="variantId" type="number" :placeholder="$t('stockDocIssue.placeholderVariant')" />
       </view>
       <view class="field">
-        <text class="label">出库数量 *</text>
-        <input class="ipt" v-model="qty" type="number" placeholder="出库数量" />
+        <text class="label">{{ $t('stockDocIssue.labelQty') }}</text>
+        <input class="ipt" v-model="qty" type="number" :placeholder="$t('stockDocIssue.placeholderQty')" />
       </view>
       <view class="field">
-        <text class="label">原因</text>
-        <input class="ipt" v-model="remark" placeholder="选填，如 报损/领用" />
+        <text class="label">{{ $t('stockDocIssue.labelReason') }}</text>
+        <input class="ipt" v-model="remark" :placeholder="$t('stockDocIssue.placeholderReason')" />
       </view>
     </view>
     <view class="savebar">
-      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? '提交中…' : '出库' }}</button>
+      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? $t('stockDocIssue.submitting') : $t('stockDocIssue.submit') }}</button>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { useLocaleStore } from '../../../../stores/localeStore';
 import { fetchStockLocations } from '../../../../apis/inventory';
 import { createStockDoc } from '../../../../apis/stock-doc';
+
+const locale = useLocaleStore();
 
 const locations = ref<Array<{ id: string; name: string }>>([]);
 const locNames = ref<string[]>([]);
@@ -45,9 +48,9 @@ function onLocChange(e: any) {
 }
 
 async function onSave() {
-  if (locIdx.value < 0) return uni.showToast({ title: '请选择源仓库', icon: 'none' });
-  if (!variantId.value.trim()) return uni.showToast({ title: '请填写变体 ID', icon: 'none' });
-  if (!qty.value || Number(qty.value) <= 0) return uni.showToast({ title: '请填写正确数量', icon: 'none' });
+  if (locIdx.value < 0) return uni.showToast({ title: locale.t('stockDocIssue.requireFrom'), icon: 'none' });
+  if (!variantId.value.trim()) return uni.showToast({ title: locale.t('stockDocIssue.requireVariant'), icon: 'none' });
+  if (!qty.value || Number(qty.value) <= 0) return uni.showToast({ title: locale.t('stockDocIssue.requireQty'), icon: 'none' });
   saving.value = true;
   try {
     const doc = await createStockDoc({
@@ -59,10 +62,10 @@ async function onSave() {
         qty: Number(qty.value),
       }],
     });
-    uni.showToast({ title: `已出库 ${doc.code}`, icon: 'success' });
+    uni.showToast({ title: locale.t('stockDocIssue.done').replace('{code}', doc.code), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 700);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '提交失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('stockDocIssue.submitFailed'), icon: 'none' });
   } finally {
     saving.value = false;
   }

@@ -2,35 +2,38 @@
   <view class="page">
     <view class="card">
       <view class="field">
-        <text class="label">源仓库 *</text>
+        <text class="label">{{ $t('stockDocTransfer.labelFromLoc') }}</text>
         <picker mode="selector" :range="locNames" @change="onFromChange">
-          <view class="picker">{{ curFromName || '请选择源仓库' }} ▾</view>
+          <view class="picker">{{ curFromName || $t('stockDocTransfer.selectFromLoc') }} ▾</view>
         </picker>
       </view>
       <view class="field">
-        <text class="label">目标仓库 *</text>
+        <text class="label">{{ $t('stockDocTransfer.labelToLoc') }}</text>
         <picker mode="selector" :range="locNames" @change="onToChange">
-          <view class="picker">{{ curToName || '请选择目标仓库' }} ▾</view>
+          <view class="picker">{{ curToName || $t('stockDocTransfer.selectToLoc') }} ▾</view>
         </picker>
       </view>
       <view class="field">
-        <text class="label">变体 ID (variantId) *</text>
-        <input class="ipt" v-model="variantId" type="number" placeholder="如 42" />
+        <text class="label">{{ $t('stockDocTransfer.labelVariant') }}</text>
+        <input class="ipt" v-model="variantId" type="number" :placeholder="$t('stockDocTransfer.placeholderVariant')" />
       </view>
       <view class="field">
-        <text class="label">移库数量 *</text>
-        <input class="ipt" v-model="qty" type="number" placeholder="调拨数量" />
+        <text class="label">{{ $t('stockDocTransfer.labelQty') }}</text>
+        <input class="ipt" v-model="qty" type="number" :placeholder="$t('stockDocTransfer.placeholderQty')" />
       </view>
     </view>
     <view class="savebar">
-      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? '提交中…' : '移库' }}</button>
+      <button class="save" :disabled="saving" @tap="onSave">{{ saving ? $t('stockDocTransfer.submitting') : $t('stockDocTransfer.submit') }}</button>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { useLocaleStore } from '../../../../stores/localeStore';
 import { fetchStockLocations } from '../../../../apis/inventory';
 import { createStockDoc } from '../../../../apis/stock-doc';
+
+const locale = useLocaleStore();
 
 const locations = ref<Array<{ id: string; name: string }>>([]);
 const locNames = ref<string[]>([]);
@@ -52,11 +55,11 @@ function onToChange(e: any) {
 }
 
 async function onSave() {
-  if (fromIdx.value < 0) return uni.showToast({ title: '请选择源仓库', icon: 'none' });
-  if (toIdx.value < 0) return uni.showToast({ title: '请选择目标仓库', icon: 'none' });
-  if (toIdx.value === fromIdx.value) return uni.showToast({ title: '源仓与目标仓不能相同', icon: 'none' });
-  if (!variantId.value.trim()) return uni.showToast({ title: '请填写变体 ID', icon: 'none' });
-  if (!qty.value || Number(qty.value) <= 0) return uni.showToast({ title: '请填写正确数量', icon: 'none' });
+  if (fromIdx.value < 0) return uni.showToast({ title: locale.t('stockDocTransfer.requireFrom'), icon: 'none' });
+  if (toIdx.value < 0) return uni.showToast({ title: locale.t('stockDocTransfer.requireTo'), icon: 'none' });
+  if (toIdx.value === fromIdx.value) return uni.showToast({ title: locale.t('stockDocTransfer.sameLoc'), icon: 'none' });
+  if (!variantId.value.trim()) return uni.showToast({ title: locale.t('stockDocTransfer.requireVariant'), icon: 'none' });
+  if (!qty.value || Number(qty.value) <= 0) return uni.showToast({ title: locale.t('stockDocTransfer.requireQty'), icon: 'none' });
   saving.value = true;
   try {
     const doc = await createStockDoc({
@@ -68,10 +71,10 @@ async function onSave() {
         qty: Number(qty.value),
       }],
     });
-    uni.showToast({ title: `已移库 ${doc.code}`, icon: 'success' });
+    uni.showToast({ title: locale.t('stockDocTransfer.done').replace('{code}', doc.code), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 700);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '提交失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('stockDocTransfer.submitFailed'), icon: 'none' });
   } finally {
     saving.value = false;
   }
