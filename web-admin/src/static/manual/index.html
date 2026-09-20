@@ -759,8 +759,8 @@ var CHAPTERS = [
 <p>选择收款方式（固定聚合码收款等）并确认收款；收款后订单状态与台账同步更新。</p>
 <div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
 <div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div>
-<img class="img" src="shots/g2_f5_pos_confirm.png" alt="POS-核销码查询入口">
-<div class="imgcap">图 P2 · 门店收银查询（输入核销码 / 订单号查询后点「确认收款」完成收款；当前无待核销自提单时显示查询入口空态）</div>`},
+<img class="img" src="shots/g2_f5_pos_confirm.png" alt="POS-真实核销码查询报权限不足">
+<div class="imgcap">图 P2 · 门店收银（输入真实核销码 ATK6XM 查询；当前账号对 POS 数据源 <code>myPickupOrders</code> 权限不足 FORBIDDEN，弹不出「确认收款」modal，如实呈现错误提示）</div>`},
 {book:'op', id:'op-31', title:'售后处理流程', html:`
 <p class="lead">买家发起的退款 / 退货 / 换货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
 <h3>入口与筛选</h3>
