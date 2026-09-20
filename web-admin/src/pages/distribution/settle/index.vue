@@ -1,22 +1,22 @@
 <template>
   <view class="page">
     <view class="tab">
-      <text class="tab-item" @tap="goRelations">分销关系</text>
-      <text class="tab-item on">佣金结算</text>
+      <text class="tab-item" @tap="goRelations">{{ $t('distributionSettle.goRelations') }}</text>
+      <text class="tab-item on">{{ $t('distributionSettle.title') }}</text>
     </view>
     <view class="card" v-for="c in items" :key="c.id">
       <view class="row">
-        <text class="code">结算 #{{ c.id }}</text>
+        <text class="code">{{ $t('distributionSettle.settlement').replace('{id}', c.id) }}</text>
         <text class="st" :class="c.status">{{ statusText(c.status) }}</text>
       </view>
-      <text class="line">推广员 #{{ c.distributorId }} · 订单 #{{ c.orderId }}</text>
-      <text class="line">{{ c.commissionType === 'direct' ? '直推' : '间推' }}佣金 · 费率 {{ (c.commissionRate / 100).toFixed(1) }}%</text>
+      <text class="line">{{ $t('distributionSettle.line').replace('{distributorId}', c.distributorId).replace('{orderId}', c.orderId) }}</text>
+      <text class="line">{{ (c.commissionType === 'direct' ? $t('distributionSettle.feeDirect') : $t('distributionSettle.feeIndirect')).replace('{rate}', (c.commissionRate / 100).toFixed(1)) }}</text>
       <view class="amt">
-        <text class="amt-item">订单 ¥{{ (c.orderAmount / 100).toFixed(2) }}</text>
-        <text class="amt-item">佣金 ¥{{ (c.commissionAmount / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionSettle.order') }} ¥{{ (c.orderAmount / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionSettle.commission') }} ¥{{ (c.commissionAmount / 100).toFixed(2) }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无佣金结算记录</view>
+    <view v-if="!items.length" class="empty">{{ $t('distributionSettle.empty') }}</view>
     <view style="height: 120rpx" />
     <BottomBar current="mine" />
   </view>
@@ -24,10 +24,12 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchCommissions, type CommissionRow } from '../../../apis/distribution';
 
+const locale = useLocaleStore();
 const items = ref<CommissionRow[]>([]);
-const statusText = (s: string) => ({ pending: '待结算', confirmed: '已确认', paid: '已打款', cancelled: '已取消' } as Record<string, string>)[s] || s;
+const statusText = (s: string) => ({ pending: locale.t('distributionSettle.statusPending'), confirmed: locale.t('distributionSettle.statusConfirmed'), paid: locale.t('distributionSettle.statusPaid'), cancelled: locale.t('distributionSettle.statusCancelled') } as Record<string, string>)[s] || s;
 function goRelations() { uni.navigateTo({ url: '/pages/distribution/relations/index' }); }
 onMounted(async () => { items.value = (await fetchCommissions(20)).items; });
 </script>

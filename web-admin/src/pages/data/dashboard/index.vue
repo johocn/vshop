@@ -3,34 +3,34 @@
     <view class="stat">
       <view class="stat-card">
         <text class="num">{{ ov ? ov.orderCount : '—' }}</text>
-        <text class="lbl">今日订单</text>
+        <text class="lbl">{{ $t('dataDashboard.todayOrders') }}</text>
       </view>
       <view class="stat-card">
         <text class="num">{{ ov ? '¥' + (ov.revenue / 100).toFixed(2) : '—' }}</text>
-        <text class="lbl">今日销售额</text>
+        <text class="lbl">{{ $t('dataDashboard.todayRevenue') }}</text>
       </view>
       <view class="stat-card">
         <text class="num">{{ ov ? ov.lowStock : '—' }}</text>
-        <text class="lbl">库存预警</text>
+        <text class="lbl">{{ $t('dataDashboard.lowStock') }}</text>
       </view>
     </view>
 
     <view class="card">
-      <text class="sec">近 7 日销售趋势</text>
+      <text class="sec">{{ $t('dataDashboard.salesTrend') }}</text>
       <TrendChart :points="trend" />
     </view>
 
     <view class="card">
-      <text class="sec">销量 Top 榜（近 7 日品类）</text>
+      <text class="sec">{{ $t('dataDashboard.topTitle') }}</text>
       <view v-if="topList.length" class="top">
         <view class="top-row" v-for="(t, i) in topList" :key="t.categoryId">
           <text class="rank" :class="{ hot: i < 3 }">{{ i + 1 }}</text>
-          <text class="name">{{ t.categoryName || '未分类' }}</text>
-          <text class="cnt">{{ t.orderCount }} 单</text>
+          <text class="name">{{ t.categoryName || $t('dataDashboard.uncategorized') }}</text>
+          <text class="cnt">{{ t.orderCount }} {{ $t('dataDashboard.orderUnit') }}</text>
           <text class="gmv">¥{{ (t.gmv / 100).toFixed(0) }}</text>
         </view>
       </view>
-      <text v-else class="muted">暂无数据</text>
+      <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
     </view>
 
     <view style="height: 140rpx" />

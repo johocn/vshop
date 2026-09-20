@@ -16,18 +16,20 @@
     </view>
 
     <view v-if="selected.length" class="bar">
-      <text class="bar__count">已选 {{ selected.length }} 张</text>
-      <view class="bar__btn copy" @tap="copyUrls">复制 URL</view>
-      <view class="bar__btn clear" @tap="clear">清空</view>
+      <text class="bar__count">{{ $t('mediaLibrary.selectedCount').replace('{n}', selected.length) }}</text>
+      <view class="bar__btn copy" @tap="copyUrls">{{ $t('mediaLibrary.copyUrl') }}</view>
+      <view class="bar__btn clear" @tap="clear">{{ $t('mediaLibrary.clear') }}</view>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import ImagePicker from '../../../components/ImagePicker.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchAssets, type AssetItem } from '../../../apis/asset';
 
 // 选中项资源对象（ImagePicker 回调仅给 id，需按 id 预取 source/preview）
+const locale = useLocaleStore();
 const selected = ref<AssetItem[]>([]);
 // 供 ImagePicker 触发区同步展示已选
 const selSet = computed(() => selected.value.map((a) => a.id));
@@ -44,7 +46,7 @@ async function onSelect(ids: string[]) {
     selected.value = ids.map((id) => m.get(id)).filter((a): a is AssetItem => !!a);
   } catch (e) {
     selected.value = [];
-    uni.showToast({ title: '加载资源失败', icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibrary.toastLoadFailed'), icon: 'none' });
   }
 }
 
@@ -60,12 +62,12 @@ function clear() {
 function copyUrls() {
   const list = selected.value.map((a) => a.source || a.preview).filter(Boolean);
   if (!list.length) {
-    uni.showToast({ title: '暂无链接', icon: 'none' });
+    uni.showToast({ title: locale.t('mediaLibrary.toastNoLink'), icon: 'none' });
     return;
   }
   uni.setClipboardData({
     data: list.join('\n'),
-    success: () => uni.showToast({ title: '已复制 URL', icon: 'none' }),
+    success: () => uni.showToast({ title: locale.t('mediaLibrary.toastCopied'), icon: 'none' }),
   });
 }
 </script>

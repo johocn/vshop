@@ -1628,5 +1628,72 @@
     "loadFailed": "加载明细失败",
     "rerunDone": "已重跑",
     "rerunFailed": "重跑失败"
+  },
+  "distributionRelations": {
+    "title": "分销关系",
+    "goSettle": "佣金结算",
+    "promoter": "推广员 #{id}",
+    "customer": "客户 #{customerId} · 邀请码 {referralCode}",
+    "level": "等级 Lv{level}",
+    "parent": " · 上级 #{parentId}",
+    "totalEarnings": "累计",
+    "availableBalance": "可提现",
+    "frozenBalance": "冻结",
+    "empty": "暂无分销关系",
+    "statusActive": "正常",
+    "statusFrozen": "冻结",
+    "statusPending": "待审核"
+  },
+  "distributionSettle": {
+    "goRelations": "分销关系",
+    "title": "佣金结算",
+    "settlement": "结算 #{id}",
+    "line": "推广员 #{distributorId} · 订单 #{orderId}",
+    "feeDirect": "直推佣金 · 费率 {rate}%",
+    "feeIndirect": "间推佣金 · 费率 {rate}%",
+    "order": "订单",
+    "commission": "佣金",
+    "empty": "暂无佣金结算记录",
+    "statusPending": "待结算",
+    "statusConfirmed": "已确认",
+    "statusPaid": "已打款",
+    "statusCancelled": "已取消"
+  },
+  "dataDashboard": {
+    "todayOrders": "今日订单",
+    "todayRevenue": "今日销售额",
+    "lowStock": "库存预警",
+    "salesTrend": "近 7 日销售趋势",
+    "topTitle": "销量 Top 榜（近 7 日品类）",
+    "uncategorized": "未分类",
+    "orderUnit": "单",
+    "empty": "暂无数据"
+  },
+  "changePassword": {
+    "titleManual": "修改密码",
+    "titleSet": "设置新密码",
+    "subManual": "修改后下次登录使用新密码",
+    "subSet": "首次登录需修改初始密码后方可使用",
+    "phOld": "原密码",
+    "phNew": "新密码（≥8位，含大小写/数字）",
+    "phConfirm": "再次输入新密码",
+    "hide": "隐藏",
+    "show": "显示",
+    "submitting": "提交中…",
+    "submitManual": "确认修改",
+    "submitSet": "绑定新密码",
+    "errOldRequired": "请输入原密码",
+    "errShort": "密码至少 8 位",
+    "errMismatch": "两次输入的新密码不一致",
+    "changedToast": "密码已修改",
+    "errChangeFailed": "修改失败，请重试"
+  },
+  "mediaLibrary": {
+    "selectedCount": "已选 {n} 张",
+    "copyUrl": "复制 URL",
+    "clear": "清空",
+    "toastLoadFailed": "加载资源失败",
+    "toastNoLink": "暂无链接",
+    "toastCopied": "已复制 URL"
   }
 }

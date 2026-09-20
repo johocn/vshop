@@ -1,23 +1,23 @@
 <template>
   <view class="page">
     <view class="tab">
-      <text class="tab-item on">分销关系</text>
-      <text class="tab-item" @tap="goSettle">佣金结算</text>
+      <text class="tab-item on">{{ $t('distributionRelations.title') }}</text>
+      <text class="tab-item" @tap="goSettle">{{ $t('distributionRelations.goSettle') }}</text>
     </view>
     <view class="card" v-for="d in items" :key="d.id">
       <view class="row">
-        <text class="code">推广员 #{{ d.id }}</text>
+        <text class="code">{{ $t('distributionRelations.promoter').replace('{id}', d.id) }}</text>
         <text class="st" :class="d.status">{{ statusText(d.status) }}</text>
       </view>
-      <text class="line">客户 #{{ d.customerId }} · 邀请码 {{ d.referralCode }}</text>
-      <text class="line">等级 Lv{{ d.level }}<text v-if="d.parentId"> · 上级 #{{ d.parentId }}</text></text>
+      <text class="line">{{ $t('distributionRelations.customer').replace('{customerId}', d.customerId).replace('{referralCode}', d.referralCode) }}</text>
+      <text class="line">{{ $t('distributionRelations.level').replace('{level}', d.level) }}<text v-if="d.parentId">{{ $t('distributionRelations.parent').replace('{parentId}', d.parentId) }}</text></text>
       <view class="amt">
-        <text class="amt-item">累计 ¥{{ (d.totalEarnings / 100).toFixed(2) }}</text>
-        <text class="amt-item">可提现 ¥{{ (d.availableBalance / 100).toFixed(2) }}</text>
-        <text class="amt-item">冻结 ¥{{ (d.frozenBalance / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.totalEarnings') }} ¥{{ (d.totalEarnings / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.availableBalance') }} ¥{{ (d.availableBalance / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.frozenBalance') }} ¥{{ (d.frozenBalance / 100).toFixed(2) }}</text>
       </view>
     </view>
-    <view v-if="!items.length" class="empty">暂无分销关系</view>
+    <view v-if="!items.length" class="empty">{{ $t('distributionRelations.empty') }}</view>
     <view style="height: 120rpx" />
     <BottomBar current="mine" />
   </view>
@@ -25,10 +25,12 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchDistributors, type DistributorRow } from '../../../apis/distribution';
 
+const locale = useLocaleStore();
 const items = ref<DistributorRow[]>([]);
-const statusText = (s: string) => ({ active: '正常', frozen: '冻结', pending: '待审核' } as Record<string, string>)[s] || s;
+const statusText = (s: string) => ({ active: locale.t('distributionRelations.statusActive'), frozen: locale.t('distributionRelations.statusFrozen'), pending: locale.t('distributionRelations.statusPending') } as Record<string, string>)[s] || s;
 function goSettle() { uni.navigateTo({ url: '/pages/distribution/settle/index' }); }
 onMounted(async () => { items.value = (await fetchDistributors(20)).items; });
 </script>
