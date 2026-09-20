@@ -7,31 +7,31 @@
         :key="t"
         :class="{ on: activeTab === t }"
         @tap="activeTab = t"
-      >{{ t }}</view>
+      >{{ tabLabel(t) }}</view>
     </view>
 
     <!-- 基本信息 -->
     <template v-if="activeTab === '基本信息'">
       <!-- 多语言 Tab：multilingualEnabled 开启时展示，中/英分别编辑名称、Slug、描述、卖点 -->
       <view v-if="multilingual" class="langbar">
-        <text :class="['lg', { on: lang === 'zh' }]" @tap="lang = 'zh'">中文</text>
-        <text :class="['lg', { on: lang === 'en' }]" @tap="lang = 'en'">English</text>
+        <text :class="['lg', { on: lang === 'zh' }]" @tap="lang = 'zh'">{{ locale.t('productForm.langZh') }}</text>
+        <text :class="['lg', { on: lang === 'en' }]" @tap="lang = 'en'">{{ locale.t('productForm.langEn') }}</text>
       </view>
       <view class="card">
         <view class="cell">
-          <text class="lbl">商品名</text>
-          <input :value="curName" @input="curName = $event.detail.value" placeholder="必填" />
+          <text class="lbl">{{ locale.t('productForm.name') }}</text>
+          <input :value="curName" @input="curName = $event.detail.value" :placeholder="locale.t('productForm.nameRequired')" />
         </view>
         <view class="cell">
           <text class="lbl">Slug</text>
-          <input :value="curSlug" @input="curSlug = $event.detail.value" placeholder="URL 别名" />
+          <input :value="curSlug" @input="curSlug = $event.detail.value" :placeholder="locale.t('productForm.slugAlias')" />
         </view>
         <view class="cell col">
-          <text class="lbl">描述</text>
+          <text class="lbl">{{ locale.t('productForm.desc') }}</text>
           <RichTextEditor :model-value="curDesc" @update:model-value="curDesc = $event" />
         </view>
         <view class="cell">
-          <text class="lbl">价格（元）</text>
+          <text class="lbl">{{ locale.t('productForm.price') }}</text>
           <input
             v-model="d.priceYuan"
             type="digit"
@@ -40,7 +40,7 @@
           />
         </view>
         <view class="cell">
-          <text class="lbl">划线价（元）</text>
+          <text class="lbl">{{ locale.t('productForm.listPrice') }}</text>
           <input
             v-model="d.listPriceYuan"
             type="digit"
@@ -49,7 +49,7 @@
           />
         </view>
         <view class="cell">
-          <text class="lbl">成本价（元）</text>
+          <text class="lbl">{{ locale.t('productForm.cost') }}</text>
           <input
             v-model="d.costYuan"
             type="digit"
@@ -58,7 +58,7 @@
           />
         </view>
         <view class="cell">
-          <text class="lbl">库存（件）</text>
+          <text class="lbl">{{ locale.t('productForm.stock') }}</text>
           <input v-model="d.stock" type="number" placeholder="0" @blur="syncBaseToSkus" />
         </view>
       </view>
@@ -66,37 +66,37 @@
       <view class="card">
         <picker mode="selector" :range="spNames" @change="onSpChange">
           <view class="cell row-in">
-            <text class="lbl">配送档案</text>
+            <text class="lbl">{{ locale.t('productForm.shippingProfile') }}</text>
             <text class="val">{{ spName }}</text>
           </view>
         </picker>
         <picker mode="selector" :range="ppNames" @change="onPpChange">
           <view class="cell row-in">
-            <text class="lbl">支付档案</text>
+            <text class="lbl">{{ locale.t('productForm.paymentProfile') }}</text>
             <text class="val">{{ ppName }}</text>
           </view>
         </picker>
         <picker mode="selector" :range="catNames" @change="onCatChange">
           <view class="cell row-in">
-            <text class="lbl">分类</text>
+            <text class="lbl">{{ locale.t('productForm.category') }}</text>
             <text class="val">{{ catName }}</text>
           </view>
         </picker>
         <view class="cell row-in">
-          <text class="lbl">上架</text>
+          <text class="lbl">{{ locale.t('productForm.onShelf') }}</text>
           <switch :checked="d.enabled" @change="onToggle" />
         </view>
       </view>
 
       <view class="card">
-        <view class="img-title">商品图片<text v-if="d.assetIds.length" class="img-count">（已关联 {{ d.assetIds.length }} 张）</text></view>
+        <view class="img-title">{{ locale.t('productForm.imgTitle') }}<text v-if="d.assetIds.length" class="img-count">{{ locale.t('productForm.imgCount').replace('{n}', String(d.assetIds.length)) }}</text></view>
         <ImagePicker :max="9" :value="d.assetIds" @change="onImg" />
       </view>
 
       <view class="card">
-        <view class="img-title">商品视频</view>
+        <view class="img-title">{{ locale.t('productForm.videoTitle') }}</view>
         <MediaPicker :max="1" mediaType="video" :value="d.videoAssetId ? [d.videoAssetId] : []" @change="onVideo" />
-        <text class="vid-hint">支持 mp4/webm 等，详情页将展示可播放视频</text>
+        <text class="vid-hint">{{ locale.t('productForm.videoHint') }}</text>
       </view>
     </template>
 
@@ -118,6 +118,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { useLocaleStore } from '../stores/localeStore';
 import ImagePicker from './ImagePicker.vue';
 import MediaPicker from './MediaPicker.vue';
 import RichTextEditor from './RichTextEditor.vue';
@@ -170,6 +171,10 @@ interface ProductDraft {
 
 const TABS = ['基本信息', '品牌营销', '规格变体'] as const;
 const activeTab = ref<'基本信息' | '品牌营销' | '规格变体'>('基本信息');
+
+const TAB_KEYS: Record<string, string> = { '基本信息': 'productForm.tabBasic', '品牌营销': 'productForm.tabBrandMk', '规格变体': 'productForm.tabVariant' };
+const locale = useLocaleStore();
+const tabLabel = (t: string) => locale.t(TAB_KEYS[t]);
 
 const props = defineProps<{
   initial?: Partial<{
@@ -233,9 +238,9 @@ const spNames = computed(() => spList.value.map((i) => i.name));
 const ppNames = computed(() => ppList.value.map((i) => i.name));
 const catNames = computed(() => catList.value.map((i) => i.name));
 
-const spName = computed(() => spList.value.find((i) => i.id === d.shippingProfileId)?.name || '请选择');
-const ppName = computed(() => ppList.value.find((i) => i.id === d.paymentProfileId)?.name || '请选择');
-const catName = computed(() => catList.value.find((i) => i.id === d.collectionId)?.name || '请选择');
+const spName = computed(() => spList.value.find((i) => i.id === d.shippingProfileId)?.name || locale.t('productForm.choose'));
+const ppName = computed(() => ppList.value.find((i) => i.id === d.paymentProfileId)?.name || locale.t('productForm.choose'));
+const catName = computed(() => catList.value.find((i) => i.id === d.collectionId)?.name || locale.t('productForm.choose'));
 
 // ---- 多语言（multilingualEnabled 开启时启用）----
 const multilingual = ref(false);
@@ -314,7 +319,7 @@ watch(
 );
 
 function submit() {
-  if (!d.name) return uni.showToast({ title: '请填商品名', icon: 'none' });
+  if (!d.name) return uni.showToast({ title: locale.t('productForm.nameRequiredToast'), icon: 'none' });
   d.priceYuan = Number(d.priceYuan);
   d.stock = Number(d.stock);
   const out: ProductDraft = JSON.parse(JSON.stringify(d));
