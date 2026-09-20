@@ -1,22 +1,22 @@
 <template>
   <view class="page">
     <!-- 1 选券 -->
-    <text class="sec-title">① 选择券模板</text>
+    <text class="sec-title">{{ $t('couponIssue.secPickTemplate') }}</text>
     <view class="tpl" v-for="t in templates" :key="t.id" @tap="pick(t)">
       <view class="t-left">
         <text class="t-name">{{ t.name }}</text>
-        <text class="t-meta">{{ couponTypeLabel(t.type) }} · {{ tplAmount(t) }} · 限{{ t.perUserLimit }}张/人</text>
+        <text class="t-meta">{{ couponTypeLabel(t.type) }} · {{ tplAmount(t) }} · {{ $t('couponIssue.perUserSuffix').replace('{n}', t.perUserLimit) }}</text>
       </view>
       <radio :checked="selTpl?.id === t.id" color="#2f6bff" />
     </view>
-    <view v-if="!templates.length" class="empty">暂无可用券模板</view>
+    <view v-if="!templates.length" class="empty">{{ $t('couponIssue.emptyTpl') }}</view>
 
     <!-- 2 选客户 -->
-    <text class="sec-title">② 选择客户（已选 {{ selected.size }}）</text>
+    <text class="sec-title">{{ $t('couponIssue.secPickCustomer').replace('{n}', selected.size) }}</text>
     <view class="search">
-      <input v-model="kw" placeholder="姓名/手机号/邮箱" confirm-type="search" @confirm="doSearch" />
-      <text class="go" @tap="doSearch">搜索</text>
-      <text class="all" @tap="selectAll">全部本渠道</text>
+      <input v-model="kw" :placeholder="$t('couponIssue.searchPlaceholder')" confirm-type="search" @confirm="doSearch" />
+      <text class="go" @tap="doSearch">{{ $t('couponIssue.search') }}</text>
+      <text class="all" @tap="selectAll">{{ $t('couponIssue.allChannel') }}</text>
     </view>
     <view class="c-item" v-for="c in custList" :key="c.id" @tap="toggle(c)">
       <view class="c-left">
@@ -25,28 +25,28 @@
       </view>
       <radio :checked="selected.has(c.id)" color="#2f6bff" />
     </view>
-    <view v-if="!custList.length" class="empty">输入关键词搜索本渠道客户</view>
+    <view v-if="!custList.length" class="empty">{{ $t('couponIssue.emptyCustomer') }}</view>
 
     <!-- 3 通知 -->
-    <text class="sec-title">③ 发券通知</text>
+    <text class="sec-title">{{ $t('couponIssue.secNotify') }}</text>
     <view class="switch-row">
-      <text>发券后发站内消息</text>
+      <text>{{ $t('couponIssue.notifyLabel') }}</text>
       <switch :checked="notify" color="#2f6bff" @change="e => notify = e.detail.value" />
     </view>
 
     <!-- 4 确认 -->
-    <text class="sec-title">④ 确认发券</text>
-    <view class="sum">将向 {{ selected.size }} 人发放 {{ selected.size }} 张券（每人 1 张）</view>
-    <button class="btn" :disabled="!selTpl || !selected.size || busy" @tap="submit">{{ busy ? '发券中…' : '确认发券' }}</button>
+    <text class="sec-title">{{ $t('couponIssue.secConfirm') }}</text>
+    <view class="sum">{{ $t('couponIssue.confirmSummary').replace('{n}', selected.size) }}</view>
+    <button class="btn" :disabled="!selTpl || !selected.size || busy" @tap="submit">{{ busy ? $t('couponIssue.issuing') : $t('couponIssue.confirm') }}</button>
 
     <!-- 结果 -->
     <view v-if="results.length" class="result">
-      <text class="sec-title">发券结果</text>
+      <text class="sec-title">{{ $t('couponIssue.resultTitle') }}</text>
       <view class="r-row" v-for="r in results" :key="r.customerId">
         <text class="r-cust">{{ selectedName(r.customerId) || r.customerId }}</text>
-        <text :class="r.ok ? 'ok' : 'no'">{{ r.ok ? ('成功 ' + r.code) : reasonLabel(r.reason) }}</text>
+        <text :class="r.ok ? 'ok' : 'no'">{{ r.ok ? locale.t('couponIssue.resultSuccess').replace('{code}', r.code || '') : reasonLabel(r.reason) }}</text>
       </view>
-      <text class="sec-title">成功 {{ okCount }} / 失败 {{ results.length - okCount }}</text>
+      <text class="sec-title">{{ $t('couponIssue.resultSummary').replace('{ok}', okCount).replace('{fail}', results.length - okCount) }}</text>
     </view>
   </view>
 </template>
@@ -57,6 +57,9 @@ import {
   fetchCouponTemplates, searchChannelCustomers, grantCouponIssue,
   CouponTemplateItem, IssueCustomer, couponTypeLabel, fmtCNY,
 } from '../../../apis/coupon';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const templates = ref<CouponTemplateItem[]>([]);
 const selTpl = ref<CouponTemplateItem | null>(null);
@@ -70,8 +73,8 @@ const results = ref<{ customerId: string; ok: boolean; code?: string | null; rea
 const okCount = computed(() => results.value.filter(r => r.ok).length);
 
 function tplAmount(t: CouponTemplateItem): string {
-  if (t.type === 'FREE_SHIPPING') return '免邮';
-  if (t.type === 'PERCENT') return (t.discountValue / 10) + '折';
+  if (t.type === 'FREE_SHIPPING') return locale.t('couponIssue.valueFreeShipping');
+  if (t.type === 'PERCENT') return locale.t('couponIssue.valuePercent').replace('{d}', String(t.discountValue / 10));
   return '¥' + fmtCNY(t.discountValue);
 }
 function pick(t: CouponTemplateItem) { selTpl.value = t; }
@@ -91,7 +94,12 @@ function toggle(c: IssueCustomer) {
 }
 function selectedName(id: string) { return selected.value.get(id)?.emailAddress || ''; }
 function reasonLabel(r: string | null): string {
-  return ({ SOLD_OUT: '券已领完', PER_USER_LIMIT: '已达每人限领', CUSTOMER_NOT_FOUND: '客户不存在', CUSTOMER_NOT_IN_CHANNEL: '非本渠道客户', ERROR: '发券异常' } as Record<string, string>)[r || ''] || (r || '失败');
+  const keys: Record<string, string> = {
+    SOLD_OUT: 'reasonSoldOut', PER_USER_LIMIT: 'reasonPerUserLimit', CUSTOMER_NOT_FOUND: 'reasonCustomerNotFound',
+    CUSTOMER_NOT_IN_CHANNEL: 'reasonNotInChannel', ERROR: 'reasonError',
+  };
+  const k = keys[r || ''];
+  return k ? locale.t(`couponIssue.${k}`) : (r || locale.t('couponIssue.failed'));
 }
 async function submit() {
   if (!selTpl.value || !selected.value.size) return;

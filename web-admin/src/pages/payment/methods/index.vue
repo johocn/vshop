@@ -2,15 +2,15 @@
   <view class="page">
     <!-- 顶部导航：支付档案 -->
     <view class="nav">
-      <text class="nav-btn" @tap="go('/pages/payment/profile/index')">支付档案</text>
+      <text class="nav-btn" @tap="go('/pages/payment/profile/index')">{{ $t('paymentMethod.navProfile') }}</text>
     </view>
     <view class="tabs">
-      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">本店方式</text>
-      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">全局方案池</text>
+      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">{{ $t('paymentMethod.tabMine') }}</text>
+      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">{{ $t('paymentMethod.tabPool') }}</text>
     </view>
 
     <template v-if="tab === 'mine'">
-      <view class="hint">先配好支付方式（启用中），才可在「支付档案」引用。</view>
+      <view class="hint">{{ $t('paymentMethod.hintMine') }}</view>
       <view class="card" v-for="p in items" :key="p.id">
         <view class="row">
           <view class="left">
@@ -21,34 +21,34 @@
         </view>
         <text class="desc">{{ p.description || '—' }}</text>
         <view class="ops">
-          <text class="ed" @tap="openEdit(p)">编辑</text>
-          <text class="del" @tap="onDel(p)">删除</text>
+          <text class="ed" @tap="openEdit(p)">{{ $t('paymentMethod.edit') }}</text>
+          <text class="del" @tap="onDel(p)">{{ $t('paymentMethod.del') }}</text>
         </view>
       </view>
-      <view v-if="!items.length" class="empty">暂无支付方式</view>
+      <view v-if="!items.length" class="empty">{{ $t('paymentMethod.emptyMine') }}</view>
     </template>
 
     <template v-else>
-      <view class="hint">全局方案由超级管理员维护，点击「引用到本店」生成独立实例后可编辑。</view>
+      <view class="hint">{{ $t('paymentMethod.hintPool') }}</view>
       <view class="card" v-for="t in pool" :key="t.id">
         <view class="row">
           <view class="left">
             <text class="name">{{ t.name }}</text>
             <text class="code">{{ t.code }}</text>
           </view>
-          <text class="copy" @tap="copy(t)">引用到本店</text>
+          <text class="copy" @tap="copy(t)">{{ $t('paymentMethod.reference') }}</text>
         </view>
         <text class="desc">{{ t.description || '—' }}</text>
       </view>
-      <view v-if="!pool.length" class="empty">暂无全局方案</view>
+      <view v-if="!pool.length" class="empty">{{ $t('paymentMethod.emptyPool') }}</view>
     </template>
 
     <view v-if="tab === 'mine' && editing" class="sheet-mask" @tap="editing = null">
       <view class="sheet" @tap.stop>
-        <text class="st">编辑支付方式</text>
-        <input class="ipt" v-model="form.name" placeholder="名称" />
-        <input class="ipt" v-model="form.description" placeholder="描述" />
-        <button class="save" @tap="save">保存</button>
+        <text class="st">{{ $t('paymentMethod.editMethodTitle') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('paymentMethod.phName')" />
+        <input class="ipt" v-model="form.description" :placeholder="$t('paymentMethod.phDesc')" />
+        <button class="save" @tap="save">{{ $t('paymentMethod.save') }}</button>
       </view>
     </view>
     <view style="height: 120rpx" />
@@ -60,6 +60,9 @@ import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchPaymentMethods, setPaymentEnabled, updatePaymentMethod, deletePaymentMethod } from '../../../apis/payment';
 import { fetchPaymentTemplates, createPaymentMethodFromTemplate } from '../../../apis/payment-template';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const tab = ref<'mine' | 'pool'>('mine');
 const items = ref<any[]>([]);
@@ -78,11 +81,11 @@ onMounted(async () => { items.value = await fetchPaymentMethods(); });
 async function copy(t: any) {
   try {
     await createPaymentMethodFromTemplate(t.id);
-    uni.showToast({ title: '已引用到本店', icon: 'none' });
+    uni.showToast({ title: locale.t('paymentMethod.referenced'), icon: 'none' });
     tab.value = 'mine';
     items.value = await fetchPaymentMethods();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '引用失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('paymentMethod.referenceFailed'), icon: 'none' });
   }
 }
 
@@ -92,7 +95,7 @@ async function toggle(p: any, e: any) {
     await setPaymentEnabled(p.id, enabled);
     p.enabled = enabled;
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('paymentMethod.opFailed'), icon: 'none' });
   }
 }
 
@@ -102,14 +105,14 @@ async function save() {
   try {
     await updatePaymentMethod(form.value.id, form.value.name, form.value.description);
     editing.value = null; items.value = await fetchPaymentMethods();
-    uni.showToast({ title: '已保存', icon: 'none' });
-  } catch (e: any) { uni.showToast({ title: e?.message || '保存失败', icon: 'none' }); }
+    uni.showToast({ title: locale.t('paymentMethod.saved'), icon: 'none' });
+  } catch (e: any) { uni.showToast({ title: e?.message || locale.t('paymentMethod.saveFailed'), icon: 'none' }); }
 }
 function onDel(p: any) {
-  uni.showModal({ title: '删除支付方式', content: `确认删除「${p.name}」？`, success: async (r) => {
+  uni.showModal({ title: locale.t('paymentMethod.delTitle'), content: locale.t('paymentMethod.delContent').replace('{name}', p.name), success: async (r) => {
     if (!r.confirm) return;
-    try { await deletePaymentMethod(p.id); items.value = await fetchPaymentMethods(); uni.showToast({ title: '已删除', icon: 'none' }); }
-    catch (e: any) { uni.showToast({ title: e?.message || '删除失败', icon: 'none' }); }
+    try { await deletePaymentMethod(p.id); items.value = await fetchPaymentMethods(); uni.showToast({ title: locale.t('paymentMethod.deleted'), icon: 'none' }); }
+    catch (e: any) { uni.showToast({ title: e?.message || locale.t('paymentMethod.delFailed'), icon: 'none' }); }
   }});
 }
 </script>

@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="toolbar">
-      <button class="add" @tap="onCreate">＋ 新建优惠券</button>
+      <button class="add" @tap="onCreate">＋ {{ $t('couponList.createNew') }}</button>
     </view>
 
     <view class="card" v-for="c in items" :key="c.id">
@@ -9,47 +9,47 @@
         <view class="head">
           <text class="name">{{ c.name }}</text>
           <text class="badge" :class="c.type.toLowerCase()">{{ typeLabel(c.type) }}</text>
-          <text class="badge tag" v-if="c.claimable">可领取</text>
-          <text class="badge tag" v-if="c.claimCode">凭码领券</text>
-          <text class="badge tag" v-if="c.newCustomerOnly">仅新客</text>
-          <text class="badge tag" v-if="c.scope === 'SKU'">指定商品</text>
-          <text class="badge off" v-if="!c.enabled">停用</text>
+          <text class="badge tag" v-if="c.claimable">{{ $t('couponList.badgeClaimable') }}</text>
+          <text class="badge tag" v-if="c.claimCode">{{ $t('couponList.badgeClaimCode') }}</text>
+          <text class="badge tag" v-if="c.newCustomerOnly">{{ $t('couponList.badgeNewCustomer') }}</text>
+          <text class="badge tag" v-if="c.scope === 'SKU'">{{ $t('couponList.badgeSku') }}</text>
+          <text class="badge off" v-if="!c.enabled">{{ $t('couponList.disabled') }}</text>
         </view>
         <view class="value">{{ valueText(c) }}</view>
       </view>
       <view class="rows">
         <view class="row">
           <view class="kv">
-            <text class="k">限量</text>
-            <text class="v">{{ c.totalCount === 0 ? '不限' : c.totalCount }}{{ c.claimedCount ? `（已发 ${c.claimedCount}）` : '' }}</text>
+            <text class="k">{{ $t('couponList.limitLabel') }}</text>
+            <text class="v">{{ c.totalCount === 0 ? $t('couponList.unlimited') : c.totalCount }}{{ c.claimedCount ? locale.t('couponList.claimedSuffix').replace('{count}', c.claimedCount) : '' }}</text>
           </view>
           <view class="kv">
-            <text class="k">有效期</text>
+            <text class="k">{{ $t('couponList.validLabel') }}</text>
             <text class="v">{{ validText(c) }}</text>
           </view>
         </view>
         <view class="row">
           <view class="kv">
-            <text class="k">每人限领</text>
-            <text class="v">{{ c.perUserLimit === 0 ? '不限' : c.perUserLimit }}</text>
+            <text class="k">{{ $t('couponList.perUserLabel') }}</text>
+            <text class="v">{{ c.perUserLimit === 0 ? $t('couponList.unlimited') : c.perUserLimit }}</text>
           </view>
           <view class="kv">
-            <text class="k">归属店铺</text>
+            <text class="k">{{ $t('couponList.shopLabel') }}</text>
             <text class="v">{{ shopText(c.shopId) }}</text>
           </view>
         </view>
       </view>
       <view class="ops">
-        <text @tap="onToggle(c)">{{ c.enabled ? '停用' : '启用' }}</text>
-        <text @tap="onEdit(c)">编辑</text>
-        <text @tap="openDetail(c)">明细</text>
-        <text class="del" @tap="onDelete(c)">删除</text>
+        <text @tap="onToggle(c)">{{ c.enabled ? $t('couponList.disabled') : $t('couponList.enabled') }}</text>
+        <text @tap="onEdit(c)">{{ $t('couponList.edit') }}</text>
+        <text @tap="openDetail(c)">{{ $t('couponList.detail') }}</text>
+        <text class="del" @tap="onDelete(c)">{{ $t('couponList.del') }}</text>
       </view>
     </view>
 
-    <view v-if="!items.length && !loading" class="empty">暂无优惠券</view>
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-if="loadingMore" class="empty">加载更多…</view>
+    <view v-if="!items.length && !loading" class="empty">{{ $t('couponList.empty') }}</view>
+    <view v-if="loading" class="empty">{{ $t('couponList.loading') }}</view>
+    <view v-if="loadingMore" class="empty">{{ $t('couponList.loadingMore') }}</view>
 
     <CouponDetailModal v-model:visible="detailVisible" :template="detailTemplate" />
   </view>
@@ -62,6 +62,9 @@ import {
   couponTypeLabel, fmtCNY, CouponTemplateItem,
 } from '../../apis/coupon';
 import CouponDetailModal from './CouponDetailModal.vue';
+import { useLocaleStore } from '../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const items = ref<CouponTemplateItem[]>([]);
 const loading = ref(false);
@@ -78,32 +81,32 @@ function openDetail(c: CouponTemplateItem) {
 }
 
 const typeLabel = (t: string) => couponTypeLabel(t);
-const shopText = (id?: string | null) => (id ? `店 ${id}` : '平台');
+const shopText = (id?: string | null) => (id ? locale.t('couponList.storeShop').replace('{id}', id) : locale.t('couponList.platform'));
 
 const valueText = (c: CouponTemplateItem): string => {
   switch (c.type) {
     case 'FIXED':
-      return `满 ${fmtCNY(c.minSpend)} 减 ${fmtCNY(c.discountValue)}`;
+      return locale.t('couponList.valueFixed').replace('{min}', fmtCNY(c.minSpend)).replace('{val}', fmtCNY(c.discountValue));
     case 'PERCENT':
-      return `满 ${fmtCNY(c.minSpend)} 打 ${c.discountValue / 10} 折`;
+      return locale.t('couponList.valuePercent').replace('{min}', fmtCNY(c.minSpend)).replace('{disc}', String(c.discountValue / 10));
     case 'FULL':
-      return `直减 ${fmtCNY(c.discountValue)}`;
+      return locale.t('couponList.valueFull').replace('{val}', fmtCNY(c.discountValue));
     case 'FREE_SHIPPING':
-      return '免邮';
+      return locale.t('couponList.valueFreeShipping');
     default:
       return '';
   }
 };
 
 function fmtDT(t?: string | null): string {
-  if (!t) return '不限';
+  if (!t) return locale.t('couponList.unlimited');
   const d = new Date(t);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 const validText = (c: CouponTemplateItem): string => {
-  if (!c.startsAt && !c.endsAt) return '不限';
-  return `${fmtDT(c.startsAt)} 至 ${fmtDT(c.endsAt)}`;
+  if (!c.startsAt && !c.endsAt) return locale.t('couponList.unlimited');
+  return locale.t('couponList.validRange').replace('{start}', fmtDT(c.startsAt)).replace('{end}', fmtDT(c.endsAt));
 };
 
 async function load() {
@@ -138,10 +141,10 @@ const toggling = ref(false);
 function onToggle(c: CouponTemplateItem) {
   const enable = !c.enabled;
   uni.showModal({
-    title: enable ? '确认启用' : '确认停用',
+    title: enable ? locale.t('couponList.enableTitle') : locale.t('couponList.disableTitle'),
     content: enable
-      ? `确认启用「${c.name}」？启用后用户可正常领取与使用该券。`
-      : `确认停用「${c.name}」？停用后用户将无法再领取与使用该券，已领取的券不受影响。`,
+      ? locale.t('couponList.enableContent').replace('{name}', c.name)
+      : locale.t('couponList.disableContent').replace('{name}', c.name),
     success: async (r) => {
       if (!r.confirm) return;
       if (toggling.value) return;
@@ -149,9 +152,9 @@ function onToggle(c: CouponTemplateItem) {
       try {
         await setCouponTemplateEnabled(c.id, enable);
         c.enabled = enable;
-        uni.showToast({ title: enable ? '已启用' : '已停用', icon: 'none' });
+        uni.showToast({ title: enable ? locale.t('couponList.enabled') : locale.t('couponList.disabled'), icon: 'none' });
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('couponList.opFailed'), icon: 'none' });
       } finally {
         toggling.value = false;
       }
@@ -161,15 +164,16 @@ function onToggle(c: CouponTemplateItem) {
 
 function onDelete(c: CouponTemplateItem) {
   uni.showModal({
-    title: '删除', content: `确认删除「${c.name}」？删除后不可恢复；若该模板已发放券，删除将被阻止并提示数量。`,
+    title: locale.t('couponList.delTitle'),
+    content: locale.t('couponList.delContent').replace('{name}', c.name),
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await deleteCouponTemplate(c.id);
         items.value = items.value.filter((x) => x.id !== c.id);
-        uni.showToast({ title: '已删除', icon: 'none' });
+        uni.showToast({ title: locale.t('couponList.deleted'), icon: 'none' });
       } catch (e: any) {
-        uni.showToast({ title: e?.message || '删除失败', icon: 'none' });
+        uni.showToast({ title: e?.message || locale.t('couponList.delFailed'), icon: 'none' });
       }
     },
   });

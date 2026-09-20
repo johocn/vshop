@@ -2,57 +2,57 @@
   <view class="page">
     <!-- 顶部导航：配送档案 / 自提点 -->
     <view class="nav">
-      <text class="nav-btn" @tap="go('/pages/shipping/profile/index')">配送档案</text>
-      <text class="nav-btn" @tap="go('/pages/pickup/index')">自提点</text>
+      <text class="nav-btn" @tap="go('/pages/shipping/profile/index')">{{ $t('shippingMethod.navProfile') }}</text>
+      <text class="nav-btn" @tap="go('/pages/pickup/index')">{{ $t('shippingMethod.navPickup') }}</text>
     </view>
     <view class="tabs">
-      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">本店方式</text>
-      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">全局方案池</text>
+      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">{{ $t('shippingMethod.tabMine') }}</text>
+      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">{{ $t('shippingMethod.tabPool') }}</text>
     </view>
 
     <!-- 本店方式 -->
     <template v-if="tab === 'mine'">
-      <view class="hint">先配好配送方式（启用中），才可在「配送档案」引用。</view>
+      <view class="hint">{{ $t('shippingMethod.hintMine') }}</view>
       <view class="card" v-for="s in items" :key="s.id">
         <view class="row">
           <view class="left"><text class="name">{{ s.name }}</text><text class="code">{{ s.code }}</text></view>
           <switch :checked="s.enabled" color="#ff6600" @change="toggle(s, $event)" />
         </view>
         <text class="desc">{{ s.description || '—' }}</text>
-        <text v-if="isFixedFee(s.calcCode)" class="fee">{{ s.shippingPrice > 0 ? `固定运费 ${fen2yuan(s.shippingPrice)} 元` : '免运费' }}</text>
+        <text v-if="isFixedFee(s.calcCode)" class="fee">{{ s.shippingPrice > 0 ? locale.t('shippingMethod.fixedFee').replace('{amount}', fen2yuan(s.shippingPrice)) : locale.t('shippingMethod.freeShipping') }}</text>
         <view class="ops">
-          <text class="ed" @tap="openEdit(s)">编辑</text>
-          <text class="del" @tap="onDel(s)">删除</text>
+          <text class="ed" @tap="openEdit(s)">{{ $t('shippingMethod.edit') }}</text>
+          <text class="del" @tap="onDel(s)">{{ $t('shippingMethod.del') }}</text>
         </view>
       </view>
-      <view v-if="!items.length" class="empty">暂无配送方式</view>
+      <view v-if="!items.length" class="empty">{{ $t('shippingMethod.emptyMine') }}</view>
     </template>
 
     <!-- 全局方案池 -->
     <template v-else>
-      <view class="hint">全局方案由超级管理员维护，左滑/点击「引用到本店」生成独立实例后可编辑。</view>
+      <view class="hint">{{ $t('shippingMethod.hintPool') }}</view>
       <view class="card" v-for="t in pool" :key="t.id">
         <view class="row">
           <view class="left"><text class="name">{{ t.name }}</text><text class="code">{{ t.code }}</text></view>
-          <text class="copy" @tap="copy(t)">引用到本店</text>
+          <text class="copy" @tap="copy(t)">{{ $t('shippingMethod.referenceToMine') }}</text>
         </view>
         <text class="desc">{{ t.description || '—' }}</text>
         <view class="ops" v-if="auth.isSuperAdmin">
-          <text class="cfg" @tap="config(t)">区域与运费</text>
+          <text class="cfg" @tap="config(t)">{{ $t('shippingMethod.zoneAndFee') }}</text>
         </view>
       </view>
-      <view v-if="!pool.length" class="empty">暂无全局方案</view>
+      <view v-if="!pool.length" class="empty">{{ $t('shippingMethod.emptyPool') }}</view>
     </template>
 
     <view v-if="tab === 'mine' && editing" class="sheet-mask" @tap="editing = null">
       <view class="sheet" @tap.stop>
-        <text class="st">编辑配送方式</text>
-        <input class="ipt" v-model="form.name" placeholder="名称" />
-        <input class="ipt" v-model="form.description" placeholder="描述" />
-        <input v-if="isFixedFee(editing.calcCode)" class="ipt" type="number" v-model="form.shippingPrice" placeholder="固定运费（分，0=免费）" />
-        <template v-if="isStorePickup(editing.calcCode)"><text class="ftip">门店自提免运费</text></template>
-        <template v-else-if="isMail(editing.calcCode)"><text class="ftip">运费公式请在全局方案「区域与运费」中配置</text></template>
-        <button class="save" @tap="save">保存</button>
+        <text class="st">{{ $t('shippingMethod.editMethodTitle') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('shippingMethod.phName')" />
+        <input class="ipt" v-model="form.description" :placeholder="$t('shippingMethod.phDesc')" />
+        <input v-if="isFixedFee(editing.calcCode)" class="ipt" type="number" v-model="form.shippingPrice" :placeholder="$t('shippingMethod.phFixedFee')" />
+        <template v-if="isStorePickup(editing.calcCode)"><text class="ftip">{{ $t('shippingMethod.storePickupFree') }}</text></template>
+        <template v-else-if="isMail(editing.calcCode)"><text class="ftip">{{ $t('shippingMethod.mailFeeTip') }}</text></template>
+        <button class="save" @tap="save">{{ $t('shippingMethod.save') }}</button>
       </view>
     </view>
     <view style="height: 120rpx" />
@@ -65,6 +65,9 @@ import BottomBar from '../../../components/BottomBar.vue';
 import { fetchShippingMethods, setShippingEnabled, updateShippingMethod, deleteShippingMethod, updateShippingMethodShippingPrice } from '../../../apis/shipping';
 import { fetchShippingTemplates, createShippingMethodFromTemplate } from '../../../apis/shipping-template';
 import { useAuthStore } from '../../../stores/authStore';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 // 自提/同城 = 固定运费可配；门店自提 = 免费；其余 = 快递公式（模板级配置）
 const FIXED_FEE_CALCS = ['pickup-point-calculator', 'employee-pickup-calculator', 'local-delivery-calculator'];
@@ -94,18 +97,18 @@ async function toggle(s: any, e: any) {
     await setShippingEnabled(s.id, enabled);
     s.enabled = enabled;
   } catch (err: any) {
-    uni.showToast({ title: err?.message || '操作失败', icon: 'none' });
+    uni.showToast({ title: err?.message || locale.t('shippingMethod.opFailed'), icon: 'none' });
   }
 }
 
 async function copy(t: any) {
   try {
     await createShippingMethodFromTemplate(t.id);
-    uni.showToast({ title: '已引用到本店', icon: 'none' });
+    uni.showToast({ title: locale.t('shippingMethod.referenced'), icon: 'none' });
     tab.value = 'mine';
     items.value = await fetchShippingMethods();
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '引用失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('shippingMethod.referenceFailed'), icon: 'none' });
   }
 }
 
@@ -122,14 +125,14 @@ async function save() {
       await updateShippingMethodShippingPrice(form.value.id, Number(form.value.shippingPrice) || 0);
     }
     editing.value = null; items.value = await fetchShippingMethods();
-    uni.showToast({ title: '已保存', icon: 'none' });
-  } catch (e: any) { uni.showToast({ title: e?.message || '保存失败', icon: 'none' }); }
+    uni.showToast({ title: locale.t('shippingMethod.saved'), icon: 'none' });
+  } catch (e: any) { uni.showToast({ title: e?.message || locale.t('shippingMethod.saveFailed'), icon: 'none' }); }
 }
 function onDel(s: any) {
-  uni.showModal({ title: '删除配送方式', content: `确认删除「${s.name}」？`, success: async (r) => {
+  uni.showModal({ title: locale.t('shippingMethod.delTitle'), content: locale.t('shippingMethod.confirmDelContent').replace('{name}', s.name), success: async (r) => {
     if (!r.confirm) return;
-    try { await deleteShippingMethod(s.id); items.value = await fetchShippingMethods(); uni.showToast({ title: '已删除', icon: 'none' }); }
-    catch (e: any) { uni.showToast({ title: e?.message || '删除失败', icon: 'none' }); }
+    try { await deleteShippingMethod(s.id); items.value = await fetchShippingMethods(); uni.showToast({ title: locale.t('shippingMethod.deleted'), icon: 'none' }); }
+    catch (e: any) { uni.showToast({ title: e?.message || locale.t('shippingMethod.delFailed'), icon: 'none' }); }
   }});
 }
 </script>
