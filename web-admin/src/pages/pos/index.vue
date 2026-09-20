@@ -61,6 +61,52 @@
 
     <view v-if="state === 'empty'" class="empty">{{ $t('pos.empty') }}</view>
 
+    <!-- 收款小票（收款后展示，非复位） -->
+    <view v-if="receipt" class="receipt-mask" @tap="onDone">
+      <view class="receipt" @tap.stop>
+        <view class="rt-title">
+          <text class="rt-name">{{ receipt.store || $t('pos.receiptStoreFallback') }}</text>
+          <text class="rt-cap">{{ $t('pos.receiptTitle') }}</text>
+        </view>
+
+        <view class="kv">
+          <text class="l">{{ $t('settleLedger.orderNo') }}</text>
+          <text class="v">#{{ receipt.code }}</text>
+        </view>
+        <view class="kv">
+          <text class="l">{{ $t('pos.payMethod') }}</text>
+          <text class="v fixed">{{ $t('pos.fixedGateTitle') }}</text>
+        </view>
+        <view class="kv">
+          <text class="l">{{ $t('pos.receiptPaidAt') }}</text>
+          <text class="v">{{ receipt.paidAt }}</text>
+        </view>
+
+        <view class="rt-amount">
+          <text class="l">{{ $t('pos.amountLabel') }}</text>
+          <text class="amount">¥ {{ money(receipt.totalWithTax) }}</text>
+        </view>
+
+        <view class="sec">{{ $t('pos.receiptItems') }}</view>
+        <view class="li" v-for="(l, i) in receipt.lines" :key="i">
+          <view class="li-left">
+            <text class="name">{{ l.name }}</text>
+            <text class="qty">×{{ l.quantity }}</text>
+          </view>
+          <text class="sub">¥{{ money(l.amount) }}</text>
+        </view>
+        <view v-if="!receipt.lines.length" class="muted">{{ $t('pos.noItems') }}</view>
+
+        <view class="total-row">
+          <text class="l">{{ $t('pos.receiptCollected') }}</text>
+          <text class="v-danger">¥ {{ money(receipt.collectedTotal) }}</text>
+        </view>
+
+        <button class="copy-btn" @tap="onCopy">{{ $t('pos.receiptCopy') }}</button>
+        <button class="done-btn" @tap="onDone">{{ $t('pos.receiptDone') }}</button>
+      </view>
+    </view>
+
     <view style="height: 140rpx" />
   </view>
 </template>
@@ -75,6 +121,8 @@ import {
 } from '../../apis/redemption';
 import { REDEMPTION_STATES, stateLabel } from '../../constants/orderState';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fetchActiveChannel } from '../../apis/channel';
+import { fmtDateTime } from '../../utils/csv';
 
 const locale = useLocaleStore();
 
@@ -88,12 +136,21 @@ interface PosResult {
   customer?: string;
   lines: PosLine[];
 }
+interface Receipt {
+  store: string;             // 门店/渠道名
+  code: string;              // 订单号
+  paidAt: string;            // 收款时间（本地格式化）
+  lines: PosLine[];
+  totalWithTax: number;      // 应付金额
+  collectedTotal: number;    // 实收总额
+}
 
 const kw = ref('');
 const loading = ref(false);
 const collecting = ref(false);
 const state = ref<'idle' | 'result' | 'empty'>('idle');
 const result = ref<PosResult | null>(null);
+const receipt = ref<Receipt | null>(null);
 
 function money(n?: number | null): string {
   return ((n ?? 0) / 100).toFixed(2);
@@ -197,8 +254,8 @@ async function onConfirmCollect(): Promise<void> {
     const rr = await claimRedemption(r.pickupCode, true);
     uni.hideLoading();
     if (rr.ok && rr.result?.claimed) {
-      uni.showToast({ title: locale.t('pos.collectSuccess'), icon: 'success' });
-      reset();
+      // 收款成功：不立即复位，改为展示小票结果卡
+      receipt.value = await buildReceipt(r);
     } else {
       uni.showToast({ title: rr.message || locale.t('pos.processFailed'), icon: 'none' });
     }
@@ -212,8 +269,54 @@ async function onConfirmCollect(): Promise<void> {
 
 function reset(): void {
   result.value = null;
+  receipt.value = null;
   state.value = 'idle';
   kw.value = '';
+}
+
+/** 组装小票对象：门店/渠道名、订单号、收款方式、应付金额、商品明细、实收总额、收款时间 */
+async function buildReceipt(r: PosResult): Promise<Receipt> {
+  let store = '';
+  try {
+    const ch = await fetchActiveChannel();
+    store = ch?.customFields?.shopName || '';
+  } catch (_e) {
+    // 取门店名失败不阻塞，回转店名缺省
+  }
+  return {
+    store,
+    code: r.code,
+    paidAt: fmtDateTime(new Date()),
+    lines: r.lines || [],
+    totalWithTax: r.totalWithTax,
+    collectedTotal: r.totalWithTax, // 固定聚合码场景实收 = 应付
+  };
+}
+
+/** 复制小票为纯文本 */
+function onCopy(): void {
+  const rc = receipt.value;
+  if (!rc) return;
+  const lines = rc.lines.length
+    ? rc.lines.map((l) => `${l.name} ×${l.quantity}　¥${money(l.amount)}`).join('\n')
+    : locale.t('pos.noItems');
+  const text = [
+    rc.store || locale.t('pos.receiptStoreFallback'),
+    `${locale.t('settleLedger.orderNo')}：${rc.code}`,
+    `${locale.t('pos.payMethod')}：${locale.t('pos.fixedGateTitle')}`,
+    `${locale.t('pos.receiptPaidAt')}：${rc.paidAt}`,
+    `${locale.t('pos.receiptItems')}：\n${lines}`,
+    `${locale.t('pos.receiptCollected')}：¥${money(rc.collectedTotal)}`,
+  ].join('\n');
+  uni.setClipboardData({
+    data: text,
+    success: () => uni.showToast({ title: locale.t('pos.receiptCopied'), icon: 'success' }),
+    fail: () => uni.showToast({ title: locale.t('pos.copyFailed'), icon: 'none' }),
+  });
+}
+
+function onDone(): void {
+  reset();
 }
 </script>
 <style lang="scss" scoped>
@@ -283,5 +386,56 @@ function reset(): void {
   }
 
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
+
+  .receipt-mask {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .receipt {
+    width: 100%; box-sizing: border-box;
+    background: $wa-card; border-radius: $wa-radius $wa-radius 0 0;
+    padding: 36rpx 40rpx 40rpx; max-height: 88vh; overflow-y: auto;
+    .rt-title {
+      display: flex; flex-direction: column; margin-bottom: 16rpx;
+      .rt-name { font-size: 32rpx; font-weight: 700; color: $wa-ink; }
+      .rt-cap { font-size: 24rpx; color: $wa-muted; margin-top: 4rpx; }
+    }
+    .kv {
+      display: flex; justify-content: space-between; font-size: 26rpx; color: $wa-muted; padding: 8rpx 0;
+      .v { color: $wa-ink; max-width: 66%; text-align: right; }
+      .v.fixed { color: $wa-accent; font-weight: 600; }
+    }
+    .rt-amount {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 20rpx 0; border-bottom: 1rpx solid $wa-rule; margin-bottom: 16rpx;
+      .l { font-size: 26rpx; color: $wa-muted; }
+      .amount { font-size: 44rpx; font-weight: 700; color: $wa-danger; }
+    }
+    .sec { font-size: 26rpx; color: $wa-muted; margin-bottom: 8rpx; }
+    .li {
+      display: flex; align-items: center; justify-content: space-between; padding: 12rpx 0;
+      .li-left { flex: 1; display: flex; flex-direction: column; }
+      .name { font-size: 28rpx; color: $wa-ink; }
+      .qty { font-size: 24rpx; color: $wa-muted; margin-top: 4rpx; }
+      .sub { font-size: 28rpx; color: $wa-ink; }
+    }
+    .muted { font-size: 26rpx; color: $wa-muted; padding: 12rpx 0; }
+    .total-row {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 20rpx 0 8rpx; margin-top: 12rpx; border-top: 1rpx solid $wa-rule;
+      .l { font-size: 28rpx; color: $wa-ink; }
+      .v-danger { font-size: 40rpx; font-weight: 700; color: $wa-danger; }
+    }
+    .copy-btn {
+      height: 84rpx; line-height: 84rpx; font-size: 30rpx; font-weight: 600;
+      background: $wa-bg; color: $wa-ink; border-radius: $wa-radius; margin: 32rpx 0 16rpx;
+      border: 1rpx solid $wa-rule;
+    }
+    .done-btn {
+      height: 88rpx; line-height: 88rpx; font-size: 32rpx; font-weight: 600;
+      background: $wa-accent; color: #fff; border-radius: $wa-radius; margin: 0;
+    }
+  }
 }
 </style>
