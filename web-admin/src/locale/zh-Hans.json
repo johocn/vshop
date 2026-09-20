@@ -865,7 +865,18 @@
     "stockQty": "{n} 件",
     "allocated": "已分配 {n}",
     "lowStock": "低库存",
-    "empty": "暂无库存数据"
+    "empty": "暂无库存数据",
+    "threshold": "预警阈值",
+    "thresholdOpt": "{n} 件",
+    "thresholdCol": "阈值 {n}",
+    "sku": "SKU #{id}",
+    "shortBy": "缺货量 {n}",
+    "outOfStock": "缺货",
+    "genPurchase": "生成采购入库单 ({n})",
+    "genPurchasing": "生成中…",
+    "noSelect": "请先勾选低库存 SKU",
+    "genDone": "已生成采购入库单 {code}",
+    "genFailed": "生成采购入库单失败"
   },
   "inventoryLocations": {
     "tenantLabel": "当前租户",

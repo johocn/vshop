@@ -865,7 +865,18 @@
     "stockQty": "{n} units",
     "allocated": "Allocated {n}",
     "lowStock": "Low stock",
-    "empty": "No stock data"
+    "empty": "No stock data",
+    "threshold": "Alert threshold",
+    "thresholdOpt": "{n} units",
+    "thresholdCol": "Threshold {n}",
+    "sku": "SKU #{id}",
+    "shortBy": "Shortage {n}",
+    "outOfStock": "Out of stock",
+    "genPurchase": "Create purchase ({n})",
+    "genPurchasing": "Creating…",
+    "noSelect": "Please select low-stock SKUs",
+    "genDone": "Purchase created {code}",
+    "genFailed": "Failed to create purchase"
   },
   "inventoryLocations": {
     "tenantLabel": "Current tenant",
