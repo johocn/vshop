@@ -376,7 +376,13 @@ var CHAPTERS = [
 <img class="img" src="shots/op12_ledger.png" alt="收款台账-筛选与导出CSV">
 <div class="imgcap">图 O2a · 收款台账（已收 5 笔，工具栏：全部/已收/待收 + 导出 CSV）</div>
 <img class="img" src="shots/op12_ledger_pending.png" alt="收款台账-待收筛选">
-<div class="imgcap">图 O2b · 切「待收」筛选后的台账（0 笔空态）</div>`},
+<div class="imgcap">图 O2b · 切「待收」筛选后的台账（0 笔空态）</div>
+<h3>日期筛选与按日小计</h3>
+<p>状态筛选旁提供<mark class="mark">日期段筛选</mark>：今日 / 近 7 天 / 近 30 天 / 全部。切到非「全部」时，列表顶部显示<mark class="mark">「当日小计」</mark>（所选日期段的收款笔数与合计金额），明细卡逐笔展示<mark class="mark">单号 / 金额 / 收款方式 / 状态</mark>，便于核对每日实收。</p>
+<img class="img" src="shots/ops5_ledger.png" alt="收款台账-日期段筛选与当日小计">
+<div class="imgcap">图 O2c · 收款台账（日期段 今日/近7天/近30天/全部 + 当日小计 9 笔 ¥3172.00 + 明细卡）</div>
+<h3>导出按日汇总</h3>
+<p>「导出 CSV」在原有明细导出基础上增加<mark class="mark">按日汇总导出</mark>：按日期聚合收款笔数与金额，一行一天，适合日报 / 对账；明细与汇总两段均含 UTF-8 BOM，Excel 打开不乱码。</p>`},
 {book:'op', id:'op-13', title:'商户订单可见性（本店商品单）', html:`
 <p class="lead">当一个商户的商品在<mark class="mark">默认商城</mark>被顾客购买时，该订单归属默认商城渠道，商户后台的「本店渠道单」里会看不到它。为此系统提供「<mark class="mark">本店商品单</mark>」维度，按<mark class="mark">商品归属（shopId）跨渠道归集</mark>，让商户一屏看全自己卖出的所有订单。</p>
 <h3>双维度切换</h3>
@@ -441,7 +447,11 @@ var CHAPTERS = [
 <div class="imgcap">图 O13 · C 端消息中心（定向发券站内通知，含券码，未读红点）</div>
 <img class="img" src="shots/o14_nshop_coupon_wallet.png" alt="nshop 我的券包-定向发放的满减券">
 <div class="imgcap">图 O14 · 我的券包（定向发放的「满100减20」券，来源 ADMIN）</div>
-<div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>`},
+<div class="warn"><b>使用提示：</b>若在默认商城选券时报「优惠券不适用当前订单」，请确认订单包含<mark class="mark">本店商品行</mark>且满足券的门槛；跨店券不可用于不含本店商品的订单。</div>
+<h3>运营看板（三读 + KPI + 快捷发行）</h3>
+<p>优惠券列表页顶部提供<mark class="mark">运营三读</mark>与 KPI：<mark class="mark">发放总数 / 已核销 / 当前可用</mark>（已发放 − 已核销），一眼掌握券的整体消耗与剩余库存。每张券卡片展示<mark class="mark">「已发放 N | 已使用 N | 剩余 N」</mark>三读明细；对未下架的券提供<mark class="mark">「去发行」</mark>快捷入口，直接进入发行流程，无需先点进详情。</p>
+<img class="img" src="shots/ops5_coupon.png" alt="优惠券-运营三读KPI与去发行">
+<div class="imgcap">图 O6d · 优惠券运营看板（KPI 发放总数 36 / 可用券 193；券卡「已发放3 | 已使用— | 剩余97」+ 去发行按钮）</div>`},
 {book:'op', id:'op-16', title:'成员密码管理与角色授权', html:`
 <p class="lead">「本租户人员」页提供<mark class="mark">成员密码管理</mark>与<mark class="mark">角色授权</mark>：租户管理员可为低权限成员重置密码、本人可自助修改密码；授予角色时<mark class="mark">只能授予权限小于自己的角色</mark>。</p>
 <h3>人员列表与密码管理入口</h3>
@@ -689,7 +699,14 @@ var CHAPTERS = [
 <p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
 <img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
 <div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
-<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-22）中定义。</div>`},
+<div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-22）中定义。</div>
+<h3>7. 库存预警（低库存 / 缺货 + 批量生成采购入库单）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">库存预警</mark>。系统按阈值扫描各仓库库存，自动标记<mark class="mark">低库存（橙徽，≤ 阈值）</mark>与<mark class="mark">缺货（红徽，0 件）</mark>，并展示每个 SKU 的<mark class="mark">当前库存 / 阈值 / 缺货量</mark>。可按<mark class="mark">仓库</mark>与<mark class="mark">预警阈值</mark>筛选，低库存行带红色描边便于扫视。</p>
+<img class="img" src="shots/inv_alert.png" alt="库存预警-低库存与缺货徽标">
+<div class="imgcap">图 I4 · 库存预警（低库存橙徽 / 缺货红徽 / 阈值 / 缺货量 / 红色描边）</div>
+<p>勾选需要补货的 SKU 后，底部出现<mark class="mark">「生成采购入库单 (N)」</mark>按钮：一键为所选商品创建采购入库草稿（携带目标仓库与缺货量建议），转「采购入库」页确认提交即可补货，无需逐个手工录入。</p>
+<img class="img" src="shots/inv_alert_checked.png" alt="库存预警-勾选批量生成采购入库单">
+<div class="imgcap">图 I5 · 库存预警（勾选 #1001 #1002 → 「生成采购入库单 (2)」批量补货）</div>`},
 {book:'op', id:'op-24', title:'多仓拆分发货（预留单）', html:`
 <p class="lead">物理仓多仓租户下单后自动生成<mark class="mark">预留单</mark>；发货时订单行可按仓库拆分，各仓分别生成独立发货单（各自快递/运单号）。本节覆盖预留单的查看与拆分发货操作。</p>
 <h3>1. 查看预留单</h3>
@@ -748,16 +765,18 @@ var CHAPTERS = [
 <div class="shot-box"><img class="img" src="shots/op28_media.png" alt="图片库-媒体资源"><div class="imgcap">图 M1 · 图片库</div></div>
 <img class="img" src="shots/g2_f4_media_multi_sel.png" alt="图片库-多选与底部操作条">
 <div class="imgcap">图 M2 · 图片库多选（点选 2 张以上图片 → 底部操作条：已选 N 张 · 复制 URL · 清空）</div>`},
-{book:'op', id:'op-29', title:'数据看板（今日概览 / 7 日趋势 / 销量榜）', html:`
-<p class="lead">数据看板汇总店铺经营数据：今日订单 / 销售额（已支付口径）与库存预警，并提供近 7 日销售趋势与品类销量排行。</p>
+{book:'op', id:'op-29', title:'数据看板（今日概览 / 近 7/30 趋势 / 销量榜 / 库存健康）', html:`
+<p class="lead">数据看板汇总店铺经营数据：今日订单 / 销售额（已支付口径）与库存预警，并提供<mark class="mark">近 7 / 近 30 日</mark>销售趋势与品类销量排行。</p>
 <h3>1. 今日概览</h3>
 <p>顶部三张卡片：今日订单数、今日销售额（gmv，已支付口径，不含未完成 / 取消单）、库存预警数（库存 ≤ 5）。</p>
-<h3>2. 近 7 日趋势</h3>
-<p>双线折线图展示近 7 日销售额（元，左轴）与订单数（单，右轴）。</p>
-<h3>3. 销量 Top 榜</h3>
-<p>近 7 日品类销量排行（GMV + 单数），辅助选品与备货。</p>
+<h3>2. 时间维度切换（近 7 / 近 30）</h3>
+<p>看板中部提供<mark class="mark">「近 7 天 / 近 30 天」</mark>分段切换，趋势图与销量 Top 榜随切换即时刷新，方便观察周度与月度经营走向。</p>
+<h3>3. 销售趋势与销量 Top 榜</h3>
+<p>双线折线图展示所选时间段的<mark class="mark">销售额（元，左轴）与订单数（单，右轴）</mark>。下方「销量 Top 榜」按品类排行，每行展示<mark class="mark">排名、品类、单数、销量（件数）与 GMV</mark>，销量列辅助备货判断。</p>
+<h3>4. 库存健康卡</h3>
+<p>底部「库存健康」卡片展示<mark class="mark">低库存数 / 缺货数 / 总 SKU 数</mark>三格。缺货与总 SKU 取自默认仓库的库存快照；<mark class="mark">当仓库无库存记录时显示「−」</mark>，属正常口径（前端不伪造 0），可结合「库存预警」（op-23）补齐数据后回看。</p>
 <div class="note"><b>权限：</b>数据看板需要 ViewDashboard 权限；若提示权限不足，请在「成员管理 → 角色」为当前角色勾选该权限。</div>
-<div class="shot-box"><img class="img" src="shots/op29_dashboard.png" alt="数据看板-完整版"><div class="imgcap">图 K1 · 数据看板</div></div>`},
+<div class="shot-box"><img class="img" src="shots/ops5_dashboard.png" alt="数据看板-完整版"><div class="imgcap">图 K1 · 数据看板（近 7/近 30 切换 + 趋势双线 + TOP 榜含销量列 + 库存健康卡）</div></div>`},
 {book:'op', id:'op-30', title:'POS 门店收银（收银员）', html:`
 <p class="lead">门店收银面向线下当面收款场景：店员（租户「收银员」角色）输入核销码 / 订单号查询订单，确认金额后完成收款。系统已为每个租户内置「收银员」角色，租户管理员可将其分配给成员使用 POS。</p>
 <h3>0. 内置角色：收银员</h3>
@@ -770,7 +789,13 @@ var CHAPTERS = [
 <div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
 <div class="shot-box"><img class="img" src="shots/pos31_result.png" alt="POS-查单命中"><div class="imgcap">图 P1 · 门店收银（输入核销码 ATK6XM 命中订单）</div>
 <img class="img" src="shots/pos32_confirm_modal.png" alt="POS-确认收款modal">
-<div class="imgcap">图 P2 · 门店收银（点「确认收款」弹出核对确认框）</div></div>`},
+<div class="imgcap">图 P2 · 门店收银（点「确认收款」弹出核对确认框）</div></div>
+<h3>3. 电子小票</h3>
+<p>收款成功后自动弹出<mark class="mark">电子小票</mark>：展示<mark class="mark">店铺名、收银小票、订单号、收款时间、应付金额</mark>与<mark class="mark">商品明细</mark>（品名 × 数量 + 金额）。点<mark class="mark">「复制小票」</mark>一键复制纯文本小票（可粘贴到聊天 / 对账记录），点「完成」关闭。</p>
+<img class="img" src="shots/ops5_pos_result.png" alt="POS-查单结果卡">
+<div class="imgcap">图 P3 · 门店收银（输入核销码命中订单：应付金额 + 待交付商品）</div>
+<img class="img" src="shots/ops5_pos_receipt.png" alt="POS-电子小票卡">
+<div class="imgcap">图 P4 · 电子小票（t2 测试店铺 · 收银小票 · 订单号 ZP202609210001 · 应付 ¥88 · 商品明细 · 实收 ¥88 · 复制小票 / 完成）</div>`},
 {book:'op', id:'op-31', title:'售后处理流程', html:`
 <p class="lead">买家发起的退款 / 退货 / 换货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
 <h3>入口与筛选</h3>
