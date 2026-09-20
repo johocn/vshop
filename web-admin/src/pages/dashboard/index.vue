@@ -2,9 +2,9 @@
   <view class="page">
     <view class="topbar">
       <view class="tl">
-        <text class="t">{{ tenant.name || tenant.code || '工作台' }}</text>
-        <text class="s" v-if="tenant.name && tenant.code">编码 {{ tenant.code }} · 经营中</text>
-        <text class="s" v-else>经营中</text>
+        <text class="t">{{ tenant.name || tenant.code || locale.t('dashboard.workbench') }}</text>
+        <text class="s" v-if="tenant.name && tenant.code">{{ locale.t('dashboard.codeOperating').replace('{code}', tenant.code) }}</text>
+        <text class="s" v-else>{{ locale.t('dashboard.operating') }}</text>
       </view>
       <text class="menu" @tap="drawer = true">☰</text>
     </view>
@@ -12,23 +12,23 @@
     <view class="kpis">
       <view class="kpi" v-for="k in kpis" :key="k.label">
         <text class="v" :style="{ color: k.color }">{{ k.value }}</text>
-        <text class="l">{{ k.label }}</text>
-        <text class="d">去处理 ›</text>
+        <text class="l">{{ locale.t(k.label) }}</text>
+        <text class="d">{{ locale.t('dashboard.goProcess') }}</text>
       </view>
     </view>
 
     <view class="sec">
-      <text class="sec-t">🗂 常用功能 <text class="tag">高频</text></text>
+      <text class="sec-t">{{ locale.t('dashboard.frequentTitle') }} <text class="tag">{{ locale.t('dashboard.frequent') }}</text></text>
       <view class="grid">
         <view v-for="it in common" :key="it.label" class="act" @tap="go(it)">
           <view class="ic" :style="tierStyle(it.color, it.grad, 1)">{{ it.ic }}</view>
-          <text class="nm">{{ it.label }}</text>
+          <text class="nm">{{ locale.t(it.label) }}</text>
         </view>
       </view>
     </view>
 
     <view class="sec" v-for="g in groups" :key="g.domain">
-      <text class="sec-t">{{ g.domain }}</text>
+      <text class="sec-t">{{ locale.t(g.domain) }}</text>
       <view class="tags">
         <text
           v-for="it in g.items"
@@ -36,7 +36,7 @@
           class="tag"
           :style="tierStyle(g.color, g.grad, it.tier)"
           @tap="go(it)"
-        >{{ it.label }}</text>
+        >{{ locale.t(it.label) }}</text>
       </view>
     </view>
 
@@ -51,6 +51,7 @@ import { onShow } from '@dcloudio/uni-app';
 import { D, tierStyle } from '../../theme';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useLocaleStore } from '../../stores/localeStore';
 import { visibleMenus } from '../../constants/menus';
 import { fetchHomeKpis } from '../../apis/stats';
 import BottomBar from '../../components/BottomBar.vue';
@@ -58,6 +59,7 @@ import Drawer from '../../components/Drawer.vue';
 
 const tenant = useTenantStore();
 const auth = useAuthStore();
+const locale = useLocaleStore();
 const drawer = ref(false);
 // 会话还原/刷新直入场景：name 未持久化，按当前 code 从店铺列表补回真实名称（编码始终保留）
 onShow(() => {
@@ -69,9 +71,9 @@ onShow(() => {
 });
 // 首页 KPI：今日销售额 / 待发货 / 库存预警（真实数据，加载失败保留 '—' 占位而非假装 0）
 const kpis = ref([
-  { label: '今日销售额', value: '¥ —', color: D.d1.main },
-  { label: '待发货', value: '—', color: D.d2.main },
-  { label: '库存预警', value: '—', color: D.warning },
+  { label: 'dashboard.todayRevenue', value: '¥ —', color: D.d1.main },
+  { label: 'dashboard.pendingShip', value: '—', color: D.d2.main },
+  { label: 'menu.stockWarning', value: '—', color: D.warning },
 ]);
 async function loadKpis() {
   try {
@@ -84,13 +86,13 @@ async function loadKpis() {
   }
 }
 const common = [
-  { ic: '单', label: '订单', url: '/pages/order/list/index', color: D.d2.main, grad: D.d2.grad },
-  { ic: '＋', label: '新增商品', url: '/pages/product/create/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '售', label: '售后', url: '/pages/after-sale/list/index', color: D.d2.main, grad: D.d2.grad },
-  { ic: '类', label: '分类', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '库', label: '库存', url: '/pages/inventory/stock/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '装', label: '装修', url: '/pages/decorate/home/index', color: D.d4.main, grad: D.d4.grad },
-  { ic: '书', label: '使用手册', action: 'manual', color: D.d6.main, grad: D.d6.grad },
+  { ic: '单', label: 'menu.order', url: '/pages/order/list/index', color: D.d2.main, grad: D.d2.grad },
+  { ic: '＋', label: 'menu.productAdd', url: '/pages/product/create/index', color: D.d1.main, grad: D.d1.grad },
+  { ic: '售', label: 'menu.afterSale', url: '/pages/after-sale/list/index', color: D.d2.main, grad: D.d2.grad },
+  { ic: '类', label: 'menu.category', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
+  { ic: '库', label: 'menu.stock', url: '/pages/inventory/stock/index', color: D.d1.main, grad: D.d1.grad },
+  { ic: '装', label: 'menu.decorate', url: '/pages/decorate/home/index', color: D.d4.main, grad: D.d4.grad },
+  { ic: '书', label: 'menu.manual', action: 'manual', color: D.d6.main, grad: D.d6.grad },
 ];
 // 全量功能目录（含平台组，按角色权限过滤），与右侧抽屉保持一致
 const groups = computed(() => visibleMenus(auth));

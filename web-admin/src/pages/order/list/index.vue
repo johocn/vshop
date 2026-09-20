@@ -2,7 +2,7 @@
   <view class="order-page">
     <!-- 版式切换入口（顶部） -->
     <view class="layout-bar">
-      <text class="layout-btn" @tap="layoutOpen = true">版式 · {{ ORDER_LIST_LAYOUTS[layoutKey].label }} ▾</text>
+      <text class="layout-btn" @tap="layoutOpen = true">{{ $t('orderAdmin.orderList.layout') }} · {{ ORDER_LIST_LAYOUTS[layoutKey].label }} ▾</text>
     </view>
 
     <!-- 积木式渲染器：数据/筛选/分页由本页透传，操作事件全部映射到本页 handler -->
@@ -45,7 +45,7 @@
     <!-- 版式选择弹层 -->
     <view v-if="layoutOpen" class="mask" @tap="layoutOpen = false">
       <view class="pop" @tap.stop>
-        <view class="pop-title">订单列表版式</view>
+        <view class="pop-title">{{ $t('orderAdmin.orderList.layoutTitle') }}</view>
         <view
           v-for="k in LAYOUT_KEYS"
           :key="k"
@@ -82,21 +82,24 @@ import {
 } from '../../../utils/orderFormat';
 import { ORDER_LIST_LAYOUTS, LAYOUT_KEYS, DEFAULT_LAYOUT, OrderListLayoutKey } from '../../../constants/orderListLayouts';
 import { parseLayout, parseOrderListConfig } from '../../../utils/orderListConfig';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 // 状态码对齐 Vendure 真实状态机（线上 myShopOrders state 实测）：
 //   待付款=ArrangingPayment；待发货=PaymentAuthorized/PaymentSettled；
 //   已发货=Shipped/PartiallyShipped；Completed=已完成；Cancelled=已取消。
 const tabs = [
-  { key: '', label: '全部', keys: [] },
-  { key: 'ArrangingPayment', label: '待付款', keys: ['ArrangingPayment'] },
-  { key: 'PaymentAuthorized', label: '待发货', keys: ['PaymentAuthorized', 'PaymentSettled'] },
-  { key: 'Shipped', label: '已发货', keys: ['Shipped', 'PartiallyShipped'] },
-  { key: 'Completed', label: '已完成', keys: ['Completed'] },
-  { key: 'Cancelled', label: '已取消', keys: ['Cancelled'] },
+  { key: '', label: locale.t('orderAdmin.orderList.tabAll'), keys: [] },
+  { key: 'ArrangingPayment', label: locale.t('orderAdmin.orderList.tabPendingPay'), keys: ['ArrangingPayment'] },
+  { key: 'PaymentAuthorized', label: locale.t('orderAdmin.orderList.tabPendingShip'), keys: ['PaymentAuthorized', 'PaymentSettled'] },
+  { key: 'Shipped', label: locale.t('orderAdmin.orderList.tabShipped'), keys: ['Shipped', 'PartiallyShipped'] },
+  { key: 'Completed', label: locale.t('orderAdmin.orderList.tabCompleted'), keys: ['Completed'] },
+  { key: 'Cancelled', label: locale.t('orderAdmin.orderList.tabCancelled'), keys: ['Cancelled'] },
 ];
 const scopes = [
-  { key: 'channel', label: '本店渠道单' },
-  { key: 'shop', label: '本店商品单' },
+  { key: 'channel', label: locale.t('orderAdmin.orderList.scopeChannel') },
+  { key: 'shop', label: locale.t('orderAdmin.orderList.scopeShop') },
 ];
 
 const scope = ref('channel');
@@ -113,8 +116,8 @@ const delivery = ref<'' | 'pickup' | 'express'>('');
 const dateRange = ref<'' | 'today' | '7d' | '30d'>('');
 const deliveryArr = ['', 'pickup', 'express'] as const;
 const dateArr = ['', 'today', '7d', '30d'] as const;
-const deliveryOpts = ['自提', '快递'];
-const dateOpts = ['今日', '近7天', '近30天'];
+const deliveryOpts = [locale.t('orderAdmin.orderList.deliveryPickup'), locale.t('orderAdmin.orderList.deliveryExpress')];
+const dateOpts = [locale.t('orderAdmin.orderList.dateToday'), locale.t('orderAdmin.orderList.date7d'), locale.t('orderAdmin.orderList.date30d')];
 const deliveryIdx = computed(() => Math.max(0, deliveryArr.indexOf(delivery.value)));
 const dateIdx = computed(() => Math.max(0, dateArr.indexOf(dateRange.value)));
 const deliveryLabel = computed(() => (delivery.value ? deliveryOpts[deliveryArr.indexOf(delivery.value)] : ''));
@@ -228,19 +231,19 @@ function onSearch() {
 }
 function goShip(o: OrderView) {
   if (scope.value === 'shop') {
-    uni.showToast({ title: '商品单为跨渠道归集视图，请到「本店渠道单」发货', icon: 'none' });
+    uni.showToast({ title: locale.t('orderAdmin.orderList.shipViewToast'), icon: 'none' });
     return;
   }
   uni.showModal({
-    title: '确认发货',
-    content: `订单 ${o.code} 将进入发货流程`,
-    confirmText: '进入发货',
+    title: locale.t('orderAdmin.orderList.confirmShipTitle'),
+    content: locale.t('orderAdmin.orderList.confirmShipContent').replace('{code}', o.code),
+    confirmText: locale.t('orderAdmin.orderList.confirmShipConfirm'),
     success: (r) => { if (r.confirm) uni.navigateTo({ url: `/pages/order/ship/index?id=${o.id}` }); },
   });
 }
 function goDetail(o: OrderView) {
   if (scope.value === 'shop') {
-    uni.showToast({ title: '商品单为跨渠道归集视图，详情请到「本店渠道单」查看', icon: 'none' });
+    uni.showToast({ title: locale.t('orderAdmin.orderList.detailViewToast'), icon: 'none' });
     return;
   }
   uni.navigateTo({ url: `/pages/order/detail/index?id=${o.id}` });
@@ -255,8 +258,8 @@ function goRemind(o: OrderView) {
   const text = buildReminderText(o);
   uni.setClipboardData({
     data: text,
-    success: () => uni.showToast({ title: '催付文案已复制，请粘贴发给顾客', icon: 'none' }),
-    fail: () => uni.showToast({ title: '复制失败，请重试', icon: 'none' }),
+    success: () => uni.showToast({ title: locale.t('orderAdmin.orderList.remindCopied'), icon: 'none' }),
+    fail: () => uni.showToast({ title: locale.t('orderAdmin.orderList.copyFailed'), icon: 'none' }),
   });
 }
 
