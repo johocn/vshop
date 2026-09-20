@@ -43,7 +43,7 @@
             <text class="name">{{ l.name }}</text>
             <text class="sku">{{ l.sku }}</text>
           </view>
-          <text class="qty">×{{ l.quantity }}</text>
+          <text class="qty">×{{ l.quantity }}　¥{{ money(l.amount) }}</text>
         </view>
         <view v-if="!result.lines || !result.lines.length" class="muted">无商品明细</view>
 
@@ -70,7 +70,7 @@ import { fetchPickupOrders, claimPickup, PickupRedemptionItem } from '../../apis
 import { fetchOrderDetail } from '../../apis/order';
 import { REDEMPTION_STATES, stateLabel } from '../../constants/orderState';
 
-interface PosLine { id: string; name: string; sku: string; quantity: number }
+interface PosLine { id: string; name: string; sku: string; quantity: number; amount: number }
 interface PosResult {
   id: string;                // 订单 id
   code: string;              // 订单号
@@ -128,6 +128,7 @@ async function onLookup(): Promise<void> {
         name: l.productVariant?.name || '—',
         sku: l.productVariant?.sku || '',
         quantity: l.quantity,
+        amount: l.linePriceWithTax,
       })),
     };
     state.value = 'result';
@@ -142,6 +143,15 @@ async function onLookup(): Promise<void> {
  * 确认收款：固定聚合码收款场景下，顾客已扫码付清，店员核销本轮成交。
  * 对已就绪自提单，核销（claimPickup）即完成交易/扣库存（后端负责）。
  */
+function buildConfirmContent(r: PosResult): string {
+  const summary =
+    r.lines.length > 0
+      ? r.lines.slice(0, 2).map((l) => `${l.name}×${l.quantity}`).join('、') +
+        (r.lines.length > 2 ? ` 等${r.lines.length}项` : '')
+      : '无商品明细';
+  return `订单号：${r.code}\n应付金额：¥${money(r.totalWithTax)}\n商品：${summary}`;
+}
+
 async function onConfirmCollect(): Promise<void> {
   const r = result.value;
   if (!r) return;
@@ -149,6 +159,16 @@ async function onConfirmCollect(): Promise<void> {
     uni.showToast({ title: '该单已核销完成', icon: 'none' });
     return;
   }
+  const proceed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '确认收款',
+      content: buildConfirmContent(r),
+      confirmText: '确认收款',
+      success: (res) => resolve(!!res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!proceed) return;
   collecting.value = true;
   try {
     uni.showLoading({ title: '处理中…' });

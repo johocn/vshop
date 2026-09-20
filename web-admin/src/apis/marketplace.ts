@@ -6,6 +6,7 @@ export interface MarketplaceApprovalItem {
   name: string;
   marketplaceStatus: string | null;
   rejectReason: string | null;
+  platformCategoryId?: string | null;
 }
 
 /** 拉取待审商品（仅 platform/superadmin） */
@@ -14,11 +15,11 @@ export async function fetchPendingProducts(): Promise<MarketplaceApprovalItem[]>
     marketplacePendingProducts: Array<{
       id: string;
       translations?: Array<{ languageCode: string; name?: string | null }>;
-      customFields?: { marketplaceStatus?: string | null; rejectReason?: string | null };
+      customFields?: { marketplaceStatus?: string | null; rejectReason?: string | null; platformCategoryId?: string | null };
     }>;
   }>(
     `query MarketplacePendingProducts {
-      marketplacePendingProducts { id translations { languageCode name } customFields { marketplaceStatus rejectReason } }
+      marketplacePendingProducts { id translations { languageCode name } customFields { marketplaceStatus rejectReason platformCategoryId } }
     }`,
   );
   return (marketplacePendingProducts ?? []).map((p) => {
@@ -31,6 +32,7 @@ export async function fetchPendingProducts(): Promise<MarketplaceApprovalItem[]>
       name: zh || p.id,
       marketplaceStatus: cf.marketplaceStatus ?? 'pending',
       rejectReason: cf.rejectReason ?? null,
+      platformCategoryId: cf.platformCategoryId ?? null,
     };
   });
 }

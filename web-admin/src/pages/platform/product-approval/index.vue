@@ -22,8 +22,15 @@
         <view class="reject" v-if="p.marketplaceStatus === 'rejected' && p.rejectReason">
           驳回原因：{{ p.rejectReason }}
         </view>
+        <view class="meta-row">
+          <text class="tl">平台分类</text>
+          <text class="cat" :class="{ todo: !p.platformCategoryId }">
+            {{ p.platformCategoryId ? catName(p.platformCategoryId) : '待归类' }}
+          </text>
+        </view>
         <view class="row foot">
           <text class="btn danger" @tap="onReject(p)">驳回</text>
+          <text class="btn primary" @tap="onPickCategory(p)">设置分类</text>
           <text class="btn success" @tap="onApprove(p)">通过</text>
         </view>
       </view>
@@ -86,8 +93,10 @@ function switchTab(t: 'pending' | 'approved') {
 async function load() {
   try {
     if (tab.value === 'pending') {
-      products.value = await fetchPendingProducts();
-      vendors.value = products.value.length;
+      const [list, c] = await Promise.all([fetchPendingProducts(), loadCollections()]);
+      products.value = list;
+      collTree.value = c;
+      vendors.value = list.length;
     } else {
       const [a, c] = await Promise.all([fetchApprovedProducts(), loadCollections()]);
       approved.value = a;
@@ -120,6 +129,10 @@ function badgeText(status: string | null) {
 }
 
 function onApprove(p: MarketplaceApprovalItem) {
+  if (!p.platformCategoryId) {
+    uni.showToast({ title: '请先设置平台分类', icon: 'none' });
+    return;
+  }
   uni.showModal({
     title: '通过',
     content: `确定通过「${p.name}」的上架审批？`,
@@ -159,7 +172,7 @@ function onReject(p: MarketplaceApprovalItem) {
   });
 }
 
-function onPickCategory(p: ApprovedItem) {
+function onPickCategory(p: { id: string }) {
   if (!collTree.value.length) {
     uni.showToast({ title: '暂无平台分类可选', icon: 'none' });
     return;
