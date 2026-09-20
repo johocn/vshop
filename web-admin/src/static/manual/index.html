@@ -754,13 +754,14 @@ var CHAPTERS = [
 <div class="note"><b>收款即台账：</b>POS 确认收款后，「收款台账」中出现对应记录，核销人即收款人，可直接导出对账。</div>
 <div class="shot-box"><img class="img" src="shots/op30_pos.png" alt="POS-门店收银"><div class="imgcap">图 P1 · 门店收银</div>`},
 {book:'op', id:'op-31', title:'售后处理流程', html:`
-<p class="lead">买家发起的退款 / 退货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
+<p class="lead">买家发起的退款 / 退货 / 换货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
 <h3>入口与筛选</h3>
-<p>在「订单」下的售后处理页查看全部售后工单，可用顶部标签 <mark class="mark">待处理 / 已退款 / 已拒绝</mark> 快速筛选重点关注状态。</p>
-<div class="shot-box"><img class="img" src="shots/b3_aftersale_list.png" alt="售后处理-列表与状态筛选"><div class="imgcap">图 S1 · 售后处理列表（按待处理/已退款/已拒绝筛选）</div></div>
-<div class="note"><b>空态说明：</b>没有售后申请时页面显示「暂无售后工单」，属正常。</div>
+<p>在「订单 → 售后处理」页查看全部售后工单，顶部标签可按 <mark class="mark">全部 / 待处理 / 已退款 / 已拒绝</mark> 筛选。每个工单展示订单号、售后类型（仅退款 / 退货退款 / 换货）、退款金额、原因与状态。</p>
+<div class="shot-box"><img class="img" src="shots/b3_aftersale_list.png" alt="售后处理-列表与状态筛选"><div class="imgcap">图 S1 · 售后处理列表（类型 / 金额 / 原因 / 状态）</div></div>
 <h3>处理售后</h3>
-<p>点击某个售后单进入「售后详情」，查看买家申请内容后决定 <mark class="mark">同意退款</mark> 或 <mark class="mark">拒绝</mark>。处理完成后订单与台账同步反映结果。</p>`},
+<p>点击工单进入「售后详情」，查看类型、状态、退款金额、原因与时间。根据工单状态可执行对应操作：<mark class="mark">同意</mark>、<mark class="mark">拒绝</mark>（需填原因）、<mark class="mark">确认收货退款</mark>、<mark class="mark">执行退款</mark> 或 <mark class="mark">重试退款</mark>。</p>
+<div class="shot-box"><img class="img" src="shots/b3_aftersale_detail.png" alt="售后详情-操作"><div class="imgcap">图 S2 · 售后详情（同意 / 拒绝 / 执行退款等操作）</div></div>
+<div class="note"><b>提示：</b>没有售后申请时列表显示「暂无售后工单」，属正常。处理后成交金额与收款台账同步反映。</div>`},
 {book:'op', id:'op-32', title:'配送设置（档案 · 方式 · 区域运费）', html:`
 <p class="lead">配送由三层管理：<mark class="mark">配送方式</mark>（可启停的送达形式）→ <mark class="mark">配送档案</mark>（方式组合模板）→ <mark class="mark">区域与运费</mark>（按区域计费）。先配好方式，再在档案中引用。</p>
 <h3>1. 配送档案</h3>

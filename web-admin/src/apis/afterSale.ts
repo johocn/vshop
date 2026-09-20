@@ -62,12 +62,14 @@ export async function fetchAfterSales(state?: string): Promise<AfterSaleRow[]> {
   return afterSalesRequests?.items ?? [];
 }
 
-/** 售后详情：Admin API 无单查 query，用列表过滤 id 获取单条 */
+/** 售后详情：Admin API 无单查 query，用列表过滤 id 获取单条
+ *  注意：afterSalesRequests 的 filter.id / filter.orderId 后端为 String 类型（非 ID），
+ *  变量必须声明为 String，否则 GraphQL 校验报 400 导致详情查不到。 */
 export async function fetchAfterSale(id: string): Promise<AfterSaleRow | null> {
   const { afterSalesRequests } = await getAdminClient().request<{
     afterSalesRequests: { items: AfterSaleRow[] };
   }>(
-    `query AfterSale($id: ID!) {
+    `query AfterSale($id: String!) {
       afterSalesRequests(options: { take: 1, filter: { id: { eq: $id } } }) {
         items { ${AFTER_SALE_FIELDS} }
       }

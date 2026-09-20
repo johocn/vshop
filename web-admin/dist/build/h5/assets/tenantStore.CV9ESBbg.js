@@ -1,0 +1,1 @@
+import{a0 as e,a4 as t,T as o,a5 as s}from"./index-C9cmqm7V.js";const a=e("tenant",{state:()=>({code:s(),token:o(),name:""}),actions:{selectCh(e,o){this.code=e.code,this.token=e.token,this.name=o??e.code,t(e.code,e.token)},clear(){this.code="",this.token="",this.name=""}}});export{a as u};
