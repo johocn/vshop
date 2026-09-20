@@ -619,7 +619,17 @@
     "confirmContent": "订单号：{code}\n应付金额：¥{amount}\n商品：{summary}",
     "etcSuffix": " 等{count}项",
     "collectSuccess": "收款并完成",
-    "processFailed": "处理失败"
+    "processFailed": "处理失败",
+    "receiptTitle": "收银小票",
+    "receiptCopy": "复制小票",
+    "receiptDone": "完成",
+    "receiptPaidAt": "收款时间",
+    "receiptCollected": "实收",
+    "receiptStore": "门店/渠道",
+    "receiptStoreFallback": "门店收银",
+    "receiptItems": "商品明细",
+    "receiptCopied": "小票已复制",
+    "copyFailed": "复制失败"
   },
   "settleLedger": {
     "todayLabel": "今日收款 {count} 笔",

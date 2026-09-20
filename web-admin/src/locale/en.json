@@ -619,7 +619,17 @@
     "confirmContent": "Order no.: {code}\nAmount due: ¥{amount}\nItems: {summary}",
     "etcSuffix": " and {count} more",
     "collectSuccess": "Collected & done",
-    "processFailed": "Processing failed"
+    "processFailed": "Processing failed",
+    "receiptTitle": "Receipt",
+    "receiptCopy": "Copy Receipt",
+    "receiptDone": "Done",
+    "receiptPaidAt": "Collection Time",
+    "receiptCollected": "Collected",
+    "receiptStore": "Store / Channel",
+    "receiptStoreFallback": "Store POS",
+    "receiptItems": "Items",
+    "receiptCopied": "Receipt copied",
+    "copyFailed": "Copy failed"
   },
   "settleLedger": {
     "todayLabel": "Received {count} today",
