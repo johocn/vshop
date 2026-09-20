@@ -133,14 +133,30 @@ async function loadMore() {
 function onCreate() { uni.navigateTo({ url: '/pages/coupon/edit/index' }); }
 function onEdit(c: CouponTemplateItem) { uni.navigateTo({ url: `/pages/coupon/edit/index?id=${c.id}` }); }
 
-async function onToggle(c: CouponTemplateItem) {
-  try {
-    await setCouponTemplateEnabled(c.id, !c.enabled);
-    c.enabled = !c.enabled;
-    uni.showToast({ title: c.enabled ? '已启用' : '已停用', icon: 'none' });
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
-  }
+const toggling = ref(false);
+
+function onToggle(c: CouponTemplateItem) {
+  const enable = !c.enabled;
+  uni.showModal({
+    title: enable ? '确认启用' : '确认停用',
+    content: enable
+      ? `确认启用「${c.name}」？启用后用户可正常领取与使用该券。`
+      : `确认停用「${c.name}」？停用后用户将无法再领取与使用该券，已领取的券不受影响。`,
+    success: async (r) => {
+      if (!r.confirm) return;
+      if (toggling.value) return;
+      toggling.value = true;
+      try {
+        await setCouponTemplateEnabled(c.id, enable);
+        c.enabled = enable;
+        uni.showToast({ title: enable ? '已启用' : '已停用', icon: 'none' });
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+      } finally {
+        toggling.value = false;
+      }
+    },
+  });
 }
 
 function onDelete(c: CouponTemplateItem) {
