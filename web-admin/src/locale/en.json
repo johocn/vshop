@@ -1,0 +1,20 @@
+{
+  "login": {
+    "title": "vshop Admin",
+    "subtitle": "Manage your store from one phone",
+    "account": "Account",
+    "password": "Password",
+    "show": "Show",
+    "hide": "Hide",
+    "login": "Sign In",
+    "logging": "Signing in…",
+    "failed": "Login failed, please check your credentials"
+  },
+  "channelSelect": {
+    "title": "Select a store to manage",
+    "disabled": "Disabled",
+    "official": "Official",
+    "third": "Third-party",
+    "empty": "No available store"
+  }
+}
