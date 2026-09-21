@@ -1,5 +1,33 @@
 <template>
-  <view class="dt-row" :class="{ head, 'state-first': blocks.stateColumnFirst }">
+  <!-- 变体 C：紧凑表格（status-first）——36px 行高 / 12px 字号 / 斑马纹 / 列合并 -->
+  <view v-if="variant === 'compact'" class="dt-row cprow" :class="{ head }">
+    <template v-if="head">
+      <text class="c-code">{{ $t('orderListComp.table.thOrder') }}</text>
+      <text class="c-cust">{{ $t('orderListComp.table.thRecipient') }}</text>
+      <text class="c-goods">{{ $t('orderListComp.table.thGoods') }}</text>
+      <text class="c-pay">{{ $t('orderListComp.table.thPaid') }}</text>
+      <text class="c-st">{{ $t('orderListComp.table.thState') }}</text>
+      <text class="c-time">{{ $t('orderListComp.table.thTime') }}</text>
+      <text class="c-ops">{{ $t('orderListComp.table.thOps') }}</text>
+    </template>
+    <template v-else>
+      <text class="c-code" @tap="copyCode(row.code)">{{ row.code }}</text>
+      <text class="c-cust">{{ row.customerName }}{{ row.phoneMask }}</text>
+      <text class="c-goods" :title="goodsBrief(row)">{{ goodsBrief(row) }}</text>
+      <text class="c-pay">¥{{ fmtMoney(row.total) }}</text>
+      <text class="c-st" :style="{ color: stColor(row.state) }">{{ stLabel(row.state).label }}</text>
+      <text class="c-time">{{ fmtTime(row.time) }}</text>
+      <view class="c-ops">
+        <text v-if="isShippable(row.state)" class="act ship" @tap="emit('ship', row)">{{ $t('orderListComp.actions.ship') }}</text>
+        <text v-if="redeemable" class="act redeem" @tap="emit('redeem', row)">{{ $t('orderListComp.actions.goRedeem') }}</text>
+        <text v-if="isUnpaid(row.state)" class="act remind" @tap="emit('remind', row)">{{ $t('orderListComp.actions.remind') }}</text>
+        <text class="act ghost" @tap="emit('detail', row)">{{ $t('orderListComp.actions.detail') }}</text>
+      </view>
+    </template>
+  </view>
+
+  <!-- 变体 A/B：宽表格（classic / status-group）——列内子行（电话 / 地址 / 商品明细） -->
+  <view v-else class="dt-row" :class="{ head }">
     <template v-if="head">
       <text class="c-code">{{ $t('orderListComp.table.thOrder') }}</text>
       <text class="c-goods">{{ $t('orderListComp.table.thGoods') }}</text>
@@ -43,18 +71,18 @@ import { OrderView, fmtMoney, shipColor, isShippable, isUnpaid } from '../../uti
 import { ORDER_STATES, stateLabel } from '../../constants/orderState';
 import { useLocaleStore } from '../../stores/localeStore';
 
-// 桌面表格行（head=true 渲染表头），自原页面 dt 块原样迁移；
-// blocks.stateColumnFirst 时状态列前置：DOM 顺序不变，用 CSS grid order 把 .c-st 移到第一轨
+// 桌面表格行（head=true 渲染表头）。variant='compact' 时为紧凑表格（列合并为 7 列、36px 行高、斑马纹）。
 const locale = useLocaleStore();
 const props = withDefaults(
   defineProps<{
     o?: OrderView;
     blocks: Record<string, any>;
+    variant?: 'wide' | 'compact';
     head?: boolean;
     isRedeemable?: boolean;
     redeemableIds?: Set<string>;
   }>(),
-  { head: false, isRedeemable: false, redeemableIds: () => new Set<string>() }
+  { variant: 'wide', head: false, isRedeemable: false, redeemableIds: () => new Set<string>() }
 );
 const emit = defineEmits<{
   (e: 'ship', o: OrderView): void;
@@ -78,6 +106,12 @@ function fmtTime(t: string): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+function goodsBrief(o: OrderView): string {
+  const first = o.goods[0];
+  if (!first) return '—';
+  const qty = o.goods.reduce((a, g) => a + g.qty, 0);
+  return o.goods.length > 1 ? `${first.name} ×${qty} 等${o.goods.length}件` : `${first.name} ×${first.qty}`;
+}
 function copyCode(code: string) {
   if (!code) return;
   uni.setClipboardData({ data: code, success: () => uni.showToast({ title: locale.t('orderListComp.copied'), icon: 'none' }) });
@@ -100,12 +134,7 @@ function copyCode(code: string) {
     border-radius: 8rpx 8rpx 0 0;
     position: sticky;
     top: 0;
-  }
-
-  // status-first：状态列前置（状态轨收窄，其余列宽顺延）
-  &.state-first {
-    grid-template-columns: 1fr 2fr 3fr 1.8fr 1.4fr 1fr 1fr 1.6fr 1.4fr;
-    .c-st { order: -1; }
+    z-index: 2;
   }
 
   .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
@@ -143,6 +172,32 @@ function copyCode(code: string) {
     .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
     .ghost { color: $wa-ink; background: #eef1f6; }
     .remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
+  }
+}
+
+// 紧凑表格：7 列 / 36px 行高 / 12px 字号 / 斑马纹
+.cprow {
+  grid-template-columns: 1.4fr 1.6fr 2.6fr 1fr 1fr 1.4fr 1.6fr;
+  gap: 10rpx;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 12px;
+
+  &.head { height: 32px; font-size: 11.5px; }
+
+  &:nth-child(even):not(.head) { background: #fafbfe; }
+
+  .c-code { font-size: 12px; }
+  .c-cust { font-size: 12px; }
+  .c-goods { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .c-pay { font-size: 12px; }
+  .c-st { font-size: 12px; }
+  .c-time { font-size: 11.5px; }
+
+  .c-ops {
+    gap: 6rpx;
+
+    .act { font-size: 11.5px; padding: 2px 8px; }
   }
 }
 </style>
