@@ -115,6 +115,7 @@ import {
   couponTypeLabel, CouponType, CouponTemplateInput,
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { backToHome } from '../../../utils/h5Nav';
 
 const locale = useLocaleStore();
 
@@ -253,7 +254,7 @@ onMounted(async () => {
   // 后端 field resolver 返回的 name 为按会话语言本地化后的纯字符串，仅作 zh 兜底
   function plainName(name: string): string { return name || ''; }
 
-function goBack() { uni.navigateBack(); }
+function goBack() { backToHome(); }
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;

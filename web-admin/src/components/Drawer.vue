@@ -32,6 +32,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { tierStyle } from '../theme';
 import { visibleMenus } from '../constants/menus';
+import { confirmExit } from '../utils/h5Nav';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
 const auth = useAuthStore();
@@ -54,7 +55,7 @@ function openManual() {
 }
 function go(it: any) {
   emit('close');
-  if (it.action === 'logout') return uni.redirectTo({ url: '/pages/login/index' });
+  if (it.action === 'logout') return confirmExit();
   if (it.action === 'switchStore') return switchStore();
   if (it.action === 'manual') return openManual();
   if (it.url) uni.navigateTo({ url: it.url });

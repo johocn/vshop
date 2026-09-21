@@ -139,6 +139,7 @@ import {
 import { fetchDistricts, reverseGeocode, fetchMapSdkConfig, DistrictNode } from '../../../apis/map';
 import ImagePicker from '../../../components/ImagePicker.vue';
 import { useAuthStore } from '../../../stores/authStore';
+import { backToHome } from '../../../utils/h5Nav';
 
 const auth = useAuthStore();
 
@@ -363,7 +364,7 @@ async function hydrateRegionList() {
   }
 }
 
-function goBack() { uni.navigateBack(); }
+function goBack() { backToHome(); }
 
 async function onSave() {
   if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }

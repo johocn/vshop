@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>vshop 使用手册</title>
+<title>youshop 使用手册</title>
 <style>
 :root{
   --brand:#1a56db; --brand2:#1e40af; --bg:#f5f6fa; --ink:#303133; --muted:#909399;
@@ -128,7 +128,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <header class="app-header">
   <div class="header-inner">
     <span class="back" id="btnBack" hidden>‹</span>
-    <h1 id="appTitle">vshop 使用手册</h1>
+    <h1 id="appTitle">youshop 使用手册</h1>
     <span class="ibtn" id="btnSearch" title="搜索">🔍</span>
     <span class="ibtn" id="btnMenu" title="目录">≡</span>
   </div>
@@ -137,8 +137,8 @@ img:fullscreen{object-fit:contain;background:#fff}
 <!-- HOME -->
 <section id="viewHome" class="page">
   <div class="cover">
-    <img src="cover.jpg" alt="vshop 使用手册">
-    <div class="cap"><h2>vshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p></div>
+    <img src="cover.jpg" alt="youshop 使用手册">
+    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p></div>
   </div>
   <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
   <div id="bookList"></div>
@@ -178,7 +178,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <script>
 /* ============ 手册数据 ============ */
 var BOOKS = {
-  op: { id:'op', title:'vshop 租户运营手册', short:'运营手册', icon:'🏪',
+  op: { id:'op', title:'youshop 租户运营手册', short:'运营手册', icon:'🏪',
         desc:'开店、绑定域名、装修首页、上架商品、处理订单的日常运营指南。' },
   mp: { id:'mp', title:'商户入驻与商品上架审批流程', short:'入驻审批', icon:'📋',
         desc:'平台建商户 → 商户提交商品 → 审批上架 → 真实下单拆单验证。' },
@@ -188,7 +188,7 @@ var BOOKS = {
 
 var CHAPTERS = [
 {book:'op', id:'op-1', title:'这是一本什么手册', html:`
-<p class="lead">vshop 是一个基于 Vendure 的 <span class="mark">多租户 C 端商城</span>：一个平台服务多个商家（租户），每个租户拥有独立的域名、店铺装修、商品与订单，数据相互隔离。</p>
+<p class="lead">youshop 是一个基于 Vendure 的 <span class="mark">多租户 C 端商城</span>：一个平台服务多个商家（租户），每个租户拥有独立的域名、店铺装修、商品与订单，数据相互隔离。</p>
 <p>本手册站在<strong>租户运营者</strong>视角，带你走完从「拿到店铺」到「日常运营」的全流程。你无需了解后端技术——只需在管理后台配置，前端商城会<mark class="mark">自动按你的配置渲染</mark>。</p>
 <div class="note"><b>页面路径：</b>以租户域名 <code>https://e.joho.cn</code> 为例。你在后台的所有配置，最终通过 <code>/shop-api</code> 下发给商城页面，租户由访问域名自动识别。</div>
 <h3>这本手册会带你掌握</h3>
@@ -238,6 +238,24 @@ var CHAPTERS = [
 <img class="img" src="shots/op_dashboard.png" alt="工作台-店铺上下文与功能入口">
 <div class="imgcap">图 W0 · 登录并选定店铺后的工作台（顶部显示当前店铺上下文）</div>
 <div class="note"><b>安全提示：</b>后台仅管理员可访问；商城面向买家完全公开。若媒体文件（视频/PDF）被误开放，可能是走错了鉴权通道。</div>`},
+{book:'op', id:'op-4b', title:'返回、退出与手机端导航', html:`
+<p class="lead">后台是按「<mark class="mark">手机端操作</mark>」设计的：任意子页都能<mark class="mark">一步回工作台</mark>；只有在工作台再点返回，才会询问是否退出，避免误触登出。</p>
+<h3>左上角「←」按钮</h3>
+<div class="card"><b>在子页（订单、商品、库存、装修…）</b><br/>点「←」<mark class="mark">直接回到工作台</mark>，不再逐级回退上一页；从更深的多层页面（如「订单 → 数据看板」）返回同样一步到工作台。</div>
+<div class="card"><b>在工作台</b><br/>再点「←」弹出「<b>离开后台</b>：要返回登录页并退出当前账号吗？」确认框：点「取消」留在工作台，点「退出」回到登录页。</div>
+<div class="card"><b>从子页返回工作台时不会弹窗</b><br/>只有「<mark class="mark">站在工作台上按返回</mark>」才视为退出意愿；子页返回落到工作台属于正常页面切换，不打扰。</div>
+<div class="card"><b>浏览器返回键同理</b><br/>在子页按浏览器返回 → 落回工作台（无弹窗）；在工作台按浏览器返回 → 弹出退出确认，取消后仍停在工作台。</div>
+<div class="card"><b>菜单里的「退出登录」</b><br/>工作台右上角「☰」抽屉或工作台功能目录中的「退出登录」，同样先弹确认框，确认后才回到登录页。</div>
+<div class="card"><b>深链/刷新直达子页</b><br/>直接在子页刷新或从别处链接进入子页（此时没有上级页面），左上角「←」依然可用，<mark class="mark">点一下即回工作台</mark>。</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/nav1-02-subpage-back-means-home.png" alt="子页-左上角返回按钮"><div class="imgcap">图 W0a · 子页左上角「←」= 返回首页</div></div>
+  <div><img class="img" src="shots/nav1-03-subpage-back-lands-home-no-modal.png" alt="子页返回落在工作台-无弹窗"><div class="imgcap">图 W0b · 一步回到工作台，不弹退出确认</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/nav1-08-home-back-exit-confirm.png" alt="工作台按返回-退出确认弹窗"><div class="imgcap">图 W0c · 工作台按返回 → 退出确认</div></div>
+  <div><img class="img" src="shots/nav1-10-browser-back-subpage-no-modal.png" alt="子页浏览器返回落在工作台-无弹窗"><div class="imgcap">图 W0d · 浏览器返回落到工作台，无弹窗</div></div>
+</div>
+<div class="note"><b>环境：</b>以上截图均为手机视口（390×844，dpr=2）实机截图；测试账号 <code>superadmin</code>。</div>`},
 {book:'op', id:'op-5', title:'店铺装修与主题', html:`
 <p class="lead">商城首页由「板块组件」搭成，配合「通道主题」整体换肤。你在后台的装修会<mark class="mark">按板块的排序（sort）依次渲染</mark>成买家看到的第一屏。</p>
 <h3>首页组件（板块）</h3>
@@ -273,7 +291,7 @@ var CHAPTERS = [
 <p>逐级深合并，缺哪层用下一层，<mark class="mark">永远不会白屏或错色</mark>；模板被停用或跨端时自动回退。</p>
 <h3>主题风格页六段怎么做</h3>
 <ol class="steps">
-  <li><b>选目标端</b>：顶部切「nshop 商城 / vshop 商城」，模板列表按端过滤。</li>
+  <li><b>选目标端</b>：顶部切「nshop 商城 / youshop 商城」，模板列表按端过滤。</li>
   <li><b>看生效摘要</b>：色块 + 模板名 + 生效主色 + 来源徽标（L1 / L2 / L3），一眼看出当前配色从哪来。</li>
   <li><b>选模板</b>：点模板卡片（或「不引用模板」）。</li>
   <li><b>（可选）令牌覆盖</b>：只填主色 / 辅色 / 圆角，留空的字段自动回退上一级。</li>
@@ -305,7 +323,7 @@ var CHAPTERS = [
   </tbody>
 </table>`},
 {book:'op', id:'op-7', title:'价格与库存', html:`
-<p class="lead">价格决定毛利，库存决定履约。vshop 的库存是<mark class="mark">「下单即占用、成交/取消即释放」</mark>的动态机制。</p>
+<p class="lead">价格决定毛利，库存决定履约。youshop 的库存是<mark class="mark">「下单即占用、成交/取消即释放」</mark>的动态机制。</p>
 <div class="card"><b>价格</b><br/>在 SKU 上维护，支持一口价与促销价位。</div>
 <div class="card"><b>库存占用</b><br/>买家进入支付阶段（ArrangingPayment）时系统<mark class="mark">锁定库存</mark>，防止超卖。</div>
 <div class="card"><b>订单取消释放</b><br/>订单取消/超时未支付时，占用的库存<mark class="mark">自动释放</mark>回可售库存，不泄漏。</div>
@@ -622,8 +640,8 @@ var CHAPTERS = [
 <div class="imgcap">图 R16 · 店铺信息页「默认分享图」配置（MediaPicker 选图保存）</div>
 <h3>商品详情页分享效果</h3>
 <p>以有主图商品转发为例：卡片用<mark class="mark">商品主图</mark>，描述为<mark class="mark">过滤 HTML 后的纯文本介绍</mark>。无图商品则自动落到店铺默认分享图或内置默认图。</p>
-<img class="img" src="shots/r17_vshop_share.png" alt="vshop 商品详情分享兜底">
-<div class="imgcap">图 R17 · vshop 商品详情页分享取值（主图 + 纯文本描述）</div>
+<img class="img" src="shots/r17_vshop_share.png" alt="youshop 商品详情分享兜底">
+<div class="imgcap">图 R17 · youshop 商品详情页分享取值（主图 + 纯文本描述）</div>
 <img class="img" src="shots/r18_nshop_share.png" alt="nshop 商品详情分享兜底">
 <div class="imgcap">图 R18 · nshop 商品详情页分享取值（主图 + 纯文本描述）</div>
 <div class="warn"><b>说明：</b>描述过滤对 <code>&lt;p&gt;/&lt;b&gt;/&lt;img&gt;</code> 等富文本一律剥离并解码实体，天然避免 HTML 乱码；分享动作本身由微信 JSSDK 触发，此处保证各取值的兜底完整性。</div>`},
@@ -868,7 +886,7 @@ var CHAPTERS = [
 <div class="warn"><b>提示：</b>删除分类前请确认其下已无在售商品，避免商品失去归类入口。</div>`},
 {book:'op', id:'op-36', title:'店铺全局配置', html:`
 <p class="lead">平台视角的底层兜底配置（<mark class="mark">L1 底层</mark>）：当模板或店铺级配置未覆盖时的默认值，对所有店铺生效。</p>
-<p>在「全局配置」（平台）中，可切换 <mark class="mark">nshop 商城 / vshop 商城</mark> 两条线，编辑主题令牌（<mark class="mark">主色 primaryColor / 辅色 accentColor / 圆角 radius</mark>）与「各页默认配置」<code>defaults</code> JSON，完成后点「<mark class="mark">保存</mark>」。</p>
+<p>在「全局配置」（平台）中，可切换 <mark class="mark">nshop 商城 / youshop 商城</mark> 两条线，编辑主题令牌（<mark class="mark">主色 primaryColor / 辅色 accentColor / 圆角 radius</mark>）与「各页默认配置」<code>defaults</code> JSON，完成后点「<mark class="mark">保存</mark>」。</p>
 <div class="shot-box"><img class="img" src="shots/b3_global_config.png" alt="全局配置-L1底层"><div class="imgcap">图 G1 · 全局配置（L1 底层回退值）</div></div>`},
 {book:'op', id:'op-37', title:'装修子页详解', html:`
 <p class="lead">除首页外，多个子页面也有独立的装修入口，可单独配置版式与视觉。</p>
@@ -1152,7 +1170,7 @@ function showView(v){
   $id('btnMenu').style.display = (v==='reader')?'':'none';
   $id('tocFloat').hidden = (v!=='reader');
   state.view = v;
-  $id('appTitle').textContent = (v==='search')?'搜索文档':(v==='reader'? cap[state.book]:'vshop 使用手册');
+  $id('appTitle').textContent = (v==='search')?'搜索文档':(v==='reader'? cap[state.book]:'youshop 使用手册');
 }
 
 function chaptersOf(book){ return CHAPTERS.filter(function(c){return c.book===book;}); }
@@ -1183,7 +1201,7 @@ function renderReader(){
   if(!tocO.hidden){ $id('tocList').querySelectorAll('.toc-item').forEach(function(it){ it.classList.toggle('on', it.dataset.id===ch.id); }); }
   var first = (i===0); var last = (i===list.length-1);
   var foot = $id('readerFoot');
-  foot.innerHTML = 'vshop 使用手册 · '+BOOKS[state.book].short+' · 第 '+(i+1)+'/'+list.length+' 章';
+  foot.innerHTML = 'youshop 使用手册 · '+BOOKS[state.book].short+' · 第 '+(i+1)+'/'+list.length+' 章';
   renderNav(first, last);
 }
 function renderNav(first,last){

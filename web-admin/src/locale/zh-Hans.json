@@ -1,6 +1,12 @@
 {
+  "nav": {
+    "leaveTitle": "离开后台",
+    "leaveContent": "要返回登录页并退出当前账号吗？",
+    "leaveConfirm": "退出",
+    "leaveCancel": "取消"
+  },
   "login": {
-    "title": "vshop 管理后台",
+    "title": "youshop 管理后台",
     "subtitle": "店铺经营 · 一部手机搞定",
     "account": "账号",
     "password": "密码",
@@ -1174,7 +1180,7 @@
   "decorateTheme": {
     "tip": "主题风格（L3 店铺覆盖）：选模板 = 换整套配色与页面版式；令牌覆盖 = 只改本店主色/辅色/圆角。",
     "appNshop": "nshop 商城",
-    "appVshop": "vshop 商城",
+    "appVshop": "youshop 商城",
     "noTemplate": "未引用模板",
     "effectivePrimary": "生效主色",
     "tplSection": "风格模板",
@@ -1240,7 +1246,7 @@
     "moreBlocks": "更多块级设置（价格/促销/服务/参数/评价等）→ 去详情装修页",
     "tplTitle": "风格模板（模板库选择，未选时用全局默认）",
     "appNshop": "nshop 商城",
-    "appVshop": "vshop 商城",
+    "appVshop": "youshop 商城",
     "tplNone": "不使用模板",
     "tplNoneEn": "global default",
     "tplEmpty": "暂无启用中的模板，可先到「平台 → 风格模板库」新建。",
