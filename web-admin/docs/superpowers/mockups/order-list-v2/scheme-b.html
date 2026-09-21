@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方案 B · 状态看板</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f4f5f8;color:#1c2233;-webkit-font-smoothing:antialiased}
+  .schemebar{background:#1c2233;color:#fff;display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:12px}
+  .schemebar a{color:#c4cbd9;text-decoration:none}
+  .schemebar a.on{color:#fff;background:#7c5cff;border-radius:6px;padding:3px 10px;font-weight:700}
+  .schemebar .sp{flex:1}
+  /* —— 统一基底 —— */
+  .navbar{position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #ececf2;
+      display:flex;align-items:center;gap:10px;padding:11px 16px}
+  .navbar .bk{color:#8a93a6;font-size:15px}
+  .navbar .t{font-weight:600;font-size:15px}
+  .navbar .sp{flex:1}
+  .navbar .scope{font-size:12px;color:#2b3350;border:1px solid #e1e4ec;border-radius:8px;padding:5px 10px}
+  .headbar{max-width:1240px;margin:0 auto;padding:14px 18px 0;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .headbar .title{font-size:19px;font-weight:700;margin-right:auto}
+  .headbar .redeem{background:#e8541f;color:#fff;font-size:12px;padding:7px 18px;border-radius:999px}
+  .stats{display:flex;gap:10px;flex:1 0 100%;order:3;margin:10px 0 0}
+  .stat{flex:1;background:#fff;border:1px solid #ececf2;border-radius:10px;padding:10px 0;text-align:center}
+  .stat b{display:block;font-size:18px;font-weight:700}
+  .stat span{font-size:11px;color:#8a93a6}
+  .stat b.o{color:#e8950c}.stat b.g{color:#1fa97a}.stat b.r{color:#e5484d}
+  .bar{max-width:1240px;margin:0 auto;padding:12px 18px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .seg{display:flex;background:#fff;border:1px solid #e7eaf0;border-radius:9px;overflow:hidden}
+  .sg{font-size:12.5px;padding:7px 18px;color:#6b758a}
+  .sg.on{background:#2f6bff;color:#fff;font-weight:600}
+  .groups{display:block;padding-top:14px}
+  .grp{background:#fff;border:1px solid #ececf2;border-radius:10px;padding:9px 11px;margin-bottom:8px}
+  .gh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .gh .cnt{font-size:11px;font-weight:600;color:#8a93a6;background:#f1f3f8;border-radius:999px;padding:1px 8px}
+  .gh .che{margin-left:auto;color:#9aa3b5;font-size:12px}
+  .gtabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .gtab{font-size:12px;padding:5px 12px;border-radius:999px;color:#6b758a;background:#f6f7fa;border:1px solid #e7eaf0}
+  .gtab.on{color:#fff;background:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .tchip{font-size:12px;padding:6px 15px;border-radius:999px;color:#6b758a;background:#fff;border:1px solid #e7eaf0}
+  .tchip.on{color:#fff;background:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .kw{flex:1;min-width:200px;background:#fff;border:1px solid #e7eaf0;border-radius:8px;padding:9px 12px;font-size:13px;color:#8a93a6}
+  .sbtn{background:#2f6bff;color:#fff;border:0;border-radius:8px;padding:9px 18px;font-size:12.5px}
+  .fchip{background:#fff;border:1px solid #e7eaf0;border-radius:999px;padding:7px 14px;font-size:12px;color:#6b758a}
+  .fchip.on{color:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .fclear{font-size:12px;color:#8a93a6;text-decoration:underline}
+  .caption{max-width:1240px;margin:0 auto;font-size:11px;color:#8a93a6;padding:9px 18px 0}
+  .caption b{color:#2f6bff}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px}
+  .pill.pay{color:#e5484d;background:rgba(229,72,77,.1)}
+  .pill.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+  .pill.sent{color:#2f6bff;background:rgba(47,107,255,.12)}
+  .pill.done{color:#1fa97a;background:rgba(31,169,122,.12)}
+  .pill.cancel{color:#9aa3b5;background:rgba(154,163,181,.15)}
+  /* —— B：手机态 状态泳道 —— */
+  .blanes{max-width:1240px;margin:0 auto;padding:14px 18px 30px;display:flex;flex-direction:column;gap:10px}
+  .lane{background:#fff;border:1px solid #ececf2;border-radius:12px;overflow:hidden}
+  .lh{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;background:#fbfcfe}
+  .ldot{width:9px;height:9px;border-radius:50%;flex:none}
+  .ldot.pay{background:#e5484d}.ldot.ship{background:#e8950c}.ldot.sent{background:#2f6bff}
+  .ldot.done{background:#1fa97a}.ldot.cancel{background:#9aa3b5}
+  .lname{font-size:13.5px;font-weight:700}
+  .lenum{font-size:10.5px;color:#9aa3b5;font-family:ui-monospace,Consolas,monospace}
+  .lc{font-size:11px;font-weight:600;color:#6b758a;background:#eef1f6;border-radius:999px;padding:2px 9px}
+  .lsum{margin-left:auto;font-size:12.5px;font-weight:700;color:#1c2233}
+  .lsum span{font-size:10.5px;color:#8a93a6;font-weight:400}
+  .lche{color:#9aa3b5;font-size:12px;margin-left:8px}
+  .lb{border-top:1px solid #f1f3f8}
+  .bcard{display:block;padding:10px 13px;border-top:1px solid #f4f6fa}
+  .bcard:first-child{border-top:0}
+  .brow1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bcode{font-size:12px;font-family:ui-monospace,Consolas,monospace;font-weight:600;color:#8a93a6}
+  .bamt{font-size:14px;font-weight:700;color:#e5484d}
+  .brow2{display:flex;align-items:center;gap:8px;margin-top:5px}
+  .bcust{font-size:12.5px;font-weight:600}
+  .btm{font-size:11px;color:#8a93a6}
+  .bact{margin-left:auto;font-size:12px;padding:5px 14px;border-radius:7px;color:#fff;background:#2f6bff;white-space:nowrap}
+  .bact.o{background:#eef1f6;color:#1c2233}
+  .bact.r{background:#fff;color:#e8541f;border:1px solid #f0a485}
+  /* —— B：桌面态 左状态导航 + 右明细 —— */
+  .bdesk{display:none}
+  @media(min-width:768px){
+    .blanes{display:none}
+    .bdesk{display:flex;gap:14px;max-width:1240px;margin:0 auto;padding:14px 18px 30px;align-items:flex-start}
+    .bnav{width:190px;flex:none;background:#fff;border:1px solid #ececf2;border-radius:12px;overflow:hidden;position:sticky;top:64px}
+    .bnav h4{font-size:11px;color:#8a93a6;font-weight:600;padding:11px 13px 7px}
+    .bn{display:flex;align-items:center;gap:8px;padding:9px 13px;font-size:12.5px;color:#4a5368;cursor:pointer;border-left:3px solid transparent}
+    .bn .bd{width:8px;height:8px;border-radius:50%}
+    .bn b{margin-left:auto;font-size:11.5px;font-weight:700;color:#8a93a6;background:#f1f3f8;border-radius:999px;padding:1px 8px}
+    .bn.on{background:#f2f6ff;border-left-color:#2f6bff;color:#2f6bff;font-weight:700}
+    .bn.on b{color:#2f6bff;background:#e2ecff}
+    .bmain{flex:1;min-width:0}
+    .bmain table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #ececf2;border-radius:12px;overflow:hidden;font-size:12.5px}
+    .bmain th{background:#f6f7fa;color:#6b758a;text-align:left;padding:10px 11px;font-size:11.5px;font-weight:600;white-space:nowrap}
+    .bmain td{padding:10px 11px;border-top:1px solid #eef0f5}
+    .bmain tr:hover td{background:#fafbfe}
+    .bmain .pv{color:#e5484d;font-weight:700}
+    .bmain .ops{color:#2f6bff;font-weight:600;white-space:nowrap}
+    .bmain .ops i{font-style:normal;color:#e7eaf0;margin:0 3px}
+    .bmain .sn{font-size:11px;color:#8a93a6}
+    .bpanel{font-size:11.5px;color:#8a93a6;padding:10px 2px 0}
+    .note{font-size:11px;color:#8a93a6;margin-top:10px;line-height:17px}
+  }
+</style>
+</head>
+<body>
+  <div class="schemebar">
+    <a href="index.html">← 方案选择</a><b>方案 B · 状态看板</b>
+    <span class="sp"></span>
+    <a href="scheme-a.html">A</a><a href="scheme-b.html" class="on">B</a><a href="scheme-c.html">C</a>
+  </div>
+
+  <div class="navbar"><span class="bk">‹</span><span class="t">订单</span><span class="sp"></span><span class="scope">本店渠道单 ▾</span></div>
+
+  <div class="headbar">
+    <span class="title">订单</span>
+    <span class="redeem">核销码</span>
+    <div class="stats">
+      <div class="stat"><b>3</b><span>今日订单</span></div>
+      <div class="stat"><b class="r">1</b><span>待付款</span></div>
+      <div class="stat"><b class="o">2</b><span>待发货</span></div>
+      <div class="stat"><b class="g">0</b><span>待退款</span></div>
+    </div>
+  </div>
+
+  <div class="bar"><div class="seg"><span class="sg on">渠道单</span><span class="sg">商品单</span></div></div>
+
+  <div class="bar groups">
+    <div class="grp">
+      <div class="gh">待处理 <span class="cnt">0</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Created</span><span class="gtab">AddingItems</span><span class="gtab">ArrangingPayment</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">进行中 <span class="cnt">3</span><span class="che">⌃</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab on">PaymentAuthorized</span><span class="gtab">PaymentSettled</span><span class="gtab">PartiallyShipped</span><span class="gtab">Shipped</span><span class="gtab">PartiallyDelivered</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">已完成 <span class="cnt">1</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Delivered</span><span class="gtab">Completed</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">已取消 <span class="cnt">1</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Cancelled</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">异常 <span class="cnt">0</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span class="tchip on">今日</span><span class="tchip">近7天</span><span class="tchip">本月</span><span class="tchip">自定义</span>
+  </div>
+
+  <div class="bar">
+    <div class="kw">🔍 订单号 / 顾客 / 手机号 / 商品名</div><button class="sbtn">搜索</button>
+    <span class="fchip on">快递</span><span class="fchip">自提</span><span class="fclear">清除</span>
+  </div>
+  <div class="caption">已选组合：<b>今日</b> + <b>PaymentAuthorized（待发货）</b>；下方「待发货」泳道即为当前高亮分区，其余状态分区折叠/并列展示（方案 B 按状态组织信息）。</div>
+
+  <!-- ===== 手机态：状态泳道分区 ===== -->
+  <div class="blanes">
+    <div class="lane">
+      <div class="lh"><span class="ldot pay"></span><span class="lname">待付款</span><span class="lenum">ArrangingPayment</span><span class="lc">1 单</span><span class="lsum">¥59.00 <span>小计</span></span><span class="lche">⌄</span></div>
+      <div class="lb">
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210005</span><span class="bamt">¥59.00</span></div>
+          <div class="brow2"><span class="bcust">赵一鸣</span><span class="btm">12 分钟前</span><span class="bact o">复制提醒</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lh"><span class="ldot ship"></span><span class="lname">待发货</span><span class="lenum">PaymentAuthorized</span><span class="lc">2 单</span><span class="lsum">¥34.99 <span>小计</span></span><span class="lche">⌃</span></div>
+      <div class="lb">
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210001</span><span class="bamt">¥9.99</span></div>
+          <div class="brow2"><span class="bcust">Zhao Test</span><span class="btm">30 分钟前</span><span class="bact">去发货</span></div>
+        </div>
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210006</span><span class="bamt">¥25.00</span></div>
+          <div class="brow2"><span class="bcust">回 归</span><span class="btm">5 小时前</span><span class="bact r">去核销</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lh"><span class="ldot sent"></span><span class="lname">已发货</span><span class="lenum">Shipped</span><span class="lc">1 单</span><span class="lsum">¥39.90 <span>小计</span></span><span class="lche">⌄</span></div>
+      <div class="lb">
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210002</span><span class="bamt">¥39.90</span></div>
+          <div class="brow2"><span class="bcust">示例账号</span><span class="btm">2 小时前</span><span class="bact o">查看物流</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lh"><span class="ldot done"></span><span class="lname">已完成</span><span class="lenum">Completed</span><span class="lc">1 单</span><span class="lsum">¥4.99 <span>小计</span></span><span class="lche">⌄</span></div>
+      <div class="lb">
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210003</span><span class="bamt">¥4.99</span></div>
+          <div class="brow2"><span class="bcust">林望舒</span><span class="btm">昨天 20:14</span><span class="bact o">详情</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lh"><span class="ldot cancel"></span><span class="lname">已取消</span><span class="lenum">Cancelled</span><span class="lc">1 单</span><span class="lsum">¥128.00 <span>小计</span></span><span class="lche">⌄</span></div>
+      <div class="lb">
+        <div class="bcard">
+          <div class="brow1"><span class="bcode">202609210004</span><span class="bamt">¥128.00</span></div>
+          <div class="brow2"><span class="bcust">陈默</span><span class="btm">3 天前</span><span class="bact o">详情</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 桌面态：左状态导航 + 右明细表 ===== -->
+  <div class="bdesk">
+    <aside class="bnav">
+      <h4>按状态浏览</h4>
+      <div class="bn"><span class="bd" style="background:#e5484d"></span>待付款<b>1</b></div>
+      <div class="bn on"><span class="bd" style="background:#e8950c"></span>待发货<b>2</b></div>
+      <div class="bn"><span class="bd" style="background:#2f6bff"></span>已发货<b>1</b></div>
+      <div class="bn"><span class="bd" style="background:#1fa97a"></span>已完成<b>1</b></div>
+      <div class="bn"><span class="bd" style="background:#9aa3b5"></span>已取消<b>1</b></div>
+      <div class="bn"><span class="bd" style="background:#c9d0de"></span>全部<b>6</b></div>
+    </aside>
+    <div class="bmain">
+      <table>
+        <thead><tr>
+          <th>订单号</th><th>顾客</th><th>商品</th><th>金额</th><th>状态</th><th>时间</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:ui-monospace,Consolas,monospace;font-weight:700">202609210001</td>
+            <td>Zhao Test · 138****8399</td>
+            <td>中行 AI 音箱 <span class="sn">×2</span></td>
+            <td class="pv">¥9.99</td>
+            <td><span class="pill ship">待发货</span></td>
+            <td style="color:#8a93a6;font-size:11.5px">30 分钟前</td>
+            <td><span class="ops">去发货<i>|</i>详情</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:ui-monospace,Consolas,monospace;font-weight:700">202609210006</td>
+            <td>回 归 · 137****5527</td>
+            <td>保温杯 <span class="sn">×1</span></td>
+            <td class="pv">¥25.00</td>
+            <td><span class="pill ship">待发货</span></td>
+            <td style="color:#8a93a6;font-size:11.5px">5 小时前</td>
+            <td><span class="ops">去核销<i>|</i>详情</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="bpanel">右侧明细表随左侧导航切换：当前高亮「待发货」，仅列出该状态 2 单，表头含 <b>小计 ¥34.99</b>。</div>
+      <div class="note">方案 B 桌面态：左侧状态导航（含计数）+ 右侧明细表，导航项高亮当前状态，不再需要顶部状态 tab 反复切换。<br>手机态为状态泳道式分区，分区头显示 状态名 + 单数 + 金额小计，区内为极简卡片（订单号 / 顾客 / 金额 / 时间 + 1 个主操作，无缩略图）。测试数据示例。</div>
+    </div>
+  </div>
+</body>
+</html>
