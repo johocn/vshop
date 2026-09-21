@@ -112,14 +112,16 @@ with sync_playwright() as p:
         raise SystemExit('搜索命中 0 行，截图会留空图，请检查服务端过滤')
     shot(pg, 'orderlist_v2_search_390.png')
 
-    # 3 今日 + 待发货（时间维度与状态分组可叠加）
+    # 3 今日 + 待发货（时间维度与状态分组可叠加）；分组默认折叠，先展开「进行中」
     safe_clear(pg)
     pg.get_by_text('今日', exact=True).first.tap(); time.sleep(3)
+    pg.locator('.grp', has_text='进行中').first.locator('.gh').tap(); time.sleep(2)
     pg.locator('.gtab', has_text='待发货').first.tap(); time.sleep(3)
     shot(pg, 'orderlist_v2_today_state_390.png')
 
     # 4 异常组（exceptionType 非空）
     safe_clear(pg)
+    pg.locator('.grp', has_text='异常').first.locator('.gh').tap(); time.sleep(2)
     pg.locator('.grp', has_text='异常').first.locator('.gtab').first.tap(); time.sleep(3)
     shot(pg, 'orderlist_v2_exception_390.png')
 
