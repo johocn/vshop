@@ -5384,7 +5384,7 @@ node scripts/deploy.mjs
 
 Expected: `scp` 上传成功 + 服务器解压完成，输出部署目标路径（按脚本提示选择 `guanli` 站点）；静态目录替换即时生效，无需 nginx reload。
 
-- [ ] **Step 8: 线上只读探针回归（接口层验收）**
+- [x] **Step 8: 线上只读探针回归（接口层验收）**
 
 创建 `_e2e/_probe_inventory.py`（**只读**：全部为 `query`，不含任何 `mutation`，不写生产数据）：
 
@@ -5604,7 +5604,7 @@ Expected:
 - 结尾 `=== N 项，0 项失败 ===`。
 - **任何一行等于全量**（除单 SKU 场景）说明该条件在服务端被忽略，必须回 Task 2/Task 3 排查。
 
-- [ ] **Step 9: 手机视口截图（硬规范：390×844、dpr=2 → 780×1688）**
+- [x] **Step 9: 手机视口截图（硬规范：390×844、dpr=2 → 780×1688）**
 
 创建 `_e2e/_shot_inventory_v2.py`：
 
@@ -5750,7 +5750,7 @@ Expected: 控制台打印 8 个 `shot:` 与 8 个 `copied →`；逐张确认（
 
 **注意**：截图必须是**部署之后**的线上真实效果（Step 6/7 完成后再跑），否则截到旧版本。
 
-- [ ] **Step 10: 更新操作手册（追加新章节）**
+- [x] **Step 10: 更新操作手册（追加新章节）**
 
 在 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的**最后一个 `</section>`**（当前文件为第 12 章结束，约 L598）之后、`<footer>` 之前插入：
 
@@ -5812,7 +5812,7 @@ node -e "const s=require('fs').readFileSync('docs/webadmin-bugfix-manual/webadmi
 
 Expected: 三行全 `true`。
 
-- [ ] **Step 11: 复验清单（逐条对规格 §5 的 8 条验收标准）**
+- [x] **Step 11: 复验清单（逐条对规格 §5 的 8 条验收标准）**
 
 | # | 验收标准（规格 §5） | 复验方式 | 通过判据 |
 | --- | --- | --- | --- |
@@ -5825,12 +5825,16 @@ Expected: 三行全 `true`。
 | 7 | 单据中心能看到刚生成的单据；流水页可按方向/类型/日期筛选且汇总数与列表一致 | 打开单据中心「采购入库」tab；流水页切「出库 + 近 7 天」 | 单据中心出现第 6 步生成的单（单号/条数/总数量一致）；流水汇总条 `入/出` 合计与当前列表的加减总和一致 |
 | 8 | 三种失败场景均弹 Toast 且不清空列表 | ① 搜索时断网/改错接口；② 保存规则时断网；③ 调整库存时断网 | 三种情况都出现明确错误文案；**页面列表保持上一次结果**（不被清空、不显示空态） |
 
-- [ ] **Step 12: 回滚方案**
+- [x] **Step 12: 回滚方案**
+
+> **本计划实际落地的提交（回滚以此为界）**
+> - 前端（`D:/zhao/vshop`）：`d9614af`（批量/补货/调整目标仓兜底虚拟仓）← `2ace457`（库存与预警 v2 主体 + 双语文案）← `8c68496`（规格与 mockup，**回滚边界**）
+> - 后端（`D:/zhao/vendure`）：`6e8bc1fa4`（PG 别名两参）← `537016512`（按渠道过滤变体）← `c43649590`（放开租户侧权限）← `8d9ed3ce4`（后端支撑主体）← `b8f2261fc`（**回滚边界**，本计划之前）
 
 **前端（秒级回滚，无数据风险）**：
 
 ```bash
-git revert --no-edit <本计划前端 commit>
+git revert --no-edit 2ace457 d9614af
 npm run build:h5
 node scripts/deploy.mjs
 ```
@@ -5841,7 +5845,7 @@ node scripts/deploy.mjs
 
 ```bash
 cd /www/apps/vendure
-git revert --no-edit <本计划后端 commit>     # 或 git reset --hard <上一 commit>（确认无他人提交）
+git revert --no-edit 8d9ed3ce4 c43649590 537016512 6e8bc1fa4   # 或 git reset --hard b8f2261fc（确认无他人提交）
 git pull                                      # 若走 revert 提交
 npm run build --prefix packages/cjk-plugin    # 本地构建后提交 lib/ 再上线；服务器不构建
 pm2 restart vendure
