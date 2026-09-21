@@ -2355,34 +2355,44 @@ git commit -m "feat(web-admin): 订单列表筛选状态机（服务端过滤 + 
 
 **顺序很重要**：截图是「线上站点的真实效果」，必须**先构建 → 部署 → 再截图**，否则截的是旧版本。
 
-- [ ] **Step 1: 单元测试**
+- [x] **Step 1: 单元测试**
 
 Run: `npx tsx --test src/utils/orderFilter.test.ts` 然后 `npx tsx --test src/utils/orderListConfig.test.ts`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 两个文件全 PASS（前者约 20 条、后者 6 条）。
 
-- [ ] **Step 2: 类型检查**
+> 实测：`orderFilter.test.ts` **22 pass / 0 fail**；`orderListConfig.test.ts` **5 pass / 0 fail**。
+
+- [x] **Step 2: 类型检查**
 
 Run: `npx tsc --noEmit`
 Expected: 0 error。
 
-- [ ] **Step 3: 本地构建**
+> 实测：仅剩 **7 条历史错误**（`apis/coupon.ts` 1、`apis/product.ts` 3、`utils/scanner.ts` 3），本轮**无新增**。仓库无 `vue-tsc`，故 `.vue` 模板内类型不参与校验（已知局限）。
+
+- [x] **Step 3: 本地构建**
 
 Run: `npm run build:h5`
 Expected: 构建成功，产出更新到 `dist/build/h5`（若构建报 codegen 缺字段，说明 `graphql.schema.json` 快照过期：先按既有约定重拉/打补丁再构建；本计划未新增任何 GraphQL 字段，正常不应触发）。
 
-- [ ] **Step 4: 提交源码与产物**
+> 实测：`DONE Build complete.`，未触发 codegen 缺字段（本计划未新增 GraphQL 字段，与预期一致）。
+
+- [x] **Step 4: 提交源码与产物**
 
 ```bash
 git add -A
 git commit -m "feat(web-admin): 订单列表服务端过滤/状态全枚举/异常组/三版式重做（含构建产物）"
 ```
 
-- [ ] **Step 5: 部署（本地构建产物 → 服务器解压，服务器不构建）**
+> 实测：拆为多次提交 —— `0b2105b`（纯函数层）、`e8c9861`（API 变量化 + 多别名计数）、`a65e3eb`（双语文案）、`86bb81d`/`406d74f`/`2680f4d`/`8c1b269`/`41082fa`（组件与页面）、`327041b`（今日卡口径）、`cf39f69`（分组默认折叠）、`434296b`（产物）。
+
+- [x] **Step 5: 部署（本地构建产物 → 服务器解压，服务器不构建）**
 
 Run: `node scripts/deploy.mjs`
 Expected: `scp` 上传成功 + 服务器解压完成，输出部署目标路径（若脚本要求指定目标站点，按脚本提示选择 `guanli` 站点）。
 
-- [ ] **Step 6: 线上只读探针回归（接口层验收）**
+> 实测：`[deploy] 产物校验通过: 38030 KB` → `nginx test is successful` → `deploy done`。
+
+- [x] **Step 6: 线上只读探针回归（接口层验收）**
 
 Run: `python _e2e/_probe_order_filter.py`
 Expected（与 Task 2 Step 1 记录的数值对照）：
@@ -2392,7 +2402,25 @@ Expected（与 Task 2 Step 1 记录的数值对照）：
 - `配送=快递` + `配送=自提` + `配送 deliveryType 为空` 三行合计 ≈ baseline（用于确认 Task 1 里 `deliveryType` 的严格 `eq` 口径是否需要改成 `notIn`；若「为空」非 0 且三个口径之和与 baseline 有明显缺口，回到 Task 1 改 `notIn` 并同步单测断言）。
 - 备注：探针仅在服务器**未提供 filter 时**与 baseline 相等；任何一行等于 baseline 说明该条件在服务端被忽略，必须停下来排查。
 
-- [ ] **Step 7: 手机视口截图（硬规范：390×844、dpr=2）**
+> 实测（10 项 0 失败）：baseline 21 / 待发货 1 / 关键词 `_or` 10 / **今日 createdAt 0** / 自提 17 / 快递 4 / `deliveryType` 空 **0** / 异常 0 / 破损 0 / 售后 0，全部无 `ERR`。
+> - `配送 deliveryType 为空 = 0` → 确认严格 `eq` 口径可用，**无需改 `notIn`**；17+4 = 21 = baseline，无缺口。
+> - 今日为 0 属该环境真实情况（全部订单创建于 09-11/09-12），非过滤失效。
+
+- [x] **Step 6.1（计划外·必做）：多条件组合专项验证 —— 计划前提被证伪并已修复**
+
+> **计划与规格均假设 `OrderFilterParameter` 含 `filterOperator` 字段，实测不成立。**
+> 探针 `_e2e/_probe_order_multi.py` 输出：
+> `Variable "$o" got invalid value {... filterOperator: "AND" } at "o.filter"; Field "filterOperator" is not defined by type "OrderFilterParameter".`
+> 即：**任意两个及以上条件同时生效**（时间+状态、关键词+时间…）时请求整体失败、列表空白 —— 正是用户反馈①「搜索过滤不稳定、特定环境无结果」的真身。
+> 修复：从 `buildOrderFilter` 移除该字段（AND 由 `OrderListOptions` 默认值提供）。`_e2e/_probe_order_multi2.py` 判定语义：`pickup=17`、`state.in=1`，组合不写 `filterOperator` 得 **1（=交集）**，显式 options 级 `OR` 才得 17 → 默认即 AND，无需显式声明。
+
+- [x] **Step 6.2（计划外·必做）：时间字段口径核对 —— 第二个根因并已修复**
+
+> 原实现用 `orderPlacedAt.between`；但「加购中/待付款」等**未下单**的单该字段为 `null`，会被整体排除。
+> 探针 `_e2e/_probe_order_time_field.py` 实测（t2）：本月 `orderPlacedAt=11` / `createdAt=21`；**「本月 + 待处理」`orderPlacedAt=0` 而 `createdAt=10`**；抽样 `AddingItems` 单 `placed=None created=2026-09-12`。
+> 修复：时间条件改为 `createdAt.between`。修复后界面「本月 + 待处理」返回 8 行（探针 10 单 − 2 张 0 件 0 元幽灵单）。这是用户反馈②「订单状态不全、今日订单为空」的第二个根因。
+
+- [x] **Step 7: 手机视口截图（硬规范：390×844、dpr=2）**
 
 创建 `_e2e/_shot_order_list_v2.py`：
 
@@ -2515,7 +2543,13 @@ Expected: 控制台打印 8 个 `shot:` 与 8 个 `copied →`；逐张确认（
 7. `orderlist_v2_layout_c_390.png`：无圆角两行高密度清单（无缩略图、信息压到一个屏更多条）。
 8. `orderlist_v2_desktop_1440.png`：左侧分组导航（含服务端计数）+ 右侧紧凑表。
 
-- [ ] **Step 8: 更新操作手册（追加第 13 章）**
+> 实测：9 张全部生成并同步到 `docs/webadmin-bugfix-manual/assets/`（计划 8 张 + **计划外新增第 9 张** `orderlist_v2_multi_390.png`：多条件组合「本月 + 待处理」非空结果，用于证明组合筛选正确）。
+> 脚本内置两条**界面级断言**（失败即中断）：①「今日 + 待发货」`toast = 0`（修复前为 1 且报错）；②「本月 + 待处理」`rows > 0`（实测 8）。另加 `pick_layout` 前 `reload` 复位、`safe_clear` 条件点击等稳定性处理。
+
+- [x] **Step 8: 更新操作手册（追加章节）**
+
+> **偏差（已处理）**：计划写「追加第 13 章」，但第 13 章已被库存 v2（`#inventory-stock-v2`）占用 → **实际追加为第 14 章**（`<section id="order-list-v2">`），并同步目录与页脚。
+> 实测：第 14 章含「14.1 问题现象与根因（三条根因，含修复前报错截图 + 时间口径对比表）」「14.2 修复内容」「14.3 回归测试与证据」「14.4 验收截图（9 张）」「故障排查指引（6 条）」「涉及文件与回滚方式」。
 
 在 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的第 12 章 `</section>`（约 L598）之后、`<footer>` 之前插入：
 
@@ -2567,14 +2601,16 @@ Expected: 控制台打印 8 个 `shot:` 与 8 个 `copied →`；逐张确认（
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 ```
 
-- [ ] **Step 9: 提交手册与截图**
+- [x] **Step 9: 提交手册与截图**
 
 ```bash
 git add docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html docs/webadmin-bugfix-manual/assets/orderlist_v2_*.png src/static/manual/shots/orderlist_v2_*.png
 git commit -m "docs(web-admin): 操作手册追加订单列表过滤/状态/版式修复章节与手机截图"
 ```
 
-- [ ] **Step 10: 人工线上复验（对照规格「验收标准」6 条）**
+> 实测：源码修复另起两次提交 —— `65198f9`（`filterOperator` 误置）、`1725c87`（时间字段改 `createdAt`）；手册 + 截图 + 产物合并为 `c61740d`（含 `dist/build/h5`）。
+
+- [x] **Step 10: 人工线上复验（对照规格「验收标准」6 条）**
 
 在 `https://e.joho.cn/guanli/#/pages/order/list/index`（手机浏览器或 390×844 视口）逐条确认：
 1. 用订单号后 4 位、顾客名、手机号、备注各搜一次 → 均能命中（含不在第 1 页的订单）。
@@ -2584,7 +2620,17 @@ git commit -m "docs(web-admin): 操作手册追加订单列表过滤/状态/版�
 5. 快速连续点两个不同 tab → 最终展示的是**最后点的那一个**的结果（无旧结果覆盖）；断网再点搜索 → 出现 Toast 报错且列表仍是上次结果。
 6. 顶部「版式」依次切三个版式 → 卡片信息流 / 状态看板（泳道分区）/ 高密度清单 结构差异肉眼可辨。
 
-- [ ] **Step 11: 回滚预案（对照规格第七节）**
+> 逐条核验结果（代码 + 线上截图双证据）：
+> 1. ✅ **已实测**：`orderlist_v2_search_390.png` 用第 2 页订单 `HV7F4XP89KFLVEV8` 的中段子串 `7F4XP89` 命中 1 行（当页 20 条里没有该单 → 证明是服务端过滤）。`_or` 同时覆盖 `code/contactName/contactPhone/remark`（单测断言）。
+> 2. ⚠️ **代码级确认**：`TO_SHIP_STATES = [PaymentAuthorized, WaitingForShipping, PartiallyPaymentSettled, PaymentSettled]` 一次 `state.in` 下发（探针「待发货」= 1，无 `ERR`）。该环境满足条件的单仅 1 张，无法在一屏内同时出现两种状态 → 只能给代码 + 探针证据，**无同屏截图**（诚实标注）。
+> 3. ✅ **代码级确认 + 截图**：`onStatTap('today')` → `timeKey='today'`（不动 `cur`）；`orderlist_v2_today_state_390.png` 可见「今日」胶囊高亮。
+> 4. ✅ **代码级确认**：`stat:refund` → `afterSales: AFTER_SALES_OPEN`（`Pending/Approved/Returning/Received/RefundFailed`），与卡上计数同源，不再用 `Cancelled` 近似。
+> 5. ✅ **代码级确认 + 线上实测**：`load()/loadMore()` 均 `catch → toastFail` 且**不清空 `views`**；`seq` 自增序号保证只有最新请求可写入。线上对照：修复前「今日+待发货」弹「加载失败：… filterOperator …」toast，修复后同操作 **toast = 0**。
+> 6. ✅ **已实测**：`orderlist_v2_layout_{a,b,c}_390.png` 三张结构差异肉眼可辨（大卡含缩略图 / 状态泳道分区 / 无圆角两行清单）。
+>
+> **额外（计划外）验收**：多条件组合筛选已可正常出结果 —— 「本月 + 待处理」返回 8 行（`orderlist_v2_multi_390.png`），修复前该组合直接报错空白。
+
+- [x] **Step 11: 回滚预案（对照规格第七节）**
 
 本改动**纯前端、不改后端、无数据迁移**，回滚即产物回退，不需要动数据库与服务器配置：
 
@@ -2596,3 +2642,10 @@ node scripts/deploy.mjs         # 重新推送回退后的产物（服务器不�
 
 风险点唯在「时间字段从 `orderPlacedAt || createdAt` 改为严格 `orderPlacedAt`」——影响面仅为未提交的购物车 / 草稿单不再计入「今日」，属预期行为，无需回滚。
 若线上出现接口层异常（如探针任一行 `totalItems` 等于 baseline，说明 filter 未生效），优先回滚本产物，再回到 Task 2 Step 1 的探针重新确认字段名。
+
+> **回滚记录（实际执行后填写）**
+> - 本轮交付提交：`c61740d`（手册 + 截图 + `dist/build/h5`）；源码修复提交：`65198f9`（`filterOperator` 误置）、`1725c87`（时间字段改 `createdAt`）。
+> - 回滚目标（本轮之前）：`5423eb7`（库存 v2 收尾）。
+> - 回滚命令：`git revert --no-edit c61740d 1725c87 65198f9` → `node scripts/deploy.mjs`（**回滚同样走本地构建/产物推送，服务器不构建**）。
+> - **计划里的「风险点」表述已过时并已更正**：计划写的是「从 `orderPlacedAt || createdAt` 改为严格 `orderPlacedAt`」，而**实际改动方向相反** —— 由 `orderPlacedAt` 改为 `createdAt`（未下单的单 `orderPlacedAt` 为 `null`）。故风险点应更正为：**未下单（加购中/待付款）的单现在会按创建时间计入「今日/本月」** —— 这正是修复目标（用户反馈②），非副作用。
+> - 数据风险：**无**（不改后端、无迁移、无写操作；全部探针只读）。
