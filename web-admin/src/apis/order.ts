@@ -127,33 +127,52 @@ export interface FulfillmentResult {
   trackingCode?: string;
 }
 
-export interface OrderListOptions {
+// 订单列表查询入参：filter 由 utils/orderFilter.ts 的 buildOrderFilter 组装后原样传变量，
+// 不在查询文本里做字符串内插（消除注入面，R5）；条件全部下推服务端（R1/R2/R11）。
+export interface OrderQueryInput {
   take?: number;
   skip?: number;
-  state?: string;
-  keyword?: string;
+  filter?: Record<string, any> | null;
 }
 
-export async function fetchOrders(opts: OrderListOptions = {}): Promise<{ totalItems: number; items: OrderRow[] }> {
-  const { take = 20, skip = 0, state, keyword } = opts;
-  const extra = state ? `, filter: { state: { eq: "${state}" } }` : '';
+export async function fetchOrders(input: OrderQueryInput = {}): Promise<{ totalItems: number; items: OrderRow[] }> {
+  const { take = 20, skip = 0, filter } = input;
+  const options: Record<string, any> = { take, skip };
+  if (filter) options.filter = filter;
   const { orders } = await getAdminClient().request<{
     orders: { totalItems: number; items: OrderRow[] };
   }>(
-    `query Orders($take: Int, $skip: Int) {
-      orders(options: { take: $take, skip: $skip${extra} }) {
+    `query Orders($options: OrderListOptions) {
+      orders(options: $options) {
         totalItems
         items {${ORDER_FIELDS}}
       }
     }`,
-    { take, skip },
+    { options },
   );
-  let items = orders.items;
-  if (keyword) {
-    const k = keyword.trim().toLowerCase();
-    items = items.filter((o) => (o.code || '').toLowerCase().includes(k));
-  }
-  return { totalItems: orders.totalItems, items };
+  return { totalItems: orders.totalItems, items: orders.items };
+}
+
+/**
+ * 统计/分组计数：一次请求取回多组 totalItems（GraphQL 别名）。
+ * 别名与变量名由代码生成（数量固定、非用户输入），filter 值全部走变量，不做字符串内插。
+ * filters[i] 为 null 表示该组不带条件（全量计数）。
+ */
+export async function fetchOrderCounts(filters: Array<Record<string, any> | null>): Promise<number[]> {
+  if (!filters.length) return [];
+  const varDefs = filters.map((_, i) => `$f${i}: OrderFilterParameter`).join(', ');
+  const fields = filters
+    .map((_, i) => `c${i}: orders(options: { take: 1, filter: $f${i} }) { totalItems }`)
+    .join('\n      ');
+  const variables: Record<string, any> = {};
+  filters.forEach((f, i) => { variables[`f${i}`] = f; });
+  const data = await getAdminClient().request<Record<string, { totalItems: number }>>(
+    `query OrderCounts(${varDefs}) {
+      ${fields}
+    }`,
+    variables,
+  );
+  return filters.map((_, i) => data[`c${i}`]?.totalItems ?? 0);
 }
 
 export interface OrderDetail {
