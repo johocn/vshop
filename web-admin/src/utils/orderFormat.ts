@@ -1,5 +1,6 @@
 // 订单列表·中国本地化 展示层工具与视图模型（纯函数，SSR/H5 友好）
 import type { OrderRow, ShopOrderRow } from '../apis/order';
+import { inTimeWindow, TimeRangeInput } from './orderFilter';
 
 // —— 展示视图模型：把渠道单/商品单两种异构数据统一成同一渲染结构 ——
 export interface OrderGood {
@@ -91,36 +92,7 @@ export function fmtMoney(cents: number): string {
   return ((cents || 0) / 100).toFixed(2);
 }
 
-export function isToday(ts?: string | null, now = new Date()): boolean {
-  if (!ts) return false;
-  const d = new Date(ts);
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-export const TO_SHIP_STATES = ['PaymentAuthorized', 'PaymentSettled'];
-export function isToBeShipped(s: string): boolean {
-  return TO_SHIP_STATES.includes(s);
-}
-// 待退款：本期用「已取消」近似（真实售后/退款数需二期接售后接口）
-export function isRefundApprox(s: string): boolean {
-  return s === 'Cancelled';
-}
-
 export interface StatsValue { today: string; unpaid: string; toShip: string; refund: string }
-
-export function computeStats(rows: { state: string; placedAt?: string | null }[], now = new Date()): StatsValue {
-  let today = 0;
-  let unpaid = 0;
-  let toShip = 0;
-  let refund = 0;
-  for (const o of rows) {
-    if (isToday(o.placedAt, now)) today += 1;
-    if (isUnpaid(o.state)) unpaid += 1;
-    if (isToBeShipped(o.state)) toShip += 1;
-    if (isRefundApprox(o.state)) refund += 1;
-  }
-  return { today: String(today), unpaid: String(unpaid), toShip: String(toShip), refund: String(refund) };
-}
 
 function customerNameOf(o: OrderRow): string {
   const c = o.customer;
@@ -184,53 +156,29 @@ export function isGhostView(v: OrderView): boolean {
   return goodsTotalQty(v) <= 0;
 }
 
-export interface OrderFilter {
-  kw?: string;            // 关键词（订单号/顾客/手机号/商品名）
-  delivery?: '' | 'pickup' | 'express';
-  dateRange?: '' | 'today' | '7d' | '30d';
+// 商品单本地过滤入参：字段与渠道单的服务端 filter 口径一一对应（关键词/时间/配送/状态）
+export interface ShopLocalFilter {
+  keyword?: string;
+  time?: TimeRangeInput;
+  delivery?: '' | 'pickup' | 'delivery';
+  /** 当前 tab 的状态集合；未指定表示不限状态 */
+  states?: string[];
+  /** 该 tab 在商品单口径下无对应数据（异常组 / 售后组）→ 直接返回空 */
+  unsupported?: boolean;
 }
 
-function rowTime(row: { orderPlacedAt?: string | null; createdAt?: string }): string {
-  return row.orderPlacedAt || row.createdAt || '';
-}
-
-function deliveryOf(row: { customFields?: { deliveryType?: string | null } | null }): 'pickup' | 'express' {
-  return row.customFields?.deliveryType === 'pickup' ? 'pickup' : 'express';
-}
-
-function withinDate(ts: string, range: '' | 'today' | '7d' | '30d', now = new Date()): boolean {
-  if (!range || !ts) return true;
-  const d = new Date(ts).getTime();
-  if (Number.isNaN(d)) return true;
-  const start = new Date(now);
-  if (range === 'today') start.setHours(0, 0, 0, 0);
-  else start.setDate(start.getDate() - (range === '7d' ? 7 : 30));
-  return d >= start.getTime();
-}
-
-// 渠道单原始行过滤（Vendure 无这些服务端过滤 → 对已加载页生效）
-export function filterChannelRows(rows: OrderRow[], f: OrderFilter = {}, now = new Date()): OrderRow[] {
-  const k = (f.kw || '').trim().toLowerCase();
-  const dc = f.delivery || '';
+/**
+ * 商品单（myShopOrders 全量返回）本地过滤：本地过滤即全量可靠（规格 §3.1）。
+ * 渠道单**不再**使用任何本地过滤函数（条件已全部下推服务端），故 filterChannelRows 已删除。
+ */
+export function filterShopRows(rows: ShopOrderRow[], f: ShopLocalFilter = {}, now = new Date()): ShopOrderRow[] {
+  if (f.unsupported) return [];
+  const k = (f.keyword || '').trim().toLowerCase();
+  const dv = f.delivery || '';
   return rows.filter((o) => {
-    if (dc && deliveryOf(o) !== dc) return false;
-    if (f.dateRange && !withinDate(rowTime(o), f.dateRange, now)) return false;
-    if (!k) return true;
-    const cust = o.customer;
-    const name = `${cust?.firstName || ''} ${cust?.lastName || ''}`.trim();
-    const phone = cust?.phoneNumber || o.shippingAddress?.phoneNumber || '';
-    const prodNames = (o.lines || []).map((l) => l.productVariant?.name || '').join(' ');
-    return [o.code, name, cust?.emailAddress, phone, prodNames].some((v) => (v || '').toLowerCase().includes(k));
-  });
-}
-
-// 商品单原始行过滤（myShopOrders 全量 → 完全可靠）
-export function filterShopRows(rows: ShopOrderRow[], f: OrderFilter = {}, now = new Date()): ShopOrderRow[] {
-  const k = (f.kw || '').trim().toLowerCase();
-  const dc = f.delivery || '';
-  return rows.filter((o) => {
-    if (dc === 'pickup') return false; // 商品单恒快递；选「自提」全排除、选「快递」放行继续下探
-    if (f.dateRange && !withinDate(o.placedAt || '', f.dateRange, now)) return false;
+    if (dv === 'pickup') return false; // 商品单恒快递：选「自提」全排除、选「快递」放行继续下探
+    if (!inTimeWindow(o.placedAt, f.time, now)) return false;
+    if (f.states?.length && !f.states.includes(o.state)) return false;
     if (!k) return true;
     const prodNames = (o.items || []).map((it) => `${it.productName || ''} ${it.variantName || ''}`).join(' ');
     return [o.code, o.customerName, prodNames].some((v) => (v || '').toLowerCase().includes(k));
