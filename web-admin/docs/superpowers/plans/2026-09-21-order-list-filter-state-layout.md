@@ -14,6 +14,28 @@
 
 ---
 
+> ### 执行结果（Task 1~9 已全部完成并上线，2026-09-22）
+>
+> 本计划 **已全部执行完毕并部署上线**。下方 Task 1~8 的复选框为事后补勾（勾选状态以本区块为准）。
+>
+> | Task | 内容 | 提交 |
+> |---|---|---|
+> | 1 | 纯函数层 `utils/orderFilter.ts`（时间区间/状态分组/异常类型/filter 组装）+ 22 用例 | `0b2105b` |
+> | 2 | 服务端过滤 API 层（GraphQL 变量化 + 单次多别名计数） | `e8c9861` |
+> | 3 | 双语言包补齐（zh-Hans / en） | `a65e3eb` |
+> | 4 | 筛选条组件重做（时间胶囊 + 自定义区间 + 配送胶囊） | `86bb81d` |
+> | 5 | 状态 tab 重做（分组折叠 + 16 状态全枚举 + 异常组 + 分组计数） | `406d74f` |
+> | 6 | 统计卡语义修正 + 行组件三变体 | `2680f4d` |
+> | 7 | 三版式结构性重做（卡片信息流/状态看板/高密度清单） | `8c1b269` |
+> | 8 | 页面筛选状态机与请求编排（服务端过滤 + 竞态防护） | `41082fa` |
+> | 9 | 回归/部署/截图/手册（详见 Task 9 各 Step） | `434296b` `327041b` `cf39f69` `65198f9` `1725c87` `c61740d` |
+>
+> **执行中发现并修复的两处「计划前提错误」**（详见 Task 9 Step 6.1 / 6.2）：
+> 1. `OrderFilterParameter` **没有** `filterOperator` 字段 —— 原实现在多条件时把它写进 `filter` 内部，导致**任意两个条件叠加即整体报错、列表空白**，正是用户反馈①「搜索过滤不稳定、特定环境无结果」的真身。已移除该字段（AND 由 `OrderListOptions` 默认值提供）。
+> 2. 时间条件原用 `orderPlacedAt`，而「加购中/待付款」等**未下单**的单该字段为 `null`，会被整体排除 —— 用户反馈②「订单状态不全、今日订单为空」的第二根因。已改为 `createdAt`。
+>
+> **交付证据**：单测 `orderFilter` 22 通过 + `orderListConfig` 5 通过；`npx tsc --noEmit` 仅 7 条历史错误（无新增）；线上只读探针 10 项 0 失败；9 张手机（390×844 dpr=2）/桌面（1440×900）截图；操作手册第 14 章；已 `node scripts/deploy.mjs` 部署上线（38030 KB，nginx test successful）。
+
 ## Task 1: 纯函数层 `utils/orderFilter.ts`（时间区间 / 状态分组 / 异常类型 / filter 组装）
 
 **Files:**
@@ -22,7 +44,7 @@
 
 这一层是本次唯一新增的独立单元：无副作用、无网络、可单测，页面与 API 层都依赖它。
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 创建 `src/utils/orderFilter.test.ts`（项目未装 `@types/node`，沿用 `orderListConfig.test.ts` 的 `// @ts-nocheck` 约定）：
 
@@ -178,12 +200,12 @@ describe('常量完整性', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx tsx --test src/utils/orderFilter.test.ts`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: FAIL —— `Cannot find module './orderFilter'`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 创建 `src/utils/orderFilter.ts`：
 
@@ -359,12 +381,12 @@ export function buildOrderFilter(input: OrderFilterInput = {}, now = new Date())
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx tsx --test src/utils/orderFilter.test.ts`
 Expected: PASS（全部用例通过，含常量完整性 4 条）
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/utils/orderFilter.ts src/utils/orderFilter.test.ts
@@ -381,7 +403,7 @@ git commit -m "feat(web-admin): 订单列表筛选纯函数层（时间区间/�
 
 修 R2（keyword 未下推）、R5（state 字符串内插）、R9（统计与 scope 不一致的取数手段）。
 
-- [ ] **Step 1: 用只读探针复核 filter 真实可用（写实现前的前置校验）**
+- [x] **Step 1: 用只读探针复核 filter 真实可用（写实现前的前置校验）**
 
 创建 `_e2e/_probe_order_filter.py`（只执行 `orders` 查询，不写任何数据）：
 
@@ -470,7 +492,7 @@ Expected & 判定：
     并在 Task 1 的用例中把 `{ eq: 'delivery' }` 断言同步改为 `{ notIn: ['pickup'] }`。
 - `售后 in 集合` 的数值记下来（用于 Task 7 的待退款口径复核）。
 
-- [ ] **Step 2: 改写 `fetchOrders` 并新增 `fetchOrderCounts`**
+- [x] **Step 2: 改写 `fetchOrders` 并新增 `fetchOrderCounts`**
 
 把 `src/apis/order.ts` 中 `export interface OrderListOptions {...}` 与 `export async function fetchOrders(...)` 整段替换为：
 
@@ -524,12 +546,12 @@ export async function fetchOrderCounts(filters: Array<Record<string, any> | null
 }
 ```
 
-- [ ] **Step 3: 类型检查（改动文件无新增错误）**
+- [x] **Step 3: 类型检查（改动文件无新增错误）**
 
 Run: `npx tsc --noEmit`
 Expected: 只有页面里调用旧签名 `fetchOrders({ take, skip, state })` 报 `state` 不存在（Task 4 会改页面）。**不允许**出现 `order.ts` 自身的错误。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/apis/order.ts _e2e/_probe_order_filter.py
@@ -546,7 +568,7 @@ git commit -m "feat(web-admin): 订单列表查询改为 GraphQL 变量化服务
 
 新增键先落盘，Task 4-8 的组件才能引用（缺键会渲染成 key 字符串）。
 
-- [ ] **Step 1: 在 `orderAdmin.orderList` 下补时间文案**
+- [x] **Step 1: 在 `orderAdmin.orderList` 下补时间文案**
 
 `src/locale/zh-Hans.json`：在 `"date7d": "近7天",` 之后插入两行（保留既有 `date30d` 不动）：
 
@@ -566,7 +588,7 @@ git commit -m "feat(web-admin): 订单列表查询改为 GraphQL 变量化服务
       "timeTo": "To",
 ```
 
-- [ ] **Step 2: 在 `orderListComp` 下补分组/异常/报错文案，并修正搜索占位**
+- [x] **Step 2: 在 `orderListComp` 下补分组/异常/报错文案，并修正搜索占位**
 
 `src/locale/zh-Hans.json` 的 `orderListComp`（把 `"searchPlaceholder"` 改为四项口径，并在 `"head"` 之后插入三个新块）：
 
@@ -630,12 +652,12 @@ git commit -m "feat(web-admin): 订单列表查询改为 GraphQL 变量化服务
     "loadFailed": "Load failed",
 ```
 
-- [ ] **Step 3: 校验 JSON 合法**
+- [x] **Step 3: 校验 JSON 合法**
 
 Run: `node -e "for(const f of ['src/locale/zh-Hans.json','src/locale/en.json']){const j=require('./'+f);console.log(f,Object.keys(j).length, j.orderListComp.tabs.groupException, j.orderListComp.exception.damaged)}"`
 Expected: 打印两行，含 `异常 破损` 与 `Exceptions Damaged`
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/locale/zh-Hans.json src/locale/en.json
@@ -653,7 +675,7 @@ git commit -m "feat(web-admin): 订单列表筛选/状态分组/异常类型双�
 
 修 R7 的 UI 侧（「今日」变成可点的时间维度）、R11（时间条件真正可下推）。把原来的 `picker` 下拉改为胶囊按钮（手机端少一次点击、状态可见），新增自定义区间。
 
-- [ ] **Step 1: 重写组件**
+- [x] **Step 1: 重写组件**
 
 `src/components/order-list/OrderListFilters.vue` 全文替换为：
 
@@ -777,12 +799,12 @@ function onTo(e: any) {
 </style>
 ```
 
-- [ ] **Step 2: 静态自查**
+- [x] **Step 2: 静态自查**
 
 Run: `Grep -n "delivery-idx|date-idx|deliveryOpts|dateOpts" src/components/order-list/OrderListFilters.vue`
 Expected: 无匹配（旧的 picker 下标协议已彻底移除）
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add src/components/order-list/OrderListFilters.vue
@@ -798,7 +820,7 @@ git commit -m "feat(web-admin): 订单筛选条改为时间/配送胶囊 + 自�
 
 修 R6（多状态 tab 被降级为单状态：现在每个 chip 都带完整的 `states` 数组）、R10（tab 未覆盖全枚举）、以及异常组按 `exceptionType` 过滤的入口。tab 定义（含 `states` / `exceptionOnly` / `exceptionType` / `afterSales`）由页面构造后传入，组件只负责渲染与折叠。
 
-- [ ] **Step 1: 重写组件**
+- [x] **Step 1: 重写组件**
 
 `src/components/order-list/OrderListTabs.vue` 全文替换为：
 
@@ -913,12 +935,12 @@ watch(curGroupKey, (k) => {
 </style>
 ```
 
-- [ ] **Step 2: 静态自查**
+- [x] **Step 2: 静态自查**
 
 Run: `Grep -n "ORDER_LIST_LAYOUTS|stateColumnFirst|props.layout" src/components/order-list/OrderListTabs.vue`
 Expected: 无匹配（tab 顺序不再由版式决定；`stateColumnFirst` 语义已随 Task 7 的版式重做删除）
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add src/components/order-list/OrderListTabs.vue
@@ -936,7 +958,7 @@ git commit -m "feat(web-admin): 订单状态 tab 改为分组折叠 + 全枚举 
 
 修 R7（今日卡传 `''` 等于全部）、R8（待退款卡筛的是 Cancelled，改为售后未了结）、R12/R13（三版式结构差异被字段覆盖抹平）。
 
-- [ ] **Step 1: 修 `OrderListHeadBar.vue` 的 stat-tap 语义**
+- [x] **Step 1: 修 `OrderListHeadBar.vue` 的 stat-tap 语义**
 
 `<template>` 中 `.stats` 四个 `.stat` 的 `@tap` 全部替换为语义键（`today` / `unpaid` / `toShip` / `refund`）：
 
@@ -970,7 +992,7 @@ const emit = defineEmits<{
 }>();
 ```
 
-- [ ] **Step 2: 重写 `OrderListCardRow.vue`（手机端三变体）**
+- [x] **Step 2: 重写 `OrderListCardRow.vue`（手机端三变体）**
 
 全文替换为：
 
@@ -1208,7 +1230,7 @@ function copyCode(code: string) {
 </style>
 ```
 
-- [ ] **Step 3: 重写 `OrderListTableRow.vue`（桌面端两变体）**
+- [x] **Step 3: 重写 `OrderListTableRow.vue`（桌面端两变体）**
 
 全文替换为：
 
@@ -1418,12 +1440,12 @@ function copyCode(code: string) {
 </style>
 ```
 
-- [ ] **Step 4: 静态自查**
+- [x] **Step 4: 静态自查**
 
 Run: `Grep -n "stateColumnFirst|groupByState" src/components/order-list/`
 Expected: 无匹配（两个字段的语义已由 `variant` 取代；`orderListLayouts.ts` 里的定义在 Task 7 一并删除）
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/components/order-list/OrderListHeadBar.vue src/components/order-list/OrderListCardRow.vue src/components/order-list/OrderListTableRow.vue
@@ -1440,7 +1462,7 @@ git commit -m "feat(web-admin): 订单统计卡语义修正 + 行组件三变体
 
 **键位契约（Task 8 必须满足）**：桌面 B 版式左侧导航点击时 emit `'g:' + 分组 key`，因此**每个分组的「全部」chip 的 key 必须恰好是 `g:<groupKey>`**（`g:pending` / `g:active` / `g:done` / `g:cancelled` / `g:exception` / `g:afterSales`）。缺失会导致导航点了没反应。
 
-- [ ] **Step 1: 重写 `src/constants/orderListLayouts.ts`**
+- [x] **Step 1: 重写 `src/constants/orderListLayouts.ts`**
 
 全文替换为：
 
@@ -1506,7 +1528,7 @@ export const DEFAULT_LAYOUT: OrderListLayoutKey = 'classic';
 export const LAYOUT_KEYS = Object.keys(ORDER_LIST_LAYOUTS) as OrderListLayoutKey[];
 ```
 
-- [ ] **Step 2: 重写 `src/components/order-list/OrderListRenderer.vue`**
+- [x] **Step 2: 重写 `src/components/order-list/OrderListRenderer.vue`**
 
 全文替换为：
 
@@ -1839,17 +1861,17 @@ const grouped = computed(() => {
 </style>
 ```
 
-- [ ] **Step 3: 静态自查**
+- [x] **Step 3: 静态自查**
 
 Run: `Grep -n "groupByState|stateColumnFirst|deliveryIdx|dateIdx|deliveryOpts|dateOpts|deliveryLabel|dateLabel" src/`
 Expected: 无匹配（旧版式字段与旧 picker 下标协议全部清除）
 
-- [ ] **Step 4: 类型检查（中间态允许报页面错误）**
+- [x] **Step 4: 类型检查（中间态允许报页面错误）**
 
 Run: `npx tsc --noEmit`
 Expected: 仅 `src/pages/order/list/index.vue` 报旧 props/事件不匹配（Task 8 修复）；**不允许** `orderListLayouts.ts`、`OrderListRenderer.vue`、`OrderListCardRow.vue`、`OrderListTableRow.vue`、`OrderListTabs.vue`、`OrderListFilters.vue` 自身报错。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/constants/orderListLayouts.ts src/components/order-list/OrderListRenderer.vue
@@ -1873,7 +1895,7 @@ git commit -m "feat(web-admin): 订单列表三版式结构性重做（卡片信
 4. 渠道 scope 的 `totalItems` 直接用服务端返回值；仅保留既有的「幽灵单（0 件 0 元）不渲染」过滤。
 5. 商品单 scope（`myShopOrders` 全量）保留本地过滤，但**异常组/售后组无对应口径 → 返回空结果**（并在切 scope 时把 `cur` 置回「全部」）。
 
-- [ ] **Step 1: 清理 `src/utils/orderFormat.ts`**
+- [x] **Step 1: 清理 `src/utils/orderFormat.ts`**
 
 在文件顶部 import 区加入（`orderFilter` 不反向依赖 `orderFormat`，无循环引用）：
 
@@ -1916,7 +1938,7 @@ export function filterShopRows(rows: ShopOrderRow[], f: ShopLocalFilter = {}, no
 }
 ```
 
-- [ ] **Step 2: 重写 `src/pages/order/list/index.vue`**
+- [x] **Step 2: 重写 `src/pages/order/list/index.vue`**
 
 模板部分只替换 `<script>` 块与 `OrderListRenderer` 的属性/事件绑定（`.layout-bar`、版式弹层与样式块保持原样）。`<template>` 中渲染器标签替换为：
 
@@ -2332,12 +2354,12 @@ onPullDownRefresh(async () => {
 onReachBottom(loadMore);
 ```
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run: `npx tsc --noEmit`
 Expected: **0 error**（Task 4-7 的中间态错误在此步清零）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/utils/orderFormat.ts src/pages/order/list/index.vue
