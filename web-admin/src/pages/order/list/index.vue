@@ -295,7 +295,9 @@ async function loadMore() {
 async function loadCounts() {
   const b = baseInput();
   const filters = [
-    buildOrderFilter({ time: timeInput() }),
+    // 今日卡 = 固定「当日」口径（不带状态/关键词，也不随当前时间胶囊漂移）；
+    // 用 timeInput() 会让默认态（未选时间）退化成全量计数，卡片数字与「今日订单」标题不符。
+    buildOrderFilter({ time: { key: 'today' } }),
     buildOrderFilter({ states: UNPAID_STATES }),
     buildOrderFilter({ states: TO_SHIP_STATES }),
     buildOrderFilter({ afterSales: AFTER_SALES_OPEN }),
