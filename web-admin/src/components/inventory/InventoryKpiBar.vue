@@ -47,13 +47,14 @@ const money = computed(() => `¥${fenToYuan(props.summary.valueTotal)}`);
 
 <style lang="scss" scoped>
 .kpibar {
-  display: flex;
-  flex-wrap: wrap;
+  /* 用 grid 定 3 列（与 mockup 手机态一致）：flex + calc(33.33% - 16rpx) 在 H5 端
+     因 flex 基准与内容 min-size 交互会被挤成 2 列，实测量得单卡 174px（=半行）。 */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16rpx;
   margin-bottom: 20rpx;
 
   .cell {
-    flex: 1 0 calc(33.33% - 16rpx);
     min-width: 0;
     background: $wa-card;
     border-radius: $wa-radius;
@@ -68,6 +69,14 @@ const money = computed(() => `¥${fenToYuan(props.summary.valueTotal)}`);
 
     &.danger .v { color: $wa-danger; }
     &.warn .v { color: $wa-accent; }
+  }
+}
+
+/* 桌面态：6 卡一行（卡片变宽后单行铺开，避免 3 列时大量留白） */
+@media (min-width: 768px) {
+  .kpibar {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
   }
 }
 </style>
