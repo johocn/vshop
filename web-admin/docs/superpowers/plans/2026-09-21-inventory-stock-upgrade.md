@@ -226,6 +226,29 @@ src/locale/zh-Hans.json / src/locale/en.json                 [修改]
 
 ---
 
+> ### 执行结果（Task 1~10 已全部完成并上线，2026-09-21/22）
+>
+> 本计划 **已全部执行完毕并部署上线**。下方 Task 1~10 的复选框为事后补勾（勾选状态以本区块为准）。
+>
+> | Task | 内容 | 提交 |
+> |---|---|---|
+> | 1 | 后端预警规则实体 + 幂等迁移 + 渠道默认安全库存 | `8d9ed3ce4`（vendure 仓） |
+> | 2 | 后端 `stock-page-math` 纯函数 + `InventoryStockService` 聚合/分桶/排序 | `8d9ed3ce4`（vendure 仓） |
+> | 3 | 后端服务覆盖（预警规则 list/save、单据、流水自建查询） | `8d9ed3ce4`（vendure 仓） |
+> | 4 | 后端编译产物 `lib/` 入库 + 本地探针 | `8d9ed3ce4`（vendure 仓） |
+> | 5 | 前端纯函数 `inventoryFormat.ts` + 单测 | `2ace457`（vshop 仓） |
+> | 6 | 前端 API 层扩展（inventory / stock-doc / channel） | `2ace457`（vshop 仓） |
+> | 7 | 前端三组件（KpiBar / StockCard / FilterBar） | `2ace457`（vshop 仓） |
+> | 8 | 库存主页整页重写 + 采购预填 + 下拉刷新 | `2ace457`（vshop 仓） |
+> | 9 | 新增「预警规则」页 / 「单据中心」页 + 双语文案 | `2ace457`（vshop 仓） |
+> | 10 | 流水页升级 + 回归 / 部署 / 截图 / 操作手册 | `2ace457` `d9614af` `5423eb7`（vshop 仓） |
+>
+> **上线后补充修复（后端）**：`c43649590`（库存读写查询放开租户侧权限）、`537016512`（明细页按当前渠道过滤变体，剔除本店不可售 SKU）、`6e8bc1fa4`（raw 查询别名改用两参 select，修复 PostgreSQL 下货值 / 最近变动 / 单据条数恒为 0）。
+>
+> **实际代码路径与计划文案的差异（重要）**：计划里写的后端路径（`src/entities/…`、`src/utils/…`）是设计期设想，落地时按插件既有目录归位 —— 后端源码实际在 **`packages/cjk-plugin/src/inventory/`**（`inventory-alert-rule.entity.ts` / `alert-rule-math.ts` / `stock-page-math.ts` / `inventory-stock.service.ts` / `inventory-alert-rule.service.ts` / `*.spec.ts`），编译产物在 `packages/cjk-plugin/lib/src/inventory/`（**`lib/` 是 git 跟踪的产物，改动需 build 后连同 src 一起提交**）。
+>
+> **交付证据**：线上只读探针 **18 项 0 失败** + 失败场景探针 **8 项 0 失败**；**12 张**手机截图（390×844 dpr=2）；操作手册**第 13 章**（`#inventory-stock-v2`）；后端 `lib/` 编译产物已入库；前端经 `node scripts/deploy.mjs` 部署上线。
+
 ## Task 1: 后端预警规则实体 + 幂等迁移 + 渠道默认安全库存 + `resolveSafetyStock` 单测
 
 **Files:**
@@ -236,7 +259,7 @@ src/locale/zh-Hans.json / src/locale/en.json                 [修改]
 - Modify: `packages/cjk-plugin/src/inventory/inventory-mode.custom-fields.ts`
 - Modify: `packages/cjk-plugin/src/plugin.ts:153`（`entities` 数组）
 
-- [ ] **Step 1: 写 `inventory-alert-rule.entity.ts`（安全库存规则表）**
+- [x] **Step 1: 写 `inventory-alert-rule.entity.ts`（安全库存规则表）**
 
 创建 `packages/cjk-plugin/src/inventory/inventory-alert-rule.entity.ts`：
 
@@ -278,7 +301,7 @@ export class InventoryAlertRuleEntity {
 }
 ```
 
-- [ ] **Step 2: 写失败测试 `alert-rule-math.spec.ts`**
+- [x] **Step 2: 写失败测试 `alert-rule-math.spec.ts`**
 
 创建 `packages/cjk-plugin/src/inventory/alert-rule-math.spec.ts`（cjk-plugin 用 vitest，`vitest.config.mts` 已 include `src/**/*.spec.ts`；该包**没有**装 tsx，故规格 §5 里的 `npx tsx --test` 在本包不适用）：
 
@@ -340,12 +363,12 @@ describe('resolveSafetyStock（四级回退）', () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 Run: `npm test --prefix packages/cjk-plugin`
 Expected: FAIL —— 报错 `Failed to resolve import "./alert-rule-math"`（文件尚不存在）。
 
-- [ ] **Step 4: 最小实现 `alert-rule-math.ts`**
+- [x] **Step 4: 最小实现 `alert-rule-math.ts`**
 
 创建 `packages/cjk-plugin/src/inventory/alert-rule-math.ts`：
 
@@ -405,12 +428,12 @@ export function resolveSafetyStock(input: {
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过**
+- [x] **Step 5: 跑测试确认通过**
 
 Run: `npm test --prefix packages/cjk-plugin`
 Expected: PASS —— `alert-rule-math.spec.ts` 全部用例通过（9 个 `it`），末尾输出 `Test Files 1 passed`。
 
-- [ ] **Step 6: 迁移追加 `inventory_alert_rule` 幂等建表**
+- [x] **Step 6: 迁移追加 `inventory_alert_rule` 幂等建表**
 
 修改 `packages/cjk-plugin/src/migrations/migrate-stock-tables.ts`，把文件头注释第一段里的「4 张库存表」改成「5 张库存表（含 inventory_alert_rule）」，并在 `StockTableMigration.onApplicationBootstrap()` 里 `for (const stmt of statements)` 之前追加：
 
@@ -435,7 +458,7 @@ Expected: PASS —— `alert-rule-math.spec.ts` 全部用例通过（9 个 `it`�
 
 （`pk` / `pg` / `datetime` / `Q` 都是该方法内已有局部变量，直接复用。）
 
-- [ ] **Step 7: 渠道默认安全库存自定义字段**
+- [x] **Step 7: 渠道默认安全库存自定义字段**
 
 修改 `packages/cjk-plugin/src/inventory/inventory-mode.custom-fields.ts`：把第 1 行的 import 改为同时带入 `LanguageCode`，并在数组末尾追加字段。
 
@@ -457,7 +480,7 @@ import { LanguageCode, type CustomFieldConfig } from '@vendure/core';
     },
 ```
 
-- [ ] **Step 8: plugin.ts 注册实体**
+- [x] **Step 8: plugin.ts 注册实体**
 
 修改 `packages/cjk-plugin/src/plugin.ts`。
 
@@ -473,7 +496,7 @@ import { InventoryAlertRuleEntity } from './inventory/inventory-alert-rule.entit
     entities: [PickupLocation, EmployeeCustomer, ShippingTemplate, ShippingProfile, PaymentProfile, ShippingProfileMethod, PaymentProfileMethod, PaymentTemplate, RoomTemplate, RoomTemplateControl, TenantMember, Wallet, MerchantSettlementLedger, VariantLocationBinding, DeliveryRecord, ReconciliationBatch, ReconciliationOrderLine, StockDocEntity, StockDocItemEntity, InventoryAlertRuleEntity, StockReservationEntity, StockReservationItemEntity],
 ```
 
-- [ ] **Step 9: 类型检查 + 提交**
+- [x] **Step 9: 类型检查 + 提交**
 
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。若报 `Cannot find module 'vitest'`，说明 `vitest` 未安装到该包，先跑 `npm i -D vitest -w @vendure/cjk-plugin`（`vitest.config.mts` 与 `node_modules/.bin/vitest` 显示其已存在，一般不会报）。
@@ -497,7 +520,7 @@ git commit -m "feat(cjk-plugin): 库存预警规则表+四级安全库存回退�
 
 > **先做列名复核（禁止臆测）**：本任务依赖 `stock_level` / `product_variant` / `asset` 的真实列名。若你手上没有最新实测结论，先跑下面的探针，用输出对齐 SQL 里的列名（本地 postgres：127.0.0.1:5432 / user `postgres` / pwd `admin` / db `vendure`，见 `packages/dev-server/.env`）。
 
-- [ ] **Step 0: 列名复核探针（Postgres `information_schema`）**
+- [x] **Step 0: 列名复核探针（Postgres `information_schema`）**
 
 在前端仓库外任意位置（`d:\zhao\vendure` 下）创建临时脚本 `_tmp_probe_inv_cols.mjs`：
 
@@ -551,7 +574,7 @@ preview, id, type, mimeType, source, width, height, fileSize, focalPoint, ...
 
 跑完删除临时脚本：`Remove-Item _tmp_probe_inv_cols.mjs`（PowerShell）。
 
-- [ ] **Step 1: 写失败测试 `stock-page-math.spec.ts`**
+- [x] **Step 1: 写失败测试 `stock-page-math.spec.ts`**
 
 创建 `packages/cjk-plugin/src/inventory/stock-page-math.spec.ts`：
 
@@ -663,12 +686,12 @@ describe('summarizeStock', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npm test --prefix packages/cjk-plugin`
 Expected: FAIL —— `Failed to resolve import "./stock-page-math"`。
 
-- [ ] **Step 3: 最小实现 `stock-page-math.ts`**
+- [x] **Step 3: 最小实现 `stock-page-math.ts`**
 
 创建 `packages/cjk-plugin/src/inventory/stock-page-math.ts`：
 
@@ -816,12 +839,12 @@ export function summarizeStock(rows: StockRowCore[], outbound7d: number): StockS
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test --prefix packages/cjk-plugin`
 Expected: PASS —— `Test Files 2 passed`（`alert-rule-math.spec.ts` + `stock-page-math.spec.ts`）。
 
-- [ ] **Step 5: 写 `InventoryAlertRuleService`（本任务只落**读**部分）**
+- [x] **Step 5: 写 `InventoryAlertRuleService`（本任务只落**读**部分）**
 
 创建 `packages/cjk-plugin/src/inventory/inventory-alert-rule.service.ts`：
 
@@ -869,7 +892,7 @@ export class InventoryAlertRuleService {
 }
 ```
 
-- [ ] **Step 6: 写 `InventoryStockService`（聚合 + 分桶 + 排序 + 分页 + 汇总）**
+- [x] **Step 6: 写 `InventoryStockService`（聚合 + 分桶 + 排序 + 分页 + 汇总）**
 
 创建 `packages/cjk-plugin/src/inventory/inventory-stock.service.ts`：
 
@@ -1172,7 +1195,7 @@ export class InventoryStockService {
 }
 ```
 
-- [ ] **Step 7: 注册到 plugin.ts（SDL + providers）**
+- [x] **Step 7: 注册到 plugin.ts（SDL + providers）**
 
 修改 `packages/cjk-plugin/src/plugin.ts`。
 
@@ -1243,7 +1266,7 @@ import { InventoryStockService } from './inventory/inventory-stock.service';
                 }
 ```
 
-- [ ] **Step 8: resolver 追加 `inventoryStockPage`**
+- [x] **Step 8: resolver 追加 `inventoryStockPage`**
 
 修改 `packages/cjk-plugin/src/inventory/inventory-admin.resolver.ts`：import 区追加服务，构造注入，类内加一个 `@Query()`。
 
@@ -1276,7 +1299,7 @@ import { InventoryStockService, InventoryStockPageInput } from './inventory-stoc
     }
 ```
 
-- [ ] **Step 9: 类型检查 + 提交**
+- [x] **Step 9: 类型检查 + 提交**
 
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。
@@ -1300,7 +1323,7 @@ git commit -m "feat(cjk-plugin): inventoryStockPage 聚合查询（服务端分�
 > **本任务为后端纯增量改造，不涉及前端，故 tsc 必须保持通过**（与 Task 6~9 的「中间态不保证通过」不同）。
 > **只写 `src/`，不提交 `lib/`**：编译产物在 Task 4 统一 `npm run build` 后与 `src` 一起提交。
 
-- [ ] **Step 1: 覆盖 `inventory-alert-rule.service.ts`（补 `list` / `save`）**
+- [x] **Step 1: 覆盖 `inventory-alert-rule.service.ts`（补 `list` / `save`）**
 
 覆盖写入 `packages/cjk-plugin/src/inventory/inventory-alert-rule.service.ts`（完整文件）：
 
@@ -1454,7 +1477,7 @@ export class InventoryAlertRuleService {
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。若报 `Cannot find module './virtual-physical-stock.service'`，说明 Task 2 的文件名拼错，按契约 1.2 修正为 `virtual-physical-stock.service.ts`。
 
-- [ ] **Step 2: 覆盖 `stock-doc.service.ts`（`ledger()` 自建查询 + `listDocs()`，移除 `StockLedgerService` 注入）**
+- [x] **Step 2: 覆盖 `stock-doc.service.ts`（`ledger()` 自建查询 + `listDocs()`，移除 `StockLedgerService` 注入）**
 
 覆盖写入 `packages/cjk-plugin/src/inventory/stock-doc.service.ts`（完整文件；`assertSimple` / `nextCode` / `create` / `applyMovement` 与现状逐字一致，仅新增查询部分与构造签名变化）：
 
@@ -1804,7 +1827,7 @@ export class StockDocService {
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。注意此时 `stock-doc.admin.resolver.ts` 仍在调用旧 `ledger` 签名——新签名是**超集**（多出的返回字段 `summary` 与可选入参），故不报错；若报 `summary does not exist`，说明 Task 3 Step 5 的 SDL 尚未改，属预期中间态，继续 Step 3~5。
 
-- [ ] **Step 3: 覆盖 `stock-doc.admin.resolver.ts`（扩入参 + `stockDocList`）**
+- [x] **Step 3: 覆盖 `stock-doc.admin.resolver.ts`（扩入参 + `stockDocList`）**
 
 覆盖写入 `packages/cjk-plugin/src/inventory/stock-doc.admin.resolver.ts`（完整文件）：
 
@@ -1873,7 +1896,7 @@ export class StockDocAdminResolver {
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。
 
-- [ ] **Step 4: 覆盖 `inventory-admin.resolver.ts`（注入 `InventoryAlertRuleService` + 两个方法）**
+- [x] **Step 4: 覆盖 `inventory-admin.resolver.ts`（注入 `InventoryAlertRuleService` + 两个方法）**
 
 覆盖写入 `packages/cjk-plugin/src/inventory/inventory-admin.resolver.ts`（完整文件；`inventoryStockPage` 为 Task 2 已加，此处保留）：
 
@@ -1984,7 +2007,7 @@ export class InventoryAdminResolver {
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。
 
-- [ ] **Step 5: 改 `plugin.ts`（三处局部改 + Task 2 段尾追加）**
+- [x] **Step 5: 改 `plugin.ts`（三处局部改 + Task 2 段尾追加）**
 
 修改 `packages/cjk-plugin/src/plugin.ts`（**admin SDL 内**，共 4 处；`shopApiExtensions` 侧**完全不动**）。
 
@@ -2080,7 +2103,7 @@ Expected: 无输出（0 error）。
 Run: `npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 无输出（0 error）。
 
-- [ ] **Step 6: 提交 `src`（**不 build，`lib/` 留给 Task 4**）**
+- [x] **Step 6: 提交 `src`（**不 build，`lib/` 留给 Task 4**）**
 
 ```bash
 git add packages/cjk-plugin/src/inventory/inventory-alert-rule.service.ts packages/cjk-plugin/src/inventory/stock-doc.service.ts packages/cjk-plugin/src/inventory/stock-doc.admin.resolver.ts packages/cjk-plugin/src/inventory/inventory-admin.resolver.ts packages/cjk-plugin/src/plugin.ts
@@ -2100,13 +2123,13 @@ Expected: 只有 `lib/**` 未提交（属预期，Task 4 build 后一起提交�
 
 > **硬性事实**：`packages/cjk-plugin/package.json` 的 `main = lib/index.js`，dev-server 的 tsconfig **没有** `@vendure/*` 别名 → **`src` 改动不 build 就不生效**。`lib/` 是 git 跟踪产物（`git status` 会显示 `lib/**` 的 M），故必须「改 src → build → 提交 src + lib」。
 
-- [ ] **Step 1: 编译 cjk-plugin**
+- [x] **Step 1: 编译 cjk-plugin**
 
 Run: `npm run build --prefix packages/cjk-plugin`
 （等价于 `rimraf lib && tsc -p ./tsconfig.build.json && node -e "..."`）
 Expected: 无 tsc 报错；`packages/cjk-plugin/lib/index.js` 与 `lib/src/inventory/inventory-stock.service.js`、`lib/src/inventory/inventory-alert-rule.service.js`、`lib/src/plugin.js` 时间戳更新。
 
-- [ ] **Step 2: 重启本地两个进程（`lib` 无热更新）**
+- [x] **Step 2: 重启本地两个进程（`lib` 无热更新）**
 
 关闭既有终端后重新起（**必须两个都起**，缺 worker 时 `reindex` 等任务永远 `PENDING`）：
 
@@ -2118,7 +2141,7 @@ npm run dev:worker     # 终端 B：job worker（搜索索引/异步任务）
 Run: 浏览器/curl 访问 `http://localhost:3000/admin-api` 返回 GraphQL playground 或 400 JSON。
 Expected: 启动日志无 `Entity metadata for ... was not found`；日志出现 `Vendure server (v3.6.4) now running on port 3000`。
 
-- [ ] **Step 3: 写本地探针 `packages/dev-server/e2e-inventory-stock-page.mjs`**
+- [x] **Step 3: 写本地探针 `packages/dev-server/e2e-inventory-stock-page.mjs`**
 
 创建 `packages/dev-server/e2e-inventory-stock-page.mjs`（完整文件）：
 
@@ -2389,14 +2412,14 @@ main().catch(e => {
 });
 ```
 
-- [ ] **Step 4: 跑探针**
+- [x] **Step 4: 跑探针**
 
 Run: `node e2e-inventory-stock-page.mjs`（cwd = `packages/dev-server`）
 Expected: 逐条 `PASS`，末尾 `结果：PASS=28 FAIL=0`（条数随用例跳过可能略少）。
 若 `TypeError: Cannot query field "inventoryStockPage"`：说明 Step 1/2 未生效（未 build 或未重启 dev:server）。
 若 `summary` 为 `undefined`：说明 Task 3 Step 5 的 SDL 未落到 `lib/`，重新 build + 重启。
 
-- [ ] **Step 5: 提交 `src` + `lib`（编译产物必须入库）**
+- [x] **Step 5: 提交 `src` + `lib`（编译产物必须入库）**
 
 ```bash
 git add packages/cjk-plugin/src packages/cjk-plugin/lib packages/dev-server/e2e-inventory-stock-page.mjs
@@ -2420,7 +2443,7 @@ Expected: 无 `packages/cjk-plugin` 相关未提交项。
 > 项目**未装 vitest**，纯函数单测沿用既有范式：`node:test` + `// @ts-nocheck` + `npx tsx --test`（`npx` 首次会临时下载 tsx，需网络）。
 > 类型检查沿用 Plan 1 约定：cwd = `d:\zhao\vshop\web-admin`，`npx tsc --noEmit`。
 
-- [ ] **Step 1: 写失败测试 `src/utils/inventoryFormat.test.ts`**
+- [x] **Step 1: 写失败测试 `src/utils/inventoryFormat.test.ts`**
 
 创建 `src/utils/inventoryFormat.test.ts`（完整文件）：
 
@@ -2560,12 +2583,12 @@ describe('formatDateTime / dayKey', () => {
 Run: `npx tsx --test src/utils/inventoryFormat.test.ts`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: FAIL —— `Cannot find module './inventoryFormat'`（文件尚不存在）。
 
-- [ ] **Step 2: 跑测试确认失败（红）**
+- [x] **Step 2: 跑测试确认失败（红）**
 
 Run: `npx tsx --test src/utils/inventoryFormat.test.ts`
 Expected: 非 0 退出码，报 `Cannot find module` 或 `Failed to resolve`。
 
-- [ ] **Step 3: 最小实现 `src/utils/inventoryFormat.ts`**
+- [x] **Step 3: 最小实现 `src/utils/inventoryFormat.ts`**
 
 创建 `src/utils/inventoryFormat.ts`（完整文件）：
 
@@ -2666,12 +2689,12 @@ export function dayKey(iso: string | null | undefined): string {
 Run: `npx tsx --test src/utils/inventoryFormat.test.ts`
 Expected: 仍可先看是否遗漏——本步只写实现，不要求通过（下一步验证）。
 
-- [ ] **Step 4: 跑测试确认通过（绿）**
+- [x] **Step 4: 跑测试确认通过（绿）**
 
 Run: `npx tsx --test src/utils/inventoryFormat.test.ts`
 Expected: `# pass 21`（或更多）且 `# fail 0`，退出码 0。
 
-- [ ] **Step 5: 提交纯函数 + 单测**
+- [x] **Step 5: 提交纯函数 + 单测**
 
 ```bash
 git add src/utils/inventoryFormat.ts src/utils/inventoryFormat.test.ts
@@ -2681,7 +2704,7 @@ git commit -m "feat(web-admin): 库存页面纯函数（金额/时间格式化 +
 Run: `git status --short src/utils`
 Expected: 无未提交项。
 
-- [ ] **Step 6: 扩展 `src/apis/inventory.ts`**
+- [x] **Step 6: 扩展 `src/apis/inventory.ts`**
 
 在 `src/apis/inventory.ts` **文件末尾追加**（import 行不变，已含 `getAdminClient`/`graphQlErrorMsg`）：
 
@@ -2814,7 +2837,7 @@ export async function saveInventoryAlertRules(
 Run: `npx tsc --noEmit`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 报告中**不得**出现 `src/apis/inventory.ts` 的错误。
 
-- [ ] **Step 7: 扩展 `src/apis/stock-doc.ts`（单据中心 + 流水多条件/汇总）**
+- [x] **Step 7: 扩展 `src/apis/stock-doc.ts`（单据中心 + 流水多条件/汇总）**
 
 把 `src/apis/stock-doc.ts` 的 `MovementQueryParams` 与 `fetchMovements` **整体替换**为下面版本，并在文件末尾追加单据中心：
 
@@ -2905,7 +2928,7 @@ export async function fetchStockDocList(
 Run: `npx tsc --noEmit`
 Expected: 报告中**不得**出现 `src/apis/stock-doc.ts` 的错误；`src/pages/inventory/movements/index.vue` 若因 `fetchMovements` 出参多了 `summary` 而无报错（解构式调用不受影响）——Task 9 会重写该页。
 
-- [ ] **Step 8: 扩展 `src/apis/channel.ts`（渠道默认安全库存）**
+- [x] **Step 8: 扩展 `src/apis/channel.ts`（渠道默认安全库存）**
 
 两处修改：
 
@@ -2927,7 +2950,7 @@ Expected: 报告中**不得**出现 `src/apis/stock-doc.ts` 的错误；`src/pag
 Run: `npx tsc --noEmit`
 Expected: 报告中**不得**出现 `src/apis/channel.ts` 的错误。
 
-- [ ] **Step 9: 提交 api 层**
+- [x] **Step 9: 提交 api 层**
 
 ```bash
 git add src/apis/inventory.ts src/apis/stock-doc.ts src/apis/channel.ts
@@ -2949,7 +2972,7 @@ Expected: 无未提交项。
 > **⚠️ 破坏性连续改造开始（Task 6~9）**：本任务新建组件后，Task 7 才把主页接上；期间 `npx tsc --noEmit` / `npm run build:h5` **不保证通过**，**中间态不以类型检查为准**，统一到 **Task 10** 做全量类型检查与构建。
 > 组件命名遵循 uni-app 自动注册约定（`components/inventory/InventoryKpiBar.vue` → 模板里用 `InventoryKpiBar`）；组件内文案一律 `useLocaleStore().t(...)`（脚本）与 `$t(...)`（模板），**不自建 i18n**。
 
-- [ ] **Step 1: `InventoryKpiBar.vue`（概览 6 卡）**
+- [x] **Step 1: `InventoryKpiBar.vue`（概览 6 卡）**
 
 创建 `src/components/inventory/InventoryKpiBar.vue`（完整文件）：
 
@@ -3032,7 +3055,7 @@ const money = computed(() => `¥${fenToYuan(props.summary.valueTotal)}`);
 Run: `npx tsc --noEmit`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 中间态——本文件自身不得报错；`inventoryStock.kpi.*` 文案键在 Task 8 补齐，此时运行期会显示 key 本身（属预期）。
 
-- [ ] **Step 2: `InventoryStockCard.vue`（明细卡片 + 行内操作 + 勾选）**
+- [x] **Step 2: `InventoryStockCard.vue`（明细卡片 + 行内操作 + 勾选）**
 
 创建 `src/components/inventory/InventoryStockCard.vue`（完整文件）：
 
@@ -3164,7 +3187,7 @@ const lastMove = computed(() => {
 Run: `npx tsc --noEmit`
 Expected: 中间态——本文件自身不得报错。
 
-- [ ] **Step 3: `InventoryFilterBar.vue`（仓库胶囊 + 搜索 + 排序 + 分桶 tabs）**
+- [x] **Step 3: `InventoryFilterBar.vue`（仓库胶囊 + 搜索 + 排序 + 分桶 tabs）**
 
 创建 `src/components/inventory/InventoryFilterBar.vue`（完整文件）：
 
@@ -3320,7 +3343,7 @@ function onClear() {
 Run: `npx tsc --noEmit`
 Expected: 中间态——本文件自身不得报错。
 
-- [ ] **Step 4: 提交组件**
+- [x] **Step 4: 提交组件**
 
 ```bash
 git add src/components/inventory
@@ -3345,7 +3368,7 @@ Expected: 无未提交项。
 
 > **为什么移除 `BottomBar`**：设计定稿 mockup（`mockups/inventory-v2/index.html`）本页无底部导航栏，入口由「快捷宫格 8 项」承担；且页面底部需常驻「批量条」，与固定底栏叠加会互相遮挡。桌面态沿用本项目既有响应式约定（`@media (min-width: 768px)` 调整容器留白），明细区在桌面用「同一张明细卡片的 2 列网格」——该卡片已承载 mockup 表格的全部 11 列信息（商品/SKU/仓库/现存/占用/可用/安全库存/货值/最近变动/状态/操作），**不额外维护第二套表格模板**以避免双模板漂移。
 
-- [ ] **Step 1: 整页重写 `src/pages/inventory/stock/index.vue`**
+- [x] **Step 1: 整页重写 `src/pages/inventory/stock/index.vue`**
 
 把 `src/pages/inventory/stock/index.vue` **整体替换**为（完整文件）：
 
@@ -3954,7 +3977,7 @@ onReachBottom(loadMore);
 Run: `npx tsc --noEmit`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 中间态——本文件不得报类型错误（`inventoryStock.*` 文案键在 Task 8 才补齐，运行期会回显 key 本身，属预期）。
 
-- [ ] **Step 2: `purchase/index.vue` 支持 `onLoad` 参数预填（`variantId` / `qty` / `locationId`）**
+- [x] **Step 2: `purchase/index.vue` 支持 `onLoad` 参数预填（`variantId` / `qty` / `locationId`）**
 
 在 `src/pages/inventory/stock-doc/purchase/index.vue` 做两处修改：
 
@@ -3991,7 +4014,7 @@ onLoad(async (q: any) => {
 Run: `npx tsc --noEmit`
 Expected: 中间态——本文件不得报类型错误。
 
-- [ ] **Step 3: `src/pages.json` 给库存主页开启下拉刷新**
+- [x] **Step 3: `src/pages.json` 给库存主页开启下拉刷新**
 
 把第 28 行：
 
@@ -4008,7 +4031,7 @@ Expected: 中间态——本文件不得报类型错误。
 Run: `node -e "JSON.parse(require('fs').readFileSync('src/pages.json','utf8')); console.log('pages.json OK')"`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 输出 `pages.json OK`（JSON 合法；`pages` 数组条数不变）。
 
-- [ ] **Step 4: 提交主页重做**
+- [x] **Step 4: 提交主页重做**
 
 ```bash
 git add src/pages/inventory/stock/index.vue src/pages/inventory/stock-doc/purchase/index.vue src/pages.json
@@ -4028,7 +4051,7 @@ Expected: 无未提交项。
 
 **契约对照：** i18n 键严格按 1.5（`inventoryAlertRules.*` / `stockDocCenter.*` / `inventoryStock.*` / `inventoryMovements.*` / `stockDocPurchase.prefilled`）；路由按 1.6。**`inventoryStock.empty` 由字符串改为对象**（旧字符串仅被本 Plan 重写的旧主页引用，已无消费方）。
 
-- [ ] **Step 1: `src/pages/inventory/alert-rules/index.vue`（预警规则页）**
+- [x] **Step 1: `src/pages/inventory/alert-rules/index.vue`（预警规则页）**
 
 创建 `src/pages/inventory/alert-rules/index.vue`（完整文件）：
 
@@ -4349,7 +4372,7 @@ onReachBottom(loadMore);
 Run: `npx tsc --noEmit`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 中间态——本文件不得报类型错误。
 
-- [ ] **Step 2: `src/pages/inventory/stock-doc/index.vue`（单据中心）**
+- [x] **Step 2: `src/pages/inventory/stock-doc/index.vue`（单据中心）**
 
 创建 `src/pages/inventory/stock-doc/index.vue`（完整文件）：
 
@@ -4513,7 +4536,7 @@ onReachBottom(loadMore);
 Run: `npx tsc --noEmit`
 Expected: 中间态——本文件不得报类型错误。
 
-- [ ] **Step 3: `src/pages.json` 新增 2 条路由**
+- [x] **Step 3: `src/pages.json` 新增 2 条路由**
 
 把第 33 行：
 
@@ -4535,7 +4558,7 @@ Expected: 中间态——本文件不得报类型错误。
 Run: `node -e "const p=JSON.parse(require('fs').readFileSync('src/pages.json','utf8'));console.log('pages',p.pages.length, p.pages.filter(x=>x.path.startsWith('pages/inventory/')).map(x=>x.path).join(','))"`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: `pages 57` 且 inventory 路由包含 `pages/inventory/stock/index,pages/inventory/stock-doc/purchase/index,pages/inventory/stock-doc/transfer/index,pages/inventory/stock-doc/stocktake/index,pages/inventory/stock-doc/issue/index,pages/inventory/movements/index,pages/inventory/alert-rules/index,pages/inventory/stock-doc/index,pages/inventory/locations/index,pages/inventory/locations/edit`（原 55 条 + 2 条 = 57）。
 
-- [ ] **Step 4: `src/locale/zh-Hans.json` 文案（inventoryStock 重写分组 + 新增两组）**
+- [x] **Step 4: `src/locale/zh-Hans.json` 文案（inventoryStock 重写分组 + 新增两组）**
 
 把第 909–926 行整段（`"inventoryStock": { ... },`）替换为下面内容（含新增的 `inventoryAlertRules` / `stockDocCenter` 两组，紧跟 `inventoryStock` 之后）：
 
@@ -4705,7 +4728,7 @@ Expected: `pages 57` 且 inventory 路由包含 `pages/inventory/stock/index,pag
 Run: `node -e "const j=JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8'));console.log(Object.keys(j.inventoryStock.kpi).length, Object.keys(j.inventoryAlertRules).length, Object.keys(j.stockDocCenter).length)"`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: `12 20 14`（`kpi` 12 键 / `inventoryAlertRules` 20 键 / `stockDocCenter` 14 键），且无 JSON 解析异常。
 
-- [ ] **Step 5: `src/locale/zh-Hans.json` 扩展 `inventoryMovements` + 追加 `stockDocPurchase.prefilled`**
+- [x] **Step 5: `src/locale/zh-Hans.json` 扩展 `inventoryMovements` + 追加 `stockDocPurchase.prefilled`**
 
 (a) 把第 996–999 行整段替换为：
 
@@ -4740,7 +4763,7 @@ Expected: `12 20 14`（`kpi` 12 键 / `inventoryAlertRules` 20 键 / `stockDocCe
 Run: `node -e "const j=JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8'));console.log(Object.keys(j.inventoryMovements).length, j.stockDocPurchase.prefilled)"`
 Expected: `16 已按所选商品预填，核对后提交`。
 
-- [ ] **Step 6: `src/locale/en.json` 同步（键序必须与 zh-Hans 完全平行）**
+- [x] **Step 6: `src/locale/en.json` 同步（键序必须与 zh-Hans 完全平行）**
 
 (a) 把第 909–926 行整段替换为：
 
@@ -4940,7 +4963,7 @@ Expected: `16 已按所选商品预填，核对后提交`。
 Run: `node -e "const a=JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8'));const b=JSON.parse(require('fs').readFileSync('src/locale/en.json','utf8'));const k=o=>Object.keys(o);const same=(p)=>{const A=JSON.stringify(k(a[p])),B=JSON.stringify(k(b[p]));console.log(p, A===B?'KEYS-OK':'KEYS-MISMATCH');};['inventoryStock','inventoryAlertRules','stockDocCenter','inventoryMovements','stockDocPurchase'].forEach(same);const sub=(p)=>{const A=JSON.stringify(k(a.inventoryStock[p])),B=JSON.stringify(k(b.inventoryStock[p]));console.log('inventoryStock.'+p, A===B?'KEYS-OK':'KEYS-MISMATCH');};['kpi','sort','bucket','quick','card','num','move','bulk','adjust','safety','empty'].forEach(sub);"`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 全部输出 `KEYS-OK`（中英键序平行，无 `KEYS-MISMATCH`）。
 
-- [ ] **Step 7: 提交页面与文案**
+- [x] **Step 7: 提交页面与文案**
 
 ```bash
 git add src/pages/inventory/alert-rules src/pages/inventory/stock-doc/index.vue src/pages.json src/locale/zh-Hans.json src/locale/en.json
@@ -4963,7 +4986,7 @@ Expected: 无未提交项。
 - 纯函数：`dayKey`、`formatDateTime`、`dirKey`、`bizTypeKey`（1.2/1.3）
 - 入口参数：`?productVariantId=`（1.6）
 
-- [ ] **Step 1: 整页重写 `src/pages/inventory/movements/index.vue`**
+- [x] **Step 1: 整页重写 `src/pages/inventory/movements/index.vue`**
 
 把 `src/pages/inventory/movements/index.vue` **整体替换**为（完整文件）：
 
@@ -5247,7 +5270,7 @@ onReachBottom(loadMore);
 Run: `npx tsc --noEmit`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 报告中**不得**出现 `src/pages/inventory/movements/index.vue` 的错误（`res.summary` 已由 Task 5 的 `fetchMovements` 返回）。
 
-- [ ] **Step 2: 提交流水页升级**
+- [x] **Step 2: 提交流水页升级**
 
 ```bash
 git add src/pages/inventory/movements/index.vue
@@ -5273,7 +5296,7 @@ Expected: 无未提交项。
 
 ---
 
-- [ ] **Step 1: 后端单测与编译产物复核**
+- [x] **Step 1: 后端单测与编译产物复核**
 
 Run:
 ```bash
@@ -5291,7 +5314,7 @@ npm run build --prefix packages/cjk-plugin
 
 Expected: `rimraf lib && tsc -p tsconfig.build.json` 成功；`git status --short packages/cjk-plugin/lib` 输出若干 `M`（`lib/` 是 **git 跟踪产物**，必须一并提交）。
 
-- [ ] **Step 2: 前端全量类型检查（解除 Task 6~9 中间态）**
+- [x] **Step 2: 前端全量类型检查（解除 Task 6~9 中间态）**
 
 Run:
 ```bash
@@ -5309,7 +5332,7 @@ git stash pop
 
 若 stash 后仍报同样的错 → 基线问题，记录并在后续单独处理；若 stash 后不再报错 → 属本计划引入，必须在本 Step 修掉再继续。
 
-- [ ] **Step 3: 前端纯函数单测**
+- [x] **Step 3: 前端纯函数单测**
 
 Run:
 ```bash
@@ -5319,7 +5342,7 @@ npx tsx --test src/utils/inventoryFormat.test.ts
 
 Expected: 全 PASS（21+ 断言，覆盖 `fenToYuan`/`moneyLabel`/`suggestQty`/`parseQtyInput`/`bucketKey`/`dirKey`/`bizTypeKey`/`sortKey`/`formatDateTime`/`dayKey`）。
 
-- [ ] **Step 4: 前端本地构建**
+- [x] **Step 4: 前端本地构建**
 
 Run:
 ```bash
@@ -5329,7 +5352,7 @@ npm run build:h5
 
 Expected: 构建成功，产物更新到 `dist/build/h5`（含 `index.html` 与新页面 chunk）。若报 Sass 变量未定义，检查是否漏引 `$wa-*`（本项目 `$wa-*` 由全局样式注入，页面/组件 scoped 块直接可用，无需 import）。
 
-- [ ] **Step 5: 提交源码与产物（后端、前端分别提交）**
+- [x] **Step 5: 提交源码与产物（后端、前端分别提交）**
 
 后端（cwd = `d:\zhao\vendure`）：
 
@@ -5348,7 +5371,7 @@ git commit -m "feat(web-admin): 库存与预警页面 v2（概览/服务端筛�
 Run: `git status --short`
 Expected: 两端均无未提交项（`dist/` 若被 gitignore 忽略则不在列表内，属正常）。
 
-- [ ] **Step 6: 部署后端（服务器只拉取 + 重启，不在服务器构建）**
+- [x] **Step 6: 部署后端（服务器只拉取 + 重启，不在服务器构建）**
 
 在服务器（与 `scripts/deploy.mjs` 中的目标主机同一台）执行：
 
@@ -5374,7 +5397,7 @@ curl -s -X POST http://localhost:3000/admin-api \
 
 Expected: 三个名字全部出现。缺哪个，说明 `adminApiExtensions` 的 SDL 漏写（见 Task 2 Step 9 / Task 3 Step 6）。
 
-- [ ] **Step 7: 部署前端（本地构建产物 → 服务器解压）**
+- [x] **Step 7: 部署前端（本地构建产物 → 服务器解压）**
 
 Run:
 ```bash
