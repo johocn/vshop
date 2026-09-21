@@ -86,6 +86,12 @@ export const templateApi = {
       throw new Error(graphQlErrorMsg(e, '模板复制失败'));
     }
   },
+  async palettePresets(): Promise<Record<string, { scheme: string; name: string; tokens: Record<string, any> }>> {
+    const r = await getAdminClient().request<{ palettePresets: Record<string, { scheme: string; name: string; tokens: Record<string, any> }> }>(
+      `query { palettePresets }`,
+    );
+    return r.palettePresets ?? {};
+  },
   async globalConfig(app: string): Promise<ShopGlobalConfig | null> {
     const c = getAdminClient();
     try {

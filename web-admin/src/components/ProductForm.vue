@@ -70,6 +70,14 @@
             <text class="val">{{ spName }}</text>
           </view>
         </picker>
+        <view class="wa-cell">
+          <text class="wa-lbl">{{ $t('productForm.deliveryDerived') }}</text>
+          <text class="wa-readonly">{{ derivedText }}</text>
+        </view>
+        <view class="wa-cell link" @tap="goShippingProfile">
+          <text class="wa-lbl">{{ $t('productForm.deliveryGotoProfile') }}</text>
+          <text class="wa-arrow">›</text>
+        </view>
         <picker mode="selector" :range="ppNames" @change="onPpChange">
           <view class="cell row-in">
             <text class="lbl">{{ locale.t('productForm.paymentProfile') }}</text>
@@ -137,6 +145,7 @@ import { fetchShippingProfiles, type ShippingProfileItem } from '../apis/shippin
 import { fetchPaymentProfiles, type PaymentProfileItem } from '../apis/payment-profile';
 import { fetchCollectionsOptimized, type CollectionItem } from '../apis/collection';
 import { fetchActiveChannel } from '../apis/channel';
+import { getAdminClient } from '../apis/client';
 
 interface ProductDraft {
   name: string;
@@ -233,6 +242,43 @@ const catList = ref<CollectionItem[]>([]);
 
 // 商品首个变体 id（编辑态存在；创建态 full 为空 → 传空串，规格变体 Tab 的酒店配置分组隐藏）
 const primaryVariantId = computed(() => (props.full as any)?.variants?.[0]?.id ?? '');
+
+// ---- 配送方式：只读展示，值由配送档案（ShippingProfileMethod.mode）派生，表单不再手填 ----
+type DeliveryMethod = 'MAIL' | 'SELF_PICKUP';
+
+// 待派生配送能力的变体 id（编辑态取 full 变体；创建态为空 → 显示「暂不可判定」）
+const variantIds = computed<string[]>(() =>
+  ((props.full as any)?.variants ?? []).map((v: any) => String(v?.id)).filter(Boolean),
+);
+
+const derivedModes = ref<DeliveryMethod[] | null>(null);
+
+const derivedText = computed(() => {
+  const m = derivedModes.value;
+  if (!m) return locale.t('productForm.deliveryUnknown');
+  if (m.length === 2) return locale.t('productForm.deliveryBoth');
+  return m[0] === 'MAIL' ? locale.t('productForm.deliveryMailOnly') : locale.t('productForm.deliveryPickupOnly');
+});
+
+async function loadDerivedModes() {
+  const ids = (variantIds.value ?? []).map(String);
+  if (!ids.length) { derivedModes.value = null; return; }
+  try {
+    const r = await getAdminClient().request<{ variantDeliveryModes: Array<{ variantId: string; modes: string[] }> }>(
+      `query ($ids: [ID!]!) { variantDeliveryModes(variantIds: $ids) { variantId modes } }`,
+      { ids },
+    );
+    const set = new Set<string>();
+    for (const row of r.variantDeliveryModes ?? []) for (const m of row.modes ?? []) set.add(m);
+    derivedModes.value = set.size ? ([...set] as DeliveryMethod[]) : null;
+  } catch {
+    derivedModes.value = null; // 查不到就显示「暂不可判定」，不阻塞保存
+  }
+}
+
+function goShippingProfile() {
+  uni.navigateTo({ url: '/pages/shipping/profile/index' });
+}
 
 const spNames = computed(() => spList.value.map((i) => i.name));
 const ppNames = computed(() => ppList.value.map((i) => i.name));
@@ -380,6 +426,7 @@ onMounted(async () => {
   spList.value = sp;
   ppList.value = pp;
   catList.value = cat;
+  await loadDerivedModes();
 });
 
 defineExpose({ submit, brandMarketing, variantMatrix });
@@ -467,6 +514,34 @@ defineExpose({ submit, brandMarketing, variantMatrix });
         color: $wa-muted;
       }
       &:last-child { border-bottom: none; }
+    }
+
+    // 配送方式：只读展示（由配送档案推导）+ 跳转档案入口
+    .wa-cell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28rpx 0;
+      border-bottom: 1rpx solid $wa-rule;
+
+      &.link .wa-lbl { color: $wa-accent; }
+      .wa-lbl {
+        width: 200rpx;
+        font-size: 28rpx;
+        color: $wa-ink;
+        flex-shrink: 0;
+      }
+      .wa-readonly {
+        flex: 1;
+        font-size: 28rpx;
+        color: $wa-muted;
+        text-align: right;
+      }
+      .wa-arrow {
+        font-size: 32rpx;
+        color: $wa-muted;
+        margin-left: 8rpx;
+      }
     }
 
     .ta {

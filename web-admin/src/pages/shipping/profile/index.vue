@@ -2,6 +2,16 @@
   <view class="page">
     <view class="toolbar"><button class="add" @tap="onCreate">＋ {{ $t('shippingProfile.createNew') }}</button></view>
 
+    <!-- 本店配送能力摘要（由已启用的配送档案派生）；未配置档案时告警 -->
+    <view class="cap-card" :class="{ warn: !hasProfiles }">
+      <text class="cap-title">{{ $t('shippingProfile.capTitle') }}</text>
+      <text class="cap-value">{{ capText }}</text>
+      <text v-if="!hasProfiles" class="cap-warn">{{ $t('shippingProfile.capNoProfile') }}</text>
+    </view>
+    <view v-if="hasProfiles" class="cap-actions">
+      <text class="cap-btn" @tap="onRebuildIndex">{{ rebuilding ? $t('shippingProfile.rebuilding') : $t('shippingProfile.rebuildIndex') }}</text>
+    </view>
+
     <!-- 内联编辑面板 -->
     <view v-if="creating || editing" class="panel">
       <view class="panel-title">{{ editing ? $t('shippingProfile.editTitle') : $t('shippingProfile.newTitle') }}</view>
@@ -154,6 +164,7 @@ import {
   ShippingProfileItem,
 } from '../../../apis/shipping-profile';
 import { fetchShippingMethods as fetchAllShippingMethods } from '../../../apis/shipping';
+import { getAdminClient } from '../../../apis/client';
 import { fetchPickupLocations, deletePickupLocation, PickupLocationItem } from '../../../apis/pickup-location';
 import { useLocaleStore } from '../../../stores/localeStore';
 
@@ -182,6 +193,44 @@ const editingId = ref<string | null>(null);
 const editingProfile = ref<ShippingProfileItem | null>(null);
 const setDefault = ref(false);
 const isGlobal = ref(false);
+
+// ---- 本店配送能力摘要（真源 = 已启用配送档案的 ShippingProfileMethod.mode）----
+const hasProfiles = ref(true);
+const capModes = ref<string[]>([]);
+const rebuilding = ref(false);
+
+const capText = computed(() => {
+  const m = capModes.value;
+  if (m.length === 2) return locale.t('shippingProfile.capBoth');
+  if (m.length === 1) return m[0] === 'MAIL' ? locale.t('shippingProfile.capMailOnly') : locale.t('shippingProfile.capPickupOnly');
+  return locale.t('shippingProfile.capBoth');
+});
+
+async function loadCapability() {
+  try {
+    const r = await getAdminClient().request<{ channelDeliveryCapability: { modes: string[]; source: string } }>(
+      `query { channelDeliveryCapability { modes source } }`,
+    );
+    capModes.value = r.channelDeliveryCapability?.modes ?? [];
+    hasProfiles.value = r.channelDeliveryCapability?.source !== 'fallback';
+  } catch {
+    hasProfiles.value = true;
+  }
+}
+
+// 配送筛选索引（facet）只在档案写操作时维护，存量渠道需手动补一次
+async function onRebuildIndex() {
+  if (rebuilding.value) return;
+  rebuilding.value = true;
+  try {
+    await getAdminClient().request(`mutation { rebuildDeliveryFacetIndex }`);
+    uni.showToast({ title: locale.t('shippingProfile.rebuilt'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || locale.t('shippingProfile.rebuildFailed'), icon: 'none' });
+  } finally {
+    rebuilding.value = false;
+  }
+}
 
 const form = ref({ name: '', code: '', description: '', requiresAddress: true, requiresContact: false });
 const methodEntries = ref<MethodEntry[]>([]);
@@ -256,7 +305,7 @@ function loadMethods() {
   return fetchAllShippingMethods().then((m) => { methods.value = m; });
 }
 onMounted(async () => {
-  await Promise.all([reload(), loadMethods()]);
+  await Promise.all([reload(), loadMethods(), loadCapability()]);
 });
 onShow(() => {
   loadPickups();
@@ -497,6 +546,17 @@ function onDel(s: ShippingProfileItem) {
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx 32rpx 160rpx;
   .toolbar .add { width: 260rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
+
+  .cap-card { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 32rpx; margin-bottom: 12rpx;
+    display: flex; flex-direction: column;
+    &.warn { background: #fff7ed; }
+    .cap-title { font-size: 24rpx; color: $wa-muted; }
+    .cap-value { font-size: 30rpx; color: $wa-ink; font-weight: 500; margin-top: 8rpx; }
+    .cap-warn { font-size: 24rpx; color: #b45309; margin-top: 10rpx; line-height: 1.5; }
+  }
+  .cap-actions { margin: 0 0 20rpx 4rpx;
+    .cap-btn { font-size: 22rpx; color: $wa-accent; }
+  }
 
   .panel { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 24rpx;
     .panel-title { font-size: 30rpx; color: $wa-ink; font-weight: 600; margin-bottom: 20rpx; }

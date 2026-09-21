@@ -70,37 +70,7 @@
         </view>
       </view>
       <view class="hint">{{ $t('decorateShopInfo.layoutHint') }}</view>
-    </view>
-    <view class="card">
-      <view class="img-title">{{ $t('decorateShopInfo.tplTitle') }}</view>
-      <view class="chips">
-        <text
-          v-for="a in APP_OPTS"
-          :key="a.key"
-          class="chip"
-          :class="{ on: tplApp === a.key }"
-          @tap="switchTplApp(a.key)"
-        >{{ appLabel(a.key) }}</text>
-      </view>
-      <view class="tpl-wrap">
-        <view class="tpl" :class="{ added: !templateId }" @tap="templateId = ''">
-          <text class="tpl-zh">{{ $t('decorateShopInfo.tplNone') }}</text>
-          <text class="tpl-en">{{ $t('decorateShopInfo.tplNoneEn') }}</text>
-          <text class="tpl-plus">{{ !templateId ? '✓' : '' }}</text>
-        </view>
-        <view
-          class="tpl"
-          :class="{ added: templateId === t.id }"
-          v-for="t in enabledTemplates"
-          :key="t.id"
-          @tap="templateId = t.id"
-        >
-          <text class="tpl-zh">{{ t.name }}</text>
-          <text class="tpl-en">{{ appLabel(t.app) }} · v{{ t.version }}</text>
-          <text class="tpl-plus">{{ templateId === t.id ? '✓' : '' }}</text>
-        </view>
-      </view>
-      <text v-if="!enabledTemplates.length" class="hint-inline">{{ $t('decorateShopInfo.tplEmpty') }}</text>
+      <view class="hint link" @tap="goDetailDecorate">{{ $t('decorateShopInfo.moreBlocks') }}</view>
     </view>
     <view class="card">
       <view class="img-title">{{ $t('decorateShopInfo.promoSchemesTitle') }}</view>
@@ -154,10 +124,9 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { graphQlErrorMsg } from '../../../apis/client';
-import { templateApi, type ShopTemplate } from '../../../apis/template';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 import { fetchAssets } from '../../../apis/asset';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -187,22 +156,8 @@ function onLogoChange(ids: string[]) {
 function previewLogo() {
   if (logoPreview.value) uni.previewImage({ urls: [logoPreview.value] });
 }
-const templateId = ref('');
-const templateList = ref<ShopTemplate[]>([]);
-const tplApp = ref<'nshop' | 'vshop'>('nshop');
-const APP_OPTS = [
-  { key: 'nshop', label: '' },
-  { key: 'vshop', label: '' },
-] as const;
-const enabledTemplates = computed(() => templateList.value.filter((t) => t.enabled && t.app === tplApp.value));
-
-function switchTplApp(a: 'nshop' | 'vshop') {
-  tplApp.value = a;
-  templateApi.list(a).then((list) => { templateList.value = list; }).catch(() => {});
-}
-
-function appLabel(a: string): string {
-  return a === 'vshop' ? locale.t('decorateShopInfo.appVshop') : locale.t('decorateShopInfo.appNshop');
+function goDetailDecorate() {
+  uni.navigateTo({ url: '/pages/decorate/product/index' });
 }
 
 function onShareImageChange(ids: string[]) {
@@ -272,10 +227,8 @@ onMounted(async () => {
   channelId = ch.id;
   const cf = ch.customFields as any;
   rawDetailConfig = cf.detailConfig ?? '';
-  templateId.value = cf.templateId ?? '';
   promoSchemes.value = loadSchemeList(cf.promoSchemes);
   serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
-  templateApi.list(tplApp.value).then((list) => { templateList.value = list; }).catch(() => {});
   let style = 'classic';
   let layout = 'classic';
   if (rawDetailConfig) {
@@ -316,7 +269,6 @@ async function save() {
   cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
   payload.shareImageUrl = shareImageUrl.value || null;
-  payload.templateId = templateId.value || null;
   payload.promoSchemes = toSchemePayload(promoSchemes.value);
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
@@ -355,6 +307,7 @@ function safeParse(raw: string): any {
     }
   }
   .hint { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; padding: 0 8rpx; }
+  .hint.link { color: $wa-accent; }
   .chips { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 16rpx 0 0; }
   .chip { flex: 0 0 auto; padding: 6rpx 22rpx; border: 1px solid $wa-rule; border-radius: 999rpx; font-size: 24rpx; color: $wa-muted; background: $wa-card; }
   .chip.on { background: $wa-accent; border-color: $wa-accent; color: #fff; }
