@@ -1,60 +1,73 @@
 <template>
   <view>
+    <!-- 关键词搜索：服务端过滤（订单号/顾客/手机号/备注） -->
     <view class="search">
       <input :value="kw" class="kw" :placeholder="$t('orderListComp.search.searchPlaceholder')" confirm-type="search" @confirm="emit('search')" @input="onInput" />
       <text class="btn" @tap="emit('search')">{{ $t('orderListComp.search.search') }}</text>
     </view>
-    <view class="filters">
-      <picker :range="deliveryOpts" :value="deliveryIdx" @change="onDeliveryPick">
-        <text class="f-chip" :class="{ on: !!deliveryLabel }">{{ deliveryLabel || $t('orderListComp.search.delivery') }} ▾</text>
+
+    <!-- 时间快捷筛选条：可与状态分组 tab 组合（今日 + 待发货 等） -->
+    <view class="chiprow">
+      <text class="f-chip" :class="{ on: timeKey === 'today' }" @tap="emit('time', 'today')">{{ $t('orderAdmin.orderList.dateToday') }}</text>
+      <text class="f-chip" :class="{ on: timeKey === '7d' }" @tap="emit('time', '7d')">{{ $t('orderAdmin.orderList.date7d') }}</text>
+      <text class="f-chip" :class="{ on: timeKey === 'month' }" @tap="emit('time', 'month')">{{ $t('orderAdmin.orderList.dateMonth') }}</text>
+      <text class="f-chip" :class="{ on: timeKey === 'custom' }" @tap="emit('time', 'custom')">{{ $t('orderAdmin.orderList.dateCustom') }}</text>
+    </view>
+
+    <!-- 自定义区间：仅在选中「自定义」时展开 -->
+    <view v-if="timeKey === 'custom'" class="chiprow">
+      <picker mode="date" :value="customFrom" @change="onFrom">
+        <text class="f-chip" :class="{ on: !!customFrom }">{{ customFrom || $t('orderAdmin.orderList.timeFrom') }}</text>
       </picker>
-      <picker :range="dateOpts" :value="dateIdx" @change="onDatePick">
-        <text class="f-chip" :class="{ on: !!dateLabel }">{{ dateLabel || $t('orderListComp.search.date') }} ▾</text>
+      <text class="tilde">~</text>
+      <picker mode="date" :value="customTo" @change="onTo">
+        <text class="f-chip" :class="{ on: !!customTo }">{{ customTo || $t('orderAdmin.orderList.timeTo') }}</text>
       </picker>
-      <text v-if="deliveryLabel || dateLabel" class="f-clear" @tap="emit('clear')">{{ $t('orderListComp.search.clear') }}</text>
+    </view>
+
+    <!-- 配送筛选 -->
+    <view class="chiprow">
+      <text class="f-chip" :class="{ on: delivery === 'delivery' }" @tap="emit('delivery', 'delivery')">{{ $t('orderAdmin.orderList.deliveryExpress') }}</text>
+      <text class="f-chip" :class="{ on: delivery === 'pickup' }" @tap="emit('delivery', 'pickup')">{{ $t('orderAdmin.orderList.deliveryPickup') }}</text>
+      <text v-if="hasFilter" class="f-clear" @tap="emit('clear')">{{ $t('orderListComp.search.clear') }}</text>
     </view>
   </view>
 </template>
 
 <script lang="ts" setup>
-// 搜索框 + 配送/时间筛选，自原页面 search / filters 块原样迁移
-// picker 下标 → 过滤值映射与页面 deliveryArr/dateArr 语义一致（组件内建，避免多传一对 props）
-const DELIVERY_VALUES = ['', 'pickup', 'express'] as const;
-const DATE_VALUES = ['', 'today', '7d', '30d'] as const;
+// 搜索 + 时间快捷筛选 + 配送筛选。条件由页面转交 utils/orderFilter.ts 组装为服务端 filter。
+import { computed } from 'vue';
+import type { TimeRangeKey } from '../../utils/orderFilter';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     kw: string;
-    deliveryLabel: string;
-    dateLabel: string;
-    deliveryIdx: number;
-    dateIdx: number;
-    deliveryOpts: string[];
-    dateOpts: string[];
+    timeKey: TimeRangeKey;
+    customFrom: string;
+    customTo: string;
+    delivery: '' | 'pickup' | 'delivery';
   }>(),
-  {
-    deliveryIdx: 0,
-    dateIdx: 0,
-    deliveryOpts: () => ['自提', '快递'],
-    dateOpts: () => ['今日', '近7天', '近30天'],
-  }
+  { kw: '', timeKey: '', customFrom: '', customTo: '', delivery: '' }
 );
 const emit = defineEmits<{
   (e: 'search'): void;
-  (e: 'delivery', v: '' | 'pickup' | 'express'): void;
-  (e: 'date', v: '' | 'today' | '7d' | '30d'): void;
+  (e: 'update:kw', v: string): void;
+  (e: 'time', v: Exclude<TimeRangeKey, ''>): void;
+  (e: 'range', r: { from: string; to: string }): void;
+  (e: 'delivery', v: 'pickup' | 'delivery'): void;
   (e: 'clear'): void;
-  (e: 'update:kw', v: string): void; // 支持父级 v-model:kw 双向绑定（除 plan 列出的操作事件外的必要补充）
 }>();
+
+const hasFilter = computed(() => !!(props.kw || props.timeKey || props.delivery));
 
 function onInput(e: any) {
   emit('update:kw', e.detail.value);
 }
-function onDeliveryPick(e: any) {
-  emit('delivery', DELIVERY_VALUES[e.detail.value] as '' | 'pickup' | 'express');
+function onFrom(e: any) {
+  emit('range', { from: e.detail.value, to: props.customTo });
 }
-function onDatePick(e: any) {
-  emit('date', DATE_VALUES[e.detail.value] as '' | 'today' | '7d' | '30d');
+function onTo(e: any) {
+  emit('range', { from: props.customFrom, to: e.detail.value });
 }
 </script>
 
@@ -62,7 +75,7 @@ function onDatePick(e: any) {
 .search {
   display: flex;
   align-items: center;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
   background: $wa-card;
   border-radius: $wa-radius;
   padding: 8rpx 16rpx 8rpx 24rpx;
@@ -79,12 +92,14 @@ function onDatePick(e: any) {
   }
 }
 
-.filters {
+.chiprow {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
   flex-wrap: wrap;
+
+  .tilde { color: $wa-muted; font-size: 24rpx; }
 
   .f-chip {
     font-size: 26rpx;
@@ -94,7 +109,7 @@ function onDatePick(e: any) {
     border-radius: 999rpx;
     border: 1rpx solid #e8edf5;
 
-    &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+    &.on { color: #fff; background: $wa-accent; border-color: $wa-accent; font-weight: 600; }
   }
 
   .f-clear { font-size: 24rpx; color: $wa-muted; text-decoration: underline; cursor: pointer; }
