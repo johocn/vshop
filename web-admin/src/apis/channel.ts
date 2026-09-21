@@ -24,6 +24,9 @@ export interface ChannelCustomFields {
   taxMode?: string;
   // 库存管理方式：simple=简单库存 / odoo=Odoo库存(预留)
   inventoryMode?: string;
+  // 是否启用物理库存（物理仓驱动可售量）。注意与 inventoryMode 是两件事：
+  // inventoryMode 决定库存台账由谁承载（内置 / Odoo），physicalStockEnabled 决定可售量口径（虚拟仓 vs 绑定物理仓）
+  physicalStockEnabled?: boolean;
   // Odoo 地址（inventoryMode=odoo 时选填）
   odooBaseUrl?: string;
   // Odoo API Key（inventoryMode=odoo 时选填）
@@ -54,7 +57,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
       }
     }`,
   );
