@@ -66,22 +66,80 @@ export interface MovementQueryParams {
   productVariantId?: string;
   locationId?: string;
   bizCode?: string;
+  /** 业务类型（order/afterSales/purchase/stockMove/stocktake/stockOut/stockIn/manual/mirror） */
+  bizType?: string;
+  /** 'in' | 'out'；其它值后端视为不传 */
+  direction?: 'in' | 'out';
+  /** ISO 时间字符串（含） */
+  from?: string;
+  /** ISO 时间字符串（含） */
+  to?: string;
   page?: number;
   pageSize?: number;
 }
 
+export interface MovementSummary {
+  inQty: number;
+  outQty: number;
+}
+
 export async function fetchMovements(
   params: MovementQueryParams,
-): Promise<{ totalItems: number; items: MovementRow[] }> {
+): Promise<{ totalItems: number; items: MovementRow[]; summary: MovementSummary }> {
   const { stockMovementLedger } = await getAdminClient().request<{
-    stockMovementLedger: { totalItems: number; items: MovementRow[] };
+    stockMovementLedger: { totalItems: number; items: MovementRow[]; summary: MovementSummary };
   }>(
-    `query StockMovementLedger($productVariantId: ID, $locationId: ID, $bizCode: String, $page: Int, $pageSize: Int) {
-      stockMovementLedger(productVariantId: $productVariantId, locationId: $locationId, bizCode: $bizCode, page: $page, pageSize: $pageSize) {
-        totalItems items { id code productVariantId stockLocationId bizType bizCode orderLineId direction quantity beforeOnHand afterOnHand otherLocationId reason createdAt }
+    `query StockMovementLedger($productVariantId: ID, $locationId: ID, $bizCode: String, $bizType: String, $direction: String, $from: String, $to: String, $page: Int, $pageSize: Int) {
+      stockMovementLedger(productVariantId: $productVariantId, locationId: $locationId, bizCode: $bizCode, bizType: $bizType, direction: $direction, from: $from, to: $to, page: $page, pageSize: $pageSize) {
+        totalItems
+        summary { inQty outQty }
+        items { id code productVariantId stockLocationId bizType bizCode orderLineId direction quantity beforeOnHand afterOnHand otherLocationId reason createdAt }
       }
     }`,
-    params,
+    {
+      productVariantId: params.productVariantId ?? null,
+      locationId: params.locationId ?? null,
+      bizCode: params.bizCode ?? null,
+      bizType: params.bizType ?? null,
+      direction: params.direction ?? null,
+      from: params.from ?? null,
+      to: params.to ?? null,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+    },
   );
   return stockMovementLedger;
+}
+
+// ---- 单据中心（Plan 2）----
+export interface StockDocSummaryRow {
+  id: string;
+  code: string;
+  type: string;
+  remark: string | null;
+  operator: string | null;
+  createdAt: string;
+  itemCount: number;
+  totalQty: number;
+}
+
+export interface StockDocList {
+  totalItems: number;
+  items: StockDocSummaryRow[];
+}
+
+/** type 传空/非法 → 不过滤（后端白名单校验） */
+export async function fetchStockDocList(
+  params: { type?: string; page?: number; pageSize?: number } = {},
+): Promise<StockDocList> {
+  const { stockDocList } = await getAdminClient().request<{ stockDocList: StockDocList }>(
+    `query StockDocList($type: String, $page: Int, $pageSize: Int) {
+      stockDocList(type: $type, page: $page, pageSize: $pageSize) {
+        totalItems
+        items { id code type remark operator createdAt itemCount totalQty }
+      }
+    }`,
+    { type: params.type || null, page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
+  );
+  return stockDocList;
 }

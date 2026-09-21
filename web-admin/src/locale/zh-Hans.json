@@ -911,7 +911,6 @@
     "stockQty": "{n} 件",
     "allocated": "已分配 {n}",
     "lowStock": "低库存",
-    "empty": "暂无库存数据",
     "threshold": "预警阈值",
     "thresholdOpt": "{n} 件",
     "thresholdCol": "阈值 {n}",
@@ -922,7 +921,150 @@
     "genPurchasing": "生成中…",
     "noSelect": "请先勾选低库存 SKU",
     "genDone": "已生成采购入库单 {code}",
-    "genFailed": "生成采购入库单失败"
+    "genFailed": "生成采购入库单失败",
+    "allLocations": "全部仓",
+    "searchPlaceholder": "搜索商品名 / SKU / 规格",
+    "sortLabel": "排序",
+    "detailTitle": "库存明细",
+    "loadFailed": "加载库存失败",
+    "searchFailed": "搜索库存失败",
+    "loadingMore": "加载中…",
+    "noMore": "没有更多了",
+    "sheetCancel": "取消",
+    "kpi": {
+      "sku": "在售 SKU",
+      "skuSub": "各仓合计",
+      "onHand": "库存总量",
+      "onHandSub": "现存数量",
+      "value": "库存货值",
+      "valueSub": "按最近采购成本",
+      "out": "缺货",
+      "outSub": "点击筛选",
+      "low": "低库存预警",
+      "lowSub": "低于安全库存",
+      "outbound7d": "近 7 天出库",
+      "outboundSub": "订单 + 手动出库"
+    },
+    "sort": {
+      "stockAsc": "库存从低到高",
+      "stockDesc": "库存从高到低",
+      "gapDesc": "缺口从大到小",
+      "valueDesc": "货值从大到小"
+    },
+    "bucket": {
+      "all": "全部",
+      "out": "缺货",
+      "low": "低库存",
+      "ok": "正常"
+    },
+    "quick": {
+      "purchase": "采购入库",
+      "transfer": "移库",
+      "stocktake": "盘库",
+      "issue": "手动出库",
+      "movements": "库存流水",
+      "locations": "仓库管理",
+      "rules": "预警规则",
+      "docs": "单据中心"
+    },
+    "card": {
+      "noThumb": "无图",
+      "lastMove": "最近变动",
+      "neverMove": "暂无变动",
+      "value": "货值",
+      "movements": "流水",
+      "replenish": "补货",
+      "adjust": "调整"
+    },
+    "num": {
+      "onHand": "现存",
+      "allocated": "占用",
+      "available": "可用",
+      "safety": "安全库存"
+    },
+    "move": {
+      "in": "入库",
+      "out": "出库",
+      "order": "订单出库",
+      "afterSales": "售后退货",
+      "purchase": "采购入库",
+      "stockMove": "移库",
+      "stocktake": "盘库",
+      "stockIn": "手动入库",
+      "stockOut": "手动出库",
+      "manual": "手工调整",
+      "mirror": "镜像同步"
+    },
+    "bulk": {
+      "selected": "已选 {n} 项",
+      "setSafety": "设为安全库存",
+      "genPurchase": "生成采购单",
+      "noSelect": "请先勾选缺货 / 低库存 SKU",
+      "genDone": "已生成采购入库单 {code}",
+      "genFailed": "生成采购入库单失败"
+    },
+    "adjust": {
+      "title": "调整库存",
+      "target": "目标库存",
+      "placeholder": "输入目标数量",
+      "invalid": "请输入非负整数",
+      "confirm": "确定",
+      "done": "库存已调整",
+      "failed": "调整库存失败"
+    },
+    "safety": {
+      "title": "设为安全库存",
+      "placeholder": "输入安全库存",
+      "invalid": "请输入非负整数",
+      "zeroHint": "安全库存设为 0 后该 SKU 将不再预警，确认继续？",
+      "confirm": "保存",
+      "done": "安全库存已更新",
+      "failed": "保存安全库存失败"
+    },
+    "empty": {
+      "noData": "暂无库存数据",
+      "noMatch": "没有匹配的商品，换个关键词试试"
+    },
+    "alertRulesBtn": "预警规则",
+    "docCenterBtn": "单据中心"
+  },
+  "inventoryAlertRules": {
+    "title": "预警规则",
+    "defaultLabel": "默认安全库存（全部商品）",
+    "defaultHint": "未单独设置安全库存的商品，按此值预警",
+    "listTitle": "商品安全库存",
+    "searchPlaceholder": "搜索商品名 / SKU",
+    "safetyPlaceholder": "安全库存",
+    "enableLabel": "启用",
+    "save": "保存规则",
+    "saving": "保存中…",
+    "saved": "预警规则已保存",
+    "saveFailed": "保存预警规则失败",
+    "loadFailed": "加载预警规则失败",
+    "defaultSaved": "默认安全库存已保存",
+    "defaultFailed": "保存默认安全库存失败",
+    "defaultInvalid": "请输入非负整数",
+    "safetyInvalid": "安全库存需为非负整数",
+    "empty": "暂无商品库存数据",
+    "noMatch": "没有匹配的商品",
+    "loadingMore": "加载中…",
+    "noMore": "没有更多了"
+  },
+  "stockDocCenter": {
+    "title": "单据中心",
+    "tabAll": "全部",
+    "tabPurchase": "采购入库",
+    "tabTransfer": "移库",
+    "tabStocktake": "盘库",
+    "tabIssue": "手动出库",
+    "itemCount": "{n} 条明细",
+    "totalQty": "共 {n} 件",
+    "remarkLabel": "备注",
+    "operatorLabel": "操作人",
+    "empty": "暂无单据",
+    "loadFailed": "加载单据失败",
+    "loadingMore": "加载中…",
+    "noMore": "没有更多了"
   },
   "inventoryLocations": {
     "tenantLabel": "当前租户",
@@ -995,7 +1137,21 @@
   },
   "inventoryMovements": {
     "empty": "暂无流水",
-    "loadFailed": "加载流水失败"
+    "loadFailed": "加载流水失败",
+    "inTotal": "入库合计 {n}",
+    "outTotal": "出库合计 {n}",
+    "dirAll": "全部方向",
+    "dirIn": "入库",
+    "dirOut": "出库",
+    "bizAll": "全部类型",
+    "locAll": "全部仓",
+    "dateAll": "全部时间",
+    "dateToday": "今日",
+    "date7d": "近 7 天",
+    "dateMonth": "本月",
+    "clearFilter": "清空筛选",
+    "loadingMore": "加载中…",
+    "noMore": "没有更多了"
   },
   "stockDocPurchase": {
     "labelToLoc": "目标仓库 *",
@@ -1012,7 +1168,8 @@
     "requireVariant": "请填写变体 ID",
     "requireQty": "请填写正确数量",
     "done": "已入库 {code}",
-    "submitFailed": "提交失败"
+    "submitFailed": "提交失败",
+    "prefilled": "已按所选商品预填，核对后提交"
   },
   "stockDocTransfer": {
     "labelFromLoc": "源仓库 *",

@@ -26,7 +26,8 @@
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../../stores/localeStore';
 import { fetchStockLocations } from '../../../../apis/inventory';
 import { createStockDoc } from '../../../../apis/stock-doc';
@@ -71,9 +72,23 @@ async function onSave() {
   }
 }
 
-onMounted(async () => {
+// 支持从库存主页「补货」带参进入：?variantId=&qty=&locationId=（契约 1.6）
+onLoad(async (q: any) => {
   locations.value = await fetchStockLocations();
   locNames.value = locations.value.map((l) => l.name);
+  const wantLoc = String(q?.locationId ?? '');
+  if (wantLoc) {
+    const i = locations.value.findIndex((l) => l.id === wantLoc);
+    if (i >= 0) {
+      locIdx.value = i;
+      curLocName.value = locations.value[i].name;
+    }
+  }
+  if (q?.variantId) variantId.value = String(q.variantId);
+  if (q?.qty) qty.value = String(q.qty);
+  if (q?.variantId || q?.qty) {
+    uni.showToast({ title: locale.t('stockDocPurchase.prefilled'), icon: 'none' });
+  }
 });
 </script>
 <style lang="scss" scoped>

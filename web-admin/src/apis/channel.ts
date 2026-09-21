@@ -31,6 +31,8 @@ export interface ChannelCustomFields {
   odooBaseUrl?: string;
   // Odoo API Key（inventoryMode=odoo 时选填）
   odooApiKey?: string;
+  // 渠道默认安全库存（未单独设 SKU 规则时的兜底阈值；int 型 customField）
+  inventoryDefaultSafetyStock?: number;
   // 详情页配置 JSON 串（含 blocks.price.style 价格块版式 classic/jdA/jdB）
   detailConfig?: string;
   // 促销/服务方案库 JSON 字符串（[{code,text:{zh_Hans,en}}]）
@@ -57,7 +59,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
       }
     }`,
   );
