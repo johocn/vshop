@@ -152,6 +152,10 @@
       "deliveryExpress": "Express",
       "dateToday": "Today",
       "date7d": "Last 7 Days",
+      "dateMonth": "This month",
+      "dateCustom": "Custom",
+      "timeFrom": "From",
+      "timeTo": "To",
       "date30d": "Last 30 Days",
       "shipViewToast": "Shop orders are a cross-channel view, ship via \"Channel Orders\"",
       "confirmShipTitle": "Confirm Shipment",
@@ -2011,12 +2015,31 @@
     "loading": "Loading…",
     "loadingMore": "Load More…",
     "search": {
-      "searchPlaceholder": "Order No. / Customer / Phone / Product",
+      "searchPlaceholder": "Order no. / customer / phone / note",
       "search": "Search",
       "delivery": "Delivery",
-      "date": "Time",
+      "date": "Date",
       "clear": "Clear"
     },
+    "tabs": {
+      "all": "All",
+      "chipAll": "All",
+      "groupPending": "Pending",
+      "groupActive": "In progress",
+      "groupDone": "Completed",
+      "groupCancelled": "Cancelled",
+      "groupException": "Exceptions",
+      "groupAfterSales": "After-sales",
+      "refundPending": "Refund pending"
+    },
+    "exception": {
+      "rejected": "Rejected",
+      "wrong_address": "Wrong address",
+      "no_recipient": "No recipient",
+      "damaged": "Damaged",
+      "other": "Other"
+    },
+    "loadFailed": "Load failed",
     "pager": {
       "prev": "Prev",
       "next": "Next",

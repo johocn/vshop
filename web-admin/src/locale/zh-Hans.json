@@ -152,6 +152,10 @@
       "deliveryExpress": "快递",
       "dateToday": "今日",
       "date7d": "近7天",
+      "dateMonth": "本月",
+      "dateCustom": "自定义",
+      "timeFrom": "开始日期",
+      "timeTo": "结束日期",
       "date30d": "近30天",
       "shipViewToast": "商品单为跨渠道归集视图，请到「本店渠道单」发货",
       "confirmShipTitle": "确认发货",
@@ -2011,12 +2015,31 @@
     "loading": "加载中…",
     "loadingMore": "加载更多…",
     "search": {
-      "searchPlaceholder": "订单号 / 顾客 / 手机号 / 商品名",
+      "searchPlaceholder": "订单号 / 顾客 / 手机号 / 备注",
       "search": "搜索",
       "delivery": "配送",
       "date": "时间",
       "clear": "清除"
     },
+    "tabs": {
+      "all": "全部",
+      "chipAll": "全部",
+      "groupPending": "待处理",
+      "groupActive": "进行中",
+      "groupDone": "已完成",
+      "groupCancelled": "已取消",
+      "groupException": "异常",
+      "groupAfterSales": "售后",
+      "refundPending": "待退款"
+    },
+    "exception": {
+      "rejected": "拒收",
+      "wrong_address": "地址错误",
+      "no_recipient": "无人接收",
+      "damaged": "破损",
+      "other": "其他"
+    },
+    "loadFailed": "加载失败",
     "pager": {
       "prev": "上一页",
       "next": "下一页",
