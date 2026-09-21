@@ -54,6 +54,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { visibleMenus } from '../../constants/menus';
 import { fetchHomeKpis } from '../../apis/stats';
+import { confirmExit } from '../../utils/h5Nav';
 import BottomBar from '../../components/BottomBar.vue';
 import Drawer from '../../components/Drawer.vue';
 
@@ -101,7 +102,7 @@ function go(it: any) {
   if (it.action === 'manual') return openManual();
   if (it.action === 'posDesktop') return openPosCashier();
   if (it.action === 'switchStore') return uni.redirectTo({ url: '/pages/channel-select/index' });
-  if (it.action === 'logout') return uni.redirectTo({ url: '/pages/login/index' });
+  if (it.action === 'logout') return confirmExit();
   if (it.url) uni.navigateTo({ url: it.url });
 }
 // 公开手册：独立新窗口打开，无需登录鉴权

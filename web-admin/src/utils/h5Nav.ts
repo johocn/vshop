@@ -1,28 +1,18 @@
-// H5 端体验增强：悬浮「返回首页」按钮 + 面板页返回退出确认
+// H5 端体验增强：全局「返回首页」按钮 + 顶层页（首页/选店）退出确认
 // 仅适用于 uni-app H5（UNI_PLATFORM === 'h5'），原生/小程序不启用。
+import { useLocaleStore } from '../stores/localeStore';
 
-const PANEL_PAGES = new Set(['pages/channel-select/index', 'pages/dashboard/index']);
-const HIDDEN_PAGES = new Set(['pages/login/index', 'pages/change-password/index']);
-// 左上角返回图标：首页(工作台)与本页相同入口以外都不显示（工作台顶部已有「☰」菜单与浏览器返回退出确认）
-const NO_BACK_PAGES = new Set(['pages/dashboard/index']);
+const HOME = 'pages/dashboard/index';
+const HOME_URL = '/pages/dashboard/index';
+// 顶层页：此页的「返回」语义 = 离开后台，需二次确认
+const EXIT_ROOT = new Set([HOME, 'pages/channel-select/index']);
+// 强制改密页：登录流程（无上级页面）中不注入返回按钮，避免把用户退回登录前的空白页
+const PASSWORD_PAGE = 'pages/change-password/index';
+const NO_BACK_PAGES = new Set(['pages/login/index']);
 
 let booted = false;
-
-// 退出/取消确认（复用：浏览器返回面板页 + 顶层子页点返回无上级两种入口）
-function confirmExit() {
-  uni.showModal({
-    title: '离开后台',
-    content: '要返回登录页并退出当前账号吗？',
-    confirmText: '退出',
-    cancelText: '取消',
-    confirmColor: '#e64340',
-    success(res) {
-      if (res.confirm) {
-        uni.reLaunch({ url: '/pages/login/index' });
-      }
-    },
-  });
-}
+// 应用内主动导航的时间戳：该窗口内的 popstate 视为自身导航，不弹退出确认
+let selfNavAt = 0;
 
 function currentRoute(): string {
   try {
@@ -34,8 +24,34 @@ function currentRoute(): string {
   }
 }
 
-function isPanel(): boolean {
-  return PANEL_PAGES.has(currentRoute());
+// 子页「返回」统一回首页：栈底为首页时逐级回退（保留浏览历史），否则直接重定向首页
+// （深链直接进入子页、或经 redirectTo 换页导致栈底不是首页时回退会失败——故兜底 reLaunch）
+export function backToHome() {
+  selfNavAt = Date.now();
+  const pages = getCurrentPages();
+  const root = (pages[0] as { route?: string } | undefined)?.route || '';
+  if (pages.length > 1 && root === HOME) {
+    uni.navigateBack({ delta: pages.length - 1, fail: () => uni.reLaunch({ url: HOME_URL }) });
+    return;
+  }
+  uni.reLaunch({ url: HOME_URL });
+}
+
+// 退出确认（三处入口复用：首页点返回、首页浏览器返回、菜单「退出登录」）
+export function confirmExit() {
+  const t = useLocaleStore().t;
+  uni.showModal({
+    title: t('nav.leaveTitle'),
+    content: t('nav.leaveContent'),
+    confirmText: t('nav.leaveConfirm'),
+    cancelText: t('nav.leaveCancel'),
+    confirmColor: '#e64340',
+    success(res) {
+      if (res.confirm) {
+        uni.reLaunch({ url: '/pages/login/index' });
+      }
+    },
+  });
 }
 
 export function enableH5Nav(_opts: { hasStore: () => boolean }) {
@@ -161,13 +177,12 @@ export function enableH5Nav(_opts: { hasStore: () => boolean }) {
   syncQuick();
   setInterval(syncQuick, 600);
 
-  // ---------- 3. 左上角「返回上一级」图标（首页之外任意页面） ----------
+  // ---------- 3. 左上角「返回」图标：子页一律回首页；首页/选店页返回 = 退出确认 ----------
   const back = document.createElement('div');
   back.setAttribute('role', 'button');
-  back.setAttribute('aria-label', '返回上一级');
-  // 置于系统导航条下方浮动；用 --window-top 适应有无原生导航栏的差异
+  // 置于系统导航条内左侧（垂直居中），避免压住首页店铺名等首屏内容
   back.style.cssText =
-    'position:fixed;left:12px;top:calc(var(--window-top, 44px) + 10px);' +
+    'position:fixed;left:10px;top:calc(var(--window-top, 44px) / 2 - 17px);' +
     'width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.96);' +
     'border:1px solid #d8dee9;box-shadow:0 2px 6px rgba(0,0,0,.14);' +
     'display:flex;align-items:center;justify-content:center;' +
@@ -178,40 +193,37 @@ export function enableH5Nav(_opts: { hasStore: () => boolean }) {
 
   function syncBack() {
     const r = currentRoute();
-    back.style.display = HIDDEN_PAGES.has(r) || NO_BACK_PAGES.has(r) ? 'none' : 'flex';
+    back.setAttribute('aria-label', EXIT_ROOT.has(r) ? '退出后台' : '返回首页');
+    // 登录页不注入；改密页仅在存在上级页面（从人员管理进入）时注入
+    const show = !NO_BACK_PAGES.has(r) && !(r === PASSWORD_PAGE && getCurrentPages().length <= 1);
+    back.style.display = show ? 'flex' : 'none';
   }
   back.addEventListener('click', () => {
-    const pages = getCurrentPages();
-    // 有上级页面：逐级回退（可一路返回至工作台/首页）
-    if (pages.length > 1) {
-      uni.navigateBack();
+    // 首页/选店页：再点返回 = 退出后台，需确认
+    if (EXIT_ROOT.has(currentRoute())) {
+      confirmExit();
       return;
     }
-    // 已处于顶层无上级可回：弹出退出/取消确认
-    confirmExit();
+    backToHome();
   });
   syncBack();
   setInterval(syncBack, 600);
 
-  // ---------- 2b. 面板页（工作台/选店）浏览器返回 -> 退出确认 ----------
-  let confirming = false;
+  // ---------- 2b. 浏览器返回：仅「停在顶层页（首页/选店）时的返回」视为退出意愿 ----------
+  // 从子页返回并落在首页属于正常页面切换，不得弹退出确认
+  let seen = currentRoute();
+  setInterval(() => {
+    const r = currentRoute();
+    if (r) seen = r;
+  }, 400);
   window.addEventListener('popstate', () => {
-    if (!isPanel() || confirming) return;
-    confirming = true;
-    // 撤销本次浏览器回退，先停留在面板页；是否离开由用户决定
-    window.history.pushState(window.history.state, '');
-    uni.showModal({
-      title: '离开后台',
-      content: '要返回登录页并退出当前账号吗？',
-      confirmText: '退出',
-      cancelText: '取消',
-      confirmColor: '#e64340',
-      success(res) {
-        confirming = false;
-        if (res.confirm) {
-          uni.reLaunch({ url: '/pages/login/index' });
-        }
-      },
-    });
+    if (Date.now() - selfNavAt < 1200) return; // 应用内主动导航（返回首页/重定向）不重复询问
+    const r = currentRoute();
+    // r !== seen：本次返回已切换到其它页面（含子页 -> 首页），交给 uni-app 正常处理
+    // !EXIT_ROOT.has(r)：当前不在顶层页，无需确认
+    if (r !== seen || !EXIT_ROOT.has(r)) return;
+    // 撤销本次浏览器回退，先停留在顶层页；是否离开由用户决定
+    window.history.pushState(window.history.state, '', `${location.href.split('#')[0]}#/${r}`);
+    confirmExit();
   });
 }

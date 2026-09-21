@@ -1,6 +1,12 @@
 {
+  "nav": {
+    "leaveTitle": "Leave Admin",
+    "leaveContent": "Return to the sign-in page and sign out of this account?",
+    "leaveConfirm": "Sign Out",
+    "leaveCancel": "Cancel"
+  },
   "login": {
-    "title": "vshop Admin",
+    "title": "youshop Admin",
     "subtitle": "Manage your store from one phone",
     "account": "Account",
     "password": "Password",
@@ -1174,7 +1180,7 @@
   "decorateTheme": {
     "tip": "Theme (L3 shop override): a template swaps the whole palette and page layout; tokens override only this shop's primary/accent/radius.",
     "appNshop": "nshop store",
-    "appVshop": "vshop store",
+    "appVshop": "youshop store",
     "noTemplate": "No template",
     "effectivePrimary": "Effective primary",
     "tplSection": "Style templates",
@@ -1240,7 +1246,7 @@
     "moreBlocks": "More block settings (price / promo / service / specs / reviews) → open detail decoration",
     "tplTitle": "Style templates (choose from library, or global default if none selected)",
     "appNshop": "nshop Mall",
-    "appVshop": "vshop Mall",
+    "appVshop": "youshop Mall",
     "tplNone": "No template",
     "tplNoneEn": "global default",
     "tplEmpty": "No enabled templates yet. Create one under \"Platform → Style Template Library\" first.",
