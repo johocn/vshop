@@ -911,7 +911,6 @@
     "stockQty": "{n} units",
     "allocated": "Allocated {n}",
     "lowStock": "Low stock",
-    "empty": "No stock data",
     "threshold": "Alert threshold",
     "thresholdOpt": "{n} units",
     "thresholdCol": "Threshold {n}",
@@ -922,7 +921,150 @@
     "genPurchasing": "Creating…",
     "noSelect": "Please select low-stock SKUs",
     "genDone": "Purchase created {code}",
-    "genFailed": "Failed to create purchase"
+    "genFailed": "Failed to create purchase",
+    "allLocations": "All warehouses",
+    "searchPlaceholder": "Search name / SKU / option",
+    "sortLabel": "Sort",
+    "detailTitle": "Stock details",
+    "loadFailed": "Failed to load stock",
+    "searchFailed": "Failed to search stock",
+    "loadingMore": "Loading…",
+    "noMore": "No more",
+    "sheetCancel": "Cancel",
+    "kpi": {
+      "sku": "Active SKUs",
+      "skuSub": "All warehouses",
+      "onHand": "Total on hand",
+      "onHandSub": "On-hand units",
+      "value": "Stock value",
+      "valueSub": "Latest purchase cost",
+      "out": "Out of stock",
+      "outSub": "Tap to filter",
+      "low": "Low stock alerts",
+      "lowSub": "Below safety stock",
+      "outbound7d": "Outbound 7d",
+      "outboundSub": "Orders + manual"
+    },
+    "sort": {
+      "stockAsc": "Stock: low to high",
+      "stockDesc": "Stock: high to low",
+      "gapDesc": "Gap: large to small",
+      "valueDesc": "Value: high to low"
+    },
+    "bucket": {
+      "all": "All",
+      "out": "Out of stock",
+      "low": "Low stock",
+      "ok": "Normal"
+    },
+    "quick": {
+      "purchase": "Purchase in",
+      "transfer": "Transfer",
+      "stocktake": "Stocktake",
+      "issue": "Manual issue",
+      "movements": "Movements",
+      "locations": "Warehouses",
+      "rules": "Alert rules",
+      "docs": "Documents"
+    },
+    "card": {
+      "noThumb": "No image",
+      "lastMove": "Last movement",
+      "neverMove": "No movement yet",
+      "value": "Value",
+      "movements": "Ledger",
+      "replenish": "Restock",
+      "adjust": "Adjust"
+    },
+    "num": {
+      "onHand": "On hand",
+      "allocated": "Allocated",
+      "available": "Available",
+      "safety": "Safety"
+    },
+    "move": {
+      "in": "In",
+      "out": "Out",
+      "order": "Order",
+      "afterSales": "After-sales return",
+      "purchase": "Purchase in",
+      "stockMove": "Transfer",
+      "stocktake": "Stocktake",
+      "stockIn": "Manual in",
+      "stockOut": "Manual issue",
+      "manual": "Manual adjust",
+      "mirror": "Mirror sync"
+    },
+    "bulk": {
+      "selected": "{n} selected",
+      "setSafety": "Set safety stock",
+      "genPurchase": "Create purchase",
+      "noSelect": "Select out-of-stock / low-stock SKUs first",
+      "genDone": "Purchase created {code}",
+      "genFailed": "Failed to create purchase"
+    },
+    "adjust": {
+      "title": "Adjust stock",
+      "target": "Target on hand",
+      "placeholder": "Enter target quantity",
+      "invalid": "Please enter a non-negative integer",
+      "confirm": "Confirm",
+      "done": "Stock adjusted",
+      "failed": "Failed to adjust stock"
+    },
+    "safety": {
+      "title": "Set safety stock",
+      "placeholder": "Enter safety stock",
+      "invalid": "Please enter a non-negative integer",
+      "zeroHint": "Safety stock 0 disables alerts for this SKU. Continue?",
+      "confirm": "Save",
+      "done": "Safety stock updated",
+      "failed": "Failed to save safety stock"
+    },
+    "empty": {
+      "noData": "No stock data",
+      "noMatch": "No matching products, try another keyword"
+    },
+    "alertRulesBtn": "Alert rules",
+    "docCenterBtn": "Documents"
+  },
+  "inventoryAlertRules": {
+    "title": "Alert rules",
+    "defaultLabel": "Default safety stock (all products)",
+    "defaultHint": "Products without a specific safety stock use this value",
+    "listTitle": "Product safety stock",
+    "searchPlaceholder": "Search name / SKU",
+    "safetyPlaceholder": "Safety stock",
+    "enableLabel": "Enabled",
+    "save": "Save rules",
+    "saving": "Saving…",
+    "saved": "Alert rules saved",
+    "saveFailed": "Failed to save alert rules",
+    "loadFailed": "Failed to load alert rules",
+    "defaultSaved": "Default safety stock saved",
+    "defaultFailed": "Failed to save default safety stock",
+    "defaultInvalid": "Please enter a non-negative integer",
+    "safetyInvalid": "Safety stock must be a non-negative integer",
+    "empty": "No product stock data",
+    "noMatch": "No matching products",
+    "loadingMore": "Loading…",
+    "noMore": "No more"
+  },
+  "stockDocCenter": {
+    "title": "Documents",
+    "tabAll": "All",
+    "tabPurchase": "Purchase in",
+    "tabTransfer": "Transfer",
+    "tabStocktake": "Stocktake",
+    "tabIssue": "Manual issue",
+    "itemCount": "{n} lines",
+    "totalQty": "{n} units total",
+    "remarkLabel": "Remark",
+    "operatorLabel": "Operator",
+    "empty": "No documents",
+    "loadFailed": "Failed to load documents",
+    "loadingMore": "Loading…",
+    "noMore": "No more"
   },
   "inventoryLocations": {
     "tenantLabel": "Current tenant",
@@ -995,7 +1137,21 @@
   },
   "inventoryMovements": {
     "empty": "No movements",
-    "loadFailed": "Failed to load movements"
+    "loadFailed": "Failed to load movements",
+    "inTotal": "In total {n}",
+    "outTotal": "Out total {n}",
+    "dirAll": "All directions",
+    "dirIn": "In",
+    "dirOut": "Out",
+    "bizAll": "All types",
+    "locAll": "All warehouses",
+    "dateAll": "All time",
+    "dateToday": "Today",
+    "date7d": "Last 7 days",
+    "dateMonth": "This month",
+    "clearFilter": "Clear filters",
+    "loadingMore": "Loading…",
+    "noMore": "No more"
   },
   "stockDocPurchase": {
     "labelToLoc": "Target warehouse *",
@@ -1012,7 +1168,8 @@
     "requireVariant": "Please enter a variant ID",
     "requireQty": "Please enter a valid quantity",
     "done": "Received {code}",
-    "submitFailed": "Submit failed"
+    "submitFailed": "Submit failed",
+    "prefilled": "Prefilled from the selected product — review and submit"
   },
   "stockDocTransfer": {
     "labelFromLoc": "Source warehouse *",

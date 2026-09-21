@@ -202,3 +202,127 @@ export async function deleteTenantStockLocation(id: string): Promise<TenantInven
     throw new Error(graphQlErrorMsg(e, '删除仓库失败'));
   }
 }
+
+// ---- 库存明细聚合页（Plan 2）：一次请求拿齐 KPI / 分桶计数 / 明细行 ----
+// 字段对齐后端 cjk-plugin `inventoryStockPage`（Task 2/3 注册在 admin SDL）
+export interface InventoryStockQueryInput {
+  locationId?: string | null;
+  keyword?: string;
+  bucket?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface InventoryStockRow {
+  variantId: string;
+  productId: string | null;
+  variantName: string;
+  sku: string;
+  optionText: string | null;
+  thumbnail: string | null;
+  stockLocationId: string | null;
+  locationName: string | null;
+  onHand: number;
+  allocated: number;
+  available: number;
+  safetyStock: number;
+  /** 货值（分）：最近一次采购/移库成本价 × 现存；无成本价 → 0 */
+  value: number;
+  costPrice: number | null;
+  /** 'out' | 'low' | 'ok'（服务端 bucketOf 结果，前端不重复实现） */
+  bucket: string;
+  lastMovementAt: string | null;
+  lastDirection: string | null;
+  lastBizType: string | null;
+}
+
+export interface InventoryStockSummary {
+  skuCount: number;
+  onHandTotal: number;
+  allocatedTotal: number;
+  availableTotal: number;
+  valueTotal: number;
+  outCount: number;
+  lowCount: number;
+  okCount: number;
+  outbound7d: number;
+}
+
+export interface InventoryStockPage {
+  totalItems: number;
+  summary: InventoryStockSummary;
+  items: InventoryStockRow[];
+}
+
+const STOCK_PAGE_SELECTION = `
+  totalItems
+  summary { skuCount onHandTotal allocatedTotal availableTotal valueTotal outCount lowCount okCount outbound7d }
+  items { variantId productId variantName sku optionText thumbnail stockLocationId locationName
+          onHand allocated available safetyStock value costPrice bucket lastMovementAt lastDirection lastBizType }
+`;
+
+export async function fetchInventoryStockPage(
+  input: InventoryStockQueryInput = {},
+): Promise<InventoryStockPage> {
+  try {
+    const { inventoryStockPage } = await getAdminClient().request<{ inventoryStockPage: InventoryStockPage }>(
+      `query InventoryStockPage($input: InventoryStockQueryInput) {
+        inventoryStockPage(input: $input) { ${STOCK_PAGE_SELECTION} }
+      }`,
+      { input },
+    );
+    return inventoryStockPage;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载库存明细失败'));
+  }
+}
+
+// ---- 预警规则（安全库存；Plan 2）----
+export interface InventoryAlertRule {
+  variantId: string;
+  locationId: string | null;
+  safetyStock: number;
+  enabled: boolean;
+}
+
+export interface InventoryAlertRuleInput {
+  variantId: string;
+  safetyStock: number;
+  enabled?: boolean | null;
+  locationId?: string | null;
+}
+
+const ALERT_RULE_SELECTION = `variantId locationId safetyStock enabled`;
+
+/** locationId 缺省/空 → 该 SKU 的「全仓通用」规则（服务端哨兵 0） */
+export async function fetchInventoryAlertRules(locationId?: string | null): Promise<InventoryAlertRule[]> {
+  try {
+    const { inventoryAlertRules } = await getAdminClient().request<{ inventoryAlertRules: InventoryAlertRule[] }>(
+      `query InventoryAlertRules($locationId: ID) {
+        inventoryAlertRules(locationId: $locationId) { ${ALERT_RULE_SELECTION} }
+      }`,
+      { locationId: locationId ?? null },
+    );
+    return inventoryAlertRules;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载预警规则失败'));
+  }
+}
+
+export async function saveInventoryAlertRules(
+  locationId: string | null | undefined,
+  items: InventoryAlertRuleInput[],
+): Promise<InventoryAlertRule[]> {
+  try {
+    const { saveInventoryAlertRules } = await getAdminClient().request<{ saveInventoryAlertRules: InventoryAlertRule[] }>(
+      `mutation SaveInventoryAlertRules($locationId: ID, $items: [InventoryAlertRuleInput!]!) {
+        saveInventoryAlertRules(locationId: $locationId, items: $items) { ${ALERT_RULE_SELECTION} }
+      }`,
+      { locationId: locationId ?? null, items },
+    );
+    return saveInventoryAlertRules;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '保存预警规则失败'));
+  }
+}
