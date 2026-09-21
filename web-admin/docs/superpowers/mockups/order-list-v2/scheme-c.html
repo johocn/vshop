@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方案 C · 高密度清单</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f4f5f8;color:#1c2233;-webkit-font-smoothing:antialiased}
+  .schemebar{background:#1c2233;color:#fff;display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:12px}
+  .schemebar a{color:#c4cbd9;text-decoration:none}
+  .schemebar a.on{color:#fff;background:#1fa97a;border-radius:6px;padding:3px 10px;font-weight:700}
+  .schemebar .sp{flex:1}
+  /* —— 统一基底 —— */
+  .navbar{position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #ececf2;
+      display:flex;align-items:center;gap:10px;padding:11px 16px}
+  .navbar .bk{color:#8a93a6;font-size:15px}
+  .navbar .t{font-weight:600;font-size:15px}
+  .navbar .sp{flex:1}
+  .navbar .scope{font-size:12px;color:#2b3350;border:1px solid #e1e4ec;border-radius:8px;padding:5px 10px}
+  .headbar{max-width:1240px;margin:0 auto;padding:14px 18px 0;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .headbar .title{font-size:19px;font-weight:700;margin-right:auto}
+  .headbar .redeem{background:#e8541f;color:#fff;font-size:12px;padding:7px 18px;border-radius:999px}
+  .stats{display:flex;gap:10px;flex:1 0 100%;order:3;margin:10px 0 0}
+  .stat{flex:1;background:#fff;border:1px solid #ececf2;border-radius:10px;padding:10px 0;text-align:center}
+  .stat b{display:block;font-size:18px;font-weight:700}
+  .stat span{font-size:11px;color:#8a93a6}
+  .stat b.o{color:#e8950c}.stat b.g{color:#1fa97a}.stat b.r{color:#e5484d}
+  .bar{max-width:1240px;margin:0 auto;padding:12px 18px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .seg{display:flex;background:#fff;border:1px solid #e7eaf0;border-radius:9px;overflow:hidden}
+  .sg{font-size:12.5px;padding:7px 18px;color:#6b758a}
+  .sg.on{background:#2f6bff;color:#fff;font-weight:600}
+  .groups{display:block;padding-top:14px}
+  .grp{background:#fff;border:1px solid #ececf2;border-radius:10px;padding:9px 11px;margin-bottom:8px}
+  .gh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .gh .cnt{font-size:11px;font-weight:600;color:#8a93a6;background:#f1f3f8;border-radius:999px;padding:1px 8px}
+  .gh .che{margin-left:auto;color:#9aa3b5;font-size:12px}
+  .gtabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .gtab{font-size:12px;padding:5px 12px;border-radius:999px;color:#6b758a;background:#f6f7fa;border:1px solid #e7eaf0}
+  .gtab.on{color:#fff;background:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .tchip{font-size:12px;padding:6px 15px;border-radius:999px;color:#6b758a;background:#fff;border:1px solid #e7eaf0}
+  .tchip.on{color:#fff;background:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .kw{flex:1;min-width:200px;background:#fff;border:1px solid #e7eaf0;border-radius:8px;padding:9px 12px;font-size:13px;color:#8a93a6}
+  .sbtn{background:#2f6bff;color:#fff;border:0;border-radius:8px;padding:9px 18px;font-size:12.5px}
+  .fchip{background:#fff;border:1px solid #e7eaf0;border-radius:999px;padding:7px 14px;font-size:12px;color:#6b758a}
+  .fchip.on{color:#2f6bff;border-color:#2f6bff;font-weight:600}
+  .fclear{font-size:12px;color:#8a93a6;text-decoration:underline}
+  .caption{max-width:1240px;margin:0 auto;font-size:11px;color:#8a93a6;padding:9px 18px 0}
+  .caption b{color:#2f6bff}
+  .pill{font-size:10.5px;font-weight:700;border-radius:4px;padding:2px 7px}
+  .pill.pay{color:#e5484d;background:rgba(229,72,77,.1)}
+  .pill.ship{color:#e8950c;background:rgba(232,149,12,.13)}
+  .pill.sent{color:#2f6bff;background:rgba(47,107,255,.12)}
+  .pill.done{color:#1fa97a;background:rgba(31,169,122,.12)}
+  .pill.cancel{color:#9aa3b5;background:rgba(154,163,181,.15)}
+  /* —— C：手机态 紧凑两行清单 —— */
+  .clist{background:#fff;border-top:1px solid #e7eaf0;border-bottom:1px solid #e7eaf0}
+  .crow{padding:9px 16px;border-bottom:1px solid #f1f3f8}
+  .crow:last-child{border-bottom:0}
+  .crow:active{background:#fafbfe}
+  .cl1{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .ccode{font-size:12.5px;font-family:ui-monospace,Consolas,monospace;font-weight:700;color:#1c2233;letter-spacing:.2px}
+  .camt{font-size:13.5px;font-weight:700;color:#e5484d}
+  .cl2{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .ccust{font-size:12px;color:#4a5368;font-weight:600}
+  .cphone{font-size:11px;color:#9aa3b5}
+  .ctm{margin-left:auto;font-size:11px;color:#9aa3b5}
+  .cmore{max-width:1240px;margin:0 auto;padding:10px 18px 26px;font-size:11px;color:#8a93a6}
+  /* —— C：桌面态 紧凑表格 —— */
+  .cdesk{display:none}
+  @media(min-width:768px){
+    .clist{display:none}
+    .cmore{display:none}
+    .cdesk{display:block;max-width:1240px;margin:0 auto;padding:14px 18px 30px}
+    .cscroll{background:#fff;border:1px solid #ececf2;border-radius:10px;overflow:auto;max-height:520px}
+    .cdesk table{width:100%;min-width:980px;border-collapse:separate;border-spacing:0;font-size:12px}
+    .cdesk thead th{position:sticky;top:0;z-index:2;background:#f2f4f9;color:#6b758a;text-align:left;
+        padding:0 10px;height:32px;font-size:11px;font-weight:600;white-space:nowrap;border-bottom:1px solid #e7eaf0}
+    .cdesk tbody td{padding:0 10px;height:36px;white-space:nowrap;border-bottom:1px solid #f4f6fa;vertical-align:middle}
+    .cdesk tbody tr:nth-child(even) td{background:#fafbfd}
+    .cdesk tbody tr:hover td{background:#f2f6ff}
+    .cdesk .mono{font-family:ui-monospace,Consolas,monospace;font-weight:700}
+    .cdesk .pv{color:#e5484d;font-weight:700}
+    .cdesk .dim{color:#8a93a6}
+    .cdesk .ops{color:#2f6bff;font-weight:600}
+    .cdesk .ops i{font-style:normal;color:#e7eaf0;margin:0 2px}
+    .cdesk .ops .gray{color:#8a93a6}
+    .chint{font-size:11px;color:#8a93a6;margin-top:8px}
+    .note{font-size:11px;color:#8a93a6;margin-top:8px;line-height:17px}
+  }
+</style>
+</head>
+<body>
+  <div class="schemebar">
+    <a href="index.html">← 方案选择</a><b>方案 C · 高密度清单</b>
+    <span class="sp"></span>
+    <a href="scheme-a.html">A</a><a href="scheme-b.html">B</a><a href="scheme-c.html" class="on">C</a>
+  </div>
+
+  <div class="navbar"><span class="bk">‹</span><span class="t">订单</span><span class="sp"></span><span class="scope">本店渠道单 ▾</span></div>
+
+  <div class="headbar">
+    <span class="title">订单</span>
+    <span class="redeem">核销码</span>
+    <div class="stats">
+      <div class="stat"><b>3</b><span>今日订单</span></div>
+      <div class="stat"><b class="r">1</b><span>待付款</span></div>
+      <div class="stat"><b class="o">2</b><span>待发货</span></div>
+      <div class="stat"><b class="g">0</b><span>待退款</span></div>
+    </div>
+  </div>
+
+  <div class="bar"><div class="seg"><span class="sg on">渠道单</span><span class="sg">商品单</span></div></div>
+
+  <div class="bar groups">
+    <div class="grp">
+      <div class="gh">待处理 <span class="cnt">0</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Created</span><span class="gtab">AddingItems</span><span class="gtab">ArrangingPayment</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">进行中 <span class="cnt">3</span><span class="che">⌃</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab on">PaymentAuthorized</span><span class="gtab">PaymentSettled</span><span class="gtab">PartiallyShipped</span><span class="gtab">Shipped</span><span class="gtab">PartiallyDelivered</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">已完成 <span class="cnt">1</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Delivered</span><span class="gtab">Completed</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">已取消 <span class="cnt">1</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span><span class="gtab">Cancelled</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gh">异常 <span class="cnt">0</span><span class="che">⌄</span></div>
+      <div class="gtabs">
+        <span class="gtab">全部</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span class="tchip on">今日</span><span class="tchip">近7天</span><span class="tchip">本月</span><span class="tchip">自定义</span>
+  </div>
+
+  <div class="bar">
+    <div class="kw">🔍 订单号 / 顾客 / 手机号 / 商品名</div><button class="sbtn">搜索</button>
+    <span class="fchip on">快递</span><span class="fchip">自提</span><span class="fclear">清除</span>
+  </div>
+  <div class="caption">已选组合：<b>今日</b> + <b>PaymentAuthorized（待发货）</b>；方案 C 无卡片圆角与缩略图，仅保留订单号 / 金额 / 顾客 / 状态，追求一屏条数最大化。</div>
+
+  <!-- ===== 手机态：紧凑两行式清单 ===== -->
+  <div class="clist">
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210005</span><span class="camt">¥59.00</span></div>
+      <div class="cl2"><span class="ccust">赵一鸣</span><span class="cphone">138****8399</span><span class="pill pay">待付款</span><span class="ctm">12 分钟前</span></div>
+    </div>
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210001</span><span class="camt">¥9.99</span></div>
+      <div class="cl2"><span class="ccust">Zhao Test</span><span class="cphone">138****8399</span><span class="pill ship">待发货</span><span class="ctm">30 分钟前</span></div>
+    </div>
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210002</span><span class="camt">¥39.90</span></div>
+      <div class="cl2"><span class="ccust">示例账号</span><span class="cphone">139****2210</span><span class="pill sent">已发货</span><span class="ctm">2 小时前</span></div>
+    </div>
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210006</span><span class="camt">¥25.00</span></div>
+      <div class="cl2"><span class="ccust">回 归</span><span class="cphone">137****5527</span><span class="pill ship">待发货</span><span class="ctm">5 小时前</span></div>
+    </div>
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210003</span><span class="camt">¥4.99</span></div>
+      <div class="cl2"><span class="ccust">林望舒</span><span class="cphone">135****6688</span><span class="pill done">已完成</span><span class="ctm">昨天 20:14</span></div>
+    </div>
+    <div class="crow">
+      <div class="cl1"><span class="ccode">202609210004</span><span class="camt">¥128.00</span></div>
+      <div class="cl2"><span class="ccust">陈默</span><span class="cphone">133****1024</span><span class="pill cancel">已取消</span><span class="ctm">3 天前</span></div>
+    </div>
+  </div>
+  <div class="cmore">行高约 46px（两行紧凑），实测视口可容纳 10+ 条；此处仅以 6 条测试数据演示。</div>
+
+  <!-- ===== 桌面态：紧凑表格（36px 行高 / 12px 字号 / 粘性表头 / 斑马纹 / 横向滚动） ===== -->
+  <div class="cdesk">
+    <div class="cscroll">
+      <table>
+        <thead><tr>
+          <th>订单号</th><th>顾客</th><th>电话</th><th>商品</th><th>数量</th><th>配送</th><th>金额</th><th>状态</th><th>时间</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">202609210005</td><td>赵一鸣</td><td class="dim">138****8399</td><td>中行 AI 音箱</td><td class="dim">×1</td><td>快递·标准</td><td class="pv">¥59.00</td><td><span class="pill pay">待付款</span></td><td class="dim">12 分钟前</td><td><span class="ops">复制提醒<i>|</i><span class="gray">详情</span></span></td>
+          </tr>
+          <tr>
+            <td class="mono">202609210001</td><td>Zhao Test</td><td class="dim">138****8399</td><td>中行 AI 音箱</td><td class="dim">×2</td><td>快递·标准</td><td class="pv">¥9.99</td><td><span class="pill ship">待发货</span></td><td class="dim">30 分钟前</td><td><span class="ops">去发货<i>|</i><span class="gray">详情</span></span></td>
+          </tr>
+          <tr>
+            <td class="mono">202609210002</td><td>示例账号</td><td class="dim">139****2210</td><td>无线充电器</td><td class="dim">×1</td><td>同城配送</td><td class="pv">¥39.90</td><td><span class="pill sent">已发货</span></td><td class="dim">2 小时前</td><td><span class="ops"><span class="gray">详情</span></span></td>
+          </tr>
+          <tr>
+            <td class="mono">202609210006</td><td>回 归</td><td class="dim">137****5527</td><td>保温杯</td><td class="dim">×1</td><td>门店自提</td><td class="pv">¥25.00</td><td><span class="pill ship">待发货</span></td><td class="dim">5 小时前</td><td><span class="ops">去核销<i>|</i><span class="gray">详情</span></span></td>
+          </tr>
+          <tr>
+            <td class="mono">202609210003</td><td>林望舒</td><td class="dim">135****6688</td><td>便携数据线</td><td class="dim">×1</td><td>快递·标准</td><td class="pv">¥4.99</td><td><span class="pill done">已完成</span></td><td class="dim">昨天 20:14</td><td><span class="ops"><span class="gray">详情</span></span></td>
+          </tr>
+          <tr>
+            <td class="mono">202609210004</td><td>陈默</td><td class="dim">133****1024</td><td>蓝牙耳机</td><td class="dim">×1</td><td>快递·标准</td><td class="pv">¥128.00</td><td><span class="pill cancel">已取消</span></td><td class="dim">3 天前</td><td><span class="ops"><span class="gray">详情</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chint">表头吸附，列宽超出时可横向滚动（表格最小宽度 980px）；行高 36px、字号 12px、斑马纹。</div>
+    <div class="note">方案 C 桌面态：把「配送 / 数量 / 电话」等拆成独立窄列以便快速扫读，牺牲信息层次换取一屏容纳量与列对齐。<br>手机态：无卡片圆角、行间细分隔线，第一行 订单号 + 金额，第二行 顾客 + 状态色小标签。测试数据示例。</div>
+  </div>
+</body>
+</html>

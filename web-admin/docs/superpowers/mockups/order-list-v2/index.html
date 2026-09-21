@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订单列表版式重做 v2 · 方案选择</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f4f5f8;color:#1c2233;padding:40px 20px;-webkit-font-smoothing:antialiased}
+  .hub{max-width:1040px;margin:0 auto}
+  h1{font-size:20px;margin-bottom:6px}
+  p.lead{color:#8a93a6;font-size:13px;line-height:20px;margin-bottom:22px}
+  .base{background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:14px 16px;margin-bottom:22px}
+  .base h3{font-size:13px;margin-bottom:8px}
+  .base .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .base .tg{font-size:11px;color:#5a6580;background:#f4f6fb;border:1px solid #e7eaf0;border-radius:999px;padding:3px 10px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  a.opt{display:block;background:#fff;border:1px solid #e7eaf0;border-radius:12px;padding:18px;
+        text-decoration:none;color:inherit;transition:.15s}
+  a.opt:hover{border-color:#2f6bff;box-shadow:0 4px 14px rgba(47,107,255,.12);transform:translateY(-2px)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#2f6bff;
+         border-radius:999px;padding:2px 10px;margin-bottom:12px}
+  .badge.b{background:#7c5cff} .badge.c{background:#1fa97a}
+  h2{font-size:16px;margin-bottom:6px}
+  .desc{font-size:12px;color:#6b758a;line-height:18px}
+  .pts{list-style:none;margin-top:12px;border-top:1px dashed #eef0f5;padding-top:10px}
+  .pts li{font-size:11.5px;color:#5a6580;line-height:19px;display:flex;gap:6px}
+  .pts li::before{content:"›";color:#2f6bff;font-weight:700}
+  .pts li b{color:#1c2233}
+  .tagline{font-size:11px;color:#8a93a6;margin-top:12px}
+  .foot{font-size:11.5px;color:#8a93a6;line-height:19px;margin-top:22px}
+</style>
+</head>
+<body>
+  <div class="hub">
+    <h1>订单列表版式重做 v2 — 三个结构性方案</h1>
+    <p class="lead">上一轮三版式的差异字段（showAddress / showDeliveryName / stateColors）全为 true，实际只剩 groupByState 与 stateColumnFirst 两个微调，肉眼难辨。本轮<b>保留三个 key，把差异升级到结构级</b>：信息密度、字段集、分组方式、导航形态都不同。请分别切手机（窄视口）与桌面（宽视口）两态对比。</p>
+
+    <div class="base">
+      <h3>三方案共用的统一基底（相同部分，不构成差异）</h3>
+      <div class="tags">
+        <span class="tg">顶部「订单」标题</span>
+        <span class="tg">4 张统计卡：今日 / 待付款 / 待发货 / 待退款</span>
+        <span class="tg">核销码入口</span>
+        <span class="tg">scope 段：渠道单 / 商品单</span>
+        <span class="tg">状态 tab 全枚举 + 5 个折叠组</span>
+        <span class="tg">时间快捷筛选条：今日 / 近7天 / 本月 / 自定义</span>
+        <span class="tg">搜索框 + 配送筛选（快递 / 自提）</span>
+        <span class="tg">同一批 6 条假数据</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <a class="opt" href="scheme-a.html">
+        <span class="badge">方案 A</span>
+        <h2>卡片信息流</h2>
+        <p class="desc">手机单列大卡片，信息最全、密度最低；桌面走宽表格。不分组，时间倒序平铺。</p>
+        <ul class="pts">
+          <li><b>结构差异 · 密度最低</b></li>
+          <li><b>字段最全</b>：缩略图 + 商品摘要 + 顾客 + 金额 + 时间 + 状态标签</li>
+          <li><b>操作组</b>：去发货 / 去核销 / 复制提醒 / 详情</li>
+          <li><b>不分组</b>，时间倒序平铺</li>
+          <li>桌面：宽表格（8 列）</li>
+        </ul>
+        <div class="tagline">适合：单量小、逐单看详情</div>
+      </a>
+
+      <a class="opt" href="scheme-b.html">
+        <span class="badge b">方案 B</span>
+        <h2>状态看板</h2>
+        <p class="desc">手机按状态分区的泳道式分区，区内卡片极简；桌面左状态导航 + 右明细表。</p>
+        <ul class="pts">
+          <li><b>结构差异 · 按状态组织</b></li>
+          <li><b>分区头</b>：状态名 + 单数 + 金额小计，可折叠</li>
+          <li><b>卡片极简</b>：订单号 / 顾客 / 金额 / 时间 + 1 个主操作，无缩略图</li>
+          <li><b>导航形态</b>：桌面左侧含计数的状态导航，高亮当前状态</li>
+          <li>最利于状态流转</li>
+        </ul>
+        <div class="tagline">适合：高频按状态流转的运营</div>
+      </a>
+
+      <a class="opt" href="scheme-c.html">
+        <span class="badge c">方案 C</span>
+        <h2>高密度清单</h2>
+        <p class="desc">手机紧凑两行式清单，一屏可见 10+ 条；桌面紧凑表格，粘性表头 + 斑马纹 + 横向滚动。</p>
+        <ul class="pts">
+          <li><b>结构差异 · 密度最高</b></li>
+          <li><b>手机</b>：无卡片圆角，行间细分隔线，两行一行单</li>
+          <li><b>第一行</b>订单号 + 金额；<b>第二行</b>顾客 + 状态色小标签</li>
+          <li><b>桌面</b>：行高 36px / 字号 12px / 粘性表头 / 斑马纹</li>
+          <li>列可横向滚动</li>
+        </ul>
+        <div class="tagline">适合：单量大、快速扫读</div>
+      </a>
+    </div>
+
+    <p class="foot">数据为同一批 6 条假订单（202609210001–202609210006，状态覆盖待付款 / 待发货 / 已发货 / 已完成 / 已取消），确保三方案可公平对比。断点统一为 768px。</p>
+  </div>
+</body>
+</html>
