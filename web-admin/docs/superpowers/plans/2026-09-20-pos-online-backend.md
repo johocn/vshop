@@ -2,10 +2,15 @@
 
 > 依据设计：`specs/2026-09-20-pos-online-backend-design.md`
 
-- [ ] Task 1：把 `d:\zhao\vcash\packages\vcash-pos-plugin`、`d:\zhao\vcash\packages\vcash-offline-plugin` 拷贝到 `d:\zhao\vendure\packages\`（改为 `vcash-pos-plugin`、`vcash-offline-plugin` 目录）。
-- [ ] Task 2：对齐 monorepo 包规范：以 `packages/member-level-plugin` 为模板改 `package.json`（name、workspaces 自动纳入、`peerDependencies` 声明 `@vendure/core`/`@vendure/common`/`typeorm`、补 build/dev 脚本）；按根 tsconfig 对齐 `tsconfig.json`。
-- [ ] Task 3：厘清插件类导出：确认 `@vcash/pos-plugin` 的 barrel 是否导出 `VcashPosPlugin`/`VcashOfflinePlugin`；若仅导服务，则在主入口或子路径补导出插件类，供 dev-config 导入。
-- [ ] Task 4：在 `packages/dev-server/dev-config.ts` 的 `plugins` 数组（现已有 `MemberLevelPlugin` 等）追加注册 `VcashPosPlugin`（`VcashOfflinePlugin` 视其功能保留/降级，见设计错误处理）。
-- [ ] Task 5：`pnpm build`（或 monorepo 相关包构建）通过；本地不再依赖 vcash 独立 server 的 vendure-config。
-- [ ] Task 6：启动 dev-server 连共享 postgres，`synchronize:true` 建表；确认 admin GraphQL playground 出现 POS mutations/resolvers，且无 schema 冲突、postgres 自动建出 `pos_terminal`/`pos_session`/`member_price_rule`/`promotion_rule` 等表。
-- [ ] Task 7：git add + commit 到 `d:\zhao\vendure` 仓库。
+**状态**：Task 1-5 已完成并提交 `d:\zhao\vendure` commit `e15361524`（插件入仓 @vendure/vcash-pos-plugin / vcash-offline-plugin、对齐 monorepo、dev-config 注册、tsc 编译 lib）。**待办收尾**：
+
+- [x] Task 1：`vcash-pos-plugin`、`vcash-offline-plugin` 拷贝入 `d:\zhao\vendure\packages\`（改名 @vendure/vcash-*）。
+- [x] Task 2：对齐 monorepo 包规范（package.json / tsconfig / peerDeps / build 脚本）。
+- [x] Task 3：确认 barrel 导出 `VcashPosPlugin`/`VcashOfflinePlugin`；offline-plugin 内 import 已改 `@vendure/vcash-pos-plugin`。
+- [x] Task 4：`dev-config.ts` 的 `plugins` 注册 `VcashPosPlugin`+`VcashOfflinePlugin`（MemberLevelPlugin.init() 后）。
+- [x] Task 5：根 `node_modules/.bin/tsc` 本地编译通过并产出 lib（已入库）。
+- [ ] Task 6（进行中）：**重建生产 dist** `packages/dev-server/dist`——当前已入库 dist/dev-config.js 不包含 vcash（需重建使 VcashPosPlugin 注册编译进产物）；本地起 dev-server 连共享 postgres（synchronize）建表，admin GraphQL 出现 POS 类型。
+- [x] Task 7：git add + commit 已完成（e15361524）。
+
+> 注意：vendure 根 workspaces 在 package.json（pnpm v11 不认该字段），`device node_modules/@vendure/vcash-pos-plugin` 为手动 Junction 指向 packages/（未入库）；重建前若 node_modules 被清需重建 junction。
+> 生产 dist = dashboard vite config-loader + tsc 产物（`node dist/index.js` 启动），部署 = git pull + pm2 restart，不服务器构建。
