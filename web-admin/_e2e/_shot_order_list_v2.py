@@ -117,11 +117,29 @@ with sync_playwright() as p:
     shot(pg, 'orderlist_v2_search_390.png')
 
     # 3 今日 + 待发货（时间维度与状态分组可叠加）；分组默认折叠，先展开「进行中」
+    # 该组合是修复前的报错复现路径（filterOperator 误置 → GraphQL 报错 + 空白列表），此处断言无 toast。
     safe_clear(pg)
     pg.get_by_text('今日', exact=True).first.tap(); time.sleep(3)
     pg.locator('.grp', has_text='进行中').first.locator('.gh').tap(); time.sleep(2)
-    pg.locator('.gtab', has_text='待发货').first.tap(); time.sleep(3)
+    pg.locator('.gtab', has_text='待发货').first.tap(); time.sleep(4)
+    toast = pg.locator('uni-toast').count()
+    print('  组合筛选(今日+待发货) toast =', toast, ' rows =', pg.locator('.card, .cp').count())
+    if toast:
+        raise SystemExit('多条件组合仍报错：' + pg.locator('uni-toast').first.inner_text())
     shot(pg, 'orderlist_v2_today_state_390.png')
+
+    # 3.5 本月 + 待处理组：多条件组合且**结果非空**，证明组合筛选既报错消失又结果正确
+    safe_clear(pg)
+    pg.get_by_text('本月', exact=True).first.tap(); time.sleep(3)
+    pg.locator('.grp', has_text='待处理').first.locator('.gh').tap(); time.sleep(2)
+    pg.locator('.grp', has_text='待处理').first.locator('.gtab').first.tap(); time.sleep(3)
+    # 上一步展开的「进行中」仍开着，会把列表挤到首屏之外 → 收起它再截
+    pg.locator('.grp', has_text='进行中').first.locator('.gh').tap(); time.sleep(2)
+    rows = pg.locator('.card, .cp').count()
+    print('  组合筛选(本月+待处理) toast =', pg.locator('uni-toast').count(), ' rows =', rows)
+    if rows == 0:
+        raise SystemExit('多条件组合返回 0 行，无法证明组合筛选结果正确')
+    shot(pg, 'orderlist_v2_multi_390.png')
 
     # 4 异常组（exceptionType 非空）
     safe_clear(pg)

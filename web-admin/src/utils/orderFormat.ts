@@ -177,6 +177,8 @@ export function filterShopRows(rows: ShopOrderRow[], f: ShopLocalFilter = {}, no
   const dv = f.delivery || '';
   return rows.filter((o) => {
     if (dv === 'pickup') return false; // 商品单恒快递：选「自提」全排除、选「快递」放行继续下探
+    // 商品单接口只返回 placedAt（无 createdAt），口径与渠道单的 createdAt 存在差异：
+    // 未下单的单 placedAt 为 null，会被时间条件排除。商品单恒为已下单单，实际影响可忽略。
     if (!inTimeWindow(o.placedAt, f.time, now)) return false;
     if (f.states?.length && !f.states.includes(o.state)) return false;
     if (!k) return true;

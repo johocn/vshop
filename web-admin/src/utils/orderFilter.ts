@@ -122,7 +122,7 @@ export interface OrderFilterInput {
   states?: string[];
   /** 关键词 → _or（订单号/联系人/电话/备注） */
   keyword?: string;
-  /** 时间条件 → orderPlacedAt.between */
+  /** 时间条件 → createdAt.between（不用 orderPlacedAt：未下单的单该字段为 null） */
   time?: TimeRangeInput;
   /** 配送方式：'' 不过滤 | 'pickup' 自提 | 'delivery' 快递 */
   delivery?: '' | 'pickup' | 'delivery';
@@ -147,7 +147,10 @@ export function buildOrderFilter(input: OrderFilterInput = {}, now = new Date())
   else if (input.exceptionOnly) filter.exceptionType = { isNull: false };
 
   const w = resolveTimeWindow(input.time || {}, now);
-  if (w) filter.orderPlacedAt = { between: { start: w.start, end: w.end } };
+  // 用 createdAt 而非 orderPlacedAt：加购中/待付款等**未下单**的单 orderPlacedAt 为 null，
+  // 用 orderPlacedAt 会把它们整体排除（生产实测：本月 orderPlacedAt=11 / createdAt=21；
+  // 「本月 + 待处理」orderPlacedAt=0 而 createdAt=10）→ 表现为「订单状态不全、今日订单为空」。
+  if (w) filter.createdAt = { between: { start: w.start, end: w.end } };
 
   const kw = (input.keyword || '').trim();
   if (kw) {
