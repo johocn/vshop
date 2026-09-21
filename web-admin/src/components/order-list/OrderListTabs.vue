@@ -23,7 +23,9 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 
-// 分组折叠 tab：默认全部展开；分组计数来自服务端 totalItems（页面 loadCounts）。
+// 分组折叠 tab：分组头常显服务端计数，默认**折叠**（点开才出 chip）。
+// 默认全展开会把 6 组 × 全枚举 chip 铺满两屏，手机 390×844 首屏完全看不到订单（实测），
+// 故只自动展开「当前选中项所在分组」（见下方 watch）。
 // tabs 的语义（states / exceptionOnly / exceptionType / afterSales）由页面定义，本组件只渲染。
 const props = withDefaults(
   defineProps<{
@@ -34,18 +36,18 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ (e: 'change', key: string): void }>();
 
-const closed = ref<Record<string, boolean>>({});
+const open = ref<Record<string, boolean>>({});
 function isOpen(key: string) {
-  return closed.value[key] !== true;
+  return open.value[key] === true;
 }
 function toggle(key: string) {
-  closed.value = { ...closed.value, [key]: !closed.value[key] };
+  open.value = { ...open.value, [key]: !open.value[key] };
 }
 
 // 选中项落在折叠组内时自动展开，避免“选了却看不见”
 const curGroupKey = computed(() => props.groups.find((g) => g.tabs.some((t) => t.key === props.cur))?.key || '');
 watch(curGroupKey, (k) => {
-  if (k && closed.value[k]) closed.value = { ...closed.value, [k]: false };
+  if (k) open.value = { ...open.value, [k]: true };
 });
 </script>
 
