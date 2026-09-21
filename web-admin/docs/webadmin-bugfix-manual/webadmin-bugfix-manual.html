@@ -126,6 +126,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#files">涉及文件与修订记录</a></li>
       <li><a href="#pickup-global">自提点「全局可用」开关</a></li>
       <li><a href="#followups">商品详情三问题修复（就近库存 / 标题SKU / 9图保存）</a></li>
+      <li><a href="#order-list-v2">订单列表 · 筛选/状态/版式重构</a></li>
     </ol>
   </nav>
 
@@ -683,7 +684,59 @@ flowchart TD
     <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/cjk-plugin/src/inventory/</code>（<code class="mono">inventory-alert-rule.entity.ts</code>、<code class="mono">inventory-alert-rule.service.ts</code>、<code class="mono">inventory-stock.service.ts</code>、<code class="mono">stock-doc.service.ts</code>、<code class="mono">stock-doc.admin.resolver.ts</code>、<code class="mono">inventory-admin.resolver.ts</code>、<code class="mono">inventory-mode.custom-fields.ts</code>、<code class="mono">plugin.ts</code>、幂等迁移）——<strong>只新增 1 张表，不改既有表结构</strong>；前端 <code class="mono">vshop/web-admin/src/pages/inventory/{stock,alert-rules,stock-doc,movements}/</code>、<code class="mono">src/components/inventory/*</code>、<code class="mono">src/utils/inventoryFormat.ts</code>、<code class="mono">src/apis/{inventory,stock-doc,channel}.ts</code>、<code class="mono">src/pages.json</code>、双语语言包。部署：后端本地 <code class="mono">npm run build</code>（提交 <code class="mono">lib/</code>）→ 服务器 <code class="mono">git pull</code> + <code class="mono">pm2 restart vendure</code>；前端本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退；后端回上一 commit + <code class="mono">pm2 restart</code>（新表保留不影响旧代码）。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="order-list-v2">
+    <h2>14 订单列表 · 筛选/状态/版式重构（2026-09-22）</h2>
+    <p>针对运营端 <code class="mono">/pages/order/list/index</code> 的三类反馈做重构：① 搜索过滤不稳定、特定环境无结果；② 订单状态不全（今日订单等）；③ 订单列表版式变化不明显。本轮<strong>纯前端改动，未动后端</strong>。</p>
+
+    <h3>14.1 问题现象与根因</h3>
+    <p><strong>根因 A · 组合筛选直接报错（对应反馈①）</strong>：筛选条件组装函数 <code class="mono">buildOrderFilter</code> 在条件数 &gt; 1 时会把 <code class="mono">filterOperator: 'AND'</code> 写进 <code class="mono">filter</code> 对象<strong>内部</strong>；但该字段属于 <code class="mono">OrderListOptions</code>（<code class="mono">filter</code> 的兄弟节点），写进 <code class="mono">filter</code> 会被 admin-api 直接拒绝 —— <code class="mono">Field "filterOperator" is not defined by type "OrderFilterParameter"</code>。于是「时间 + 状态」「关键词 + 时间」等<strong>任意两个及以上条件同时生效</strong>时请求整体失败、列表空白。这正是「搜索过滤不稳定、特定环境无结果」的真身：单条件能出结果、一叠加就全空。</p>
+    <figure style="margin:0 0 10px;"><img src="assets/orderlist_bug_before_390.png" style="width:34%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">修复前：点「今日 + 待发货」→ 弹「加载失败：… Field "filterOperator" is not defined by type "OrderFilterParameter"」，列表空白</figcaption></figure>
+    <p><strong>根因 B · 时间筛选吞掉未下单订单（对应反馈②）</strong>：时间条件用的是 <code class="mono">orderPlacedAt</code>，而「加购中 / 待付款」等<strong>尚未下单</strong>的单该字段为 <code class="mono">null</code>，会被 <code class="mono">between</code> 整体排除。生产只读探针实测（t2 渠道）：</p>
+    <table>
+      <thead><tr><th>条件</th><th>orderPlacedAt 口径</th><th>createdAt 口径</th></tr></thead>
+      <tbody>
+        <tr><td>本月</td><td>11</td><td>21</td></tr>
+        <tr><td>本月 + 待处理组</td><td><strong>0</strong>（10 单全被吞）</td><td><strong>10</strong></td></tr>
+        <tr><td>抽样</td><td colspan="2"><code class="mono">AddingItems</code> 单 <code class="mono">placed=None created=2026-09-12</code>；<code class="mono">Delivered</code> 单两者仅差数小时</td></tr>
+      </tbody>
+    </table>
+    <p>结论：<strong>筛选口径必须是 <code class="mono">createdAt</code></strong>（下单/创建时间），否则「今日订单 / 本月」永远看不到待处理单。修复后「本月 + 待处理」在界面返回 8 行（探针 10 单 − 2 张 0 件 0 元幽灵单，幽灵单按既有规则不出现在列表）。</p>
+    <p><strong>根因 C · 版式变化不明显（对应反馈③）</strong>：原三套版式只改了行内少量样式，DOM 结构完全一致，切换后肉眼几乎无差异；且状态 tab 只列了少数状态、无异常/售后入口。</p>
+
+    <h3>14.2 修复内容</h3>
+    <ul>
+      <li><strong>筛选全部下推服务端</strong>：新增纯函数层 <code class="mono">utils/orderFilter.ts</code>（时间区间 / 状态分组 / 异常类型 / filter 组装），GraphQL 改为<strong>变量化传参</strong>（消除字符串内插），多条件的 AND 语义交给 <code class="mono">OrderListOptions</code> 默认值，不再手写 <code class="mono">filterOperator</code>。</li>
+      <li><strong>时间口径改为 <code class="mono">createdAt</code></strong>，今日 / 近7天 / 本月 / 自定义区间四档 + 起止颠倒自动交换。</li>
+      <li><strong>状态 tab 全枚举 + 分组折叠</strong>：16 个状态按「待处理 / 进行中 / 已完成 / 已取消」四组收纳，另加<strong>异常组</strong>（按 <code class="mono">exceptionType</code> 二级筛选：拒收 / 地址错误 / 无人接收 / 破损 / 其他）与<strong>售后组</strong>；分组默认折叠，避免把列表挤出首屏。</li>
+      <li><strong>统计卡口径固定</strong>：今日卡固定「当日」口径（不随当前时间胶囊漂移），四张卡与对应 tab 计数同源，避免「点进去数量对不上」。</li>
+      <li><strong>三版式结构性重做</strong>（积木式，共用功能块）：<code class="mono">卡片信息流</code>（单列大卡：缩略图 + 商品明细 + 操作组）/ <code class="mono">高密度清单（运维视角）</code>（无圆角两行清单，一屏更多条）/ <code class="mono">状态看板（分区导航）</code>（手机端按状态泳道分区、桌面端左侧分组导航 + 右侧紧凑表）。</li>
+      <li>竞态防护：列表请求自增序号，只有最新一次结果允许写入（快速连点 tab / 切换筛选不再串数据）。</li>
+    </ul>
+
+    <h3>14.3 回归测试与证据</h3>
+    <ul>
+      <li>单测：<code class="mono">npx tsx --test src/utils/orderFilter.test.ts</code> → <strong>22 通过 / 0 失败</strong>；<code class="mono">orderListConfig.test.ts</code> → 5 通过。</li>
+      <li>类型检查：<code class="mono">npx tsc --noEmit</code> 仅剩 7 条历史错误（<code class="mono">apis/coupon.ts</code>、<code class="mono">apis/product.ts</code>、<code class="mono">utils/scanner.ts</code>），本轮<strong>无新增</strong>。</li>
+      <li>线上只读探针（<code class="mono">_e2e/_probe_order_filter.py</code>，10 项 0 失败）：baseline 21 / 待发货 1 / 关键词 <code class="mono">_or</code> 10 / 今日 0 / 自提 17 / 快递 4 / <code class="mono">deliveryType</code> 空 0 / 异常 0 / 破损 0 / 售后 0 —— 各条件均有区分度且<strong>无 ERR</strong>。</li>
+      <li>组合语义判定（<code class="mono">_e2e/_probe_order_multi2.py</code>）：<code class="mono">pickup=17</code>、<code class="mono">state.in=1</code>，组合<strong>不写 filterOperator 得 1（=交集，AND）</strong>，显式 options 级 OR 才得 17 → 证明默认即 AND，无需显式声明。</li>
+      <li>界面级回归：截图脚本内置断言 ——「今日 + 待发货」组合 <strong>toast = 0</strong>（修复前为 1 且报错）；「本月 + 待处理」组合 <strong>rows = 8 &gt; 0</strong>。</li>
+    </ul>
+
+    <h3>14.4 验收截图</h3>
+    <p>以下均为线上真实效果（手机 390×844、dpr=2；桌面 1440×900）。</p>
+    <figure style="margin:0 0 10px;"><img src="assets/orderlist_v2_default_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/orderlist_v2_search_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/orderlist_v2_multi_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">默认态（统计 4 卡 + 分组折叠 tab 含计数 + 搜索/时间/配送胶囊 + 卡片信息流） / 关键词服务端搜索命中跨页订单 <code class="mono">HV7F4XP89KFLVEV8</code>（当页 20 条里根本没有这条） / 「本月 + 待处理」组合筛选返回 8 行（修复前该组合直接报错空白）</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/orderlist_v2_today_state_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/orderlist_v2_exception_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/orderlist_v2_desktop_1440.png" style="width:36%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">「今日」胶囊高亮 + 进行中组展开 + 「待发货」选中（组合筛选无报错） / 异常组展开（拒收 / 地址错误 / 无人接收 / 破损 / 其他） / 桌面 1440×900（左侧分组导航含服务端计数 + 右侧紧凑表，粘性表头）</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/orderlist_v2_layout_a_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/orderlist_v2_layout_b_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/orderlist_v2_layout_c_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">三版式结构差异肉眼可辨：<strong>卡片信息流</strong>（单列大卡，含商品缩略图与明细行） / <strong>状态看板</strong>（按状态泳道分区，分区头 = 状态名 + 单数 + 金额小计，区内极简卡无缩略图） / <strong>高密度清单</strong>（无圆角两行清单，一屏更多条）</figcaption></figure>
+
+    <div class="callout warn">
+      <h4>故障排查指引</h4>
+      <p>① <strong>筛选后列表空白</strong>：先看是否有红色 toast。若报 <code class="mono">filterOperator … not defined</code> 之类的 GraphQL 错，说明部署的是旧产物（本修复已移除该字段），重新 <code class="mono">node scripts/deploy.mjs</code> 即可。② <strong>「今日订单」为 0</strong>：口径是<strong>创建时间</strong>（<code class="mono">createdAt</code>），当天确实没有新建单时为 0 属正常；可用「本月」或「近7天」验证。③ <strong>时间筛选后看不到待处理单</strong>：确认时间字段为 <code class="mono">createdAt</code> 而非 <code class="mono">orderPlacedAt</code>（未下单的单后者为 <code class="mono">null</code>）。④ <strong>卡片数比 tab 计数少</strong>：列表会过滤「0 件 0 元」幽灵单，计数是服务端全量口径，差值即幽灵单数量。⑤ <strong>切版式看不到结构变化</strong>：版式区在筛选条下方，若前序展开过状态分组会把列表挤到首屏外，先收起分组或下拉即可。⑥ <strong>「本店商品单」时间筛选略有差异</strong>：商品单接口只返回 <code class="mono">placedAt</code>（无 <code class="mono">createdAt</code>），口径与渠道单不完全一致，商品单恒为已下单单，实际影响可忽略。</p>
+    </div>
+
+    <p class="muted" style="font-size:13px;">涉及文件：前端 <code class="mono">vshop/web-admin/src/utils/orderFilter.ts</code>（新建，含 <code class="mono">resolveTimeWindow</code> / <code class="mono">buildOrderFilter</code> / <code class="mono">STATE_GROUPS</code>）、<code class="mono">src/utils/orderFilter.test.ts</code>（新建，22 用例）、<code class="mono">src/apis/order.ts</code>（<code class="mono">fetchOrders</code> 变量化 + <code class="mono">fetchOrderCounts</code> 多别名计数）、<code class="mono">src/components/order-list/*</code>（<code class="mono">OrderListFilters</code> / <code class="mono">OrderListTabs</code> / <code class="mono">OrderListCardRow</code> / <code class="mono">OrderListTableRow</code> / <code class="mono">OrderListRenderer</code> / <code class="mono">OrderListHeadBar</code>）、<code class="mono">src/constants/orderListLayouts.ts</code>、<code class="mono">src/pages/order/list/index.vue</code>、<code class="mono">src/utils/orderFormat.ts</code>、双语语言包 <code class="mono">src/locale/{zh-Hans,en}.json</code>。部署：本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退到上一 commit 的 <code class="mono">dist/build/h5</code> 重新部署即可（无后端/数据库变更，无数据风险）。</p>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
