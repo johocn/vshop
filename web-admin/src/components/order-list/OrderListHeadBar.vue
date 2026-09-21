@@ -2,19 +2,19 @@
   <view class="headbar">
     <text class="title">{{ $t('menu.order') }}</text>
     <view class="stats">
-      <view class="stat" @tap="emit('stat-tap', '')">
+      <view class="stat" @tap="emit('stat-tap', 'today')">
         <text class="num">{{ stats.today }}</text>
         <text class="lbl">{{ $t('orderListComp.head.today') }}</text>
       </view>
-      <view class="stat" @tap="emit('stat-tap', 'ArrangingPayment')">
+      <view class="stat" @tap="emit('stat-tap', 'unpaid')">
         <text class="num">{{ stats.unpaid }}</text>
         <text class="lbl">{{ $t('orderAdmin.orderList.tabPendingPay') }}</text>
       </view>
-      <view class="stat" @tap="emit('stat-tap', 'PaymentAuthorized')">
+      <view class="stat" @tap="emit('stat-tap', 'toShip')">
         <text class="num">{{ stats.toShip }}</text>
         <text class="lbl">{{ $t('orderAdmin.orderList.tabPendingShip') }}</text>
       </view>
-      <view class="stat" @tap="emit('stat-tap', 'Cancelled')">
+      <view class="stat" @tap="emit('stat-tap', 'refund')">
         <text class="num">{{ stats.refund }}</text>
         <text class="lbl">{{ $t('orderListComp.head.refundPending') }}</text>
       </view>
@@ -29,7 +29,7 @@ import type { StatsValue } from '../../utils/orderFormat';
 // 顶部标题 + 统计（今日/待付款/待发货/待退款）+ 核销码兑换入口，自原页面 headbar 原样迁移
 defineProps<{ stats: StatsValue; redeemableCount: number }>();
 const emit = defineEmits<{
-  (e: 'stat-tap', key: string): void;
+  (e: 'stat-tap', kind: 'today' | 'unpaid' | 'toShip' | 'refund'): void;
   (e: 'redeem'): void;
 }>();
 </script>
