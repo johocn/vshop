@@ -63,6 +63,10 @@ def reset_all(pg):
 
 
 def pick_layout(pg, label):
+    # 先整页 reload 复位（筛选条件 + 分组折叠态都是组件内 ref，不持久化）：
+    # 否则前序步骤展开的分组会把版式区（泳道/清单）挤到首屏之外，截不到版式结构本身。
+    pg.reload(wait_until='networkidle', timeout=45000)
+    time.sleep(5)
     pg.locator('.layout-btn').tap()
     time.sleep(1.5)
     pg.locator('.pop-item', has_text=label).tap()

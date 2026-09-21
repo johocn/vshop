@@ -122,9 +122,11 @@ describe('buildOrderFilter', () => {
     const f = buildOrderFilter({ afterSales: AFTER_SALES_OPEN }, NOW)!;
     assert.deepEqual(f.afterSalesStatus, { in: AFTER_SALES_OPEN });
   });
-  it('多条件 → 显式 filterOperator=AND；单条件 → 不带 filterOperator', () => {
+  it('多条件 → 各条件平铺在同一 filter 对象内（AND 由服务端默认提供，不写 filterOperator）', () => {
     const multi = buildOrderFilter({ states: ['Shipped'], delivery: 'delivery', keyword: 'ab' }, NOW)!;
-    assert.equal(multi.filterOperator, 'AND');
+    // filterOperator 属于 OrderListOptions（filter 的兄弟），写进 filter 会被 admin-api 拒绝
+    assert.equal(multi.filterOperator, undefined);
+    assert.deepEqual(Object.keys(multi).sort(), ['_or', 'deliveryType', 'state']);
     const single = buildOrderFilter({ states: ['Shipped'] }, NOW)!;
     assert.equal(single.filterOperator, undefined);
   });
