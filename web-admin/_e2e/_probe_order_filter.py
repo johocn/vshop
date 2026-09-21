@@ -10,7 +10,7 @@ QUERIES = [
     ('baseline(无filter)', None),
     ('state.in 待发货', {'state': {'in': ['PaymentAuthorized', 'PaymentSettled']}}),
     ('keyword _or 冒烟', {'_or': [{'code': {'contains': '2'}}]}),
-    ('今日 orderPlacedAt.between', 'TODAY'),
+    ('今日 createdAt.between', 'TODAY'),
     ('配送=自提', {'deliveryType': {'eq': 'pickup'}}),
     ('配送=快递', {'deliveryType': {'eq': 'delivery'}}),
     ('配送 deliveryType 为空', {'deliveryType': {'isNull': True}}),
@@ -25,7 +25,7 @@ def today_window():
     # 前端实现用 Date#toISOString()（带 Z）不受影响，此处仅为探针自身修正。
     s = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
     e = s + datetime.timedelta(days=1)
-    return {'orderPlacedAt': {'between': {'start': s.isoformat(), 'end': e.isoformat()}}}
+    return {'createdAt': {'between': {'start': s.isoformat(), 'end': e.isoformat()}}}
 
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)

@@ -102,10 +102,11 @@ describe('buildOrderFilter', () => {
       { remark: { contains: '138' } },
     ]);
   });
-  it('时间 → orderPlacedAt.between', () => {
+  it('时间 → createdAt.between（不用 orderPlacedAt：未下单的单该字段为 null）', () => {
     const f = buildOrderFilter({ time: { key: 'today' } }, NOW)!;
-    const s = new Date(f.orderPlacedAt.between.start);
-    const e = new Date(f.orderPlacedAt.between.end);
+    assert.equal(f.orderPlacedAt, undefined);
+    const s = new Date(f.createdAt.between.start);
+    const e = new Date(f.createdAt.between.end);
     assert.equal(s.getDate(), 21);
     assert.equal(s.getHours(), 0);
     assert.equal(e.getDate(), 22);
