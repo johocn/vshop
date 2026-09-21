@@ -35,6 +35,8 @@ export interface ChannelCustomFields {
   serviceSchemes?: string;
   // 店铺引用的风格模板 id（模板库 shop-template-plugin 的 ShopTemplate）
   templateId?: string;
+  // L3 店铺令牌覆盖（JSON 字符串，形如 {"primaryColor":"#E1251B","radius":8}）
+  themeTokensOverride?: string;
   // 分类/购物车/我的 页面装修 JSON 字符串（web-admin 装修表单写入）
   pageCategoryConfig?: string;
   pageCartConfig?: string;
@@ -52,7 +54,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId pageCategoryConfig pageCartConfig pageProfileConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
       }
     }`,
   );
@@ -61,7 +63,9 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
 
 export async function updateChannelCustomFields(
   id: string,
-  fields: Partial<ChannelCustomFields> & Record<string, unknown>,
+  // 写入路径允许显式 null 以清空某字段（如清空模板引用 templateId、清空 L3 覆盖 themeTokensOverride）；
+  // 读取路径的 ChannelCustomFields 仍为 string，避免波及既有消费方。
+  fields: Partial<{ [K in keyof ChannelCustomFields]: ChannelCustomFields[K] | null }> & Record<string, unknown>,
 ): Promise<void> {
   // 安全加固：改走插件端「仅本 channel」resolver（后端强制限定 ctx.channelId，
   // 并禁止改 enabled/tenantNo/isOfficial），租户不再持有核心 UpdateChannel 权限，

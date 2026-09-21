@@ -59,7 +59,54 @@
             <text class="label">{{ $t('platformTemplates.enableLabel') }}</text>
             <switch :checked="form.enabled" color="#4f8cff" @change="form.enabled = $event.detail.value" />
           </view>
+          <view class="field">
+            <text class="label">{{ $t('platformTemplates.paletteLabel') }}</text>
+            <view class="chips">
+              <text class="chip" :class="{ on: !paletteScheme }" @tap="pickPalette('')">{{ $t('platformTemplates.paletteNone') }}</text>
+              <text
+                v-for="(def, key) in paletteList"
+                :key="key"
+                class="chip"
+                :class="{ on: paletteScheme === key }"
+                @tap="pickPalette(String(key))"
+              >{{ def.name }}</text>
+            </view>
+          </view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.primaryLabel') }}</text><input class="input" v-model="themeTokens.primaryColor" placeholder="#ff6600" @blur="syncThemeJson" /></view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.accentLabel') }}</text><input class="input" v-model="themeTokens.accentColor" placeholder="#fff3e6" @blur="syncThemeJson" /></view>
+          <view class="field"><text class="label">{{ $t('platformTemplates.radiusLabel') }}</text><input class="input" v-model="themeTokens.radius" type="number" placeholder="8" @blur="syncThemeJson" /></view>
           <view class="field"><text class="label">{{ $t('platformTemplates.themeLabel') }}</text><textarea class="ta" v-model="form.themeJson" placeholder='{"primaryColor":"#ff6600","accentColor":"#fff3e6","radius":8}' /></view>
+          <view class="field">
+            <text class="label">{{ $t('platformTemplates.pagesPick') }}</text>
+            <view class="chips">
+              <text
+                v-for="p in PAGE_OPTS"
+                :key="p.key"
+                class="chip"
+                :class="{ on: curPage === p.key }"
+                @tap="curPage = p.key"
+              >{{ p.label }}</text>
+            </view>
+          </view>
+          <view v-if="curPage === 'product'" class="field">
+            <text class="label">{{ $t('platformTemplates.layoutLabel') }}</text>
+            <view class="chips">
+              <text
+                v-for="l in LAYOUT_OPTS"
+                :key="l.key"
+                class="chip"
+                :class="{ on: pagesObj.product?.layout === l.key }"
+                @tap="setPageLayout(l.key)"
+              >{{ l.label }}</text>
+            </view>
+          </view>
+          <view class="field" v-if="curPage === 'product'">
+            <text class="label">{{ $t('platformTemplates.blocksLabel') }}</text>
+            <view class="blk" v-for="b in BLOCK_OPTS" :key="b.key">
+              <text class="blk-name">{{ b.label }}</text>
+              <switch :checked="pagesObj.product?.blocks?.[b.key]?.show !== false" color="#4f8cff" @change="togglePageBlock(b.key, ($event as any).detail.value)" />
+            </view>
+          </view>
           <view class="field"><text class="label">{{ $t('platformTemplates.pagesLabel') }}</text><textarea class="ta tall" v-model="form.pagesJson" placeholder='{"product":{"layout":"classic","blocks":{}},"home":{"sections":[]}}' /></view>
           <view class="guide">
             <view class="gl"><text class="glk">{{ $t('platformTemplates.pagesKey') }}</text> · product / home / category / cart / profile</view>
@@ -107,7 +154,7 @@
           </view>
           <view class="field" v-if="mScenario === 'custom'">
             <text class="label">{{ $t('platformTemplates.overridesLabel') }}</text>
-            <textarea class="ta" v-model="overridesJson" placeholder='{"theme":{"primaryColor":"#123456"},"product":{"layout":"list"}}' />
+            <textarea class="ta" v-model="overridesJson" placeholder='{"primaryColor":"#123456","product":{"layout":"list"}}' />
           </view>
           <button class="btn" :disabled="previewLoading" @tap="genPreview">{{ previewLoading ? $t('platformTemplates.previewing') : $t('platformTemplates.genPreview') }}</button>
           <view v-if="previewErr" class="err">{{ previewErr }}</view>
@@ -150,6 +197,101 @@ const APP_OPTS = [
   { key: 'nshop', label: 'nshop 商城' },
   { key: 'vshop', label: 'vshop 商城' },
 ] as const;
+
+const PAGE_OPTS = [
+  { key: 'product', label: '商品详情' },
+  { key: 'home', label: '首页' },
+  { key: 'category', label: '分类' },
+  { key: 'cart', label: '购物车' },
+  { key: 'profile', label: '我的' },
+] as const;
+const LAYOUT_OPTS = [
+  { key: 'classic', label: '经典' },
+  { key: 'floor', label: '楼层' },
+  { key: 'dualBuy', label: '双通道' },
+] as const;
+const BLOCK_OPTS = [
+  { key: 'gallery', label: '主图' },
+  { key: 'price', label: '价格' },
+  { key: 'promo', label: '促销' },
+  { key: 'service', label: '服务' },
+  { key: 'params', label: '参数' },
+  { key: 'reviews', label: '评价' },
+  { key: 'description', label: '详情' },
+] as const;
+
+const paletteList = ref<Record<string, { name: string; tokens: Record<string, any> }>>({});
+const paletteScheme = ref('');
+const themeTokens = ref<{ primaryColor: string; accentColor: string; radius: string }>({ primaryColor: '', accentColor: '', radius: '' });
+const pagesObj = ref<Record<string, any>>({});
+const curPage = ref<'product' | 'home' | 'category' | 'cart' | 'profile'>('product');
+const jsonOpenForm = ref(false);
+
+async function loadPalettes() {
+  try {
+    paletteList.value = await templateApi.palettePresets();
+  } catch {
+    paletteList.value = {};
+  }
+}
+
+function pickPalette(scheme: string) {
+  paletteScheme.value = scheme;
+  const def = scheme ? paletteList.value[scheme] : undefined;
+  if (def) {
+    themeTokens.value = {
+      primaryColor: String(def.tokens.primaryColor ?? ''),
+      accentColor: String(def.tokens.accentColor ?? ''),
+      radius: String(def.tokens.radius ?? ''),
+    };
+  }
+  syncThemeJson();
+}
+
+/** 表单 → JSON 串（theme）：scheme 与显式 token 并存 */
+function syncThemeJson() {
+  const theme: Record<string, any> = {};
+  if (paletteScheme.value) theme.palette = { scheme: paletteScheme.value };
+  const p = themeTokens.value.primaryColor.trim();
+  const a = themeTokens.value.accentColor.trim();
+  const r = themeTokens.value.radius.trim();
+  if (p) theme.primaryColor = p;
+  if (a) theme.accentColor = a;
+  if (r) theme.radius = Number(r);
+  form.value.themeJson = JSON.stringify(theme, null, 2);
+}
+
+/** JSON 串 → 表单（打开弹层时调用；冲突时以表单为准） */
+function fillThemeForm(theme: Record<string, any> | null) {
+  const t = theme ?? {};
+  paletteScheme.value = (t.palette?.scheme as string) ?? '';
+  themeTokens.value = {
+    primaryColor: (t.primaryColor as string) ?? '',
+    accentColor: (t.accentColor as string) ?? '',
+    radius: t.radius !== undefined ? String(t.radius) : '',
+  };
+}
+
+function fillPagesForm(pages: Record<string, any> | null) {
+  pagesObj.value = pages && typeof pages === 'object' ? JSON.parse(JSON.stringify(pages)) : {};
+}
+
+function setPageLayout(key: string) {
+  pagesObj.value.product = pagesObj.value.product ?? {};
+  pagesObj.value.product.layout = key;
+  syncPagesJson();
+}
+
+function togglePageBlock(key: string, on: boolean) {
+  pagesObj.value.product = pagesObj.value.product ?? {};
+  pagesObj.value.product.blocks = pagesObj.value.product.blocks ?? {};
+  pagesObj.value.product.blocks[key] = { ...(pagesObj.value.product.blocks[key] ?? {}), show: on };
+  syncPagesJson();
+}
+
+function syncPagesJson() {
+  form.value.pagesJson = JSON.stringify(pagesObj.value, null, 2);
+}
 
 const app = ref<'nshop' | 'vshop'>('nshop');
 const onlyEnabled = ref(false);
@@ -209,7 +351,10 @@ function switchApp(a: 'nshop' | 'vshop') {
   load();
 }
 
-onLoad(load);
+onLoad(async () => {
+  await loadPalettes();
+  await load();
+});
 async function load() {
   try {
     list.value = await templateApi.list(app.value);
@@ -270,6 +415,8 @@ function onAdd() {
     themeJson: '{\n  "primaryColor": "#ff6600",\n  "accentColor": "#fff3e6",\n  "radius": 8\n}',
     pagesJson: '{\n  "product": { "layout": "classic", "blocks": {} },\n  "home": { "sections": [] }\n}',
   };
+  fillThemeForm(JSON.parse(form.value.themeJson));
+  fillPagesForm(JSON.parse(form.value.pagesJson));
   resetMeta();
   mApp.value = app.value;
   showForm.value = true;
@@ -279,6 +426,8 @@ function onEdit(t: ShopTemplate) {
   editingId.value = t.id;
   err.value = '';
   fillForm(t);
+  fillThemeForm(t.theme);
+  fillPagesForm(t.pages);
   resetMeta();
   mApp.value = t.app;
   showForm.value = true;
@@ -393,6 +542,9 @@ async function submit() {
   const pages = tryParseJson(form.value.pagesJson, 'pages');
   if (!pages.ok) return;
 
+  syncThemeJson();
+  syncPagesJson();
+
   saving.value = true;
   try {
     if (editingId.value) {
@@ -504,6 +656,8 @@ function onRemove(t: ShopTemplate) {
 .tab.on { color: #4f8cff; font-weight: 600; border-color: #4f8cff; }
 .tabpane { padding-bottom: 8rpx; }
 .vitem { padding: 20rpx 0; border-bottom: 1px solid #f2f2f2; }
+.blk { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 0; border-bottom: 1px solid #f2f2f2; }
+.blk-name { font-size: 26rpx; color: #333; }
 .vhead { display: flex; align-items: baseline; gap: 12rpx; }
 .vname { font-size: 28rpx; font-weight: 600; color: #4f8cff; }
 .vsub { font-size: 22rpx; color: #999; }
