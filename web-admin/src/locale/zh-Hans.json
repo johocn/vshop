@@ -995,6 +995,7 @@
       "manual": "手工调整",
       "mirror": "镜像同步"
     },
+    "noTargetLocation": "当前店铺无可入库仓，请先到「仓库管理」初始化物理仓或虚拟仓",
     "bulk": {
       "selected": "已选 {n} 项",
       "setSafety": "设为安全库存",
