@@ -65,12 +65,12 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
   <div class="inner">
     <p class="kicker">web-admin · 操作手册</p>
     <h1>风格模板库与页面装修</h1>
-    <p>四级可回退风格配置体系的后台操作说明：平台模板库、全局配置、店铺选模板、页面装修的入口、操作步骤与生效规则。</p>
+    <p>五级可回退风格配置体系的后台操作说明：平台模板库、全局配置、主题风格页（选模板 + 令牌覆盖）、页面装修的入口、操作步骤与生效规则。</p>
     <div class="meta">
       <span>适用范围 <b>nshop + vshop 双端</b></span>
       <span>后端 <b>Vendure shop-template-plugin</b></span>
-      <span>版本 <b>Phase B</b></span>
-      <span>日期 <b>2026-09-16</b></span>
+      <span>版本 <b>Phase C（五级体系联通）</b></span>
+      <span>日期 <b>2026-09-21</b></span>
     </div>
   </div>
 </div>
@@ -86,21 +86,22 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
     <li><a href="#shop-pick">店铺选模板</a></li>
     <li><a href="#decorate">页面装修（详情/分类/购物车/我的）</a></li>
     <li><a href="#rules">生效层级与回退规则</a></li>
+    <li><a href="#theme-unify">主题风格页与五级体系（L0–L4）</a></li>
     <li><a href="#verify">验证与回归</a></li>
   </ol>
 </div>
 
 <section id="overview">
   <h2>1 配置体系总览（L0–L4）</h2>
-  <p>风格配置采用<mark>四级可回退</mark>体系，前台渲染时从下往上逐级深合并，缺失配置自动回退到下一层，保证任何情况下都能渲染。</p>
+  <p>风格配置采用<mark>五级可回退</mark>体系，前台渲染时从下往上逐级深合并，缺失配置自动回退到下一层，保证任何情况下都能渲染。详见第 8 节速查表。</p>
   <div class="table-wrap">
   <table>
     <tr><th>层级</th><th>名称</th><th>存放位置</th><th>后台入口</th><th>说明</th></tr>
     <tr><td><span class="badge o">L0</span></td><td>全局默认</td><td>前端代码内建</td><td>—</td><td>兜底链最底层，代码内建占位</td></tr>
     <tr><td><span class="badge b">L1</span></td><td>全局配置</td><td>ShopGlobalConfig（按 app）</td><td>平台 → 全局配置</td><td>该端所有店铺的底层兜底</td></tr>
     <tr><td><span class="badge b">L2</span></td><td>风格模板</td><td>ShopTemplate（按 app）</td><td>平台 → 风格模板库</td><td>店铺选择后整体生效</td></tr>
-    <tr><td><span class="badge b">L3</span></td><td>店铺覆盖</td><td>Channel customFields</td><td>店铺 → 店铺信息</td><td>templateId 引用 + 店铺级配置</td></tr>
-    <tr><td><span class="badge g">L4</span></td><td>页面/模块</td><td>Channel customFields</td><td>店铺 → 页面装修</td><td>详情页块级样式、分类/购物车/我的页配置</td></tr>
+    <tr><td><span class="badge g">L3</span></td><td>店铺覆盖</td><td>Channel customFields（templateId + themeTokensOverride）</td><td>店铺 → 主题风格</td><td>选模板 + 店铺级令牌覆盖（主色/辅色/圆角）</td></tr>
+    <tr><td><span class="badge o">L4</span></td><td>页面/模块</td><td>Channel customFields</td><td>店铺 → 页面装修</td><td>详情页块级样式、分类/购物车/我的页配置</td></tr>
   </table>
   </div>
   <div class="callout">
@@ -153,6 +154,10 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
 <section id="shop-pick">
   <h2>4 店铺选模板</h2>
   <p>入口：<code>店铺 → 店铺信息</code> →「风格模板」区。店铺选择某个启用中的模板整体生效，未选时回退全局默认。</p>
+  <div class="callout warn">
+    <h4>入口已迁移（2026-09-20 起）</h4>
+    <p>店铺选模板<strong>已迁移到 <code>店铺 → 主题风格</code></strong>（见第 8 节），与「令牌覆盖」「合并结果预览」同页；本页（店铺信息）<strong>不再出现模板选择</strong>，保存店铺信息也不会再覆盖 <code>templateId</code>。下方截图保留作为历史对照。</p>
+  </div>
   <h3>4.1 操作步骤</h3>
   <ul>
     <li>「不使用模板」= 全局默认（不引用任何模板）。</li>
@@ -211,20 +216,159 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
   </ul>
 </section>
 
+<section id="theme-unify">
+  <h2>8 主题风格页与五级体系（L0–L4）</h2>
+  <p>本节为 <b>2026-09-20「主题风格体系联通」</b>批次的落点：新增 <b>L3 令牌层</b>；把「店铺选模板」收敛到 <b>主题风格页</b>（唯一风格入口）；模板库 / 全局配置改为 <b>结构化表单</b>（不改 JSON 也能配置）；存量 <code>themeId</code> 提供 <b>一键迁移</b>。</p>
+
+  <h3>8.1 五级回退链速查表</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>层级</th><th>名称</th><th>存放位置</th><th>后台入口</th><th>回退语义</th></tr>
+    <tr><td><span class="badge o">L0</span></td><td>内建默认</td><td>前端代码常量</td><td>—</td><td>兜底链最底层（如 <code>--brand-color: #ff6600</code>）</td></tr>
+    <tr><td><span class="badge b">L1</span></td><td>全局配置</td><td><code>ShopGlobalConfig</code>（按 app）</td><td>平台 → 全局配置</td><td>该端所有店铺的底层兜底</td></tr>
+    <tr><td><span class="badge b">L2</span></td><td>风格模板</td><td><code>ShopTemplate</code>（按 app）</td><td>平台 → 风格模板库</td><td>模板未引用 / 已停用 / 跨端 → 返回 null，退到 L1</td></tr>
+    <tr><td><span class="badge g">L3</span></td><td>店铺覆盖令牌</td><td><code>Channel.customFields.themeTokensOverride</code>（JSON 文本）</td><td>店铺 → 主题风格</td><td><b>last-wins</b>，只覆盖显式给出的键，其余回退 L2 → L1</td></tr>
+    <tr><td><span class="badge o">L4</span></td><td>页面 / 模块</td><td><code>Channel.customFields</code>（detailConfig 等）</td><td>店铺 → 装修</td><td>页面级 / 块级样式，缺省回退上一级</td></tr>
+  </table>
+  </div>
+  <p>合并顺序：<code>mergeThemeTokens(L1 全局 themeTokens) ← L2 模板（palette 预设展开 + 显式 theme） ← L3 themeTokensOverride</code>。优先级 <b>L1 &lt; L2 palette &lt; L3</b>，逐级深合并；数组 / 标量直接覆盖，<code>null</code> 跳过。</p>
+  <div class="callout">
+    <h4>L3 的实际读取路径（排障要点）</h4>
+    <p>C 端读取 L3 令牌走 <code>activeChannel.customFields.themeTokensOverride</code>。<code>resolveChannelByCode</code> 的类型 <code>ChannelResolveCustomFields</code> <b>不暴露</b>该字段，查询它会导致整个店铺引导请求 400，进而使渠道 token 回落默认值、主题全量退回 L0。若 C 端出现「整站主题恒为默认色」，先查此处。</p>
+  </div>
+
+  <h3>8.2 主题风格页（店铺 → 主题风格）六段结构</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>#</th><th>区块</th><th>作用</th></tr>
+    <tr><td>1</td><td>目标端分段器（nshop 商城 / vshop 商城）</td><td>切换配置目标端；模板列表按 <code>app</code> 过滤</td></tr>
+    <tr><td>2</td><td>当前生效摘要卡</td><td>色块 + 模板名 + <b>生效主色</b> + 来源徽标（<code>L1</code>/<code>L2</code>/<code>L3</code>）</td></tr>
+    <tr><td>3</td><td>风格模板卡片网格</td><td>「不引用模板」+ 该端启用中的模板；选中态描边 + ✓</td></tr>
+    <tr><td>4</td><td>令牌覆盖（可选）</td><td>主色 / 辅色 / 圆角；<b>留空即不覆盖</b>，仅存增量差异</td></tr>
+    <tr><td>5</td><td>旧版主题提示条</td><td>检测到旧版 <code>themeId</code> 时出现 → 一键迁移为 L3 令牌</td></tr>
+    <tr><td>6</td><td>合并结果预览（真实生效值）</td><td>逐 key 展示合并后的真实值与来源徽标；点「刷新预览」重算</td></tr>
+  </table>
+  </div>
+  <p>底部「保存主题」一次性写回 <code>templateId</code> 与 <code>themeTokensOverride</code>（两个字段都为空的项写 <code>null</code>，即清空）。</p>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-01a-admin-pick-nshop.png" alt="主题风格页 · nshop 端选模板"><figcaption>nshop 端选中「深色科技」→ 生效主色 <code>#1a1a1a</code>，徽标 <b>L2</b></figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-01b-admin-pick-vshop.png" alt="主题风格页 · vshop 端选模板"><figcaption>vshop 端选中「学域墨蓝」→ 生效主色 <code>#4a5cff</code>，徽标 <b>L2</b></figcaption></figure>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-02a-admin-l3-badge.png" alt="L3 令牌覆盖"><figcaption>L3 令牌覆盖 <code>#7b2ff7</code> → 摘要卡徽标变 <b>L3</b>（覆盖 L2）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-03a-admin-no-template.png" alt="不引用模板"><figcaption>「不引用模板」+ 清空令牌 → 生效主色回退 <code>#ff6600</code>，徽标 <b>L1</b></figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-04a-admin-disabled.png" alt="模板库停用"><figcaption>模板库停用「深色科技」（该店铺仍引用）→ C 端回退 L1</figcaption></figure>
+  </div>
+
+  <h3>8.3 端到端验收对照表（2026-09-21 实测）</h3>
+  <p>验收渠道：测试渠道 <code>t2</code>（二月兰会员）；C 端为本地渲染（nshop <code>:8080</code> / vshop <code>:5180</code>），对线上正式站零影响。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>#</th><th>验收项</th><th>后台操作</th><th>C 端首帧实测值</th><th>截图</th></tr>
+    <tr><td>1</td><td>选模板 → C 端首帧即变</td><td>主题风格页选「学域墨蓝」/「深色科技」并保存</td><td>vshop <code>#4a5cff</code>；nshop <code>#1a1a1a</code></td><td><code>theme-unify-01-*</code></td></tr>
+    <tr><td>2</td><td>L3 令牌主色生效 + 徽标 L3</td><td>令牌覆盖主色 <code>#7b2ff7</code>、辅色 <code>#ede4ff</code></td><td><code>rgb(123, 47, 247)</code>（覆盖 L2 的 <code>#1a1a1a</code>）</td><td><code>theme-unify-02*</code></td></tr>
+    <tr><td>3</td><td>不引用模板 → 回退 L1，不空白不错色</td><td>选「不引用模板」+ 清空三格令牌</td><td><code>rgb(255, 102, 0)</code> = L1</td><td><code>theme-unify-03*</code></td></tr>
+    <tr><td>4</td><td>跨端 / 停用模板 → 回退 L1</td><td>① nshop 引用 vshop 模板；② 模板库停用被引用模板</td><td>两种情形均为 <code>rgb(255, 102, 0)</code></td><td><code>theme-unify-04*</code></td></tr>
+    <tr><td>5</td><td>存量 themeId 迁移前不回归、迁移后令牌生效</td><td>「一键迁移为令牌覆盖」</td><td>迁移前照常渲染 L2；迁移后 <code>rgb(255, 80, 0)</code>（<code>taobao-orange → #FF5000</code>）</td><td><code>theme-unify-05*</code></td></tr>
+    <tr><td>6</td><td>不改 JSON 完成「建模板 → 选配色 → 选版式 → 保存 → 预览」</td><td>模板库「＋新建模板」</td><td>预览 <code>merged</code> 全部来自 <b>L2 模板</b></td><td><code>theme-unify-06*</code></td></tr>
+    <tr><td>7</td><td>店铺信息页不再出现模板选择；两页不互相覆盖 templateId</td><td>店铺信息页保存</td><td>页面无「模板」字样；<code>templateId</code> 3 → 3 未变</td><td><code>theme-unify-07*</code></td></tr>
+  </table>
+  </div>
+  <div class="callout ok">
+    <h4>结论</h4>
+    <p>7 项全部通过，C 端控制台零报错；验收后渠道配置已 <code>restore</code> 还原为 <code>templateId=1 / themeId=taobao-orange / override=null</code>。全部截图均为手机视口 <b>390×844、dpr=2（780×1688 px）</b>。</p>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-01-nshop-firstframe.png" alt="nshop 首帧 · L2"><figcaption>C 端 nshop 首帧（L2 深色科技 <code>#1a1a1a</code>）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-01-vshop-firstframe.png" alt="vshop 首帧 · L2"><figcaption>C 端 vshop 首帧（L2 学域墨蓝 <code>#4a5cff</code>）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-02-nshop-firstframe.png" alt="nshop 首帧 · L3"><figcaption>C 端 nshop 首帧（L3 覆盖 <code>#7b2ff7</code>）</figcaption></figure>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-03-nshop-firstframe.png" alt="nshop 首帧 · L1"><figcaption>不引用模板 → L1 <code>#ff6600</code></figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-04b-crossapp-nshop-l1.png" alt="跨端回退"><figcaption>nshop 引用 vshop 模板 → 跨端回退 L1</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-04-nshop-firstframe.png" alt="停用回退"><figcaption>模板被停用 → 回退 L1</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-05-nshop-firstframe.png" alt="迁移后生效"><figcaption>themeId 迁移为 L3 → <code>#FF5000</code> 生效</figcaption></figure>
+  </div>
+
+  <h3>8.4 旧版 <code>themeId</code> 一键迁移</h3>
+  <p><code>themeId</code> 为只读兼容字段：C 端已不再按它切色卡，仅用于后台识别存量店铺。主题风格页检测到旧版 id 时出现黄色提示条。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>旧 themeId</th><th>迁移为 L3 令牌</th></tr>
+    <tr><td><code>taobao-orange</code></td><td><code>{"primaryColor":"#FF5000","radius":8}</code></td></tr>
+    <tr><td><code>jd-red</code></td><td><code>{"primaryColor":"#E1251B","radius":6}</code></td></tr>
+    <tr><td><code>modern-minimal</code></td><td><code>{"primaryColor":"#111827","radius":6}</code></td></tr>
+    <tr><td>其余（brand / default / 空）</td><td>不产生覆盖，仅清空 <code>themeId</code></td></tr>
+  </table>
+  </div>
+  <h4>操作步骤</h4>
+  <ol>
+    <li>进入 <code>店铺 → 主题风格</code>，确认出现「检测到旧版主题」提示条。</li>
+    <li>点「一键迁移为令牌覆盖」→ 弹窗预览将写入的令牌 → 确认。</li>
+    <li>完成后 <code>themeId</code> 置空、令牌覆盖三段自动填好，提示条消失；合并结果预览的 <code>primaryColor</code> 来源徽标变 <b>L3</b>。</li>
+    <li>点「保存主题」（迁移本身已写库；若又调整过令牌需再保存一次）。</li>
+  </ol>
+  <div class="callout warn">
+    <h4>注意</h4>
+    <p>迁移会同时把 <code>themeId</code> 置空。此操作不可在界面上撤销，迁移前请确认合并结果预览的主色符合预期。</p>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-05a-admin-legacy-card.png" alt="迁移前"><figcaption>迁移前：主题风格页出现「检测到旧版主题」提示条</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-05b-admin-migrated.png" alt="迁移后"><figcaption>迁移后：提示条消失，令牌覆盖已填，预览徽标 <b>L3</b></figcaption></figure>
+  </div>
+
+  <h3>8.5 模板库 / 全局配置结构化表单</h3>
+  <p>入口 <code>平台 → 风格模板库</code>，点「＋新建模板」或点击列表项。整个流程<b>无需编辑任何 JSON</b>。</p>
+  <h4>操作步骤</h4>
+  <ol>
+    <li><b>新建模板</b>：填模板名 → 选目标端（nshop / vshop，创建后不可改）→ 开关控制启用。</li>
+    <li><b>选配色方案</b>：点预设色卡（不指定 / 晨曦金 / 京东红 / 淘宝橙 / 拼多多红 / 唯品会蓝紫 / 科技蓝 / 清雅绿 / 极夜黑）自动带出主色 / 辅色 / 圆角；也可手填覆盖。</li>
+    <li><b>选页面与版式</b>：勾选适用页面（商品详情 / 首页 / 分类 / 购物车 / 我的），商品详情再选版式（经典 / 楼层 / 双通道），并按需开关功能块。</li>
+    <li><b>保存</b>：写入 <code>ShopTemplate</code> 并自增版本号。</li>
+    <li><b>预览</b>：点开模板 →「合并预览」tab → 选预览端与覆盖场景（无覆盖 = 仅 L1+L2；或输入覆盖 JSON 模拟 L3）→「生成合并预览」→ 逐 key 查看合并结果与来源徽标。</li>
+  </ol>
+  <div class="callout">
+    <h4>配色预设的权威副本</h4>
+    <p>配色预设（<code>palettePresets</code>）由后端 shop-template-plugin 提供权威定义，C 端 nshop / vshop 各自内建同构副本用于 SSR 与离线渲染，web-admin 通过 <code>templateApi.palettePresets()</code> 拉取。新增 / 修改配色时需<b>三处同步</b>（后端 + nshop + vshop），否则 C 端与后台预览会出现色差。</p>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-06a-tpl-library.png" alt="模板库列表"><figcaption>模板库列表（按端筛选 / 启用状态）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-06b-tpl-form-palette.png" alt="选配色"><figcaption>结构化表单 · 选配色方案（唯品会蓝紫）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-06c-tpl-form-layout.png" alt="选版式"><figcaption>结构化表单 · 选页面与商品详情版式（楼层）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-06d-tpl-saved.png" alt="保存后列表"><figcaption>保存成功 · 新模板入列表</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-06e-tpl-merged-preview.png" alt="合并预览"><figcaption>合并预览 · <code>merged</code> 与 <code>sourceByKey</code> 徽标（全部 L2 模板）</figcaption></figure>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/theme-unify-07a-shop-info-no-template.png" alt="店铺信息页无模板"><figcaption>店铺信息页：已无模板选择项</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-07b-shop-info-saved.png" alt="店铺信息保存"><figcaption>保存店铺信息后 <code>templateId</code> 未被覆盖</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/theme-unify-04-nshop-before-disable.png" alt="停用前对照"><figcaption>对照：模板启用中 C 端为 L2</figcaption></figure>
+  </div>
+</section>
+
 <section id="verify">
-  <h2>7 验证与回归</h2>
-  <h3>7.1 API 冒烟</h3>
+  <h2>9 验证与回归</h2>
+  <h3>9.1 API 冒烟</h3>
   <ul>
     <li>C 端：<code>shopTemplate(app, id?)</code>、<code>shopGlobalConfig(app)</code>（公开查询）。</li>
     <li>管理端：<code>shopTemplates</code> / <code>createShopTemplate</code> / <code>updateShopTemplate</code> / <code>deleteShopTemplate</code> / <code>copyShopTemplate</code> / <code>shopGlobalConfig</code> / <code>updateShopGlobalConfig</code>（需 ShopTemplates 权限）。</li>
   </ul>
-  <h3>7.2 权限说明</h3>
+  <h3>9.2 权限说明</h3>
   <p>插件在启动时向 <code>authOptions.customPermissions</code> 注册 4 个权限（Read/Create/Update/Delete），持有 <code>SuperAdmin</code> 权限的角色（如 super-admin）自动放行全部操作。</p>
-  <h3>7.3 回归截图</h3>
-  <p>上方各章节手机视口截图（390×844，dpr=2）即本次回归证据，覆盖模板库、全局配置、店铺选模板、四类页面装修表单。</p>
+  <div class="callout warn">
+    <h4>租户管理员看不到模板</h4>
+    <p>租户管理员默认没有 <code>ShopTemplatesRead</code>，主题风格页的模板列表与「合并结果预览」会因 FORBIDDEN 而<b>静默为空</b>。排查时请先用 <code>superadmin</code> 复核。</p>
+  </div>
+  <h3>9.3 回归截图</h3>
+  <p>第 8 节的 22 张手机视口截图（390×844、dpr=2）即本批次回归证据，覆盖主题风格页六段结构、五级回退链 7 条验收项、模板库结构化表单与旧 themeId 迁移；其它章节截图覆盖模板库、全局配置、店铺选模板、四类页面装修表单。</p>
   <div class="callout ok">
     <h4>交付核对</h4>
     <p>模板库种子数据 3 套 × 双端（橙色经典 / 生鲜绿 / 深色科技）+ 全局配置各 1 条已幂等写入；店铺选模板保存/持久化闭环已验证（templateId 写回 Channel）。</p>
+  </div>
+  <h3>9.4 回归结果（2026-09-21）</h3>
+  <p>仓库无 <code>scripts/e2e-theme.mjs</code>，故以「第 8.3 节 7 条手工验收 + 22 张手机截图 + 18 项 API 冒烟」作为回归证据。API 冒烟覆盖：配色预设 8 套、模板库双端过滤、L1 全局配置、合并预览四级优先级（L1 / L2 / L3 last-wins / 未覆盖键回退）、C 端 <code>shopTemplate</code> 跨端返回 null、C 端 <code>activeChannel</code> 暴露 L3 字段。结果 <b>18 / 18 通过</b>。</p>
+  <div class="callout warn">
+    <h4>已知限制（本批次未修，记录备查）</h4>
+    <p>后台「合并预览」（<code>templateMergedPreview</code>）<b>只按给定 <code>templateId</code> 展开 L2，不校验模板的 <code>app</code> 与 <code>enabled</code></b>；而 C 端 <code>shopTemplate</code> 会校验并在跨端 / 停用时返回 null。因此当店铺 <code>templateId</code> 指向跨端或已停用模板时，<b>后台预览会显示 L2 配色，而 C 端实际回退 L1</b>。判定以 C 端实机为准（主题风格页的模板卡片列表本身已按端过滤，正常操作不会选到跨端模板）。</p>
   </div>
 </section>
 

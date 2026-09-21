@@ -246,10 +246,10 @@ var CHAPTERS = [
 <div class="card"><b>轮播 Banner</b><br/>店铺头图/活动横幅的轮播位，放主视觉与活动入口。</div>
 <div class="card"><b>商品楼层 Floor</b><br/>按类目组织的商品陈列区，可设置楼层标题与推荐商品。</div>
 <div class="card"><b>展示模板 displayTemplate</b><br/>控制商品详情/列表的版式风格，可按商品选择。</div>
-<div class="card"><b>通道主题 themeId</b><br/>整站配色与视觉的开关，按主题标识一键换肤。</div>
+<div class="card"><b>通道主题 themeId</b><br/><span class="mark mark-blue">（旧版，已停用）</span>整站配色的旧开关。现已由「店铺装修 → 主题风格」的五级体系取代，见下一章；存量店铺可在主题风格页一键迁移。</div>
 <h3>装修建议流程</h3>
 <ol class="steps">
-  <li><b>先定主题</b>：确定 Channel 的 <code>themeId</code>，让后续配色有基准。</li>
+  <li><b>先定风格</b>：在「店铺装修 → 主题风格」选一套模板（或只调主色），让后续配色有基准。</li>
   <li><b>搭首屏</b>：从上往下依次放 Banner → 分类导航 → 图标导航组。</li>
   <li><b>排商品楼层</b>：按主营类目添加 Floor，并为每个商品设定合适的展示模板。</li>
   <li><b>检查排序</b>：确认各板块的 <code>sort</code> 顺序，前端严格按此渲染。</li>
@@ -259,6 +259,34 @@ var CHAPTERS = [
 <p>后台「店铺装修 → 店铺信息」维护店铺基础资料：店铺名、客服电话、简介、<mark class="mark">店铺 Logo</mark>（选图后点保存生效，历史 URL 值兼容显示）、默认分享图，以及税率方式（含税价 / 零税率 / 不含税价）与库存管理方式（简单库存 / Odoo 库存预留）。</p>
 <img class="img" src="shots/op05_shop_info.png" alt="店铺信息-名称电话Logo税率库存">
 <div class="imgcap">图 W2 · 店铺信息（Logo 从图片库选图，税率/库存方式分段切换）</div>`},
+{book:'op', id:'op-5b', title:'主题风格（五级可回退配色体系）', html:`
+<p class="lead">整站配色与风格统一走「<mark class="mark">店铺装修 → 主题风格</mark>」这一页：<b>选模板 = 换整套配色与页面版式；令牌覆盖 = 只改本店主色/辅色/圆角</b>。此前放在「店铺信息」页的模板选择已迁移到这里。</p>
+<h3>五级回退链（L0 → L4）</h3>
+<table>
+  <tr><th>层级</th><th>名称</th><th>在哪里配</th><th>说明</th></tr>
+  <tr><td>L0</td><td>内建默认</td><td>—</td><td>代码兜底，永不空白</td></tr>
+  <tr><td>L1</td><td>全局配置</td><td>平台 → 全局配置</td><td>本端所有店铺的底层兜底</td></tr>
+  <tr><td>L2</td><td>风格模板</td><td>平台 → 风格模板库</td><td>选一套模板整体换肤 + 换版式</td></tr>
+  <tr><td>L3</td><td>店铺覆盖令牌</td><td><b>店铺 → 主题风格</b></td><td>只覆盖本店主色/辅色/圆角</td></tr>
+  <tr><td>L4</td><td>页面 / 模块</td><td>店铺 → 页面装修</td><td>详情页块级样式、分类/购物车/我的页配置</td></tr>
+</table>
+<p>逐级深合并，缺哪层用下一层，<mark class="mark">永远不会白屏或错色</mark>；模板被停用或跨端时自动回退。</p>
+<h3>主题风格页六段怎么做</h3>
+<ol class="steps">
+  <li><b>选目标端</b>：顶部切「nshop 商城 / vshop 商城」，模板列表按端过滤。</li>
+  <li><b>看生效摘要</b>：色块 + 模板名 + 生效主色 + 来源徽标（L1 / L2 / L3），一眼看出当前配色从哪来。</li>
+  <li><b>选模板</b>：点模板卡片（或「不引用模板」）。</li>
+  <li><b>（可选）令牌覆盖</b>：只填主色 / 辅色 / 圆角，留空的字段自动回退上一级。</li>
+  <li><b>旧版主题</b>：若出现黄色「检测到旧版主题」提示条，点「一键迁移为令牌覆盖」。</li>
+  <li><b>看合并结果预览</b>：逐项显示真实生效值与来源徽标 → 确认后点「保存主题」。</li>
+</ol>
+<h3>模板库：不用写 JSON</h3>
+<p>「平台 → 风格模板库」点「＋新建模板」：填名称 → 选目标端 → 点配色方案（淘宝橙 / 京东红 / 唯品会蓝紫 / 科技蓝 / 清雅绿 / 极夜黑…）→ 勾选适用页面与商品详情版式（经典 / 楼层 / 双通道）→ 保存。点开模板还有「合并预览」tab，可直接看合并后的真实值。</p>
+<img class="img" src="shots/theme-unify-01a-admin-pick-nshop.png" alt="主题风格页-选模板与令牌覆盖">
+<div class="imgcap">图 W3 · 主题风格页（选模板 + 令牌覆盖 + 生效主色与来源徽标）</div>
+<img class="img" src="shots/theme-unify-06b-tpl-form-palette.png" alt="模板库结构化表单-选配色方案">
+<div class="imgcap">图 W4 · 模板库结构化表单（点配色方案即带出主色/辅色/圆角，无需写 JSON）</div>
+<div class="warn"><b>找不到模板？</b>租户管理员默认没有模板库读取权限，模板列表会为空。请让平台管理员用 <code>superadmin</code> 配置，或给该角色授予模板库权限。</div>`},
 {book:'op', id:'op-6', title:'商品管理', html:`
 <p class="lead">商品是你与买家交易的基础。合理分类、维护规格、挑选展示模板，能极大提升成交率。</p>
 <div class="card"><b>分类（Collection）</b><br/>先用分类给商品归类，首页的「分类导航」和「商品楼层」都依赖它。建议先画好类目树再上架。</div>

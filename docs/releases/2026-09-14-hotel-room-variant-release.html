@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026-09-14 上线变更摘要：酒店客房变体与四级回退模板</title>
+<style>
+  :root { color-scheme: light; --bg:#f6f7f9; --card:#ffffff; --line:#e5e7eb; --text:#1f2430; --muted:#6b7280; --brand:#4B3FE3; --brand-soft:#eef0ff; --ok:#0f9d58; --ok-soft:#e6f6ee; --warn:#b45309; --warn-soft:#fdf3e3; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; line-height:1.65; }
+  .wrap { max-width:900px; margin:0 auto; padding:32px 20px 60px; }
+  header.hero { background:var(--brand); color:#fff; border-radius:16px; padding:28px 30px; }
+  header.hero h1 { margin:0 0 8px; font-size:24px; }
+  header.hero .meta { opacity:.85; font-size:13px; }
+  .tag { display:inline-block; background:rgba(255,255,255,.18); border-radius:999px; padding:2px 12px; font-size:12px; margin-right:8px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 26px; margin-top:18px; }
+  h2 { font-size:17px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  h2 .no { background:var(--brand); color:#fff; width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  h3 { font-size:14px; margin:16px 0 6px; color:var(--brand); }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  ul { margin:6px 0 0; padding-left:20px; }
+  li { margin:4px 0; font-size:14px; }
+  code { background:var(--brand-soft); color:var(--brand); border-radius:4px; padding:1px 6px; font-size:12.5px; font-family:Consolas,monospace; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:12px; }
+  .stat { border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat b { font-size:20px; display:block; color:var(--brand); }
+  .stat span { font-size:12.5px; color:var(--muted); }
+  .pill { display:inline-block; border-radius:999px; padding:1px 10px; font-size:12px; margin-right:6px; }
+  .pill.ok { background:var(--ok-soft); color:var(--ok); }
+  .pill.warn { background:var(--warn-soft); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13.5px; }
+  th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; background:#fafbfc; }
+  .foot { color:var(--muted); font-size:12.5px; margin-top:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>上线变更摘要：酒店客房变体与四级回退模板</h1>
+  <div class="meta">
+    <span class="tag">发布日 2026-09-14</span>
+    <span class="tag">vendure + nshop + vshop 三仓</span>
+    <span class="tag">已部署线上</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="no">1</span> 本期主题</h2>
+  <p class="sub">为电商系统新增「酒店客房」完整业务能力，全程独立于既有商品/订单路径，不破坏原系统。</p>
+  <div class="grid">
+    <div class="stat"><b>8</b><span>实施任务（Subagent-Driven 派发）</span></div>
+    <div class="stat"><b>3</b><span>仓库（后端/前端/管理端）</span></div>
+    <div class="stat"><b>69+71</b><span>单测全绿（cjk-plugin / nshop）</span></div>
+    <div class="stat"><b>5</b><span>手机视口回归截图（r06-r10）</span></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">2</span> 核心功能：酒店客房变体（本期主线）</h2>
+
+  <h3>后端（vendure cjk-plugin）</h3>
+  <ul>
+    <li>新增 <code>RoomTemplate</code> 房型模板实体：房型规格（床型/面积/人数/加床/吸烟/窗户/含早/设施/特色标签）、房间明细模板、基准价、日历价格段（weekday/weekend/holiday/custom + 连住优惠）、预订规则（min/max 晚数、提前天数、入住离店时间、取消政策、押金类型）</li>
+    <li>模板 = 快照源：<code>applyRoomTemplate</code> 深拷贝进变体 customFields <code>hotelRoomConfig</code>，改模板不影响已用商品</li>
+    <li>校验纯函数 <code>validateHotelConfig</code> + 逐日类型判定 <code>dayTypeFor</code>（8 单测）；GraphQL：roomTemplates CRUD + applyRoomTemplate</li>
+    <li>适配：Vendure 3.6.4 customFields 无 json 类型 → <code>text</code> 列存 JSON 字符串，前后端统一序列化契约</li>
+  </ul>
+
+  <h3>前端（nshop）</h3>
+  <ul>
+    <li>新增 <code>hotel</code> 第 4 版式：完整继承四级可回退体系（L1 token → L2 DetailConfig → L3 块级定制 → L4 兜底链），不动 classic/floor/dualBuy</li>
+    <li>4 个新积木块：<code>ProductDetailDateBar</code>（入住/离店/晚数，受 advanceDays/minNights/maxNights 约束）、<code>ProductDetailRoomList</code>（房型卡 + 房间明细折叠展开）、<code>ProductDetailPricePreview</code>（逐日计价/节假日溢价/连住折扣）、<code>ProductDetailPolicy</code>（预订规则卡）</li>
+    <li>核心纯函数 <code>calcNightPrices</code>（SSR 友好，6 单测）：custom &gt; holiday &gt; weekend &gt; weekday 逐日判定，返回每日单价/总价/加权日均价</li>
+    <li>i18n ×12 语言包同步新增 30 词条；枚举型展示走 code + i18n 字典，无硬编码中文</li>
+    <li>下单映射：数量 = 晚数，单价 = 加权日均价，普通购买流程零侵入</li>
+  </ul>
+
+  <h3>管理端（vshop web-admin）</h3>
+  <ul>
+    <li>新增「房型模板库」管理页（平台菜单入口）：列表/新建/编辑/启停/删除，JSON 字段提交前校验</li>
+    <li>商品编辑接入：规格变体 Tab（ProductVariantMatrixTab）新增「酒店房型配置」分组——选择模板一键套用生成快照，快照可编辑房间明细/日历价格段</li>
+    <li>店铺设置新增「详情页版式」4 选项选择器（经典/楼层/双买/酒店），写入 detailConfig.layout</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="no">3</span> 关键工程决策与修复</h2>
+  <ul>
+    <li><span class="pill ok">适配</span> customFields 无 json 类型：hotelRoomConfig 改 text 列，前后端 JSON.parse/stringify 统一（3 个仓库同步适配）</li>
+    <li><span class="pill ok">修复</span> hotel 版式下普通商品详情页空白：DetailHotel v-else 空槽位 → 改为回退 <code>DetailClassic</code>，线上 /product/ok 验证完整经典版式</li>
+    <li><span class="pill ok">补齐</span> ProductBaseFragment 遗漏 hotelRoomConfig 查询（不加则酒店块永不渲染）</li>
+    <li><span class="pill ok">修正</span> 实际变体编辑区在 ProductVariantMatrixTab.vue（edit/index.vue 是壳）；版式下拉原不存在，在店铺设置页新增</li>
+    <li><span class="pill warn">注意</span> 模板库管理页当前为 v1 简化表单（规格/日历段以 JSON 文本编辑），完整表单后续迭代</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="no">4</span> 同期随批上线（nshop 历史未推送批次）</h2>
+  <p class="sub">本次推送 nshop 55 个提交，除酒店主线外还包括此前已交付未推送的工作：</p>
+  <ul>
+    <li><b>商品详情页优化</b>：就近库存折叠汇总展示、标题按规格拼接/SKU 隐藏、变体名编码降级、营销标签角标 + 灯箱 caption、图片缩略图横滑 + n/m 角标、面包屑取首个顶级分类、促销/服务方案回退链纯函数</li>
+    <li><b>SSO</b>：微信环境全站静默登录（app.vue 挂载）、回跳目标归一化修复（/account/https:// 拼接错误）、纯函数 + 单测 + 线上回归</li>
+    <li><b>配送档案</b>：全局属性开关（超管可在任意租户编辑）、ownerChannelId 一致性、权限批量回填、全局化操作手册 + 手机截图</li>
+    <li><b>结算页（checkout）</b>：返回按钮 + 自提点就近 + 切换用户重置 + 高德导航弹层（按用户刷新）</li>
+    <li><b>领域知识沉淀</b>：6 本领域手册（SSO/数据清理/配送档案/checkout/支付分箱核销/跨渠道变体）+ 手册通用规范 + 一键回归套件 + 索引</li>
+    <li><b>方案库模板化</b>：促销/服务保障方案库（商品 → 频道 → i18n 回退链），设计/计划文档</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="no">5</span> 测试与线上验证</h2>
+  <ul>
+    <li>单测：cjk-plugin 69/69（含 hotel-config 8）、nshop 71/71（含 hotel-pricing 6、detail-config 5）</li>
+    <li>三仓本地构建全绿（部署铁律：本地构建，服务器仅解压/restart）</li>
+    <li>线上验证（手机视口 390×844）：<code>/product/hotel-suite-test</code> 酒店块完整（日期条/房型卡/房间明细展开/逐日计价/预订规则/押金/加床费）；<code>/product/ok</code> 普通商品经典版式无回归；admin-api / guanli / 手册页全 200</li>
+    <li>回归截图：r06 模板库列表、r07 新建弹层、r08 商品酒店配置、r09 酒店详情页、r10 经典版式回归</li>
+  </ul>
+  <table>
+    <tr><th>仓库</th><th>推送范围</th><th>提交数</th></tr>
+    <tr><td>nshop</td><td><code>97d7143..ebd57c2</code></td><td>55</td></tr>
+    <tr><td>vshop</td><td><code>9e78a56..b748497</code></td><td>8</td></tr>
+    <tr><td>vendure</td><td>已随部署推送（tenant-member + hotel 批次）</td><td>—</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="no">6</span> 交付物清单</h2>
+  <ul>
+    <li>操作手册：<code>manual/index.html</code> 新增 <b>op-17「房型模板库与酒店版式」</b>（已同步线上）</li>
+    <li>回归截图：<code>static/manual/shots/</code> r06-r10（5 张，390×844）</li>
+    <li>设计文档：<code>docs/superpowers/specs/2026-09-14-hotel-room-variant-design.md</code></li>
+    <li>实施计划：<code>docs/superpowers/plans/2026-09-14-hotel-room-variant.md</code></li>
+    <li>新积木块 4 个 + hotel 计价纯函数 2 个（nshop）、后端 hotel 模块（vendure）、管理端页面与 API（vshop）</li>
+  </ul>
+</section>
+
+<div class="foot">本摘要由本次上线提交自动归集生成 · 覆盖 2026-09-14 发布批次</div>
+</div>
+</body>
+</html>
