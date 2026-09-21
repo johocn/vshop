@@ -85,7 +85,7 @@ const locale = useLocaleStore();
 
 const APP_OPTS = [
   { key: 'nshop', label: 'nshop 商城' },
-  { key: 'vshop', label: 'vshop 商城' },
+  { key: 'vshop', label: 'youshop 商城' },
 ] as const;
 
 const PAGE_OPTS = [
