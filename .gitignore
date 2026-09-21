@@ -37,6 +37,15 @@ types/components.d.ts
 
 # E2E screenshots (test artifacts)
 web-admin/_e2e/*.png
+# 自动化测试/验收截图输出目录（本地产物，不进仓库）
+web-admin/e2e-shots/
+__pycache__/
+*.pyc
+
+# AI 工具（superpowers brainstorming）会话 scratch：mockup 预览 HTML 与运行态标记
+# 属一次性中间产物，正式设计稿请落到 docs/superpowers/ 下再提交
+.superpowers/
+web-admin/.superpowers/
 
 # 部署脚本临时产物（本地打包，用完即删，勿提交）
 _wa_admin.tar
