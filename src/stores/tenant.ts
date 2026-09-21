@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode, getShopTemplate, getShopGlobalConfig } from '../api/queries/channel';
 import { parseShopContent, ShopContent } from '../templates/shared/schema';
-import { mergeThemeTokens, mergePageConfig, ThemeTokens } from '../utils/merge-config';
+import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, ThemeTokens } from '../utils/merge-config';
 
 interface SsoProviderInfo {
     name: string;
@@ -40,6 +40,7 @@ export const useTenantStore = defineStore('tenant', () => {
     const shopContent = ref<ShopContent | null>(null);
     const rawShopContent = ref<string | null>(null);
     const themeTokens = ref<ThemeTokens>({});
+    const rawThemeOverride = ref<string | null>(null);
     const mergedShopContent = ref<ShopContent | null>(null);
     const shopName = ref('');
     const shopLogo = ref('');
@@ -121,6 +122,9 @@ export const useTenantStore = defineStore('tenant', () => {
                 templateCode.value = cf.displayTemplate || 'default';
                 rawShopContent.value = cf.shopContent || null;
                 shopContent.value = parseShopContent(cf.shopContent);
+                // L3 店铺覆盖令牌（channel customFields.themeTokensOverride）走 activeChannel 读取，
+                // 不放在 resolveChannelByCode 的返回里（后端 ChannelResolveCustomFields 未暴露该字段）
+                await loadChannelConfig();
                 await loadTemplateConfig();
                 uni.setStorageSync('tenant_code', data.code);
                 return;
@@ -134,6 +138,7 @@ export const useTenantStore = defineStore('tenant', () => {
         shopContent.value = null;
         rawShopContent.value = null;
         themeTokens.value = {};
+        rawThemeOverride.value = null;
         mergedShopContent.value = null;
         shopName.value = '';
         shopLogo.value = '';
@@ -151,7 +156,11 @@ export const useTenantStore = defineStore('tenant', () => {
             ]);
             const template: any = tplRes?.shopTemplate ?? null;
             const globalConfig: any = cfgRes?.shopGlobalConfig ?? null;
-            themeTokens.value = mergeThemeTokens(globalConfig, template);
+            themeTokens.value = mergeThemeTokens(
+                globalConfig,
+                template,
+                parseThemeTokensOverride(rawThemeOverride.value),
+            );
             const merged = mergePageConfig(
                 globalConfig,
                 template,
@@ -188,6 +197,7 @@ export const useTenantStore = defineStore('tenant', () => {
             if (cf) {
                 employeePickupMode.value = cf.employeePickupMode || 'disabled';
                 defaultLocation.value = cf.defaultLocation || null;
+                rawThemeOverride.value = cf.themeTokensOverride || null;
             }
         } catch (e) {
             console.warn('[tenant] loadChannelConfig failed', e);
@@ -218,7 +228,7 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, shopContent, rawShopContent, themeTokens, mergedShopContent,
+        tenantReady, shopContent, rawShopContent, themeTokens, rawThemeOverride, mergedShopContent,
         shopName, shopLogo, shopIntro, servicePhone, shareImageUrl,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,

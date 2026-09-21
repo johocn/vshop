@@ -8,6 +8,7 @@ export async function getActiveChannelConfig() {
             customFields {
                 employeePickupMode
                 defaultLocation { lat lng }
+                themeTokensOverride
             }
         }
     }`);
