@@ -1,14 +1,19 @@
 <template>
   <view class="page">
     <view class="card">
+      <view class="field readonly">
+        <text class="label">{{ $t('inventoryLocationsEdit.labelKind') }}</text>
+        <text class="ro">{{ form.kind === 'physical' ? $t('inventoryLocationsEdit.kindPhysical') : $t('inventoryLocationsEdit.kindVirtual') }}</text>
+        <text v-if="!editingId" class="tip">{{ $t('inventoryLocationsEdit.kindAutoTip') }}</text>
+      </view>
+      <view class="field readonly">
+        <text class="label">{{ $t('inventoryLocationsEdit.labelCode') }}</text>
+        <text class="ro">{{ codeText }}</text>
+        <text class="tip">{{ codeTip }}</text>
+      </view>
       <view class="field">
         <text class="label">{{ $t('inventoryLocationsEdit.labelName') }}</text>
         <input class="ipt" v-model="form.name" :placeholder="$t('inventoryLocationsEdit.placeholderName')" />
-      </view>
-      <view class="field">
-        <text class="label">{{ $t('inventoryLocationsEdit.labelChannel') }}</text>
-        <input class="ipt" v-model="form.channelCode" :placeholder="$t('inventoryLocationsEdit.placeholderChannel')" />
-        <text class="tip">{{ $t('inventoryLocationsEdit.channelTip') }}</text>
       </view>
       <view class="field">
         <text class="label">{{ $t('inventoryLocationsEdit.labelDelivery') }}</text>
@@ -30,33 +35,40 @@
       </view>
     </view>
 
-    <view class="savebar">
+    <view v-if="isVirtualSystem" class="locked">{{ $t('inventoryLocationsEdit.virtualLocked') }}</view>
+    <view v-else class="savebar">
       <button class="save" :disabled="saving" @tap="onSave">{{ saving ? $t('inventoryLocationsEdit.saving') : $t('inventoryLocationsEdit.save') }}</button>
     </view>
   </view>
 </template>
 <script lang="ts" setup>
-import { reactive, ref, onMounted } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { useTenantStore } from '../../../stores/tenantStore';
 import { useLocaleStore } from '../../../stores/localeStore';
-import { fetchLocations, createLocation, updateLocation, type LocationRow } from '../../../apis/inventory';
+import {
+  fetchTenantInventoryOverview,
+  createTenantStockLocation,
+  updateTenantStockLocation,
+} from '../../../apis/inventory';
 
-const tenant = useTenantStore();
 const locale = useLocaleStore();
 const saving = ref(false);
 const editingId = ref<string | null>(null);
+const isVirtualSystem = ref(false);
 
+// 编码/性质为服务端生成，页面只读展示（前端不再提供输入，避免落库成「无编码 non-physical 仓」）
 const form = reactive<{
   name: string;
-  channelCode: string;
+  code: string;
+  kind: string;
   deliveryMethods: string[];
   serviceCitiesText: string;
   lat: string;
   lng: string;
 }>({
   name: '',
-  channelCode: '',
+  code: '',
+  kind: 'physical',
   deliveryMethods: [],
   serviceCitiesText: '',
   lat: '',
@@ -66,43 +78,57 @@ const form = reactive<{
 const hasMail = () => form.deliveryMethods.includes('MAIL');
 const hasPickup = () => form.deliveryMethods.includes('SELF_PICKUP');
 
+// 新建时编码尚未生成：显示「保存后自动生成 + 规则说明」，避免误以为需要手填或看到「历史未编码」而困惑
+const codeText = computed(() =>
+  form.code || (editingId.value ? locale.t('inventoryLocationsEdit.codeLegacy') : locale.t('inventoryLocationsEdit.codePending')),
+);
+const codeTip = computed(() =>
+  form.code
+    ? locale.t('inventoryLocationsEdit.codeReadonlyTip')
+    : editingId.value
+      ? locale.t('inventoryLocationsEdit.codeLegacyTip')
+      : locale.t('inventoryLocationsEdit.codeAutoTip'),
+);
+
 function onDeliveryChange(e: any) {
   form.deliveryMethods = (e.detail.value as string[]) || [];
+}
+
+function parseCoord(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 function toInput() {
   return {
     name: form.name.trim(),
-    customFields: {
-      channelCode: form.channelCode.trim() || null,
-      deliveryMethods: form.deliveryMethods,
-      lat: form.lat.trim() ? Number(form.lat) : null,
-      lng: form.lng.trim() ? Number(form.lng) : null,
-      serviceCities: form.serviceCitiesText
-        .split(/[,，\s]+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    },
+    deliveryMethods: form.deliveryMethods,
+    serviceCities: form.serviceCitiesText
+      .split(/[,，\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+    lat: parseCoord(form.lat),
+    lng: parseCoord(form.lng),
   };
 }
-
-onMounted(() => {
-  form.channelCode = tenant.code;
-});
 
 onLoad(async (query: any) => {
   const id = query?.id;
   if (!id) return;
   editingId.value = id;
-  const all = await fetchLocations();
-  const row: LocationRow | undefined = all.find((l) => l.id === id);
+  const ov = await fetchTenantInventoryOverview();
+  const row = ov.locations.find((l) => l.id === id);
   if (!row) return;
   form.name = row.name || '';
-  form.channelCode = row.customFields?.channelCode?.trim() || tenant.code;
-  form.deliveryMethods = (row.customFields?.deliveryMethods ?? []) as string[];
-  form.serviceCitiesText = ((row.customFields?.serviceCities ?? []) as string[]).join(', ');
-  if (row.customFields?.lat != null) form.lat = String(row.customFields.lat);
-  if (row.customFields?.lng != null) form.lng = String(row.customFields.lng);
+  form.code = row.code || '';
+  form.kind = row.kind || 'physical';
+  form.deliveryMethods = (row.deliveryMethods ?? []) as string[];
+  form.serviceCitiesText = ((row.serviceCities ?? []) as string[]).join(', ');
+  if (row.lat != null) form.lat = String(row.lat);
+  if (row.lng != null) form.lng = String(row.lng);
+  isVirtualSystem.value = row.isSystem && row.kind === 'virtual';
 });
 
 async function onSave() {
@@ -110,12 +136,17 @@ async function onSave() {
     uni.showToast({ title: locale.t('inventoryLocationsEdit.requireName'), icon: 'none' });
     return;
   }
+  const input = toInput();
+  if (Number.isNaN(input.lat as number) || Number.isNaN(input.lng as number)) {
+    uni.showToast({ title: locale.t('inventoryLocationsEdit.invalidCoord'), icon: 'none' });
+    return;
+  }
   saving.value = true;
   try {
     if (editingId.value) {
-      await updateLocation(editingId.value, toInput());
+      await updateTenantStockLocation({ id: editingId.value, ...input });
     } else {
-      await createLocation(toInput());
+      await createTenantStockLocation(input);
     }
     uni.showToast({ title: locale.t('inventoryLocationsEdit.saved'), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 600);
@@ -137,8 +168,10 @@ async function onSave() {
       }
       .ck { display: inline-flex; align-items: center; font-size: 28rpx; color: $wa-ink; margin-right: 40rpx; }
       .tip { display: block; margin-top: 10rpx; font-size: 22rpx; color: $wa-muted; }
+      .ro { font-size: 28rpx; color: $wa-ink; }
     }
   }
+  .locked { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; text-align: center; }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff; border-top: 1rpx solid $wa-rule;
     .save { background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
   }

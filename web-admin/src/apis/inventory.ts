@@ -84,73 +84,121 @@ export async function adjustStock(
   return setVariantStock;
 }
 
-// ---- 租户物理网点管理（方案3）：StockLocation customFields 由 cjk-plugin（kind/code/channelCode/deliveryMethods）
-//      与 logistics-plugin（lat/lng/serviceCities）共同声明，经 admin API 原样读写。 ----
+// ---- 租户库存仓（方案3）：编码/性质由服务端生成（前端不可指定），归属强制当前租户 ----
+// 为什么不再直接用核心 createStockLocation/updateStockLocation：
+//   核心入参允许省略 customFields.kind / customFields.code，落库后 kind 取默认 'virtual'、code 为 null，
+//   而变体绑定（setVariantBindings）要求 kind='physical' 且 code 归属当前租户 → 前端自建仓必然无法绑定。
+//   故统一走 cjk-plugin 的租户级 mutation：服务端自动编码 `{租户编码}-{两位序号}`、强制 physical、
+//   校验前缀归属，并禁止改/删系统仓（默认物理仓 + 虚拟仓）。
 
-export interface LocationRow {
+export interface TenantStockLocation {
   id: string;
   name: string;
-  description: string | null;
-  customFields?: {
-    channelCode?: string | null;
-    deliveryMethods?: string[] | null;
-    lat?: number | null;
-    lng?: number | null;
-    serviceCities?: string[] | null;
-    kind?: string | null;
-    code?: string | null;
-  } | null;
+  code: string;
+  kind: string;
+  isSystem: boolean;
+  deliveryMethods?: string[] | null;
+  serviceCities?: string[] | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
-export interface LocationInput {
+export interface TenantInventoryOverview {
+  channelCode: string;
+  physicalStockEnabled: boolean;
+  virtualCode: string;
+  virtualLocationId?: string | null;
+  defaultPhysicalCode: string;
+  defaultPhysicalLocationId?: string | null;
+  locations: TenantStockLocation[];
+}
+
+export interface TenantLocationInput {
   name: string;
-  customFields?: {
-    channelCode?: string | null;
-    deliveryMethods?: string[] | null;
-    lat?: number | null;
-    lng?: number | null;
-    serviceCities?: string[] | null;
-  } | null;
+  deliveryMethods?: string[] | null;
+  serviceCities?: string[] | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
-export async function fetchLocations(): Promise<LocationRow[]> {
-  const { stockLocations } = await getAdminClient().request<{
-    stockLocations: { items: LocationRow[] };
-  }>(`query Locations {
-    stockLocations { items { id name description customFields { channelCode deliveryMethods lat lng serviceCities kind code } } }
-  }`);
-  return stockLocations.items;
+const OVERVIEW_SELECTION = `
+  channelCode physicalStockEnabled virtualCode virtualLocationId
+  defaultPhysicalCode defaultPhysicalLocationId
+  locations { id name code kind isSystem deliveryMethods serviceCities lat lng }
+`;
+
+export async function fetchTenantInventoryOverview(): Promise<TenantInventoryOverview> {
+  try {
+    const { tenantInventoryOverview } = await getAdminClient().request<{
+      tenantInventoryOverview: TenantInventoryOverview;
+    }>(`query TenantInventoryOverview { tenantInventoryOverview { ${OVERVIEW_SELECTION} } }`);
+    return tenantInventoryOverview;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载库存方案失败'));
+  }
 }
 
-export async function createLocation(input: LocationInput): Promise<string> {
-  const { createStockLocation } = await getAdminClient().request<{
-    createStockLocation: { id: string };
-  }>(
-    `mutation CreateLocation($input: CreateStockLocationInput!) {
-      createStockLocation(input: $input) { id }
-    }`,
-    { input },
-  );
-  return createStockLocation.id;
+/** 幂等补建系统仓（虚拟仓恒在；开关开启时补默认物理仓）——自愈与「一键初始化」共用 */
+export async function ensureTenantInventoryLocations(): Promise<TenantInventoryOverview> {
+  try {
+    const { ensureTenantInventoryLocations } = await getAdminClient().request<{
+      ensureTenantInventoryLocations: TenantInventoryOverview;
+    }>(`mutation EnsureTenantInventoryLocations {
+      ensureTenantInventoryLocations { ${OVERVIEW_SELECTION} }
+    }`);
+    return ensureTenantInventoryLocations;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '初始化系统仓失败'));
+  }
 }
 
-export async function updateLocation(id: string, input: LocationInput): Promise<string> {
-  const { updateStockLocation } = await getAdminClient().request<{
-    updateStockLocation: { id: string };
-  }>(
-    `mutation UpdateLocation($input: UpdateStockLocationInput!) {
-      updateStockLocation(input: $input) { id }
-    }`,
-    { input: { id, ...input } },
-  );
-  return updateStockLocation.id;
+export async function createTenantStockLocation(input: TenantLocationInput): Promise<TenantInventoryOverview> {
+  try {
+    const { createTenantStockLocation } = await getAdminClient().request<{
+      createTenantStockLocation: TenantInventoryOverview;
+    }>(
+      `mutation CreateTenantStockLocation($input: TenantStockLocationInput!) {
+        createTenantStockLocation(input: $input) { ${OVERVIEW_SELECTION} }
+      }`,
+      { input },
+    );
+    return createTenantStockLocation;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '新建仓库失败'));
+  }
 }
 
-export async function deleteLocation(id: string): Promise<void> {
-  await getAdminClient().request(
-    `mutation DeleteLocation($input: DeleteStockLocationInput!) {
-      deleteStockLocation(input: $input) { result }
-    }`,
-    { input: { id } },
-  );
+export async function updateTenantStockLocation(
+  input: TenantLocationInput & { id: string },
+): Promise<TenantInventoryOverview> {
+  try {
+    const { updateTenantStockLocation } = await getAdminClient().request<{
+      updateTenantStockLocation: TenantInventoryOverview;
+    }>(
+      `mutation UpdateTenantStockLocation($input: UpdateTenantStockLocationInput!) {
+        updateTenantStockLocation(input: $input) { ${OVERVIEW_SELECTION} }
+      }`,
+      { input },
+    );
+    return updateTenantStockLocation;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '保存仓库失败'));
+  }
+}
+
+export async function deleteTenantStockLocation(id: string): Promise<TenantInventoryOverview> {
+  try {
+    const { deleteTenantStockLocation } = await getAdminClient().request<{
+      deleteTenantStockLocation: TenantInventoryOverview;
+    }>(
+      `mutation DeleteTenantStockLocation($id: ID!) {
+        deleteTenantStockLocation(id: $id) { ${OVERVIEW_SELECTION} }
+      }`,
+      { id },
+    );
+    return deleteTenantStockLocation;
+  } catch (e: any) {
+    // 后端有删仓前置校验（系统仓 / 有库存 / 被变体绑定 / 有未完成预留），需把原因原样透传给运营
+    throw new Error(graphQlErrorMsg(e, '删除仓库失败'));
+  }
 }

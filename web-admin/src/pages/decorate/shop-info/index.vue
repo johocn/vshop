@@ -52,6 +52,32 @@
         <view class="hint">{{ $t('decorateShopInfo.odooHint') }}</view>
       </block>
       <view class="cell row-in">
+        <text class="lbl">{{ $t('decorateShopInfo.physicalStock') }}</text>
+        <view class="seg">
+          <text :class="{ on: !f.physicalStockEnabled }" @tap="setPhysicalStock(false)">{{ $t('decorateShopInfo.physicalOff') }}</text>
+          <text :class="{ on: f.physicalStockEnabled }" @tap="setPhysicalStock(true)">{{ $t('decorateShopInfo.physicalOn') }}</text>
+        </view>
+      </view>
+      <view class="hint">{{ $t('decorateShopInfo.physicalStockHint') }}</view>
+      <!-- 系统仓落点只读展示：编码由服务端按租户生成，此处不提供输入，防止落库成不可绑定的仓 -->
+      <view v-if="invOv" class="inv-status">
+        <view class="inv-row">
+          <text class="inv-k">{{ $t('decorateShopInfo.virtualCodeLabel') }}</text>
+          <text class="inv-v">{{ invOv.virtualCode }}</text>
+          <text class="inv-s" :class="invOv.virtualLocationId ? 'ok' : 'no'">
+            {{ invOv.virtualLocationId ? $t('decorateShopInfo.ready') : $t('decorateShopInfo.missing') }}
+          </text>
+        </view>
+        <view class="inv-row">
+          <text class="inv-k">{{ $t('decorateShopInfo.defaultPhysicalCode') }}</text>
+          <text class="inv-v">{{ invOv.defaultPhysicalCode }}</text>
+          <text class="inv-s" :class="invOv.defaultPhysicalLocationId ? 'ok' : 'no'">
+            {{ invOv.defaultPhysicalLocationId ? $t('decorateShopInfo.ready') : $t('decorateShopInfo.missing') }}
+          </text>
+        </view>
+        <text class="hint link" @tap="goWarehouses">{{ $t('decorateShopInfo.manageWarehouses') }}</text>
+      </view>
+      <view class="cell row-in">
         <text class="lbl">{{ $t('decorateShopInfo.priceStyle') }}</text>
         <view class="seg">
           <text :class="{ on: f.priceStyle === 'classic' }" @tap="setPriceStyle('classic')">{{ $t('decorateShopInfo.priceClassic') }}</text>
@@ -126,6 +152,7 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
+import { fetchTenantInventoryOverview, type TenantInventoryOverview } from '../../../apis/inventory';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
 import { fetchAssets } from '../../../apis/asset';
@@ -133,9 +160,11 @@ import { useLocaleStore } from '../../../stores/localeStore';
 import MediaPicker from '../../../components/MediaPicker.vue';
 
 const locale = useLocaleStore();
-const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; odooBaseUrl: string; odooApiKey: string }>({
-  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', odooBaseUrl: '', odooApiKey: '',
+const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; physicalStockEnabled: boolean; odooBaseUrl: string; odooApiKey: string }>({
+  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', physicalStockEnabled: false, odooBaseUrl: '', odooApiKey: '',
 });
+// 系统仓落点（虚拟仓 / 默认物理仓编码）只读展示，来源为服务端派生，避免前后端各算一套
+const invOv = ref<TenantInventoryOverview | null>(null);
 const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
 const logoIds = ref<string[]>([]);
@@ -207,6 +236,23 @@ function setInventoryMode(s: string) {
   f.value.inventoryMode = s;
 }
 
+function setPhysicalStock(v: boolean) {
+  f.value.physicalStockEnabled = v;
+}
+
+function goWarehouses() {
+  uni.navigateTo({ url: '/pages/inventory/locations/index' });
+}
+
+/** 系统仓状态为只读摘要：失败静默（不阻断店铺信息编辑） */
+async function loadInventoryOverview() {
+  try {
+    invOv.value = await fetchTenantInventoryOverview();
+  } catch {
+    invOv.value = null;
+  }
+}
+
 function setPriceStyle(s: string) {
   f.value.priceStyle = s;
 }
@@ -247,11 +293,13 @@ onMounted(async () => {
     priceStyle: style,
     layout,
     inventoryMode: cf.inventoryMode || 'simple',
+    physicalStockEnabled: cf.physicalStockEnabled === true,
     odooBaseUrl: cf.odooBaseUrl ?? '',
     odooApiKey: cf.odooApiKey ?? '',
   };
   shareImageUrl.value = cf.shareImageUrl ?? '';
   logoPreview.value = cf.shopLogo ?? '';
+  loadInventoryOverview();
 });
 
 async function save() {
@@ -273,6 +321,10 @@ async function save() {
   payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
   try {
     await updateChannelCustomFields(channelId, payload);
+    // 开启物理库存时后端会幂等补建系统仓，回读一次让摘要与后端一致
+    if (payload.physicalStockEnabled === true) {
+      await loadInventoryOverview();
+    }
     uni.showToast({ title: locale.t('decorateShopInfo.saved'), icon: 'success' });
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('decorateShopInfo.saveFailed')), icon: 'none' });
@@ -308,6 +360,16 @@ function safeParse(raw: string): any {
   }
   .hint { margin-top: 24rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.6; padding: 0 8rpx; }
   .hint.link { color: $wa-accent; }
+  .inv-status { padding: 8rpx 8rpx 0;
+    .inv-row { display: flex; align-items: center; padding: 8rpx 0;
+      .inv-k { width: 220rpx; font-size: 24rpx; color: $wa-muted; }
+      .inv-v { flex: 1; font-size: 26rpx; color: $wa-ink; word-break: break-all; }
+      .inv-s { font-size: 20rpx; color: #fff; border-radius: 16rpx; padding: 2rpx 14rpx;
+        &.ok { background: #16a34a; }
+        &.no { background: #e64340; }
+      }
+    }
+  }
   .chips { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 16rpx 0 0; }
   .chip { flex: 0 0 auto; padding: 6rpx 22rpx; border: 1px solid $wa-rule; border-radius: 999rpx; font-size: 24rpx; color: $wa-muted; background: $wa-card; }
   .chip.on { background: $wa-accent; border-color: $wa-accent; color: #fff; }
