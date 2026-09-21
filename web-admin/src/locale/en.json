@@ -995,6 +995,7 @@
       "manual": "Manual adjust",
       "mirror": "Mirror sync"
     },
+    "noTargetLocation": "No stock location available in this shop; initialize one in Warehouses first",
     "bulk": {
       "selected": "{n} selected",
       "setSafety": "Set safety stock",

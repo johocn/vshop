@@ -143,7 +143,10 @@ const QUICK: Array<{ key: string; icon: string; url: string }> = [
 
 // ---- 页面状态 ----
 const locations = ref<TenantStockLocation[]>([]);
-const defaultPhysicalId = ref('');
+// 补货/调整/批量采购的兜底目标仓：默认物理仓 → 虚拟仓 → 第一个仓。
+// 纯虚拟库存模式的店铺（physicalStockEnabled=false，如 t2）没有物理仓，其库存就落在虚拟仓，
+// 用空值会导致批量条直接弹「失败」而不发请求（线上实测）。
+const defaultTargetId = ref('');
 const locationId = ref('');
 const keyword = ref('');
 const sort = ref('stockAsc');
@@ -275,7 +278,7 @@ function onOpenMovements(row: InventoryStockRow): void {
   uni.navigateTo({ url: `/pages/inventory/movements/index?productVariantId=${row.variantId}` });
 }
 function onReplenish(row: InventoryStockRow): void {
-  const locId = row.stockLocationId || defaultPhysicalId.value;
+  const locId = row.stockLocationId || defaultTargetId.value;
   const qty = Math.max(1, suggestQty(row.safetyStock, row.onHand));
   uni.navigateTo({ url: `/pages/inventory/stock-doc/purchase/index?variantId=${row.variantId}&qty=${qty}&locationId=${locId}` });
 }
@@ -304,15 +307,15 @@ async function onBulkPurchase(): Promise<void> {
     return;
   }
   if (generating.value) return;
-  const fallback = defaultPhysicalId.value;
+  const fallback = defaultTargetId.value;
   const lines = rows.map((r) => ({
     variantId: r.variantId,
-    toStockLocationId: r.stockLocationId || fallback, // 「全部仓」聚合态行无仓号 → 回落租户默认物理仓
+    toStockLocationId: r.stockLocationId || fallback, // 「全部仓」聚合态行无仓号 → 回落本店兜底仓（物理仓/虚拟仓）
     // 建议量 = 安全库存 − 现存，且至少 1（safetyStock=0 的缺货行也能补货）
     qty: Math.max(1, suggestQty(r.safetyStock, r.onHand)),
   }));
   if (!lines.every((l) => !!l.toStockLocationId)) {
-    uni.showToast({ title: locale.t('inventoryStock.bulk.genFailed'), icon: 'none' });
+    uni.showToast({ title: locale.t('inventoryStock.noTargetLocation'), icon: 'none' });
     return;
   }
   generating.value = true;
@@ -337,9 +340,9 @@ async function onConfirmAdjust(): Promise<void> {
     uni.showToast({ title: locale.t('inventoryStock.adjust.invalid'), icon: 'none' });
     return;
   }
-  const locId = row.stockLocationId || defaultPhysicalId.value;
+  const locId = row.stockLocationId || defaultTargetId.value;
   if (!locId) {
-    uni.showToast({ title: locale.t('inventoryStock.adjust.failed'), icon: 'none' });
+    uni.showToast({ title: locale.t('inventoryStock.noTargetLocation'), icon: 'none' });
     return;
   }
   if (adjusting.value) return;
@@ -413,7 +416,10 @@ async function init(): Promise<void> {
       ?? ov.locations.find((l) => l.kind === 'physical');
     // 默认选第一个物理仓；无物理仓时退回「全部仓」（spec §3.2.1）
     locationId.value = firstPhysical?.id ?? '';
-    defaultPhysicalId.value = ov.defaultPhysicalLocationId || firstPhysical?.id || '';
+    // 兜底目标仓：默认物理仓 → 虚拟仓 → 第一个仓（纯虚拟库存模式的店铺只有虚拟仓）
+    const virtual = ov.locations.find((l) => l.id === (ov.virtualLocationId ?? ''));
+    defaultTargetId.value =
+      ov.defaultPhysicalLocationId || firstPhysical?.id || virtual?.id || ov.locations[0]?.id || '';
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('inventoryStock.loadFailed'), icon: 'none' });
   }
