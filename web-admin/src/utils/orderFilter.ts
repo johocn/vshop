@@ -162,8 +162,10 @@ export function buildOrderFilter(input: OrderFilterInput = {}, now = new Date())
   if (input.delivery === 'pickup') filter.deliveryType = { eq: 'pickup' };
   else if (input.delivery === 'delivery') filter.deliveryType = { eq: 'delivery' };
 
-  const keys = Object.keys(filter);
-  if (!keys.length) return null;
-  if (keys.length > 1) filter.filterOperator = 'AND';
+  if (!Object.keys(filter).length) return null;
+  // 不写 filterOperator：该字段属于 OrderListOptions（filter 的兄弟节点），
+  // 写进 filter 内会被 admin-api 拒绝（Field "filterOperator" is not defined by type "OrderFilterParameter"）。
+  // 多条件的 AND 语义由 OrderListOptions 默认值提供，无需显式声明——
+  // 生产只读探针实测：pickup=17、state.in=1，组合默认=1（=交集，AND），显式 OR 才得 17。
   return filter;
 }
