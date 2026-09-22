@@ -2370,30 +2370,30 @@ git commit -m "feat(web-admin): 批次详情页与地址编辑（RegionPicker �
 - Create: `src/components/picking/BinPicker.vue`
 - Modify: `src/pages/inventory/stock-doc/purchase/index.vue`
 
-- [ ] **Step 1: 写 `BinPicker.vue`（三档自适应）**
+- [x] **Step 1: 写 `BinPicker.vue`（三档自适应）**
 
 - `showBin` 为真：库区 → 库位两级级联
 - 仅 `showZone` 为真：只到库区（一级）
 - `off`：调用方**不应渲染本组件**（由调用方用 `v-if="showZone"` 门控）
 
-- [ ] **Step 2: 写库位管理页**
+- [x] **Step 2: 写库位管理页**
 
 选仓 → 「生成标准库位（18 个）」按钮（调 `generateStandardBins`，返回 `{ zonesCreated, binsCreated }`，toast 提示本次新建数量）→ 按库区分组的库位网格（显示编码 + 已绑 SKU 数）→ 库区/库位增删改。
 **门控**：`off` 档此页菜单隐藏；`zone` 档只显示库区列表，隐藏库位网格。
 
-- [ ] **Step 3: 采购入库页改造**
+- [x] **Step 3: 采购入库页改造**
 
 在 `src/pages/inventory/stock-doc/purchase/index.vue` 增加「入库库位」选择器（`BinPicker`），并用 `v-if="showZone"` 门控。
 选定商品 + 仓后调 `fetchVariantBin(variantId, stockLocationId)` **带出现有库位并高亮提示**「该 SKU 现库位：A-01-03」（无绑定则不提示）。
 提交时把 `binId` / `zoneId` 一并传给 `createStockDoc`。
 
-- [ ] **Step 4: 编译验证**
+- [x] **Step 4: 编译验证**
 
 ```powershell
 npm run build:h5
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add web-admin/src/pages/inventory web-admin/src/components/picking/BinPicker.vue
@@ -2678,7 +2678,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 9 前端 API + composables | `9ef0d1d` | 完成 | 6 files / +637 −77。`apis/picking.ts`（11 函数，GraphQL 文档全展开）、`apis/storage-bin.ts`（7 函数）、`composables/useBinMode.ts`、`composables/useShipSubmit.ts`（从 ship 页抽出，行为不变）、`apis/channel.ts` 补 `binMode`。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；生产 admin-api introspection 探针 **0 fail**（8 Query / 11 Mutation / 全类型与 input 字段 / `ChannelCustomFields.binMode` 齐备） |
 | 10 配货台列表页 | `6c689b4` | 完成 | 新增 `pages/order/picking/index.vue`（三 Tab + 底部固定条 + 新建批次）、`components/picking/{PickBatchCard,CandidateOrderRow,WarehousePicker}.vue`；`pages.json` 注册配货台；`constants/menus.ts` 交易域加「配货台」入口。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警） |
 | 11 批次详情 + 地址编辑 | `56cf173` | 完成 | 新增 `pages/order/picking/batch.vue`（批次信息 + 拣货汇总三档分组 + 失败清单 + 成员列表 + 状态推进/取消 + 底部批量发货）、`components/picking/{BatchMemberRow,AddressEditSheet}.vue`、`components/common/RegionPicker.vue`（自 `pickup/edit` 抽取，数据源同为 `apis/map.fetchDistricts`）；`pages.json` 注册批次详情。验证：`npm run build:h5` exit 0 |
-| 12 库位管理 + 采购入库 | | | |
+| 12 库位管理 + 采购入库 | `c39568e` | 完成 | 新增 `pages/inventory/bins/index.vue`（选仓 + 生成标准库位 + 按库区分组网格 + 删库位 + off 档兜底页）、`components/picking/BinPicker.vue`（三档自适应：bin 档两级级联 / zone 档只到库区 / off 档调用方不渲染）；改 `pages/inventory/stock-doc/purchase/index.vue`（入库归位 + 现库位高亮 + 换仓清空）、`apis/stock-doc.ts`（补 `binId`/`zoneId`）、`pages.json`、`constants/menus.ts`（`binOnly` 门控）、`Drawer.vue` + `dashboard/index.vue`（`visibleMenus(auth, showZone)`）、双语词条。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；双语键集一致（1982 = 1982，diff none） |
 | 13 打印子系统 | | | |
 | 14 i18n 双语 | | | |
 | 15 截图 + 手册 + 探针 + 部署 | | | |
@@ -2717,6 +2717,12 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 21. **订单地址无 `district` 字段 → 区县并入 `streetLine1`（重要语义）**：`OrderAddressInput` 只有 `fullName/phoneNumber/province/city/streetLine1/streetLine2/postalCode/countryCode`（Vendure 3.6.4 `Order.shippingAddress` 为 `simple-json`），**没有独立区县字段**。故 `AddressEditSheet` 的区县选择器在保存时拼回 `streetLine1` 前缀，且**若详细地址开头已含同一区县名则不重复拼接**（避免「朝阳区朝阳区XX路」）；回填时 `streetLine1` 原样进「详细地址」，区县栏留空不伪造。
 22. **`BatchMemberRow` 的商品摘要不含单量**：`pickBatchPickingList` 的 `qty` 是**批次级**汇总（按 SKU 跨订单合并），无法还原「某个订单该 SKU 要几件」，且成员快照无行明细。故摘要只列该订单涉及的 SKU 名（≤2 个 + 「等 N 个 SKU」），件数用快照的 `itemCount` 展示，**不伪造单量**。
 
+**偏差说明（Task 12）**：
+
+23. **库位管理页不含「已绑 SKU 数」，也无库区/库位增删改（后端能力边界）**：计划 Step 2 要求「显示编码 + 已绑 SKU 数」及「库区/库位增删改」。实际后端（`plugin.ts` adminApiExtensions §库区/库位）只提供 `generateStandardBins`（幂等生成）+ `deleteStorageBin`（有绑定则拒绝）两个变更接口，**没有** `createStorageZone` / `updateStorageZone` / `createStorageBin` / `updateStorageBin`；`storageBins` 也不返回绑定量（service 里虽有 `binBindCounts`，但未挂到 resolver，前端取不到）。故本页只落地**「生成标准库位（18 个）+ 库区/库位只读浏览 + 删除库位」**，占用冲突时透出后端拒绝原文（`该库位已被 N 个 SKU 占用，请先解绑`），**不伪造绑定量**。若后续要展示绑定量，需后端把 `binBindCounts` 暴露为 `storageBins.boundCount` 字段。
+24. **Task 12 顺带补齐本步所需的 i18n 词条（Task 14 因此变薄）**：计划把 `inventoryBin.*` 与 `orderAdmin.picking.bin.*` 统一排在 Task 14，但 Task 12 的两个页面与 `BinPicker` 立即可用需要这些键，否则界面显示原始 key。故 Task 12 先补**本步用到的**键：`menu.binManage`、`orderAdmin.picking.bin.{zone,bin,selectZone,selectBin,needWarehouseFirst,needZoneFirst,noZone,unassigned}`、`inventoryBin.*`（19 个）、`stockDocPurchase.{existingBin,requireZone,requireBin}`，中文/英文同步。校验：双语键集完全一致（各 1982 键，diff none）。Task 14 只余**打印子系统与配货台列表页**的键。
+25. **三档开启时采购入库强制选到库位（防止「开了库位却没归位」的半开状态）**：计划只要求「提交时把 `binId`/`zoneId` 一并传给 `createStockDoc`」。实现补充了拦截：`showZone` 为真且未选库区 → 提示「请选择入库库区」；`showBin` 为真且未选库位 → 提示「请选择入库库位」。`off` 档整块不渲染且**完全不传** `zoneId`/`binId`（与旧行为逐字节一致）。另：**换仓会清空已选库区/库位与现库位提示**（原库区不属于新仓，避免提交出跨仓无效绑定）；选定 SKU + 仓后调 `fetchVariantBin` 展示「该 SKU 现库位：{code}」并**预选回填**该库区/库位，无绑定则不提示、不回填。
+
 ---
 
 ## 自审记录（写完计划后对规格做的复查）
@@ -2734,7 +2740,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | §10 测试与交付 | Task 15 |
 | §11 实施顺序 10 步 | 全部映射（后端表→库位→部署→前端 API→详情→库位页→打印→ship 改造→i18n→交付） |
 | §13 库位体系 | Task 2（表/模板/开关）、Task 5（service）、Task 6（归位）、Task 12（前端）、Task 13（拣货单） |
-| §13.9 三档门控表（5 个消费点） | Task 12（库位管理页/采购入库）、Task 13（拣货单/包裹标签）、Task 10（候选订单行） |
+| §13.9 三档门控表（5 个消费点） | Task 12（库位管理页/采购入库）、Task 13（拣货单/包裹标签）、Task 11（批次详情拣货汇总分组）。候选订单行因后端无库位字段未落地（见偏差 18） |
 | §13.9 排序键三档统一 | Task 3（`sortPickingRows` 含 zone 档退化用例） |
 | §13.9 测试范围（3 条主路径） | Task 15 Step 1 |
 
