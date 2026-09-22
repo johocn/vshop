@@ -2409,7 +2409,9 @@ git commit -m "feat(web-admin): 库位管理页与采购入库归位改造（三
 - Create: `src/utils/print/templates/{picking-list,shipping-note,parcel-label,batch-overview}.ts`
 - Test: `src/utils/print/templates/templates.spec.ts`
 
-- [ ] **Step 1: 写 `print-window.ts`**
+- [x] **Step 1: 写 `print-window.ts`**（提交 `fc46b6d`）
+
+> 落地差异：`printHtml` 返回 `boolean`（H5 环境缺失 / `contentDocument` 为空时返回 `false`），调用方据此弹「打开新窗口」兜底；另加模块级 `lastHtml` + `getLastPrintHtml()`，满足「暂存可重试」。`.v.big`/`.mono` 等排版类由 `doc-common.ts` 的 `pageHtml()` 统一输出。
 
 隐藏 `iframe` → 写入完整 HTML（含内联 CSS）→ `onload` 后 `contentWindow.focus(); contentWindow.print()` → 打印后移除 iframe。
 **不用 `window.open`**（移动端易被拦截）。提供「打开新窗口」兜底入口 + 把单据 HTML 暂存本地可重试（规格 §9）。
@@ -2454,7 +2456,9 @@ export function openPrintFallback(html: string): void {
 }
 ```
 
-- [ ] **Step 2: 写四个模板纯函数**
+- [x] **Step 2: 写四个模板纯函数**（提交 `fc46b6d`）
+
+> 落地差异：新增计划外共享模块 `src/utils/print/doc-common.ts`（偏差 26）。四个模板的 labels 均可被第 4 个参数 `labels?: Partial<PrintLabels>` 覆盖（默认 `DEFAULT_LABELS` 中文），由 `batch.vue` 从 `orderAdmin.picking.print.*` 注入当前语言。`pathIndex` 由调用方在映射 `rows` 时按数组下标赋予（后端已排好序，前端不重排）。
 
 四个模板都是**纯函数**：入参为已组装好的数据，返回 HTML 字符串（便于单测）。
 
@@ -2489,7 +2493,9 @@ export function renderPickingList(input: PickingListInput): string;
 4. `binMode === 'bin'` → 库位编码列 + 按库区分组。
 5. 无库位绑定的行置底并标黄，提示「需先入库归位再拣」。
 
-- [ ] **Step 3: 写模板单测**
+- [x] **Step 3: 写模板单测**（提交 `fc46b6d`，12 个用例，超出计划的 4 个）
+
+> 落地差异：不用 `vitest`（项目未安装），改 `node:test` + `node:assert/strict`（偏差 26）。用例除计划中的 4 条（bin/zone/off 三档 + 标黄提示）外，补：行序按 `pathIndex`、合计行、HTML 转义（`<img onerror=1>` → `&lt;img onerror=1&gt;`）、labels 本地化覆盖、发货单一单一页、包裹标签 100×150、总览 A4 landscape、客户名转义。
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2528,15 +2534,16 @@ describe('拣货单模板', () => {
 });
 ```
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 ```powershell
-npx vitest --run src/utils/print
+node --test src/utils/print/templates/templates.spec.ts
 ```
 
-预期：PASS（4 个用例）。若项目未配 vitest，改用 `tsx --test` 并相应调整 import。
+实测结果：`# pass 12 / # fail 0`（Node v22.20.0 原生类型剥离，直接跑 `.ts`，无需 tsx/vitest）。另跑 `npm run build:h5` → `DONE  Build complete.`（仅既有 sass legacy-js-api 弃用告警）。
+> 注意：模板内部相对导入必须带显式扩展名（`'../doc-common.ts'`），否则 Node ESM 解析失败。
 
-- [ ] **Step 5: `print.css.ts` 双 `@page`**
+- [x] **Step 5: `print.css.ts` 双 `@page`**（提交 `fc46b6d`）
 
 ```ts
 export const A4_PORTRAIT = '@page { size: A4; margin: 12mm }';
@@ -2544,12 +2551,15 @@ export const THERMAL_100x150 = '@page { size: 100mm 150mm; margin: 4mm }';
 export const A4_LANDSCAPE = '@page { size: A4 landscape; margin: 12mm }';
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**（`fc46b6d`，11 files / +717 −3）
 
 ```powershell
 git add web-admin/src/utils/print
 git commit -m "feat(web-admin): 打印子系统（iframe 打印 + 四类单据模板，拣货单含库位区域）"
 ```
+
+> 实际 `git add` 另含 `web-admin/src/pages/order/picking/batch.vue`（4 个打印入口，落实偏差 19 的界面部分）与 `web-admin/src/locale/{zh-Hans,en}.json`（`orderAdmin.picking.print.*` 27 labels + `failed` + `newWindow`）。
+> **打印不自动推进状态**：保留「确认拣货完成」「标记单据已打印」显式按钮，`canPrint` 不看只读态（终态可重印，单据是记录）——**修正偏差 20 的措辞**。
 
 ---
 
@@ -2679,7 +2689,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 10 配货台列表页 | `6c689b4` | 完成 | 新增 `pages/order/picking/index.vue`（三 Tab + 底部固定条 + 新建批次）、`components/picking/{PickBatchCard,CandidateOrderRow,WarehousePicker}.vue`；`pages.json` 注册配货台；`constants/menus.ts` 交易域加「配货台」入口。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警） |
 | 11 批次详情 + 地址编辑 | `56cf173` | 完成 | 新增 `pages/order/picking/batch.vue`（批次信息 + 拣货汇总三档分组 + 失败清单 + 成员列表 + 状态推进/取消 + 底部批量发货）、`components/picking/{BatchMemberRow,AddressEditSheet}.vue`、`components/common/RegionPicker.vue`（自 `pickup/edit` 抽取，数据源同为 `apis/map.fetchDistricts`）；`pages.json` 注册批次详情。验证：`npm run build:h5` exit 0 |
 | 12 库位管理 + 采购入库 | `c39568e` | 完成 | 新增 `pages/inventory/bins/index.vue`（选仓 + 生成标准库位 + 按库区分组网格 + 删库位 + off 档兜底页）、`components/picking/BinPicker.vue`（三档自适应：bin 档两级级联 / zone 档只到库区 / off 档调用方不渲染）；改 `pages/inventory/stock-doc/purchase/index.vue`（入库归位 + 现库位高亮 + 换仓清空）、`apis/stock-doc.ts`（补 `binId`/`zoneId`）、`pages.json`、`constants/menus.ts`（`binOnly` 门控）、`Drawer.vue` + `dashboard/index.vue`（`visibleMenus(auth, showZone)`）、双语词条。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；双语键集一致（1982 = 1982，diff none） |
-| 13 打印子系统 | | | |
+| 13 打印子系统 | `fc46b6d` | 完成 | 11 files / +717 −3。新增 `utils/print/`：`doc-common.ts`（HTML 转义 / 时间格式化 / 27 键 `PrintLabels` + 逐项回退 / `fill()` 占位符 / `pageHtml()` 通用打印 CSS，含 `thead{display:table-header-group}`、`tr{page-break-inside:avoid}`）、`print.css.ts`（A4 纵向 / 热敏 100×150 / A4 横向）、`print-window.ts`（隐藏 iframe + `printHtml` 返回 `boolean` + `openPrintFallback` + `getLastPrintHtml` 兜底重试）、4 个模板纯函数（拣货单含库位区域三档门控、发货单一单一页、包裹标签、批次总览）、`templates.spec.ts`。改 `pages/order/picking/batch.vue`（⑤「打印单据」2×2 宫格 4 入口 + 拦截兜底弹窗）。验证：`node --test src/utils/print/templates/templates.spec.ts` → **12 pass / 0 fail**；`npm run build:h5` → `DONE Build complete.`；双语键集一致（2011 = 2011，diff none），`print labels 27 missing: none` |
 | 14 i18n 双语 | | | |
 | 15 截图 + 手册 + 探针 + 部署 | | | |
 
@@ -2713,7 +2723,8 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 **偏差说明（Task 11）**：
 
 19. **4 个打印入口延后到 Task 13 接入（不违反计划意图）**：计划 Step 3 要求 `batch.vue` 含「4 个打印入口」，但打印子系统（`utils/print/*`）由** Task 13 才创建**；若在 Task 11 就写死 import，本步 `npm run build:h5` 会因模块不存在失败。故 Task 11 的 `batch.vue` 先不含打印按钮，**Task 13 建好打印子系统后再把 4 个入口接进 `batch.vue`**（恰好 Task 13 也要改 `batch` 相关文件）。两 Task 合计结果与计划一致。
-20. **`batch.vue` 增加「状态推进 / 取消批次 / 移出所选」按钮（计划未列，但为可用必需）**：后端状态机 `PENDING→PICKED→PRINTED→SHIPPED`（`CANCELLED` 可从任一非终态进入）全部经 `advancePickBatchState` 显式驱动，若页面不给入口则批次永远停在 `PENDING`。故按当前状态渲染「确认拣货完成」「标记单据已打印」（Task 13 起由打印动作自动推进）与「取消批次」；「移出所选」仅在 `PENDING`/`PICKED` 展示（与后端 `assertState` 一致）。
+20. **`batch.vue` 增加「状态推进 / 取消批次 / 移出所选」按钮（计划未列，但为可用必需）**：后端状态机 `PENDING→PICKED→PRINTED→SHIPPED`（`CANCELLED` 可从任一非终态进入）全部经 `advancePickBatchState` 显式驱动，若页面不给入口则批次永远停在 `PENDING`。故按当前状态渲染「确认拣货完成」「标记单据已打印」与「取消批次」；「移出所选」仅在 `PENDING`/`PICKED` 展示（与后端 `assertState` 一致）。
+    **修正（Task 13 落地后）**：本条原稿曾写「Task 13 起由打印动作自动推进」，**实际未采用**。理由：「打印拣货单」在语义上不等于「拣货完成」/「单据已打印」，用打印动作隐式推进会在状态历史上撒谎（且移动端浏览器可能拦截打印，状态会被「没打成」劫持）。故**状态一律只由显式按钮推进**，打印只产出单据。同时 `canPrint` **不看只读态**——`SHIPPED` / `CANCELLED` 也允许重印（单据是记录，重印不改状态）。
 21. **订单地址无 `district` 字段 → 区县并入 `streetLine1`（重要语义）**：`OrderAddressInput` 只有 `fullName/phoneNumber/province/city/streetLine1/streetLine2/postalCode/countryCode`（Vendure 3.6.4 `Order.shippingAddress` 为 `simple-json`），**没有独立区县字段**。故 `AddressEditSheet` 的区县选择器在保存时拼回 `streetLine1` 前缀，且**若详细地址开头已含同一区县名则不重复拼接**（避免「朝阳区朝阳区XX路」）；回填时 `streetLine1` 原样进「详细地址」，区县栏留空不伪造。
 22. **`BatchMemberRow` 的商品摘要不含单量**：`pickBatchPickingList` 的 `qty` 是**批次级**汇总（按 SKU 跨订单合并），无法还原「某个订单该 SKU 要几件」，且成员快照无行明细。故摘要只列该订单涉及的 SKU 名（≤2 个 + 「等 N 个 SKU」），件数用快照的 `itemCount` 展示，**不伪造单量**。
 
@@ -2722,6 +2733,15 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 23. **库位管理页不含「已绑 SKU 数」，也无库区/库位增删改（后端能力边界）**：计划 Step 2 要求「显示编码 + 已绑 SKU 数」及「库区/库位增删改」。实际后端（`plugin.ts` adminApiExtensions §库区/库位）只提供 `generateStandardBins`（幂等生成）+ `deleteStorageBin`（有绑定则拒绝）两个变更接口，**没有** `createStorageZone` / `updateStorageZone` / `createStorageBin` / `updateStorageBin`；`storageBins` 也不返回绑定量（service 里虽有 `binBindCounts`，但未挂到 resolver，前端取不到）。故本页只落地**「生成标准库位（18 个）+ 库区/库位只读浏览 + 删除库位」**，占用冲突时透出后端拒绝原文（`该库位已被 N 个 SKU 占用，请先解绑`），**不伪造绑定量**。若后续要展示绑定量，需后端把 `binBindCounts` 暴露为 `storageBins.boundCount` 字段。
 24. **Task 12 顺带补齐本步所需的 i18n 词条（Task 14 因此变薄）**：计划把 `inventoryBin.*` 与 `orderAdmin.picking.bin.*` 统一排在 Task 14，但 Task 12 的两个页面与 `BinPicker` 立即可用需要这些键，否则界面显示原始 key。故 Task 12 先补**本步用到的**键：`menu.binManage`、`orderAdmin.picking.bin.{zone,bin,selectZone,selectBin,needWarehouseFirst,needZoneFirst,noZone,unassigned}`、`inventoryBin.*`（19 个）、`stockDocPurchase.{existingBin,requireZone,requireBin}`，中文/英文同步。校验：双语键集完全一致（各 1982 键，diff none）。Task 14 只余**打印子系统与配货台列表页**的键。
 25. **三档开启时采购入库强制选到库位（防止「开了库位却没归位」的半开状态）**：计划只要求「提交时把 `binId`/`zoneId` 一并传给 `createStockDoc`」。实现补充了拦截：`showZone` 为真且未选库区 → 提示「请选择入库库区」；`showBin` 为真且未选库位 → 提示「请选择入库库位」。`off` 档整块不渲染且**完全不传** `zoneId`/`binId`（与旧行为逐字节一致）。另：**换仓会清空已选库区/库位与现库位提示**（原库区不属于新仓，避免提交出跨仓无效绑定）；选定 SKU + 仓后调 `fetchVariantBin` 展示「该 SKU 现库位：{code}」并**预选回填**该库区/库位，无绑定则不提示、不回填。
+
+**偏差说明（Task 13）**：
+
+26. **测试框架改 `node:test`（不用 `vitest`），并新增计划外共享模块 `doc-common.ts`（重要）**：
+    - **测试**：计划 Step 3/4 用 `vitest`，但 `web-admin` 的 `package.json` **没有** `vitest` / `tsx`（只有 vite + typescript），装新依赖不在本计划范围。改用 **Node v22.20.0 内建 `node --test`**（原生类型剥离，可直接跑 `.ts`），断言库换 `node:assert/strict`（`expect(html).toContain(x)` → `assert.ok(html.includes(x))`）。命令：`node --test src/utils/print/templates/templates.spec.ts` → **12 pass / 0 fail**（计划预期 4 例，实补至 12 例：行序 / 合计 / 转义 / 本地化 labels / 发货单一单一页 / 标签尺寸 / 总览横向）。
+    - **扩展名**：模板内部相对导入必须写**显式 `.ts` 扩展名**（`'../doc-common.ts'` / `'../print.css.ts'`），否则 Node ESM 解析失败；Vite/uni-app 侧因精确路径存在亦可正常解析（`npm run build:h5` 已验证）。
+    - **共享模块**：计划把转义/时间格式化/公共打印 CSS 散落在各模板中重复实现。实现抽出 `doc-common.ts` 统一承载：`esc()`（`& < > " '`）、`fmtTime()`、27 键 `PrintLabels` + `DEFAULT_LABELS`（中文）+ `withLabels()` 逐项回退 + `fill()` 占位符，以及 `pageHtml()`（完整 HTML 文档 + 通用打印 CSS）。四个模板因此都接受第 4 个可选参数 `labels?: Partial<PrintLabels>`，由 `batch.vue` 从 `orderAdmin.picking.print.*` 注入**当前语言**（默认值兜底中文，键缺失不崩）。
+    - **状态推进**：见偏差 20 修正——打印**不**自动推进批次状态。
+    - **`canPrint` 口径**：`!!batch && members.length > 0`，**不含**只读态判断（终态可重印）。
 
 ---
 
