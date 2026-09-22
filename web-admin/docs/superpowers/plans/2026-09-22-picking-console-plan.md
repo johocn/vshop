@@ -2239,7 +2239,7 @@ git commit -m "feat(web-admin): 配货台/库位 API 层与 useBinMode、useShip
 - Create: `src/components/picking/WarehousePicker.vue`
 - Modify: `src/pages.json`（注册页面）
 
-- [ ] **Step 1: 在 `pages.json` 注册三个新页面**
+- [x] **Step 1: 在 `pages.json` 注册三个新页面**
 
 在 `pages` 数组「order」相关位置追加（照 `order/ship/index` 的既有字段格式）：
 
@@ -2258,17 +2258,17 @@ git commit -m "feat(web-admin): 配货台/库位 API 层与 useBinMode、useShip
 }
 ```
 
-- [ ] **Step 2: 写候选订单行组件**
+- [x] **Step 2: 写候选订单行组件**
 
 `CandidateOrderRow.vue`：勾选框 + 单号 + 收件人 + 完整地址 + 推荐仓（含距离）+ 「已在批次」标记。
 **门控**：`const { showZone, showBin } = useBinMode()` —— `showZone` 为真时在地址下方显示库区/库位摘要行，`off` 档整行不渲染。
 
-- [ ] **Step 3: 写批次卡片与仓库选择器**
+- [x] **Step 3: 写批次卡片与仓库选择器**
 
 `PickBatchCard.vue`：`code` / 仓 / 状态徽标 / 单数 / 件数 / 点击进详情。
 `WarehousePicker.vue`：props `recommendedId` / `distanceKm`，`recommendedId` 为 `null` 时显示「请手动选择目标仓」且**不展示距离**（规格 §9）。
 
-- [ ] **Step 4: 写配货台主页**
+- [x] **Step 4: 写配货台主页**
 
 三 Tab：`待发货 N` / `进行中 N` / `已完成`。骨架照 `src/pages/inventory/stock/index.vue` 的批量勾选范式：
 
@@ -2297,12 +2297,12 @@ const totalItems = computed(() => checkedRows.value.reduce((n, c) => n + (c.item
 已选 {N} 单 / {M} 件     [ 新建批次 ]
 ```
 
-- [ ] **Step 5: 新建批次流程**
+- [x] **Step 5: 新建批次流程**
 
 点「新建批次」→ 弹 `WarehousePicker`（默认就近推荐）→ 确认后调 `createPickBatch({ stockLocationId, orderIds: checkedRows.map(c => c.id) })`。
 后端返回冲突（订单已在别的批次）时，`uni.showToast` 展示后端原因**原文**（含冲突批次号），**不静默**。
 
-- [ ] **Step 6: 编译验证**
+- [x] **Step 6: 编译验证**
 
 ```powershell
 npm run build:h5
@@ -2310,7 +2310,7 @@ npm run build:h5
 
 预期：编译通过，无 graphql 文档字段缺失报错（若有 → 回 Task 8 Step 3 确认快照已刷）。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add web-admin/src/pages/order/picking web-admin/src/components/picking web-admin/src/pages.json
@@ -2676,7 +2676,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 7 resolvers 双注册 | `6645be289` | 完成 | admin 侧 `pickBatches` 探测返回 FORBIDDEN（非 `Cannot query field`）→ SDL 已注册；shop 侧 introspection 含 `variantBin` / `storageZones`；`npm run build` 通过；单测 `1 failed / 32 passed / 192 tests passed`（失败项同 Task 0 既有项） |
 | 8 后端部署 + 刷快照 | —（部署动作，无新提交） | 完成 | `git push origin HEAD`（`6e8bc1fa4..6645be289`）；服务器 `/www/apps/vendure` `git pull --ff-only` → `pm2 restart vendure`（online）。生产只读探针：shop-api 含 `variantBin` / `storageZones`；admin-api Mutation 含 `createPickBatch`/`addOrdersToPickBatch`/`removeOrdersFromPickBatch`/`advancePickBatchState`/`cancelPickBatch`/`shipPickBatch`/`updateOrderShippingAddress`/`generateStandardBins`/`bindVariantToBin`/`unbindVariantFromBin`/`deleteStorageBin`。生产 postgres 实际建表：`pick_batch, pick_batch_order, storage_bin, storage_zone, variant_storage_bin`，`channel.customFieldsBinmode` 列存在，`pick_batch_order` 唯一索引已建（`UQ_c15667d4fc538f1828adfb65603`）。`nshop` 侧 `node tmp-refresh-schema.mjs`（introspect `https://www.youshop.cn/shop-api`）成功，快照 `710891` 字节且含 `variantBin` / `storageZones` / `StorageZone` |
 | 9 前端 API + composables | `9ef0d1d` | 完成 | 6 files / +637 −77。`apis/picking.ts`（11 函数，GraphQL 文档全展开）、`apis/storage-bin.ts`（7 函数）、`composables/useBinMode.ts`、`composables/useShipSubmit.ts`（从 ship 页抽出，行为不变）、`apis/channel.ts` 补 `binMode`。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；生产 admin-api introspection 探针 **0 fail**（8 Query / 11 Mutation / 全类型与 input 字段 / `ChannelCustomFields.binMode` 齐备） |
-| 10 配货台列表页 | | | |
+| 10 配货台列表页 | `6c689b4` | 完成 | 新增 `pages/order/picking/index.vue`（三 Tab + 底部固定条 + 新建批次）、`components/picking/{PickBatchCard,CandidateOrderRow,WarehousePicker}.vue`；`pages.json` 注册配货台；`constants/menus.ts` 交易域加「配货台」入口。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警） |
 | 11 批次详情 + 地址编辑 | | | |
 | 12 库位管理 + 采购入库 | | | |
 | 13 打印子系统 | | | |
@@ -2703,6 +2703,12 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 13. **函数返回类型显式化 + 错误原因保原文**：计划只给函数名，实现补齐了 `PickBatch` / `PickOrderSnapshot` / `PickBatchPickingRow` / `ShipPickBatchResult` / `StorageZone` / `StorageBin` / `VariantBinBinding` 等类型，并统一 `try/catch → graphQlErrorMsg(e,'…失败')` 抛出（规格 §9「不静默」）。
 14. **JSON 标量字段裸取**：`members` / `pickBatchCandidates.items` / `shipPickBatch` / `updateOrderShippingAddress` / `variantBin` / `generateStandardBins` / `bindVariantToBin` 在 SDL 里是 **JSON 标量**，查询时只取字段本身、**不带子选择集**（否则 `GRAPHQL_VALIDATION_FAILED`）。`fetchPickBatch` 一次性把 `members` 与批次字段一起取回，`fetchPickBatchMembers` 复用它（不重复请求）。
 15. **dist 产物留到 Task 15 统一提交**：`.gitignore` 明确「本地构建产物需提交 git」，但本次 `npm run build:h5` 仅为验证编译，重建产生的 ~181 个 dist 变更**不入 Task 9 提交**（改动仅 add src），统一留到 Task 15 一次性构建+提交，避免中间态产物反复变动。
+
+**偏差说明（Task 10）**：
+
+16. **新增 `constants/menus.ts` 菜单入口（计划外必需项）**：计划 Task 10 的 Files 只列了页面/组件，但配货台若无菜单入口则无法在界面上抵达（Task 15 只能靠直链截图）。故在交易域 `menuGroups` 增加 `menu.picking` → `/pages/order/picking/index`（tier 2，紧邻「发货」）。其 i18n 键 `menu.picking` 随 Task 14 一并补。
+17. **`pages.json` 改为「按 Task 增量注册」**：计划 Step 1 要求一次注册三个页面，但 `picking/batch` 与 `inventory/bins` 的 `.vue` 当时尚未创建，uni-app 构建会因页面文件缺失报错。故 Task 10 只注册 `pages/order/picking/index`，其余两页分别由 Task 11 / Task 12 注册（最终结果与计划一致）。
+18. **候选订单行不渲染「库区/库位摘要行」（门控点缺失，需后端补数据）**：计划 Step 2 要求 `showZone` 为真时在地址下方显示库区/库位摘要。但后端 `snapshotOrder`（`pick-batch.service.ts` 的 `PickOrderSnapshot`）**只返回订单地址与就近推荐仓，不含任何 SKU 库位字段**，且候选快照里没有 `variantId`，无法再调 `variantBin` 补拉。为不伪造数据，`CandidateOrderRow.vue` 未渲染该行、未引入 `useBinMode`。**库位的三档门控在真实有数据的消费点落实**：批次详情（Task 11，走 `pickBatchPickingList` 的 `binCode/zoneCode/zoneName`）、拣货单与包裹标签（Task 13）、库位管理页与采购入库（Task 12）。若后续要在候选列表显示库位，需后端在 `snapshotOrder` 中补 `SKU→库位` 汇总字段。
 
 ---
 
