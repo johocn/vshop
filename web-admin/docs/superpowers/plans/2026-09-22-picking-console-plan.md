@@ -2103,12 +2103,12 @@ git commit -m "chore(nshop): 刷新配货台/库位相关 schema 快照"
 - Create: `d:\zhao\vshop\web-admin\src\composables\useShipSubmit.ts`
 - 参照: `src/apis/order.ts`（GraphQL 客户端用法）、`src/pages/order/ship/index.vue`（要抽出的提交逻辑）
 
-- [ ] **Step 1: 先读再抽——把 `ship/index.vue` 的提交逻辑抄出来**
+- [x] **Step 1: 先读再抽——把 `ship/index.vue` 的提交逻辑抄出来**
 
 先完整读 `src/pages/order/ship/index.vue`，定位 `submit()` 与 `whOptionsFor()`。
 把 `whOptionsFor` + 「按仓聚合 parts → `shipByWarehouse`」这段逻辑搬进 `useShipSubmit.ts`，**保持函数签名与行为完全一致**，页面改为调用 composable。
 
-- [ ] **Step 2: 写 `useBinMode.ts`（三档唯一门控入口）**
+- [x] **Step 2: 写 `useBinMode.ts`（三档唯一门控入口）**
 
 ```ts
 import { computed } from 'vue';
@@ -2141,7 +2141,7 @@ export function useBinMode() {
 
 > 若项目没有 `stores/channelStore.ts`，请按既有 store 目录里的实际命名替换（用 `Glob src/stores/*` 确认），并保证 `activeChannel.customFields` 已在查询 fragment 中取到 `binMode`——若没有，需在 channel 查询里补该字段。
 
-- [ ] **Step 3: 写 `picking.ts`**
+- [x] **Step 3: 写 `picking.ts`**
 
 ```ts
 import { getAdminClient } from './client';
@@ -2197,7 +2197,7 @@ export async function updateOrderShippingAddress(orderId: string, input: Record<
 
 > 实施时每个函数都要写全 GraphQL 文档（照 `src/apis/order.ts` 既有风格）。`/* ... */` 只是计划里的省略标记，**不允许留在代码里**。
 
-- [ ] **Step 4: 写 `storage-bin.ts`**
+- [x] **Step 4: 写 `storage-bin.ts`**
 
 ```ts
 import { getAdminClient } from './client';
@@ -2212,7 +2212,7 @@ export async function unbindVariantFromBin(variantId: string, stockLocationId: s
 export async function deleteStorageBin(id: string) { /* deleteStorageBin */ }
 ```
 
-- [ ] **Step 5: TypeScript 类型检查**
+- [x] **Step 5: TypeScript 类型检查**
 
 ```powershell
 npx vue-tsc --noEmit
@@ -2221,7 +2221,7 @@ npx vue-tsc --noEmit
 
 预期：无**新增**错误（与改造前基线对比）。若项目未装 `vue-tsc`，用 `npm run build:h5` 触发编译检查。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add web-admin/src/apis/picking.ts web-admin/src/apis/storage-bin.ts web-admin/src/composables/useBinMode.ts web-admin/src/composables/useShipSubmit.ts web-admin/src/pages/order/ship/index.vue
@@ -2675,7 +2675,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 6 入库归位 | `15c9c223b` | 完成 | `StockDocItemInput` 增可选 `binId`/`zoneId`，未传则完全保持旧行为；`applyBinBinding` 在 `applyMovement` 后调用，单测 4 例（含向后兼容） |
 | 7 resolvers 双注册 | `6645be289` | 完成 | admin 侧 `pickBatches` 探测返回 FORBIDDEN（非 `Cannot query field`）→ SDL 已注册；shop 侧 introspection 含 `variantBin` / `storageZones`；`npm run build` 通过；单测 `1 failed / 32 passed / 192 tests passed`（失败项同 Task 0 既有项） |
 | 8 后端部署 + 刷快照 | —（部署动作，无新提交） | 完成 | `git push origin HEAD`（`6e8bc1fa4..6645be289`）；服务器 `/www/apps/vendure` `git pull --ff-only` → `pm2 restart vendure`（online）。生产只读探针：shop-api 含 `variantBin` / `storageZones`；admin-api Mutation 含 `createPickBatch`/`addOrdersToPickBatch`/`removeOrdersFromPickBatch`/`advancePickBatchState`/`cancelPickBatch`/`shipPickBatch`/`updateOrderShippingAddress`/`generateStandardBins`/`bindVariantToBin`/`unbindVariantFromBin`/`deleteStorageBin`。生产 postgres 实际建表：`pick_batch, pick_batch_order, storage_bin, storage_zone, variant_storage_bin`，`channel.customFieldsBinmode` 列存在，`pick_batch_order` 唯一索引已建（`UQ_c15667d4fc538f1828adfb65603`）。`nshop` 侧 `node tmp-refresh-schema.mjs`（introspect `https://www.youshop.cn/shop-api`）成功，快照 `710891` 字节且含 `variantBin` / `storageZones` / `StorageZone` |
-| 9 前端 API + composables | | | |
+| 9 前端 API + composables | `9ef0d1d` | 完成 | 6 files / +637 −77。`apis/picking.ts`（11 函数，GraphQL 文档全展开）、`apis/storage-bin.ts`（7 函数）、`composables/useBinMode.ts`、`composables/useShipSubmit.ts`（从 ship 页抽出，行为不变）、`apis/channel.ts` 补 `binMode`。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；生产 admin-api introspection 探针 **0 fail**（8 Query / 11 Mutation / 全类型与 input 字段 / `ChannelCustomFields.binMode` 齐备） |
 | 10 配货台列表页 | | | |
 | 11 批次详情 + 地址编辑 | | | |
 | 12 库位管理 + 采购入库 | | | |
@@ -2696,6 +2696,13 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 9. **Task 8 Step 4 为 N/A**：本次部署后端直接由 `synchronize:true` 建表，**未使用** `_patch_schema_*.mjs` 补丁脚本，故无脚本提交；快照由 `tmp-refresh-schema.mjs` 从生产重拉（`graphql.schema.json` 属 gitignored 滞后快照，不入库）。
 10. **`nshop` 路径勘误**：计划写 `d:\zhao\vshop\nshop`，实际路径为 **`d:\zhao\nshop`**，刷新快照命令在该目录执行。
 11. **web-admin 无 codegen**：`web-admin` 用 `graphql-request` + 内联 GraphQL 文档字符串，**不存在** schema 快照/`codegen` 步骤，故 Task 9 起的前端实现不受快照影响（快照仅 nshop 需要）。
+
+**偏差说明（Task 9）**：
+
+12. **`useBinMode` 不用 `channelStore`，改为「API + 模块级缓存」**：项目无 `stores/channelStore.ts`（渠道信息散落在各页自取），故 `useBinMode` 改为直接调 `fetchActiveChannel()` 并在模块级 `ref` + `loaded` 标志缓存（一次会话只拉一次）；失败**按 `off` 且不置 `loaded`**，下次仍可重试。对外仍导出 `mode/showZone/showBin`（另导出 `ensureBinMode(force)` / `resetBinMode()` 供页面在 `onShow` 强制刷新、切店时失效）。
+13. **函数返回类型显式化 + 错误原因保原文**：计划只给函数名，实现补齐了 `PickBatch` / `PickOrderSnapshot` / `PickBatchPickingRow` / `ShipPickBatchResult` / `StorageZone` / `StorageBin` / `VariantBinBinding` 等类型，并统一 `try/catch → graphQlErrorMsg(e,'…失败')` 抛出（规格 §9「不静默」）。
+14. **JSON 标量字段裸取**：`members` / `pickBatchCandidates.items` / `shipPickBatch` / `updateOrderShippingAddress` / `variantBin` / `generateStandardBins` / `bindVariantToBin` 在 SDL 里是 **JSON 标量**，查询时只取字段本身、**不带子选择集**（否则 `GRAPHQL_VALIDATION_FAILED`）。`fetchPickBatch` 一次性把 `members` 与批次字段一起取回，`fetchPickBatchMembers` 复用它（不重复请求）。
+15. **dist 产物留到 Task 15 统一提交**：`.gitignore` 明确「本地构建产物需提交 git」，但本次 `npm run build:h5` 仅为验证编译，重建产生的 ~181 个 dist 变更**不入 Task 9 提交**（改动仅 add src），统一留到 Task 15 一次性构建+提交，避免中间态产物反复变动。
 
 ---
 
