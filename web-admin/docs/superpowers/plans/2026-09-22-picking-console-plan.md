@@ -2053,7 +2053,7 @@ git commit -m "feat(cjk-plugin): 批次/库位 resolver 双注册 + 新增 updat
 - 只读：`d:\zhao\vendure`（git pull on server）
 - Modify: `d:\zhao\vshop\nshop\graphql.schema.json`（快照，gitignored，仅本地用）
 
-- [ ] **Step 1: 本地构建产物已就绪（Task 7 Step 7 已完成）**
+- [x] **Step 1: 本地构建产物已就绪（Task 7 Step 7 已完成）**
 
 ```powershell
 git log --oneline -3
@@ -2061,7 +2061,7 @@ git log --oneline -3
 
 预期：最新提交含 `lib/` 改动。
 
-- [ ] **Step 2: 推送到仓库并服务器拉取**
+- [x] **Step 2: 推送到仓库并服务器拉取**
 
 ```powershell
 git push origin HEAD
@@ -2075,7 +2075,7 @@ cd /path/to/vendure && git pull && pm2 restart <后端进程名>
 
 预期：服务起来后新表由 `synchronize:true` 自动创建（R5，**无需手写生产 migration**）。
 
-- [ ] **Step 3: 从生产重拉 schema 快照（必须在后端部署之后）**
+- [x] **Step 3: 从生产重拉 schema 快照（必须在后端部署之后）**
 
 ```powershell
 node tmp-refresh-schema.mjs
@@ -2085,7 +2085,7 @@ node tmp-refresh-schema.mjs
 预期：`graphql.schema.json` 含 `pickBatches` / `storageBins` 等新字段。
 若后端还没部署又想本地验证 → 用 `nshop/scripts/_patch_schema_*.mjs` 套路给快照打补丁（`nuxi prepare` **不会**自动重拉快照）。
 
-- [ ] **Step 4: Commit 快照补丁脚本（若用了脚本路径）**
+- [x] **Step 4: Commit 快照补丁脚本（若用了脚本路径）**
 
 ```powershell
 git add nshop/scripts
@@ -2674,7 +2674,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 5 库位 service | `63c9cd862` | 完成 | 三档读取 `resolveMode`、`generateStandard` 幂等（18 库位）、`bind` 校验仓/区归属并 upsert、`deleteBin` 有绑定拒绝，单测 7 例 |
 | 6 入库归位 | `15c9c223b` | 完成 | `StockDocItemInput` 增可选 `binId`/`zoneId`，未传则完全保持旧行为；`applyBinBinding` 在 `applyMovement` 后调用，单测 4 例（含向后兼容） |
 | 7 resolvers 双注册 | `6645be289` | 完成 | admin 侧 `pickBatches` 探测返回 FORBIDDEN（非 `Cannot query field`）→ SDL 已注册；shop 侧 introspection 含 `variantBin` / `storageZones`；`npm run build` 通过；单测 `1 failed / 32 passed / 192 tests passed`（失败项同 Task 0 既有项） |
-| 8 后端部署 + 刷快照 | | | |
+| 8 后端部署 + 刷快照 | —（部署动作，无新提交） | 完成 | `git push origin HEAD`（`6e8bc1fa4..6645be289`）；服务器 `/www/apps/vendure` `git pull --ff-only` → `pm2 restart vendure`（online）。生产只读探针：shop-api 含 `variantBin` / `storageZones`；admin-api Mutation 含 `createPickBatch`/`addOrdersToPickBatch`/`removeOrdersFromPickBatch`/`advancePickBatchState`/`cancelPickBatch`/`shipPickBatch`/`updateOrderShippingAddress`/`generateStandardBins`/`bindVariantToBin`/`unbindVariantFromBin`/`deleteStorageBin`。生产 postgres 实际建表：`pick_batch, pick_batch_order, storage_bin, storage_zone, variant_storage_bin`，`channel.customFieldsBinmode` 列存在，`pick_batch_order` 唯一索引已建（`UQ_c15667d4fc538f1828adfb65603`）。`nshop` 侧 `node tmp-refresh-schema.mjs`（introspect `https://www.youshop.cn/shop-api`）成功，快照 `710891` 字节且含 `variantBin` / `storageZones` / `StorageZone` |
 | 9 前端 API + composables | | | |
 | 10 配货台列表页 | | | |
 | 11 批次详情 + 地址编辑 | | | |
@@ -2693,6 +2693,9 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 6. **`relations: { shippingAddress: true }` 已移除**：`shippingAddress` 是列不是关系，在 `find({relations})` 中传入会抛错（`membersSnapshot` / `candidates` 两处）。
 7. **`ID` 类型来源统一**：`@nestjs/graphql` 的 `ID` 是值（`TS2749`），实体/参数类型统一用 `@vendure/core` 导出的 `ID`。
 8. **`currentOperator` 实现**：计划用原生 SQL 查 `tenant_member`，实现改为仓储查询 `TenantMember(administratorId=activeUserId)` → 回退 `Administrator` 姓名，避免表名/列名硬编码。
+9. **Task 8 Step 4 为 N/A**：本次部署后端直接由 `synchronize:true` 建表，**未使用** `_patch_schema_*.mjs` 补丁脚本，故无脚本提交；快照由 `tmp-refresh-schema.mjs` 从生产重拉（`graphql.schema.json` 属 gitignored 滞后快照，不入库）。
+10. **`nshop` 路径勘误**：计划写 `d:\zhao\vshop\nshop`，实际路径为 **`d:\zhao\nshop`**，刷新快照命令在该目录执行。
+11. **web-admin 无 codegen**：`web-admin` 用 `graphql-request` + 内联 GraphQL 文档字符串，**不存在** schema 快照/`codegen` 步骤，故 Task 9 起的前端实现不受快照影响（快照仅 nshop 需要）。
 
 ---
 
