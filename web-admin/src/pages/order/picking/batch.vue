@@ -59,7 +59,15 @@
       @edit-address="openAddress(m)"
     />
 
-    <!-- ⑤ 状态推进 / 取消（只读态整块隐藏） -->
+    <!-- ⑤ 打印单据：拣货单按档位渲染库位区域；终态也可重印（单据是记录，不受状态限制） -->
+    <view class="card pr">
+      <text class="pb" :class="{ dis: !canPrint }" @tap="printPickingList">{{ $t('orderAdmin.picking.print.pickingList') }}</text>
+      <text class="pb" :class="{ dis: !canPrint }" @tap="printShippingNote">{{ $t('orderAdmin.picking.print.shippingNote') }}</text>
+      <text class="pb" :class="{ dis: !canPrint }" @tap="printParcelLabel">{{ $t('orderAdmin.picking.print.parcelLabel') }}</text>
+      <text class="pb" :class="{ dis: !canPrint }" @tap="printBatchOverview">{{ $t('orderAdmin.picking.print.batchOverview') }}</text>
+    </view>
+
+    <!-- ⑥ 状态推进 / 取消（只读态整块隐藏） -->
     <view v-if="!readonly" class="card acts">
       <text v-if="batch && batch.state === 'PENDING'" class="ab" :class="{ dis: busy }" @tap="advance('PICKED')">
         {{ $t('orderAdmin.picking.markPicked') }}
@@ -74,7 +82,7 @@
 
     <view style="height: 240rpx" />
 
-    <!-- ⑥ 底部固定条：批量发货（只读态不渲染） -->
+    <!-- ⑦ 底部固定条：批量发货（只读态不渲染） -->
     <view v-if="!readonly && canShip" class="bulk">
       <picker class="pk" :range="dispatchOptions" :value="dispatchIdx" @change="dispatchIdx = $event.detail.value">
         <text class="pk-t">{{ dispatchOptions[dispatchIdx] }} ›</text>
@@ -114,10 +122,16 @@ import { fetchStockLocations } from '../../../apis/inventory';
 import { DISPATCH_OPTIONS, dispatchMethod } from '../../../composables/useShipSubmit';
 import { ensureBinMode, useBinMode } from '../../../composables/useBinMode';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { DEFAULT_LABELS, type PrintLabels } from '../../../utils/print/doc-common';
+import { openPrintFallback, printHtml } from '../../../utils/print/print-window';
+import { renderBatchOverview } from '../../../utils/print/templates/batch-overview';
+import { renderParcelLabel } from '../../../utils/print/templates/parcel-label';
+import { renderPickingList } from '../../../utils/print/templates/picking-list';
+import { renderShippingNote } from '../../../utils/print/templates/shipping-note';
 
 const locale = useLocaleStore();
 // 库位三档门控：本项目唯一判定入口，禁止在此另写 if
-const { showBin, showZone } = useBinMode();
+const { mode, showBin, showZone } = useBinMode();
 
 const batchId = ref('');
 const batch = ref<PickBatch | null>(null);
@@ -137,6 +151,8 @@ let seq = 0;
 // SHIPPED / CANCELLED 为终态：整页只读（隐藏加单/移除/发货，设计 §9）
 const readonly = computed(() => batch.value?.state === 'SHIPPED' || batch.value?.state === 'CANCELLED');
 const canShip = computed(() => !!batch.value && !readonly.value);
+/** 无批次或批内无订单时不产生空单据 */
+const canPrint = computed(() => !!batch.value && members.value.length > 0);
 
 const checked = computed(() => members.value.filter((m) => selected.value[m.id]));
 
@@ -304,6 +320,63 @@ async function onShip(): Promise<void> {
   }
 }
 
+// ---- 打印（iframe 打印，被拦截时兜底新窗口；模板为纯函数，单测见 utils/print/templates/templates.spec.ts）----
+/** 单据文案按当前语言取（键集与 DEFAULT_LABELS 一致，缺键回退中文） */
+const printLabels = computed<Partial<PrintLabels>>(() => {
+  const out: Partial<PrintLabels> = {};
+  for (const k of Object.keys(DEFAULT_LABELS) as Array<keyof PrintLabels>) {
+    out[k] = locale.t(`orderAdmin.picking.print.${k}`);
+  }
+  return out;
+});
+
+/** 发货单/标签/总览共用的订单字段（快照里只有这些，不伪造商品行明细） */
+const docOrders = computed(() =>
+  members.value.map((m) => ({
+    code: m.code,
+    customerName: m.customerName ?? null,
+    phoneNumber: m.phoneNumber ?? null,
+    address: m.address,
+    itemCount: m.itemCount,
+  })),
+);
+
+function doPrint(html: string): void {
+  if (printHtml(html)) return;
+  // 非 H5 环境或被浏览器拦截：单据已暂存在 print-window 内，可用新窗口重试
+  uni.showModal({
+    title: locale.t('orderAdmin.picking.print.failed'),
+    confirmText: locale.t('orderAdmin.picking.print.newWindow'),
+    success: (r) => {
+      if (r.confirm) openPrintFallback(html);
+    },
+  });
+}
+
+const printMeta = () => ({
+  batchCode: batch.value?.code ?? '',
+  warehouseName: warehouseName.value || '—',
+  printedAt: new Date(),
+  labels: printLabels.value,
+});
+
+function printPickingList(): void {
+  if (!canPrint.value) return;
+  doPrint(renderPickingList({ ...printMeta(), binMode: mode.value, rows: rows.value }));
+}
+function printShippingNote(): void {
+  if (!canPrint.value) return;
+  doPrint(renderShippingNote({ ...printMeta(), orders: docOrders.value }));
+}
+function printParcelLabel(): void {
+  if (!canPrint.value) return;
+  doPrint(renderParcelLabel({ ...printMeta(), orders: docOrders.value }));
+}
+function printBatchOverview(): void {
+  if (!canPrint.value) return;
+  doPrint(renderBatchOverview({ ...printMeta(), batchState: batch.value?.state ?? '', orders: docOrders.value }));
+}
+
 // ---- 生命周期 ----
 onLoad(async (q) => {
   batchId.value = (q && (q.id as string)) || '';
@@ -378,6 +451,14 @@ onPullDownRefresh(async () => {
   }
 
   .empty { text-align: center; color: $wa-muted; font-size: 26rpx; padding: 40rpx 0; }
+
+  /* 打印单据：2×2 宫格 */
+  .pr { display: flex; flex-wrap: wrap; gap: 16rpx;
+    .pb { width: calc(50% - 8rpx); text-align: center; font-size: 26rpx; color: $wa-ink; background: $wa-bg;
+      border: 1rpx solid $wa-rule; border-radius: 8rpx; padding: 20rpx 0;
+      &.dis { opacity: 0.5; }
+    }
+  }
 
   /* 底部固定条：快递公司 + 运单号 + 批量发货 */
   .bulk {
