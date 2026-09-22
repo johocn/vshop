@@ -2327,34 +2327,34 @@ git commit -m "feat(web-admin): 配货台列表页（三 Tab/候选订单/新建
 - Create: `src/components/picking/AddressEditSheet.vue`
 - Create: `src/components/common/RegionPicker.vue`
 
-- [ ] **Step 1: 抽 `RegionPicker.vue`**
+- [x] **Step 1: 抽 `RegionPicker.vue`**
 
 从 `src/pages/pickup/edit/index.vue` 的省/市/区三段 `picker` 实现抽取（`provinceNames` / `cityNames` / `districtNames`），**不新造数据源**。props：`province` / `city` / `district`，emits：`update:province` 等。
 
-- [ ] **Step 2: 写地址编辑抽屉**
+- [x] **Step 2: 写地址编辑抽屉**
 
 `AddressEditSheet.vue`：省/市/区（`RegionPicker`）+ 详细地址 + 电话 + **原地址只读对照**。
 保存 → `updateOrderShippingAddress(orderId, input)`。
 失败时**保留表单输入**，`showToast` 展示后端原因（规格 §9：不静默）。
 
-- [ ] **Step 3: 写成员行与批次详情页**
+- [x] **Step 3: 写成员行与批次详情页**
 
 `BatchMemberRow.vue`：勾选 + 单号 + 收件人 + 商品摘要 + 「改地址」。
 `batch.vue`：批次信息（`code` / 目标仓 / 成员数 / 创建人 / 状态）+ **4 个打印入口** + 成员列表 + 底部「批量发货」。
 状态为 `SHIPPED` / `CANCELLED` 时**整页只读**，隐藏加单/移除/发货按钮（规格 §9）。
 
-- [ ] **Step 4: 批量发货与失败清单**
+- [x] **Step 4: 批量发货与失败清单**
 
 调 `shipPickBatch(batchId, { method, trackingCode })`，返回 `{ succeeded, failed }`。
 `failed` 非空时**逐条展示**失败原因，并保持批次为 `PRINTED`（后端已保证不置 `SHIPPED`）。
 
-- [ ] **Step 5: 编译验证**
+- [x] **Step 5: 编译验证**
 
 ```powershell
 npm run build:h5
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add web-admin/src/pages/order/picking/batch.vue web-admin/src/components/picking web-admin/src/components/common/RegionPicker.vue
@@ -2677,7 +2677,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 8 后端部署 + 刷快照 | —（部署动作，无新提交） | 完成 | `git push origin HEAD`（`6e8bc1fa4..6645be289`）；服务器 `/www/apps/vendure` `git pull --ff-only` → `pm2 restart vendure`（online）。生产只读探针：shop-api 含 `variantBin` / `storageZones`；admin-api Mutation 含 `createPickBatch`/`addOrdersToPickBatch`/`removeOrdersFromPickBatch`/`advancePickBatchState`/`cancelPickBatch`/`shipPickBatch`/`updateOrderShippingAddress`/`generateStandardBins`/`bindVariantToBin`/`unbindVariantFromBin`/`deleteStorageBin`。生产 postgres 实际建表：`pick_batch, pick_batch_order, storage_bin, storage_zone, variant_storage_bin`，`channel.customFieldsBinmode` 列存在，`pick_batch_order` 唯一索引已建（`UQ_c15667d4fc538f1828adfb65603`）。`nshop` 侧 `node tmp-refresh-schema.mjs`（introspect `https://www.youshop.cn/shop-api`）成功，快照 `710891` 字节且含 `variantBin` / `storageZones` / `StorageZone` |
 | 9 前端 API + composables | `9ef0d1d` | 完成 | 6 files / +637 −77。`apis/picking.ts`（11 函数，GraphQL 文档全展开）、`apis/storage-bin.ts`（7 函数）、`composables/useBinMode.ts`、`composables/useShipSubmit.ts`（从 ship 页抽出，行为不变）、`apis/channel.ts` 补 `binMode`。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；生产 admin-api introspection 探针 **0 fail**（8 Query / 11 Mutation / 全类型与 input 字段 / `ChannelCustomFields.binMode` 齐备） |
 | 10 配货台列表页 | `6c689b4` | 完成 | 新增 `pages/order/picking/index.vue`（三 Tab + 底部固定条 + 新建批次）、`components/picking/{PickBatchCard,CandidateOrderRow,WarehousePicker}.vue`；`pages.json` 注册配货台；`constants/menus.ts` 交易域加「配货台」入口。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警） |
-| 11 批次详情 + 地址编辑 | | | |
+| 11 批次详情 + 地址编辑 | `56cf173` | 完成 | 新增 `pages/order/picking/batch.vue`（批次信息 + 拣货汇总三档分组 + 失败清单 + 成员列表 + 状态推进/取消 + 底部批量发货）、`components/picking/{BatchMemberRow,AddressEditSheet}.vue`、`components/common/RegionPicker.vue`（自 `pickup/edit` 抽取，数据源同为 `apis/map.fetchDistricts`）；`pages.json` 注册批次详情。验证：`npm run build:h5` exit 0 |
 | 12 库位管理 + 采购入库 | | | |
 | 13 打印子系统 | | | |
 | 14 i18n 双语 | | | |
@@ -2709,6 +2709,13 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 16. **新增 `constants/menus.ts` 菜单入口（计划外必需项）**：计划 Task 10 的 Files 只列了页面/组件，但配货台若无菜单入口则无法在界面上抵达（Task 15 只能靠直链截图）。故在交易域 `menuGroups` 增加 `menu.picking` → `/pages/order/picking/index`（tier 2，紧邻「发货」）。其 i18n 键 `menu.picking` 随 Task 14 一并补。
 17. **`pages.json` 改为「按 Task 增量注册」**：计划 Step 1 要求一次注册三个页面，但 `picking/batch` 与 `inventory/bins` 的 `.vue` 当时尚未创建，uni-app 构建会因页面文件缺失报错。故 Task 10 只注册 `pages/order/picking/index`，其余两页分别由 Task 11 / Task 12 注册（最终结果与计划一致）。
 18. **候选订单行不渲染「库区/库位摘要行」（门控点缺失，需后端补数据）**：计划 Step 2 要求 `showZone` 为真时在地址下方显示库区/库位摘要。但后端 `snapshotOrder`（`pick-batch.service.ts` 的 `PickOrderSnapshot`）**只返回订单地址与就近推荐仓，不含任何 SKU 库位字段**，且候选快照里没有 `variantId`，无法再调 `variantBin` 补拉。为不伪造数据，`CandidateOrderRow.vue` 未渲染该行、未引入 `useBinMode`。**库位的三档门控在真实有数据的消费点落实**：批次详情（Task 11，走 `pickBatchPickingList` 的 `binCode/zoneCode/zoneName`）、拣货单与包裹标签（Task 13）、库位管理页与采购入库（Task 12）。若后续要在候选列表显示库位，需后端在 `snapshotOrder` 中补 `SKU→库位` 汇总字段。
+
+**偏差说明（Task 11）**：
+
+19. **4 个打印入口延后到 Task 13 接入（不违反计划意图）**：计划 Step 3 要求 `batch.vue` 含「4 个打印入口」，但打印子系统（`utils/print/*`）由** Task 13 才创建**；若在 Task 11 就写死 import，本步 `npm run build:h5` 会因模块不存在失败。故 Task 11 的 `batch.vue` 先不含打印按钮，**Task 13 建好打印子系统后再把 4 个入口接进 `batch.vue`**（恰好 Task 13 也要改 `batch` 相关文件）。两 Task 合计结果与计划一致。
+20. **`batch.vue` 增加「状态推进 / 取消批次 / 移出所选」按钮（计划未列，但为可用必需）**：后端状态机 `PENDING→PICKED→PRINTED→SHIPPED`（`CANCELLED` 可从任一非终态进入）全部经 `advancePickBatchState` 显式驱动，若页面不给入口则批次永远停在 `PENDING`。故按当前状态渲染「确认拣货完成」「标记单据已打印」（Task 13 起由打印动作自动推进）与「取消批次」；「移出所选」仅在 `PENDING`/`PICKED` 展示（与后端 `assertState` 一致）。
+21. **订单地址无 `district` 字段 → 区县并入 `streetLine1`（重要语义）**：`OrderAddressInput` 只有 `fullName/phoneNumber/province/city/streetLine1/streetLine2/postalCode/countryCode`（Vendure 3.6.4 `Order.shippingAddress` 为 `simple-json`），**没有独立区县字段**。故 `AddressEditSheet` 的区县选择器在保存时拼回 `streetLine1` 前缀，且**若详细地址开头已含同一区县名则不重复拼接**（避免「朝阳区朝阳区XX路」）；回填时 `streetLine1` 原样进「详细地址」，区县栏留空不伪造。
+22. **`BatchMemberRow` 的商品摘要不含单量**：`pickBatchPickingList` 的 `qty` 是**批次级**汇总（按 SKU 跨订单合并），无法还原「某个订单该 SKU 要几件」，且成员快照无行明细。故摘要只列该订单涉及的 SKU 名（≤2 个 + 「等 N 个 SKU」），件数用快照的 `itemCount` 展示，**不伪造单量**。
 
 ---
 
