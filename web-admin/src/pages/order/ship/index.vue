@@ -34,105 +34,44 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { fetchOrderDetail, partialShip, shipByWarehouse, ShipLinePart } from '../../../apis/order';
+import { fetchOrderDetail } from '../../../apis/order';
 import { fetchReservationByOrder, Reservation } from '../../../apis/reservation';
+import { DISPATCH_OPTIONS, dispatchMethod, submitShipment, whLabels, whOptionsFor, ShipLine } from '../../../composables/useShipSubmit';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
 
-interface WhOption {
-  stockLocationId: string;
-  qty: number;
-}
-
-interface Line {
-  id: string;
-  name: string;
-  sku: string;
-  quantity: number;
-  availQty: number;
-  picked: number;
-  whOptions: WhOption[];
-  whIdx: number;
-}
-
 const orderId = ref('');
-const lines = ref<Line[]>([]);
-const dispatchOptions = ['顺丰', '中通', '圆通', '韵达', '极兔', 'EMS'];
+const lines = ref<ShipLine[]>([]);
+const dispatchOptions = DISPATCH_OPTIONS;
 const dispatchIdx = ref(0);
 const tracking = ref('');
 
 // 快递公司：将 picker 下标映射为发货 method
 function dispatch(idx: number): string {
-  return dispatchOptions[idx] || 'standard';
+  return dispatchMethod(idx);
 }
 
-// 该行的仓库选项文案（仓库 id + 预留数量）
-function whLabels(l: Line): string[] {
-  return l.whOptions.map((o) => `${o.stockLocationId}（${o.qty}）`);
-}
-
-// 按订单行聚合预留明细：预留单 items 里该 orderLineId 各仓数量
-function whOptionsFor(lineId: string, reservations: Reservation[]): WhOption[] {
-  const map = new Map<string, number>();
-  for (const r of reservations) {
-    if (r.orderLineId !== lineId) continue;
-    for (const it of r.items) {
-      if (!it.stockLocationId) continue;
-      map.set(it.stockLocationId, (map.get(it.stockLocationId) || 0) + it.qty);
-    }
-  }
-  return [...map.entries()].map(([stockLocationId, qty]) => ({ stockLocationId, qty }));
-}
-
-function inc(l: Line) {
+function inc(l: ShipLine) {
   if (l.picked < l.availQty) l.picked += 1;
 }
 
-function dec(l: Line) {
+function dec(l: ShipLine) {
   if (l.picked > 0) l.picked -= 1;
 }
 
-function emptySelected() {
-  return !lines.value.some((l) => l.picked > 0);
-}
-
 async function submit() {
-  if (emptySelected()) {
-    uni.showToast({ title: locale.t('orderAdmin.ship.selectItem'), icon: 'none' });
-    return;
-  }
   const method = dispatch(dispatchIdx.value);
   const trackingCode = tracking.value.trim() || undefined;
-  const hasRes = lines.value.some((l) => l.whOptions.length > 0);
   try {
-    if (hasRes) {
-      // 多仓：按仓库聚合 parts，逐仓生成独立 fulfillment
-      const byWh = new Map<string, ShipLinePart[]>();
-      for (const l of lines.value) {
-        if (l.picked <= 0) continue;
-        const wh = l.whOptions[l.whIdx]?.stockLocationId || '未分仓';
-        const arr = byWh.get(wh) || [];
-        arr.push({ orderLineId: l.id, quantity: l.picked });
-        byWh.set(wh, arr);
-      }
-      const shipments = [...byWh.entries()].map(([stockLocationId, parts]) => ({
-        stockLocationId,
-        parts,
-        method,
-        trackingCode,
-      }));
-      const { fails } = await shipByWarehouse(orderId.value, shipments);
-      if (fails.length) {
-        uni.showToast({ title: locale.t('orderAdmin.ship.partialFail').replace('{msg}', fails.join('；')), icon: 'none', duration: 3000 });
-        return;
-      }
-    } else {
-      // 无预留单：保持原单仓 partialShip 路径
-      const parts = lines.value
-        .filter((l) => l.picked > 0)
-        .map((l) => ({ orderLineId: l.id, quantity: l.picked }));
-      await partialShip(orderId.value, parts, method, trackingCode);
+    const res = await submitShipment(orderId.value, lines.value, method, trackingCode);
+    if (res.kind === 'empty') {
+      uni.showToast({ title: locale.t('orderAdmin.ship.selectItem'), icon: 'none' });
+      return;
+    }
+    if (res.kind === 'partialFail') {
+      uni.showToast({ title: locale.t('orderAdmin.ship.partialFail').replace('{msg}', res.fails.join('；')), icon: 'none', duration: 3000 });
+      return;
     }
     uni.showToast({ title: locale.t('orderAdmin.ship.shipSuccess'), icon: 'success' });
     setTimeout(() => uni.navigateBack(), 600);

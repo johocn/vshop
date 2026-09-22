@@ -46,6 +46,8 @@ export interface ChannelCustomFields {
   pageCategoryConfig?: string;
   pageCartConfig?: string;
   pageProfileConfig?: string;
+  // 库位三档开关：off=关闭库位 / zone=只用库区 / bin=完整库位（默认 off）
+  binMode?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -59,7 +61,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode }
       }
     }`,
   );
