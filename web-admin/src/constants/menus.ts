@@ -45,6 +45,7 @@ export const menuGroups: MenuGroup[] = [
     grad: D.d2.grad,
     items: [
       { label: 'menu.order', url: '/pages/order/list/index', tier: 1 },
+      { label: 'menu.picking', url: '/pages/order/picking/index', tier: 2 },
       { label: 'menu.ship', url: '/pages/order/ship/index', tier: 2 },
       { label: 'menu.afterSale', url: '/pages/after-sale/list/index', tier: 2 },
       { label: 'menu.pos', url: '/pages/pos/index', tier: 2 },
