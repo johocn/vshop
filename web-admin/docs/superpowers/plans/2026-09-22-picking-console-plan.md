@@ -97,7 +97,7 @@
 **Files:**
 - 只读检查：`d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`
 
-- [ ] **Step 1: 确认本地依赖无双实例（会直接导致后端起不来）**
+- [x] **Step 1: 确认本地依赖无双实例（会直接导致后端起不来）**
 
 ```powershell
 Test-Path d:\zhao\vendure\packages\common\node_modules
@@ -108,7 +108,7 @@ Test-Path d:\zhao\vendure\node_modules\@vendure\core
 预期：前两条为 `False`（或已改名为 `node_modules.pnpm-bak`），第三条为 `True`。
 若前两条为 `True`，先按 `project_memory` 记录的「vendure 本地依赖双实例」修法隔离，否则后面所有排查都会被 `Entity metadata for X#channels was not found` 污染。
 
-- [ ] **Step 2: 确认 cjk-plugin 基线单测为绿**
+- [x] **Step 2: 确认 cjk-plugin 基线单测为绿**
 
 ```powershell
 npm run test
@@ -117,7 +117,7 @@ npm run test
 
 预期：vitest 全绿。记录基线用例数，后面新增用例只能增不能减。
 
-- [ ] **Step 3: 确认插件注册点行号（文件很大，行号会漂）**
+- [x] **Step 3: 确认插件注册点行号（文件很大，行号会漂）**
 
 ```powershell
 Select-String -Path src\plugin.ts -Pattern 'entities:|providers:|adminApiExtensions|shopApiExtensions|resolvers:'
@@ -134,7 +134,7 @@ Select-String -Path src\plugin.ts -Pattern 'entities:|providers:|adminApiExtensi
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\picking\pick-batch-order.entity.ts`
 - 参照: `src/inventory/stock-reservation.entity.ts` + `stock-reservation-item.entity.ts`（主表 + 子项表现成范式）
 
-- [ ] **Step 1: 写 `pick-batch.entity.ts`**
+- [x] **Step 1: 写 `pick-batch.entity.ts`**
 
 ```ts
 import { DeepPartial } from '@vendure/common/lib/shared-types';
@@ -191,7 +191,7 @@ export class PickBatch extends VendureEntity {
 }
 ```
 
-- [ ] **Step 2: 写 `pick-batch-order.entity.ts`**
+- [x] **Step 2: 写 `pick-batch-order.entity.ts`**
 
 ```ts
 import { DeepPartial } from '@vendure/common/lib/shared-types';
@@ -225,7 +225,7 @@ export class PickBatchOrder extends VendureEntity {
 }
 ```
 
-- [ ] **Step 3: 单测——实体约束存在**
+- [x] **Step 3: 单测——实体约束存在**
 
 Create: `src/picking/pick-batch.entity.spec.ts`
 
@@ -249,7 +249,7 @@ describe('pick batch entities', () => {
 });
 ```
 
-- [ ] **Step 4: 跑单测**
+- [x] **Step 4: 跑单测**
 
 ```powershell
 npm run test
@@ -258,7 +258,7 @@ npm run test
 
 预期：PASS，且总数比 Task 0 基线 +2。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add packages/cjk-plugin/src/picking
@@ -274,7 +274,7 @@ git commit -m "feat(cjk-plugin): 新增拣货批次两张实体表"
 - Create: `src/storage/standard-warehouse-template.ts`
 - Modify: `src/plugin.ts`（注册 `binMode` customField）
 
-- [ ] **Step 1: 写三个实体**
+- [x] **Step 1: 写三个实体**
 
 `src/storage/storage-zone.entity.ts`：
 
@@ -402,7 +402,7 @@ export class VariantStorageBin extends VendureEntity {
 }
 ```
 
-- [ ] **Step 2: 写标准模板常量**
+- [x] **Step 2: 写标准模板常量**
 
 `src/storage/standard-warehouse-template.ts`：
 
@@ -450,7 +450,7 @@ export const STANDARD_BIN_COUNT = STANDARD_WAREHOUSE_ZONES.reduce(
 ); // = 18
 ```
 
-- [ ] **Step 3: 单测——模板展开与排序键**
+- [x] **Step 3: 单测——模板展开与排序键**
 
 Create: `src/storage/standard-warehouse-template.spec.ts`
 
@@ -485,7 +485,7 @@ describe('标准仓库模板', () => {
 });
 ```
 
-- [ ] **Step 4: 在 `plugin.ts` 注册 `binMode` customField**
+- [x] **Step 4: 在 `plugin.ts` 注册 `binMode` customField**
 
 先定位既有 `Channel.customFields`（或 `redeemCollectMode`）的定义位置：
 
@@ -515,7 +515,7 @@ Select-String -Path src\plugin.ts -Pattern 'redeemCollectMode' -Context 3,3
 },
 ```
 
-- [ ] **Step 5: 跑单测**
+- [x] **Step 5: 跑单测**
 
 ```powershell
 npm run test
@@ -523,7 +523,7 @@ npm run test
 
 预期：PASS，总数再 +3。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add packages/cjk-plugin/src/storage packages/cjk-plugin/src/plugin.ts
@@ -540,7 +540,7 @@ git commit -m "feat(cjk-plugin): 新增库位三表、标准模板常量与 binM
 
 > 纯函数先行：这几段逻辑是本方案最容易被写错的地方（状态机、库位排序、就近选仓回退），且完全不需要 DB 就能测。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 Create: `src/picking/pick-batch-math.spec.ts`
 
@@ -644,7 +644,7 @@ describe('拣货汇总与库位排序', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```powershell
 npm run test -- pick-batch-math
@@ -653,7 +653,7 @@ npm run test -- pick-batch-math
 
 预期：FAIL，报 `Cannot find module './pick-batch-math'`。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 Create: `src/picking/pick-batch-math.ts`
 
@@ -797,7 +797,7 @@ export function sortPickingRows(rows: PickingRowInput[]): PickingRow[] {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```powershell
 npm run test -- pick-batch-math
@@ -805,7 +805,7 @@ npm run test -- pick-batch-math
 
 预期：PASS（4 个 describe 全绿）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add packages/cjk-plugin/src/picking/pick-batch-math.ts packages/cjk-plugin/src/picking/pick-batch-math.spec.ts
@@ -820,7 +820,7 @@ git commit -m "feat(cjk-plugin): 批次状态机/批次号/就近选仓/拣货�
 - Create: `src/picking/pick-batch.service.ts`
 - Test: `src/picking/pick-batch.service.spec.ts`
 
-- [ ] **Step 1: 写 service**
+- [x] **Step 1: 写 service**
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -1090,7 +1090,7 @@ export class PickBatchService {
 
 > **注意**：`pickingList` 里的原生 SQL 是按 **PostgreSQL** 写的（`ARRAY_AGG` / `GROUP BY`）。生产库就是 postgres（R8 硬规则），本地 sqlite 跑单测时不要走这条路径——单测只覆盖 `sortPickingRows` 纯函数（Task 3 已做），service 的方法级测试用 mock repository。这也符合「本地开发 sqlite / 生产 postgres」的混合方案。
 
-- [ ] **Step 2: 写 service 单测（mock repository）**
+- [x] **Step 2: 写 service 单测（mock repository）**
 
 Create: `src/picking/pick-batch.service.spec.ts`
 
@@ -1180,7 +1180,7 @@ describe('PickBatchService', () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试**
+- [x] **Step 3: 跑测试**
 
 ```powershell
 npm run test -- pick-batch.service
@@ -1188,7 +1188,7 @@ npm run test -- pick-batch.service
 
 预期：PASS，7 个用例全绿。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add packages/cjk-plugin/src/picking/pick-batch.service.ts packages/cjk-plugin/src/picking/pick-batch.service.spec.ts
@@ -1203,7 +1203,7 @@ git commit -m "feat(cjk-plugin): 拣货批次 service（状态机/冲突校验/�
 - Create: `src/storage/storage-bin.service.ts`
 - Test: `src/storage/storage-bin.service.spec.ts`
 
-- [ ] **Step 1: 写 service**
+- [x] **Step 1: 写 service**
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -1414,7 +1414,7 @@ export class StorageBinService {
 }
 ```
 
-- [ ] **Step 2: 单测**
+- [x] **Step 2: 单测**
 
 Create: `src/storage/storage-bin.service.spec.ts`
 
@@ -1531,7 +1531,7 @@ describe('StorageBinService', () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试**
+- [x] **Step 3: 跑测试**
 
 ```powershell
 npm run test -- storage-bin
@@ -1539,7 +1539,7 @@ npm run test -- storage-bin
 
 预期：PASS，7 个用例全绿。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add packages/cjk-plugin/src/storage/storage-bin.service.ts packages/cjk-plugin/src/storage/storage-bin.service.spec.ts
@@ -1555,7 +1555,7 @@ git commit -m "feat(cjk-plugin): 库位 service（标准模板生成/归位/三�
 - Modify: `src/inventory/stock-doc.admin.resolver.ts`（input 定义）
 - Test: `src/inventory/stock-doc-bin.spec.ts`
 
-- [ ] **Step 1: 定位既有入库落库点**
+- [x] **Step 1: 定位既有入库落库点**
 
 ```powershell
 Select-String -Path src\inventory\stock-doc.service.ts -Pattern 'PURCHASE|async confirm|async complete|stockOnHand|saveItem'
@@ -1563,7 +1563,7 @@ Select-String -Path src\inventory\stock-doc.service.ts -Pattern 'PURCHASE|async 
 
 预期：找到入库单确认/落库的方法名与行号。**把方法名与行号记下**，Step 2 在其中插入归位调用。
 
-- [ ] **Step 2: 在落库成功后追加归位逻辑（向后兼容）**
+- [x] **Step 2: 在落库成功后追加归位逻辑（向后兼容）**
 
 在落库循环内，对每条明细落库成功后调用：
 
@@ -1595,7 +1595,7 @@ async binZoneId(ctx: RequestContext, binId: number): Promise<number | null> {
 }
 ```
 
-- [ ] **Step 3: input 定义加两个可选字段**
+- [x] **Step 3: input 定义加两个可选字段**
 
 在 `stock-doc.admin.resolver.ts` 的 `StockDocItemInput`（以及 SDL 模板里的同名 input）追加：
 
@@ -1609,7 +1609,7 @@ input StockDocItemInput {
 }
 ```
 
-- [ ] **Step 4: 单测——不传库位时行为不变 + 传库位时校验**
+- [x] **Step 4: 单测——不传库位时行为不变 + 传库位时校验**
 
 Create: `src/inventory/stock-doc-bin.spec.ts`
 
@@ -1633,7 +1633,7 @@ describe('入库库位归位', () => {
 });
 ```
 
-- [ ] **Step 5: 跑测试 + 构建**
+- [x] **Step 5: 跑测试 + 构建**
 
 ```powershell
 npm run test
@@ -1643,7 +1643,7 @@ npm run build
 
 预期：单测全绿；build 成功产出 `lib/`（R2：**不 build 改动不生效**）。
 
-- [ ] **Step 6: Commit（含 `lib/`，R3）**
+- [x] **Step 6: Commit（含 `lib/`，R3）**
 
 ```powershell
 git add packages/cjk-plugin/src packages/cjk-plugin/lib
@@ -1660,7 +1660,7 @@ git commit -m "feat(cjk-plugin): 采购入库支持库位归位（可选 binId/z
 - Create: `src/order/order-address.admin.resolver.ts`
 - Modify: `src/plugin.ts`
 
-- [ ] **Step 1: 写批次 resolver**
+- [x] **Step 1: 写批次 resolver**
 
 ```ts
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
@@ -1763,7 +1763,7 @@ export class PickBatchAdminResolver {
 }
 ```
 
-- [ ] **Step 2: 写库位 resolver**
+- [x] **Step 2: 写库位 resolver**
 
 ```ts
 import { Args, ID as GqlID, Mutation, Query, Resolver } from '@nestjs/graphql';
@@ -1832,7 +1832,7 @@ export class StorageBinAdminResolver {
 }
 ```
 
-- [ ] **Step 3: 写订单地址 mutation（本次发现的缺口）**
+- [x] **Step 3: 写订单地址 mutation（本次发现的缺口）**
 
 ```ts
 import { Args, ID as GqlID, Mutation, Resolver } from '@nestjs/graphql';
@@ -1880,7 +1880,7 @@ export class OrderAddressAdminResolver {
 
 > 把 `require('@vendure/core')` 换成顶部 `import { Order, OrderAddress } from '@vendure/core'`（这里写 `require` 只为在计划里标明「两个实体都来自 core」，实施时按项目 lint 规则改为 import）。
 
-- [ ] **Step 4: `plugin.ts` 双注册（R1）**
+- [x] **Step 4: `plugin.ts` 双注册（R1）**
 
 按 Task 0 Step 3 记下的行号，在**四处**追加：
 
@@ -2005,7 +2005,7 @@ extend type Query {
 
 > **R1 校验动作**：注册完立即执行 Step 5 的探测，**必须两侧都能查到**，否则说明漏了一侧。
 
-- [ ] **Step 5: 起服并验证两侧 SDL 都可用（R4）**
+- [x] **Step 5: 起服并验证两侧 SDL 都可用（R4）**
 
 开两个终端：
 
@@ -2020,7 +2020,7 @@ npm run dev:worker
 
 预期：日志出现 `Vendure server (v3.6.4) now running on port 3000`。
 
-- [ ] **Step 6: 探测 admin 侧与 shop 侧**
+- [x] **Step 6: 探测 admin 侧与 shop 侧**
 
 ```powershell
 curl -s -X POST http://localhost:3000/admin-api -H "Content-Type: application/json" -d '{\"query\":\"{ pickBatches(options:{page:1,pageSize:1}){ totalItems } }\"}'
@@ -2033,7 +2033,7 @@ curl -s -X POST http://localhost:3000/shop-api -H "Content-Type: application/jso
 预期：admin 返回 `totalItems`（未授权则返回权限错误，但**不能是**「Cannot query field」语法错）；shop 侧输出含 `variantBin`。
 若任一侧报 `Cannot query field` → 该侧 SDL 漏注册，回 Step 4 补。
 
-- [ ] **Step 7: Build + Commit（R2 / R3）**
+- [x] **Step 7: Build + Commit（R2 / R3）**
 
 ```powershell
 npm run build
@@ -2666,14 +2666,14 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 
 | Task | 提交哈希 | 状态 | 证据 / 备注 |
 |---|---|---|---|
-| 0 环境自检 | | | |
-| 1 批次两表 | | | |
-| 2 库位三表 + binMode | | | |
-| 3 批次纯函数 | | | |
-| 4 批次 service | | | |
-| 5 库位 service | | | |
-| 6 入库归位 | | | |
-| 7 resolvers 双注册 | | | |
+| 0 环境自检 | —（无提交） | 完成 | `packages/common/node_modules`=False（已隔离为 `node_modules.pnpm-bak`）；根 `node_modules/@vendure/core`=True；基线单测 `1 failed / 26 passed`（失败项为既有 `virtual-physical-stock.service.spec.ts` 的 `ColumnTypeUndefinedError`，与本次改动无关） |
+| 1 批次两表 | `2810a1a26` | 完成 | `pick_batch` / `pick_batch_order` 两表 + 实体约束单测 2 例 |
+| 2 库位三表 + binMode | `5fc6667b8` | 完成 | `storage_zone` / `storage_bin` / `variant_storage_bin` + 标准模板（A/B/C/D 共 18 库位）+ `binMode` 渠道字段（off/zone/bin，默认 off），模板常量单测 3 例 |
+| 3 批次纯函数 | `c814984f3` | 完成 | 状态机 / 批次号 `PB{yyyymmdd}-{nnn}` / 就近选仓 / 拣货库位排序（`NO_BIN_PATH_INDEX=9999`），单测 9 例 |
+| 4 批次 service | `19c0f919b` | 完成 | 冲突校验 `Map<orderId,{batchId,code}>`、批次号、拣货汇总（方言无关 JS 聚合）、候选/发货快照，单测 7 例 |
+| 5 库位 service | `63c9cd862` | 完成 | 三档读取 `resolveMode`、`generateStandard` 幂等（18 库位）、`bind` 校验仓/区归属并 upsert、`deleteBin` 有绑定拒绝，单测 7 例 |
+| 6 入库归位 | `15c9c223b` | 完成 | `StockDocItemInput` 增可选 `binId`/`zoneId`，未传则完全保持旧行为；`applyBinBinding` 在 `applyMovement` 后调用，单测 4 例（含向后兼容） |
+| 7 resolvers 双注册 | `6645be289` | 完成 | admin 侧 `pickBatches` 探测返回 FORBIDDEN（非 `Cannot query field`）→ SDL 已注册；shop 侧 introspection 含 `variantBin` / `storageZones`；`npm run build` 通过；单测 `1 failed / 32 passed / 192 tests passed`（失败项同 Task 0 既有项） |
 | 8 后端部署 + 刷快照 | | | |
 | 9 前端 API + composables | | | |
 | 10 配货台列表页 | | | |
@@ -2683,7 +2683,16 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 14 i18n 双语 | | | |
 | 15 截图 + 手册 + 探针 + 部署 | | | |
 
-**偏差说明**：待回填。
+**偏差说明**（Task 0~7）：
+
+1. **`toView` 新增 `members: [JSON!]`（可空）**：计划 Task 7 的 `PickBatch` SDL 未含 `members`，但 Task 9 前端 `fetchPickBatchMembers` 要走 `pickBatch → members`。列表视图不返回该字段，故声明为**可空**（非计划中的 `[JSON!]!`），否则列表查询会因非空校验报错。
+2. **`findConflicts` 返回类型调整**：计划为 `Map<number,string>`，实现改为 `Map<number,{batchId;code}>`，以便上层拼出「订单 #x 已在批次 PBxxx 中」的明确原因（规格 §9）。
+3. **`pickingList` 未用原生 SQL**：计划用 postgres 原生 SQL（别名 `l` 未定义），实现改为「仓储查询 + JS 聚合」，方言无关（sqlite / postgres 行为一致）且可无 DB 单测。
+4. **`updateOrderShippingAddress` 与计划有实质差异（重要）**：Vendure 3.6.4 中 `Order.shippingAddress` 是 **`simple-json` 列**，`OrderAddress` **不是独立实体**、也**不从 `@vendure/core` 导出**。故实现改为「读订单 → 合并 shippingAddress 字段 → `repo.update(order.id,{shippingAddress:next})` 定向更新」，不再 save 地址实体（计划原文会编译不过且运行期报 `Relation ... was not found`）。语义不变：**不重算运费**。
+5. **`@Column({type:'datetime'})` 改为 `'timestamp'`**：本地 dev-server 已切 postgres，`datetime` 在 postgres 下抛 `DataTypeNotSupportedError`，起服直接失败。`pick_batch.pickedAt/printedAt/shippedAt` 与 `pick_batch_order.addedAt` 已改 `timestamp`。
+6. **`relations: { shippingAddress: true }` 已移除**：`shippingAddress` 是列不是关系，在 `find({relations})` 中传入会抛错（`membersSnapshot` / `candidates` 两处）。
+7. **`ID` 类型来源统一**：`@nestjs/graphql` 的 `ID` 是值（`TS2749`），实体/参数类型统一用 `@vendure/core` 导出的 `ID`。
+8. **`currentOperator` 实现**：计划用原生 SQL 查 `tenant_member`，实现改为仓储查询 `TenantMember(administratorId=activeUserId)` → 回退 `Administrator` 姓名，避免表名/列名硬编码。
 
 ---
 
