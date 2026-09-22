@@ -3,7 +3,8 @@
 //   - createStockDoc(input: StockDocCreateInput!): StockDoc!
 //       StockDocCreateInput: { type: String!, remark, operator, items: [StockDocItemInput!]! }
 //       StockDocItemInput: { variantId: ID!, fromStockLocationId: ID, toStockLocationId: ID,
-//                            qty: Int!, realQty: Int, costPrice: Int }
+//                            qty: Int!, realQty: Int, costPrice: Int, zoneId: ID, binId: ID }
+//                            （zoneId/binId 为入库归位可选参数，不传则完全保持旧行为）
 //   - stockMovementLedger(productVariantId, locationId, bizCode, orderLineId, page, pageSize): StockLedgerList!
 //       StockLedgerEntry: { id code productVariantId stockLocationId bizType bizCode orderLineId
 //                           direction quantity beforeOnHand afterOnHand otherLocationId reason createdAt }
@@ -18,6 +19,10 @@ export interface StockDocItemInput {
   qty: number;
   realQty?: number;
   costPrice?: number;
+  /** 入库归位：库区（zone/bin 档均可传；仅传 binId 时服务端自行推导 zoneId） */
+  zoneId?: string;
+  /** 入库归位：库位（仅 bin 档传） */
+  binId?: string;
 }
 
 export interface StockDocCreateInput {

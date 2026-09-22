@@ -48,6 +48,7 @@
     "manualIssue": "Manual Issue",
     "stockMovements": "Stock Movements",
     "locationManage": "Warehouses",
+    "binManage": "Zones & Bins",
     "mediaLibrary": "Media Library",
     "order": "Orders",
     "ship": "Shipment",
@@ -137,6 +138,18 @@
     "bulkStockFailed": "Failed to set stock"
   },
   "orderAdmin": {
+    "picking": {
+      "bin": {
+        "zone": "Storage Zone",
+        "bin": "Bin",
+        "selectZone": "Select a zone",
+        "selectBin": "Select a bin",
+        "needWarehouseFirst": "Select a warehouse first",
+        "needZoneFirst": "Select a zone first",
+        "noZone": "No zones in this warehouse yet. Generate standard bins in Zones & Bins.",
+        "unassigned": "Unassigned"
+      }
+    },
     "orderList": {
       "layout": "Layout",
       "layoutTitle": "Order List Layout",
@@ -1158,6 +1171,30 @@
     "loadingMore": "Loading…",
     "noMore": "No more"
   },
+  "inventoryBin": {
+    "offTitle": "Bin feature is off",
+    "offHint": "Zone/bin storage is not enabled for this shop. Turn it on in the shop settings to manage where products are stored.",
+    "warehouse": "Warehouse *",
+    "selectWarehouse": "Select warehouse",
+    "pickWarehouseFirst": "Select a warehouse first",
+    "modeBin": "Bin mode",
+    "modeZone": "Zone mode",
+    "modeBinHint": "Zones and bins are enabled — receiving can be assigned to an exact bin",
+    "modeZoneHint": "Only zones are enabled — receiving is assigned to a zone",
+    "generateStandard": "Generate standard bins (18)",
+    "generating": "Generating…",
+    "generated": "Created {z} zone(s) and {b} bin(s)",
+    "generateFailed": "Generation failed",
+    "binCount": "{n} bins",
+    "zoneNoBin": "No bins in this zone yet",
+    "deleteBin": "Delete bin",
+    "deleteConfirm": "Delete bin {code}? Bins in use by an SKU cannot be deleted.",
+    "deleteHint": "Tap ✕ on a bin to delete it; bins in use must be unbound first.",
+    "deleted": "Deleted",
+    "deleteFailed": "Delete failed",
+    "loadFailed": "Load failed",
+    "empty": "No zones in this warehouse yet — use the button above to generate standard bins"
+  },
   "stockDocPurchase": {
     "labelToLoc": "Target warehouse *",
     "selectLoc": "Select warehouse",
@@ -1174,7 +1211,10 @@
     "requireQty": "Please enter a valid quantity",
     "done": "Received {code}",
     "submitFailed": "Submit failed",
-    "prefilled": "Prefilled from the selected product — review and submit"
+    "prefilled": "Prefilled from the selected product — review and submit",
+    "existingBin": "Current bin of this SKU: {code}",
+    "requireZone": "Please select a storage zone",
+    "requireBin": "Please select a bin"
   },
   "stockDocTransfer": {
     "labelFromLoc": "Source warehouse *",
