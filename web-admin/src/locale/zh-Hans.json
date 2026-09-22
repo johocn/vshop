@@ -48,6 +48,7 @@
     "manualIssue": "手动出库",
     "stockMovements": "库存流水",
     "locationManage": "仓库管理",
+    "binManage": "库区库位",
     "mediaLibrary": "图片库",
     "order": "订单",
     "ship": "发货",
@@ -137,6 +138,18 @@
     "bulkStockFailed": "设置库存失败"
   },
   "orderAdmin": {
+    "picking": {
+      "bin": {
+        "zone": "入库库区",
+        "bin": "入库库位",
+        "selectZone": "请选择库区",
+        "selectBin": "请选择库位",
+        "needWarehouseFirst": "请先选择仓库",
+        "needZoneFirst": "请先选择库区",
+        "noZone": "该仓库还没有库区，请到「库区库位」生成标准库位",
+        "unassigned": "未归位"
+      }
+    },
     "orderList": {
       "layout": "版式",
       "layoutTitle": "订单列表版式",
@@ -1158,6 +1171,30 @@
     "loadingMore": "加载中…",
     "noMore": "没有更多了"
   },
+  "inventoryBin": {
+    "offTitle": "库位功能未启用",
+    "offHint": "当前店铺未开启库区/库位功能。如需按库区或库位管理商品存放位置，请在店铺配置中开启后再进入本页。",
+    "warehouse": "仓库 *",
+    "selectWarehouse": "请选择仓库",
+    "pickWarehouseFirst": "请先选择仓库",
+    "modeBin": "库位档",
+    "modeZone": "库区档",
+    "modeBinHint": "已开启库区 + 库位，入库可精确归位到库位",
+    "modeZoneHint": "仅开启库区，入库归位到库区",
+    "generateStandard": "生成标准库位（18 个）",
+    "generating": "生成中…",
+    "generated": "已新建库区 {z} 个、库位 {b} 个",
+    "generateFailed": "生成失败",
+    "binCount": "{n} 个库位",
+    "zoneNoBin": "该库区暂无库位",
+    "deleteBin": "删除库位",
+    "deleteConfirm": "确认删除库位 {code}？已被 SKU 占用的库位无法删除。",
+    "deleteHint": "点击库位右侧 ✕ 可删除；已被 SKU 占用的库位需先解绑。",
+    "deleted": "已删除",
+    "deleteFailed": "删除失败",
+    "loadFailed": "加载失败",
+    "empty": "该仓库还没有库区，点上方按钮生成标准库位"
+  },
   "stockDocPurchase": {
     "labelToLoc": "目标仓库 *",
     "selectLoc": "请选择仓库",
@@ -1174,7 +1211,10 @@
     "requireQty": "请填写正确数量",
     "done": "已入库 {code}",
     "submitFailed": "提交失败",
-    "prefilled": "已按所选商品预填，核对后提交"
+    "prefilled": "已按所选商品预填，核对后提交",
+    "existingBin": "该 SKU 现库位：{code}",
+    "requireZone": "请选择入库库区",
+    "requireBin": "请选择入库库位"
   },
   "stockDocTransfer": {
     "labelFromLoc": "源仓库 *",

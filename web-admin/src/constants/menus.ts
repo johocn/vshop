@@ -6,6 +6,8 @@ export interface MenuItem {
   url?: string;
   tier: 1 | 2 | 3;
   action?: string;
+  /** 仅在启用库位功能（binMode = zone/bin）时可见，由 useBinMode 门控 */
+  binOnly?: boolean;
 }
 export interface MenuGroup {
   domain: string;
@@ -36,6 +38,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.manualIssue', url: '/pages/inventory/stock-doc/issue/index', tier: 2 },
       { label: 'menu.stockMovements', url: '/pages/inventory/movements/index', tier: 2 },
       { label: 'menu.locationManage', url: '/pages/inventory/locations/index', tier: 2 },
+      { label: 'menu.binManage', url: '/pages/inventory/bins/index', tier: 2, binOnly: true },
       { label: 'menu.mediaLibrary', url: '/pages/media/library/index', tier: 3 },
     ],
   },
@@ -141,7 +144,13 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   return { domain: 'menu.domain.platform', color: D.d7.main, grad: D.d7.grad, items };
 }
 
-export function visibleMenus(auth: MenuAuthLite): MenuGroup[] {
+/** showBins 为真时（binMode = zone/bin）才展示 binOnly 菜单项 */
+export function visibleMenus(auth: MenuAuthLite, showBins = false): MenuGroup[] {
   const pg = buildPlatformGroup(auth);
-  return [...menuGroups, ...(pg ? [pg] : [])];
+  const base = showBins
+    ? menuGroups
+    : menuGroups.map((g) => (g.items.some((i) => i.binOnly)
+        ? { ...g, items: g.items.filter((i) => !i.binOnly) }
+        : g));
+  return [...base, ...(pg ? [pg] : [])];
 }

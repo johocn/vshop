@@ -53,6 +53,7 @@ import { useTenantStore } from '../../stores/tenantStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { visibleMenus } from '../../constants/menus';
+import { useBinMode } from '../../composables/useBinMode';
 import { fetchHomeKpis } from '../../apis/stats';
 import { confirmExit } from '../../utils/h5Nav';
 import BottomBar from '../../components/BottomBar.vue';
@@ -62,12 +63,14 @@ const tenant = useTenantStore();
 const auth = useAuthStore();
 const locale = useLocaleStore();
 const drawer = ref(false);
+const { showZone, ensureBinMode } = useBinMode();
 // 会话还原/刷新直入场景：name 未持久化，按当前 code 从店铺列表补回真实名称（编码始终保留）
 onShow(() => {
   if (tenant.name === '' && tenant.code) {
     const ch = auth.channels.find((c: any) => c.code === tenant.code);
     if (ch?.name) tenant.selectCh(ch, ch.name);
   }
+  ensureBinMode();
   loadKpis();
 });
 // 首页 KPI：今日销售额 / 待发货 / 库存预警（真实数据，加载失败保留 '—' 占位而非假装 0）
@@ -97,7 +100,7 @@ const common = [
   { ic: '书', label: 'menu.manual', action: 'manual', color: D.d6.main, grad: D.d6.grad },
 ];
 // 全量功能目录（含平台组，按角色权限过滤），与右侧抽屉保持一致
-const groups = computed(() => visibleMenus(auth));
+const groups = computed(() => visibleMenus(auth, showZone.value));
 function go(it: any) {
   if (it.action === 'manual') return openManual();
   if (it.action === 'posDesktop') return openPosCashier();

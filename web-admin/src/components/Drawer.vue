@@ -26,20 +26,24 @@
   </view>
 </template>
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useTenantStore } from '../stores/tenantStore';
 import { useAuthStore } from '../stores/authStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { tierStyle } from '../theme';
 import { visibleMenus } from '../constants/menus';
+import { useBinMode } from '../composables/useBinMode';
 import { confirmExit } from '../utils/h5Nav';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
 const auth = useAuthStore();
 const locale = useLocaleStore();
+const { showZone, ensureBinMode } = useBinMode();
 defineProps<{ show: boolean }>();
 
-const shownGroups = computed(() => visibleMenus(auth));
+const shownGroups = computed(() => visibleMenus(auth, showZone.value));
+// 库位菜单按渠道档位门控：进后台时拉一次（失败按 off，宁可不显示也不半开）
+onMounted(() => { ensureBinMode(); });
 
 function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' }); }
 function toggleLang() {
