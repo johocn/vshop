@@ -2566,17 +2566,15 @@ git commit -m "feat(web-admin): 打印子系统（iframe 打印 + 四类单据�
 ## Task 14：i18n 双语词条（R9）
 
 **Files:**
-- Modify: `src/locale/zh-CN.json`、`src/locale/en.json`
+- Modify: `src/locale/zh-Hans.json`、`src/locale/en.json`
 
-- [ ] **Step 1: 确认真实语言包文件名**
+- [x] **Step 1: 确认真实语言包文件名**（提交 `c3399c4`）
 
-```powershell
-Get-ChildItem src\locale
-```
+实际文件名是 **`zh-Hans.json`** 与 `en.json`（**没有** `zh-CN.json`）。计划原文写 `zh-CN.json`，按实际为准。
 
-预期：确认是 `zh-CN.json` 还是 `zh-Hans.json`（**以实际为准**，两个都要改）。
+- [x] **Step 2: 补 `orderAdmin.picking.*` 与 `inventoryBin.*`**（提交 `c3399c4`）
 
-- [ ] **Step 2: 补 `orderAdmin.picking.*` 与 `inventoryBin.*`**
+> Task 12 已补 `inventoryBin.*`（21 键）与 `orderAdmin.picking.bin.*`（8 键）、Task 13 已补 `orderAdmin.picking.print.*`（27 labels + `failed` + `newWindow`），故本步只补**配货台列表页 + 批次详情页 + 地址编辑 + 菜单入口**的剩余键：`menu.picking`；`orderAdmin.picking.{title,tabPending,tabActive,tabDone,loading,emptyCandidates,goOrderList,emptyActive,emptyDone,selectedSummary,newBatch,createBatch,createFailed,created,noSelect,loadFailed,targetWarehouse,recommendHint,recommendNone,recommendWarehouse,recommended,noWarehouse,cancel,batchCounts,alreadyInBatch,itemCount,createdBy,createdAt,pickSummary,emptyPicking,members,removeSelected,markPicked,markPrinted,cancelBatch,shipBatch,andMoreSku,advanceFailed,cancelConfirm,cancelled,cancelFailed,removed,removeFailed,noBatch,shipFailTitle,shipFailDismiss,shipPartial,shipDone,shipFailed}`；`orderAdmin.picking.state.{PENDING,PICKED,PRINTED,SHIPPED,CANCELLED}`；`orderAdmin.picking.address.*`（21 键）。中英各 +75 键。
 
 命名空间照现有 `orderAdmin.ship.*` 的写法。必须覆盖的键（两侧同步）：
 
@@ -2589,15 +2587,20 @@ Get-ChildItem src\locale
 - `orderAdmin.picking.bin.zone` / `bin.bin` / `bin.unassigned` / `bin.needBindFirst`
 - `inventoryBin.title` / `generateStandard` / `zonesCreated`（含 `{n}`）/ `binsCreated`（含 `{n}`）/ `binOccupied`（含 `{n}`）
 
-- [ ] **Step 3: 一致性校验——两侧键必须完全一致**
+- [x] **Step 3: 一致性校验——两侧键必须完全一致**（提交 `c3399c4`）
+
+不用手工比对，改为脚本化三查（Node 一行式）：
 
 ```powershell
-$zh = (Get-Content src\locale\zh-CN.json -Raw | ConvertFrom-Json)
-$en = (Get-Content src\locale\en.json -Raw | ConvertFrom-Json)
-# 手工比对 picking / inventoryBin 两棵子树是否键名齐全
+# ① 双语键集对称
+node -e "…leaves(zh) vs leaves(en)…"
+# ② 源码里实际用到的键是否都在 locale 中（扫 src 下 .vue/.ts）
+# ③ PrintLabels 接口 27 键是否都有对应词条
 ```
 
-- [ ] **Step 4: Commit**
+实测：`zh 2086 / en 2086`，`missing_in_en none`、`missing_in_zh none`、`USED_BUT_MISSING: none`、`state missing: none`、`PrintLabels keys 27 / zh missing none / en missing none`。另 `npm run build:h5` → `DONE  Build complete.`（仅既有 sass legacy-js-api 弃用告警）。
+
+- [x] **Step 4: Commit**（`c3399c4`，2 files / +158）
 
 ```powershell
 git add web-admin/src/locale
@@ -2690,7 +2693,7 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 | 11 批次详情 + 地址编辑 | `56cf173` | 完成 | 新增 `pages/order/picking/batch.vue`（批次信息 + 拣货汇总三档分组 + 失败清单 + 成员列表 + 状态推进/取消 + 底部批量发货）、`components/picking/{BatchMemberRow,AddressEditSheet}.vue`、`components/common/RegionPicker.vue`（自 `pickup/edit` 抽取，数据源同为 `apis/map.fetchDistricts`）；`pages.json` 注册批次详情。验证：`npm run build:h5` exit 0 |
 | 12 库位管理 + 采购入库 | `c39568e` | 完成 | 新增 `pages/inventory/bins/index.vue`（选仓 + 生成标准库位 + 按库区分组网格 + 删库位 + off 档兜底页）、`components/picking/BinPicker.vue`（三档自适应：bin 档两级级联 / zone 档只到库区 / off 档调用方不渲染）；改 `pages/inventory/stock-doc/purchase/index.vue`（入库归位 + 现库位高亮 + 换仓清空）、`apis/stock-doc.ts`（补 `binId`/`zoneId`）、`pages.json`、`constants/menus.ts`（`binOnly` 门控）、`Drawer.vue` + `dashboard/index.vue`（`visibleMenus(auth, showZone)`）、双语词条。验证：`npm run build:h5` exit 0（仅既有 sass 弃用告警）；双语键集一致（1982 = 1982，diff none） |
 | 13 打印子系统 | `fc46b6d` | 完成 | 11 files / +717 −3。新增 `utils/print/`：`doc-common.ts`（HTML 转义 / 时间格式化 / 27 键 `PrintLabels` + 逐项回退 / `fill()` 占位符 / `pageHtml()` 通用打印 CSS，含 `thead{display:table-header-group}`、`tr{page-break-inside:avoid}`）、`print.css.ts`（A4 纵向 / 热敏 100×150 / A4 横向）、`print-window.ts`（隐藏 iframe + `printHtml` 返回 `boolean` + `openPrintFallback` + `getLastPrintHtml` 兜底重试）、4 个模板纯函数（拣货单含库位区域三档门控、发货单一单一页、包裹标签、批次总览）、`templates.spec.ts`。改 `pages/order/picking/batch.vue`（⑤「打印单据」2×2 宫格 4 入口 + 拦截兜底弹窗）。验证：`node --test src/utils/print/templates/templates.spec.ts` → **12 pass / 0 fail**；`npm run build:h5` → `DONE Build complete.`；双语键集一致（2011 = 2011，diff none），`print labels 27 missing: none` |
-| 14 i18n 双语 | | | |
+| 14 i18n 双语 | `c3399c4` | 完成 | 2 files / +158。补配货台列表页 + 批次详情页 + 地址编辑 + 菜单入口剩余键：`menu.picking`、`orderAdmin.picking.*`（50 键）、`orderAdmin.picking.state.*`（5 键）、`orderAdmin.picking.address.*`（21 键），中英各 +75 键。验证：双语键集对称（2086 = 2086，diff none）；源码实际用键全覆盖（`USED_BUT_MISSING: none`，扫 src 下 .vue/.ts）；`PrintLabels` 27 键齐全；`npm run build:h5` → `DONE Build complete.` |
 | 15 截图 + 手册 + 探针 + 部署 | | | |
 
 **偏差说明**（Task 0~7）：
@@ -2742,6 +2745,11 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
     - **共享模块**：计划把转义/时间格式化/公共打印 CSS 散落在各模板中重复实现。实现抽出 `doc-common.ts` 统一承载：`esc()`（`& < > " '`）、`fmtTime()`、27 键 `PrintLabels` + `DEFAULT_LABELS`（中文）+ `withLabels()` 逐项回退 + `fill()` 占位符，以及 `pageHtml()`（完整 HTML 文档 + 通用打印 CSS）。四个模板因此都接受第 4 个可选参数 `labels?: Partial<PrintLabels>`，由 `batch.vue` 从 `orderAdmin.picking.print.*` 注入**当前语言**（默认值兜底中文，键缺失不崩）。
     - **状态推进**：见偏差 20 修正——打印**不**自动推进批次状态。
     - **`canPrint` 口径**：`!!batch && members.length > 0`，**不含**只读态判断（终态可重印）。
+
+**偏差说明（Task 14）**：
+
+27. **语言包真实文件名为 `zh-Hans.json`（计划原文写 `zh-CN.json`）**：`web-admin/src/locale/` 下实际只有 `zh-Hans.json` 与 `en.json`，无 `zh-CN.json`。按计划「以实际为准」执行，只改这两个文件。
+28. **键集校验改为脚本化三查（不再手工比对）**：计划 Step 3 用 `ConvertFrom-Json` 后「手工比对」。实现改为 Node 一行式脚本自动完成三件事：① 递归取叶子键比对双语对称性；② 扫 `src/**/*.vue|ts` 提取 `orderAdmin.picking.*` / `inventoryBin.*` / `menu.picking` 等实际引用键，逐个回查 locale 是否存在（可发现「组件在用但词条没补」的漏项——Task 12/13 正是靠这一步确认补全）；③ 从 `doc-common.ts` 的 `PrintLabels` 接口抽键，校验 27 个打印标签词条齐备。因 Task 12/13 已提前补掉大部分键，本步实际只 +75 键/语言，**Task 14 明显变薄**（见偏差 24）。
 
 ---
 
