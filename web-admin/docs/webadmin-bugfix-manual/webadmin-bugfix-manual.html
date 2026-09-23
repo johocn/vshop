@@ -736,7 +736,140 @@ flowchart TD
     <p class="muted" style="font-size:13px;">涉及文件：前端 <code class="mono">vshop/web-admin/src/utils/orderFilter.ts</code>（新建，含 <code class="mono">resolveTimeWindow</code> / <code class="mono">buildOrderFilter</code> / <code class="mono">STATE_GROUPS</code>）、<code class="mono">src/utils/orderFilter.test.ts</code>（新建，22 用例）、<code class="mono">src/apis/order.ts</code>（<code class="mono">fetchOrders</code> 变量化 + <code class="mono">fetchOrderCounts</code> 多别名计数）、<code class="mono">src/components/order-list/*</code>（<code class="mono">OrderListFilters</code> / <code class="mono">OrderListTabs</code> / <code class="mono">OrderListCardRow</code> / <code class="mono">OrderListTableRow</code> / <code class="mono">OrderListRenderer</code> / <code class="mono">OrderListHeadBar</code>）、<code class="mono">src/constants/orderListLayouts.ts</code>、<code class="mono">src/pages/order/list/index.vue</code>、<code class="mono">src/utils/orderFormat.ts</code>、双语语言包 <code class="mono">src/locale/{zh-Hans,en}.json</code>。部署：本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退到上一 commit 的 <code class="mono">dist/build/h5</code> 重新部署即可（无后端/数据库变更，无数据风险）。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="picking-console">
+    <h2>15 配货台与库位 · 拣货批次 / 三档库位体系（2026-09-23）</h2>
+    <p>本轮为运营端新增<strong>配货台（拣货批次）</strong>与<strong>库区/库位（三档开关）</strong>两块能力：把「待发货订单 → 组批 → 拣货 → 打单 → 发货」串成一条可追踪的作业链，并让「商品放在哪个库区/库位」成为可配置、可归位、可打印到单据上的数据。全部按「积木式 + 多语言 + 多城市」既有规范落地，<strong>新增 5 张表、不改既有表结构</strong>。</p>
+
+    <h3>15.1 能力概览</h3>
+    <ul>
+      <li><strong>配货台</strong>（<code class="mono">/pages/order/picking/index</code>）：三个页签「待配货 / 进行中 / 已完成」，勾选候选订单 → 选目标仓 → 一键建批次；批次卡片显示单数、件数、状态与时间。</li>
+      <li><strong>批次详情</strong>（<code class="mono">/pages/order/picking/batch?id=…</code>）：批次信息 + 拣货汇总（按 SKU 合并数量、按库位排序出拣货路径）+ 批次订单（可单条改地址）+ 4 类单据打印入口 + 状态推进 / 取消批次 / 批量发货。</li>
+      <li><strong>库位三档开关</strong>：渠道级 <code class="mono">binMode</code> = <code class="mono">off</code> / <code class="mono">zone</code> / <code class="mono">bin</code>（默认 <code class="mono">off</code>）。<code class="mono">off</code> 档关闭整块功能（页面显示兜底提示、采购入库不出现归位控件，行为与改造前逐字节一致）；<code class="mono">zone</code> 档只管理到库区；<code class="mono">bin</code> 档管理到库位格。</li>
+      <li><strong>库位管理页</strong>（<code class="mono">/pages/inventory/bins/index</code>）：选仓 → 幂等生成标准库位（4 库区 / 18 库位）→ 按库区分组浏览、删除库位（被 SKU 占用则拒绝）。</li>
+      <li><strong>采购入库归位</strong>（<code class="mono">/pages/inventory/stock-doc/purchase/index</code>）：三档开启时入库可同时选择库区（bin 档还需库位），选定 SKU + 仓后自动带出「该 SKU 现库位」并预选回填。</li>
+      <li><strong>打印子系统</strong>：4 类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）为纯函数生成 HTML + 隐藏 iframe 打印，拣货单含「库区 / 库位」列并<strong>按库区分组</strong>。</li>
+    </ul>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>消费点</th><th><code class="mono">off</code></th><th><code class="mono">zone</code></th><th><code class="mono">bin</code></th></tr></thead>
+        <tbody>
+          <tr><td>库位管理页</td><td>兜底提示（无网格）</td><td>库区卡片（无库位格）</td><td>库区卡片 + 库位格网格</td></tr>
+          <tr><td>采购入库归位控件</td><td>不渲染</td><td>只选库区</td><td>库区 → 库位 两级级联</td></tr>
+          <tr><td>配货台候选行库位摘要</td><td colspan="3">不渲染（后端候选快照不含 SKU 库位字段，不伪造数据）</td></tr>
+          <tr><td>批次详情拣货汇总</td><td>只按 SKU 汇总</td><td>增加库区名</td><td>增加库区 + 库位格 + 路径序号</td></tr>
+          <tr><td>拣货单打印</td><td>无库位列</td><td>库区列</td><td>库区 + 库位列，按库区分组</td></tr>
+          <tr><td>包裹标签 / 发货单 / 批次总览</td><td colspan="3">不随档位变化（单据本身与库位无关）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>15.2 后端实现（vendure · cjk-plugin）</h3>
+    <ul>
+      <li><strong>新增 5 张表</strong>：<code class="mono">pick_batch</code>（批次：编号、租户渠道、目标仓、状态、时间戳、备注、创建人）、<code class="mono">pick_batch_order</code>（批次成员，<code class="mono">batchId + orderId</code> 唯一）、<code class="mono">storage_zone</code>（库区）、<code class="mono">storage_bin</code>（库位格，含 <code class="mono">rowNo / levelNo</code> 用于排序）、<code class="mono">variant_storage_bin</code>（变体 ↔ 库区/库位绑定，<code class="mono">zoneId</code> 必填、<code class="mono">binId</code> 可空）。生产 postgres 由 <code class="mono">synchronize:true</code> 开机自动建，无需手写迁移。</li>
+      <li><strong>批次号</strong>：<code class="mono">PB{yyyymmdd}-{nnn}</code>，按当日已有条数递增（<code class="mono">formatBatchCode</code> + <code class="mono">nextSequence</code>）。</li>
+      <li><strong>状态机</strong>：<code class="mono">PENDING → PICKED → PRINTED → SHIPPED</code>，<code class="mono">CANCELLED</code> 可从任一非终态进入，<code class="mono">SHIPPED</code>/<code class="mono">CANCELLED</code> 为终态；<strong>非法迁移由后端拒绝</strong>并回明确原因（<code class="mono">canTransition</code>）。<code class="mono">cancel</code> 会释放成员订单回待发货池。</li>
+      <li><strong>冲突约束</strong>：同一订单不得同时存在于两个非终态批次，命中时返回 <code class="mono">订单 #x 已在批次 PBxxx 中，请先移出</code>。</li>
+      <li><strong>拣货汇总</strong>：按 SKU 合并数量 + 收集涉及订单号 + 关联库位绑定推算「库区 → 库位」，用<strong>仓储查询 + JS 聚合</strong>实现（方言无关，sqlite / postgres 行为一致），排序键 <code class="mono">(zone.sortOrder, rowNo, levelNo)</code>，未归位行落到末尾（<code class="mono">NO_BIN_PATH_INDEX = 9999</code>）。</li>
+      <li><strong>入库归位</strong>：<code class="mono">createStockDoc</code> 的 <code class="mono">StockDocItemInput</code> 增可选 <code class="mono">binId</code>/<code class="mono">zoneId</code>，在库存变动后调用归位（<code class="mono">applyBinBinding</code>）；<strong>不传则完全保持旧行为</strong>。</li>
+      <li><strong>resolvers 双注册</strong>：<code class="mono">adminApiExtensions</code> 与 <code class="mono">shopApiExtensions</code> 是两套独立 SDL，管理端走 <code class="mono">/admin-api</code>、C 端走 <code class="mono">/shop-api</code>，两侧均已注册（仅注册一侧时另一侧会静默不可用）。</li>
+      <li><strong>地址编辑不重算运费</strong>：<code class="mono">updateOrderShippingAddress(orderId, input)</code> 只合并地址字段并定向更新（Vendure 3.6.4 中 <code class="mono">shippingAddress</code> 是 <code class="mono">simple-json</code> 列，不是独立实体）。</li>
+    </ul>
+
+    <h3>15.3 前端实现（vshop / web-admin）</h3>
+    <ul>
+      <li>接口层：<code class="mono">apis/picking.ts</code>（11 个函数）、<code class="mono">apis/storage-bin.ts</code>（7 个函数）、<code class="mono">apis/channel.ts</code> 补 <code class="mono">binMode</code>。注意 <code class="mono">members</code> / <code class="mono">pickBatchCandidates.items</code> / <code class="mono">shipPickBatch</code> / <code class="mono">variantBin</code> / <code class="mono">generateStandardBins</code> 在 SDL 里是 <strong>JSON 标量</strong>，查询时只能取字段本身、不能带子选择集。</li>
+      <li>门控单一入口：<code class="mono">composables/useBinMode.ts</code>（模块级缓存，一次会话只拉一次渠道；失败按 <code class="mono">off</code> 且不置「已加载」，下次仍可重试），对外给 <code class="mono">mode / showZone / showBin</code> 与 <code class="mono">ensureBinMode(force)</code>。</li>
+      <li>积木式组件：<code class="mono">components/picking/</code> 下 <code class="mono">PickBatchCard</code> / <code class="mono">CandidateOrderRow</code> / <code class="mono">WarehousePicker</code> / <code class="mono">BatchMemberRow</code> / <code class="mono">AddressEditSheet</code> / <code class="mono">BinPicker</code>（三档自适应：bin 两级级联 / zone 只到库区 / off 由调用方不渲染）；省市区选择器从自提点编辑页抽成 <code class="mono">components/common/RegionPicker.vue</code> 复用。</li>
+      <li>打印子系统：<code class="mono">utils/print/doc-common.ts</code>（HTML 转义 / 27 键文案 + 逐项回退 / 通用打印 CSS，含 <code class="mono">thead{display:table-header-group}</code> 与 <code class="mono">tr{page-break-inside:avoid}</code>）、<code class="mono">print.css.ts</code>（A4 纵向 / 热敏 100×150 / A4 横向）、<code class="mono">print-window.ts</code>（隐藏 iframe + 兜底重试）、4 个模板纯函数。</li>
+      <li>入口与文案：<code class="mono">constants/menus.ts</code> 交易域新增「配货台」（紧邻「发货」）、库存域「库区库位」按 <code class="mono">binOnly</code> 门控；<code class="mono">pages.json</code> 注册 3 个新页面；双语词条中英各 +75 键（本轮新增键集完全对称）。</li>
+    </ul>
+
+    <h3>15.4 回归测试与证据</h3>
+    <ul>
+      <li>后端单测（<code class="mono">packages/cjk-plugin</code>）：实体约束 2 例、库区/库位模板 3 例、批次纯函数 9 例、批次 service 7 例、库位 service 7 例、入库归位 4 例；全量 <code class="mono">npm test</code> 为 <strong>192 passed / 1 failed</strong>，失败项是<strong>既有</strong>的 <code class="mono">virtual-physical-stock.service.spec.ts</code>（<code class="mono">ColumnTypeUndefinedError</code>，与本次改动无关）。</li>
+      <li>打印模板单测：<code class="mono">node --test src/utils/print/templates/templates.spec.ts</code> → <strong>12 pass / 0 fail</strong>。</li>
+      <li>前端构建：<code class="mono">npm run build:h5</code> → <code class="mono">DONE Build complete.</code>（仅既有 sass 弃用告警）；双语键集对称（2086 = 2086）；源码实际用键 <code class="mono">USED_BUT_MISSING: none</code>。</li>
+      <li>生产接口探针（只读）：admin-api Mutation 含 <code class="mono">createPickBatch</code> / <code class="mono">addOrdersToPickBatch</code> / <code class="mono">removeOrdersFromPickBatch</code> / <code class="mono">advancePickBatchState</code> / <code class="mono">cancelPickBatch</code> / <code class="mono">shipPickBatch</code> / <code class="mono">updateOrderShippingAddress</code> / <code class="mono">generateStandardBins</code> / <code class="mono">bindVariantToBin</code> / <code class="mono">unbindVariantFromBin</code> / <code class="mono">deleteStorageBin</code>；生产库实际建表 <code class="mono">pick_batch, pick_batch_order, storage_bin, storage_zone, variant_storage_bin</code>。</li>
+      <li>界面级断言（截图脚本内置）：库位页 <strong>bin 档 4 库区 / 18 库位格</strong>、<strong>zone 档 4 库区 / 0 库位格</strong>、<strong>off 档 0 / 0 + 兜底块 1</strong>；采购入库 <strong>bin / zone 档「现库位提示 = 1」</strong>（归位回填生效）、<strong>off 档 = 0</strong>；配货台候选行 <strong>7 行与接口 totalItems 一致</strong>；批次详情拣货行 1 / 成员 3 / 打印入口 4；三档共 3 个批次全部走完「建批次 → 截图 → 取消」可逆闭环，批次号 <code class="mono">PB20260923-006 / -007 / -008</code> 连号；<strong>pageerror 与 console.error 均为 0</strong>。</li>
+    </ul>
+
+    <h3>15.5 上线后追加修复的 2 个线上缺陷</h3>
+    <p>本轮在<strong>真实生产环境</strong>跑主路径时暴露了两个只有线上才复现的问题，已一并修复并部署：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>现象</th><th>根因</th><th>修复</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>批次详情「拣货汇总」<strong>整块空白</strong>；直接调 <code class="mono">pickBatchPickingList</code> 返回 <code class="mono">data: null</code>，报 <code class="mono">Cannot return null for non-nullable field PickBatchPickingRow.name</code></td>
+            <td><code class="mono">ProductVariant.name</code> 列可为 <code class="mono">null</code>（名称在翻译表里），服务端把 <code class="mono">line.productVariant.name</code> 直接透传；而 SDL 里 <code class="mono">name</code> 是<strong>非空字段</strong> → 一条 null 就让<strong>整条查询</strong>失败</td>
+            <td><code class="mono">pick-batch.service.ts</code> 的 <code class="mono">pickingList()</code> 补 <code class="mono">name: line.productVariant.name || line.productVariant.sku || ''</code>（与前端 <code class="mono">r.name || r.sku</code> 一致，缺失时回退 SKU）。提交 <code class="mono">21c723d75</code></td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>配货台候选订单出现<strong>其它渠道的订单</strong>（t2 店铺里混进渠道 1 / official-01 的 7 张测试单），建批次后还会把跨渠道订单卷进批次</td>
+            <td><code class="mono">pickBatchCandidates</code> 用的是<strong>裸仓储查询</strong>（只按订单状态过滤）；而 <code class="mono">Order</code> 是 <code class="mono">ChannelAware</code>（多对多 <code class="mono">order_channels_channel</code>），不做渠道收口就不会过滤渠道</td>
+            <td><code class="mono">candidates()</code> 改为 <code class="mono">innerJoin('o.channels', 'pickChannel', 'pickChannel.id = :cid')</code> 按 <code class="mono">ctx.channelId</code> 收口，与 <code class="mono">findAll</code> 的 <code class="mono">tenantChannelId</code> 过滤保持一致；分页改为<strong>先取 id 再按 id 取实体</strong>，规避多对多 join 与 <code class="mono">skip/take</code> 同用导致的行重复。提交 <code class="mono">8a22a98e1</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <h4>缺陷 2 的配套数据修复（可回滚）</h4>
+      <p>收口后 t2 店铺的候选订单会<strong>变空</strong>（那 7 张测试单只挂在渠道 1 / 92），截图与验收需要候选数据，故把它们<strong>补挂</strong>到 t2（不删原渠道、不影响订单本身）：</p>
+      <p class="mono" style="font-size:12px;">insert into order_channels_channel ("orderId","channelId") values (95,37),(96,37),(104,37),(107,37),(108,37),(109,37),(123,37) on conflict do nothing;</p>
+      <p><strong>回滚</strong>：<code class="mono">delete from order_channels_channel where "channelId" = 37 and "orderId" in (95,96,104,107,108,109,123);</code></p>
+    </div>
+    <div class="callout">
+      <h4>残留缺口（已知、未在本轮修）</h4>
+      <p><code class="mono">createPickBatch</code> / <code class="mono">addOrdersToPickBatch</code> 目前<strong>只校验「订单是否已在其它非终态批次」</strong>，未校验传入的 <code class="mono">orderIds</code> 是否属于当前渠道。候选列表已按渠道收口，正常界面流程不会越界；但若直接构造请求，仍可把其它渠道订单塞进本店批次。若要彻底堵住，需在这两个方法里补一次「订单渠道归属」校验。</p>
+    </div>
+
+    <h3>15.6 验收结论（线上 e.joho.cn/guanli，手机 390×844 dpr=2）</h3>
+    <div class="callout ok">
+      <p>① 配货台三个页签计数来自服务端，候选行与接口口径一致（t2 实测待配货 7 / 进行中随建批次变化 / 已完成累计已取消批次）；② 勾选候选 → 选目标仓 → 建批次成功，批次号按当日连号递增；③ 批次详情拣货汇总按 SKU 合并数量、列出涉及订单号，bin 档显示<strong>库区 + 库位格 + 路径序号</strong>、zone 档只显示库区、off 档不显示库位信息；④ 4 类单据均可生成预览（拣货单含库位列并<strong>按库区分组</strong>）；⑤ 库位管理页可幂等生成标准库位（4 库区 / 18 库位），删除被占用库位时透出后端拒绝原文；⑥ 采购入库在三档下分别表现为「不渲染归位控件 / 只选库区 / 两级级联」，选定 SKU 后带出「该 SKU 现库位」并预选回填；⑦ 地址编辑保存后不重算运费，且区县不重复拼接；⑧ 全流程无 JS 运行时异常。三档主路径均用「建批次 → 截图 → 取消批次」的可逆闭环完成，<strong>未执行真实发货</strong>（<code class="mono">shipPickBatch</code> 会真实推进订单到已发货且不可撤销，故按确认改为只读存在性校验）。</p>
+    </div>
+
+    <h3>15.7 验收截图（共 27 张）</h3>
+    <p>以下手机截图为线上真实效果（<strong>390×844、dpr=2，输出 780×1688</strong>）。<strong>打印单据预览的视口不是手机 UI 视口</strong>——它们是纸质文档，按 A4 纵向 900×1273、A4 横向 900×636、热敏标签 390×844 输出，属有意偏差。</p>
+
+    <p><strong>A. 库位管理页 · 三档对比</strong>（off 档兜底提示 / zone 档只到库区 / bin 档库区+18 库位格）</p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_bins_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_bins_zone_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_bins_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;"><code class="mono">off</code>：整块功能未启用（无网格） / <code class="mono">zone</code>：4 个库区卡片 + 库区档标识，无库位格 / <code class="mono">bin</code>：库区 + 库位档标识，A 常温 10 · B 冷藏 3 · C 大件 3 · D 收货暂存 2 = 18 格，可单个删除</figcaption></figure>
+
+    <p><strong>B. 采购入库归位 · 三档对比</strong>（同一 SKU 已归位到 A-01-01，三档表现不同）</p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_purchase_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_purchase_zone_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_purchase_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;"><code class="mono">off</code>：不渲染归位控件、也不提示现库位（与改造前一致） / <code class="mono">zone</code>：出现「入库库区」选择 + 「该 SKU 现库位」提示 / <code class="mono">bin</code>：库区 → 库位两级级联，且提示与预选回填生效</figcaption></figure>
+
+    <p><strong>C. 配货台列表 · 待配货 / 勾选态 / 新建批次</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_console_pending_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_console_selected_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_newbatch_sheet_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">待配货页签（7 单，逐行显示订单号 / 客户 / 电话 / 地址 / 件数；推荐仓未能自动命中时提示「请手动选择目标仓」） / 勾选后底部出现批量条 / 新建批次抽屉（选目标仓 + 备注）</figcaption></figure>
+
+    <p><strong>D. 批次详情 · 三档对比</strong>（同一批次结构，拣货汇总随档位变化）</p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_batch_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_batch_zone_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_batch_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;"><code class="mono">off</code>：只按 SKU 汇总 / <code class="mono">zone</code>：增加库区名 / <code class="mono">bin</code>：库区「常温存储区」+ 库位格「A-01-01」+ 路径序号。三档均含批次信息、批次订单（可单条改地址）、4 个单据打印入口与「确认拣货完成 / 取消批次」</figcaption></figure>
+
+    <p><strong>E. 地址编辑 / 进行中页签 / 已完成页签</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_addr_edit_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_console_active_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_console_done_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">改地址抽屉（原地址回显 + 收货人/手机号 + 省市区 + 详细地址，脚注「修改地址不会重算运费」） / 进行中页签（刚建的批次，状态「待拣货」） / 已完成页签（取消后的批次落入此处，作为还原动作的证据）</figcaption></figure>
+
+    <p><strong>F. 四类单据预览 · bin 档</strong>（拣货单含库区/库位列并按库区分组）</p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_list_bin.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_note_bin.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">拣货单（A4 纵向）：表头批次号/仓库/打印时间 → 按库区分组（A · 常温存储区）→ SKU / 商品 / 数量 / 库区 / 库位 / 路径序号 / 涉及订单号，页脚「共 1 行 | 合计 3 件」 / 发货单（A4 纵向）：一单一页</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_label_bin.png" style="width:23%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_overview_bin.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">包裹标签（热敏 100×150） / 批次总览（A4 横向）：批次状态 + 单据数汇总</figcaption></figure>
+
+    <p><strong>G. 拣货单 · 三档门控对比</strong>（off 无库位列 / zone 只到库区 / bin 到库位）</p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_list_off.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_list_zone.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/picking_print_list_bin.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">三档同批次结构对比：<code class="mono">off</code> 不出现库位相关列 / <code class="mono">zone</code> 出现「库区」列 / <code class="mono">bin</code> 出现「库区 + 库位 + 路径序号」并按库区分组</figcaption></figure>
+
+    <p><strong>H. 其余单据 · zone / off 档留档</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_note_zone.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_note_off.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">发货单 zone 档 / off 档（单据与库位无关，三档一致，此处留档证明无回归）</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_label_zone.png" style="width:23%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_overview_zone.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">包裹标签 zone 档 / 批次总览 zone 档</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/picking_print_label_off.png" style="width:23%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/picking_print_overview_off.png" style="width:46%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">包裹标签 off 档 / 批次总览 off 档</figcaption></figure>
+
+    <div class="callout warn">
+      <h4>故障排查指引</h4>
+      <p>① <strong>库位管理页显示「库位功能未启用」</strong>：渠道 <code class="mono">binMode</code> 为 <code class="mono">off</code>，属预期；在店铺配置里把档位切到 <code class="mono">zone</code> 或 <code class="mono">bin</code> 即可（切档后必须<strong>冷加载</strong>页面，hash 路由只改 hash 不会重载）。② <strong>配货台候选为空</strong>：候选只列「属于<strong>当前渠道</strong>」且状态为 <code class="mono">PaymentAuthorized</code>/<code class="mono">WaitingForShipping</code> 的订单；订单若未分配到本渠道就不会出现（多渠道共用订单时需先把订单加入对应渠道）。③ <strong>批次详情拣货汇总空白</strong>：历史原因是商品名为 null 触发非空字段报错，现已回退 SKU；若仍空白，确认后端 <code class="mono">lib/</code> 是否为本轮版本（<strong>改 <code class="mono">src</code> 必须 <code class="mono">npm run build</code>，dev-server 消费的是 <code class="mono">lib/</code></strong>）。④ <strong>建批次被拒「订单 #x 已在批次 PBxxx 中」</strong>：同一订单不能同时在两个非终态批次，先在原批次里移出或取消该批次。⑤ <strong>发货失败清单不为空</strong>：批量发货逐单独立 fulfillment，<strong>全部成功才把批次置为已发货</strong>，失败行会带原因；注意<strong>发货不可撤销</strong>，务必确认状态为「单据已打印」后再执行。⑥ <strong>推荐仓显示「请手动选择目标仓」</strong>：仓库未配置服务城市或经纬度时无法就近推荐，属数据缺失，手动选仓即可。⑦ <strong>打印无反应</strong>：移动端浏览器可能拦截弹窗，系统会走隐藏 iframe 并给出兜底重试入口。</p>
+    </div>
+
+    <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/cjk-plugin/src/</code>——<code class="mono">picking/</code>（<code class="mono">pick-batch.entity.ts</code>、<code class="mono">pick-batch-order.entity.ts</code>、<code class="mono">pick-batch-math.ts</code>、<code class="mono">pick-batch.service.ts</code>、<code class="mono">pick-batch.admin.resolver.ts</code>）、<code class="mono">storage/</code>（<code class="mono">storage-zone.entity.ts</code>、<code class="mono">storage-bin.entity.ts</code>、<code class="mono">variant-storage-bin.entity.ts</code>、<code class="mono">storage-bin.service.ts</code>、<code class="mono">storage.admin.resolver.ts</code>）、<code class="mono">bin-mode</code> 渠道自定义字段、<code class="mono">stock-doc</code>（入库归位）、<code class="mono">plugin.ts</code>（双注册）——<strong>只新增 5 张表，不改既有表结构</strong>；前端 <code class="mono">vshop/web-admin/src/pages/order/picking/{index,batch}.vue</code>、<code class="mono">src/pages/inventory/{bins,stock-doc/purchase}/</code>、<code class="mono">src/components/picking/*</code>、<code class="mono">src/components/common/RegionPicker.vue</code>、<code class="mono">src/utils/print/*</code>、<code class="mono">src/apis/{picking,storage-bin,channel}.ts</code>、<code class="mono">src/composables/{useBinMode,useShipSubmit}.ts</code>、<code class="mono">src/constants/menus.ts</code>、<code class="mono">src/pages.json</code>、双语语言包。部署：后端本地 <code class="mono">npm run build</code>（提交 <code class="mono">lib/</code>，那是 git 跟踪的产物）→ 服务器 <code class="mono">git pull</code> + <code class="mono">pm2 restart vendure</code>；前端本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退；后端回上一 commit + <code class="mono">pm2 restart</code>（新表保留不影响旧代码）；渠道 <code class="mono">binMode</code> 改回 <code class="mono">off</code> 即关闭全部新入口；订单渠道归属的配套数据可用上文 SQL 删除。</p>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
