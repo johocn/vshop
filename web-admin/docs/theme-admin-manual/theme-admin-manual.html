@@ -87,6 +87,7 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
     <li><a href="#decorate">页面装修（详情/分类/购物车/我的）</a></li>
     <li><a href="#rules">生效层级与回退规则</a></li>
     <li><a href="#theme-unify">主题风格页与五级体系（L0–L4）</a></li>
+    <li><a href="#mall-version">usemall 珊瑚 mall 版式（配色 + 模板 + 5 页落地）</a></li>
     <li><a href="#verify">验证与回归</a></li>
   </ol>
 </div>
@@ -345,26 +346,80 @@ figcaption{font-size:13px;color:var(--muted);margin-top:8px;}
   </div>
 </section>
 
+<section id="mall-version">
+  <h2>9 usemall 珊瑚 mall 版式（本期新增配色与模板）</h2>
+  <p>入口：模板库「＋新建模板」→ 选配色 <code>usemall-coral</code> → 选 nshop 端与适用页面；店铺经 <code>店铺 → 主题风格</code> 引用该模板后，C 端 5 页（首页 / 详情 / 分类 / 购物车 / 结算）整体切换为珊瑚渲染。本期为一套「可回退页面级 mall 版式」，后台数据不变，缺内容用模板 <code>pages</code> 配置补齐，不再新增表字段。</p>
+
+  <h3>9.1 配色预设：usemall-coral（A2 珊瑚粉点缀版）</h3>
+  <p>新增 <code>palettePresets</code> 一项，主色 <code>#e0433f</code>、辅色/强调 <code>#ff6a6c</code>、圆角 <code>8</code>。与其它配色同为「后端 shop-template-plugin 权威副本 + nshop/vshop 内建副本 + web-admin 经 <code>templateApi.palettePresets()</code> 拉取」三处同步，改色需三处一致，否则 C 端与后台预览有色差。</p>
+  <div class="callout ok">
+    <h4>三处同步已落地</h4>
+    <p>后端 <code>shop-template-plugin/src/palette-presets.ts</code>（+ <code>lib/</code> 构建产物）、nshop <code>layers/base/app/utils/palette-presets.ts</code>、vshop <code>src/utils/palette-presets.ts</code>。</p>
+  </div>
+
+  <h3>9.2 模板「mall」与渠道引用</h3>
+  <p>模板库新增模板 <b>mall</b>（app=nshop，<code>theme.scheme=usemall-coral</code>；<code>pages</code> 配 <code>home.sections=[banner,nav,goods]</code>、<code>product.layout=mall</code>、<code>category.layout=mall</code>），随旧版本号自增。C 端按 <code>Channel.customFields.templateId</code> 引用该模板；本批默认渠道（id=1 / <code>cnx87ez…</code>）已指向 <b>mall 模板（id=12）</b>并提 <code>version</code> 破首帧缓存，故公开站点 www.youshop.cn 全量珊瑚。</p>
+  <div class="callout warn">
+    <h4>引用机制要点</h4>
+    <p>仓库确认模板校验收取路径为 <code>shopTemplate(app)</code> 按 <code>ctx.channel.customFields.templateId</code> 查 <code>shop_template</code> 行；模板未引用 / 已停用 / 跨端时返回 null，C 端整体回退 L1 全局配置（不会「自动取平台最新模板」）。</p>
+  </div>
+
+  <h3>9.3 各页落地与装修入口对照</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>页面</th><th>落地实现</th><th>回退/切换判定</th></tr>
+    <tr><td>首页</td><td>mall 模板 <code>home.sections</code> 走 <code>BannerBlock/NoticeBlock/NavGrid/GoodsFloor</code> 积木 + 珊瑚令牌</td><td><code>useShopContent</code> 有 sections 走渲染器，否则京东兜底</td></tr>
+    <tr><td>详情页</td><td><code>DetailLayout='mall'</code> → <code>DetailMall.vue</code>（首屏大图 + 信息主卡 + 辅助卡组 + 吸底操作栏 + 双列推荐）</td><td><code>detailLayout()</code> 校验，非法回退 classic/floor/dualBuy/hotel</td></tr>
+    <tr><td>分类页</td><td>左分类栏 + 右商品流双栏</td><td><code>pageConfig("category").layout==='mall'</code></td></tr>
+    <tr><td>购物车</td><td>抽屉 <code>CartPanel</code>（明细 + 全宽「去结算」，<code>checkoutStyle=full</code>）</td><td><code>pageCartConfig</code></td></tr>
+    <tr><td>结算页</td><td><code>CheckoutLayoutMall.vue</code>（顶部「确认订单」卡 + 收货一体卡 + 逐箱卡片 + 支付 + 分账汇总 + 吸底结算栏）</td><td><code>checkoutConfig.layout='mall'</code>，白名单校验</td></tr>
+  </table>
+  </div>
+  <div class="callout">
+    <h4>结算页关键点</h4>
+    <p>复用 cn 同一套逐箱 / 支付 / 分账 / 吸底块与 <code>submitJd</code> 门闩式提交链，只重排容器、不触碰分箱 / 地址 / 自提核销 / 收款台账业务逻辑，规避破坏收款分账风险。吸底固定栏与正文叠压已通过移动端容器 <code>pb-36</code>(144px) 消除。</p>
+  </div>
+
+  <h3>9.4 线上验收截图（390×844、dpr=2）</h3>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/home-live.png" alt="珊瑚首页"><figcaption>首页 · banner/nav(金刚区)/goods 积木，主色 <code>#e0433f</code></figcaption></figure>
+    <figure class="diagram phone"><img src="assets/category-live.png" alt="珊瑚分类"><figcaption>分类页 · mall 左分类栏 + 右商品流双栏</figcaption></figure>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/detail-live-top.png" alt="珊瑚详情首屏"><figcaption>详情页 <code>DetailMall</code> 首屏大图 + 信息主卡</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/detail-live-actionbar.png" alt="珊瑚详情吸底"><figcaption>详情吸底「加入购物车 / 立即购买」操作栏</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/cart-live.png" alt="珊瑚购物车"><figcaption>购物车抽屉 <code>CartPanel</code>：明细 + 全宽「去结算」</figcaption></figure>
+  </div>
+  <div class="figure-row">
+    <figure class="diagram phone"><img src="assets/checkout-live-full.png" alt="珊瑚结算整页"><figcaption>结算页整页（确认订单 → 逐箱 → 支付 → 分账 → 吸底栏）</figcaption></figure>
+    <figure class="diagram phone"><img src="assets/checkout-mobile-view.png" alt="结算 mock"><figcaption>结算 mock 布局验证（未起后端时用）</figcaption></figure>
+  </div>
+  <div class="callout ok">
+    <h4>本轮顺带修复</h4>
+    <p><b>分类页 SSR 500</b>（<code>Collection not found for slug</code>）：<code>category/[slug].vue</code> 的 <code>currentCollection</code> 原依赖 client-only 的 <code>menuCollections</code> 致 SSR 首帧为空 → 改为 setup 顶层原始 gql client + 独立 <code>useAsyncData(server:true)</code> 按需补取，未命中走正常 404。<b>首页 SSR 空块崩溃</b>：<code>BannerBlock/NavGrid</code> 对 <code>{type,data:{}}</code> 空块 <code>.map</code> 崩溃 → 补 <code>?? []</code> 回退内建占位。</p>
+  </div>
+</section>
+
 <section id="verify">
-  <h2>9 验证与回归</h2>
-  <h3>9.1 API 冒烟</h3>
+  <h2>10 验证与回归</h2>
+  <h3>10.1 API 冒烟</h3>
   <ul>
     <li>C 端：<code>shopTemplate(app, id?)</code>、<code>shopGlobalConfig(app)</code>（公开查询）。</li>
     <li>管理端：<code>shopTemplates</code> / <code>createShopTemplate</code> / <code>updateShopTemplate</code> / <code>deleteShopTemplate</code> / <code>copyShopTemplate</code> / <code>shopGlobalConfig</code> / <code>updateShopGlobalConfig</code>（需 ShopTemplates 权限）。</li>
   </ul>
-  <h3>9.2 权限说明</h3>
+  <h3>10.2 权限说明</h3>
   <p>插件在启动时向 <code>authOptions.customPermissions</code> 注册 4 个权限（Read/Create/Update/Delete），持有 <code>SuperAdmin</code> 权限的角色（如 super-admin）自动放行全部操作。</p>
   <div class="callout warn">
     <h4>租户管理员看不到模板</h4>
     <p>租户管理员默认没有 <code>ShopTemplatesRead</code>，主题风格页的模板列表与「合并结果预览」会因 FORBIDDEN 而<b>静默为空</b>。排查时请先用 <code>superadmin</code> 复核。</p>
   </div>
-  <h3>9.3 回归截图</h3>
+  <h3>10.3 回归截图</h3>
   <p>第 8 节的 22 张手机视口截图（390×844、dpr=2）即本批次回归证据，覆盖主题风格页六段结构、五级回退链 7 条验收项、模板库结构化表单与旧 themeId 迁移；其它章节截图覆盖模板库、全局配置、店铺选模板、四类页面装修表单。</p>
   <div class="callout ok">
     <h4>交付核对</h4>
     <p>模板库种子数据 3 套 × 双端（橙色经典 / 生鲜绿 / 深色科技）+ 全局配置各 1 条已幂等写入；店铺选模板保存/持久化闭环已验证（templateId 写回 Channel）。</p>
   </div>
-  <h3>9.4 回归结果（2026-09-21）</h3>
+  <h3>10.4 回归结果（2026-09-21）</h3>
   <p>仓库无 <code>scripts/e2e-theme.mjs</code>，故以「第 8.3 节 7 条手工验收 + 22 张手机截图 + 18 项 API 冒烟」作为回归证据。API 冒烟覆盖：配色预设 8 套、模板库双端过滤、L1 全局配置、合并预览四级优先级（L1 / L2 / L3 last-wins / 未覆盖键回退）、C 端 <code>shopTemplate</code> 跨端返回 null、C 端 <code>activeChannel</code> 暴露 L3 字段。结果 <b>18 / 18 通过</b>。</p>
   <div class="callout warn">
     <h4>已知限制（本批次未修，记录备查）</h4>
