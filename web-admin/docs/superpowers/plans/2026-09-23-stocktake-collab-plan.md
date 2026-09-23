@@ -2850,7 +2850,7 @@ export class StocktakeAdminResolver {
                 note: String
             }
             input StocktakeWaveInput { scopeType: String!, zoneId: ID }
-            input StocktakeCountInput { lineId: ID, variantId: ID, countedQty: Int!, zoneId: ID, binId: ID, note: String }
+            input StocktakeCountEntryInput { lineId: ID, variantId: ID, countedQty: Int!, zoneId: ID, binId: ID, note: String }
             input StocktakeLineFilterInput { onlyCounted: Boolean, onlyUncounted: Boolean, onlyDiff: Boolean, onlyExtra: Boolean }
             input StocktakeTaskOptionsInput { page: Int, pageSize: Int, state: String, activityCode: String, stockLocationId: ID }
             extend type Query {
@@ -2867,7 +2867,7 @@ export class StocktakeAdminResolver {
                 assignStocktakeWave(waveId: ID!, assigneeId: String): StocktakeWave!
                 claimStocktakeWave(waveId: ID!): StocktakeWave!
                 releaseStocktakeWave(waveId: ID!): StocktakeWave!
-                saveStocktakeCounts(waveId: ID!, inputs: [StocktakeCountInput!]!): StocktakeWave!
+                saveStocktakeCounts(waveId: ID!, inputs: [StocktakeCountEntryInput!]!): StocktakeWave!
                 submitStocktakeWave(waveId: ID!): StocktakeWave!
                 postStocktake(taskId: ID!, confirm: Boolean): StocktakePostResult!
                 cancelStocktakeTask(taskId: ID!): StocktakeTask!
@@ -3938,7 +3938,7 @@ export async function saveStocktakeCounts(
 ): Promise<StocktakeWave> {
   try {
     const r = await getAdminClient().request<{ saveStocktakeCounts: StocktakeWave }>(
-      `mutation SaveStocktakeCounts($waveId: ID!, $inputs: [StocktakeCountInput!]!) { saveStocktakeCounts(waveId: $waveId, inputs: $inputs) { ${WAVE_FIELDS} } }`,
+      `mutation SaveStocktakeCounts($waveId: ID!, $inputs: [StocktakeCountEntryInput!]!) { saveStocktakeCounts(waveId: $waveId, inputs: $inputs) { ${WAVE_FIELDS} } }`,
       {
         waveId,
         inputs: inputs.map((i) => ({
@@ -6978,7 +6978,7 @@ def count_some(pg, tid, wid, n=2):
     if not inputs:
         print('    (该盘次无应盘行，跳过录入)')
         return 0
-    r = gql_data(pg, 'mutation($waveId: ID!, $inputs: [StocktakeCountInput!]!){ saveStocktakeCounts(waveId:$waveId, inputs:$inputs){ id state countedCount } }',
+    r = gql_data(pg, 'mutation($waveId: ID!, $inputs: [StocktakeCountEntryInput!]!){ saveStocktakeCounts(waveId:$waveId, inputs:$inputs){ id state countedCount } }',
                  {'waveId': str(wid), 'inputs': inputs}, 'save')['saveStocktakeCounts']
     print('  录入 %d 行 -> 盘次 %s 已盘 %d' % (len(inputs), r['state'], r['countedCount']))
     return len(inputs)
@@ -7290,13 +7290,13 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 
 | Task | 内容 | 提交哈希 | 状态 | 证据 / 备注 |
 |---|---|---|---|---|
-| 0 | 环境自检 | — | ⬜ 未开始 | |
-| 1 | 盘库三张表 | — | ⬜ 未开始 | |
-| 2 | 盘库纯函数 + 单测 | — | ⬜ 未开始 | |
-| 3 | 库位 → SKU 反向查询 | — | ⬜ 未开始 | |
-| 4 | 盘库 Service（建任务/盘次/录入/提交） | — | ⬜ 未开始 | |
-| 5 | 过账（差异查询 + 过账事务） | — | ⬜ 未开始 | |
-| 6 | 权限点 + SDL + Resolvers + 只读探针 | — | ⬜ 未开始 | |
+| 0 | 环境自检 | — | ✅ 已完成 | 无 typeorm 双实例；基线 229 用例/35 套件；注册点行号已记；DB 变量确认 |
+| 1 | 盘库三张表 | `19ecfc592` | ✅ 已完成 | 三表实体 + plugin 注册；起服实测自动建表通过 |
+| 2 | 盘库纯函数 + 单测 | `818cf46d3` | ✅ 已完成 | 新增 22 用例；状态机/任务号/应盘清单/差异汇总/扫码/过账计划 |
+| 3 | 库位 → SKU 反向查询 | `1c686314c` | ✅ 已完成 | 8 用例 + 起服实测 `variantBinsByLocation`/`binOccupancy`；渠道收口实测（shop-b 返回 0） |
+| 4 | 盘库 Service（建任务/盘次/录入/提交） | `7ac36eda8` | ✅ 已完成 | 3 用例 + bootstrap 实测建任务链路；夹具清理完毕 |
+| 5 | 过账（差异查询 + 过账事务） | `f8535f820`、`64fe535bf` | ✅ 已完成 | `diffOf`+`post`；自检先误将未盘变体清零，经用户裁决改为**真跳过**后复验「未盘变体账面保持不变 18/18」 |
+| 6 | 权限点 + SDL + Resolvers + 只读探针 | 后端 `b51f8534c`、前端 `8454e20` | ✅ 已完成 | 探针 24 项 / 0 fail；shop-api 未泄漏盘库字段；`binOccupancy` 含空格 n=18；`npm test` 230 用例无新增失败 |
 | 7 | 本地写链路自检（过账 + 复位） | — | ⬜ 未开始 | |
 | 8 | 部署后端 + 生产只读回归 | — | ⬜ 未开始 | |
 | 9 | 前端纯函数 + API 层 + mockup 定稿 | — | ⬜ 未开始 | |
@@ -7327,6 +7327,10 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 11 | 前端单测框架 | 计划（含既有打印模板计划）写 vitest | 改用 `node --test`（相对导入带显式 `.ts`） | web-admin 未安装 vitest，既有 `templates.spec.ts` 已是 `node --test` 先例 |
 | 12 | 前端 schema 快照 | 规格 §12 提示「需刷新/打补丁 `graphql.schema.json`」 | 本轮**不刷** nshop 快照 | 本轮只注册 admin-api，**无 shop-api 变更** → 快照缺的字段不影响 nshop codegen；并由只读探针显式断言 shop-api 未泄漏盘库字段 |
 | 13 | Task 13/14 的 mockup 前置 | R13 要求「版式先预览定稿」 | 复用 Task 9 Step 1 已确认的 M4/M5，**不重复出稿** | 同一批页面版式，重复出稿无增量信息 |
+| 14 | 未盘变体过账语义（规格 §6.2 / Task 2 单测 / Task 5 `post`） | 差异仍按 `0 - 账面` 体现（`diff=-4`），`confirm` 后按 `realQty=0` 生成过账项 → 实际「清零」 | `summarizeVariance` 增加 `hasCounted` 判定，**整变体未盘不进 `byVariant`**，故天然不进 `buildPostItems` → 过账**真跳过**，账面保持不变 | 规格 §6.2 字面是「未盘项账面不变」，原实现与字面矛盾且会静默清零库存；用户于 2026-09-24 裁决「真跳过」。未盘项仍由 `uncountedLines`/`uncountedCount` 列出，前端差异表不显示未盘行（未盘走独立折叠清单） |
+| 15 | 计数入参类型名 | SDL `input StocktakeCountInput` | **改名为 `StocktakeCountEntryInput`**（计划 L2853/L2870/L3941/L6981 已同步改名） | `@vendure/inventory-plugin`（dev-config 已加载）的 admin SDL 已占用 `input StocktakeCountInput`，同名 `extendSchema` 冲突导致**服务无法启动**；该插件不在本计划可改范围 |
+| 16 | 探针渠道 token | 计划给的探针用裸 `superadmin`（无渠道 token） | 照 `_smoke_picking_live.py` 带上 `vendure-token`（默认 `shop-a`，`WA_SMOKE_CHANNEL` 可覆盖） | 裸 superadmin 落默认渠道，而 Task 3 库位夹具在 shop-a；渠道收口会让 `binOccupancy` 返回空 → 断言假失败 |
+| 17 | 探针鉴权方式 | 计划用 Cookie 会话 | admin-api 实测走 **Bearer**（裸 Cookie 返回 FORBIDDEN），令牌取自 login 响应 `session` cookie 内 base64 的 `token` | 实测行为，已在探针内注释 |
 
 ---
 
