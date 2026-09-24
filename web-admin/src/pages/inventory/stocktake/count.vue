@@ -22,12 +22,13 @@
     <view v-if="!canEdit" class="warn">{{ $t('stocktake.count.requireClaim') }}</view>
     <view v-if="!showZone" class="hint">{{ $t('stocktake.count.noZone') }}</view>
 
-    <!-- ② 版式 B：库区 → 格子宫格（binMode = zone/bin 时） -->
+    <!-- ② 版式 B：库区 → 格子宫格（zone/bin 档都出库区 Tab；格子宫格仅 bin 档，zone 档只到库区） -->
     <template v-if="showZone">
       <BinGrid
         :groups="zoneGroups"
         :active-zone-id="activeZoneId"
         :selected-bin-id="selectedBinId"
+        :show-cells="showBin"
         :empty-text="$t('stocktake.count.emptyZone')"
         :summary-text="zoneSummary"
         @pick-zone="pickZone"
@@ -85,7 +86,7 @@ import { useStocktakeScope } from '../../../composables/useStocktakeScope';
 import { groupBinsByZone, type BinOccupancyRow, type ZoneGroup, type ZoneLike } from '../../../utils/stocktake-grid';
 
 const locale = useLocaleStore();
-const { showZone, ensureBinMode } = useBinMode();
+const { showZone, showBin, ensureBinMode } = useBinMode();
 const scope = useStocktakeScope();
 
 const filters = [
