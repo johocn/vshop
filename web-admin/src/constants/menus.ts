@@ -8,6 +8,8 @@ export interface MenuItem {
   action?: string;
   /** 仅在启用库位功能（binMode = zone/bin）时可见，由 useBinMode 门控 */
   binOnly?: boolean;
+  /** 需要的权限点；缺省 = 不校验。isSuperAdmin 一律放行（与 buildPlatformGroup 同口径） */
+  perm?: string;
 }
 export interface MenuGroup {
   domain: string;
@@ -34,6 +36,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.stockWarning', url: '/pages/inventory/stock/index', tier: 2 },
       { label: 'menu.purchaseIn', url: '/pages/inventory/stock-doc/purchase/index', tier: 2 },
       { label: 'menu.transfer', url: '/pages/inventory/stock-doc/transfer/index', tier: 2 },
+      { label: 'menu.stocktakeTask', url: '/pages/inventory/stocktake/index', tier: 1, perm: 'StocktakeCount' },
       { label: 'menu.stocktake', url: '/pages/inventory/stock-doc/stocktake/index', tier: 2 },
       { label: 'menu.manualIssue', url: '/pages/inventory/stock-doc/issue/index', tier: 2 },
       { label: 'menu.stockMovements', url: '/pages/inventory/movements/index', tier: 2 },
@@ -144,13 +147,17 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   return { domain: 'menu.domain.platform', color: D.d7.main, grad: D.d7.grad, items };
 }
 
-/** showBins 为真时（binMode = zone/bin）才展示 binOnly 菜单项 */
+/** showBins 为真时（binMode = zone/bin）才展示 binOnly 菜单项；perm 项按权限过滤，超管放行 */
 export function visibleMenus(auth: MenuAuthLite, showBins = false): MenuGroup[] {
   const pg = buildPlatformGroup(auth);
-  const base = showBins
-    ? menuGroups
-    : menuGroups.map((g) => (g.items.some((i) => i.binOnly)
-        ? { ...g, items: g.items.filter((i) => !i.binOnly) }
-        : g));
+  const visible = (i: MenuItem): boolean => {
+    if (i.binOnly && !showBins) return false;
+    if (i.perm && !(auth.isSuperAdmin || auth.hasPermission(i.perm))) return false;
+    return true;
+  };
+  // 过滤后为空的组不再渲染（既有的 6 个域都还有其它项，故对现状无视觉影响）
+  const base = menuGroups
+    .map((g) => ({ ...g, items: g.items.filter(visible) }))
+    .filter((g) => g.items.length > 0);
   return [...base, ...(pg ? [pg] : [])];
 }
