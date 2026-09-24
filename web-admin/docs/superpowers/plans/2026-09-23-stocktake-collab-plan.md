@@ -7297,8 +7297,8 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 4 | 盘库 Service（建任务/盘次/录入/提交） | `7ac36eda8` | ✅ 已完成 | 3 用例 + bootstrap 实测建任务链路；夹具清理完毕 |
 | 5 | 过账（差异查询 + 过账事务） | `f8535f820`、`64fe535bf` | ✅ 已完成 | `diffOf`+`post`；自检先误将未盘变体清零，经用户裁决改为**真跳过**后复验「未盘变体账面保持不变 18/18」 |
 | 6 | 权限点 + SDL + Resolvers + 只读探针 | 后端 `b51f8534c`、前端 `8454e20` | ✅ 已完成 | 探针 24 项 / 0 fail；shop-api 未泄漏盘库字段；`binOccupancy` 含空格 n=18；`npm test` 230 用例无新增失败 |
-| 7 | 本地写链路自检（过账 + 复位） | — | ⬜ 未开始 | |
-| 8 | 部署后端 + 生产只读回归 | — | ⬜ 未开始 | |
+| 7 | 本地写链路自检（过账 + 复位） | 前端 `1909a64` | ✅ 已完成 | `_probe_stocktake_local.py --write --post` 全 PASS：未认领录入被拒✓ 认领✓ 进 `COUNTING`✓ 提交✓ 任务进 `COUNTED`✓ 差异 `uncountedCount=18`✓ 有未盘项过账被拒✓ 过账成功（`stockDocId=3`）✓ 重复过账被拒✓ variant 1 库存 1000→0✓ **未盘变体账面不变 18/18**✓ 已复位 1000✓；测试任务 `code=TK20260924-002`。本地 shop-a 补 `TenantMember` 夹具（见偏差 #20），残留经 `_cleanup_stocktake_residue.mjs` 清理（删 line=38/wave=2/task=2/doc_item=1/doc=1/ledger=2；复核 `tasks=0 waves=0 lines=0 docs=0 loc1_total=6940 loc1_rows=19`） |
+| 8 | 部署后端 + 生产只读回归 | vendure `b91343562..b51f8534c`（含 Task 5/6 全部后端产物） | ✅ 已完成 | **Step1-2**：push fast-forward 成功，服务器 HEAD=`b51f8534c`；`pm2 restart vendure` 后日志确认 `stocktake_task`/`stocktake_wave`/`stocktake_line` 三表自动建（含索引与唯一约束），bootstrap 10:48 AM（pid 3045798）。**Step3**：生产只读探针（`https://e.joho.cn` + t2/loc3）**24/24 PASS**：8 Query + 10 Mutation 已注册、`stocktakeTasks` 按渠道收口无 errors、`binOccupancy` n=18 含空格、`variantBinsByLocation` 可查、**shop-api 不含盘库查询**（故 nshop `graphql.schema.json` 无需刷新）。**Step4**：渠道收口验证 **8/8 PASS**——t2 建任务 `TK20260924-001`（id=1, waves=1, expected=20）；t2 自己查到 `totalItems=1`；**t1 `totalItems=0`**；**`__default_channel__` `totalItems=0`**；t1 直查该 id 被拒「盘点任务 #1 不属于当前店铺」；t2 `cancelStocktakeTask` → `CANCELLED`。副作用留意：日志见既有 `synchronize:true` 的 DROP/ALTER（非本次新增） |
 | 9 | 前端纯函数 + API 层 + mockup 定稿 | — | ⬜ 未开始 | |
 | 10 | 任务看板页 | — | ⬜ 未开始 | |
 | 11 | 任务详情页 | — | ⬜ 未开始 | |
@@ -7331,6 +7331,10 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 15 | 计数入参类型名 | SDL `input StocktakeCountInput` | **改名为 `StocktakeCountEntryInput`**（计划 L2853/L2870/L3941/L6981 已同步改名） | `@vendure/inventory-plugin`（dev-config 已加载）的 admin SDL 已占用 `input StocktakeCountInput`，同名 `extendSchema` 冲突导致**服务无法启动**；该插件不在本计划可改范围 |
 | 16 | 探针渠道 token | 计划给的探针用裸 `superadmin`（无渠道 token） | 照 `_smoke_picking_live.py` 带上 `vendure-token`（默认 `shop-a`，`WA_SMOKE_CHANNEL` 可覆盖） | 裸 superadmin 落默认渠道，而 Task 3 库位夹具在 shop-a；渠道收口会让 `binOccupancy` 返回空 → 断言假失败 |
 | 17 | 探针鉴权方式 | 计划用 Cookie 会话 | admin-api 实测走 **Bearer**（裸 Cookie 返回 FORBIDDEN），令牌取自 login 响应 `session` cookie 内 base64 的 `token` | 实测行为，已在探针内注释 |
+| 18 | Task 8 生产回归入口 | `WA_SMOKE_BASE='https://www.youshop.cn'` | 生产 admin-api 实际在 **`https://e.joho.cn/admin-api`** | `www.youshop.cn/admin-api` 实测 404（Page not found: /admin-api）；`calibrate-prices.mjs` 亦默认指向 e.joho.cn。已实测 200 / 282 字段 |
+| 19 | Task 8 生产夹具渠道与仓库 | `WA_SMOKE_CHANNEL='shop-a'` / `WA_SMOKE_LOC='1'` | 生产**无 shop-a 渠道**，库位夹具在 **`t2` / location 3（默认仓）**（bins=18，empty=17） | 生产渠道列表实测为 `official-01..20 / __default_channel__ / t1..t3 / t24 / test-marketplace-shop`；盘库夹具只建在 t2 |
+| 20 | Task 7 本地夹具 | 计划未提 `TenantMember` | 本地 shop-a 补 1 行 `tenant_member(id=21, administratorId='1', channelId='3', displayName='Super Admin')` 并**保留** | 本地 shop-a 原无 `TenantMember`，superadmin 认领被拒「当前账号不是本店人员」；用户裁决「清残留、留夹具」 |
+| 21 | Task 8 Step4 渠道收口脚本的 `vendure-token` | 直接用渠道 code（`t2` / `t1` / `__default_channel__`） | 改用 **渠道 token**（`myTenantAccess.channels { token }` 按 code 匹配后取值） | `vendure-token` 头期望的是 token 而非 code，传 code 报 `No Channel with the token "t2" could be found` |
 
 ---
 
