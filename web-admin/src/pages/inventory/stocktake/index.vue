@@ -1,5 +1,7 @@
 <template>
   <view class="page">
+    <view v-if="!canCount" class="warn">{{ $t('stocktake.board.noPermission') }}</view>
+
     <!-- ① 状态 Tab -->
     <view class="tabs">
       <view v-for="t in tabs" :key="t.key" class="tb" :class="{ on: tab === t.key }" @tap="switchTab(t.key)">
@@ -24,8 +26,8 @@
     <view v-if="loading && !tasks.length" class="more">{{ $t('stocktake.board.loading') }}</view>
     <view v-else-if="!tasks.length" class="empty">{{ $t('stocktake.board.empty') }}</view>
 
-    <!-- ④ 新建任务浮动按钮 -->
-    <view class="fab" @tap="openForm">＋ {{ $t('stocktake.board.newTask') }}</view>
+    <!-- ④ 新建任务浮动按钮（无 StocktakeCount 置灰不可点） -->
+    <view class="fab" :class="{ dis: !canCount }" @tap="openForm">＋ {{ $t('stocktake.board.newTask') }}</view>
 
     <!-- ⑤ 新建任务表单 -->
     <view v-if="formVisible" class="mask" @tap="formVisible = false">
@@ -93,7 +95,7 @@
         </view>
         <view v-else class="hint">{{ $t('stocktake.board.modeOffHint') }}</view>
 
-        <button class="submit" :disabled="submitting" @tap="onCreate">
+        <button class="submit" :disabled="submitting || !canCount" @tap="onCreate">
           {{ submitting ? $t('stocktake.board.formSubmitting') : $t('stocktake.board.formSubmit') }}
         </button>
       </view>
@@ -110,10 +112,15 @@ import { fetchStockLocations } from '../../../apis/inventory';
 import { fetchStorageZones, type StorageZone } from '../../../apis/storage-bin';
 import { fetchCollectionsOptimized, type CollectionItem } from '../../../apis/collection';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useAuthStore } from '../../../stores/authStore';
 import { useBinMode } from '../../../composables/useBinMode';
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
 const { showZone, ensureBinMode } = useBinMode();
+
+/** 能盘权限（规格 §9）：无 `StocktakeCount` 只能看看板，建任务按钮置灰 */
+const canCount = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakeCount'));
 
 const tabs = [
   { key: 'all', label: 'stocktake.board.tabAll' },
@@ -207,6 +214,7 @@ function goTask(id: string) {
 }
 
 async function openForm() {
+  if (!canCount.value) return;   // 无能盘权限：浮动按钮已置灰，双保险不打开表单
   formVisible.value = true;
   if (!locations.value.length) {
     locations.value = await fetchStockLocations();
@@ -322,7 +330,9 @@ onPullDownRefresh(async () => {
 .more, .empty { text-align: center; font-size: 26rpx; color: $wa-muted; padding: 80rpx 0; }
 .fab { position: fixed; right: 32rpx; bottom: calc(40rpx + env(safe-area-inset-bottom)); background: $wa-accent; color: #fff;
   font-size: 27rpx; padding: 20rpx 32rpx; border-radius: 40rpx; box-shadow: 0 8rpx 24rpx rgba(0,0,0,.15);
+  &.dis { opacity: .5; }
 }
+.warn { font-size: 24rpx; color: $wa-danger; margin: 0 0 16rpx 8rpx; }
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
 .sheet { width: 100%; max-height: 88vh; overflow-y: auto; background: $wa-card; border-radius: 24rpx 24rpx 0 0; padding: 32rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
   .st { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; margin-bottom: 24rpx; }

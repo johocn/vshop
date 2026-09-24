@@ -8,7 +8,8 @@
       <text class="exit" @tap="exit">{{ $t('stocktake.scan.exit') }}</text>
     </view>
 
-    <text v-if="!canEdit" class="warn">{{ $t('stocktake.scan.requireClaim') }}</text>
+    <text v-if="!canCount" class="warn">{{ $t('stocktake.scan.noPermission') }}</text>
+    <text v-else-if="!canEdit" class="warn">{{ $t('stocktake.scan.requireClaim') }}</text>
     <text v-else-if="!showZone" class="warn muted">{{ $t('stocktake.scan.noBin') }}</text>
 
     <!-- ② 当前件（大号，单件专注） -->
@@ -79,7 +80,7 @@ const locale = useLocaleStore();
 const { showBin, showZone, ensureBinMode } = useBinMode();
 
 const scope = useStocktakeScope();
-const { taskId, waveId, lines, progress, canEdit, saveLine, addExtra, load } = scope;
+const { taskId, waveId, lines, progress, canCount, canEdit, saveLine, addExtra, load } = scope;
 
 const currentId = ref('');
 const qty = ref('');

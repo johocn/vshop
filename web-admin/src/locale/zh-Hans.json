@@ -1338,6 +1338,7 @@
       "empty": "暂无盘点任务",
       "loading": "加载中…",
       "loadFailed": "盘点任务加载失败",
+      "noPermission": "无盘点权限，仅可查看",
       "formWarehouse": "仓库 *",
       "formSelectWarehouse": "请选择仓库",
       "formName": "任务名称 *",
@@ -1416,6 +1417,7 @@
       "noChange": "没有需要保存的改动",
       "scanEntry": "扫码快盘",
       "requireClaim": "请先在任务详情页认领该盘次",
+      "noPermission": "无盘点权限，录入与提交已置灰",
       "loadFailed": "应盘清单加载失败",
       "operationFailed": "操作失败",
       "extraAdd": "登记盘盈",
@@ -1449,6 +1451,7 @@
       "scanFailed": "扫码识别失败",
       "loadFailed": "盘次加载失败",
       "requireClaim": "请先在任务详情页认领该盘次",
+      "noPermission": "无盘点权限，录入与提交已置灰",
       "noBin": "本仓未启用库位，扫码只做清单定位"
     },
     "diff": {
