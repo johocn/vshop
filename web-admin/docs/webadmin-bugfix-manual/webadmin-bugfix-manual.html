@@ -994,9 +994,81 @@ flowchart TD
     </div>
 
     <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/cjk-plugin/src/</code>——<code class="mono">stocktake/</code>（<code class="mono">stocktake-task.entity.ts</code>、<code class="mono">stocktake-wave.entity.ts</code>、<code class="mono">stocktake-line.entity.ts</code>、<code class="mono">stocktake-math.ts</code>、<code class="mono">stocktake.service.ts</code>、<code class="mono">stocktake.admin.resolver.ts</code>、<code class="mono">bin-query.*</code>）、<code class="mono">plugin.ts</code>（仅 admin 注册）、角色模板与 <code class="mono">StocktakeCount</code> / <code class="mono">StocktakePost</code> 权限点——<strong>只新增 3 张表，不改既有表结构</strong>；前端 <code class="mono">vshop/web-admin/src/pages/inventory/stocktake/{index,task,count,scan,diff}.vue</code>、<code class="mono">src/components/stocktake/{TaskCard,WaveCard,BinGrid,CountLineRow}.vue</code>、<code class="mono">src/apis/stocktake.ts</code>、<code class="mono">src/composables/useStocktakeScope.ts</code>、<code class="mono">src/utils/stocktake-grid.ts</code>、<code class="mono">src/composables/useBinMode.ts</code>、<code class="mono">src/constants/menus.ts</code>、<code class="mono">src/pages.json</code>、双语语言包。回归资产：<code class="mono">scripts/_smoke_stocktake_live.py</code>（只读冒烟探针，本地 / 线上共用）、<code class="mono">_e2e/_shot_stocktake.py</code>（手机视口截图，可逆闭环）。部署：后端本地 <code class="mono">npm run build</code>（提交 <code class="mono">lib/</code>，那是 git 跟踪的产物）→ 服务器 <code class="mono">git pull</code> + <code class="mono">pm2 restart vendure</code>；前端本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退；后端回上一 commit + <code class="mono">pm2 restart</code>（新表保留不影响旧代码）；过账生成的 ST 单据需按 <code class="mono">stockDocId</code> 手工冲正（<strong>过账不可自动撤销</strong>）。</p>
+
+    <h3>16.8 交付总结报告（Task 16 · 2026-09-25）</h3>
+    <p>本节为 Task 16「回归探针 + 手机截图 + 手册 + 部署」的交付总结。验收口径沿用项目硬规范：<b>功能交付 = 实现 + API/e2e 回归 + 手机视口截图 + 操作手册/测试用例文档</b>。结论：<mark class="key">已完成并通过验收（本地回归全绿 / 线上只读复验通过 / 生产零不可逆写入）</mark>。</p>
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>任务范围</td><td>Task 16 = ①只读冒烟探针 ②手机视口截图 ③操作手册第 16 章 ④生产部署 ⑤执行结果与偏差回填。计划 Task 0–16 已全部闭环</td></tr>
+      <tr><td>验收结论</td><td>✅ 已完成 —— 本地探针 OK=35/FAIL=0；线上探针 PASS 0 项失败；25 张手机截图逐图核对；手册 16.1–16.8 齐备；部署 <code class="mono">deploy done</code></td></tr>
+      <tr><td>执行日期</td><td>构建/部署/线上复验 2026-09-24；报告归档 2026-09-25</td></tr>
+      <tr><td>计划文档</td><td><code class="mono">vshop/web-admin/docs/superpowers/plans/2026-09-23-stocktake-collab-plan.md</code>（执行结果表 Task 16 行 + 偏差说明区 #46–#51）</td></tr>
+    </table>
+
+    <h4>16.8.1 交付物清单</h4>
+    <table>
+      <tr><th>类别</th><th>交付物</th><th>位置</th></tr>
+      <tr><td>回归探针</td><td>只读冒烟脚本：8 查询 + 10 变更注册、权限点枚举、数据面可查、渠道收口、shop-api 未泄漏、三页可达 0 JS 异常</td><td><code class="mono">scripts/_smoke_stocktake_live.py</code></td></tr>
+      <tr><td>截图脚本</td><td>手机视口 390×844 dpr=2，含 <code class="mono">WA_SHOT_LIVE=1</code> 线上只读分支；全程可逆、无过账路径</td><td><code class="mono">_e2e/_shot_stocktake.py</code></td></tr>
+      <tr><td>操作手册</td><td>本手册第 16 章（16.1–16.8）+ 目录锚点 + 页脚</td><td><code class="mono">docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html</code></td></tr>
+      <tr><td>手机截图</td><td><b>25 张</b>（本地 17 + 线上 8），780×1688 像素</td><td><code class="mono">src/static/manual/shots/</code> + <code class="mono">docs/webadmin-bugfix-manual/assets/</code></td></tr>
+      <tr><td>缺陷修复</td><td>zone 档录入页误渲染库位格子（违反规格 §8.2）→ <code class="mono">BinGrid</code> 补 <code class="mono">showCells</code>，仅 bin 档出格子</td><td><code class="mono">src/components/stocktake/BinGrid.vue</code>、<code class="mono">src/pages/inventory/stocktake/count.vue</code></td></tr>
+      <tr><td>生产部署</td><td>后台 <code class="mono">https://e.joho.cn/guanli/</code>，产物校验 <mark class="key">45964 KB</mark></td><td><code class="mono">scripts/deploy.mjs</code>（本地构建 → 服务器只解压）</td></tr>
+    </table>
+
+    <h4>16.8.2 回归证据</h4>
+    <p><b>① 只读冒烟探针</b>（唯一可选写入由 <code class="mono">WA_SMOKE_SETMODE</code> 控制，默认关）：</p>
+    <table>
+      <tr><th>环境</th><th>结果</th><th>关键数据</th></tr>
+      <tr><td>本地（后端 <code class="mono">localhost:3000</code> + dev server <code class="mono">5281</code>，渠道 <code class="mono">shop-a</code>、仓 id=1）</td><td><mark class="key">OK=35 / FAIL=0，退出码 0</mark></td><td>渠道收口实测通过：<code class="mono">channel=__default_channel__ totalItems=0 交集=[]</code>；<code class="mono">binOccupancy(loc=1)</code> 18 格 / 空格 17</td></tr>
+      <tr><td>线上（<code class="mono">e.joho.cn/guanli</code>，渠道 <code class="mono">t2</code>、仓 id=3）</td><td><mark class="key">PASS（失败 0 项）</mark></td><td><code class="mono">stocktakeTasks totalItems=18</code>；<code class="mono">binOccupancy(loc=3)</code> 18 格 / 空格 17；<code class="mono">stocktakeDiff(TK20260924-018)</code> = 应盘 1 / 已盘 0 / 未盘 1 / 盘盈 0 / 差异 0 / 建议复核 false；<b>shop-api 未泄漏盘库字段 OK</b>；看板页签 4、三页可达、<b>pageerror = 0</b>（唯一 console.error 为 <code class="mono">ERR_CONNECTION_CLOSED</code> 网络抖动，非页面异常）</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px;">线上「渠道收口」断言<b>如实记为 SKIP</b>（非 OK 非 FAIL）：生产登录账号 <code class="mono">guoxinnanshan@163.com</code> 的 <code class="mono">myTenantAccess.channels</code> 只含 <code class="mono">t2</code>，取不到可比渠道，<b>不虚报 OK</b>；该断言由 Task 8 在生产用显式渠道令牌（<code class="mono">t2</code> / <code class="mono">t1</code> / <code class="mono">__default_channel__</code>）验证 <b>8/8 PASS</b> 覆盖。</p>
+    <p><b>② 前端单测</b>：<code class="mono">node --test src/utils/stocktake-grid.spec.ts</code> → <mark class="key">15 用例 / 6 套件全绿</mark>（计划原稿写 13，属计数笔误，以实测为准）。</p>
+    <p><b>③ 类型检查</b>：<code class="mono">npx vue-tsc --noEmit -p tsconfig.json</code> 全仓基线 1453 处报错（与 Task 15 同基线，本轮<b>零新增源文件</b>）。</p>
+
+    <h4>16.8.3 手机视口截图（共 25 张，逐图肉眼核对）</h4>
+    <table>
+      <tr><th>组</th><th>数量</th><th>覆盖内容</th></tr>
+      <tr><td>本地 <code class="mono">stocktake_*_390.png</code></td><td>17</td><td>看板（首屏 / 空态）、新建弹窗、任务详情（OPEN / 已指派）、录入页（只读 / zone 选中 / bin 选中 / 可录入）、扫码（只读 / 命中库位 / 手动输入 / 盘盈 / 无效码）、差异页（摘要 / 跳过勾选 / 过账完成）</td></tr>
+      <tr><td>线上 <code class="mono">stocktake_live_*_390.png</code></td><td>8</td><td><code class="mono">board / new_sheet / task / count / count_grid_sel / scan / diff / done</code> —— 另用 <code class="mono">stocktake_live_*</code> 命名，<b>不覆盖本地证据</b></td></tr>
+    </table>
+    <p class="muted" style="font-size:13px;">线上核对要点：看板 4 页签（全部 / 盘点中 / 待过账 / 已结束）；录入页库区 Tab A/B/C/D + <b>10 格</b>（A-01-01 有 1 件）+「本库区 SKU 1 项 · 空格 9 个」+ 未认领红字提示；差异页 <b>20 应盘 / 0 已盘 / 20 未盘 / 0 盘盈</b> + 过账按钮置灰 + 红字「任务尚未全部完成盘点（需所有盘次已提交），暂不可过账」；<b>0 pageerror / 0 console.error</b>。详见 16.7 K 组。</p>
+
+    <h4>16.8.4 生产部署与写入边界</h4>
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>部署命令</td><td><code class="mono">node scripts\deploy.mjs</code>（工作目录 = <code class="mono">vshop/web-admin</code>）→ <code class="mono">uni build</code> → 产物校验 <b>45964 KB</b> → scp → 服务器解压 + 备份轮转 → nginx <code class="mono">syntax is ok</code> + reload → <mark class="key">deploy done</mark></td></tr>
+      <tr><td>部署铁律</td><td><b>本地构建，服务器只解压 + reload，绝不在服务器构建</b>（服务器内存不足）</td></tr>
+      <tr><td>写入边界</td><td>线上唯一写入 = 建演示任务 <code class="mono">TK20260924-019</code>（已 <code class="mono">cancelStocktakeTask</code> → <code class="mono">CANCELLED</code>）+ 可逆切档 <code class="mono">binMode off → bin → off</code>（已复核回 <code class="mono">off</code>）；<b>未认领、未录入、未提交、全程未调 <code class="mono">postStocktake</code></b></td></tr>
+    </table>
+
+    <h4>16.8.5 残留数据与清理</h4>
+    <ul>
+      <li>生产：<code class="mono">TK20260924-001..019</code> 全部 <code class="mono">CANCELLED</code>（含 Task 8 / 11 / 12 / 13 / 16 各轮演示任务）。</li>
+      <li>本地：<code class="mono">TK20260924-005..009</code> 落 <code class="mono">POSTED</code>（Task 14 过账终态，本地库留档，不可取消）；<code class="mono">TK20260924-010..016</code> <code class="mono">CANCELLED</code>。</li>
+      <li>已清理：临时日志 5 个（<code class="mono">_t16_*.log</code>、<code class="mono">_tsc16.log</code>）；构建产物 <code class="mono">Remove-Item -Recurse -Force dist\build\h5</code> + <code class="mono">git restore dist</code>，工作区无残留。</li>
+    </ul>
+
+    <h4>16.8.6 提交记录</h4>
+    <table>
+      <tr><th>哈希</th><th>类型</th><th>内容</th></tr>
+      <tr><td><code class="mono">f5831d8</code></td><td>fix</td><td>zone 档录入页不再渲染库位格子（<code class="mono">BinGrid</code> 增 <code class="mono">showCells</code>，仅 bin 档出格子）</td></tr>
+      <tr><td><code class="mono">fd8072e</code></td><td>test / docs</td><td>只读冒烟探针 + 手机视口截图（本地 17 + 线上 8）+ 手册第 16 章（53 files changed, +764 / −1）</td></tr>
+      <tr><td><code class="mono">a026c8b</code></td><td>docs</td><td>回填计划执行结果表 Task 16 行 + 偏差说明区 #46–#51</td></tr>
+    </table>
+
+    <h4>16.8.7 已知边界与风险（本轮不阻塞，留待后续决策）</h4>
+    <div class="callout warn">
+      <p>① <strong><code class="mono">autoSplitByZone</code> 无实际效果</strong>（计划偏差 #40）：后端 <code class="mono">createTask</code> 从未消费该入参，只要应盘行有库位归属仍会拆出 <code class="mono">zone</code> 盘次 + <code class="mono">unassigned</code> 盘次（实测传 <code class="mono">false</code> 仍得 2 个盘次）。看板「按库区自动拆盘次」开关当前<b>与行为无关</b>。——待办：补后端实现，或调整前端开关文案。</p>
+      <p>② <strong>前端未做按钮级权限置灰</strong>（计划偏差 #45）：「录入与提交按 <code class="mono">StocktakeCount</code> 收口」实际只落<b>菜单门控 + 服务端权限点（10 个 mutation）+ 盘次 owner 锁</b>三层兜底；<code class="mono">stocktake/index.vue</code> / <code class="mono">count.vue</code> / <code class="mono">scan.vue</code> 未按权限置灰按钮。——待办：如确需前端置灰，应另立任务。</p>
+      <p>③ <strong>生产写入正例不可演示</strong>（计划偏差 #35 / #39）：生产登录账号在 <code class="mono">t2</code> 无 <code class="mono">tenant_member</code> 行 → 认领 / 录入 / 提交 / 过账均被 owner 锁如实拒绝（该拒绝 toast 本身即错误路径证据）。写入链路已由 Task 7 本地写链路探针（fixture）全 PASS 覆盖。</p>
+      <p>④ <strong>过账不可自动撤销</strong>：过账生成的 ST 单据需按 <code class="mono">stockDocId</code> 手工冲正；因此本轮生产复验<b>刻意不触发过账</b>。</p>
+    </div>
+    <p class="muted" style="font-size:13px;">本轮新增偏差 6 条（计划偏差说明区 #46–#51）：脚本工程化改造（环境变量化 + shop-api 直连 + 线上只读分支）/ zone 档渲染缺陷 / 单测计数以实测为准 / 部署命令工作目录纠正 / 线上渠道收口如实记 SKIP / 提交拆 fix + test-docs 两条并补目录锚点。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
