@@ -1338,6 +1338,7 @@
       "empty": "No stocktake task",
       "loading": "Loading…",
       "loadFailed": "Failed to load tasks",
+      "noPermission": "No stocktake permission — view only",
       "formWarehouse": "Warehouse *",
       "formSelectWarehouse": "Pick a warehouse",
       "formName": "Task name *",
@@ -1416,6 +1417,7 @@
       "noChange": "Nothing to save",
       "scanEntry": "Scan mode",
       "requireClaim": "Claim this wave on the task page first",
+      "noPermission": "No stocktake permission — entry and submit are disabled",
       "loadFailed": "Failed to load expected lines",
       "operationFailed": "Operation failed",
       "extraAdd": "Register extra",
@@ -1449,6 +1451,7 @@
       "scanFailed": "Scan failed",
       "loadFailed": "Failed to load the wave",
       "requireClaim": "Claim this wave on the task page first",
+      "noPermission": "No stocktake permission — entry and submit are disabled",
       "noBin": "Bins are disabled here; scanning only locates lines"
     },
     "diff": {

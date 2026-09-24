@@ -19,8 +19,10 @@
       </view>
     </view>
 
-    <view v-if="!canEdit" class="warn">{{ $t('stocktake.count.requireClaim') }}</view>
-    <view v-if="!showZone" class="hint">{{ $t('stocktake.count.noZone') }}</view>
+    <!-- 提示分因：无权限（StocktakeCount）优先于未认领，二者都不置灰则只在无库区时提示 -->
+    <view v-if="!canCount" class="warn">{{ $t('stocktake.count.noPermission') }}</view>
+    <view v-else-if="!canEdit" class="warn">{{ $t('stocktake.count.requireClaim') }}</view>
+    <view v-else-if="!showZone" class="hint">{{ $t('stocktake.count.noZone') }}</view>
 
     <!-- ② 版式 B：库区 → 格子宫格（zone/bin 档都出库区 Tab；格子宫格仅 bin 档，zone 档只到库区） -->
     <template v-if="showZone">
@@ -101,7 +103,7 @@ const zones = ref<ZoneLike[]>([]);
 const activeZoneId = ref<string>('');
 const selectedBinId = ref<string>('');
 
-const { progress, canEdit, visibleLines, unassignedLines, setDraft, draftOf, save, saving, wave, taskId, waveId } = scope;
+const { progress, canCount, canEdit, visibleLines, unassignedLines, setDraft, draftOf, save, saving, wave, taskId, waveId } = scope;
 
 /** 库区真实列表参与归组：排序按 zone.sortOrder，名称/编码取库区主档（拿不到时退回行内快照） */
 const zoneGroups = computed(() => groupBinsByZone(occupancy.value, zones.value));

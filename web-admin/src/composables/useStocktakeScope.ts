@@ -9,10 +9,12 @@ import {
   clampCounted, filterLines, isCounted, sortLines, waveProgress,
   type LineFilter, type StocktakeLineRow,
 } from '../utils/stocktake-grid';
+import { useAuthStore } from '../stores/authStore';
 
 const PAGE_SIZE = 500;
 
 export function useStocktakeScope() {
+  const auth = useAuthStore();
   const taskId = ref('');
   const waveId = ref('');
   const task = ref<StocktakeTask | null>(null);
@@ -29,8 +31,13 @@ export function useStocktakeScope() {
     waveProgress(wave.value ?? { expectedCount: 0, countedCount: 0, state: 'OPEN' }),
   );
 
-  /** 只看当前盘次：CLAIMED/COUNTING 可写，SUBMITTED/CANCELLED 只读 */
-  const canEdit = computed(() => !!wave.value && ['CLAIMED', 'COUNTING'].includes(wave.value.state));
+  /** 能盘权限（规格 §9）：无 `StocktakeCount` 只能只读查看，录入/保存/提交一律置灰 */
+  const canCount = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakeCount'));
+
+  /** 可写 = 有能盘权限 **且** 当前盘次处于 CLAIMED/COUNTING（SUBMITTED/CANCELLED 只读） */
+  const canEdit = computed(() =>
+    canCount.value && !!wave.value && ['CLAIMED', 'COUNTING'].includes(wave.value.state),
+  );
 
   const visibleLines = computed(() => filterLines(lines.value, filter.value));
 
@@ -141,7 +148,7 @@ export function useStocktakeScope() {
 
   return {
     taskId, waveId, task, wave, lines, filter, loading, saving, drafts,
-    progress, canEdit, visibleLines, unassignedLines,
+    progress, canCount, canEdit, visibleLines, unassignedLines,
     setDraft, draftOf, pendingInputs, load, refreshWave, loadLines, save, saveLine, addExtra,
   };
 }
