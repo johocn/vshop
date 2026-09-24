@@ -39,6 +39,7 @@
     { "path": "pages/inventory/locations/edit", "style": { "navigationBarTitleText": "仓库" } },
     { "path": "pages/inventory/bins/index", "style": { "navigationBarTitleText": "库区库位", "enablePullDownRefresh": true } },
     { "path": "pages/inventory/stocktake/index", "style": { "navigationBarTitleText": "协同盘库", "enablePullDownRefresh": true } },
+    { "path": "pages/inventory/stocktake/task", "style": { "navigationBarTitleText": "盘点任务" } },
     { "path": "pages/shipping/methods/index", "style": { "navigationBarTitleText": "配送方式" } },
     { "path": "pages/shipping/method-config/index", "style": { "navigationBarTitleText": "区域与运费" } },
     { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } },
