@@ -127,6 +127,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#pickup-global">自提点「全局可用」开关</a></li>
       <li><a href="#followups">商品详情三问题修复（就近库存 / 标题SKU / 9图保存）</a></li>
       <li><a href="#order-list-v2">订单列表 · 筛选/状态/版式重构</a></li>
+      <li><a href="#stocktake-collab">16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</a></li>
     </ol>
   </nav>
 
@@ -869,7 +870,133 @@ flowchart TD
     <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/cjk-plugin/src/</code>——<code class="mono">picking/</code>（<code class="mono">pick-batch.entity.ts</code>、<code class="mono">pick-batch-order.entity.ts</code>、<code class="mono">pick-batch-math.ts</code>、<code class="mono">pick-batch.service.ts</code>、<code class="mono">pick-batch.admin.resolver.ts</code>）、<code class="mono">storage/</code>（<code class="mono">storage-zone.entity.ts</code>、<code class="mono">storage-bin.entity.ts</code>、<code class="mono">variant-storage-bin.entity.ts</code>、<code class="mono">storage-bin.service.ts</code>、<code class="mono">storage.admin.resolver.ts</code>）、<code class="mono">bin-mode</code> 渠道自定义字段、<code class="mono">stock-doc</code>（入库归位）、<code class="mono">plugin.ts</code>（双注册）——<strong>只新增 5 张表，不改既有表结构</strong>；前端 <code class="mono">vshop/web-admin/src/pages/order/picking/{index,batch}.vue</code>、<code class="mono">src/pages/inventory/{bins,stock-doc/purchase}/</code>、<code class="mono">src/components/picking/*</code>、<code class="mono">src/components/common/RegionPicker.vue</code>、<code class="mono">src/utils/print/*</code>、<code class="mono">src/apis/{picking,storage-bin,channel}.ts</code>、<code class="mono">src/composables/{useBinMode,useShipSubmit}.ts</code>、<code class="mono">src/constants/menus.ts</code>、<code class="mono">src/pages.json</code>、双语语言包。部署：后端本地 <code class="mono">npm run build</code>（提交 <code class="mono">lib/</code>，那是 git 跟踪的产物）→ 服务器 <code class="mono">git pull</code> + <code class="mono">pm2 restart vendure</code>；前端本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退；后端回上一 commit + <code class="mono">pm2 restart</code>（新表保留不影响旧代码）；渠道 <code class="mono">binMode</code> 改回 <code class="mono">off</code> 即关闭全部新入口；订单渠道归属的配套数据可用上文 SQL 删除。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="stocktake-collab">
+    <h2>16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</h2>
+
+    <h3>16.1 能力概览</h3>
+    <p>在既有「单人一次性盘库」之上新增任务化协同盘库：<b>任务</b>（一任务一仓 + 盘点活动分组）→ <b>盘次</b>（按库区拆分，可指派 / 可认领、独占锁定）→ <b>应盘清单</b>（双源合并：已归位 ∪ 有账面，未归位进单独桶）→ <b>汇总后一次性人工过账</b>（生成 1 张 ST 单据）。</p>
+    <ul>
+      <li>多人协同：盘次被认领后他人无法录入 / 提交（后端拒绝并回传原因）；<b>能盘的人与能过账的人分开</b>（两个权限点）。</li>
+      <li>不同仓库：同一 <code class="mono">activityCode</code> 在看板合并显示，各仓独立过账。</li>
+      <li>按库存区域 / 按货品：圈范围支持库区 + 分类 + 指定变体清单（专项盘即只用货品维度圈范围）。</li>
+      <li>内部码 / 条形码：扫码先解库位码定位格子，再按内部码 → 条形码 → SKU 顺序命中应盘行；清单外提示登记盘盈。</li>
+      <li>已盘 / 未盘：<code class="mono">countedQty IS NULL</code> 判定，进度分母 = <code class="mono">expectedCount</code>，未盘项可单独筛出。</li>
+      <li>分批次盘点：一个任务拆多个盘次并行，全部提交后一次性汇总过账。</li>
+    </ul>
+
+    <h3>16.2 后端实现（vendure · cjk-plugin）</h3>
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>新增表（3）</td><td><code class="mono">stocktake_task</code>（任务）/ <code class="mono">stocktake_wave</code>（盘次）/ <code class="mono">stocktake_line</code>（应盘行）。由 <code class="mono">synchronize:true</code> 开机自动建表，<b>未写 migration</b>（遵循项目数据库策略：生产 postgres）</td></tr>
+      <tr><td>渠道收口</td><td>三张表均带 <code class="mono">tenantChannelId</code>，全部查询按 <code class="mono">String(ctx.channelId)</code> 过滤（承接配货台「候选订单跨渠道串入」的教训）</td></tr>
+      <tr><td>接口注册</td><td><b>仅 <code class="mono">adminApiExtensions</code></b>（6 查询 + 10 变更），<b>有意不注册 shop-api</b>（C 端无盘点需求）；回归中已显式断言 shop-api 未泄漏</td></tr>
+      <tr><td>权限点</td><td><code class="mono">StocktakeCount</code>（建任务 / 拆盘次 / 认领 / 录入 / 提交）、<code class="mono">StocktakePost</code>（过账）。<code class="mono">tenant-admin</code> 模板两个都发，「库存」角色只发 <code class="mono">StocktakeCount</code></td></tr>
+      <tr><td>库位反查（缺口补齐）</td><td>新增两个只读查询：<code class="mono">variantBinsByLocation</code>（库位→SKU 明细，分页）与 <code class="mono">binOccupancy</code>（全部启用库位占用概览，<b>含空格子</b>，复用既有 <code class="mono">binBindCounts()</code>）</td></tr>
+      <tr><td>盈亏口径</td><td><b>按变体汇总</b>：实盘合计 − 仓库当前账面；<b>不逐行相减</b>（盘盈行与应盘行同变体并存时逐行会算两次；与 <code class="mono">createStockDoc</code> 的 <code class="mono">realQty</code> 覆盖式语义一致）</td></tr>
+      <tr><td>过账</td><td>复用既有 <code class="mono">StockDoc(type='STOCKTAKE')</code> 通道（≤ 前缀 <code class="mono">ST</code>）：差异项传 <code class="mono">realQty = 实盘合计</code>；无差异但库位变更的传当前账面 + <code class="mono">zoneId/binId</code>（触发 <code class="mono">applyBinBinding</code> 顺手归位）；任务转 <code class="mono">POSTED</code> 并记 <code class="mono">postedStockDocId</code>，重复过账直接拒绝</td></tr>
+      <tr><td>构建产物</td><td>dev-server 消费 <code class="mono">lib/</code>（<code class="mono">main = lib/index.js</code>），改 <code class="mono">src</code> 必须 <code class="mono">npm run build</code>；提交带 <code class="mono">src</code> + <code class="mono">lib</code></td></tr>
+    </table>
+
+    <h3>16.3 前端实现（vshop / web-admin）</h3>
+    <table>
+      <tr><th>文件</th><th>职责</th></tr>
+      <tr><td><code class="mono">src/utils/stocktake-grid.ts</code></td><td>纯函数层：格子宫格归组、进度、行排序 / 筛选、圈范围解析、差异摘要、下一件未盘（<code class="mono">node --test</code> 单测）</td></tr>
+      <tr><td><code class="mono">src/apis/stocktake.ts</code></td><td>盘库 6 查询 + 10 变更（照 <code class="mono">apis/storage-bin.ts</code> 风格，统一 <code class="mono">graphQlErrorMsg</code>）</td></tr>
+      <tr><td><code class="mono">src/composables/useStocktakeScope.ts</code></td><td>盘次上下文（录入页 B 与扫码页 C 共用）：任务 / 盘次 / 应盘行 / 草稿 / 进度 / 独占可写判定</td></tr>
+      <tr><td><code class="mono">src/components/stocktake/</code></td><td><code class="mono">TaskCard</code> / <code class="mono">WaveCard</code> / <code class="mono">BinGrid</code>（空格子可见，<b>仅 bin 档渲染格子</b>）/ <code class="mono">CountLineRow</code></td></tr>
+      <tr><td>页面（5）</td><td>任务看板 <code class="mono">stocktake/index</code>、任务详情 <code class="mono">stocktake/task</code>、手机录入 <code class="mono">stocktake/count</code>（版式 B：库区 → 格子宫格）、扫码快盘 <code class="mono">stocktake/scan</code>（版式 C：单件专注）、差异页 <code class="mono">stocktake/diff</code>（过账前唯一决策点）</td></tr>
+      <tr><td>菜单</td><td><code class="mono">MenuItem</code> 增 <code class="mono">perm</code>；库存域新增 tier 1「协同盘库」（<code class="mono">StocktakeCount</code> 门控）；既有「盘库」改名「快捷盘点」并降为 tier 2，<b>行为不变</b></td></tr>
+      <tr><td>三档门控</td><td><code class="mono">useBinMode</code> 决定录入页形态：<code class="mono">off</code> 无库区（整仓单盘次）、<code class="mono">zone</code> 到库区、<code class="mono">bin</code> 到格子（空格子可见）</td></tr>
+      <tr><td>扫码</td><td><b>复用</b>既有 <code class="mono">src/utils/scanner.ts</code> 的 <code class="mono">scanCode()</code>，不自写扫码；失败按 <code class="mono">MANUAL</code>/<code class="mono">CANCEL</code>/<code class="mono">FAILED</code> 分流，微信内置恒为手动输入（故页内保留手动输入条）</td></tr>
+    </table>
+
+    <h3>16.4 回归测试与证据</h3>
+    <p><b>后端单测（vitest）</b>：<code class="mono">stocktake-math.spec.ts</code>（状态机 / 任务号 / 应盘清单 / 差异汇总 / 扫码解析 / 过账计划）、<code class="mono">stocktake.service.spec.ts</code>（独占锁与状态派生）、<code class="mono">bin-query.math.spec.ts</code>（分页钳制 / 归属校验 / 占用归并）。</p>
+    <p><b>前端单测（node --test）</b>：<code class="mono">node --test src/utils/stocktake-grid.spec.ts</code> → <mark class="key">15 用例 / 6 套件全绿</mark>。</p>
+    <p><b>本地写链路自检</b>：建任务 → 认领 → 录入 → 提交 → 过账 → <b>库存复位</b>。过账会真实改库存，故<b>只在本机执行，生产绝不执行</b>。以 <code class="mono">NF-WATER-500</code> 为例，其账面数量的完整数字链为 <mark class="key">1008 →（盘中改账）1013 →（实盘）1012 →（过账后）1012 →（复位）1008</mark>，终值已复核等于初值；过账生成的单据为 <code class="mono">stockDocId=3</code>。</p>
+    <p><b>只读冒烟探针</b>：<code class="mono">python scripts/_smoke_stocktake_live.py</code>（本地 dev server <code class="mono">localhost:5281</code> + 后端 <code class="mono">localhost:3000</code>、渠道 <code class="mono">shop-a</code>、仓 id=1）实测 <mark class="key">OK=35 / FAIL=0，退出码 0（PASS，失败 0 项）</mark>。覆盖断言如下：</p>
+    <table>
+      <tr><th>组</th><th>断言</th><th>本地实测</th></tr>
+      <tr><td>SDL 齐备</td><td>6 查询 + 10 变更全部注册于 <code class="mono">/admin-api</code></td><td>OK</td></tr>
+      <tr><td>权限点枚举</td><td><code class="mono">StocktakeCount</code> / <code class="mono">StocktakePost</code> 可枚举</td><td>OK</td></tr>
+      <tr><td>数据面可查</td><td><code class="mono">stocktakeTasks</code> 9 条；<code class="mono">binOccupancy(loc=1)</code> <b>18 格（其中空格 16）</b>；<code class="mono">variantBinsByLocation</code> 2 条；<code class="mono">stocktakeDiff(TK20260924-009)</code> = 应盘 19 / 已盘 1 / 未盘 18 / 盘盈 0 / 差异 1 / 建议复核 false</td><td>OK</td></tr>
+      <tr><td>渠道收口</td><td><code class="mono">shop-a</code> 与 <code class="mono">__default_channel__</code> 两渠道任务 id <b>零交集</b>（另一渠道 totalItems=0）</td><td>OK</td></tr>
+      <tr><td>shop-api 未泄漏</td><td>shop-api 内省结果中<b>不含</b> <code class="mono">stocktake*</code> / <code class="mono">binOccupancy</code> / <code class="mono">variantBinsByLocation</code></td><td>OK</td></tr>
+      <tr><td>前端三页可达</td><td>看板 / 详情 / 差异页可达，且 <b>0 条 JS 异常</b>（0 pageerror / 0 console.error）</td><td>OK</td></tr>
+    </table>
+
+    <h3>16.5 升级须知</h3>
+    <ul>
+      <li><b>老角色不会自动获得新权限点</b>：改的是角色<b>模板</b>，已落库的 <code class="mono">Role.permissions</code> 数组不会变。需管理员在「角色管理」里重新套用模板或手工勾选 <code class="mono">StocktakeCount</code> / <code class="mono">StocktakePost</code>（本地与生产各确认一次）。</li>
+      <li><b>库位档位</b>：盘库页形态由渠道 <code class="mono">binMode</code> 决定（<code class="mono">off</code>/<code class="mono">zone</code>/<code class="mono">bin</code>）；任务会存档建任务时的档位（<code class="mono">binModeAtCreate</code>），<b>建任务后改档不影响进行中的任务</b>。切档后必须<b>冷加载</b>页面（hash 路由只改 hash 不会重载，会读到旧档）。</li>
+      <li><b>本次不做</b>（P1/P2）：周期轮盘（排期）、多轮复盘留痕、库位级账目分摊、差异导出、库位偏差统计。差异页与手册均已注明。</li>
+      <li><b>synchronize 建表</b>：三张新表随服务启动自动创建，无需手工执行 SQL。</li>
+      <li><b>过账不可撤销</b>：过账会真实改写库存并生成 ST 单据，属一次性人工动作，操作前务必先看差异页并确认「跳过 N 项未盘」。</li>
+    </ul>
+
+    <h3>16.6 验收结论（手机 390×844 dpr=2）</h3>
+    <div class="callout ok">
+      <p><b>本地实测</b>（dev server <code class="mono">localhost:5281</code> + 后端 <code class="mono">localhost:3000</code>，渠道 <code class="mono">shop-a</code>，仓 id=1，档位 <code class="mono">off</code> → <code class="mono">zone</code> → <code class="mono">bin</code> 三档轮测）：① 看板四个页签（全部 / 盘点中 / 待过账 / 已结束）与仓库筛选、活动码分组正常，任务卡显示进度（已盘 2/19）与盘次提交数（1/2）；② 新建任务抽屉字段完整（仓库 / 任务名称 / 盘点活动码 / 圈定库区 / 圈定分类 / 指定变体 ID / 包含账面为 0 的变体 / 按库区自动拆盘次）；③ 任务详情显示盘次四要素与未归位桶（已盘 0/17）；④ 认领后出现「进入录入 / 释放 / 指派 / 取消盘次」；⑤ 录入页三档形态正确：<code class="mono">bin</code> 档 4 个库区 Tab + 10 个格子（<b>含空格子</b>，并标注「本库区 SKU 2 项 · 空格 8 个」）、<code class="mono">zone</code> 档 4 个库区 Tab 且 <b>0 个格子</b>、<code class="mono">off</code> 档无库区无格子（提示「本仓未启用库区，直接按清单录入」，19 行全量）；⑥ 扫码快盘为单件专注视图（大号 SKU / 账面 200 / 库位 A-01-01 / ±1 / 上一件 / 确认并下一件 / 跳过），并有手动输入条兜底；⑦ 录入保存后进度条走满、两行标绿「已盘」（201 / 101）；⑧ 差异页四宫格 19 / 2 / 17 / 0、未盘清单可展开勾选、任务尚未全部提交时过账按钮置灰并给出阻塞原因；⑨ 全流程无 JS 运行时异常。演示数据全部用<strong>可逆闭环</strong>（建任务 → 指派 / 认领 → 录入 → 提交 → 取消任务）完成，<strong>本地与线上均未执行 <code class="mono">postStocktake</code></strong>（过账会真实改库存），收尾 <code class="mono">binMode</code> 已还原 <code class="mono">off</code>。</p>
+    </div>
+    <div class="callout warn">
+      <h4>线上复验（生产 e.joho.cn/guanli，渠道 t2 / 默认仓 id=3）</h4>
+      <p><b>① 部署</b>：本地构建 + <code class="mono">node scripts/deploy.mjs</code>（cwd <code class="mono">web-admin</code>，服务器只解压不构建）→ 产物校验通过 <mark class="key">45964 KB</mark> → scp 到 <code class="mono">/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/guanli</code> → 备份轮转 + nginx reload → <code class="mono">deploy done</code>。</p>
+      <p><b>② 只读冒烟探针</b>：<code class="mono">python scripts/_smoke_stocktake_live.py</code>（默认即指向生产）→ <mark class="key">PASS（失败 0 项），退出码 0</mark>：8 查询 + 10 变更全部注册于 <code class="mono">/admin-api</code>；两个权限点可枚举；<code class="mono">stocktakeTasks</code> 18 条；<code class="mono">binOccupancy(loc=3)</code> <b>18 格（其中空格 17）</b>；<code class="mono">stocktakeDiff(TK20260924-018)</code> = 应盘 1 / 已盘 0 / 未盘 1 / 盘盈 0 / 差异 0 / 建议复核 false；<b><code class="mono">shop-api 未泄漏盘库字段</code> 为 OK</b>；看板 / 详情 / 差异三页可达且 <b>0 条 JS 异常</b>。渠道收口一项为 <code class="mono">SKIP</code>——生产登录账号只属于 t2，探针取不到可比渠道，此时<b>显式跳过而不虚报 OK</b>；该断言在 Task 8 已用显式渠道令牌在生产验证（8/8 PASS：<code class="mono">t1</code> 与 <code class="mono">__default_channel__</code> 各自 <code class="mono">totalItems=0</code>，跨渠道直查该任务被拒「盘点任务 #1 不属于当前店铺」）。</p>
+      <p><b>③ 线上手机截图</b>：<code class="mono">WA_SHOT_LIVE=1 python _e2e/_shot_stocktake.py</code> → 8 张 <code class="mono">stocktake_live_*_390.png</code>（见 16.7 的 K 组），<b>0 pageerror / 0 console.error</b>。线上录入页实测 <b>库区 Tab=4 / 格子=10（A-01-01 有件、其余 9 格空）/「本库区 SKU 1 项 · 空格 9 个」</b>；差异页四宫格 20 / 0 / 20 / 0 且过账按钮置灰（红字「任务尚未全部完成盘点（需所有盘次已提交），暂不可过账」）。</p>
+      <p><b>④ 写入边界</b>：线上唯一写入 = 建 1 个演示任务 <code class="mono">TK20260924-019</code>（应盘 20 / 2 盘次）+ 可逆切档 <code class="mono">binMode</code>（<code class="mono">off → bin → off</code>）；任务建后<b>立即取消</b>（<code class="mono">CANCELLED</code>），<b>未认领 / 未录入 / 未提交</b>。<b>线上绝不调用 <code class="mono">postStocktake</code></b>（过账会真实改库存）。生产账号在 t2 无 <code class="mono">tenant_member</code> 行，owner 锁本就会拒绝对盘次的写入（与 Task 12/13 同一环境限制，见偏差 #20/#35），故线上截图刻意只覆盖只读态。</p>
+    </div>
+
+    <h3>16.7 验收截图（共 25 张：本地 17 + 线上 8）</h3>
+    <p>A–J 组为本地 dev server 真实效果，K 组为<strong>生产 e.joho.cn/guanli</strong> 真实效果（均为 <strong>390×844、dpr=2，输出 780×1688</strong>）。页面一律<strong>冷加载</strong>后抓取（hash 路由不重载，切档位后必须重新加载才能读到新档）。</p>
+
+    <p><strong>A. 任务看板 · 首屏 / 空态 / 新建任务抽屉</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_board_first_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_board_empty_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/stocktake_new_sheet_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">看板首屏：<b>4 个页签</b>（全部 / 盘点中 / 待过账 / 已结束）+ 仓库筛选 + 按活动码分组，任务卡显示进度与「已盘 2/19」、盘次 1/2 已提交 / 「盘点中」页签空态（「暂无盘点任务」） / 新建任务抽屉（仓库* / 任务名称* / 盘点活动码 / 圈定库区 A B C D / 圈定分类 / 指定变体 ID / 包含账面为 0 的变体 / 按库区自动拆盘次）</figcaption></figure>
+
+    <p><strong>B. 任务看板（bin 档）与任务详情 · 盘次四要素 + 未归位桶</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_board_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_task_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">bin 档看板（圈定库区后单盘次 + 按库区自动拆盘次生效） / 任务详情：盘次四要素（库区 / 负责人 / 进度 / 状态）+ <b>未归位桶</b>（已盘 0/17，单独区块避免漏盘），底部为「取消任务 / 查看差异并过账」</figcaption></figure>
+
+    <p><strong>C. 盘次被认领后的操作位</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_task_claimed_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">认领后盘次显示负责人（Super Admin）与四个操作：<b>进入录入 / 释放 / 指派 / 取消盘次</b>；待认领态则为「认领 / 指派 / 取消盘次」</figcaption></figure>
+
+    <p><strong>D. 录入页（版式 B）· bin 档：库区 Tab + 格子宫格（空格子可见）+ 选中格子</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_count_bin_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_count_grid_sel_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">bin 档录入页：4 个库区 Tab + <b>10 个格子（含空格子，实测 2 行有货 / 8 个空格）</b>，汇总条「本库区 SKU 2 项 · 空格 8 个」 / 点选 A-01-01 后格子描边高亮并提示「本格子 1 项」</figcaption></figure>
+
+    <p><strong>E. 扫码快盘（版式 C）· 单件专注 + 手动输入兜底</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_scan_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_scan_manual_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">单件专注视图：大号 SKU + 品名 + 库位 A-01-01 + 账面 200 + ±1 + 「上一件 / 确认并下一件 / 跳过」+ 扫码定位 / 展开手动输入条（微信内置浏览器无扫码能力时走此路径，复用既有 <code class="mono">scanCode()</code>）</figcaption></figure>
+
+    <p><strong>F. 录入保存后 · 进度走满 + 已盘绿标</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_count_saved_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">切到「全部」筛选后可见：进度条走满（已盘 2/2），两行标绿「已盘」并显示实盘数 201 / 101（默认筛选为「未盘」，已盘行会被筛掉）</figcaption></figure>
+
+    <p><strong>G. 差异页 · 过账前唯一决策点（四宫格 / 未盘清单 / 阻塞原因）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_diff_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_diff_skip_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">四宫格摘要 应盘 19 / 已盘 2 / 未盘 17 / 盘盈 0 + 未盘项(17) 折叠清单 + 差异表（2 行 +1）+ 红字阻塞「任务尚未全部完成盘点（需所有盘次已提交），暂不可过账」且过账按钮置灰 / 展开未盘清单并勾选「确认跳过 N 项未盘」（勾选态与清单同框）</figcaption></figure>
+
+    <p><strong>H. 任务详情 · 已提交盘次与待认领盘次并存</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_task_open_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">同一任务的库区 A 盘次<b>已提交</b>（只读）、未归位桶盘次仍<b>待认领</b>，页脚提示「还有 1 个盘次未提交」——这正是「全部提交后才可过账」的门控来源</figcaption></figure>
+
+    <p><strong>I. 三档门控对比 · zone 档与 off 档录入页</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_count_zone_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_count_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;"><code class="mono">zone</code>：有 4 个库区 Tab 但 <b>0 个格子</b>（只到库区，不暴露库位码） / <code class="mono">off</code>：无库区无格子，提示「本仓未启用库区，直接按清单录入」，清单为整仓 19 行</figcaption></figure>
+
+    <p><strong>J. 收尾证据 · 演示任务全部取消</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_board_done_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">「已结束」页签：本轮演示建的全部任务（含中断残留的 TK20260924-010）均为<b>已取消</b>，证明演示未留下进行中的脏任务；同时 <code class="mono">binMode</code> 已还原 <code class="mono">off</code></figcaption></figure>
+
+    <p><strong>K. 线上生产 e.joho.cn/guanli（bin 档，演示任务 TK20260924-019，建后即取消）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_live_board_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_live_new_sheet_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">线上看板：4 个页签（全部 / 盘点中 / 待过账 / 已结束）+ 仓库筛选 + 按活动码分组（历史演示残留 <code class="mono">TASK13-SCAN</code>，全部「已取消」），右下「＋新建盘点任务」 / 线上新建任务抽屉（仓库* / 任务名称* / 盘点活动码 / 圈定库区 A B C D / 圈定分类 / 指定变体 ID / 包含账面为 0 的变体 / 按库区自动拆盘次）</figcaption></figure>
+
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_live_task_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_live_diff_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">线上任务详情（演示任务 <code class="mono">TK20260924-019</code>：默认仓 / 活动 <code class="mono">ACT-2026-09-24</code> / 应盘 20 / 2 个盘次，均「待认领」）/ 线上差异页：四宫格 <b>20 应盘 / 0 已盘 / 20 未盘 / 0 盘盈</b>、「差异」区「暂无差异」、红字阻塞「任务尚未全部完成盘点（需所有盘次已提交），暂不可过账」且过账按钮置灰</figcaption></figure>
+
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_live_count_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake_live_count_grid_sel_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/stocktake_live_scan_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">线上录入页（bin 档，实测 <b>库区 Tab=4 / 格子=10</b>）：未认领盘次如实红字提示「请先在任务详情页认领该盘次」，A 库区 10 个库位格中 A-01-01 有 1 件、其余 9 格为 0，汇总「本库区 SKU 1 项 · 空格 9 个」，行清单 <code class="mono">COUPON-TEST-V1</code>（账面 0） / 点选 A-01-01 后格子描边高亮 / 线上扫码快盘页（单件专注：大号 SKU / 账面 / 库位 / ±1 / 上一件 / 确认并下一件 / 跳过 / 扫码定位 / 手动输入）</figcaption></figure>
+
+    <figure style="margin:0 0 10px;"><img src="assets/stocktake_live_done_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">线上收尾证据：演示任务 <code class="mono">TK20260924-019</code> 已落入「已结束」为<b>已取消</b>；<code class="mono">binMode</code> 已由脚本还原 <code class="mono">off</code>（<code class="mono">off → bin → off</code>），全程 0 pageerror / 0 console.error</figcaption></figure>
+
+    <div class="callout warn">
+      <h4>故障排查指引</h4>
+      <p>① <strong>录入页看不到库区 / 格子</strong>：渠道 <code class="mono">binMode</code> 为 <code class="mono">off</code> 时属预期（整仓单盘次）；切到 <code class="mono">zone</code>/<code class="mono">bin</code> 后<strong>必须冷加载</strong>页面，hash 路由只改 hash 不会重载。<code class="mono">zone</code> 档只到库区、不显示库位格，属设计语义。② <strong>录入页只有一部分行</strong>：默认筛选是「未盘」，切「全部」才能看到已盘行。<code class="mono">off</code> 档会展示整仓清单，<code class="mono">zone</code>/<code class="mono">bin</code> 档按库区 / 未归位桶分块。③ <strong>提交 / 释放报「盘次 #x 已提交或已取消，无法再修改」</strong>：盘次状态机为 <code class="mono">OPEN → CLAIMED → COUNTING → SUBMITTED</code>，提交后<b>不可释放</b>（<code class="mono">CANCELLED</code> 任意非终态可入）。④ <strong>他人录入被拒</strong>：盘次独占，须先认领或由主管指派。⑤ <strong>过账按钮置灰</strong>：需任务下<b>所有</b>盘次已提交；未盘项还需显式勾选「确认跳过 N 项未盘」。⑥ <strong>菜单里没有「协同盘库」</strong>：菜单受 <code class="mono">StocktakeCount</code> 门控，且<strong>老角色不会自动获得新权限点</strong>——见 16.5，需重新套用角色模板或手工勾选。⑦ <strong>改后端不生效</strong>：dev-server 消费 <code class="mono">lib/</code>，改 <code class="mono">src</code> 必须 <code class="mono">npm run build</code>。⑧ <strong>列 / 列表页看不到盘库字段</strong>：盘库接口<strong>仅注册 admin-api</strong>，C 端 shop-api 有意不提供，属预期。</p>
+    </div>
+
+    <p class="muted" style="font-size:13px;">涉及文件：后端 <code class="mono">vendure/packages/cjk-plugin/src/</code>——<code class="mono">stocktake/</code>（<code class="mono">stocktake-task.entity.ts</code>、<code class="mono">stocktake-wave.entity.ts</code>、<code class="mono">stocktake-line.entity.ts</code>、<code class="mono">stocktake-math.ts</code>、<code class="mono">stocktake.service.ts</code>、<code class="mono">stocktake.admin.resolver.ts</code>、<code class="mono">bin-query.*</code>）、<code class="mono">plugin.ts</code>（仅 admin 注册）、角色模板与 <code class="mono">StocktakeCount</code> / <code class="mono">StocktakePost</code> 权限点——<strong>只新增 3 张表，不改既有表结构</strong>；前端 <code class="mono">vshop/web-admin/src/pages/inventory/stocktake/{index,task,count,scan,diff}.vue</code>、<code class="mono">src/components/stocktake/{TaskCard,WaveCard,BinGrid,CountLineRow}.vue</code>、<code class="mono">src/apis/stocktake.ts</code>、<code class="mono">src/composables/useStocktakeScope.ts</code>、<code class="mono">src/utils/stocktake-grid.ts</code>、<code class="mono">src/composables/useBinMode.ts</code>、<code class="mono">src/constants/menus.ts</code>、<code class="mono">src/pages.json</code>、双语语言包。回归资产：<code class="mono">scripts/_smoke_stocktake_live.py</code>（只读冒烟探针，本地 / 线上共用）、<code class="mono">_e2e/_shot_stocktake.py</code>（手机视口截图，可逆闭环）。部署：后端本地 <code class="mono">npm run build</code>（提交 <code class="mono">lib/</code>，那是 git 跟踪的产物）→ 服务器 <code class="mono">git pull</code> + <code class="mono">pm2 restart vendure</code>；前端本地 <code class="mono">npm run build:h5</code> → <code class="mono">node scripts/deploy.mjs</code>（服务器不构建）。回滚：前端产物回退；后端回上一 commit + <code class="mono">pm2 restart</code>（新表保留不影响旧代码）；过账生成的 ST 单据需按 <code class="mono">stockDocId</code> 手工冲正（<strong>过账不可自动撤销</strong>）。</p>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
