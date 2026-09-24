@@ -1115,11 +1115,31 @@ flowchart TD
       <tr><td><strong>线上复验（可逆）</strong></td><td>渠道 <code class="mono">t2</code>、仓 <code class="mono">3 默认仓</code>，建 2 个演示任务后立即取消</td><td><b>关闭</b> → <code class="mono">TK20260925-001</code> <code class="mono">waveCount=1</code>（<code class="mono">whole</code>, 20 行）；<b>打开</b> → <code class="mono">TK20260925-002</code> <code class="mono">waveCount=2</code>（<code class="mono">zone A</code> 1 行 + <code class="mono">unassigned</code> 19 行）；两态应盘总数一致 <mark class="key">20 / 20</mark></td></tr>
       <tr><td>收尾</td><td>—</td><td>两任务均 <code class="mono">CANCELLED</code>、无残留非终态任务；<code class="mono">binMode</code> <code class="mono">off→bin→</code> <mark class="key">已还原 off</mark>；全程未认领 / 未录入 / 未提交 / 未过账（未改库存）；临时复验脚本已删除</td></tr>
     </table>
+    <p class="muted" style="font-size:13px;">线上 #45 取证如实记 <mark class="key">SKIP</mark>（本轮未在生产新建账号）：零写入探针实测该生产账号的租户侧建号链路全部被拦——<code class="mono">myTenantRoles</code> 正常返回，但 <code class="mono">createTenantAdministrator</code> / <code class="mono">deleteTenantAdministrator</code> / <code class="mono">tenantAdministrators</code> 均 <code class="mono">FORBIDDEN</code>；仅核心 Vendure 的 <code class="mono">createAdministrator</code> / <code class="mono">deleteAdministrator</code> 权限通过。也就是说要拿「生产端受限账号」的界面截图，只能在生产<strong>新建一个真实管理员账号</strong>（用完再删）。按「<strong>生产只读</strong>」基线，本轮不建号，改以「本地受限账号三页截图（16.9.3 M）+ 线上 asset 命中 + 站点 200」作为 #45 的生产侧证据；探针全程零写入，无任何残留数据。</p>
     <p class="muted" style="font-size:13px;">结论：<strong>#40 在后端上线后于生产端到端生效</strong>——同一仓库、同一时点，仅切换「按库区自动拆盘次」即可从 1 个整仓盘次变为 2 个（库区 + 未归位桶），且应盘清单总数不变，证明该开关只影响<strong>盘次拆分</strong>、不影响<strong>行快照</strong>。#45 由「线上 asset 含权限代码 + 站点 200」佐证（界面截图见 16.9.3 M）。</p>
     <p class="muted" style="font-size:13px;">注：vshop 仓库本地领先的 26 个提交（含 <code class="mono">d336df9</code> / <code class="mono">0674455</code>）已一并推送，<code class="mono">d2d9feb..0674455 master -&gt; master</code>。</p>
+
+    <h4>16.9.6 OFF 档端到端回归 + 正向路径复跑（2026-09-25）</h4>
+    <p>16.9.3 的 L / M 只覆盖「开关两态」与「受限账号置灰」。本轮补上<strong>关闭拆分时的整条链路</strong>，把「建任务 → 认领 → 录入 → 保存 → 提交 → 差异」全跑到终态，验证 16.9.1 里「关闭时行仍带库位归属」的结论在<strong>界面上</strong>同样成立（而不只是接口字段）。</p>
+    <table>
+      <tr><th>环节</th><th>动作</th><th>结果</th></tr>
+      <tr><td>前置</td><td>渠道 <code class="mono">binMode</code> 由 <code class="mono">off</code> 切到 <code class="mono">bin</code>（库位功能打开）</td><td>格子宫格渲染条件成立</td></tr>
+      <tr><td>建任务</td><td><code class="mono">autoSplitByZone=false</code> → 任务 <code class="mono">TK20260925-009</code></td><td><mark class="key">1 个 whole 盘次</mark>、19 应盘行（行仍带库位）</td></tr>
+      <tr><td>认领 + 录入</td><td><code class="mono">claimStocktakeWave</code> → 录入页填 2 行 → 保存</td><td><code class="mono">countedCount=2</code>、盘次 <code class="mono">COUNTING</code></td></tr>
+      <tr><td>提交</td><td>点「提交」→ <strong>二次确认弹窗点「确定」</strong></td><td>盘次 <code class="mono">SUBMITTED</code></td></tr>
+      <tr><td>差异页校验</td><td>摘要四宫格 + 未盘项折叠 + 差异表</td><td>19 应盘 / 2 已盘 / 17 未盘 / 0 盘盈；未盘项给出「确认跳过 17 项未盘」；差异表两行 <code class="mono">TS-NUT-1KG</code> 1009/200（+809）、<code class="mono">XM-BAND-8-STD</code> 201/100（+101）；过账按钮按「未盘未确认」正确置灰</td></tr>
+      <tr><td>扫码页</td><td>关闭拆分下打开扫码页</td><td>输入框与「确认并下一件」可用——<strong>不受 <code class="mono">scopeType=whole</code> 影响</strong>（<code class="mono">showZone</code> 取自渠道 <code class="mono">binMode</code>）</td></tr>
+      <tr><td>脚本自检</td><td>Playwright DOM 计数 + 状态断言</td><td><mark class="key">FAIL=0</mark>、<mark class="key">JS 异常 0</mark>（禁用态断言：<code class="mono">qtyDisabled=false</code> / <code class="mono">mainDisabled=false</code>，即按钮确实可用而非置灰）</td></tr>
+      <tr><td>单测复跑</td><td><code class="mono">npx vitest --config vitest.config.mts --run src/stocktake/</code></td><td><mark class="key">32 tests passed</mark>（<code class="mono">stocktake-math</code> 28 + <code class="mono">entities</code> 4）</td></tr>
+      <tr><td>收尾</td><td>取消任务 + <code class="mono">binMode</code> 还原 <code class="mono">off</code></td><td>无残留非终态任务；全程<strong>未过账</strong>（未改库存）</td></tr>
+    </table>
+    <p><strong>N. OFF 档（关闭拆分）端到端：录入页 → 保存后 → 扫码页 → 差异页</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/t41_off_count_grid_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/t41_off_count_saved_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/t41_off_scan_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">录入页：<b>整仓单盘次</b>下仍渲染库区 Tab（A/B/C/D）+ <b>格子宫格</b>（「本库区 SKU 2 项 · 空格 8 个」）+ 未归位桶 17 行，保存 / 提交按钮<b>可用</b> / 保存后「已盘」实时刷新 / 扫码页输入框与主按钮<b>可用</b>——证明「整仓一盘」不等于「丢掉库位维度」</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="assets/t41_off_diff_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">提交后的差异页：19 应盘 / 2 已盘 / 17 未盘 / 0 盘盈，未盘项折叠 + 「确认跳过 17 项未盘」，差异表按变体汇总（<code class="mono">TS-NUT-1KG</code> 1009/200、<code class="mono">XM-BAND-8-STD</code> 201/100），过账按钮置灰</figcaption></figure>
+    <p class="muted" style="font-size:13px;">4 张截图均为本地 dev server、手机视口 <strong>390×844 dpr=2</strong>（780×宽，长图按内容自适应），已在 <code class="mono">docs/webadmin-bugfix-manual/assets/</code> 与 <code class="mono">src/static/manual/shots/</code> 两处同步。回归脚本为一次性临时脚本，跑完即删。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
