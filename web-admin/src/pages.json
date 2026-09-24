@@ -42,6 +42,7 @@
     { "path": "pages/inventory/stocktake/task", "style": { "navigationBarTitleText": "盘点任务" } },
     { "path": "pages/inventory/stocktake/count", "style": { "navigationBarTitleText": "盘点录入" } },
     { "path": "pages/inventory/stocktake/scan", "style": { "navigationBarTitleText": "扫码快盘" } },
+    { "path": "pages/inventory/stocktake/diff", "style": { "navigationBarTitleText": "盘点差异" } },
     { "path": "pages/shipping/methods/index", "style": { "navigationBarTitleText": "配送方式" } },
     { "path": "pages/shipping/method-config/index", "style": { "navigationBarTitleText": "区域与运费" } },
     { "path": "pages/payment/methods/index", "style": { "navigationBarTitleText": "支付方式" } },
