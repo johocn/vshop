@@ -17,7 +17,7 @@
 |---|---|
 | 多人协同盘库 | 任务拆「盘次」，盘次可指派/认领，**同一盘次独占**，看板统一看进度 |
 | 不同仓库协同盘库 | 一个任务 = 一个仓库；多仓用「盘点活动（activityCode）」分组，看板合并显示，各仓独立过账 |
-| 按库存区域 | 盘次按库区（`storage_zone`）拆分；`binMode=off` 时退化为整仓单盘次 |
+| 按库存区域 | 盘次按库区（`storage_zone`）拆分；`binMode=off` 时退化为整仓单盘次；也可用 `autoSplitByZone=false` 主动关掉拆分（见 §6.1） |
 | 按货品 | 圈范围支持按分类/品牌/指定变体清单；专项盘即「只用货品维度圈范围」 |
 | 内部码 / 条形码 | 扫码识别：库位码 → 定位格子；内部码/条形码 → 命中断行；均复用现有 `scanCode()` |
 | 已盘点 / 未盘点 | 应盘清单快照 + `countedQty IS NULL` 判定；进度实时可算，未盘项可单独筛出 |
@@ -203,7 +203,19 @@
 5. 按盘次写入 expectedCount；整批在一个事务内完成
 ```
 
-`binMode=off` 时不建库区盘次，只建一个 `scopeType='whole'` 的盘次（未归位桶概念不适用，全部行归入该盘次）。
+#### 盘次拆分开关（`autoSplitByZone`，2026-09-25 定稿）
+
+`createStocktakeTask.autoSplitByZone`（可选，缺省 `true`）只管**盘次怎么拆**，不影响应盘清单内容——两种取值下 `expectedTotal` 完全一致，差的只是「分成几个盘次、行上是否带库位」。
+
+| 场景 | 盘次产出 | 行上的库位归属 |
+|---|---|---|
+| `binMode=off` | 1 个 `scopeType='whole'`（未归位桶概念不适用） | 一律为空（`zoneId/binId/zoneCode/binCode` = null） |
+| `binMode≠off` 且 `autoSplitByZone=false`（显式关） | 1 个 `scopeType='whole'` | **保留**（有绑定的行带自己的 zone/bin；无绑定的行库位为空） |
+| `binMode≠off` 且缺省 / `true` | 各库区 1 个 `zone:{id}` + 1 个 `unassigned` 未归位桶 | 按所在盘次归属 |
+
+关闭拆分的语义是「**整仓一盘，一个人也能全程盘完**」；行仍保留库位归属，所以录入页的格子宫格与未归位桶照常可用（`showZone` 取自渠道 `binMode`，与 `wave.scopeType` 无关），只是不再强制分成多个盘次分给多人。
+
+`scope.zones` 仍然生效：库区范围之外的绑定退入未归位桶，**不丢行**（两种取值下都成立）。
 
 ### 6.2 差异计算（正确性关键）
 
@@ -263,7 +275,7 @@ postStocktake(taskId, confirm):
 
 | 名称 | 入参 | 说明 |
 |---|---|---|
-| `createStocktakeTask` | `input{ stockLocationId, name, activityCode?, scope, autoSplitByZone }` | 建任务 + 固化应盘清单 + 自动拆盘次 |
+| `createStocktakeTask` | `input{ stockLocationId, name, activityCode?, scope, autoSplitByZone }` | 建任务 + 固化应盘清单 + 自动拆盘次（`autoSplitByZone` 语义见 §6.1） |
 | `addStocktakeWave` | `taskId, input{ scopeType, zoneId? }` | 手工补盘次 |
 | `assignStocktakeWave` | `waveId, assigneeId?` | 指派（传 null 即释放） |
 | `claimStocktakeWave` | `waveId` | 认领（幂等；已被他人认领则拒绝） |
