@@ -3,6 +3,7 @@
 // 三档开关（Channel.customFields.binMode = off/zone/bin）只影响前端门控，接口本身共用同一套。
 // 注意：variantBin / generateStandardBins / bindVariantToBin 在 SDL 里是 JSON 标量 —— 只能取字段本身。
 import { getAdminClient, graphQlErrorMsg } from './client';
+import type { BinOccupancyRow } from '../utils/stocktake-grid';
 
 export interface StorageZone {
   id: string;
@@ -156,5 +157,22 @@ export async function deleteStorageBin(id: string): Promise<boolean> {
     return !!deleteStorageBin;
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '库位删除失败'));
+  }
+}
+
+/** 库位占用概览（含空格子；zoneId 可选，不传取全仓） */
+export async function fetchBinOccupancy(stockLocationId: string, zoneId?: string): Promise<BinOccupancyRow[]> {
+  try {
+    const { binOccupancy } = await getAdminClient().request<{ binOccupancy: BinOccupancyRow[] }>(
+      `query BinOccupancy($stockLocationId: ID!, $zoneId: ID) {
+        binOccupancy(stockLocationId: $stockLocationId, zoneId: $zoneId) {
+          zoneId zoneCode zoneName binId binCode rowNo levelNo skuCount
+        }
+      }`,
+      { stockLocationId, zoneId: zoneId ?? null },
+    );
+    return binOccupancy ?? [];
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '库位占用查询失败'));
   }
 }
