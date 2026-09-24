@@ -11,7 +11,7 @@
       >{{ g.zoneCode }}</text>
     </view>
 
-    <view v-if="active" class="cells">
+    <view v-if="active && showCells" class="cells">
       <view
         v-for="b in active.bins"
         :key="b.binId"
@@ -23,7 +23,7 @@
         <text class="cn">{{ b.skuCount }}</text>
       </view>
     </view>
-    <view v-else class="none">{{ emptyText }}</view>
+    <view v-else-if="!active" class="none">{{ emptyText }}</view>
 
     <view v-if="active" class="sum">{{ summaryText(active) }}</view>
   </view>
@@ -38,6 +38,8 @@ const props = defineProps<{
   activeZoneId?: string | null;
   selectedBinId?: string | null;
   emptyText: string;
+  /** 是否渲染具体库位格子：仅 bin 档为真（zone 档只到库区，不暴露库位码；规格 §8.2） */
+  showCells: boolean;
   /** 「本库区 SKU x 项 · 空格 y 个」文案由父组件用 i18n 备好 */
   summaryText: (g: ZoneGroup) => string;
 }>();
