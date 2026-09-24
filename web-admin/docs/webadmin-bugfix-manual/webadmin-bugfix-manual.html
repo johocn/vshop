@@ -1104,6 +1104,19 @@ flowchart TD
       <tr><td>本条提交</td><td>vshop</td><td>docs</td><td>手册 16.9 + 7 张追补截图 + 计划执行结果「16 续」行 + 偏差 #52–#54</td></tr>
     </table>
     <p class="muted" style="font-size:13px;">收尾：本地演示任务 <code class="mono">TK20260925-001..008</code> 全部 <code class="mono">CANCELLED</code>；临时受限成员 / <code class="mono">Administrator</code> 本体 / 临时角色已删除；渠道 <code class="mono">binMode</code> 已由脚本还原 <code class="mono">off</code>。全程<strong>未调 <code class="mono">postStocktake</code></strong>（不改库存）。类型检查基线：<code class="mono">npx vue-tsc --noEmit -p tsconfig.json</code> 本轮 1456 处（<code class="mono">$t</code> 类 1372 / 非 <code class="mono">$t</code> 类 84，非 <code class="mono">$t</code> 类全部落在既有基线文件），四个改动文件仅 <code class="mono">$t</code>-in-template 一类、<code class="mono">useStocktakeScope.ts</code> 零报错（见偏差 #54）。</p>
+
+    <h4>16.9.5 生产部署与线上复验（2026-09-25）</h4>
+    <table>
+      <tr><th>环节</th><th>命令 / 动作</th><th>结果</th></tr>
+      <tr><td>后端推送</td><td><code class="mono">git push origin master</code></td><td><code class="mono">b51f8534c..ad084e016</code>，本地与 origin 同步</td></tr>
+      <tr><td>后端部署</td><td><code class="mono">cd /www/apps/vendure &amp;&amp; git pull --ff-only &amp;&amp; pm2 restart vendure</code></td><td>Fast-forward 8 files（+114 / −6，含 <code class="mono">lib/</code>）；pm2 id 3 <code class="mono">online</code>，pid 3194758；<code class="mono">https://e.joho.cn/admin-api</code> → <mark class="key">200</mark></td></tr>
+      <tr><td>前端部署</td><td><code class="mono">node scripts/deploy.mjs</code>（cwd <code class="mono">web-admin</code>）</td><td>产物校验通过 <strong>47362 KB</strong> → scp → 服务器解压 <code class="mono">deploy done</code> → nginx <code class="mono">test is successful</code> + reload；站点 <strong>516 个文件</strong>、备份 3 份、<code class="mono">https://e.joho.cn/guanli/</code> → <mark class="key">200</mark></td></tr>
+      <tr><td>新代码上线校验</td><td>线上站点目录 grep</td><td><code class="mono">无盘点权限</code> 命中 1 个 asset（i18n）、<code class="mono">StocktakeCount</code> 命中 4 个 asset（收口点 + 看板 / 权限点）</td></tr>
+      <tr><td><strong>线上复验（可逆）</strong></td><td>渠道 <code class="mono">t2</code>、仓 <code class="mono">3 默认仓</code>，建 2 个演示任务后立即取消</td><td><b>关闭</b> → <code class="mono">TK20260925-001</code> <code class="mono">waveCount=1</code>（<code class="mono">whole</code>, 20 行）；<b>打开</b> → <code class="mono">TK20260925-002</code> <code class="mono">waveCount=2</code>（<code class="mono">zone A</code> 1 行 + <code class="mono">unassigned</code> 19 行）；两态应盘总数一致 <mark class="key">20 / 20</mark></td></tr>
+      <tr><td>收尾</td><td>—</td><td>两任务均 <code class="mono">CANCELLED</code>、无残留非终态任务；<code class="mono">binMode</code> <code class="mono">off→bin→</code> <mark class="key">已还原 off</mark>；全程未认领 / 未录入 / 未提交 / 未过账（未改库存）；临时复验脚本已删除</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px;">结论：<strong>#40 在后端上线后于生产端到端生效</strong>——同一仓库、同一时点，仅切换「按库区自动拆盘次」即可从 1 个整仓盘次变为 2 个（库区 + 未归位桶），且应盘清单总数不变，证明该开关只影响<strong>盘次拆分</strong>、不影响<strong>行快照</strong>。#45 由「线上 asset 含权限代码 + 站点 200」佐证（界面截图见 16.9.3 M）。</p>
+    <p class="muted" style="font-size:13px;">注：vshop 仓库本地领先的 26 个提交（含 <code class="mono">d336df9</code> / <code class="mono">0674455</code>）已一并推送，<code class="mono">d2d9feb..0674455 master -&gt; master</code>。</p>
   </section>
 
   <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
