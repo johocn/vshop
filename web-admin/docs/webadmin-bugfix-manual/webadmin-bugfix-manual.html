@@ -1060,15 +1060,53 @@ flowchart TD
 
     <h4>16.8.7 已知边界与风险（本轮不阻塞，留待后续决策）</h4>
     <div class="callout warn">
-      <p>① <strong><code class="mono">autoSplitByZone</code> 无实际效果</strong>（计划偏差 #40）：后端 <code class="mono">createTask</code> 从未消费该入参，只要应盘行有库位归属仍会拆出 <code class="mono">zone</code> 盘次 + <code class="mono">unassigned</code> 盘次（实测传 <code class="mono">false</code> 仍得 2 个盘次）。看板「按库区自动拆盘次」开关当前<b>与行为无关</b>。——待办：补后端实现，或调整前端开关文案。</p>
-      <p>② <strong>前端未做按钮级权限置灰</strong>（计划偏差 #45）：「录入与提交按 <code class="mono">StocktakeCount</code> 收口」实际只落<b>菜单门控 + 服务端权限点（10 个 mutation）+ 盘次 owner 锁</b>三层兜底；<code class="mono">stocktake/index.vue</code> / <code class="mono">count.vue</code> / <code class="mono">scan.vue</code> 未按权限置灰按钮。——待办：如确需前端置灰，应另立任务。</p>
+      <p>① <del><strong><code class="mono">autoSplitByZone</code> 无实际效果</strong>（计划偏差 #40）：后端 <code class="mono">createTask</code> 从未消费该入参，只要应盘行有库位归属仍会拆出 <code class="mono">zone</code> 盘次 + <code class="mono">unassigned</code> 盘次（实测传 <code class="mono">false</code> 仍得 2 个盘次）。看板「按库区自动拆盘次」开关当前<b>与行为无关</b>。</del> —— <mark class="key">已于 2026-09-25 修复</mark>：后端补实现，<b>详见 16.9</b>。</p>
+      <p>② <del><strong>前端未做按钮级权限置灰</strong>（计划偏差 #45）：「录入与提交按 <code class="mono">StocktakeCount</code> 收口」实际只落<b>菜单门控 + 服务端权限点（10 个 mutation）+ 盘次 owner 锁</b>三层兜底；<code class="mono">stocktake/index.vue</code> / <code class="mono">count.vue</code> / <code class="mono">scan.vue</code> 未按权限置灰按钮。</del> —— <mark class="key">已于 2026-09-25 补齐</mark>：三页按 <code class="mono">StocktakeCount</code> 置灰，<b>详见 16.9</b>。</p>
       <p>③ <strong>生产写入正例不可演示</strong>（计划偏差 #35 / #39）：生产登录账号在 <code class="mono">t2</code> 无 <code class="mono">tenant_member</code> 行 → 认领 / 录入 / 提交 / 过账均被 owner 锁如实拒绝（该拒绝 toast 本身即错误路径证据）。写入链路已由 Task 7 本地写链路探针（fixture）全 PASS 覆盖。</p>
       <p>④ <strong>过账不可自动撤销</strong>：过账生成的 ST 单据需按 <code class="mono">stockDocId</code> 手工冲正；因此本轮生产复验<b>刻意不触发过账</b>。</p>
     </div>
     <p class="muted" style="font-size:13px;">本轮新增偏差 6 条（计划偏差说明区 #46–#51）：脚本工程化改造（环境变量化 + shop-api 直连 + 线上只读分支）/ zone 档渲染缺陷 / 单测计数以实测为准 / 部署命令工作目录纠正 / 线上渠道收口如实记 SKIP / 提交拆 fix + test-docs 两条并补目录锚点。</p>
+
+    <h3>16.9 追补：<code class="mono">autoSplitByZone</code> 生效 + 三页按钮级置灰（2026-09-25 · 偏差 #40 / #45）</h3>
+    <p>针对 16.8.7 中如实登记的 ① ② 两项已知边界，本轮已<strong>补实现并回归</strong>（计划偏差说明区 #52 / #53）。两处均为<strong>行为变更</strong>，升级后需按本节重新验收。</p>
+
+    <h4>16.9.1 建任务开关「按库区自动拆盘次」现已生效（偏差 #40）</h4>
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>改动</td><td>后端 <code class="mono">buildExpected</code> 增可选入参 <code class="mono">autoSplitByZone</code>；<code class="mono">createTask</code> 透传 <code class="mono">input.autoSplitByZone !== false</code>（提交 <code class="mono">ad084e016</code>，含编译产物 <code class="mono">lib/</code>）</td></tr>
+      <tr><td>语义</td><td><strong>关闭</strong>（<code class="mono">false</code>）= 整仓只出一个 <code class="mono">whole</code> 盘次；<strong>行仍保留库位归属</strong>（<code class="mono">zoneId/binId</code> 照旧写入），故录入页的<strong>格子宫格</strong>与<strong>未归位桶</strong>照常可用。<strong>缺省 / 打开</strong>（<code class="mono">true</code>）= 按库区拆 <code class="mono">zone:{id}</code> 盘次 + <code class="mono">unassigned</code> 未归位桶</td></tr>
+      <tr><td>单测</td><td><code class="mono">npx vitest --config vitest.config.mts --run src/stocktake/stocktake-math.spec.ts</code> → <mark class="key">28 tests passed</mark>（新增 2 个对照用例：关闭时 1 个 <code class="mono">whole</code> 盘次且带库位 / 缺省与显式 <code class="mono">true</code> 时仍按库区拆）</td></tr>
+      <tr><td>接口实测</td><td>本地探针 8/8 PASS：<strong>关闭</strong> → 任务 <code class="mono">TK20260925-002</code> <code class="mono">waveCount=1</code>（<code class="mono">whole</code>, 19 行）；<strong>打开</strong> → <code class="mono">TK20260925-001</code> <code class="mono">waveCount=2</code>（<code class="mono">zone A</code> 2 行 + <code class="mono">unassigned</code> 17 行）；两态应盘总数一致 <mark class="key">19 / 19</mark>（证明只改拆分、不改清单）</td></tr>
+      <tr><td>界面实测</td><td>手机视口 390×844 dpr=2：新建任务抽屉开关默认勾选 → 点一下变未勾选；任务详情里「打开」看到 2 个盘次、「关闭」只看到 1 个「整仓」盘次（已盘 0/19）</td></tr>
+    </table>
+
+    <h4>16.9.2 录入 / 扫码 / 看板三页已按权限置灰（偏差 #45）</h4>
+    <p>补齐后权限兜底由三层变<strong>四层</strong>：<strong>① 菜单门控</strong>（无 <code class="mono">StocktakeCount</code> 看不到入口）→ <strong>② 前端按钮级置灰</strong>（本轮新增）→ <strong>③ 服务端权限点</strong>（10 个 mutation 全部 <code class="mono">@Allow('StocktakeCount')</code>）→ <strong>④ 盘次 owner 锁</strong>。</p>
+    <ul>
+      <li><strong>看板页</strong>：顶部红字「无盘点权限，仅可查看」；右下「＋新建盘点任务」置灰（<code class="mono">opacity .5</code>）且点击<strong>不打开</strong>新建抽屉；提交按钮 <code class="mono">disabled</code>。</li>
+      <li><strong>录入页 / 扫码页</strong>：实盘输入框 <code class="mono">disabled</code>、「保存 / 提交」「确认并下一件」置灰；提示按<strong>分因</strong>给出——先判「无盘点权限，录入与提交已置灰」，再判「请先在任务详情页认领该盘次」，最后才是「本仓未启用库位」。</li>
+      <li><strong>服务端仍拦</strong>：受限账号直连 <code class="mono">/admin-api</code> 调 <code class="mono">createStocktakeTask</code> 仍返回 <code class="mono">FORBIDDEN: You are not currently authorized to perform this action</code>——前端置灰只是体验层，越权仍由服务端拦。</li>
+      <li>中英词条各新增 3 条（<code class="mono">stocktake.board.noPermission</code> / <code class="mono">stocktake.count.noPermission</code> / <code class="mono">stocktake.scan.noPermission</code>）。</li>
+    </ul>
+    <p class="muted" style="font-size:13px;">改动文件（前端提交 <code class="mono">d336df9</code>）：<code class="mono">src/composables/useStocktakeScope.ts</code>（新增 <code class="mono">canCount</code> 并并入 <code class="mono">canEdit</code>）、<code class="mono">src/pages/inventory/stocktake/{index,count,scan}.vue</code>、<code class="mono">src/locale/{zh-Hans,en}.json</code>。</p>
+
+    <h4>16.9.3 追补验收截图（7 张，本地 dev server，390×844 dpr=2 → 780×1688）</h4>
+    <p><strong>L. 偏差 #40：开关两态</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/t40_new_sheet_split_on_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/t40_new_sheet_split_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/t40_task_waves_on_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/t40_task_waves_off_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">新建任务抽屉：<b>默认勾选</b>「按库区自动拆盘次」→ 点一下<b>取消勾选</b> / 任务详情对比：<b>打开</b>时 2 个盘次（库区 A + 未归位桶）、<b>关闭</b>时只有 1 个「整仓」盘次（已盘 0/19）——行清单与库位归属不变</figcaption></figure>
+    <p><strong>M. 偏差 #45：受限账号三页置灰（服务端同时仍拒）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="assets/t45_board_no_permission_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/t45_count_no_permission_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/t45_scan_no_permission_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">看板：「无盘点权限，仅可查看」+「＋新建」置灰（点击不开抽屉） / 录入页：「无盘点权限，录入与提交已置灰」+ 输入框与保存 / 提交均置灰 / 扫码页：同一分因提示 + 输入框置灰 + 主按钮置灰</figcaption></figure>
+
+    <h4>16.9.4 追补的提交与收尾</h4>
+    <table>
+      <tr><th>哈希</th><th>仓库</th><th>类型</th><th>内容</th></tr>
+      <tr><td><code class="mono">ad084e016</code></td><td>vendure</td><td>fix</td><td>建任务开关 <code class="mono">autoSplitByZone</code> 生效（<code class="mono">false</code> = 整仓单盘次）+ 2 个对照单测 + 编译产物 <code class="mono">lib/</code>（8 files changed, +114 / −6）</td></tr>
+      <tr><td><code class="mono">d336df9</code></td><td>vshop</td><td>fix</td><td>三页按 <code class="mono">StocktakeCount</code> 按钮级置灰 + 提示分因 + 中英各 3 词条（6 files changed, +37 / −11）</td></tr>
+      <tr><td>本条提交</td><td>vshop</td><td>docs</td><td>手册 16.9 + 7 张追补截图 + 计划执行结果「16 续」行 + 偏差 #52–#54</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px;">收尾：本地演示任务 <code class="mono">TK20260925-001..008</code> 全部 <code class="mono">CANCELLED</code>；临时受限成员 / <code class="mono">Administrator</code> 本体 / 临时角色已删除；渠道 <code class="mono">binMode</code> 已由脚本还原 <code class="mono">off</code>。全程<strong>未调 <code class="mono">postStocktake</code></strong>（不改库存）。类型检查基线：<code class="mono">npx vue-tsc --noEmit -p tsconfig.json</code> 本轮 1456 处（<code class="mono">$t</code> 类 1372 / 非 <code class="mono">$t</code> 类 84，非 <code class="mono">$t</code> 类全部落在既有基线文件），四个改动文件仅 <code class="mono">$t</code>-in-template 一类、<code class="mono">useStocktakeScope.ts</code> 零报错（见偏差 #54）。</p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
