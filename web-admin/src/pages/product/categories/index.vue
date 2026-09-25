@@ -106,16 +106,6 @@ function toggle(id: string) {
   collapsed.value = s;
 }
 
-/** id → 节点 的扁平索引，覆盖任意深度（父节点不一定在根数组里） */
-function indexNodes(nodes: CollectionTreeNode[], into = new Map<string, CollectionTreeNode>()) {
-  for (const n of nodes) {
-    into.set(String(n.id), n);
-    indexNodes(n.children, into);
-  }
-  return into;
-}
-const nodeIndex = computed(() => indexNodes(tree.value));
-
 async function runMove(id: string, parentId: string | null, index: number) {
   try {
     await moveCollection(id, parentId, index);
@@ -127,12 +117,16 @@ async function runMove(id: string, parentId: string | null, index: number) {
 
 /** 同父级内上/下移：把 index 与相邻兄弟交换后调 moveCollection */
 async function swapSibling(node: CollectionTreeNode, dir: -1 | 1) {
-  const pid = node.parentId == null ? null : String(node.parentId);
-  const siblings = pid ? (nodeIndex.value.get(pid)?.children ?? []) : tree.value;
+  const pid = node.parentId == null ? '' : String(node.parentId);
+  // 兄弟必须从**扁平列表**取：根分类的 parentId 指向 Vendure 根集合（该集合不在 collections 列表里），
+  // 用 nodeIndex 找父会拿不到 children，导致根级 ↑↓ 静默无效。
+  const siblings = cats.value
+    .filter((c) => (c.parentId == null ? '' : String(c.parentId)) === pid)
+    .sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name));
   const i = siblings.findIndex((s) => String(s.id) === String(node.id));
   const j = i + dir;
   if (i < 0 || j < 0 || j >= siblings.length) return;
-  await runMove(node.id, pid, j);
+  await runMove(node.id, node.parentId == null ? null : String(node.parentId), j);
 }
 function onMoveUp(n: CollectionTreeNode) { void swapSibling(n, -1); }
 function onMoveDown(n: CollectionTreeNode) { void swapSibling(n, 1); }
