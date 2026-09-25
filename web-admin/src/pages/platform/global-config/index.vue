@@ -71,6 +71,24 @@
       <view v-if="err" class="err">{{ err }}</view>
       <button class="btn" :disabled="saving" @tap="save">{{ saving ? $t('platformGlobalConfig.saving') : $t('platformGlobalConfig.save') }}</button>
     </view>
+    <view class="card">
+      <text class="sec">{{ $t('platformGlobalConfig.mergedPreview') }}</text>
+      <text class="muted">{{ $t('platformGlobalConfig.mergedHint') }}</text>
+      <view class="chips">
+        <text class="chip" @tap="genPreview">{{ $t('platformGlobalConfig.previewNow') }}</text>
+        <text class="chip" :class="{ on: previewOn }" @tap="previewOn = !previewOn">
+          {{ previewOn ? $t('platformGlobalConfig.hideSources') : $t('platformGlobalConfig.showSources') }}
+        </text>
+      </view>
+      <text v-if="previewErr" class="err">{{ previewErr }}</text>
+      <pre v-if="previewText" class="json">{{ previewText }}</pre>
+      <view v-if="previewOn && previewSources.length" class="srcs">
+        <view class="src" v-for="s in previewSources" :key="s.key">
+          <text class="k">{{ s.key }}</text>
+          <text class="v" :class="'src-' + s.source">{{ s.source }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -215,6 +233,33 @@ async function save() {
     saving.value = false;
   }
 }
+
+const previewText = ref('');
+const previewErr = ref('');
+const previewOn = ref(false);
+const previewSources = ref<Array<{ key: string; source: string }>>([]);
+
+/** 用「当前编辑态」而非已保存态做预览 —— 这就是「改前可见」 */
+async function genPreview() {
+  previewErr.value = '';
+  previewText.value = '';
+  previewSources.value = [];
+  try {
+    const overrides = {
+      themeTokens: tokens.value,
+      defaults: defs.value,
+    };
+    const r = await templateApi.mergedPreview(app.value, undefined, overrides);
+    previewText.value = JSON.stringify(r.merged, null, 2);
+    previewSources.value = Object.entries(r.sourceByKey ?? {}).map(([key, source]) => ({
+      key,
+      source: String(source),
+    }));
+    previewOn.value = true;
+  } catch (e: any) {
+    previewErr.value = graphQlErrorMsg(e, locale.t('platformGlobalConfig.previewFailed'));
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -242,4 +287,15 @@ async function save() {
 .err { color: #e64340; font-size: 24rpx; margin-bottom: 16rpx; }
 .btn { border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; margin-top: 8rpx; }
 .btn[disabled] { opacity: .6; }
+.card + .card { margin-top: 24rpx; }
+.sec { display: block; font-size: 28rpx; font-weight: 700; color: #333; margin-bottom: 8rpx; }
+.muted { display: block; font-size: 22rpx; color: #999; line-height: 1.6; margin-bottom: 12rpx; }
+.json { margin-top: 12rpx; padding: 16rpx 20rpx; background: #f7f8fa; border-radius: 12rpx; font-family: Consolas, Monaco, monospace; font-size: 22rpx; color: #333; white-space: pre-wrap; word-break: break-all; max-height: 640rpx; overflow: auto; }
+.srcs { display: flex; flex-direction: column; margin-top: 12rpx; }
+.src { display: flex; align-items: center; justify-content: space-between; padding: 8rpx 0; border-bottom: 1px solid #f2f2f2; }
+.src .k { flex: 1; font-size: 24rpx; color: #666; margin-right: 16rpx; word-break: break-all; }
+.src .v { flex: 0 0 auto; padding: 2rpx 16rpx; border-radius: 999rpx; font-size: 20rpx; color: #fff; }
+.src-L1 { background: #4f8cff; }
+.src-L2 { background: #f0a020; }
+.src-L3 { background: #52c41a; }
 </style>
