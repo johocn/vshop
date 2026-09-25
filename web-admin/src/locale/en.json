@@ -900,6 +900,7 @@
     "moveFail": "Move failed",
     "reparent": "Move to…",
     "collapse": "Collapse",
+    "icon": "Icon",
     "bulkIcon": "Batch icon",
     "bulkMove": "Batch move",
     "bulkDelete": "Batch delete",

@@ -6,6 +6,10 @@
         <text class="pick" @tap="togglePick(c.id)">{{ picked.has(String(c.id)) ? '☑' : '☐' }}</text>
         <text class="caret" v-if="c.children.length" :title="locale.t('category.collapse')" @tap="toggle(c.id)">{{ collapsed.has(c.id) ? '▸' : '▾' }}</text>
         <text class="caret" v-else>·</text>
+        <view class="ico" :title="locale.t('category.icon')" @tap="onRowIcon(c)">
+          <image v-if="iconUrl(c)" class="ico-img" :src="iconUrl(c)" mode="aspectFit" />
+          <text v-else class="ico-plus">＋</text>
+        </view>
         <text class="name">{{ c.name }}</text>
         <text class="muted" v-if="c.children.length">{{ c.children.length }}</text>
         <view class="ops">
@@ -25,6 +29,13 @@
       <text class="act" @tap="bulkMove">{{ $t('category.bulkMove') }}</text>
       <text class="act" @tap="bulkDelete">{{ $t('category.bulkDelete') }}</text>
     </view>
+    <MediaLibraryModal
+      v-model:visible="iconModalVisible"
+      :max="1"
+      media-type="image"
+      :value="iconModalPreselect"
+      @confirm="onIconConfirm"
+    />
   </view>
 </template>
 <script lang="ts" setup>
@@ -37,6 +48,8 @@ import {
   type CategoryMapping, type CollectionItem, type CollectionTreeNode,
 } from '../../../apis/collection';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fetchAssets, type AssetItem } from '../../../apis/asset';
+import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
 
 const locale = useLocaleStore();
 const cats = ref<CollectionItem[]>([]);
@@ -45,6 +58,27 @@ const mapping = ref<CategoryMapping[]>([]);
 const platTree = ref<Array<{ id: string; name: string; depth: number }>>([]);
 const mappingLoadState = ref<'idle' | 'loading' | 'error'>('idle');
 const picked = ref<Set<string>>(new Set());
+
+/** asset id → preview 缩略图 URL；由 customFields.icon 去重后批量预取 */
+const iconUrlById = ref<Record<string, string>>({});
+/** 当前正在改图标的分类（单条 = 1 个；批量 = 当前勾选项） */
+const iconTargets = ref<CollectionItem[]>([]);
+const iconFromBulk = ref(false);
+const iconModalVisible = ref(false);
+
+/** 单条设置时预选其当前图标（查不到的遗留文本/不存在 id 不会预选） */
+const iconModalPreselect = computed(() => {
+  const t = iconTargets.value;
+  if (t.length !== 1) return [];
+  const icon = t[0].customFields?.icon;
+  return icon ? [icon] : [];
+});
+
+/** 行内图标 URL：查不到（遗留非 asset-id 文本 / 预取失败）返回空，不渲染裂图 */
+function iconUrl(c: CollectionItem): string {
+  const icon = c.customFields?.icon;
+  return icon ? iconUrlById.value[icon] || '' : '';
+}
 
 const tree = computed(() => buildCollectionTreeNodes(cats.value));
 const rows = computed(() => flattenCollectionTree(tree.value, collapsed.value));
@@ -120,6 +154,27 @@ function onReparent(n: CollectionTreeNode) {
 
 async function reload() {
   cats.value = await fetchCollectionsOptimized();
+  await prefetchIconUrls();
+}
+
+/** 收集列表内非空 customFields.icon，去重后按 id 一次批量预取缩略图 */
+async function prefetchIconUrls() {
+  const ids = Array.from(
+    new Set(cats.value.map((c) => c.customFields?.icon).filter((v): v is string => !!v)),
+  );
+  if (!ids.length) {
+    iconUrlById.value = {};
+    return;
+  }
+  try {
+    const r = await fetchAssets(ids.length, 0, undefined, ids);
+    const m: Record<string, string> = {};
+    for (const a of r.items) m[a.id] = a.preview;
+    iconUrlById.value = m;
+  } catch {
+    // 预取失败不阻断列表渲染，图标区域退化为占位「＋」
+    iconUrlById.value = {};
+  }
 }
 onMounted(() => { reload(); ensurePlatformTree(); });
 
@@ -196,25 +251,38 @@ function onDel(c: any) {
 }
 
 // ── 批量操作 ──────────────────────────────────────────────
-/** 批量设图标：弹输入框，留空表示清除图标 */
+/** 打开媒体库选图标：targets 为目标分类（单条行内 / 批量勾选） */
+function openIconPicker(targets: CollectionItem[], fromBulk = false) {
+  if (!targets.length) return;
+  iconTargets.value = targets;
+  iconFromBulk.value = fromBulk;
+  iconModalVisible.value = true;
+}
+
+/** 单条设置：点行内图标区，仅改该分类 */
+function onRowIcon(c: CollectionItem) {
+  openIconPicker([c]);
+}
+
+/** 批量设图标：目标为当前勾选项，确认后写入各分类 customFields.icon */
 function bulkIcon() {
   const targets = pickedTargets();
   if (!targets.length) return;
-  uni.showModal({
-    title: locale.t('category.bulkIcon'),
-    editable: true,
-    success: async (r) => {
-      if (!r.confirm) return;
-      const icon = (r.content || '').trim() || null;
-      try {
-        for (const c of targets) await setCollectionIcon(c.id, icon);
-        picked.value = new Set();
-        await reload();
-      } catch (e: any) {
-        uni.showToast({ title: e?.message || locale.t('productCategories.failed'), icon: 'none' });
-      }
-    },
-  });
+  openIconPicker(targets, true);
+}
+
+async function onIconConfirm(assets: AssetItem[]) {
+  const asset = assets[0];
+  if (!asset) return;
+  const targets = iconTargets.value;
+  if (!targets.length) return;
+  try {
+    for (const c of targets) await setCollectionIcon(c.id, asset.id);
+    if (iconFromBulk.value) picked.value = new Set();
+    await reload();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('productCategories.failed'), icon: 'none' });
+  }
 }
 
 /** 批量移动：选目标父分类（含「顶层」），勾选项不可作为目标 */
@@ -270,6 +338,11 @@ async function bulkDelete() {
     .row { display: flex; align-items: center; justify-content: space-between;
       .pick { width: 40rpx; font-size: 30rpx; color: $wa-muted; text-align: center; }
       .caret { width: 40rpx; font-size: 28rpx; color: $wa-muted; text-align: center; }
+      .ico { width: 48rpx; height: 48rpx; margin-left: 8rpx; border-radius: 8rpx; border: 1rpx dashed $wa-rule;
+        display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; flex: none;
+        .ico-img { width: 100%; height: 100%; display: block; }
+        .ico-plus { font-size: 28rpx; line-height: 1; color: $wa-muted; }
+      }
       .name { font-size: 28rpx; color: $wa-ink; flex: 1; margin-left: 8rpx; }
       .muted { font-size: 24rpx; color: $wa-muted; margin: 0 16rpx; }
       .ops text { font-size: 26rpx; color: $wa-accent; margin-left: 30rpx; &.del { color: #e64340; } }
