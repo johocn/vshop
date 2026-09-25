@@ -33,13 +33,6 @@ function stockFieldWith(locationId: string | null | undefined, stock: number): R
 /** 商品保存路径复用 resolveStockLocationId（与库存页一致），保证同一渠道定位同一默认仓 */
 const getChannelStockLocationId = resolveStockLocationId;
 
-// ---- 价格税率换算 ----
-// 运营端录入的是净价（不含税）。本仓库 Vendure 的 price 输入按「含税价」处理
-// （实测：写入 price=20000 回读 net=17699 / withTax=20000），故保存前须把净价
-// 换算成含税输入 gross = net × (1 + rate/100)，否则关闭税率后 C 端显示 net 会被
-// 税吃掉 13%（录入 200 显示 176.99）。税率动态取默认 TaxRate（当前生产仅 13% 一条）。
-let _taxRatePercent: number | null = null;
-
 /**
  * 把选中图片资产先绑定到当前渠道（vendure-token 所在渠道）。
  * 背景：Vendure 的 asset 关联按渠道隔离（AssetService.updateEntityAssets 用
