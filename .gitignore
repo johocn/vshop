@@ -10,6 +10,10 @@ dist/build/*
 !dist/build/h5/
 .hbuilderx/
 
+# web-admin 产物不入库：部署走 web-admin/scripts/deploy.mjs（本地构建 → scp → 服务器解压）
+# 注：上方铁律针对根目录 dist/（H5 商城站走 git pull），与 web-admin 无关
+web-admin/dist/
+
 # IDE
 .idea/
 .vscode/
