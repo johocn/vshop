@@ -3254,6 +3254,11 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 | D14 | 批 1（执行顺序调整） | **Task 1.6 的 Step 1+2（后端 `icon` 字段 + 幂等迁移）被提前**到 Task 1.5 之前执行 | Task 1.4 已让 `fetchCollectionsOptimized` 查询 `customFields { icon }`，后端字段缺失会让分类页**运行时报 `Cannot query field "icon"`**，Task 1.5 的联调无法进行 | 已完成并提交（后端仓 `2d4def348` src + `7264d1080` lib）。**Task 1.6 执行时只做 Step 3/4/5**（前端 API + 页面批量条 + 门禁），Step 1/2 跳过（已完成），Task 1.6 的 commit 命令相应去掉后端两条命令 |
 | D15 | 批 1（Task 1.5 缺陷，验收期暴露） | 分类**根级** ↑↓ 换序**静默无效**（子级正常） | `swapSibling()` 用 `nodeIndex.get(parentId).children` 找兄弟，但根分类的 `parentId` 指向 Vendure **根集合**（该集合不在 `collections` 列表里，永远查不到）→ 兄弟数组为空 → `i<0` 静默 return | 已修（commit `e2c1b9f`）：兄弟改为**从扁平列表 `cats.value` 按 `parentId` 过滤 + position/name 排序**取，并把节点真实 `parentId` 传给 `moveCollection`；顺带删除因此变成死代码的 `indexNodes`/`nodeIndex`。**Task 1.5 的 `indexNodes` 写法作废，后续同类需求一律用扁平列表取同级** |
 | D16 | 批 1（规格偏离修正） | 图标原落成「`uni.showModal({editable:true})` 手打字符串」，规格 §4.4 要求「写入 `customFields` + 复用 MediaPicker」，且页面上**不显示**图标（无法验收） | Task 1.6 只写了「批改图标」的文本弹窗 | 已按规格收口（commit `7dec6b5`）：改用 `MediaLibraryModal`（`:max="1"` / `media-type="image"`，即 MediaPicker 的底层共享组件）选图，取 `assets[0].id` 写入 `customFields.icon`；新增**行内图标区**（未设置显示「＋」，点击可单条设置），并用 `fetchAssets(n, 0, undefined, ids)` **一次批量预取** id→preview 建 `iconUrlById` 渲染。历史遗留的非 asset-id 文本值查不到即静默不显示 |
+| D17 | 批 2（执行期发现） | Task 2.3/2.4 的 i18n 命名空间实际落成 `platformGlobalConfig`，而计划正文写作 `globalConfig` | 「全局配置」页沿用既有命名空间（`src/locale/zh-Hans.json` 早已存在 `platformGlobalConfig`），新建 `globalConfig` 会与之并存、语义重复 | 统一用 `platformGlobalConfig.*`（含 `err_color`/`err_number`/`err_min`/`err_max`/`err_select`/`err_boolean`/`errFixFirst` 等错误码 key，由 `validateField` 返回码拼 `err_` 前缀消费）。新增键 zh-Hans / en 成对补齐 |
+| D18 | 批 2（Task 2.2 无代码变更 + overrides 形状纠正） | ① Task 2.2「店铺覆盖页接入合并预览」的目标**已由既有实现满足**（`src/pages/decorate/theme/index.vue` L73-82 预览卡 + L203-214 `genPreview`，`onMounted` 自动预览、保存前可见、传 `templateId` 走 L2→L3 扁平令牌覆盖）→ **无代码变更**；② 计划片段给出的 overrides 形状 `{theme, pages:{...}}` 与后端**扁平**合并口径不符 | `mergePreview` 实际口径：`L1 = {...themeTokens, ...defaults}`、`L2 = {...theme, ...pages}`、`L3 = overrides 全部键`（均**扁平**）。按计划写会产出 `theme.primaryColor` 等**不存在的键**并错标来源 | ① Task 2.2 标记为「已满足，跳过改码」，仅纳入 Task 2.5 验收（B1）；② 全局配置页 `genPreview` 的 overrides 按扁平根 `{themeTokens, defaults}` 传（commit `d2cc8d7`）。**页面级配置落点键以 `src/utils/merge-config.ts` 的 `PAGE_CF_FIELD` 为准**：`product→detailConfig` / `home→shopContent` / `category` / `cart` / `profile`；后续任何写 overrides 的地方禁用 `{theme, pages}` 形状 |
+| D19 | 批 2（Task 2.3 路径与清单纠正） | ① 计划写的 `defaults.detail.*` 路径实际是 `defaults.product.*`（详情页默认配置的落点键是 `product`，非 `detail`）；② 计划只列 5 个功能块，会**丢掉** `params`（参数）与 `description`（详情） | 计划按「detail」命名与块清单书写，未与 `ProductDetailRenderer` / 详情装修页块清单核对 | 已更正为 `defaults.product.layout` + `defaults.product.blocks.<key>`，块清单**补全为 7 个**：`gallery/price/promo/service/params/reviews/description`（`src/constants/config-schema.ts`）。e2e 断言 `uni-switch == 7` 固化为回归门禁 |
+| D20 | 批 2（Task 2.3 UI 形态） | 计划写版式用 `picker`，实际落成 **chips 胶囊单选**；且 `APP` 常量用 `app.value`（页面支持 nshop/vshop 切换），非计划写死的单端 | ① 现有后台「版式/枚举」类控件一律用 chips（与售后筛选、装修页一致），`picker` 会引入新交互范式；② 全局配置页顶部本就有 nshop/youshop 分段器，写死单端会导致切端后预览/保存串端 | 按 chips + `app.value` 实现（commit `4e40709`）；`APP_OPTS` 保留两端。e2e A1 断言 chips 含「经典/楼层/双通道」 |
+| D21 | 批 2（提交粒度与 JSON 框语义） | ① Task 2.3 与 2.4 **合并为一个提交** `4e40709`（非计划的两条）；② 「JSON 高级编辑」框仍**只承载 `defaults`**，未按计划把 draft 的 `themeTokens` 也并入 | ① 2.3（schema + 页面改造）与 2.4（行内标红）改的是**同一文件同一批代码**，拆开会产生「不可编译的中间提交」；② 并入 themeTokens 会改变既有 load/save 语义（`load()` 分别回填 tokens 与 defs），属于本轮范围外的语义扩张 | 按现状收口并在本表留档；JSON 框语义保持「仅 `defaults`」，令牌三项一律走结构化表单（已成对校验，`save()` 里 `themeTokens` 显式归一 + `Number(radius) || 8` 兜底） |
 
 **批 1 执行结论（Task 1.8 收口）**
 
@@ -3262,6 +3267,16 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 - **证据**：`docs/verify/gap4-batch1-*.png` 共 10 张（390×844 / dpr=2 = 780×1688，逐张人工看图核对为真实页面，无白屏/登录页/报错页）；两页 console 0 error / 0 pageerror。手册第 17 章已补（`webadmin-bugfix-manual.html`），`npm run verify:manual` PASS。
 - **测试数据副作用（仅本地库）**：验收期以 `WA_SHOT_ALLOW_WRITE=1` 造过 fixture（生产域名硬拦，未改 vendure 任何文件）；售后样本服务端无删除 mutation，遗留 23 条置 `Closed` 的记录与一次性分类，属本地库脏数据，不影响线上。
 - `src/static/manual/index.html`（发布用使用手册）为数据驱动 `op-N` + `shots/` 结构，与修复手册不一致，**本轮只更新修复手册**；发布手册待批次 4 的 Task 4.9 一并处理。
+
+**批 2 执行结论（Task 2.5 收口）**
+
+- **交付物**：Task 2.1（`src/utils/config-path.ts` + 全局配置页合并预览，commit `d2cc8d7`）、Task 2.3+2.4（`src/constants/config-schema.ts` 11 字段 schema 驱动渲染 + `validateField` + 行内标红 + 保存前置拦截，commit `4e40709`）、Task 2.2（**无代码变更**，既有实现已满足，见 D18）、Task 2.5（验收脚本 + 手册第 18 章，commit `f8b7f86`）。
+- **批次门禁全部通过**：`npm run build:h5` EXIT=0（Sass legacy-js-api 为既有 deprecation 警告，非错误）；`npm run verify:manual` PASS（失败 0，含「手册引用的截图全部存在」）；e2e `_e2e/_verify_gap4_batch2.py` **PASS（失败 0 / SKIP 0）**，退出码 0。
+- **验收覆盖（A/B 两组）**：A1 结构化表单 11 字段（`.in=3` / `uni-switch=7` / 版式 chips 齐全）；A2 非法主色行内标红（`field0.err='颜色需为 #RRGGBB'`）+ 保存前置拦截（toast「有 1 处需要修正」）；A3 合法保存成功 → **落库回读一致**（`persisted='#123456'`）→ 还原并收尾 API 复核库值回 `#ff6600`；A4 「立即预览」输出 L0→L3 合并 JSON（`pre.len=195`，含 `themeTokens`/`defaults`）+ 来源徽标逐条标注（`['L1','L1','L1','L3',…]`）；B1 店铺覆盖页三行预览 + 来源徽标 + **进页自动预览**。
+- **证据**：`docs/verify/gap4-batch2-*.png` 共 5 张（390×844 / dpr=2 = 780×1688，逐张人工看图核对为真实页面，无白屏/登录页/报错页；两张含「证据在首屏之外」的图已加 `scrollIntoView` 后重拍，令其自证）；两页 console 0 error / 0 pageerror。
+- **新增可复用经验（供批 3/4 沿用）**：① H5 `uni-toast` 元素**常驻 DOM**，隐藏后 `inner_text` 仍返回上一条文案 → 连续 toast 断言必须显式排除上一条（脚本 `toast_text(not_equal=…)`；同文案连续 toast 则在 `reload` 后直接轮询）；② `<input class="in">` 在 H5 渲染为 `uni-input` 包裹真实 `input`，填充须用 `.in > input`；`<switch>` → `uni-switch`；③ 取证图若目标在首屏之外，须先 `scrollIntoView` 再截图。
+- **测试数据副作用（仅本地库）**：A3 写 `updateShopGlobalConfig` 仅在 `WA_SHOT_ALLOW_WRITE=1` 下进行（生产域名 `e.joho.cn` 硬拦），改的是 `nshop` 端主色的**测试值**，脚本收尾已保存原值并用 API 复核落库回 `#ff6600`，**无残留脏数据**；未改 vendure 任何文件。
+- **本批未做（属范围外，已在 D21 留档）**：「JSON 高级编辑」仍只承载 `defaults`；发布用 `src/static/manual/index.html` 未同步。
 
 ---
 
@@ -3275,7 +3290,7 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 | §4 批 1 · 分类层级/排序/移动/图标/批量 | Task 1.4（树+折叠）、1.5（moveCollection + 拖动/换序 + 改父）、1.6（图标 + 空分类批删） |
 | §4 批 1 · 死代码清理 G7.4/G7.5 | Task 1.7 |
 | §5 批 2 · 合并预览接入 | Task 2.1（`config-path.ts` + 全局配置页调 `mergedPreview`）、2.2 | 
-| §5 批 2 · 结构化表单 | Task 2.3（`GLOBAL_CONFIG_FIELDS` 9 字段）、2.4 |
+| §5 批 2 · 结构化表单 | Task 2.3（`GLOBAL_CONFIG_FIELDS` **11 字段**：3 令牌 + 1 版式 select + **7** block，见 D19）、2.4 |
 | §5 批 2 · 行内校验 | Task 2.3（`validateField`）、2.4（就地标红） |
 | §6 批 3 · 库存流水筛选 + before→after | Task 3.2 |
 | §6 批 3 · 单据中心筛选 + 分页（+ 后端扩 3 个参数） | Task 3.1（后端）、3.3（前端） |
