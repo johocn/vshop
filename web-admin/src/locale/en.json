@@ -2457,7 +2457,27 @@
     "quantity": "Quantity",
     "inventoryHealth": "Inventory Health",
     "outOfStock": "Out of Stock",
-    "totalSku": "Total SKUs"
+    "totalSku": "Total SKUs",
+    "view": {
+      "biz": "Business",
+      "ops": "Operations"
+    },
+    "ops": {
+      "pickCount": "Pick Batches",
+      "shippedItems": "Items Shipped",
+      "stocktakeCount": "Stocktakes",
+      "varianceRate": "Variance Rate",
+      "varianceTrend": "Stocktake Variance Trend",
+      "trendHint": "Diff items / Expected items",
+      "byCounter": "By Operator",
+      "unknownOperator": "No operator recorded",
+      "rowCount": "docs",
+      "rowQty": "items",
+      "exportCsv": "Export CSV (daily variance trend)",
+      "csvDay": "Date",
+      "csvExpected": "Expected items",
+      "csvDiff": "Diff items"
+    }
   },
   "changePassword": {
     "titleManual": "Change Password",
