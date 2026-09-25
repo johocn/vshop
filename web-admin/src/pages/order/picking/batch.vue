@@ -10,6 +10,10 @@
       <view class="kv"><text class="k">{{ $t('orderAdmin.picking.batchCounts').replace('{orders}', String(batch.memberCount)).replace('{items}', String(batch.itemCount)) }}</text></view>
       <view class="kv"><text class="k">{{ $t('orderAdmin.picking.createdBy') }}</text><text class="v">{{ batch.createdBy || '—' }}</text></view>
       <view class="kv"><text class="k">{{ $t('orderAdmin.picking.createdAt') }}</text><text class="v">{{ createdLabel }}</text></view>
+      <view v-if="batch.handoverAt" class="kv"><text class="k">{{ $t('orderAdmin.picking.handoverTo') }}</text><text class="v">{{ batch.handoverTo || '—' }}</text></view>
+      <view v-if="batch.handoverAt" class="kv"><text class="k">{{ $t('orderAdmin.picking.handoverAt') }}</text><text class="v">{{ fmtAt(batch.handoverAt) }}</text></view>
+      <view v-if="batch.reviewedAt" class="kv"><text class="k">{{ $t('orderAdmin.picking.reviewedAt') }}</text><text class="v">{{ fmtAt(batch.reviewedAt) }}</text></view>
+      <text v-if="batch.exceptionNote" class="ex">{{ $t('orderAdmin.picking.exceptionNote') }}：{{ batch.exceptionNote }}</text>
       <text v-if="batch.note" class="note">{{ batch.note }}</text>
     </view>
 
@@ -44,7 +48,7 @@
     <view class="sec">
       <text class="sh">{{ $t('orderAdmin.picking.members') }}</text>
       <text class="sc">{{ members.length }}</text>
-      <text v-if="!readonly && checked.length" class="sa" @tap="removeSelected">
+      <text v-if="memberEditable && checked.length" class="sa" @tap="removeSelected">
         {{ $t('orderAdmin.picking.removeSelected').replace('{n}', String(checked.length)) }}
       </text>
     </view>
@@ -53,7 +57,7 @@
       :key="m.id"
       :member="m"
       :selected="!!selected[m.id]"
-      :readonly="readonly"
+      :readonly="!memberEditable"
       :summary="summaryOf(m.code)"
       @toggle="toggle(m)"
       @edit-address="openAddress(m)"
@@ -67,7 +71,7 @@
       <text class="pb" :class="{ dis: !canPrint }" @tap="printBatchOverview">{{ $t('orderAdmin.picking.print.batchOverview') }}</text>
     </view>
 
-    <!-- ⑥ 状态推进 / 取消（只读态整块隐藏） -->
+    <!-- ⑥ 状态推进 / 交接 / 异常件 / 取消（只读态整块隐藏） -->
     <view v-if="!readonly" class="card acts">
       <text v-if="batch && batch.state === 'PENDING'" class="ab" :class="{ dis: busy }" @tap="advance('PICKED')">
         {{ $t('orderAdmin.picking.markPicked') }}
@@ -75,15 +79,26 @@
       <text v-if="batch && batch.state === 'PICKED'" class="ab" :class="{ dis: busy }" @tap="advance('PRINTED')">
         {{ $t('orderAdmin.picking.markPrinted') }}
       </text>
+      <!-- SHIPPED 之后：交接 / 异常件 -->
+      <text v-if="batch && batch.state === 'SHIPPED'" class="ab" :class="{ dis: busy }" @tap="openHandover">
+        {{ $t('orderAdmin.picking.doHandover') }}
+      </text>
+      <text v-if="batch && (batch.state === 'SHIPPED' || batch.state === 'HANDOVER')" class="ab ghost" :class="{ dis: busy }" @tap="openException">
+        {{ $t('orderAdmin.picking.registerException') }}
+      </text>
+      <!-- HANDOVER 之后：复核（异常件处理完也回到 HANDOVER 再复核） -->
+      <text v-if="batch && batch.state === 'HANDOVER'" class="ab" :class="{ dis: busy }" @tap="advance('REVIEWED')">
+        {{ $t('orderAdmin.picking.doReview') }}
+      </text>
       <text v-if="canShip" class="ab ghost" :class="{ dis: busy }" @tap="onCancel">
         {{ $t('orderAdmin.picking.cancelBatch') }}
       </text>
     </view>
 
-    <view style="height: 240rpx" />
+    <view v-if="canShip" style="height: 240rpx" />
 
-    <!-- ⑦ 底部固定条：批量发货（只读态不渲染） -->
-    <view v-if="!readonly && canShip" class="bulk">
+    <!-- ⑦ 底部固定条：批量发货（仅 PENDING / PICKED / PRINTED 渲染） -->
+    <view v-if="canShip" class="bulk">
       <picker class="pk" :range="dispatchOptions" :value="dispatchIdx" @change="dispatchIdx = $event.detail.value">
         <text class="pk-t">{{ dispatchOptions[dispatchIdx] }} ›</text>
       </picker>
@@ -99,6 +114,30 @@
       @close="addrVisible = false"
       @saved="onAddressSaved"
     />
+
+    <!-- 交接登记 -->
+    <view v-if="handoverVisible" class="mask" @tap="handoverVisible = false">
+      <view class="sheet" @tap.stop>
+        <text class="stitle">{{ $t('orderAdmin.picking.doHandover') }}</text>
+        <input class="inp" v-model="handoverTo" :placeholder="$t('orderAdmin.picking.handoverPlaceholder')" />
+        <view class="sbtns">
+          <text class="sbtn ghost" @tap="handoverVisible = false">{{ $t('orderAdmin.picking.cancel') }}</text>
+          <text class="sbtn" :class="{ dis: busy || !handoverTo.trim() }" @tap="submitHandover">{{ $t('orderAdmin.picking.confirm') }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 异常件登记 -->
+    <view v-if="exceptionVisible" class="mask" @tap="exceptionVisible = false">
+      <view class="sheet" @tap.stop>
+        <text class="stitle">{{ $t('orderAdmin.picking.registerException') }}</text>
+        <input class="inp" v-model="exceptionReason" :placeholder="$t('orderAdmin.picking.exceptionPlaceholder')" />
+        <view class="sbtns">
+          <text class="sbtn ghost" @tap="exceptionVisible = false">{{ $t('orderAdmin.picking.cancel') }}</text>
+          <text class="sbtn" :class="{ dis: busy || !exceptionReason.trim() }" @tap="submitException">{{ $t('orderAdmin.picking.confirm') }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -112,6 +151,8 @@ import {
   cancelPickBatch,
   fetchPickBatch,
   fetchPickBatchPickingList,
+  handoverPickBatch,
+  registerPickBatchException,
   removeOrdersFromPickBatch,
   shipPickBatch,
   type PickBatch,
@@ -146,11 +187,18 @@ const dispatchIdx = ref(0);
 const tracking = ref('');
 const addrVisible = ref(false);
 const addrOrder = ref<PickOrderSnapshot | null>(null);
+const handoverVisible = ref(false);
+const handoverTo = ref('');
+const exceptionVisible = ref(false);
+const exceptionReason = ref('');
 let seq = 0;
 
-// SHIPPED / CANCELLED 为终态：整页只读（隐藏加单/移除/发货，设计 §9）
-const readonly = computed(() => batch.value?.state === 'SHIPPED' || batch.value?.state === 'CANCELLED');
-const canShip = computed(() => !!batch.value && !readonly.value);
+// REVIEWED / CANCELLED 为终态：整页只读（隐藏状态推进/发货/取消，设计 §9）
+const readonly = computed(() => batch.value?.state === 'REVIEWED' || batch.value?.state === 'CANCELLED');
+// 成员可增删/改地址：服务端只放开 PENDING / PICKED（其余状态即使未终态也不可编辑）
+const memberEditable = computed(() => batch.value?.state === 'PENDING' || batch.value?.state === 'PICKED');
+// 可发货：服务端放开 PENDING / PICKED / PRINTED（同时管住底部发货条与取消批次）
+const canShip = computed(() => !!batch.value && ['PENDING', 'PICKED', 'PRINTED'].includes(String(batch.value.state)));
 /** 无批次或批内无订单时不产生空单据 */
 const canPrint = computed(() => !!batch.value && members.value.length > 0);
 
@@ -158,7 +206,10 @@ const checked = computed(() => members.value.filter((m) => selected.value[m.id])
 
 const stateClass = computed(() => {
   switch (batch.value?.state) {
-    case 'SHIPPED': return 'ok';
+    case 'SHIPPED':
+    case 'HANDOVER':
+    case 'REVIEWED': return 'ok';
+    case 'EXCEPTION': return 'warn';
     case 'CANCELLED': return 'dead';
     case 'PRINTED': return 'ready';
     default: return 'doing';
@@ -166,6 +217,10 @@ const stateClass = computed(() => {
 });
 
 const createdLabel = computed(() => String(batch.value?.createdAt || '').replace('T', ' ').slice(0, 16));
+
+function fmtAt(v?: string | null): string {
+  return v ? new Date(v).toLocaleString() : '—';
+}
 
 // 拣货汇总分组：off 档不分组（无库位概念）；zone / bin 档按库区分组，排序沿用服务端 pathIndex（不重排）
 const groups = computed(() => {
@@ -226,7 +281,7 @@ async function loadWarehouse(): Promise<void> {
 
 // ---- 交互 ----
 function toggle(m: PickOrderSnapshot): void {
-  if (readonly.value) return;
+  if (!memberEditable.value) return;
   const next = { ...selected.value };
   if (next[m.id]) delete next[m.id];
   else next[m.id] = true;
@@ -249,6 +304,48 @@ async function advance(to: string): Promise<void> {
     await load();
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('orderAdmin.picking.advanceFailed'), icon: 'none', duration: 3000 });
+  } finally {
+    busy.value = false;
+  }
+}
+
+// 交接登记：填交接对象 → SHIPPED 变 HANDOVER
+function openHandover(): void {
+  if (busy.value) return;
+  handoverTo.value = '';
+  handoverVisible.value = true;
+}
+async function submitHandover(): Promise<void> {
+  if (busy.value || !handoverTo.value.trim()) return;
+  busy.value = true;
+  try {
+    await handoverPickBatch(batchId.value, handoverTo.value.trim());
+    handoverVisible.value = false;
+    uni.showToast({ title: locale.t('orderAdmin.picking.handoverDone'), icon: 'success' });
+    await load();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.picking.handoverFailed'), icon: 'none', duration: 3000 });
+  } finally {
+    busy.value = false;
+  }
+}
+
+// 异常件登记：填原因 → EXCEPTION（HANDOVER 下也可登记，处理完再交接回 HANDOVER）
+function openException(): void {
+  if (busy.value) return;
+  exceptionReason.value = batch.value?.exceptionNote ?? '';
+  exceptionVisible.value = true;
+}
+async function submitException(): Promise<void> {
+  if (busy.value || !exceptionReason.value.trim()) return;
+  busy.value = true;
+  try {
+    await registerPickBatchException(batchId.value, exceptionReason.value.trim());
+    exceptionVisible.value = false;
+    uni.showToast({ title: locale.t('orderAdmin.picking.exceptionDone'), icon: 'success' });
+    await load();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.picking.exceptionFailed'), icon: 'none', duration: 3000 });
   } finally {
     busy.value = false;
   }
@@ -409,6 +506,7 @@ onPullDownRefresh(async () => {
       .st { font-size: 20rpx; color: #fff; border-radius: 6rpx; padding: 4rpx 14rpx; background: $wa-accent;
         &.ready { background: $wa-ink; }
         &.ok { background: $wa-success; }
+        &.warn { background: $wa-danger; }
         &.dead { background: $wa-muted; }
       }
     }
@@ -417,6 +515,7 @@ onPullDownRefresh(async () => {
       .v { flex: 1; text-align: right; font-size: 24rpx; color: $wa-ink; }
     }
     .note { display: block; margin-top: 14rpx; font-size: 24rpx; color: $wa-muted; }
+    .ex { display: block; margin-top: 14rpx; font-size: 24rpx; color: $wa-danger; line-height: 1.5; }
   }
 
   .sec { display: flex; align-items: center; margin: 20rpx 0 14rpx;
@@ -478,6 +577,47 @@ onPullDownRefresh(async () => {
     .tk { flex: 1; min-width: 0; background: rgba(255, 255, 255, 0.16); border-radius: 8rpx; padding: 14rpx 20rpx; font-size: 24rpx; color: #fff; }
     .bb { flex: none; font-size: 26rpx; color: #fff; background: $wa-accent; border-radius: 8rpx; padding: 14rpx 26rpx;
       &.dis { opacity: 0.5; }
+    }
+  }
+
+  /* 交接 / 异常件登记弹层（与地址抽屉同款底部 sheet） */
+  .mask {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: flex-end;
+    z-index: 20;
+  }
+  .sheet {
+    width: 100%;
+    background: $wa-card;
+    border-radius: $wa-radius $wa-radius 0 0;
+    padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+
+    .stitle { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; }
+    .inp { margin-top: 24rpx; background: $wa-bg; border-radius: $wa-radius; padding: 18rpx 20rpx; font-size: 26rpx; color: $wa-ink; box-sizing: border-box; }
+
+    .sbtns {
+      display: flex;
+      gap: 20rpx;
+      margin-top: 32rpx;
+
+      .sbtn {
+        flex: 1;
+        text-align: center;
+        font-size: 28rpx;
+        color: #fff;
+        background: $wa-accent;
+        border-radius: $wa-radius;
+        padding: 20rpx 0;
+
+        &.ghost { background: transparent; color: $wa-ink; border: 1rpx solid $wa-rule; }
+        &.dis { opacity: 0.5; }
+      }
     }
   }
 }

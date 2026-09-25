@@ -23,10 +23,13 @@ import type { PickBatch } from '../../apis/picking';
 const props = defineProps<{ batch: PickBatch; warehouseName?: string }>();
 const emit = defineEmits<{ (e: 'open'): void }>();
 
-// 状态 → 徽标配色（状态机五值固定，见设计 §5）
+// 状态 → 徽标配色（状态机八值固定，见设计 §5）
 const stateClass = computed(() => {
   switch (props.batch.state) {
-    case 'SHIPPED': return 'ok';
+    case 'SHIPPED':
+    case 'HANDOVER':
+    case 'REVIEWED': return 'ok';
+    case 'EXCEPTION': return 'warn';
     case 'CANCELLED': return 'dead';
     case 'PRINTED': return 'ready';
     default: return 'doing';
@@ -50,6 +53,7 @@ const createdLabel = computed(() => String(props.batch.createdAt || '').replace(
       &.doing { background: $wa-accent; }
       &.ready { background: $wa-ink; }
       &.ok { background: $wa-success; }
+      &.warn { background: $wa-danger; }
       &.dead { background: $wa-muted; }
     }
   }

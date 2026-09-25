@@ -125,22 +125,28 @@ async function load(): Promise<void> {
   const my = ++seq;
   loading.value = true;
   try {
-    // 三 Tab 数据一次拉齐：候选 1 次 + 五个状态各 1 次（pageSize 小，后台场景可接受）
-    const [cand, p, k, r, s, c] = await Promise.all([
+    // 三 Tab 数据一次拉齐：候选 1 次 + 进行中 6 态 + 已完成 2 态（pageSize 小，后台场景可接受）
+    // 分组口径随状态机扩展：SHIPPED 已非终态（待交接），与 HANDOVER / EXCEPTION 同属「进行中」；
+    // 终态只有 REVIEWED / CANCELLED（否则这两种批次的卡片在列表里无处可达）
+    const [cand, p, k, r, s, h, ex, v, c] = await Promise.all([
       fetchPickBatchCandidates({ page: 1, pageSize: PAGE }),
       fetchPickBatches({ page: 1, pageSize: PAGE, state: 'PENDING' }),
       fetchPickBatches({ page: 1, pageSize: PAGE, state: 'PICKED' }),
       fetchPickBatches({ page: 1, pageSize: PAGE, state: 'PRINTED' }),
       fetchPickBatches({ page: 1, pageSize: PAGE, state: 'SHIPPED' }),
+      fetchPickBatches({ page: 1, pageSize: PAGE, state: 'HANDOVER' }),
+      fetchPickBatches({ page: 1, pageSize: PAGE, state: 'EXCEPTION' }),
+      fetchPickBatches({ page: 1, pageSize: PAGE, state: 'REVIEWED' }),
       fetchPickBatches({ page: 1, pageSize: PAGE, state: 'CANCELLED' }),
     ]);
     if (my !== seq) return;
     candidates.value = cand.items;
     pendingCount.value = cand.totalItems;
-    activeBatches.value = [...p.items, ...k.items, ...r.items].sort(byCreatedDesc);
-    activeCount.value = p.totalItems + k.totalItems + r.totalItems;
-    doneBatches.value = [...s.items, ...c.items].sort(byCreatedDesc);
-    doneCount.value = s.totalItems + c.totalItems;
+    activeBatches.value = [...p.items, ...k.items, ...r.items, ...s.items, ...h.items, ...ex.items].sort(byCreatedDesc);
+    activeCount.value =
+      p.totalItems + k.totalItems + r.totalItems + s.totalItems + h.totalItems + ex.totalItems;
+    doneBatches.value = [...v.items, ...c.items].sort(byCreatedDesc);
+    doneCount.value = v.totalItems + c.totalItems;
     // 勾选的订单若已不在候选池（被别的会话加入批次）→ 清掉，避免提交时才报冲突
     const alive = new Set(candidates.value.map((x) => x.id));
     const next: Record<string, boolean> = {};

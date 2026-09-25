@@ -4,7 +4,9 @@
 // 在 SDL 里都是 JSON 标量 —— 查询/变更时只能取字段本身，不能带子选择集（否则 GRAPHQL_VALIDATION_FAILED）。
 import { getAdminClient, graphQlErrorMsg } from './client';
 
-export type PickBatchState = 'PENDING' | 'PICKED' | 'PRINTED' | 'SHIPPED' | 'CANCELLED';
+export type PickBatchState =
+  | 'PENDING' | 'PICKED' | 'PRINTED' | 'SHIPPED'
+  | 'HANDOVER' | 'REVIEWED' | 'EXCEPTION' | 'CANCELLED';
 
 export interface PickBatch {
   id: string;
@@ -18,6 +20,11 @@ export interface PickBatch {
   pickedAt?: string | null;
   printedAt?: string | null;
   shippedAt?: string | null;
+  handoverAt?: string | null;
+  handoverTo?: string | null;
+  reviewedAt?: string | null;
+  exceptionAt?: string | null;
+  exceptionNote?: string | null;
   createdAt: string;
 }
 
@@ -67,7 +74,7 @@ export interface PickBatchListOptions {
 
 const PICK_BATCH_FIELDS = `
   id code stockLocationId state note createdBy memberCount itemCount
-  pickedAt printedAt shippedAt createdAt
+  pickedAt printedAt shippedAt handoverAt handoverTo reviewedAt exceptionAt exceptionNote createdAt
 `;
 
 function normalizeOptions(options: PickBatchListOptions): Record<string, any> {
@@ -240,6 +247,36 @@ export async function advancePickBatchState(batchId: string, to: PickBatchState 
     return advancePickBatchState;
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '状态推进失败'));
+  }
+}
+
+/** 交接登记（SHIPPED → HANDOVER） */
+export async function handoverPickBatch(batchId: string, handoverTo: string): Promise<PickBatch> {
+  try {
+    const { handoverPickBatch } = await getAdminClient().request<{ handoverPickBatch: PickBatch }>(
+      `mutation HandoverPickBatch($batchId: ID!, $handoverTo: String!) {
+        handoverPickBatch(batchId: $batchId, handoverTo: $handoverTo) {${PICK_BATCH_FIELDS}}
+      }`,
+      { batchId, handoverTo },
+    );
+    return handoverPickBatch;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '交接登记失败'));
+  }
+}
+
+/** 异常件登记（可登记态：SHIPPED / HANDOVER） */
+export async function registerPickBatchException(batchId: string, reason: string): Promise<PickBatch> {
+  try {
+    const { registerPickBatchException } = await getAdminClient().request<{ registerPickBatchException: PickBatch }>(
+      `mutation RegisterPickBatchException($batchId: ID!, $reason: String!) {
+        registerPickBatchException(batchId: $batchId, reason: $reason) {${PICK_BATCH_FIELDS}}
+      }`,
+      { batchId, reason },
+    );
+    return registerPickBatchException;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '异常件登记失败'));
   }
 }
 
