@@ -1,9 +1,21 @@
 # -*- coding: utf-8 -*-
 """打印像素基线（规格 §3.5 / §7.5 / §10.5）
 
+两条交付线（2026-09-25 合并：配货台四单据并入本门禁，不另建脚本，避免两份真相）：
+  family = stocktake（盘库结果单）——需登录 + --task（载体任务），三 case：diff-a4 / empty-a4 / big-a4
+  family = templates（配货台四单据）——**离线**，不需登录也不用 --task：由 _e2e/_print_cases.ts 用冻结数据调
+    纯函数模板产出完整 HTML（含 @page），门禁只做「渲染 + 结构断言 + 截图切片 + 零容差比对」：
+      picking-a4      拣货单 bin 档（3 库区 + 未归位，40 行，8 列，跨页）
+      shipping-a4     发货单（一单一页，3 单 → 3 页）
+      parcel-thermal  包裹标签（100×150 热敏，一件一页，3 单 → 3 页）
+      batch-a4l       批次总览（A4 横向，40 单，跨页）
+    期望值取自 `node _e2e/_print_cases.ts --manifest`（与产出 HTML 同一份冻结数据，不做二次推导）。
+
 受控渲染契约（与 _e2e/baselines/print/<case>/env.json 同源）：
-  Playwright Chromium + emulateMedia({media:'print'}) + 视口 794x1123 @dpr2
-  光栅化：element.screenshot(.st-print) → PIL 按 271mm 内容高切片成页（本机无 PDF 光栅化库）
+  Playwright Chromium + emulateMedia({media:'print'}) + dpr2；视口宽 = 该 case 的内容宽（mm 换算 CSS px）
+  stocktake：element.screenshot(.st-print) → 切片 271mm（内容 186×271mm，视口 794x1123）
+  templates：full_page 截图 → 按该 case 内容高切片（A4 纵 186×273 / A4 横 273×186 / 热敏 92×142mm）
+  真分页不由切片承担：另有 pg.pdf(prefer_css_page_size) 断言真实页数与 MediaBox 尺寸
   比对：同机逐像素零容差；跨机/跨版本自动降级为结构断言并输出 SKIP pixel（不虚报 PASS）
 
 两阶段（像素级一致性要求的可判定形态）：
@@ -20,14 +32,15 @@
 （uncountedCount > 0），否则 fixture 无处填充未盘清单 → 显式 FAIL，不静默退化成真实数据基线。
 
 用法（在 web-admin 目录下）：
-  python _e2e/_verify_print_baseline.py --task <taskId>                # 比对
-  python _e2e/_verify_print_baseline.py --task <taskId> --record       # 录基线
-  python _e2e/_verify_print_baseline.py --task <taskId> --record --force
-  python _e2e/_verify_print_baseline.py                                # 用环境变量 WA_PRINT_TASK
+  python _e2e/_verify_print_baseline.py --only templates             # 四单据，离线（CI / 无网可跑）
+  python _e2e/_verify_print_baseline.py --task <taskId>              # 四单据 + 盘库结果单三 case
+  python _e2e/_verify_print_baseline.py --task <taskId> --record     # 录基线
+  python _e2e/_verify_print_baseline.py --only templates --record --force
+  python _e2e/_verify_print_baseline.py                              # 用环境变量 WA_PRINT_TASK（all/stocktake 需 --task）
 环境变量：WA_PRINT_BASE（默认 https://e.joho.cn/guanli/）、WA_PRINT_TASK、WA_SMOKE_USER、WA_SMOKE_PWD、WA_SMOKE_CHANNEL
   WA_API_ORIGIN（计划外增补 a）：非空且 WA_PRINT_BASE 指向 localhost 时，把 **/admin-api 转发到该源（只读）；
   为空时不注册任何路由，行为与计划逐字一致。
-退出码：0 = 全部通过（含显式 SKIP）；1 = 断言失败；2 = 环境不可用
+退出码：0 = 全部通过（含显式 SKIP）；1 = 断言失败；2 = 环境不可用（all/stocktake 缺 --task、缺 node/playwright/pillow）
 
 SKIP 边界（反假 PASS，2026-09-25 收紧）：
   像素阶段**不得**因「数据不足」降级为 SKIP——数据已由 fixture 保证，缺数据即环境异常 → FAIL；
@@ -45,6 +58,7 @@ import json
 import os
 import platform
 import re
+import subprocess
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -69,6 +83,21 @@ CONTENT_H_CSS = CONTENT_H_MM * MM
 PAGE_H_DEV = int(round(CONTENT_H_CSS * 2))          # 271mm @dpr2 → 2049 设备像素
 VIEW = {'width': 794, 'height': 1123}
 DPR = 2
+
+# —— 配货台四单据（family=templates）：@page 原文 + 内容区 mm + 纸张 mm + 真分页期望 ——
+# pdf_mode 'ge' = 至少 n 页（长表单跨页）；'eq' = 恰好 n 页（「一单一页 / 一件一页」是硬语义）
+# 纸张尺寸以 mm 为准（Chrome 会把自定义页尺寸量化到整数 CSS px，换算回 mm 有 <0.2mm 残差）
+TPL = {
+    'picking-a4':     {'rule': 'A4 纵向', 'content_mm': (186.0, 273.0), 'page_mm': (210.0, 297.0),
+                       'page_css': '@page { size: A4; margin: 12mm }', 'pdf_mode': 'ge', 'pdf_n': 2},
+    'shipping-a4':    {'rule': 'A4 纵向', 'content_mm': (186.0, 273.0), 'page_mm': (210.0, 297.0),
+                       'page_css': '@page { size: A4; margin: 12mm }', 'pdf_mode': 'eq', 'pdf_n': 3},
+    'parcel-thermal': {'rule': '100×150 热敏', 'content_mm': (92.0, 142.0), 'page_mm': (100.0, 150.0),
+                       'page_css': '@page { size: 100mm 150mm; margin: 4mm }', 'pdf_mode': 'eq', 'pdf_n': 3},
+    'batch-a4l':      {'rule': 'A4 横向', 'content_mm': (273.0, 186.0), 'page_mm': (297.0, 210.0),
+                       'page_css': '@page { size: A4 landscape; margin: 12mm }', 'pdf_mode': 'ge', 'pdf_n': 2},
+}
+TPL_ORDER = ['picking-a4', 'shipping-a4', 'parcel-thermal', 'batch-a4l']
 COL_MM = [22.0, 30.0, 38.0, 17.0, 17.0, 17.0, 15.0, 12.0, 18.0]
 COL_TOL_MM = 0.3
 WIDTH_TOL_MM = 0.3
@@ -97,6 +126,8 @@ PWD = os.environ.get('WA_SMOKE_PWD', 'you123123')
 CHANNEL = os.environ.get('WA_SMOKE_CHANNEL', 't2')
 ROOT = Path(__file__).resolve().parent
 BASE_DIR = ROOT / 'baselines' / 'print'
+APP_ROOT = ROOT.parent                      # web-admin（node 产出器的 cwd）
+EMITTER = ROOT / '_print_cases.ts'          # 四单据合成 fixture 产出器（TS 纯函数模板的唯一真相）
 # —— 计划外增补 (a)：/admin-api 只读转发目标（为空则完全不注册路由）——
 API_ORIGIN = os.environ.get('WA_API_ORIGIN', '').rstrip('/')
 
@@ -122,6 +153,27 @@ def check(name, ok, detail=''):
 def skip(name, why):
     print('  SKIP %s %s' % (name, why))
     SKIPS.append('%s：%s' % (name, why))
+
+
+def emit(args):
+    """调 node 产出器（_print_cases.ts）：结构与 HTML 同出一份冻结数据，门禁不复刻模板（避免第二份真相）。"""
+    p = subprocess.run(['node', str(EMITTER)] + args, cwd=str(APP_ROOT), capture_output=True)
+    if p.returncode != 0:
+        print('ENV-FAIL: node _e2e/_print_cases.ts %s 失败 → %s'
+              % (' '.join(args), p.stderr.decode('utf-8', 'replace').strip()[:400]))
+        raise SystemExit(2)
+    return p.stdout.decode('utf-8')
+
+
+_MANIFEST = None
+
+
+def manifest():
+    """四单据的冻结期望值（懒加载：--only stocktake 时不依赖 node）"""
+    global _MANIFEST
+    if _MANIFEST is None:
+        _MANIFEST = json.loads(emit(['--manifest']))
+    return _MANIFEST
 
 
 # ------------------------------------------------------------------ 浏览器侧
@@ -329,15 +381,15 @@ def rows_in_table(pg):
 
 # ------------------------------------------------------------------ 图像侧
 
-def slice_pages(png_bytes):
+def slice_pages(png_bytes, page_h_dev=PAGE_H_DEV):
     im = Image.open(io.BytesIO(png_bytes)).convert('RGB')
     w, h = im.size
-    n = max(1, int((h + PAGE_H_DEV - 1) // PAGE_H_DEV))
+    n = max(1, int((h + page_h_dev - 1) // page_h_dev))
     pages = []
     for i in range(n):
-        top = i * PAGE_H_DEV
-        band = im.crop((0, top, w, min(h, top + PAGE_H_DEV)))
-        canvas = Image.new('RGB', (w, PAGE_H_DEV), (255, 255, 255))
+        top = i * page_h_dev
+        band = im.crop((0, top, w, min(h, top + page_h_dev)))
+        canvas = Image.new('RGB', (w, page_h_dev), (255, 255, 255))
         canvas.paste(band, (0, 0))          # 末页补白：内容上移/下移都能被 diff 抓到
         pages.append(canvas)
     return w, pages
@@ -345,6 +397,51 @@ def slice_pages(png_bytes):
 
 def arr(img):
     return np.asarray(img, dtype=np.int16)
+
+
+def record_or_compare(folder, tag, pages, env_now, record, force):
+    """基线录制 / 比对（两条交付线共用；tag 同时作为 _diff 取证图目录名）"""
+    if record:
+        if folder.exists() and not force:
+            check('%s 基线已存在（要覆盖请加 --force）' % tag, False, str(folder))
+            return
+        folder.mkdir(parents=True, exist_ok=True)
+        for i, p in enumerate(pages):
+            p.save(folder / ('page-%d.png' % (i + 1)))
+        (folder / 'env.json').write_text(json.dumps(env_now, ensure_ascii=False, indent=2), encoding='utf-8')
+        print('  REC  %s → %d 页 + env.json' % (folder, len(pages)))
+        return
+
+    # —— SKIP 边界已收紧：像素阶段没有「数据不足」降级路径（数据由 fixture 保证），缺基线即 FAIL ——
+    env_path = folder / 'env.json'
+    if not env_path.exists():
+        check('%s 基线存在' % tag, False, '未找到 %s（先跑 --record）' % env_path)
+        return
+    env_old = json.loads(env_path.read_text(encoding='utf-8'))
+    diff_keys = [k for k in FP_KEYS if env_old['fingerprint'].get(k) != env_now['fingerprint'].get(k)]
+    if diff_keys:
+        skip('%s 像素比对' % tag, '渲染环境指纹不符 %s（结构断言照跑）' % diff_keys)
+        return
+    if env_old.get('pages') != len(pages):
+        check('%s 页数与基线一致' % tag, False, 'baseline=%s now=%s' % (env_old.get('pages'), len(pages)))
+        return
+    bad_pages = []
+    for i, p in enumerate(pages):
+        old = Image.open(folder / ('page-%d.png' % (i + 1))).convert('RGB')
+        if old.size != p.size:
+            bad_pages.append('page-%d 尺寸 %s≠%s' % (i + 1, p.size, old.size))
+            continue
+        now_a, old_a = arr(p), arr(old)
+        mask = (now_a != old_a).any(axis=2)
+        n = int(mask.sum())
+        if n:
+            out = np.asarray(p).copy()
+            out[mask] = [255, 0, 0]
+            d = BASE_DIR / '_diff' / tag
+            d.mkdir(parents=True, exist_ok=True)
+            Image.fromarray(out).save(d / ('page-%d.png' % (i + 1)))
+            bad_pages.append('page-%d 差异像素 %d（最大通道差 %d）' % (i + 1, n, int(np.abs(now_a - old_a).max())))
+    check('%s 逐页像素零容差一致' % tag, not bad_pages, '；'.join(bad_pages[:3]))
 
 
 def build_env(pg, tid, m, pages, spec):
@@ -374,18 +471,23 @@ def build_env(pg, tid, m, pages, spec):
 FP_KEYS = ['chromium', 'playwright', 'os', 'viewport', 'dpr', 'content_mm', 'page_h_dev', 'print_at', 'fixture']
 
 
-def pdf_asserts(pg, case, expect_pages):
+def pdf_asserts(pg, tag, expect_n, expect_mm=(210.0, 297.0), mode='ge'):
+    """真分页断言：切片只保证「内容不丢」，页数/页尺寸由 PDF 承担（prefer_css_page_size 读 @page）。
+    mode 'ge' = 至少 n 页（长表单允许跨更多页）；'eq' = 恰好 n 页（「一单一页 / 一件一页」是硬语义）。
+    纸张尺寸按 mm 判（Chrome 量化自定义页尺寸到整数 CSS px，回算 mm 残差 <0.2mm）。"""
     b = pg.pdf(format='A4', print_background=True, prefer_css_page_size=True,
                margin={'top': '0', 'bottom': '0', 'left': '0', 'right': '0'})
     n = len(re.findall(rb'/Type\s*/Page[^s]', b))
-    check('%s PDF 页数 >= 切片页数' % case, n >= expect_pages, 'pdf=%d png=%d' % (n, expect_pages))
+    ok = (n == expect_n) if mode == 'eq' else (n >= expect_n)
+    check('%s PDF 页数 %s %d' % (tag, '==' if mode == 'eq' else '>=', expect_n), ok, 'pdf=%d' % n)
     box = re.search(rb'/MediaBox\s*\[\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)', b)
     if not box:
-        check('%s PDF 含 MediaBox' % case, False, '未匹配到 /MediaBox')
+        check('%s PDF 含 MediaBox' % tag, False, '未匹配到 /MediaBox')
         return
-    w, h = float(box.group(3)), float(box.group(4))
-    check('%s PDF 页尺寸 = A4（595.276 x 841.89pt ±0.5）' % case,
-          abs(w - 595.276) <= 0.5 and abs(h - 841.89) <= 0.5, '%.3f x %.3f pt' % (w, h))
+    w = float(box.group(3)) * 25.4 / 72.0          # pt → mm
+    h = float(box.group(4)) * 25.4 / 72.0
+    check('%s PDF 页尺寸 = %.0f x %.0fmm（±0.5）' % (tag, expect_mm[0], expect_mm[1]),
+          abs(w - expect_mm[0]) <= 0.5 and abs(h - expect_mm[1]) <= 0.5, '%.2f x %.2f mm' % (w, h))
 
 
 def geometry_asserts(case, m, code):
@@ -473,79 +575,234 @@ def run(pg, case, tid, record, force):
     pdf_asserts(pg, case, len(pages))
 
     folder = BASE_DIR / case
-    env_now = build_env(pg, tid, m, len(pages), spec)
-    if record:
-        if folder.exists() and not force:
-            check('%s 基线已存在（要覆盖请加 --force）' % case, False, str(folder))
-            return
-        folder.mkdir(parents=True, exist_ok=True)
-        for i, p in enumerate(pages):
-            p.save(folder / ('page-%d.png' % (i + 1)))
-        (folder / 'env.json').write_text(json.dumps(env_now, ensure_ascii=False, indent=2), encoding='utf-8')
-        print('  REC  %s → %d 页 + env.json' % (folder, len(pages)))
-        return
+    record_or_compare(folder, case, pages, build_env(pg, tid, m, len(pages), spec), record, force)
 
-    # —— SKIP 边界已收紧：像素阶段没有「数据不足」降级路径（数据由 fixture 保证），缺基线即 FAIL ——
-    env_path = folder / 'env.json'
-    if not env_path.exists():
-        check('%s 基线存在' % case, False, '未找到 %s（先跑 --record）' % env_path)
-        return
-    env_old = json.loads(env_path.read_text(encoding='utf-8'))
-    diff_keys = [k for k in FP_KEYS if env_old['fingerprint'].get(k) != env_now['fingerprint'].get(k)]
-    if diff_keys:
-        skip('%s 像素比对' % case, '渲染环境指纹不符 %s（结构断言照跑）' % diff_keys)
-        return
-    if env_old.get('pages') != len(pages):
-        check('%s 页数与基线一致' % case, False, 'baseline=%s now=%s' % (env_old.get('pages'), len(pages)))
-        return
-    bad_pages = []
-    for i, p in enumerate(pages):
-        old = Image.open(folder / ('page-%d.png' % (i + 1))).convert('RGB')
-        if old.size != p.size:
-            bad_pages.append('page-%d 尺寸 %s≠%s' % (i + 1, p.size, old.size))
-            continue
-        a, b = arr(p), arr(old)
-        mask = (a != b).any(axis=2)
-        n = int(mask.sum())
-        if n:
-            out = np.asarray(p).copy()
-            out[mask] = [255, 0, 0]
-            d = BASE_DIR / '_diff' / case
-            d.mkdir(parents=True, exist_ok=True)
-            Image.fromarray(out).save(d / ('page-%d.png' % (i + 1)))
-            bad_pages.append('page-%d 差异像素 %d（最大通道差 %d）' % (i + 1, n, int(np.abs(a - b).max())))
-    check('%s 逐页像素零容差一致' % case, not bad_pages, '；'.join(bad_pages[:3]))
+
+# ------------------------------------------------------------------ 配货台四单据（family=templates）
+
+# 一次取齐结构 + 计算样式（期望值全部来自 manifest 的同一份冻结数据，不做二次推导）
+TPL_MEASURE_JS = """([contentWmm]) => {
+  const mm = (px) => px * 25.4 / 96;
+  const qa = (s) => Array.from(document.querySelectorAll(s));
+  const cs = (el) => (el ? getComputedStyle(el) : null);
+  const body = document.body;
+  const rootEl = document.documentElement;
+  const lim = (contentWmm + 0.5) * 96 / 25.4;
+  const over = [];
+  for (const el of qa('body *')) {
+    const b = el.getBoundingClientRect();
+    if (b.width > lim || b.right > lim + 0.5) over.push((el.className || el.tagName) + ':' + b.width.toFixed(1));
+  }
+  const th = document.querySelector('th');
+  const grpEls = qa('.grp');
+  const flagEls = qa('tr.flag');
+  const bodyRows = qa('table tbody tr');
+  const firstFlagIdx = bodyRows.findIndex((r) => r.classList.contains('flag'));
+  const lt = document.querySelector('.lt');
+  const big = document.querySelector('.v.big');
+  const foot = document.querySelector('.foot');
+  return {
+    widthMM: mm(body.getBoundingClientRect().width),
+    heightMM: mm(rootEl.scrollHeight),
+    scrollW: rootEl.scrollWidth, clientW: rootEl.clientWidth,
+    overflow: over.slice(0, 5),
+    fontFamily: cs(body).fontFamily, fontSize: cs(body).fontSize,
+    colorAdjust: cs(body).printColorAdjust || cs(body).webkitPrintColorAdjust,
+    tableCount: qa('table').length,
+    cols: qa('table').map((t) => t.querySelectorAll('thead th').length),
+    thCount: qa('table').map((t) => t.querySelectorAll('th').length),
+    bodyRowCount: qa('table').map((t) => t.querySelectorAll('tbody tr').length),
+    rowCount: qa('table').map((t) => t.querySelectorAll('tr').length),
+    theadDisplay: qa('table').map((t) => (t.tHead ? getComputedStyle(t.tHead).display : '')),
+    rowBreak: qa('table').map((t) => {
+      const r = t.querySelector('tbody tr'); return r ? getComputedStyle(r).breakInside : ''; }),
+    grp: grpEls.map((e) => e.textContent.trim()),
+    grpBg: grpEls.length ? cs(grpEls[0]).backgroundColor : '',
+    flagRows: flagEls.length,
+    flagBg: flagEls.length ? cs(flagEls[0]).backgroundColor : '',
+    flagsAtEnd: firstFlagIdx < 0 ? null : bodyRows.slice(firstFlagIdx).every((r) => r.classList.contains('flag')),
+    needBind: (body.innerText.match(/需先入库归位再拣/g) || []).length,
+    sheets: qa('.sheet').length,
+    sheetSigns: qa('.sheet').filter((s) => s.querySelector('.sign')).length,
+    labels: qa('.label').length,
+    lt: lt ? [cs(lt).textAlign, cs(lt).fontSize, cs(lt).fontWeight].join('|') : '',
+    bigPx: big ? parseFloat(cs(big).fontSize) : 0,
+    thBorder: th ? cs(th).borderTopWidth : '',
+    thBg: th ? cs(th).backgroundColor : '',
+    seqFirst: bodyRows.length ? bodyRows[0].children[0].textContent.trim() : '',
+    seqLast: bodyRows.length ? bodyRows[bodyRows.length - 1].children[0].textContent.trim() : '',
+    foot: foot ? foot.textContent : '',
+    text: body.innerText,
+  };
+}"""
+
+
+def tpl_struct_asserts(case, exp, m, mf):
+    """结构与计算样式断言（跨 OS 也要成立的那一层：规格 §3.5「跨 OS = 仅结构一致」）"""
+    fam, cw = exp['family'], TPL[case]['content_mm'][0]
+    t = m['text'] or ''
+    # ---- 通用（四单据都成立）----
+    check('%s 打印区宽度 = %.0fmm（±0.3）' % (case, cw), abs(m['widthMM'] - cw) <= WIDTH_TOL_MM, '%.2fmm' % m['widthMM'])
+    check('%s 无横向溢出' % case, not m['overflow'] and m['scrollW'] <= m['clientW'] + 1,
+          'overflow=%s scroll=%s/%s' % (m['overflow'], m['scrollW'], m['clientW']))
+    check('%s print-color-adjust = exact' % case, m['colorAdjust'] == 'exact', str(m['colorAdjust']))
+    check('%s 打印字体栈显式声明' % case, 'PingFang SC' in m['fontFamily'], m['fontFamily'][:60])
+    check('%s DOM 含批次号与打印时间' % case, (mf['batch_code'] in t) and (mf['print_at'] in t), '')
+
+    if fam == 'picking':
+        check('%s 库区分组数 = %d' % (case, exp['groups']), len(m['grp']) == exp['groups'], 'grp=%d' % len(m['grp']))
+        check('%s 分组标题与顺序正确（未归位单独置底）' % case, m['grp'] == exp['group_titles'], str(m['grp']))
+        check('%s 每组表头 %d 列（bin 档含库区/库位/备注）' % (case, exp['cols']),
+              m['cols'] == [exp['cols']] * exp['groups'], str(m['cols']))
+        check('%s 未归位行数 = %d' % (case, exp['flag_rows']), m['flagRows'] == exp['flag_rows'], 'flag=%d' % m['flagRows'])
+        check('%s 未归位行整组置底' % case, m['flagsAtEnd'] is True, str(m['flagsAtEnd']))
+        check('%s 未归位行带归位提示 %d 处' % (case, exp['flag_rows']), m['needBind'] == exp['flag_rows'], 'n=%d' % m['needBind'])
+        check('%s 表头跨页重复 + 行不切断' % case,
+              set(m['theadDisplay']) == {'table-header-group'} and set(m['rowBreak']) == {'avoid'},
+              '%s / %s' % (m['theadDisplay'], m['rowBreak']))
+        check('%s 行序连续 1 → %d' % (case, exp['rows']),
+              m['seqFirst'] == '1' and m['seqLast'] == str(exp['rows']), '%s→%s' % (m['seqFirst'], m['seqLast']))
+        check('%s 页脚合计（共 %d 行 ｜ 合计 %d 件）' % (case, exp['rows'], exp['total_qty']),
+              ('共 %d 行' % exp['rows']) in m['foot'] and ('合计 %d 件' % exp['total_qty']) in m['foot'], m['foot'])
+        check('%s 分组/标黄/表头底色按打印样式生效' % case,
+              m['grpBg'] == 'rgb(221, 221, 221)' and m['flagBg'] == 'rgb(255, 233, 168)'
+              and m['thBg'] == 'rgb(232, 232, 232)',
+              '%s / %s / %s' % (m['grpBg'], m['flagBg'], m['thBg']))
+        check('%s th 实线 1px 边框' % case, m['thBorder'] == '1px', m['thBorder'])
+    elif fam == 'shipping':
+        check('%s 一单一页：%d 个 sheet' % (case, exp['orders']), m['sheets'] == exp['orders'], 'n=%d' % m['sheets'])
+        check('%s 每张单据含签收栏' % case, m['sheetSigns'] == exp['orders'], 'n=%d' % m['sheetSigns'])
+        check('%s 每张单据 3 行（订单号/收件人/地址）' % case, m['rowCount'] == [3] * exp['orders'], str(m['rowCount']))
+        check('%s 每张单据 5 个表头格（2+2+1）' % case, m['thCount'] == [5] * exp['orders'], str(m['thCount']))
+        check('%s DOM 含完整地址与签收文案' % case, ('阳光小区 1 幢 101 室' in t) and ('签收人签字' in t), '')
+    elif fam == 'parcel':
+        check('%s 一件一页：%d 张标签' % (case, exp['orders']), m['labels'] == exp['orders'], 'n=%d' % m['labels'])
+        check('%s 标签标题居中 14px 加粗' % case, m['lt'] == 'center|14px|700', m['lt'])
+        check('%s 收件人/电话 16px 加粗（远距辨认）' % case, m['bigPx'] == 16, '%spx' % m['bigPx'])
+        check('%s 地址不被截断（DOM 保留小区/门牌）' % case, '阳光小区 1 幢 101 室' in t, '')
+    elif fam == 'batch':
+        check('%s 单表 %d 列（序号/订单号/收件人/电话/地址/件数）' % (case, exp['cols']),
+              m['tableCount'] == 1 and m['cols'] == [exp['cols']], '%s / %s' % (m['tableCount'], m['cols']))
+        check('%s 表体 %d 行' % (case, exp['orders']), m['bodyRowCount'] == [exp['orders']], str(m['bodyRowCount']))
+        check('%s 表头跨页重复 + 行不切断' % case,
+              m['theadDisplay'] == ['table-header-group'] and m['rowBreak'] == ['avoid'],
+              '%s / %s' % (m['theadDisplay'], m['rowBreak']))
+        check('%s 行序连续 1 → %d' % (case, exp['orders']),
+              m['seqFirst'] == '1' and m['seqLast'] == str(exp['orders']), '%s→%s' % (m['seqFirst'], m['seqLast']))
+        check('%s 页脚合计（共 %d 行 ｜ 合计 %d 件）' % (case, exp['orders'], exp['total_items']),
+              ('共 %d 行' % exp['orders']) in m['foot'] and ('合计 %d 件' % exp['total_items']) in m['foot'], m['foot'])
+        check('%s th 实线 1px 边框' % case, m['thBorder'] == '1px', m['thBorder'])
+
+
+def build_env_tpl(pg, case, m, pages):
+    cw, ch = TPL[case]['content_mm']
+    page_h_dev = int(round(ch * MM * DPR))
+    return {
+        'rule': TPL[case]['rule'],
+        'pages': pages,
+        'page_h_dev': page_h_dev,
+        'fingerprint': {
+            'chromium': pg.evaluate('() => navigator.userAgent'),
+            'playwright': pkg_version('playwright'),
+            'os': platform.platform(),
+            'python': platform.python_version(),
+            'viewport': {'width': int(round(cw * MM)), 'height': 1123},
+            'dpr': DPR,
+            'content_mm': [cw, ch],
+            'page_h_dev': page_h_dev,
+            'font_stack': m['fontFamily'],
+            'print_at': manifest()['print_at'],
+            # 冻结 fixture（行数/分组/合计…）也是受控渲染契约的一部分：改 fixture 即需重录基线。
+            # 刻意不记录 HTML 哈希：改模板 CSS 时必须落到「像素差异 FAIL」，而不是降级成 SKIP。
+            'fixture': manifest()['cases'][case],
+        },
+        'recorded_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+    }
+
+
+def run_tpl(pg, case, record, force):
+    spec, mf = TPL[case], manifest()
+    exp = mf['cases'][case]
+    cw, ch = spec['content_mm']
+    page_h_dev = int(round(ch * MM * DPR))
+    view = {'width': int(round(cw * MM)), 'height': 1123}
+    print('\n[%s] %s 内容=%.0fx%.0fmm 视口=%s page_h_dev=%d' % (case, spec['rule'], cw, ch, view, page_h_dev))
+
+    # ---- 阶段 ①：HTML 契约（@page 原文 + 一单一页/一件一页的强制分页机制）----
+    html = emit([case])
+    check('%s HTML 为完整文档' % case, html.startswith('<!DOCTYPE html>'), html[:40])
+    check('%s HTML 含该档 @page（%s）' % (case, spec['rule']), spec['page_css'] in html, spec['page_css'])
+    if spec['pdf_mode'] == 'eq':
+        check('%s 含强制分页（一单一页 / 一件一页）' % case, 'page-break-after: always' in html, '')
+
+    # ---- 阶段 ②：结构与计算样式 ----
+    pg.set_viewport_size(view)
+    pg.set_content(html, wait_until='load')
+    pg.evaluate('async () => { await document.fonts.ready; }')
+    m = pg.evaluate(TPL_MEASURE_JS, [cw])
+    tpl_struct_asserts(case, exp, m, mf)
+
+    # ---- 阶段 ③：真分页（PDF）+ 受控渲染像素基线 ----
+    pdf_asserts(pg, case, spec['pdf_n'], spec['page_mm'], spec['pdf_mode'])
+    png = pg.screenshot(full_page=True)
+    w, pages = slice_pages(png, page_h_dev)
+    check('%s 光栅宽度 = %.0fmm @dpr2（±2px）' % (case, cw), abs(w - round(cw * MM * DPR)) <= 2,
+          'w=%d 期望=%d' % (w, round(cw * MM * DPR)))
+    record_or_compare(BASE_DIR / case, case, pages, build_env_tpl(pg, case, m, len(pages)), record, force)
 
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--only', choices=['all', 'stocktake', 'templates'], default='all')
     ap.add_argument('--task', default=os.environ.get('WA_PRINT_TASK', ''))
     ap.add_argument('--record', action='store_true')
     ap.add_argument('--force', action='store_true')
     a = ap.parse_args()
-    if not a.task:
+    want_st = a.only in ('all', 'stocktake')
+    want_tpl = a.only in ('all', 'templates')
+    if want_st and not a.task:
         print('ENV-FAIL: 缺 --task（或环境变量 WA_PRINT_TASK）——基线必须钉死一个固定的历史任务 id')
         raise SystemExit(2)
 
-    print('受控渲染：viewport=%s dpr=%d content=%.0fx%.0fmm page_h_dev=%d' % (VIEW, DPR, CONTENT_W_MM, CONTENT_H_MM, PAGE_H_DEV))
-    print('数据 fixture：' + '；'.join('%s=rows:%d/unc:%d' % (c, FIXTURE[c]['rows'], FIXTURE[c]['unc'])
-                                  for c in ('diff-a4', 'empty-a4', 'big-a4')))
+    print('受控渲染：dpr=%d' % DPR)
+    if want_tpl:
+        print('  配货台四单据（离线，无登录）：' + '；'.join(
+            '%s=%s 内容=%.0fx%.0fmm pdf:%s%d' % (c, TPL[c]['rule'], TPL[c]['content_mm'][0],
+                                                 TPL[c]['content_mm'][1], TPL[c]['pdf_mode'], TPL[c]['pdf_n'])
+            for c in TPL_ORDER))
+    if want_st:
+        print('  盘库结果单：viewport=%s content=%.0fx%.0fmm page_h_dev=%d'
+              % (VIEW, CONTENT_W_MM, CONTENT_H_MM, PAGE_H_DEV))
+        print('  数据 fixture：' + '；'.join('%s=rows:%d/unc:%d' % (c, FIXTURE[c]['rows'], FIXTURE[c]['unc'])
+                                      for c in ('diff-a4', 'empty-a4', 'big-a4')))
+    errs = []
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
-        ctx = b.new_context(viewport=VIEW, device_scale_factor=DPR, locale='zh-CN')
-        ctx.add_init_script("window.__STOCKTAKE_PRINT_AT__ = '%s'" % PRINT_AT)
-        pg = ctx.new_page()
-        forward_admin_api(pg)          # 计划外增补 (a)
-        errs = []
-        pg.on('pageerror', lambda e: errs.append('PAGEERR:' + str(e)[:200]))
-        pg.on('console', lambda m: errs.append('CONSOLE:' + m.text[:200]) if m.type == 'error' else None)
-        pg.emulate_media(media='print')
-        login(pg)
 
-        # 三个 case 共用同一载体任务：内容一律由 fixture 覆盖，故不再需要 --empty-task
-        run(pg, 'diff-a4', str(a.task), a.record, a.force)
-        run(pg, 'empty-a4', str(a.task), a.record, a.force)
-        run(pg, 'big-a4', str(a.task), a.record, a.force)
+        if want_tpl:
+            ctx = b.new_context(viewport=VIEW, device_scale_factor=DPR, locale='zh-CN')
+            pg = ctx.new_page()
+            pg.on('pageerror', lambda e: errs.append('PAGEERR:' + str(e)[:200]))
+            pg.on('console', lambda m: errs.append('CONSOLE:' + m.text[:200]) if m.type == 'error' else None)
+            pg.emulate_media(media='print')
+            for case in TPL_ORDER:
+                run_tpl(pg, case, a.record, a.force)
+            ctx.close()
+
+        if want_st:
+            ctx = b.new_context(viewport=VIEW, device_scale_factor=DPR, locale='zh-CN')
+            ctx.add_init_script("window.__STOCKTAKE_PRINT_AT__ = '%s'" % PRINT_AT)
+            pg = ctx.new_page()
+            forward_admin_api(pg)          # 计划外增补 (a)
+            pg.on('pageerror', lambda e: errs.append('PAGEERR:' + str(e)[:200]))
+            pg.on('console', lambda m: errs.append('CONSOLE:' + m.text[:200]) if m.type == 'error' else None)
+            pg.emulate_media(media='print')
+            login(pg)
+            # 三个 case 共用同一载体任务：内容一律由 fixture 覆盖，故不再需要 --empty-task
+            run(pg, 'diff-a4', str(a.task), a.record, a.force)
+            run(pg, 'empty-a4', str(a.task), a.record, a.force)
+            run(pg, 'big-a4', str(a.task), a.record, a.force)
+            ctx.close()
 
         check('全程无 JS 运行时异常', not [e for e in errs if e.startswith('PAGEERR')], str([e for e in errs if e.startswith('PAGEERR')][:2]))
         print('  console.error 计数 = %d' % len([e for e in errs if e.startswith('CONSOLE')]))

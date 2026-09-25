@@ -41,6 +41,8 @@ types/components.d.ts
 
 # E2E screenshots (test artifacts)
 web-admin/_e2e/*.png
+# 打印像素基线：红标差异取证图（本地生成，不入库）
+web-admin/_e2e/baselines/print/_diff/
 # 自动化测试/验收截图输出目录（本地产物，不进仓库）
 web-admin/e2e-shots/
 __pycache__/

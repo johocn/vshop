@@ -1371,10 +1371,78 @@ flowchart TD
         <li><strong>SKIP 边界收紧</strong>：像素阶段删除了「数据不足 → SKIP」这条降级路径（见 10.2 末行）；缺基线、页数不符、指纹不符以外的任何异常都是 FAIL。</li>
       </ul>
       <p class="muted" style="font-size:13px;">纪律重申：<strong>不许伪造 PASS，也不许把「跑不了」写成「通过了」</strong>；环境变了（换机 / 升级浏览器）就<strong>重录基线</strong>，而不是放宽容差。旧口径里的 <code class="mono">--empty-task</code> 参数与 <code class="mono">inject_big</code> 注入函数已随之取消 / 删除，详见偏差 D58。</p>
+
+      <p><strong>11. 配货台四类单据的打印版式像素级一致性（2026-09-25 追补）</strong></p>
+      <p>第 10 小节把「受控渲染像素级一致」做成了可判定门禁，但只落在<strong>盘库结果单</strong>一条交付线上。同仓交付的<strong>配货台四类单据</strong>（拣货单 / 发货单 / 包裹标签 / 批次总览，见第 15 章）当时只有 <code class="mono">templates.spec.ts</code> 的 12 条纯函数单测——单测管的是「<strong>有没有渲染对</strong>」，管不了「<strong>摆得对不对</strong>」：列宽、分组间距、标黄行、跨页表头、热敏字号这些版式属性，12 条断言里<strong>一条都不会失败</strong>。本小节把第 10 小节的同一套口径（规格 §3.5 三层一致性：受控渲染零容差 / 跨 OS 仅结构 / 物理打印人工走查）补齐到四类单据，且<strong>不另建脚本</strong>——并入同一个 <code class="mono">verify:print</code> 门禁。</p>
+
+      <p><strong>11.1 组织方式：一个门禁，两条交付线</strong></p>
+      <ul>
+        <li><code class="mono">_e2e/_verify_print_baseline.py</code> 新增 <code class="mono">--only {all,stocktake,templates}</code>：<code class="mono">--only templates</code> 跑四单据（<mark class="key">离线</mark>，<strong>不需登录、也不需 <code class="mono">--task</code></strong>，无网 / CI 可跑）；<code class="mono">--only stocktake</code> 与不带 <code class="mono">--task</code> 的 <code class="mono">all</code> 保持旧行为（缺 <code class="mono">--task</code> 仍 <code class="mono">exit 2</code>）。</li>
+        <li>录制 / 比对逻辑从原 <code class="mono">run()</code> 抽成公用的 <code class="mono">record_or_compare()</code>，<code class="mono">slice_pages()</code> 参数化（盘库线默认值不变）、<code class="mono">pdf_asserts()</code> 泛化为「页数 + 纸张尺寸 + 模式」。</li>
+        <li><strong>不在 Python 里复刻模板</strong>：四模板是 TS 纯函数（<code class="mono">src/utils/print/templates/*.ts</code>），在门禁里用 Python 重拼一遍 HTML 等于制造第二份真相。故新增计划外产出器 <code class="mono">_e2e/_print_cases.ts</code>：<code class="mono">--manifest</code> 输出四 case 的冻结期望值，<code class="mono">&lt;case&gt;</code> 输出该 case 的完整 HTML；门禁只负责渲染 / 断言 / 切片 / 比对。该目录不进类型检查（<code class="mono">tsconfig.json</code> 只 <code class="mono">include src/**</code>），不污染 vue-tsc 基线。</li>
+      </ul>
+
+      <p><strong>11.2 契约清单（四 case）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>case</th><th>纸张</th><th>内容区</th><th>视口 / 切片高</th><th>真分页断言</th><th>结构关键点</th></tr>
+        <tr><td><code class="mono">picking-a4</code></td><td>A4 纵向 <code class="mono">margin 12mm</code></td><td>186×273mm</td><td><code class="mono">703</code> × dpr2 / 2064px</td><td><code class="mono">&gt;= 2</code> 页</td><td>4 组（A/B/C 库区 + <strong>未归位单独置底</strong>）、8 列、未归位 6 行带「需先入库归位再拣」、标黄底色、行序 1→40、合计 40 行/120 件</td></tr>
+        <tr><td><code class="mono">shipping-a4</code></td><td>A4 纵向</td><td>186×273mm</td><td><code class="mono">703</code> / 2064px</td><td><mark class="key">== 3</mark> 页（一单一页）</td><td>3 个 <code class="mono">.sheet</code> 各含签收栏与 3 行表（2+2+1 个表头格）</td></tr>
+        <tr><td><code class="mono">parcel-thermal</code></td><td>100×150 热敏 <code class="mono">margin 4mm</code></td><td>92×142mm</td><td><code class="mono">348</code> / 1073px</td><td><mark class="key">== 3</mark> 页（一件一页）</td><td>3 张标签、标题居中 <code class="mono">14px/700</code>、收件人与电话 <code class="mono">16px/700</code>、地址不被截断</td></tr>
+        <tr><td><code class="mono">batch-a4l</code></td><td>A4 横向</td><td>273×186mm</td><td><code class="mono">1032</code> / 1406px</td><td><code class="mono">&gt;= 2</code> 页</td><td>单表 6 列、40 行、行序 1→40、合计 40 行/160 件</td></tr>
+      </table>
+      </div>
+      <p class="muted" style="font-size:13px;">四 case 的渲染契约与盘库线不同处：<strong>视口宽＝该档内容宽</strong>（A4 纵 186mm / 热敏 92mm / A4 横 273mm，CSS px 取整为 703 / 348 / 1032），故不复用盘库线的 <code class="mono">794×1123</code> 视口与 <code class="mono">PAGE_H_DEV=2049</code> 切片常量。</p>
+
+      <p><strong>11.3 两条容易踩空的口径</strong></p>
+      <ul>
+        <li><strong>真分页由 PDF 承担，切片不承担分页</strong>：视口内的 <code class="mono">emulateMedia('print')</code> <strong>不产生分页</strong>，因此用 <code class="mono">pg.pdf(prefer_css_page_size=True)</code> 读真页数与纸张尺寸。发货单 / 包裹标签按<strong>硬语义</strong>判 <code class="mono">== 3</code>（「一单一页」「一件一页」是业务承诺，多一页少一页都算错），拣货单 / 批次总览判 <code class="mono">&gt;= 2</code>（长表允许跨更多页）。</li>
+        <li><strong>纸张尺寸按 mm 判（±0.5mm），不按 pt</strong>：实测 Chrome 会把自定义页尺寸<strong>量化到整数 CSS px</strong>——A4 实测 <code class="mono">209.89 × 297.01mm</code>、热敏实测 <code class="mono">99.82 × 149.94mm</code>。若按 <code class="mono">@page</code> 申报的 pt 值（283.465×425.197pt）判，热敏档会有 <code class="mono">0.505pt</code> 残差而<strong>误判 FAIL</strong>（首轮录基线时即被此坑拦下，故改 mm 口径）。</li>
+        <li><strong><code class="mono">fingerprint</code> 刻意不含 HTML 哈希</strong>：只记 <code class="mono">content_mm</code> / <code class="mono">page_h_dev</code> / <code class="mono">print_at</code> / <code class="mono">fixture</code> 等。这样语义才不混——「改模板 CSS」必须落到<mark class="key">像素差异 FAIL</mark>，「改冻结 fixture」才降级 <code class="mono">SKIP pixel</code> 并提示重录。若把 HTML 哈希也塞进指纹，改版式会退化成 SKIP，门禁就哑了。</li>
+      </ul>
+
+      <p><strong>11.4 一键命令</strong></p>
+      <ul>
+        <li><strong>四单据（离线）</strong>：<code class="mono">python _e2e/_verify_print_baseline.py --only templates</code></li>
+        <li><strong>重录四单据基线</strong>：<code class="mono">python _e2e/_verify_print_baseline.py --only templates --record --force</code></li>
+        <li><strong>全量（四单据 + 盘库三 case）</strong>：<code class="mono">npm run verify:print -- --task 17</code></li>
+      </ul>
+
+      <p><strong>11.5 实测（2026-09-25，如实照抄命令输出）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>环节</th><th>命令</th><th>实测结果</th></tr>
+        <tr><td>首次录制</td><td><code class="mono">--only templates --record --force</code></td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 0）=====</mark>；<code class="mono">picking-a4 → 2 页</code>、<code class="mono">shipping-a4 → 2 页</code>、<code class="mono">parcel-thermal → 3 页</code>、<code class="mono">batch-a4l → 2 页</code>；PDF 页数 <code class="mono">2 / 3 / 3 / 2</code>、页尺寸 <code class="mono">209.89×297.01 / 209.89×297.01 / 99.82×149.94 / 297.01×209.89 mm</code>、光栅宽 <code class="mono">1406 / 1406 / 696 / 2064</code>、<code class="mono">console.error = 0</code></td></tr>
+        <tr><td>自证复跑</td><td>同一命令去掉 <code class="mono">--record</code></td><td><mark class="key">PASS（失败 0 / SKIP 0），exit 0</mark>；四 case 全部 <code class="mono">OK … 逐页像素零容差一致</code></td></tr>
+        <tr><td>盘库线回归</td><td><code class="mono">--task 17</code>（全量）</td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 6）=====</mark>，exit 0；6 条 SKIP 全部是盘库线<strong>既有</strong>的「非 POSTED 终态降级」+「真实数据无差异行」（像素阶段由 fixture 承接），证明本次重构<strong>无回归</strong></td></tr>
+      </table>
+      </div>
+
+      <p><strong>11.6 负向验证：门禁必须真的会 FAIL（四单据）</strong></p>
+      <p>与第 10.6 小节同法，做一次受控破坏——注入<strong>三处版式缺陷</strong>：① <code class="mono">doc-common.ts</code> 的分组标题底色 <code class="mono">#ddd → #e0e0e0</code>；② 同文件的 <code class="mono">.meta</code> 行高 <code class="mono">1.7 → 1.9</code>；③ <code class="mono">parcel-label.ts</code> 的大字号 <code class="mono">16px → 15px</code>。</p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>case</th><th>结构断言</th><th>像素比对</th></tr>
+        <tr><td><code class="mono">picking-a4</code></td><td><mark class="key">命中</mark>：底色实测 <code class="mono">rgb(224,224,224)</code>（期望 <code class="mono">rgb(221,221,221)</code>）</td><td>page-1 <code class="mono">625652</code> 像素 / page-2 <code class="mono">628064</code> 像素（最大通道差 <code class="mono">255</code>）</td></tr>
+        <tr><td><code class="mono">parcel-thermal</code></td><td><mark class="key">命中</mark>：大字号实测 <code class="mono">15px</code></td><td>page-1 <code class="mono">125606</code> / page-2 <code class="mono">15952</code> 像素</td></tr>
+        <tr><td><code class="mono">shipping-a4</code></td><td><strong>看不出来</strong>（宽度 / 行数 / 表头格数 / 页数 / 纸张尺寸全部正确）</td><td>page-1 <code class="mono">213614</code> 像素</td></tr>
+        <tr><td><code class="mono">batch-a4l</code></td><td><strong>看不出来</strong>（同上）</td><td>page-1 <code class="mono">631286</code> / page-2 <code class="mono">372838</code> 像素</td></tr>
+      </table>
+      </div>
+      <p>结果：<mark class="key">===== 打印基线：FAIL（失败 6 / SKIP 0）=====</mark>，exit 1；红标差异图 7 张自动落 <code class="mono">_e2e/baselines/print/_diff/&lt;case&gt;/</code>。复原三处缺陷后复跑 <code class="mono">--only templates</code> → <mark class="key">PASS（失败 0 / SKIP 0），exit 0</mark>。</p>
+      <figure style="margin:0 0 10px;"><img src="assets/print-tpl-negative-picking-a4.png" style="width:72%;border:1px solid var(--rule);border-radius:6px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">负向验证红标 diff 图（脚本自动产物，不一致像素染为纯红）：<code class="mono">picking-a4 page-1</code> 顶部 820px。可见「打印时间」行整行下移（注入②行高 1.7→1.9）与分组标题底色差异（注入①），红标同时命中两处</figcaption></figure>
+      <p class="muted" style="font-size:13px;">这次的负向验证比第 10.6 小节更进一步：<code class="mono">shipping-a4</code> 与 <code class="mono">batch-a4l</code> 的注入缺陷是<strong>行高 / 位移型</strong>的，<mark class="key">没有任何结构断言能发现</mark>——列数、行数、列宽、页数、纸张尺寸全部照旧正确，只有逐像素比对抓得住。这从反面证明了「结构断言不能替代像素比对」，也说明为什么四单据不能只留 <code class="mono">templates.spec.ts</code>。</p>
+
+      <p><strong>11.7 基线落点与如实限制</strong></p>
+      <ul>
+        <li>基线：<code class="mono">_e2e/baselines/print/&lt;case&gt;/{page-N.png, env.json}</code>（四 case 共 9 页）；红标取证图落同级 <code class="mono">_diff/&lt;case&gt;/</code>，<strong>不入库</strong>（仅本节这一张代表性红标图归档进 <code class="mono">assets/</code>）。</li>
+        <li><strong>物理打印机仍不承诺像素</strong>：本门禁只覆盖第①层（受控渲染零容差）与第②层（跨 OS 结构一致）；热敏机实际出纸的黑度、走纸偏移、跨页接缝<strong>仍需人工走查</strong>（规格 §3.5 第③层），自动化不替代。</li>
+        <li><strong>数据是合成的</strong>：四 case 的收件人 / 地址 / 电话全部为固定样例串（如「阳光小区 1 幢 101 室」「13800001001」），不含任何真实客户数据；改动 fixture 即需 <code class="mono">--record --force</code> 重录。</li>
+      </ul>
     </section>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>

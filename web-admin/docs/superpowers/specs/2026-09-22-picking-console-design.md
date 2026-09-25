@@ -260,6 +260,39 @@ PENDING(待拣) ──→ PICKED(已拣) ──→ PRINTED(已打印) ──→ 
 - 前端（vshop/web-admin）：走 `scripts/deploy.mjs`（scp 产物 → 服务器解压/拷入）。
 - 部署序：**先后端，再刷 schema 快照，最后前端**。
 
+### 10.4 打印版式的像素级一致性（硬规则，2026-09-25 增补）
+
+口径与 [2026-09-25 盘库运营增强规格](./2026-09-25-stocktake-ops-enhancement-design.md) §3.5 同源：**三层一致性模型**，四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）全部适用。
+
+| 层级 | 判据 | 是否自动可判 |
+|---|---|---|
+| 受控渲染（同机、同浏览器版本） | 逐像素**零容差** | 是（门禁） |
+| 跨 OS / 跨浏览器版本 | 仅**结构一致**（DOM 计数 + 计算样式 + PDF 页数与纸张尺寸） | 是（门禁，像素自动降级 `SKIP`） |
+| 物理打印机（热敏/激光实际出纸） | 版式人工走查（边距、热敏黑度、跨页接缝） | 否（人工） |
+
+**门禁**：并入既有统一门禁，不另建脚本：
+
+```
+python _e2e/_verify_print_baseline.py --only templates        # 四单据，离线（不需登录 / --task）
+python _e2e/_verify_print_baseline.py --only templates --record --force
+python _e2e/_verify_print_baseline.py --task <taskId>         # 四单据 + 盘库结果单三 case
+```
+
+**数据受控**：期望值与渲染内容同出一份冻结 fixture（`_e2e/_print_cases.ts`，打印时间 `2026-09-25 10:00` / 批次号 `PB20260925-001` / 仓库「固定样例仓」），门禁**不复刻模板**（真源仍是 `src/utils/print/templates/*.ts`），期望值经 `--manifest` 取得。
+
+| case | 纸张 | 内容区 | 真分页断言 | 结构关键点 |
+|---|---|---|---|---|
+| `picking-a4` | A4 纵向 | 186×273mm | `>= 2` 页 | 4 组（3 库区 + 未归位置底）、8 列、未归位 6 行带归位提示、合计 40 行/120 件 |
+| `shipping-a4` | A4 纵向 | 186×273mm | `== 3` 页 | 3 个 `.sheet` 各含签收栏与 3 行表 |
+| `parcel-thermal` | 100×150 热敏 | 92×142mm | `== 3` 页 | 3 张标签、标题居中 14px/700、收件人与电话 16px/700 |
+| `batch-a4l` | A4 横向 | 273×186mm | `>= 2` 页 | 单表 6 列、40 行、合计 40 行/160 件 |
+
+**补充约束**：
+- `env.json.fingerprint` 记录 `content_mm` / `page_h_dev` / `print_at` / `fixture`，**不记录 HTML 哈希** → 改模板 CSS 必须落到「像素差异 FAIL」，改 fixture 才降级 `SKIP` 并提示重录。
+- 真分页由 `pg.pdf(prefer_css_page_size=True)` 判（视口内 `emulateMedia('print')` 不产生分页）；纸张尺寸按 **mm**（±0.5mm）判，因 Chrome 会把自定义页尺寸量化到整数 CSS px。
+- 基线落 `_e2e/baselines/print/<case>/`；差异红标图落 `_e2e/baselines/print/_diff/<case>/`（不入库）。
+- 模板纯函数层单测（`node --test src/utils/print/templates/templates.spec.ts`，12 例）**保留**，与像素门禁互补：单测管「有没有渲染对」，门禁管「摆得对不对」。
+
 ---
 
 ## 11. 实施顺序（建议）
