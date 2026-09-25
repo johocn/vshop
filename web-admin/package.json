@@ -8,6 +8,7 @@
     "test:smoke:live": "python scripts/_smoke_stocktake_live.py",
     "test:e2e:stocktake": "python _e2e/_verify_stocktake_ops_e2e.py",
     "verify:manual": "python _e2e/_verify_manual_docs.py",
+    "verify:manual:render": "python _e2e/_verify_manual_render.py",
     "verify:print": "python _e2e/_verify_print_baseline.py"
   },
   "dependencies": {

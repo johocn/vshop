@@ -1260,10 +1260,21 @@ flowchart TD
       </table>
       </div>
       <p class="muted" style="font-size:13px;">结论：<strong>文档与代码均已上线</strong>——线上手册 <code class="mono">https://e.joho.cn/guanli/static/manual/</code> 已含 <code class="mono">op-39</code>（文档门禁 PASS），线上前端产物即本轮构建的 H5（只读冒烟与生产 e2e 均 PASS 且 <code class="mono">tabs=5</code>）。<strong>草稿 / 统计 / 导出 / 打印</strong>四类交互在生产端因「无 DRAFT、无可盘点状态、无 POSTED 任务」如实记 <mark class="key">SKIP</mark>（根因见偏差 D41），其证据由本地可写后端的 9 张手机视口截图承担（偏差 D45 / D51）。</p>
+
+      <p><strong>9. 渲染级截图验证（2026-09-25 追补）</strong></p>
+      <p>上面第 7 / 8 小节的文档门禁只做<strong>静态判定</strong>（文件是否落盘、页面是否含 <code class="mono">op-39</code>）：手册引用的图 404、0 字节、路径写错、尺寸错版都<strong>发现不了</strong>。为此增补一层<strong>渲染级验证</strong>——用 Chromium 以手机视口（<mark class="key">390×844 @dpr2</mark>）真的打开手册、真的渲染章节、真的解码每一张图，并把渲染结果截图归档。</p>
+      <ul>
+        <li><strong>L1 离线</strong>：<code class="mono">file://</code> 打开《修复手册》<code class="mono">#stocktake-ops</code> 与《用户手册源》<code class="mono">src/static/manual/index.html</code>；断言区块可达 + 图数 <code class="mono">9</code> + 每图 <code class="mono">complete</code> 且 <code class="mono">naturalWidth&gt;0</code> + 尺寸 <code class="mono">780×1688</code> + 0 JS 异常。</li>
+        <li><strong>L2 线上</strong>：打开部署后的线上手册，同上断言；外加<strong>每张 PNG 响应码 200</strong> 与<strong>线上 <code class="mono">shots/</code> 与本地逐张字节一致</strong>（防缺图 / 旧图），并落盘取证截图。</li>
+        <li><strong>驱动要点</strong>：手册是单文件 JS 书、<strong>无 hash 路由</strong>，章节切换靠页内全局函数 <code class="mono">openChapter('op-39')</code>；用 <code class="mono">#op-39</code> 或用文本点导航项<strong>都定位不到</strong>——这正是「渲染级验证」此前缺位的原因。</li>
+        <li><strong>一键命令</strong>：<code class="mono">npm run verify:manual:render</code>（退出码 <code class="mono">0</code> 通过 / <code class="mono">1</code> 断言失败 / <code class="mono">2</code> 环境不可用）。</li>
+      </ul>
+      <p>实测（2026-09-25）：<mark class="key">20 条断言全 OK → ===== 渲染级验证：PASS（失败 0）=====</mark>，exit 0；线上 9 张图响应码全 <code class="mono">200</code>、与本地 <code class="mono">shots/</code> 字节逐张一致，0 pageerror / 0 console.error。下图即该脚本在手机视口下对<strong>线上手册 op-39</strong> 的渲染取证（<code class="mono">239566 B</code>）。</p>
+      <figure style="margin:0 0 10px;"><img src="assets/manual-render-online-op39.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">渲染级验证取证：线上手册 <code class="mono">op-39</code> 真机渲染（章节标题「41. 盘库看板分页 · 草稿 · 统计 · 导出与打印」+ 正文 + 首个手机截图均已解码；手机视口 390×844 dpr=2 → 780×1688）</figcaption></figure>
     </section>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
