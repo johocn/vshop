@@ -2457,7 +2457,27 @@
     "quantity": "销量",
     "inventoryHealth": "库存健康",
     "outOfStock": "缺货",
-    "totalSku": "总 SKU"
+    "totalSku": "总 SKU",
+    "view": {
+      "biz": "经营数据",
+      "ops": "作业分析"
+    },
+    "ops": {
+      "pickCount": "拣货单数",
+      "shippedItems": "发货件数",
+      "stocktakeCount": "盘库次数",
+      "varianceRate": "盘点差异率",
+      "varianceTrend": "盘点差异趋势",
+      "trendHint": "差异件数 / 盘点总件数",
+      "byCounter": "作业员明细",
+      "unknownOperator": "未记录操作人",
+      "rowCount": "单据",
+      "rowQty": "件",
+      "exportCsv": "导出 CSV（每日差异趋势）",
+      "csvDay": "日期",
+      "csvExpected": "盘点总件数",
+      "csvDiff": "差异件数"
+    }
   },
   "changePassword": {
     "titleManual": "修改密码",
