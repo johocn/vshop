@@ -19,58 +19,50 @@
       <view class="hint">{{ $t('platformGlobalConfig.hint') }}</view>
 
       <view class="img-title">{{ $t('platformGlobalConfig.themeTokens') }}</view>
-      <view class="cell">
-        <text class="lbl">{{ $t('platformGlobalConfig.primaryColor') }}</text>
-        <input v-model="tokens.primaryColor" placeholder="#ff6600" />
-      </view>
-      <view class="cell">
-        <text class="lbl">{{ $t('platformGlobalConfig.accentColor') }}</text>
-        <input v-model="tokens.accentColor" placeholder="#fff3e6" />
-      </view>
-      <view class="cell">
-        <text class="lbl">{{ $t('platformGlobalConfig.radius') }}</text>
-        <input v-model="tokens.radius" placeholder="8" type="number" />
+      <view class="field" v-for="f in TOKEN_FIELDS" :key="f.path">
+        <text class="label">{{ $t('platformGlobalConfig.' + f.labelKey) }}</text>
+        <input
+          class="in"
+          :type="f.kind === 'number' ? 'number' : 'text'"
+          :value="String(readField(f) ?? '')"
+          @input="onFieldInput(f, ($event as any).detail.value)"
+          @blur="checkField(f)"
+        />
+        <text v-if="fieldErrors[f.path]" class="err">{{ $t('platformGlobalConfig.err_' + fieldErrors[f.path]) }}</text>
       </view>
 
-      <view class="img-title">{{ $t('platformGlobalConfig.defaultsTitle') }}</view>
-      <view class="img-title">{{ $t('platformGlobalConfig.pageSection') }}</view>
-      <view class="chips">
-        <text
-          v-for="p in PAGE_OPTS"
-          :key="p.key"
-          class="chip"
-          :class="{ on: curPage === p.key }"
-          @tap="curPage = p.key"
-        >{{ p.label }}</text>
+      <view class="img-title">{{ $t('platformGlobalConfig.productDefaults') }}</view>
+      <view class="field" v-for="f in PRODUCT_FIELDS" :key="f.path">
+        <view v-if="f.kind === 'boolean'" class="blk">
+          <text class="blk-name">{{ $t('platformGlobalConfig.' + f.labelKey) }}</text>
+          <switch :checked="!!readField(f)" color="#4f8cff" @change="writeField(f, ($event as any).detail.value)" />
+        </view>
+        <view v-else>
+          <text class="label">{{ $t('platformGlobalConfig.' + f.labelKey) }}</text>
+          <view class="chips">
+            <text
+              v-for="o in f.options"
+              :key="o"
+              class="chip"
+              :class="{ on: readField(f) === o }"
+              @tap="writeField(f, o)"
+            >{{ $t('platformGlobalConfig.layout_' + o) }}</text>
+          </view>
+        </view>
+        <text v-if="fieldErrors[f.path]" class="err">{{ $t('platformGlobalConfig.err_' + fieldErrors[f.path]) }}</text>
       </view>
-      <view v-if="curPage === 'product'" class="field">
-        <text class="label">{{ $t('platformGlobalConfig.layoutLabel') }}</text>
+      <text class="hint">{{ $t('platformGlobalConfig.otherPagesHint') }}</text>
+
+      <view class="field">
         <view class="chips">
-          <text
-            v-for="l in LAYOUT_OPTS"
-            :key="l.key"
-            class="chip"
-            :class="{ on: defLayout === l.key }"
-            @tap="setLayout(l.key)"
-          >{{ l.label }}</text>
+          <text class="chip" :class="{ on: jsonOpen }" @tap="jsonOpen = !jsonOpen">{{ $t('platformGlobalConfig.advancedJson') }}</text>
         </view>
-      </view>
-      <view class="field">
-        <text class="label">{{ $t('platformGlobalConfig.blocksLabel') }}</text>
-        <view class="blk" v-for="b in BLOCK_OPTS" :key="b.key">
-          <text class="blk-name">{{ b.label }}</text>
-          <switch :checked="isBlockOn(b.key)" color="#4f8cff" @change="toggleBlock(b.key, ($event as any).detail.value)" />
-        </view>
-      </view>
-      <view class="field">
-        <text class="label" @tap="jsonOpen = !jsonOpen">
-          {{ jsonOpen ? $t('platformGlobalConfig.jsonCollapse') : $t('platformGlobalConfig.jsonExpand') }}
-        </text>
         <textarea v-if="jsonOpen" class="ta tall" v-model="defaultsJson" @blur="syncFromJson" />
       </view>
       <view v-if="err" class="err">{{ err }}</view>
       <button class="btn" :disabled="saving" @tap="save">{{ saving ? $t('platformGlobalConfig.saving') : $t('platformGlobalConfig.save') }}</button>
     </view>
+
     <view class="card">
       <text class="sec">{{ $t('platformGlobalConfig.mergedPreview') }}</text>
       <text class="muted">{{ $t('platformGlobalConfig.mergedHint') }}</text>
@@ -97,6 +89,8 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { templateApi } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { GLOBAL_CONFIG_FIELDS, validateField, type ConfigField } from '../../../constants/config-schema';
+import { getByPath, setByPath } from '../../../utils/config-path';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -106,57 +100,46 @@ const APP_OPTS = [
   { key: 'vshop', label: 'youshop 商城' },
 ] as const;
 
-const PAGE_OPTS = [
-  { key: 'product', label: '商品详情' },
-  { key: 'home', label: '首页' },
-  { key: 'category', label: '分类' },
-  { key: 'cart', label: '购物车' },
-  { key: 'profile', label: '我的' },
-] as const;
+const FIELDS = GLOBAL_CONFIG_FIELDS;
+const TOKEN_FIELDS = FIELDS.filter((f) => f.path.startsWith('themeTokens.'));
+const PRODUCT_FIELDS = FIELDS.filter((f) => f.path.startsWith('defaults.'));
 
-const LAYOUT_OPTS = [
-  { key: 'classic', label: '经典' },
-  { key: 'floor', label: '楼层' },
-  { key: 'dualBuy', label: '双通道' },
-] as const;
-
-/** 与详情装修页块清单保持一致（ProductDetailRenderer 的块 key） */
-const BLOCK_OPTS = [
-  { key: 'gallery', label: '主图' },
-  { key: 'price', label: '价格' },
-  { key: 'promo', label: '促销' },
-  { key: 'service', label: '服务' },
-  { key: 'params', label: '参数' },
-  { key: 'reviews', label: '评价' },
-  { key: 'description', label: '详情' },
-] as const;
-
-const curPage = ref<'product' | 'home' | 'category' | 'cart' | 'profile'>('product');
-const jsonOpen = ref(false);
+const app = ref<'nshop' | 'vshop'>('nshop');
+const tokens = ref<Record<string, string>>({ primaryColor: '#ff6600', accentColor: '#fff3e6', radius: '8' });
 const defs = ref<Record<string, any>>({});
+const jsonOpen = ref(false);
+const defaultsJson = ref('{}');
+const err = ref('');
+const saving = ref(false);
+const fieldErrors = ref<Record<string, string>>({});
 
-const defLayout = computed(() => defs.value.product?.layout ?? 'classic');
+/** 结构化字段的合并根：themeTokens + defaults 一条记录，路径前缀已含二者 */
+const draft = computed<Record<string, any>>(() => ({ themeTokens: tokens.value, defaults: defs.value }));
 
-function isBlockOn(key: string): boolean {
-  const b = defs.value.product?.blocks?.[key];
-  return b?.show !== false;
-}
-
-function toggleBlock(key: string, on: boolean) {
-  defs.value.product = defs.value.product ?? {};
-  defs.value.product.blocks = defs.value.product.blocks ?? {};
-  defs.value.product.blocks[key] = { ...(defs.value.product.blocks[key] ?? {}), show: on };
-  syncToJson();
-}
-
-function setLayout(key: string) {
-  defs.value.product = defs.value.product ?? {};
-  defs.value.product.layout = key;
-  syncToJson();
-}
+const readField = (f: ConfigField) => getByPath(draft.value, f.path);
 
 function syncToJson() {
   defaultsJson.value = JSON.stringify(defs.value, null, 2);
+}
+
+function writeField(f: ConfigField, v: unknown) {
+  if (f.path.startsWith('themeTokens.')) {
+    tokens.value = setByPath({ themeTokens: tokens.value }, f.path, v).themeTokens;
+  } else {
+    defs.value = setByPath({ defaults: defs.value }, f.path, v).defaults;
+    syncToJson();
+  }
+  checkField(f);
+}
+
+function onFieldInput(f: ConfigField, v: string) {
+  writeField(f, v);
+}
+
+function checkField(f: ConfigField): boolean {
+  const code = validateField(f, readField(f));
+  fieldErrors.value = { ...fieldErrors.value, [f.path]: code ?? '' };
+  return !code;
 }
 
 /** 逃生口：JSON 手改后合并回表单（以表单为准，冲突时表单值胜出） */
@@ -170,12 +153,6 @@ function syncFromJson() {
     /* 坏 JSON 保持表单值不变，保存时由 save() 统一报错 */
   }
 }
-
-const app = ref<'nshop' | 'vshop'>('nshop');
-const tokens = ref<Record<string, string>>({ primaryColor: '#ff6600', accentColor: '#fff3e6', radius: '8' });
-const defaultsJson = ref('{}');
-const err = ref('');
-const saving = ref(false);
 
 function switchApp(a: 'nshop' | 'vshop') {
   app.value = a;
@@ -195,6 +172,7 @@ async function load() {
     }
     defs.value = cfg?.defaults && typeof cfg.defaults === 'object' ? cfg.defaults : {};
     defaultsJson.value = JSON.stringify(defs.value, null, 2);
+    fieldErrors.value = {};
   } catch (e: any) {
     uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.loadFailed')), icon: 'none' });
   }
@@ -202,29 +180,43 @@ async function load() {
 
 async function save() {
   err.value = '';
+  // 1) 结构化字段逐项校验：只标红出错项，保留其余编辑态
+  const failed = FIELDS.filter((f) => validateField(f, readField(f)) !== null);
+  fieldErrors.value = failed.reduce<Record<string, string>>((acc, f) => {
+    acc[f.path] = validateField(f, readField(f))!;
+    return acc;
+  }, {});
+  if (failed.length) {
+    uni.showToast({
+      title: locale.t('platformGlobalConfig.errFixFirst').replace('{n}', String(failed.length)),
+      icon: 'none',
+    });
+    return;
+  }
+  // 2) JSON 高级模式下额外校验 JSON 文本本身，并把解析结果并入编辑态
   if (jsonOpen.value) {
     const text = defaultsJson.value.trim();
     if (text) {
       try {
         const v = JSON.parse(text);
-        if (v === null || typeof v !== 'object') throw new Error('bad');
+        if (v === null || typeof v !== 'object' || Array.isArray(v)) throw new Error('bad');
+        defs.value = v;
       } catch {
         err.value = locale.t('platformGlobalConfig.invalidDefaults');
         return;
       }
     }
   }
-  const defaults = { ...defs.value };
   saving.value = true;
   try {
     await templateApi.updateGlobalConfig({
       app: app.value,
       themeTokens: {
-        primaryColor: tokens.value.primaryColor.trim(),
-        accentColor: tokens.value.accentColor.trim(),
+        primaryColor: String(tokens.value.primaryColor ?? '').trim(),
+        accentColor: String(tokens.value.accentColor ?? '').trim(),
         radius: Number(tokens.value.radius) || 8,
       },
-      defaults,
+      defaults: { ...defs.value },
     });
     uni.showToast({ title: locale.t('platformGlobalConfig.saved'), icon: 'success' });
   } catch (e: any) {
@@ -274,10 +266,7 @@ async function genPreview() {
 .chip.on { background: #4f8cff; border-color: #4f8cff; color: #fff; }
 .hint { font-size: 22rpx; color: #999; line-height: 1.6; margin-bottom: 16rpx; }
 .img-title { font-size: 28rpx; color: #333; padding: 16rpx 0 8rpx; }
-.cell { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1px solid #f2f2f2;
-  .lbl { width: 240rpx; font-size: 26rpx; color: #333; flex-shrink: 0; }
-  input { flex: 1; font-size: 28rpx; }
-}
+.in { box-sizing: border-box; width: 100%; border: 1px solid #eee; border-radius: 12rpx; padding: 12rpx 20rpx; font-size: 26rpx; }
 .ta { box-sizing: border-box; width: 100%; border: 1px solid #eee; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 24rpx; height: 180rpx; }
 .ta.tall { height: 280rpx; margin-bottom: 16rpx; }
 .blk { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 0; border-bottom: 1px solid #f2f2f2; }
