@@ -129,6 +129,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#order-list-v2">订单列表 · 筛选/状态/版式重构</a></li>
       <li><a href="#stocktake-collab">16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</a></li>
       <li><a href="#stocktake-ops">16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</a></li>
+      <li><a href="#gate-hardening">16.9.9 门禁改造验收总结报告（渲染门禁 + 打印像素门禁 · 2026-09-25）</a></li>
     </ol>
   </nav>
 
@@ -1440,9 +1441,95 @@ flowchart TD
         <li><strong>数据是合成的</strong>：四 case 的收件人 / 地址 / 电话全部为固定样例串（如「阳光小区 1 幢 101 室」「13800001001」），不含任何真实客户数据；改动 fixture 即需 <code class="mono">--record --force</code> 重录。</li>
       </ul>
     </section>
+
+    <section id="gate-hardening">
+      <h4>16.9.9 门禁改造验收总结报告（任务 B + 任务 C · 2026-09-25）</h4>
+      <p>本节为 2026-09-25 两轮<strong>「防假通过」门禁改造</strong>的交付总结：<strong>任务 B</strong> 把线上手册 op-38 的渲染验证从一次性脚本并入统一渲染门禁；<strong>任务 C</strong> 把配货台四类单据的打印版式纳入打印像素基线门禁。验收口径沿用项目硬规范「功能交付 = 实现 + API/e2e 回归 + 手机视口截图 + 操作手册/测试用例文档」。结论：<mark class="key">两条线均已完成并通过验收（门禁 PASS / 负向验证如实 FAIL / 全量回归无退化 / 已 push）</mark>。</p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>项</th><th>内容</th></tr>
+        <tr><td>任务范围</td><td>B = op-38 渲染断言并入统一门禁（旧一次性脚本删除）；C = 四类单据打印版式像素级一致性门禁（并入 <code class="mono">verify:print</code>）</td></tr>
+        <tr><td>验收结论</td><td>✅ 已完成 —— <code class="mono">verify:manual</code> PASS（失败 0）；<code class="mono">verify:manual:render</code> PASS（失败 0）；<code class="mono">verify:print --only templates</code> PASS（失败 0 / SKIP 0 / exit 0）；<code class="mono">verify:print --task 17</code> PASS（失败 0 / SKIP 6，均为盘库线既有降级）；打印模板单测 <mark class="key">12 / 12</mark>；两条线各自负向验证均如实 FAIL 并出取证图；工作区 <code class="mono">git status</code> 干净</td></tr>
+        <tr><td>执行日期</td><td>2026-09-25（门禁实现 / 基线录制 / 负向验证 / 文档落点 / 提交与 push 同日完成）</td></tr>
+        <tr><td>落点文档</td><td>任务 B：<code class="mono">docs/superpowers/plans/2026-09-23-stocktake-collab-plan.md</code>（偏差 #58）+ 本手册 16.9.7 O 小节；任务 C：<code class="mono">docs/superpowers/specs/2026-09-22-picking-console-design.md</code> §10.4 + <code class="mono">docs/superpowers/plans/2026-09-22-picking-console-plan.md</code>（偏差 38–45）+ 本手册 16.9.8 第 10 / 第 11 小节</td></tr>
+      </table>
+      </div>
+
+      <p><strong>1. 交付物清单</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>类别</th><th>交付物</th><th>位置</th></tr>
+        <tr><td>门禁（B）</td><td>op-38 断言组并入统一渲染门禁：<code class="mono">openChapter('op-38')</code> + <strong>精确</strong>图数 + <code class="mono">h3</code> / FAQ 结构计数 + 每图真解码 + 780×1688 + L2 每张 PNG 响应码 200 + 线上与本地逐张字节一致 + 0 JS 异常；旧一次性脚本 <code class="mono">_verify_manual_op38.py</code> <mark class="key">删除</mark>（避免两份真相）</td><td><code class="mono">_e2e/_verify_manual_render.py</code></td></tr>
+        <tr><td>门禁（C）</td><td>新增 <code class="mono">family=templates</code>：四单据渲染契约 + 结构断言 + 截图切片 + 逐像素<strong>零容差</strong>比对；真分页由 <code class="mono">pg.pdf(prefer_css_page_size)</code> 承担，纸张尺寸按 <strong>mm（±0.5）</strong>判</td><td><code class="mono">_e2e/_verify_print_baseline.py</code></td></tr>
+        <tr><td>产出器（C）</td><td>冻结数据 → 调<strong>纯函数模板</strong>产出四单据完整 HTML（模板逻辑的唯一真相，<strong>不在 Python 里复刻模板</strong>）；期望值同源取自 <code class="mono">--manifest</code></td><td><code class="mono">_e2e/_print_cases.ts</code>（146 行）</td></tr>
+        <tr><td>基线（C）</td><td>四 case 共 <strong>9 页</strong> PNG + 指纹 <code class="mono">env.json</code>（<code class="mono">picking-a4</code> 2 / <code class="mono">shipping-a4</code> 2 / <code class="mono">parcel-thermal</code> 3 / <code class="mono">batch-a4l</code> 2）</td><td><code class="mono">_e2e/baselines/print/&lt;case&gt;/{page-N.png, env.json}</code></td></tr>
+        <tr><td>取证图</td><td>线上 op-38 章节首屏（179153 B）；负向验证红标差异图</td><td><code class="mono">assets/manual-render-online-op38.png</code>、<code class="mono">assets/print-tpl-negative-picking-a4.png</code></td></tr>
+        <tr><td>回归资产</td><td>四模板纯函数单测 <strong>12 用例</strong>（<code class="mono">node --test</code>，不需浏览器）</td><td><code class="mono">src/utils/print/templates/templates.spec.ts</code></td></tr>
+        <tr><td>文档</td><td>规格 §10.4／计划偏差 #58 与 38–45／本手册 16.9.7 O 小节、16.9.8 第 10–11 小节、本节 + 页脚版本行</td><td>见上「落点文档」</td></tr>
+      </table>
+      </div>
+
+      <p><strong>2. 门禁契约（改造后的判定口径）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>线</th><th>一键命令</th><th>层</th><th>判定强度</th></tr>
+        <tr><td rowspan="3">B 渲染门禁</td><td rowspan="3"><code class="mono">npm run verify:manual:render</code></td><td>L1 离线（<code class="mono">file://</code>，不依赖网络与登录）</td><td>图数<mark class="key">精确等值</mark>（非 <code class="mono">&gt;=</code>）+ <code class="mono">h3</code> / FAQ 结构计数精确 + 每图 <code class="mono">naturalWidth&gt;0</code> + 780×1688 + 0 JS 异常</td></tr>
+        <tr><td>L2 线上（<code class="mono">e.joho.cn</code> 真实链路）</td><td>同 L1 全组 + 每张 PNG <strong>200</strong> + 线上 <code class="mono">shots/</code> 与本地<strong>逐张字节一致</strong></td></tr>
+        <tr><td>反假</td><td>汇总行 <code class="mono">PASS/FAIL（失败 N）</code> + 失败 <code class="mono">exit 1</code> + 取证图落 <code class="mono">assets/</code>（<mark class="key">非</mark>发布目录 <code class="mono">shots/</code>）</td></tr>
+        <tr><td rowspan="3">C 打印门禁</td><td rowspan="3"><code class="mono">python _e2e/_verify_print_baseline.py --only templates</code><br />全量：<code class="mono">npm run verify:print -- --task 17</code></td><td>结构层</td><td>打印区宽度 / 横向溢出 / <code class="mono">print-color-adjust</code> / 字体栈 / 列数 / 行数 / 表头跨页重复 / 行不切断 / 行序连续 / 页脚合计 / 边框</td></tr>
+        <tr><td>真分页层</td><td><code class="mono">pg.pdf()</code> 断言真实页数（一单一页 / 一件一页为<mark class="key">硬语义</mark> <code class="mono">==</code>）与 MediaBox 纸张尺寸（<strong>mm ±0.5</strong>）</td></tr>
+        <tr><td>像素层</td><td>同机<strong>逐像素零容差</strong>；仅「渲染环境指纹不符」（跨机 / 跨版本）才降级结构断言并输出 <code class="mono">SKIP pixel</code>，<mark class="key">不虚报 PASS</mark>；失败出红标差异图</td></tr>
+      </table>
+      </div>
+      <p class="muted" style="font-size:13px;">两条线的共同设计原则：<strong>① 一份真相</strong>（断言与产物同源，不复制实现）；<strong>② 失败必须非 0 退出码</strong>（CI 可用）；<strong>③ 取证图不写进发布目录</strong>（复跑不污染线上静态目录）；<strong>④ 取不到的证据如实记 SKIP，不为凑一致放宽阈值</strong>。</p>
+
+      <p><strong>3. 验收证据（2026-09-25 复跑，如实照抄命令输出）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>线</th><th>环节</th><th>命令</th><th>实测结果</th></tr>
+        <tr><td rowspan="4">B</td><td>统一门禁复跑</td><td><code class="mono">npm run verify:manual:render</code></td><td><mark class="key">===== 渲染级验证：PASS（失败 0）=====</mark>，退出码 0；op-38 L1：<code class="mono">h3 = 9</code> / <code class="mono">FAQ = 6</code> / <code class="mono">图数 = 11</code> / 破图 <code class="mono">[]</code> / 尺寸 <code class="mono">780x1688 []</code> / JS 异常 <code class="mono">[]</code>；L2：<code class="mono">每张 PNG 响应码 200 [200] n=11</code>、<code class="mono">线上 shots/ 与本地逐张字节一致（op-38 11 张）[]</code>；op-39 同组 <code class="mono">n=9</code> 全 OK</td></tr>
+        <tr><td>取证图归档</td><td>同上</td><td><code class="mono">manual-render-online-op39.png</code> 239566 B、<code class="mono">manual-render-online-op38.png</code> 179153 B，均写 <code class="mono">assets/</code></td></tr>
+        <tr><td>文档门禁</td><td><code class="mono">npm run verify:manual</code></td><td><mark class="key">===== 文档门禁：PASS（失败 0）=====</mark>（7 项 OK，含「修复手册引用门禁命令」「手册引用的截图全部存在」）</td></tr>
+        <tr><td>计划偏差</td><td>—</td><td>偏差 <strong>#58</strong> 已回填（旧脚本四处「假通过」缺口逐条对照）</td></tr>
+        <tr><td rowspan="5">C</td><td>四单据门禁（离线）</td><td><code class="mono">python _e2e/_verify_print_baseline.py --only templates</code></td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 0）=====</mark>，退出码 0；四 case 全部 <code class="mono">逐页像素零容差一致</code>；<code class="mono">console.error = 0</code></td></tr>
+        <tr><td>真分页与纸张</td><td>同上</td><td><code class="mono">parcel-thermal</code> PDF <strong>3</strong> 页 / <code class="mono">99.82×149.94 mm</code> / 光栅宽 696（期望 695，±2）；<code class="mono">batch-a4l</code> PDF <strong>≥2（实测 2）</strong> / <code class="mono">297.01×209.89 mm</code> / 光栅宽 2064；<code class="mono">picking-a4</code> / <code class="mono">shipping-a4</code> 同组全 OK</td></tr>
+        <tr><td>模板单测</td><td><code class="mono">node --test src/utils/print/templates/templates.spec.ts</code></td><td><mark class="key">tests 12 / pass 12 / fail 0</mark>（<code class="mono">suites 2</code>，211.9 ms，纯 Node 无需浏览器）</td></tr>
+        <tr><td>盘库线回归</td><td><code class="mono">python _e2e/_verify_print_baseline.py --task 17</code></td><td><mark class="key">PASS（失败 0 / SKIP 6）</mark>，退出码 0；6 条 SKIP 全部是盘库线<strong>既有</strong>的「非 POSTED 终态降级」+「真实数据无差异行」，证明本次重构<strong>无回归</strong></td></tr>
+        <tr><td>文档门禁</td><td><code class="mono">npm run verify:manual</code> + <code class="mono">verify:manual:render</code></td><td>均 <mark class="key">PASS（失败 0）</mark>——新增章节与取证图<strong>未破坏</strong>既有断言（<code class="mono">#stocktake-ops</code> 唯一命中 <code class="mono">count=1</code>、图数仍 <code class="mono">9</code>、op-38 仍 <code class="mono">11</code>）</td></tr>
+      </table>
+      </div>
+
+      <p><strong>4. 负向验证：门禁必须真的会 FAIL（受控注入 → 复原）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>线</th><th>注入</th><th>结果</th><th>关键发现</th></tr>
+        <tr><td>B</td><td>① 把 <code class="mono">shots/t14_diff_summary.png</code> 的 <code class="mono">src</code> 改成不存在的 <code class="mono">…_X.png</code>；② 删 1 条 FAQ</td><td><mark class="key">FAIL（失败 7）/ exit 1</mark>；复原后复跑 PASS（失败 0）</td><td><code class="mono">图数 = 11 got=11</code> 仍 <mark class="key">OK</mark>——<strong>破图不会被图数断言发现，必须靠真解码 + 响应码 + 字节旁路</strong>（这正是该断言组存在的理由）</td></tr>
+        <tr><td>C</td><td>三处版式缺陷：① 分组标题底色 <code class="mono">#ddd → #e0e0e0</code>；② <code class="mono">.meta</code> 行高 <code class="mono">1.7 → 1.9</code>；③ 包裹标签大字号 <code class="mono">16px → 15px</code></td><td><mark class="key">FAIL（失败 6 / SKIP 0）/ exit 1</mark>，红标差异图 <strong>7 张</strong>；复原后复跑 PASS（失败 0 / SKIP 0 / exit 0）</td><td><code class="mono">shipping-a4</code> 与 <code class="mono">batch-a4l</code> 的注入属<strong>位移型</strong>：列数 / 行数 / 列宽 / 页数 / 纸张尺寸<strong>全部照旧正确</strong>，<mark class="key">没有任何结构断言能发现</mark>，只有逐像素比对抓得住——反证「结构断言不能替代像素比对」</td></tr>
+      </table>
+      </div>
+
+      <p><strong>5. 提交记录（均已 push 到 <code class="mono">origin/master</code>）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>哈希</th><th>类型</th><th>内容</th><th>规模</th></tr>
+        <tr><td><code class="mono">7cafd88</code></td><td>test(stocktake)</td><td>op-38 渲染断言并入统一门禁（精确图数 / 结构计数 / 响应码 / 字节一致）+ 偏差 #58；删除一次性脚本</td><td>5 files, +127 / −87</td></tr>
+        <tr><td><code class="mono">ae90a4b</code></td><td>test(print)</td><td>配货台四单据并入打印像素级一致性门禁（产出器 + 四 case 基线 + 规格 §10.4 + 偏差 38–45 + 手册第 11 小节）</td><td>20 files, +730 / −78（含 9 页基线 PNG）</td></tr>
+      </table>
+      </div>
+
+      <p><strong>6. 已知边界与残留（不阻塞，如实登记）</strong></p>
+      <div class="callout warn">
+        <p>① <strong>物理打印机仍不承诺像素</strong>：C 线只覆盖第①层（受控渲染零容差）与第②层（跨 OS 结构一致）；热敏机实际出纸的黑度、走纸偏移、跨页接缝<strong>仍需人工走查</strong>（规格 §3.5 第③层），自动化不替代。</p>
+        <p>② <strong>只验版式 HTML，不验调起链路</strong>：C 线直接渲染模板产出的 HTML，<strong>不含</strong>「配货台页面 → 打印按钮 → 隐藏 iframe → <code class="mono">contentWindow.print()</code>」这一段；后者属浏览器行为，靠页面 e2e 与人工走查覆盖。</p>
+        <p>③ <strong>四 case 数据是合成的</strong>：收件人 / 地址 / 电话全为固定样例串（如「阳光小区 1 幢 101 室」「13800001001」），不含真实客户数据；<strong>改 fixture 即需 <code class="mono">--record --force</code> 重录</strong>——指纹语义刻意不含 HTML 哈希，改模板 CSS 必落像素 FAIL，改 fixture 才降级 SKIP 并提示重录。</p>
+        <p>④ <strong>红标差异图不入库</strong>：<code class="mono">_diff/</code> 为本地生成产物（已补 <code class="mono">.gitignore</code>），仅代表性一张归档进 <code class="mono">assets/</code>；如需复查历史红标图请重跑负向验证生成。</p>
+        <p>⑤ <strong>B 线双落点核对如实记 INFO、不判 FAIL</strong>：op-38 的 11 张图中 3 张 <code class="mono">assets/</code> 同名副本字节一致、7 张无副本、1 张 <code class="mono">t40_task_waves_on_390.png</code> <code class="mono">assets 100659 ≠ shots 100385</code>（110 px，右下状态栏时钟区，重渲染噪声）。发布目录与线上已由 L2 旁路字节断言严格对齐，<strong>没有承诺被破坏</strong>，故只打印 INFO，<mark class="key">不为凑一致放宽容差</mark>。</p>
+      </div>
+    </section>
+
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
