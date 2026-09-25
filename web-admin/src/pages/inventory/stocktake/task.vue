@@ -18,33 +18,94 @@
     </view>
     <view v-else-if="!loading" class="empty">{{ $t('stocktake.task.loadFailed') }}</view>
 
-    <!-- ② 盘次列表：认领 / 进入录入 / 释放 / 指派 / 取消 -->
-    <text class="sec">{{ $t('stocktake.task.waves') }}</text>
-    <WaveCard
-      v-for="w in waves"
-      :key="w.id"
-      :wave="w"
-      :is-owner="isMine(w)"
-      :is-admin="isAdmin"
-      :label-zone="$t('stocktake.task.waveZone')"
-      :label-unassigned="$t('stocktake.task.waveUnassigned')"
-      :label-whole="$t('stocktake.task.waveWhole')"
-      @claim="onClaim(w)"
-      @assign="onAssign(w)"
-      @release="onRelease(w)"
-      @enter="onEnter(w)"
-      @cancel="onCancelWave(w)"
-    />
-    <view v-if="task && !waves.length" class="empty">{{ $t('stocktake.board.empty') }}</view>
-
-    <!-- ③ 吸底：取消任务 / 查看差异并过账（未提交满时禁用并说明原因） -->
-    <view class="savebar">
-      <button class="ghost" :disabled="working" @tap="onCancelTask">{{ $t('stocktake.task.cancelTask') }}</button>
-      <button class="main" :disabled="!readyToPost" @tap="goDiff">{{ $t('stocktake.task.toDiff') }}</button>
+    <!-- ② 页签：盘次 / 统计（草稿无盘次，不显示页签） -->
+    <view v-if="task && task.state !== 'DRAFT'" class="tabs">
+      <view class="tb" :class="{ on: view === 'waves' }" @tap="view = 'waves'">{{ $t('stocktake.task.tabWaves') }}</view>
+      <view class="tb" :class="{ on: view === 'stats' }" @tap="openStats">{{ $t('stocktake.task.tabStats') }}</view>
     </view>
-    <view v-if="task && openWaveCount > 0" class="tip">
+
+    <!-- ③ 盘次列表：认领 / 进入录入 / 释放 / 指派 / 取消 -->
+    <template v-if="view === 'waves'">
+      <text class="sec">{{ $t('stocktake.task.waves') }}</text>
+      <WaveCard
+        v-for="w in waves"
+        :key="w.id"
+        :wave="w"
+        :is-owner="isMine(w)"
+        :is-admin="isAdmin"
+        :label-zone="$t('stocktake.task.waveZone')"
+        :label-unassigned="$t('stocktake.task.waveUnassigned')"
+        :label-whole="$t('stocktake.task.waveWhole')"
+        @claim="onClaim(w)"
+        @assign="onAssign(w)"
+        @release="onRelease(w)"
+        @enter="onEnter(w)"
+        @cancel="onCancelWave(w)"
+      />
+      <view v-if="task && !waves.length" class="empty">{{ $t('stocktake.board.empty') }}</view>
+    </template>
+
+    <!-- ④ 统计：按库位 / 按盘点人（只做作业量，规格 §3.3） -->
+    <view v-if="view === 'stats'" class="stats">
+      <view class="seg">
+        <view class="sg" :class="{ on: statsSeg === 'bin' }" @tap="statsSeg = 'bin'">{{ $t('stocktake.task.stats.byBin') }}</view>
+        <view class="sg" :class="{ on: statsSeg === 'counter' }" @tap="statsSeg = 'counter'">{{ $t('stocktake.task.stats.byCounter') }}</view>
+      </view>
+      <view v-if="statsLoading" class="empty">{{ $t('stocktake.board.loading') }}</view>
+      <template v-else-if="stats">
+        <view v-if="statsSeg === 'bin'" class="tbl">
+          <view class="tr th">
+            <text class="c1">{{ $t('stocktake.task.stats.colBin') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colExpected') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colCounted') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colUncounted') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colExtra') }}</text>
+          </view>
+          <view v-for="r in stats.byBin" :key="String(r.zoneId) + '-' + String(r.binId)" class="tr">
+            <text class="c1">{{ binLabel(r) }}</text>
+            <text class="c2">{{ r.expectedLines }}</text>
+            <text class="c2">{{ r.countedLines }}</text>
+            <text class="c2" :class="{ warn: r.uncountedLines > 0 }">{{ r.uncountedLines }}</text>
+            <text class="c2">{{ r.extraLines }}</text>
+          </view>
+          <view v-if="!stats.byBin.length" class="empty">{{ $t('stocktake.task.stats.empty') }}</view>
+        </view>
+        <view v-else class="tbl">
+          <view class="tr th">
+            <text class="c1">{{ $t('stocktake.task.stats.colCounter') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colCounted') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colExtra') }}</text>
+            <text class="c2">{{ $t('stocktake.task.stats.colWaves') }}</text>
+          </view>
+          <view v-for="r in stats.byCounter" :key="String(r.countedById)" class="tr">
+            <text class="c1">{{ r.countedByName || $t('stocktake.task.stats.unknown') }}</text>
+            <text class="c2">{{ r.countedLines }}</text>
+            <text class="c2">{{ r.extraLines }}</text>
+            <text class="c2">{{ r.waveCount }}</text>
+          </view>
+          <view v-if="!stats.byCounter.length" class="empty">{{ $t('stocktake.task.stats.empty') }}</view>
+        </view>
+        <text class="note">{{ $t('stocktake.task.stats.scopeNote') }}</text>
+      </template>
+    </view>
+
+    <!-- ⑤ 吸底：草稿态为「编辑范围 / 发布任务 / 取消任务」；其余为「取消任务 / 查看差异并过账」 -->
+    <view class="savebar">
+      <template v-if="task && task.state === 'DRAFT'">
+        <button class="ghost" :disabled="working" @tap="editVisible = true">{{ $t('stocktake.task.editScope') }}</button>
+        <button class="main" :disabled="working" @tap="onOpenTask">{{ $t('stocktake.task.publish') }}</button>
+      </template>
+      <template v-else>
+        <button class="ghost" :disabled="working" @tap="onCancelTask">{{ $t('stocktake.task.cancelTask') }}</button>
+        <button class="main" :disabled="!readyToPost" @tap="goDiff">{{ $t('stocktake.task.toDiff') }}</button>
+      </template>
+    </view>
+    <view v-if="task && task.state === 'DRAFT'" class="tip">{{ $t('stocktake.task.draftHint') }}</view>
+    <view v-else-if="task && openWaveCount > 0" class="tip">
       {{ $t('stocktake.task.notReady').replace('{n}', String(openWaveCount)) }}
     </view>
+
+    <TaskFormSheet :visible="editVisible" mode="edit" :draft="task" @close="editVisible = false" @saved="onDraftSaved" />
   </view>
 </template>
 
@@ -52,10 +113,11 @@
 import { computed, ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import WaveCard from '../../../components/stocktake/WaveCard.vue';
+import TaskFormSheet from '../../../components/stocktake/TaskFormSheet.vue';
 import {
   assignStocktakeWave, cancelStocktakeTask, cancelStocktakeWave, claimStocktakeWave,
-  fetchStocktakeTask, fetchStocktakeWaves, releaseStocktakeWave,
-  type StocktakeTask, type StocktakeWave,
+  fetchStocktakeStats, fetchStocktakeTask, fetchStocktakeWaves, openStocktakeTask, releaseStocktakeWave,
+  type StocktakeStats, type StocktakeTask, type StocktakeWave,
 } from '../../../apis/stocktake';
 import { fetchMyTenantMembers, type TenantMemberItem } from '../../../apis/tenant-admin';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -72,6 +134,13 @@ const working = ref(false);
 const loading = ref(false);
 /** 当前登录人的 TenantMember.id（服务端 claimWave 用同一口径，独占锁按这个 id 比对） */
 const myMemberId = ref('');
+
+/** 视图：盘次 / 统计（统计按需加载，避免进详情就多发一次请求） */
+const view = ref<'waves' | 'stats'>('waves');
+const statsSeg = ref<'bin' | 'counter'>('bin');
+const stats = ref<StocktakeStats | null>(null);
+const statsLoading = ref(false);
+const editVisible = ref(false);
 
 const p = computed(() => taskProgress(task.value ?? { expectedTotal: 0, countedTotal: 0, waveCount: 0, submittedWaveCount: 0, state: 'OPEN' }));
 const isAdmin = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakePost'));
@@ -105,11 +174,52 @@ async function reload() {
   try {
     task.value = await fetchStocktakeTask(taskId.value);
     waves.value = await fetchStocktakeWaves(taskId.value);
+    stats.value = null;
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('stocktake.task.loadFailed'), icon: 'none' });
   } finally {
     loading.value = false;
   }
+}
+
+async function openStats() {
+  view.value = 'stats';
+  if (stats.value || statsLoading.value) return;
+  statsLoading.value = true;
+  try {
+    stats.value = await fetchStocktakeStats(taskId.value);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('stocktake.task.stats.loadFailed'), icon: 'none' });
+  } finally {
+    statsLoading.value = false;
+  }
+}
+
+/** 库位标签：库区-库位；未归位组显示「未归位」 */
+function binLabel(r: { zoneCode?: string | null; binCode?: string | null }): string {
+  const z = r.zoneCode || '';
+  const b = r.binCode || '';
+  if (!z && !b) return locale.t('stocktake.task.stats.orphan');
+  return [z, b].filter(Boolean).join('-');
+}
+
+async function onOpenTask() {
+  if (working.value) return;
+  working.value = true;
+  try {
+    const t = await openStocktakeTask(taskId.value);
+    uni.showToast({ title: locale.t('stocktake.task.publishDone').replace('{code}', String(t.code)).replace('{waves}', String(t.waveCount)), icon: 'none' });
+    await reload();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('stocktake.task.opFailed'), icon: 'none' });
+  } finally {
+    working.value = false;
+  }
+}
+
+async function onDraftSaved() {
+  editVisible.value = false;
+  await reload();
 }
 
 /**
@@ -230,5 +340,27 @@ onShow(async () => {
 }
 .tip { position: fixed; left: 32rpx; right: 32rpx; bottom: calc(150rpx + env(safe-area-inset-bottom));
   font-size: 23rpx; color: $wa-muted; text-align: center;
+}
+.tabs { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 8rpx; margin: 20rpx 0 4rpx;
+  .tb { flex: 1; text-align: center; padding: 16rpx 0; border-radius: $wa-radius; font-size: 26rpx; color: $wa-ink;
+    &.on { background: $wa-accent; color: #fff; }
+  }
+}
+.stats { margin-top: 12rpx;
+  .seg { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 8rpx; margin-bottom: 12rpx;
+    .sg { flex: 1; text-align: center; padding: 14rpx 0; border-radius: $wa-radius; font-size: 25rpx; color: $wa-ink;
+      &.on { background: $wa-accent; color: #fff; }
+    }
+  }
+  .tbl { background: $wa-card; border-radius: $wa-radius; padding: 12rpx 24rpx;
+    .tr { display: flex; align-items: center; padding: 14rpx 0; border-bottom: 1rpx solid $wa-rule;
+      &.th .c1, &.th .c2 { color: $wa-muted; font-size: 22rpx; }
+      .c1 { flex: 1; font-size: 24rpx; color: $wa-ink; }
+      .c2 { width: 96rpx; text-align: right; font-size: 24rpx; color: $wa-ink;
+        &.warn { color: $wa-danger; }
+      }
+    }
+  }
+  .note { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 14rpx; padding: 0 8rpx; }
 }
 </style>
