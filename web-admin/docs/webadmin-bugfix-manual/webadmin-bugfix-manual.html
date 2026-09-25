@@ -128,6 +128,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#followups">商品详情三问题修复（就近库存 / 标题SKU / 9图保存）</a></li>
       <li><a href="#order-list-v2">订单列表 · 筛选/状态/版式重构</a></li>
       <li><a href="#stocktake-collab">16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</a></li>
+      <li><a href="#stocktake-ops">16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</a></li>
     </ol>
   </nav>
 
@@ -1156,9 +1157,113 @@ flowchart TD
     <p><strong>O. 线上手册 op-38 首屏渲染（本地预览 / 线上复验）</strong></p>
     <figure style="margin:0 0 10px;"><img src="assets/manual_op38_preview_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/manual_op38_preview_390_b.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/manual_op38_live_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左 / 中：本地 <code class="mono">file://</code> 预览（标题「40. 多人协同盘库（任务 / 盘次 / 差异过账）」+ <code class="mono">.flow</code> 流程图 + 权限表与图 H1）；右：线上 <code class="mono">e.joho.cn</code> 复验首屏——与本地渲染<strong>逐像素一致</strong></figcaption></figure>
     <p class="muted" style="font-size:13px;">补充说明：线上手册是<strong>单文件数据驱动</strong>，章节序号由 <code class="mono">renderReader()</code> 按「本书内序号 + 1」实时计算（故 <code class="mono">op-38</code> 显示为第 40 章，op 书现有 40 章），<strong>不需要</strong>改动封面、目录或任何计数器；后续再追补章节只需往 <code class="mono">CHAPTERS</code> 数组里加一条对象即可。<code class="mono">_e2e/_verify_manual_op38.py</code> 为可复跑的常驻验证脚本（<code class="mono">local|live</code> 两模式），与既有的 <code class="mono">_verify_manual_op20.py</code> 同构。</p>
+
+    <section id="stocktake-ops">
+      <h4>16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</h4>
+      <p>本节把协同盘库的<strong>日常作业面</strong>补齐：看板可翻页并按「已结束」回看历史、任务可先存草稿再发布、统计给出按库位 / 按盘点人的<strong>作业量</strong>、差异页可导出 CSV 与打印结果单。规格：<code class="mono">docs/superpowers/specs/2026-09-25-stocktake-ops-enhancement-design.md</code>；实施：<code class="mono">docs/superpowers/plans/2026-09-25-stocktake-ops-enhancement-plan.md</code>。</p>
+
+      <p><strong>1. 变更清单</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>层</th><th>内容</th><th>落点</th></tr>
+        <tr><td>后端入口 ①</td><td>列表分页 +「已结束」筛选：<code class="mono">stocktakeTasks</code> 增 <code class="mono">states: [StocktakeTaskState!]</code>（多值，与单值 <code class="mono">state</code> 并存且优先）</td><td>规格 §3.1 / §6.1</td></tr>
+        <tr><td>后端入口 ②</td><td>草稿：任务写路径支持 <code class="mono">state: DRAFT</code>，草稿期<strong>不物化</strong>盘次与应盘行</td><td>规格 §3.2 / §6.2 / §7.2</td></tr>
+        <tr><td>后端入口 ③</td><td>统计：新增查询 <code class="mono">stocktakeStats(taskId)</code> → <code class="mono">byBin</code> / <code class="mono">byCounter</code> 两表</td><td>规格 §6.3 / §7.3</td></tr>
+        <tr><td>后端入口 ④</td><td>导出：新增查询 <code class="mono">stocktakeExport(taskId, kind)</code>，4 种 kind（<code class="mono">by_bin</code> / <code class="mono">by_counter</code> / <code class="mono">variance</code> / <code class="mono">lines</code>），CSV 前置 BOM、20000 行截断</td><td>规格 §6.4 / §7.4</td></tr>
+        <tr><td>前端 3 页</td><td>看板 <code class="mono">src/pages/inventory/stocktake/index.vue</code>（分页 + 页签 + 草稿可见）、任务详情 <code class="mono">stocktake/task.vue</code>（草稿动作条 + 统计页签）、差异页 <code class="mono">stocktake/diff.vue</code>（导出 / 打印工具条 + 打印区）</td><td>规格 §8.1–§8.3</td></tr>
+        <tr><td>打印样式</td><td>版式钉死在 <code class="mono">diff.vue</code> 的打印样式块；页面级 <code class="mono">html/body</code> 归零放在 <code class="mono">App.vue</code> 全局样式（uni-app 会给除 <code class="mono">App.vue</code> 外所有 SFC 的 <code class="mono">&lt;style&gt;</code> 无条件补 <code class="mono">scoped</code>，见偏差 D37）</td><td>规格 §7.5</td></tr>
+        <tr><td>门禁脚本</td><td><code class="mono">scripts/_smoke_stocktake_live.py</code>（只读冒烟）、<code class="mono">_e2e/_verify_stocktake_ops_e2e.py</code>（手机视口回归）、<code class="mono">_e2e/_verify_manual_docs.py</code>（文档门禁）、<code class="mono">_e2e/_verify_print_baseline.py</code>（打印基线）</td><td>规格 §11</td></tr>
+      </table>
+      </div>
+
+      <p><strong>2. 分页行为</strong></p>
+      <ul>
+        <li><strong>页脚语义</strong>：<code class="mono">已加载 x / 共 y 条</code>——<code class="mono">x</code> 是<strong>当前已加载</strong>的卡片数，<code class="mono">y</code> 是服务端 <code class="mono">totalItems</code>（不是本页条数）。</li>
+        <li><strong>触底追加</strong>：<code class="mono">onReachBottom</code> → <code class="mono">loadMore()</code>，每页 <code class="mono">pageSize=50</code>，新页追加在已有列表之后；屏幕底部显示「加载中 / 没有更多了」脚注。</li>
+        <li><strong>下拉刷新</strong>：<code class="mono">onPullDownRefresh</code> → <code class="mono">reload()</code>，<strong>回到第 1 页</strong>（重置 offset 与列表）。</li>
+        <li><strong>页签与筛选</strong>：页签集合 <code class="mono">all / DRAFT / COUNTING / COUNTED / closed</code>；<code class="mono">closed</code> 下发 <code class="mono">states:['POSTED','CANCELLED']</code>（一次问回两种终态），<code class="mono">all</code> 不下发状态条件，其余下发单值 <code class="mono">state</code>。</li>
+      </ul>
+      <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-46-pagination.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">看板分页：卡片列表 + 页脚「已加载 28 / 共 28 条」（本地可写后端实拍，手机视口 390×844 dpr=2 → 780×1688）</figcaption></figure>
+      <p class="muted" style="font-size:13px;">如实记录：本次拍照环境共 28 张卡 &lt; 单页 50，<strong>未真正触发第二页</strong>（任务 18 实测 <code class="mono">before=28 after=28</code>，见偏差 D51 观察①）；「触底追加」的代码路径与断言已就位，但本轮未用真实多页数据复验。</p>
+
+      <p><strong>3. 草稿：先存后发</strong></p>
+      <ul>
+        <li>建任务抽屉底部两个动作：<code class="mono">存为草稿</code>（次按钮）/ <code class="mono">创建任务</code>（主按钮）。</li>
+        <li>存下来的草稿出现在看板<strong>草稿</strong>页签；点进详情显示<strong>草稿动作条</strong>——「编辑范围」「发布任务」。</li>
+        <li><strong>草稿不占库存、也不生成应盘清单</strong>：盘次与应盘行在<strong>发布那一刻</strong>才按当时的库存与商品集合物化（规格 §3.2）。草稿停得越久，发布结果与建草稿时的直觉差得越多——详情页对此有显式提示「发布时按当前库存与商品集合生成应盘清单」。</li>
+        <li>发布后走与「直接创建任务」同一条流程：认领 / 录入 / 提交 / 差异 / 过账。</li>
+      </ul>
+      <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-47-draft-detail.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake-ops-48-new-draft-buttons.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：草稿详情（「草稿」标记 + 动作条「编辑范围 / 发布任务」） / 右：新建任务抽屉底部「存为草稿」与「创建任务」两按钮</figcaption></figure>
+      <p class="muted" style="font-size:13px;">两张草稿图<strong>只能在本地可写后端拍到</strong>：生产 <code class="mono">t2</code> 渠道 21 条任务全部 <code class="mono">CANCELLED</code>、<strong>无草稿任务</strong>，按「生产只读」纪律不允许建草稿，故生产侧如实记 <mark class="key">SKIP</mark>（见偏差 D13 / D41）。本地环境与证据任务号见偏差 D45 / D51（图对应 <code class="mono">TK20260925-012</code>，id 34，拍完已取消，本地库无非终态残留）。</p>
+
+      <p><strong>4. 统计：只反映作业量</strong></p>
+      <p>任务详情新增<strong>统计</strong>页签，两张表——<strong>按库位</strong>（<code class="mono">byBin</code>）与<strong>按盘点人</strong>（<code class="mono">byCounter</code>），数据来自后端纯函数聚合（规格 §7.3）。</p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>表</th><th>列</th><th>列义</th></tr>
+        <tr><td>按库位</td><td>库区 / 库位 / 应盘 / 已盘 / 未盘 / 盘盈</td><td>按「库区 + 库位」分组，两者皆空的行归入<strong>未归位</strong>组（置末）；应盘 = 组内非盘盈行数；已盘 = 组内非盘盈且<strong>已填实盘数</strong>的行数；未盘 = 应盘 − 已盘；盘盈 = 组内盘盈行数</td></tr>
+        <tr><td>按盘点人</td><td>盘点人 / 已盘 / 盘盈 / 涉及盘次 / 最后活动时间</td><td>只统计<strong>已填实盘数</strong>的行（盘盈行也算「已盘」，因为这些行确实被人盘过）；按盘点人分组，盘点人为空归入<strong>未知</strong>；涉及盘次 = 该人盘过的不同盘次个数；按已盘降序</td></tr>
+      </table>
+      </div>
+      <p><strong>口径</strong>：统计<mark class="key">只反映作业量</mark>（谁在盘、盘了多少、还剩多少），<strong>不输出任何差异数量或金额</strong>——差异一律以差异页为准（规格 §3.3）。看板 / 详情页的进度数字另有一套既有口径（<code class="mono">buildTaskView</code>），本节的统计是<strong>追加</strong>的聚合视图，不改变既有进度数字。</p>
+      <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-49-stats-by-bin.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake-ops-50-stats-by-counter.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：按库位表（未归位组：应盘 19 / 已盘 0 / 未盘 19 / 盘盈 0） / 右：按盘点人表空态（「暂无统计数据」）</figcaption></figure>
+      <p class="muted" style="font-size:13px;">截图对应本地 OPEN fixture <code class="mono">TK20260925-011</code>（id 33，拍完已取消）。<strong>「按盘点人」为空是环境限制而非缺陷</strong>：本机账号在该店<strong>没有 TenantMember 行</strong>，无法认领盘次，脚本按计划要求不写盘点数，故该表保持空态；断言只要求表头存在（未放宽），理由见偏差 D50。</p>
+
+      <p><strong>5. 导出</strong></p>
+      <ul>
+        <li><strong>导出 CSV（当前视图）</strong>：纯前端即时落盘，导出<mark class="key">屏幕上这份差异表</mark>（列定义与后端一致）。适合「我就想要现在看到的这几行」。</li>
+        <li><strong>完整导出</strong>：走后端 <code class="mono">stocktakeExport</code>，4 种 kind——<code class="mono">by_bin</code>（按库位作业量）/ <code class="mono">by_counter</code>（按盘点人作业量）/ <code class="mono">variance</code>（差异明细）/ <code class="mono">lines</code>（全部应盘行）。适合「要一份完整底稿」。</li>
+        <li><strong>Excel 打开不乱码</strong>：CSV 首字符强制前置 BOM（<code class="mono">\uFEFF</code>）、行尾 CRLF、字段含 <code class="mono">,</code> / <code class="mono">"</code> / 换行时整体加双引号。文件名形如 <code class="mono">stocktake-{任务号}-{kind}-{yyyymmddHHmm}.csv</code>，MIME <code class="mono">text/csv;charset=utf-8</code>。</li>
+        <li><strong>如实限制</strong>：完整导出<strong>最多 20000 行</strong>，超出截断（响应带 <code class="mono">truncated</code>）；「导出 CSV（当前视图）」不受此限。</li>
+        <li><strong>时区口径</strong>：后端文件名时间戳取 <strong>UTC</strong>、前端「当前视图」取<strong>本地时区</strong>，同一用户先后导出会看到相差时区偏移的两个文件名（内容不受影响）。规格未定义时区，本轮不改，见偏差 D24（线上实测：文件名 <code class="mono">…-202609250529.csv</code> vs 本地时间 13:30，差 8 小时）。</li>
+      </ul>
+      <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-51-diff-toolbar.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/stocktake-ops-52-export-toast.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/stocktake-ops-53-export-kinds.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：差异页工具条（导出 CSV / 完整导出 / 打印） / 中：点「导出 CSV」后的落盘提示 toast / 右：完整导出的 4 种 kind 动作面板</figcaption></figure>
+      <p class="muted" style="font-size:13px;">实拍证据：点「导出 CSV」真实落盘 <code class="mono">stocktake-TK20260924-009-variance-202609251545.csv</code>、完整导出面板 <code class="mono">rows=5</code>（5 个动作行，含取消），全程 0 JS 异常（偏差 D47 / D49 / D51）。</p>
+
+      <p><strong>6. 打印盘点结果单</strong></p>
+      <ul>
+        <li><strong>怎么打</strong>：差异页点「打印」，或直接 <code class="mono">Ctrl/Cmd + P</code> 走浏览器打印——<strong>不做服务端 PDF</strong>（规格 §3.5）。</li>
+        <li><strong>打印区内容</strong>：任务头（任务号 + 名称 + 仓库 / 活动码 / 打印时间）→ 四宫格摘要 → <strong>九列</strong>差异表 → 未盘清单 → 页脚（任务号 + 打印时间）。屏幕上那份带页签、工具条与按钮的界面在打印时整体隐藏。</li>
+        <li><strong>版式契约</strong>（规格 §7.5，逐条钉死）：A4 纵向、页边距 <code class="mono">12 / 12 / 14mm</code>、内容区 <code class="mono">186 × 271mm</code>、差异表 <code class="mono">table-layout: fixed</code> 固定列宽（合计 186mm）、续页自动重复表头（<code class="mono">thead</code> 计算为 <code class="mono">table-header-group</code>）、数据行不跨页（<code class="mono">break-inside: avoid</code>）；<strong>无页码</strong>——Chromium 的 <code class="mono">window.print()</code> 不支持 <code class="mono">@page</code> margin box 的 <code class="mono">counter(page)</code>，条目如实限制而非降级实现。</li>
+        <li><strong>三层承诺</strong>：① 在<strong>受控渲染</strong>（同一 Playwright Chromium + A4 @96dpi + <code class="mono">print</code> 媒体模拟）下版式<strong>像素级一致</strong>；② <strong>跨机 / 跨 OS 自动降级</strong>为结构断言（宽度 / 列数 / 列宽 / 页数 / 页尺寸 / 无横向溢出 / 文本可复制），并输出 <code class="mono">SKIP 像素比对</code>（字体回退导致的字形差异不做像素比对）；③ 走<strong>物理打印机</strong>时只保证<strong>几何与分页</strong>（列宽、边距、换页），不承诺像素。</li>
+        <li><strong>基线脚本</strong>：<code class="mono">npm run verify:print</code>（<code class="mono">_e2e/_verify_print_baseline.py</code>，必须用 <code class="mono">--task &lt;taskId&gt;</code> 钉死一个固定的历史任务）。基线图与 <code class="mono">env.json</code> 录在 <code class="mono">_e2e/baselines/print/&lt;case&gt;/</code>。</li>
+      </ul>
+      <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-51b-print-region.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">打印区（为取证临时强制显形）：任务头 + 四宫格 + 九列差异表 + 页脚；390px 视口下必然横向溢出、列头折行</figcaption></figure>
+      <p class="muted" style="font-size:13px;">打印区实拍是为取证<strong>临时强制显形</strong>的（截图可见 186mm 表格在手机视口下溢出、列头竖排折行），A4 几何正确性以打印基线脚本为准。任务 16 实测（本地 dist + 生产只读数据）：打印区宽 <code class="mono">186.00mm</code>、差异表 <code class="mono">cols=9</code> 且列宽偏差 <code class="mono">[]</code>、<code class="mono">overflow=[] scroll=703/703</code>、PDF 页尺寸 <code class="mono">594.960 × 841.920pt</code>、文本含任务号 <code class="mono">TK20260924-017</code>，见偏差 D43。</p>
+      <p class="muted" style="font-size:13px;">基线限制如实记录：生产 <code class="mono">t2</code> 的 21 条任务<strong>全部 <code class="mono">CANCELLED</code> 且差异行为 0</strong>，没有 POSTED 任务 = 没有可注入基线的数据源，故 <code class="mono">_e2e/baselines/print/</code> <strong>未生成</strong>（不伪造空基线），逐页像素比对与跨页用例全部记 <mark class="key">SKIP</mark>。详见偏差 D12 / D41 / D42 / D43。</p>
+
+      <p><strong>7. 回归门禁</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>命令</th><th>用途</th><th>退出码</th></tr>
+        <tr><td><code class="mono">npm run test:smoke:live</code></td><td>只读冒烟：打生产 <code class="mono">t2</code> 走接口断言（字段存在 / 鉴权 / schema 生效），<strong>零写入</strong>；无任务时对应断言记 SKIP</td><td>0 通过 / 1 有失败项</td></tr>
+        <tr><td><code class="mono">npm run test:e2e:stocktake</code></td><td>手机视口端到端回归（Playwright）：看板分页 / 草稿 / 统计 / 导出 / 打印，逐张截图并断言 DOM</td><td>0 通过 / 1 有失败 / 2 环境不可用（缺 playwright、登录失败，或<strong>目标是生产且开了 <code class="mono">WA_SHOT_ALLOW_WRITE</code> 被硬拦</strong>）</td></tr>
+        <tr><td><code class="mono">npm run verify:manual</code></td><td>文档门禁：修复手册新章 / 线上手册 op-39 / 引用截图是否落盘 / 线上手册是否可达</td><td>0 通过 / 1 有失败 / 2 手册文件缺失</td></tr>
+        <tr><td><code class="mono">npm run verify:print</code></td><td>打印基线：结构断言（必跑）+ 像素比对（仅录制环境生效，跨机降级为 SKIP）</td><td>0 通过 / 1 有失败 / 2 环境不可用（缺 <code class="mono">--task</code> / 缺 playwright）</td></tr>
+      </table>
+      </div>
+      <p class="muted" style="font-size:13px;">纪律：<strong>不许伪造 PASS</strong>。断言不成立就 FAIL，数据不足就显式 SKIP 并把理由写进输出，退出码即结论。</p>
+
+      <p><strong>8. 线上复验记录（2026-09-25，如实照抄命令输出）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>环节</th><th>命令 / 对象</th><th>实测结果</th></tr>
+        <tr><td>本地构建</td><td><code class="mono">npm run build:h5</code></td><td><mark class="key">DONE Build complete.</mark>（exit 0；仅 Sass <code class="mono">legacy-js-api</code> 弃用警告）</td></tr>
+        <tr><td>产物核对</td><td><code class="mono">dist/build/h5/static/manual/</code></td><td><code class="mono">index.html</code> <strong>159943 B</strong>（含 <code class="mono">op-39</code>）、<code class="mono">shots/stocktake-ops-*.png</code> <strong>9 张齐全</strong>（字节数与本地 assets 逐张一致）</td></tr>
+        <tr><td><strong>部署</strong></td><td><code class="mono">node scripts/deploy.mjs</code>（cwd <code class="mono">web-admin</code>）</td><td>产物校验通过 <strong>48682 KB</strong> → tar → scp → 服务器解压 <mark class="key">deploy done</mark> → nginx <code class="mono">test is successful</code> + reload；站点目录 <code class="mono">/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/guanli</code></td></tr>
+        <tr><td>文档门禁</td><td><code class="mono">npm run verify:manual</code></td><td>7 条断言全 <code class="mono">OK</code> → <mark class="key">===== 文档门禁：PASS（失败 0）=====</mark>（含「线上手册已含 op-39」）；<strong>部署前</strong>同一脚本只有最后一条 FAIL（线上还没有 op-39），证明该断言非空过</td></tr>
+        <tr><td>只读冒烟</td><td><code class="mono">npm run test:smoke:live</code></td><td><mark class="key">===== 盘库冒烟结果：PASS（失败 0 项）=====</mark>：<code class="mono">stocktakeTasks totalItems=21</code>、<code class="mono">states</code> 多值过滤可用（只回终态）、<code class="mono">stocktakeStats</code> / <code class="mono">stocktakeExport</code> 可调用（CSV 含 BOM）、<code class="mono">shop-api</code> 未泄漏盘库字段、看板页 <code class="mono">tabs=5</code>、0 JS 异常；1 条 SKIP（渠道收口无可比渠道）</td></tr>
+        <tr><td>手机视口 e2e</td><td><code class="mono">npm run test:e2e:stocktake</code>（生产，<strong>未设任何 <code class="mono">WA_*</code> 覆盖</strong>，<code class="mono">WA_SHOT_ALLOW_WRITE</code> 关闭）</td><td><mark class="key">===== 手机视口截图回归：PASS（失败 0 / SKIP 3）=====</mark>：T46 三条 OK（<code class="mono">tabs=5</code>、<code class="mono">before=21 after=21</code>、<code class="mono">footnote=1</code>）；<strong>SKIP 3 组</strong>——T47/T48（无 DRAFT 任务且生产只读）、T49/T50（无可盘点状态任务）、T51/T52/T53（无已过账任务）</td></tr>
+        <tr><td>打印基线</td><td><code class="mono">python _e2e/_verify_print_baseline.py --task 17</code></td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 7）=====</mark>，exit 0；结构断言全 <code class="mono">OK</code>（打印区 <code class="mono">186.00mm</code>、差异表 <code class="mono">cols=9</code>、列宽偏差 <code class="mono">[]</code>、<code class="mono">overflow=[] scroll=703/703</code>、PDF <code class="mono">594.960 × 841.920 pt</code>、DOM 文本含 <code class="mono">TK20260924-017</code>、0 JS 异常）；<strong>SKIP 7 条</strong>全部因「生产无 POSTED 任务 → 数据源无有效数据行 / 未提供 <code class="mono">--empty-task</code>」</td></tr>
+        <tr><td><strong>配图还原</strong></td><td><code class="mono">git checkout -- web-admin/docs/webadmin-bugfix-manual/assets/</code></td><td>生产 e2e 用<strong>生产数据</strong>重写了 <code class="mono">stocktake-ops-46-pagination.png</code>（110274 B、21 张卡）；跑完<strong>已还原</strong>为已提交的本地 fixture 版本（111587 B、28 张卡），以保持本节配图与偏差 D51 的「截图 ↔ 任务 id」映射一致</td></tr>
+        <tr><td>纪律</td><td>—</td><td>除「部署本次 H5 产物」外<strong>无任何生产写操作</strong>：未建任务、未发布、未改数据；生产 e2e 全程保持 <code class="mono">WA_SHOT_ALLOW_WRITE</code> 关闭（脚本内 <code class="mono">IS_PROD</code> 硬拦）</td></tr>
+      </table>
+      </div>
+      <p class="muted" style="font-size:13px;">结论：<strong>文档与代码均已上线</strong>——线上手册 <code class="mono">https://e.joho.cn/guanli/static/manual/</code> 已含 <code class="mono">op-39</code>（文档门禁 PASS），线上前端产物即本轮构建的 H5（只读冒烟与生产 e2e 均 PASS 且 <code class="mono">tabs=5</code>）。<strong>草稿 / 统计 / 导出 / 打印</strong>四类交互在生产端因「无 DRAFT、无可盘点状态、无 POSTED 任务」如实记 <mark class="key">SKIP</mark>（根因见偏差 D41），其证据由本地可写后端的 9 张手机视口截图承担（偏差 D45 / D51）。</p>
+    </section>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
