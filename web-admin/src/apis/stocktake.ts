@@ -54,6 +54,7 @@ export interface StocktakeVarianceRow {
   targetZoneId?: string | null;
   targetBinId?: string | null;
   targetBinCode?: string | null;
+  targetZoneCode?: string | null;
   snapBookQty: number;
   currentBookQty: number;
 }
@@ -68,6 +69,42 @@ export interface StocktakeDiff {
   uncountedLines: StocktakeLineRow[];
   recheck: boolean;
   changedVariants: { variantId: string; variantSku: string; snapBookQty: number; currentBookQty: number }[];
+}
+
+export interface StocktakeBinStat {
+  zoneId?: string | null;
+  zoneCode?: string | null;
+  binId?: string | null;
+  binCode?: string | null;
+  expectedLines: number;
+  countedLines: number;
+  uncountedLines: number;
+  extraLines: number;
+}
+
+export interface StocktakeCounterStat {
+  countedById?: string | null;
+  countedByName?: string | null;
+  countedLines: number;
+  extraLines: number;
+  waveCount: number;
+  lastCountedAt?: string | null;
+}
+
+export interface StocktakeStats {
+  expectedLines: number;
+  countedLines: number;
+  byBin: StocktakeBinStat[];
+  byCounter: StocktakeCounterStat[];
+}
+
+/** 后端全量导出（规格 §6.4）：content 是完整 CSV 文本（含 BOM） */
+export interface StocktakeExportFile {
+  filename: string;
+  mimeType: string;
+  content: string;
+  totalRows: number;
+  truncated: boolean;
 }
 
 export interface StocktakeScanHit {
@@ -94,7 +131,7 @@ const LINE_FIELDS = `id taskId waveId variantId variantSku variantName zoneId bi
 
 const DIFF_FIELDS = `
   expectedTotal countedTotal uncountedCount extraCount diffCount recheck
-  rows { variantId variantSku variantName countedTotal bookQty diff isExtra binChanged targetZoneId targetBinId targetBinCode snapBookQty currentBookQty }
+  rows { variantId variantSku variantName countedTotal bookQty diff isExtra binChanged targetZoneId targetBinId targetBinCode targetZoneCode snapBookQty currentBookQty }
   uncountedLines { ${LINE_FIELDS} }
   changedVariants { variantId variantSku snapBookQty currentBookQty }`;
 
@@ -102,7 +139,7 @@ const DIFF_FIELDS = `
 
 /** 任务列表（按渠道收口在服务端；state/activityCode/stockLocationId 为可选筛选） */
 export async function fetchStocktakeTasks(options?: {
-  page?: number; pageSize?: number; state?: string; activityCode?: string; stockLocationId?: string;
+  page?: number; pageSize?: number; state?: string; states?: string[]; activityCode?: string; stockLocationId?: string;
 }): Promise<{ totalItems: number; items: StocktakeTask[] }> {
   try {
     const r = await getAdminClient().request<{ stocktakeTasks: { totalItems: number; items: StocktakeTask[] } }>(
@@ -114,6 +151,7 @@ export async function fetchStocktakeTasks(options?: {
           page: options?.page ?? 1,
           pageSize: options?.pageSize ?? 20,
           state: options?.state ?? null,
+          states: options?.states ?? null,
           activityCode: options?.activityCode ?? null,
           stockLocationId: options?.stockLocationId ?? null,
         },
@@ -211,8 +249,10 @@ export async function resolveStocktakeCode(taskId: string, code: string): Promis
 /** 建任务（服务端在同一事务内固化应盘清单 + 拆盘次） */
 export async function createStocktakeTask(input: {
   stockLocationId: string; name: string; activityCode?: string | null;
-  scope?: { zones?: number[]; categoryIds?: number[]; variantIds?: number[]; includeZeroBook?: boolean } | null;
+  scope?: { zones?: number[]; categoryIds?: number[]; variantIds?: number[]; includeZeroBook?: boolean; autoSplitByZone?: boolean } | null;
   autoSplitByZone?: boolean | null; note?: string | null;
+  /** 规格 §3.2：DRAFT = 只存任务头（发布时才物化） */
+  state?: 'DRAFT' | 'OPEN';
 }): Promise<StocktakeTask> {
   try {
     const r = await getAdminClient().request<{ createStocktakeTask: StocktakeTask }>(
@@ -222,9 +262,13 @@ export async function createStocktakeTask(input: {
           stockLocationId: input.stockLocationId,
           name: input.name,
           activityCode: input.activityCode ?? null,
-          scope: input.scope ?? null,
+          // 草稿发布时要按保存时的开关还原，故写进 scope（顶层字段保留仅为 SDL 兼容）
+          scope: input.scope
+            ? { ...input.scope, autoSplitByZone: input.scope.autoSplitByZone ?? input.autoSplitByZone ?? null }
+            : null,
           autoSplitByZone: input.autoSplitByZone ?? null,
           note: input.note ?? null,
+          state: input.state ?? null,
         },
       },
     );
@@ -366,5 +410,70 @@ export async function cancelStocktakeWave(waveId: string): Promise<StocktakeWave
     return r.cancelStocktakeWave;
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '盘次取消失败'));
+  }
+}
+
+/** 草稿发布（仅 DRAFT）：服务端在同一事务内物化盘次与应盘行 */
+export async function openStocktakeTask(taskId: string): Promise<StocktakeTask> {
+  try {
+    const r = await getAdminClient().request<{ openStocktakeTask: StocktakeTask }>(
+      `mutation OpenStocktakeTask($taskId: ID!) { openStocktakeTask(taskId: $taskId) { ${TASK_FIELDS} } }`,
+      { taskId },
+    );
+    return r.openStocktakeTask;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '草稿发布失败'));
+  }
+}
+
+/** 草稿编辑（仅 DRAFT）：可改名称 / 活动码 / 备注 / 仓库 / 圈范围 */
+export async function updateStocktakeTask(taskId: string, input: {
+  name?: string; activityCode?: string | null; note?: string | null; stockLocationId?: string;
+  scope?: { zones?: number[]; categoryIds?: number[]; variantIds?: number[]; includeZeroBook?: boolean; autoSplitByZone?: boolean } | null;
+}): Promise<StocktakeTask> {
+  try {
+    const r = await getAdminClient().request<{ updateStocktakeTask: StocktakeTask }>(
+      `mutation UpdateStocktakeTask($taskId: ID!, $input: StocktakeTaskUpdateInput!) {
+        updateStocktakeTask(taskId: $taskId, input: $input) { ${TASK_FIELDS} }
+      }`,
+      { taskId, input },
+    );
+    return r.updateStocktakeTask;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '草稿保存失败'));
+  }
+}
+
+/** 作业量统计（规格 §6.3）：DRAFT / 零行任务返回空结构 */
+export async function fetchStocktakeStats(taskId: string): Promise<StocktakeStats> {
+  try {
+    const r = await getAdminClient().request<{ stocktakeStats: StocktakeStats }>(
+      `query StocktakeStats($taskId: ID!) {
+        stocktakeStats(taskId: $taskId) {
+          expectedLines countedLines
+          byBin { zoneId zoneCode binId binCode expectedLines countedLines uncountedLines extraLines }
+          byCounter { countedById countedByName countedLines extraLines waveCount lastCountedAt }
+        }
+      }`,
+      { taskId },
+    );
+    return r.stocktakeStats;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '盘点统计查询失败'));
+  }
+}
+
+/** 后端全量导出（规格 §6.4）：kind ∈ variance | lines | by_bin | by_counter */
+export async function stocktakeExport(taskId: string, kind: string): Promise<StocktakeExportFile> {
+  try {
+    const r = await getAdminClient().request<{ stocktakeExport: StocktakeExportFile }>(
+      `query StocktakeExport($taskId: ID!, $kind: String!) {
+        stocktakeExport(taskId: $taskId, kind: $kind) { filename mimeType content totalRows truncated }
+      }`,
+      { taskId, kind },
+    );
+    return r.stocktakeExport;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '导出失败'));
   }
 }
