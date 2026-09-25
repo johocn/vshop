@@ -23,7 +23,7 @@
       @bucket-change="onBucket"
     />
 
-    <!-- ④ 快捷宫格 8 项 -->
+    <!-- ④ 快捷宫格 9 项 -->
     <view class="grid">
       <view v-for="q in QUICK" :key="q.key" class="g" @tap="go(q.url)">
         <text class="gi">{{ q.icon }}</text>
@@ -129,7 +129,7 @@ const EMPTY_SUMMARY: InventoryStockSummary = {
   outCount: 0, lowCount: 0, okCount: 0, outbound7d: 0,
 };
 
-// 快捷宫格 8 项（契约 1.5 `quick.*` / 契约 1.6 路由）
+// 快捷宫格 9 项（契约 1.5 `quick.*` / 契约 1.6 路由）
 const QUICK: Array<{ key: string; icon: string; url: string }> = [
   { key: 'purchase', icon: '📥', url: '/pages/inventory/stock-doc/purchase/index' },
   { key: 'transfer', icon: '🔀', url: '/pages/inventory/stock-doc/transfer/index' },
@@ -139,6 +139,7 @@ const QUICK: Array<{ key: string; icon: string; url: string }> = [
   { key: 'locations', icon: '🏬', url: '/pages/inventory/locations/index' },
   { key: 'rules', icon: '🔔', url: '/pages/inventory/alert-rules/index' },
   { key: 'docs', icon: '📦', url: '/pages/inventory/stock-doc/index' },
+  { key: 'reservation', icon: '🔒', url: '/pages/inventory/reservation/index' },
 ];
 
 // ---- 页面状态 ----
