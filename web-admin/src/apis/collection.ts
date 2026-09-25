@@ -3,13 +3,68 @@ import { getAdminClient } from './client';
 export interface CollectionItem {
   id: string;
   name: string;
+  parentId: string | null;
+  position: number;
+  /** 分类图标等扩展字段，存 Collection.customFields */
+  customFields?: { icon?: string | null } | null;
+  productVariantCount?: number;
 }
 
-export async function fetchCollectionsOptimized(take = 50): Promise<CollectionItem[]> {
+export async function fetchCollectionsOptimized(take = 200): Promise<CollectionItem[]> {
   const { collections } = await getAdminClient().request<{
     collections: { items: CollectionItem[] };
-  }>(`query Collections($take: Int) { collections(options: { take: $take }) { items { id name } } }`, { take });
+  }>(
+    `query Collections($take: Int) {
+      collections(options: { take: $take }) {
+        items { id name parentId position customFields { icon } }
+      }
+    }`,
+    { take },
+  );
   return collections.items;
+}
+
+export interface CollectionTreeNode extends CollectionItem {
+  depth: number;
+  children: CollectionTreeNode[];
+}
+
+/** 由扁平列表构建嵌套树（同级按 position 升序；position 相同按 name） */
+export function buildCollectionTreeNodes(list: CollectionItem[]): CollectionTreeNode[] {
+  const byId = new Map<string, CollectionTreeNode>();
+  for (const it of list) byId.set(String(it.id), { ...it, depth: 0, children: [] });
+  const roots: CollectionTreeNode[] = [];
+  for (const node of byId.values()) {
+    const pid = node.parentId == null ? null : String(node.parentId);
+    const parent = pid ? byId.get(pid) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  const sortRec = (nodes: CollectionTreeNode[], depth: number) => {
+    nodes.sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name));
+    for (const n of nodes) {
+      n.depth = depth;
+      sortRec(n.children, depth + 1);
+    }
+  };
+  sortRec(roots, 0);
+  return roots;
+}
+
+/** 把嵌套树摊平成可渲染行，跳过已折叠节点的子树 */
+export function flattenCollectionTree(
+  nodes: CollectionTreeNode[],
+  collapsed: Set<string>,
+): CollectionTreeNode[] {
+  const out: CollectionTreeNode[] = [];
+  const walk = (list: CollectionTreeNode[]) => {
+    for (const n of list) {
+      out.push(n);
+      if (!collapsed.has(String(n.id))) walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
 }
 
 export interface PlatformCollectionNode {
