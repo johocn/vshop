@@ -2280,7 +2280,13 @@
     "invalidDefaults": "defaults is not a valid JSON object",
     "saved": "Saved",
     "loadFailed": "Load failed",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "mergedPreview": "Merged preview",
+    "mergedHint": "Shows the final config after L0→L3 merge (including unsaved edits)",
+    "previewNow": "Preview now",
+    "showSources": "Show sources",
+    "hideSources": "Hide sources",
+    "previewFailed": "Merged preview failed"
   },
   "platformProductApproval": {
     "tabPending": "Pending",

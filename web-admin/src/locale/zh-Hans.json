@@ -2280,7 +2280,13 @@
     "invalidDefaults": "defaults 不是合法 JSON 对象",
     "saved": "已保存",
     "loadFailed": "加载失败",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "mergedPreview": "合并预览",
+    "mergedHint": "展示 L0→L3 逐级合并后的最终配置（含当前未保存的编辑）",
+    "previewNow": "立即预览",
+    "showSources": "显示来源",
+    "hideSources": "隐藏来源",
+    "previewFailed": "合并预览失败"
   },
   "platformProductApproval": {
     "tabPending": "待审",
