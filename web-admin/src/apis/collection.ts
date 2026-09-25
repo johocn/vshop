@@ -150,6 +150,14 @@ export async function updateCollection(id: string, productIds: string[], name?: 
   );
 }
 
+/** 排序 / 移动（Vendure 原生 moveCollection）。index 为同父级内的目标序号（0 起） */
+export async function moveCollection(id: string, parentId: string | null, index: number): Promise<void> {
+  await getAdminClient().request(
+    `mutation MoveCollection($input: MoveCollectionInput!) { moveCollection(input: $input) { id } }`,
+    { input: { collectionId: id, parentId, index } },
+  );
+}
+
 // 纯重命名：只更新 translations，不触碰 filters，避免清空分类下已挂载商品
 export async function renameCollection(id: string, name: string): Promise<void> {
   await getAdminClient().request(

@@ -895,6 +895,12 @@
     "mappedTo": "Mapped to \"{name}\"",
     "saveMapFailed": "Failed to save mapping"
   },
+  "category": {
+    "topLevel": "Top level",
+    "moveFail": "Move failed",
+    "reparent": "Move to…",
+    "collapse": "Collapse"
+  },
   "productEdit": {
     "save": "Save",
     "saved": "Saved",

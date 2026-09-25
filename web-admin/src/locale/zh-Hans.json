@@ -895,6 +895,12 @@
     "mappedTo": "已映射到「{name}」",
     "saveMapFailed": "保存映射失败"
   },
+  "category": {
+    "topLevel": "顶层分类",
+    "moveFail": "移动失败",
+    "reparent": "移动到…",
+    "collapse": "收起"
+  },
   "productEdit": {
     "save": "保存",
     "saved": "已保存",
