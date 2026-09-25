@@ -23,107 +23,42 @@
       <TaskCard v-for="t in grp.items" :key="t.id" :task="t" @open="goTask(t.id)" />
     </view>
 
+    <view v-if="tasks.length" class="footnote">{{ $t('stocktake.board.loadedOf').replace('{loaded}', String(tasks.length)).replace('{total}', String(totalItems)) }}</view>
+    <view v-if="loadingMore" class="more">{{ $t('stocktake.board.loadingMore') }}</view>
+    <view v-else-if="tasks.length && tasks.length >= totalItems" class="more">{{ $t('stocktake.board.noMore') }}</view>
+
     <view v-if="loading && !tasks.length" class="more">{{ $t('stocktake.board.loading') }}</view>
     <view v-else-if="!tasks.length" class="empty">{{ $t('stocktake.board.empty') }}</view>
 
     <!-- ④ 新建任务浮动按钮（无 StocktakeCount 置灰不可点） -->
     <view class="fab" :class="{ dis: !canCount }" @tap="openForm">＋ {{ $t('stocktake.board.newTask') }}</view>
 
-    <!-- ⑤ 新建任务表单 -->
-    <view v-if="formVisible" class="mask" @tap="formVisible = false">
-      <view class="sheet" @tap.stop>
-        <text class="st">{{ $t('stocktake.board.newTask') }}</text>
-
-        <view class="field">
-          <text class="lb">{{ $t('stocktake.board.formWarehouse') }}</text>
-          <picker mode="selector" :range="locNames" @change="onFormLocChange">
-            <view class="pk">{{ formLocName || $t('stocktake.board.formSelectWarehouse') }} ▾</view>
-          </picker>
-        </view>
-
-        <view class="field">
-          <text class="lb">{{ $t('stocktake.board.formName') }}</text>
-          <input class="ipt" v-model="form.name" :placeholder="$t('stocktake.board.formNamePlaceholder')" />
-        </view>
-
-        <view class="field">
-          <text class="lb">{{ $t('stocktake.board.formActivity') }}</text>
-          <input class="ipt" v-model="form.activityCode" :placeholder="$t('stocktake.board.formActivityPlaceholder')" />
-        </view>
-
-        <!-- 库区多选仅在三档开启时有意义 -->
-        <view v-if="showZone" class="field">
-          <text class="lb">{{ $t('stocktake.board.formZones') }}</text>
-          <view v-if="!formZones.length" class="hint">{{ $t('stocktake.board.scopeAll') }}</view>
-          <view class="chips">
-            <text
-              v-for="z in formZones"
-              :key="z.id"
-              class="chip"
-              :class="{ on: pickedZones.includes(Number(z.id)) }"
-              @tap="toggleZone(Number(z.id))"
-            >{{ z.code }}</text>
-          </view>
-        </view>
-
-        <view class="field">
-          <text class="lb">{{ $t('stocktake.board.formCategories') }}</text>
-          <view class="chips">
-            <text
-              v-for="c in formCats"
-              :key="c.id"
-              class="chip"
-              :class="{ on: pickedCats.includes(Number(c.id)) }"
-              @tap="toggleCat(Number(c.id))"
-            >{{ c.name }}</text>
-          </view>
-        </view>
-
-        <view class="field">
-          <text class="lb">{{ $t('stocktake.board.formVariants') }}</text>
-          <input class="ipt" v-model="form.variantIds" placeholder="12,34,56" />
-        </view>
-
-        <view class="field row" @tap="form.includeZeroBook = !form.includeZeroBook">
-          <text class="lb rm">{{ $t('stocktake.board.formIncludeZero') }}</text>
-          <text class="sw" :class="{ on: form.includeZeroBook }">{{ form.includeZeroBook ? '✓' : '' }}</text>
-        </view>
-
-        <view v-if="showZone" class="field row" @tap="form.autoSplitByZone = !form.autoSplitByZone">
-          <text class="lb rm">{{ $t('stocktake.board.formAutoSplit') }}</text>
-          <text class="sw" :class="{ on: form.autoSplitByZone }">{{ form.autoSplitByZone ? '✓' : '' }}</text>
-        </view>
-        <view v-else class="hint">{{ $t('stocktake.board.modeOffHint') }}</view>
-
-        <button class="submit" :disabled="submitting || !canCount" @tap="onCreate">
-          {{ submitting ? $t('stocktake.board.formSubmitting') : $t('stocktake.board.formSubmit') }}
-        </button>
-      </view>
-    </view>
+    <!-- ⑤ 新建任务：双动作（存草稿 / 创建并发布），表单已抽成组件 -->
+    <TaskFormSheet :visible="formVisible" mode="create" @close="formVisible = false" @saved="onFormSaved" />
   </view>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import TaskCard from '../../../components/stocktake/TaskCard.vue';
-import { createStocktakeTask, fetchStocktakeTasks, type StocktakeTask } from '../../../apis/stocktake';
+import TaskFormSheet from '../../../components/stocktake/TaskFormSheet.vue';
+import { fetchStocktakeTasks, type StocktakeTask } from '../../../apis/stocktake';
 import { fetchStockLocations } from '../../../apis/inventory';
-import { fetchStorageZones, type StorageZone } from '../../../apis/storage-bin';
-import { fetchCollectionsOptimized, type CollectionItem } from '../../../apis/collection';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { useBinMode } from '../../../composables/useBinMode';
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
-const { showZone, ensureBinMode } = useBinMode();
+const { ensureBinMode } = useBinMode();
 
 /** 能盘权限（规格 §9）：无 `StocktakeCount` 只能看看板，建任务按钮置灰 */
 const canCount = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakeCount'));
 
 const tabs = [
   { key: 'all', label: 'stocktake.board.tabAll' },
+  { key: 'DRAFT', label: 'stocktake.board.tabDraft' },
   { key: 'COUNTING', label: 'stocktake.board.tabCounting' },
   { key: 'COUNTED', label: 'stocktake.board.tabToPost' },
   { key: 'closed', label: 'stocktake.board.tabClosed' },
@@ -140,14 +75,9 @@ const locId = ref('');
 const curLocName = ref('');
 
 const formVisible = ref(false);
-const submitting = ref(false);
-const formLocIdx = ref(-1);
-const formLocName = ref('');
-const formZones = ref<StorageZone[]>([]);
-const formCats = ref<CollectionItem[]>([]);
-const pickedZones = ref<number[]>([]);
-const pickedCats = ref<number[]>([]);
-const form = ref({ name: '', activityCode: '', variantIds: '', includeZeroBook: false, autoSplitByZone: true });
+const page = ref(1);
+const totalItems = ref(0);
+const loadingMore = ref(false);
 
 // 分组：有活动码 → 按活动码；无 → 归「未分组」
 const groups = computed(() => {
@@ -167,21 +97,22 @@ const groups = computed(() => {
   }));
 });
 
+/** 页签 → 服务端状态过滤（规格 §3.1：「已结束」必须下发多值，否则分页串页） */
+function serverStateFilter(): { state?: string; states?: string[] } {
+  if (tab.value === 'closed') return { states: ['POSTED', 'CANCELLED'] };
+  if (tab.value === 'all') return {};
+  return { state: tab.value };
+}
+
 async function reload() {
   loading.value = true;
+  page.value = 1;
   try {
-    // 「已结束」需同时含 POSTED 与 CANCELLED，而服务端 state 只支持单值等值过滤，
-    // 故该 Tab 不下发 state，改由前端按终态收敛（见计划偏差记录）。
-    const serverState = tab.value === 'all' || tab.value === 'closed' ? undefined : tab.value;
     const r = await fetchStocktakeTasks({
-      page: 1,
-      pageSize: 50,
-      state: serverState,
-      stockLocationId: locId.value || undefined,
+      page: 1, pageSize: 50, ...serverStateFilter(), stockLocationId: locId.value || undefined,
     });
-    tasks.value = tab.value === 'closed'
-      ? r.items.filter((t) => t.state === 'POSTED' || t.state === 'CANCELLED')
-      : r.items;
+    tasks.value = r.items;
+    totalItems.value = r.totalItems;
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('stocktake.board.loadFailed'), icon: 'none' });
   } finally {
@@ -189,10 +120,39 @@ async function reload() {
   }
 }
 
+/** 触底追加下一页（规格 §8.1）：不重置已有列表；加载中上锁防重复请求 */
+async function loadMore() {
+  if (loading.value || loadingMore.value) return;
+  if (tasks.value.length >= totalItems.value) return;
+  loadingMore.value = true;
+  try {
+    const next = page.value + 1;
+    const r = await fetchStocktakeTasks({
+      page: next, pageSize: 50, ...serverStateFilter(), stockLocationId: locId.value || undefined,
+    });
+    const seen = new Set(tasks.value.map((t) => String(t.id)));
+    tasks.value = [...tasks.value, ...r.items.filter((t) => !seen.has(String(t.id)))];
+    totalItems.value = r.totalItems;
+    page.value = next;
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('stocktake.board.loadFailed'), icon: 'none' });
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
 function switchTab(k: string) {
   tab.value = k;
   reload();
 }
+
+/** 表单组件回调：草稿或已发布都只需刷新列表 */
+async function onFormSaved() {
+  formVisible.value = false;
+  await reload();
+}
+
+onReachBottom(() => { void loadMore(); });
 
 function onLocChange(e: any) {
   locIdx.value = Number(e.detail.value);
@@ -216,83 +176,6 @@ function goTask(id: string) {
 async function openForm() {
   if (!canCount.value) return;   // 无能盘权限：浮动按钮已置灰，双保险不打开表单
   formVisible.value = true;
-  if (!locations.value.length) {
-    locations.value = await fetchStockLocations();
-    locNames.value = locations.value.map((l) => l.name);
-  }
-  if (showZone.value && !formZones.value.length) {
-    try {
-      // 库区按仓库取；仓库未选时先不取，选仓后 onFormLocChange 再取
-      const first = locations.value[0];
-      if (first) formZones.value = await fetchStorageZones(String(first.id));
-    } catch { formZones.value = []; }
-  }
-  if (!formCats.value.length) {
-    try { formCats.value = await fetchCollectionsOptimized(50); } catch { formCats.value = []; }
-  }
-}
-
-async function onFormLocChange(e: any) {
-  formLocIdx.value = Number(e.detail.value);
-  const hit = locations.value[formLocIdx.value];
-  formLocName.value = hit?.name ?? '';
-  pickedZones.value = [];
-  if (showZone.value && hit) {
-    try { formZones.value = await fetchStorageZones(String(hit.id)); } catch { formZones.value = []; }
-  }
-}
-
-function toggleZone(id: number) {
-  pickedZones.value = pickedZones.value.includes(id)
-    ? pickedZones.value.filter((x) => x !== id)
-    : [...pickedZones.value, id];
-}
-
-function toggleCat(id: number) {
-  pickedCats.value = pickedCats.value.includes(id)
-    ? pickedCats.value.filter((x) => x !== id)
-    : [...pickedCats.value, id];
-}
-
-function parseVariantIds(raw: string): number[] {
-  return String(raw || '')
-    .split(/[,，\s]+/)
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0);
-}
-
-async function onCreate() {
-  const hit = locations.value[formLocIdx.value];
-  if (!hit) return uni.showToast({ title: locale.t('stocktake.board.formRequireWarehouse'), icon: 'none' });
-  if (!form.value.name.trim()) return uni.showToast({ title: locale.t('stocktake.board.formRequireName'), icon: 'none' });
-  submitting.value = true;
-  try {
-    const t = await createStocktakeTask({
-      stockLocationId: String(hit.id),
-      name: form.value.name.trim(),
-      activityCode: form.value.activityCode.trim() || null,
-      scope: {
-        zones: showZone.value ? pickedZones.value : [],
-        categoryIds: pickedCats.value,
-        variantIds: parseVariantIds(form.value.variantIds),
-        includeZeroBook: form.value.includeZeroBook,
-      },
-      autoSplitByZone: showZone.value ? form.value.autoSplitByZone : false,
-    });
-    uni.showToast({
-      title: locale.t('stocktake.board.createDone').replace('{code}', t.code).replace('{waves}', String(t.waveCount)),
-      icon: 'none',
-    });
-    formVisible.value = false;
-    form.value = { name: '', activityCode: '', variantIds: '', includeZeroBook: false, autoSplitByZone: true };
-    pickedZones.value = [];
-    pickedCats.value = [];
-    await reload();
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || locale.t('stocktake.board.createFailed'), icon: 'none' });
-  } finally {
-    submitting.value = false;
-  }
 }
 
 onShow(async () => {
