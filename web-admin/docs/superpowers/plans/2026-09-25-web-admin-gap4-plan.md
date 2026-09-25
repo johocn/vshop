@@ -3248,6 +3248,7 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 | D8 | 批 4（7.2） | 批次状态机新增 3 个状态（`HANDOVER` / `REVIEWED` / `EXCEPTION`），而非新增独立实体 | 核验 0.3 确认 `SHIPPED` / `CANCELLED` 原为终态、无后续位；交接/复核/异常件天然是批次的后继状态 | 扩状态机 + 5 个新列 + 2 个新 mutation，作为**独立提交**（Task 4.5）可单独回滚 |
 | D9 | 批 4（7.1） | `reservations` 列表查询**不能带 `items` 子选择集** | **实测发现**：`Reservation.items` 在 SDL 中是非空列表，但 list resolver 返回实体、未装配 `items`，带子选择集会触发 non-null 违例 | Task 4.4 的 `fetchReservations` 明确只取头字段，详情走 `reservation(id)`；既有 `fetchReservationByOrder` 若被调用需一并核对（同因） |
 | D10 | 批 4 | `packages/cjk-plugin/src/plugin.ts` 内含 admin / shop **两套 SDL** | 该文件历史结构（`ChannelDeliveryCapability` 处有明确注释） | Task 4.5 Step 5 明确只改 admin 段；新增 SDL 前先确认目标类型/字段属于哪一套 |
+| D11 | 批 1（执行期发现） | Task 1.3 原实现每次筛选发 **2 次**请求（`applyFilter()` 后紧跟 `setSort()`，各自触发一次 `refresh()`），首屏发 **2 次**（`useListPage` 默认 `immediate: true` 与 `onLoad` 各一次） | 计划正文把「条件 + 排序」写成两次公开方法调用；`useListPage` 没有「一次性设置条件与排序」的合并方法 | 已改：`reload()` 直接写 `page.filter.value` + `page.sort.value` 后单次 `refresh()`；`useListPage` 传 `immediate: false`，首屏只由 `onLoad` 触发（commit `7aeda60`）。`useListPage` 契约未变（仍导出 `filter`/`sort` ref）。后续 Task 3.2 / 3.3 / 4.4 采纳同一写法 |
 
 ---
 
