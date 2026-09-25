@@ -16,7 +16,7 @@ export async function fetchCollectionsOptimized(take = 200): Promise<CollectionI
   }>(
     `query Collections($take: Int) {
       collections(options: { take: $take }) {
-        items { id name parentId position customFields { icon } }
+        items { id name parentId position productVariantCount customFields { icon } }
       }
     }`,
     { take },
@@ -210,6 +210,35 @@ export async function saveCategoryMapping(mapping: CategoryMapping[]): Promise<b
     { json: { categoryMapping: mapping } },
   );
   return true;
+}
+
+/** 设置分类图标（写入 Collection.customFields.icon）；icon 传 null 表示清除 */
+export async function setCollectionIcon(id: string, icon: string | null): Promise<void> {
+  await getAdminClient().request(
+    `mutation SetCollectionIcon($input: UpdateCollectionInput!) { updateCollection(input: $input) { id } }`,
+    { input: { id, customFields: { icon } } },
+  );
+}
+
+/**
+ * 批量删除预判：只放行「空分类」（无商品、无子分类）。
+ * - 子分类：来自已加载的分类表，可靠；
+ * - 商品数：来自 collections.items.productVariantCount（admin-api 实测可用）。
+ */
+export function pickDeletableCollections(
+  targets: CollectionItem[],
+  all: CollectionItem[],
+  productCountById: Map<string, number>,
+): { ok: CollectionItem[]; blocked: Array<{ item: CollectionItem; reason: 'hasProducts' | 'hasChildren' }> } {
+  const hasChild = new Set(all.filter((c) => c.parentId != null).map((c) => String(c.parentId)));
+  const ok: CollectionItem[] = [];
+  const blocked: Array<{ item: CollectionItem; reason: 'hasProducts' | 'hasChildren' }> = [];
+  for (const c of targets) {
+    if (hasChild.has(String(c.id))) blocked.push({ item: c, reason: 'hasChildren' });
+    else if ((productCountById.get(String(c.id)) ?? 0) > 0) blocked.push({ item: c, reason: 'hasProducts' });
+    else ok.push(c);
+  }
+  return { ok, blocked };
 }
 
 export async function deleteCollectionById(id: string): Promise<void> {

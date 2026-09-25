@@ -899,7 +899,12 @@
     "topLevel": "顶层分类",
     "moveFail": "移动失败",
     "reparent": "移动到…",
-    "collapse": "收起"
+    "collapse": "收起",
+    "bulkIcon": "批量改图标",
+    "bulkMove": "批量移动",
+    "bulkDelete": "批量删除",
+    "blockedChildren": "「{name}」含子分类，不能删除",
+    "blockedProducts": "「{name}」含商品，不能删除"
   },
   "productEdit": {
     "save": "保存",

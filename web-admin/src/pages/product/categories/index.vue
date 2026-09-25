@@ -3,6 +3,7 @@
     <view class="toolbar"><button class="add" @tap="onAdd">{{ locale.t('productCategories.newCard') }}</button></view>
     <view class="card" v-for="c in rows" :key="c.id">
       <view class="row" :style="{ paddingLeft: c.depth * 28 + 'rpx' }">
+        <text class="pick" @tap="togglePick(c.id)">{{ picked.has(String(c.id)) ? '☑' : '☐' }}</text>
         <text class="caret" v-if="c.children.length" :title="locale.t('category.collapse')" @tap="toggle(c.id)">{{ collapsed.has(c.id) ? '▸' : '▾' }}</text>
         <text class="caret" v-else>·</text>
         <text class="name">{{ c.name }}</text>
@@ -18,6 +19,12 @@
       </view>
     </view>
     <view v-if="!rows.length" class="empty">{{ locale.t('productCategories.empty') }}</view>
+    <view class="bulk" v-if="picked.size">
+      <text class="muted">{{ picked.size }}</text>
+      <text class="act" @tap="bulkIcon">{{ $t('category.bulkIcon') }}</text>
+      <text class="act" @tap="bulkMove">{{ $t('category.bulkMove') }}</text>
+      <text class="act" @tap="bulkDelete">{{ $t('category.bulkDelete') }}</text>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -26,6 +33,7 @@ import {
   fetchCollectionsOptimized, createTenantCollection, moveCollection, renameCollection, deleteCollectionById,
   saveCategoryMapping, fetchPlatformCollections, buildCollectionTree,
   buildCollectionTreeNodes, flattenCollectionTree,
+  setCollectionIcon, pickDeletableCollections,
   type CategoryMapping, type CollectionItem, type CollectionTreeNode,
 } from '../../../apis/collection';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -36,9 +44,27 @@ const collapsed = ref<Set<string>>(new Set());
 const mapping = ref<CategoryMapping[]>([]);
 const platTree = ref<Array<{ id: string; name: string; depth: number }>>([]);
 const mappingLoadState = ref<'idle' | 'loading' | 'error'>('idle');
+const picked = ref<Set<string>>(new Set());
 
 const tree = computed(() => buildCollectionTreeNodes(cats.value));
 const rows = computed(() => flattenCollectionTree(tree.value, collapsed.value));
+/** id → 商品数（productVariantCount），用于批量删的空分类预判 */
+const productCountById = computed(() => {
+  const m = new Map<string, number>();
+  for (const c of cats.value) m.set(String(c.id), c.productVariantCount ?? 0);
+  return m;
+});
+
+function togglePick(id: string) {
+  const s = new Set(picked.value);
+  if (s.has(String(id))) s.delete(String(id)); else s.add(String(id));
+  picked.value = s;
+}
+
+/** 当前勾选（仍存在于列表中的）分类 */
+function pickedTargets(): CollectionItem[] {
+  return cats.value.filter((c) => picked.value.has(String(c.id)));
+}
 
 function toggle(id: string) {
   const s = new Set(collapsed.value);
@@ -168,12 +194,81 @@ function onDel(c: any) {
     catch (e: any) { uni.showToast({ title: e?.message || locale.t('productCategories.deleteFailed'), icon: 'none' }); }
   } });
 }
+
+// ── 批量操作 ──────────────────────────────────────────────
+/** 批量设图标：弹输入框，留空表示清除图标 */
+function bulkIcon() {
+  const targets = pickedTargets();
+  if (!targets.length) return;
+  uni.showModal({
+    title: locale.t('category.bulkIcon'),
+    editable: true,
+    success: async (r) => {
+      if (!r.confirm) return;
+      const icon = (r.content || '').trim() || null;
+      try {
+        for (const c of targets) await setCollectionIcon(c.id, icon);
+        picked.value = new Set();
+        await reload();
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || locale.t('productCategories.failed'), icon: 'none' });
+      }
+    },
+  });
+}
+
+/** 批量移动：选目标父分类（含「顶层」），勾选项不可作为目标 */
+function bulkMove() {
+  const targets = pickedTargets();
+  if (!targets.length) return;
+  const pickedIds = new Set(targets.map((c) => String(c.id)));
+  const options = [{ id: '', name: locale.t('category.topLevel') },
+    ...flattenCollectionTree(tree.value, new Set()).filter((x) => !pickedIds.has(String(x.id)))
+      .map((x) => ({ id: String(x.id), name: '　'.repeat(x.depth) + x.name }))];
+  uni.showActionSheet({
+    itemList: options.map((o) => o.name),
+    success: async (r: any) => {
+      const target = options[r.tapIndex];
+      if (!target) return;
+      try {
+        for (const c of targets) await moveCollection(c.id, target.id || null, 0);
+        picked.value = new Set();
+        await reload();
+      } catch {
+        uni.showToast({ title: locale.t('category.moveFail'), icon: 'none' });
+      }
+    },
+    fail: () => {},
+  });
+}
+
+/** 批量删除：仅空分类（无商品、无子分类）放行，其余提示原因 */
+async function bulkDelete() {
+  const targets = pickedTargets();
+  if (!targets.length) return;
+  const { ok, blocked } = pickDeletableCollections(targets, cats.value, productCountById.value);
+  for (const b of blocked) {
+    uni.showToast({
+      title: locale.t(b.reason === 'hasChildren' ? 'category.blockedChildren' : 'category.blockedProducts')
+        .replace('{name}', b.item.name),
+      icon: 'none',
+    });
+  }
+  try {
+    for (const c of ok) await deleteCollectionById(c.id);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('productCategories.deleteFailed'), icon: 'none' });
+  }
+  picked.value = new Set();
+  await reload();
+}
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx 32rpx 160rpx;
   .toolbar .add { width: 240rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; justify-content: space-between;
+      .pick { width: 40rpx; font-size: 30rpx; color: $wa-muted; text-align: center; }
       .caret { width: 40rpx; font-size: 28rpx; color: $wa-muted; text-align: center; }
       .name { font-size: 28rpx; color: $wa-ink; flex: 1; margin-left: 8rpx; }
       .muted { font-size: 24rpx; color: $wa-muted; margin: 0 16rpx; }
@@ -181,5 +276,10 @@ function onDel(c: any) {
     }
   }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
+  .bulk { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-around;
+    background: $wa-card; padding: 24rpx 32rpx; box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
+    .muted { font-size: 26rpx; color: $wa-muted; }
+    .act { font-size: 28rpx; color: $wa-accent; }
+  }
 }
 </style>
