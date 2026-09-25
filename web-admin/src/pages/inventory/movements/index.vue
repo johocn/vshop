@@ -5,7 +5,7 @@
       <text class="sin">{{ $t('inventoryMovements.inTotal').replace('{n}', String(summary.inQty)) }}</text>
       <text class="sout">{{ $t('inventoryMovements.outTotal').replace('{n}', String(summary.outQty)) }}</text>
       <text class="sp"></text>
-      <text class="cnt">{{ totalItems }}</text>
+      <text class="cnt">{{ page.total.value }}</text>
       <text v-if="hasFilter" class="clr" @tap="onClear">{{ $t('inventoryMovements.clearFilter') }}</text>
     </view>
 
@@ -28,7 +28,7 @@
       >{{ $t('inventoryStock.' + bizTypeKey(b)) }}</text>
     </scroll-view>
 
-    <!-- 日期预设 -->
+    <!-- 日期预设（写入 dateFrom/dateTo 后提交） -->
     <view class="chips">
       <text class="chip" :class="{ on: datePreset === '' }" @tap="onDate('')">{{ $t('inventoryMovements.dateAll') }}</text>
       <text class="chip" :class="{ on: datePreset === 'today' }" @tap="onDate('today')">{{ $t('inventoryMovements.dateToday') }}</text>
@@ -36,12 +36,30 @@
       <text class="chip" :class="{ on: datePreset === 'month' }" @tap="onDate('month')">{{ $t('inventoryMovements.dateMonth') }}</text>
     </view>
 
-    <!-- 仓库 + 指定商品 -->
+    <!-- 仓库 + 商品关键词 -->
     <view class="locrow">
       <picker mode="selector" :range="locNames" :value="locIndex" @change="onLocChange">
         <view class="locpill">{{ $t('inventoryMovements.locAll') }} · {{ curLocName }} ▾</view>
       </picker>
-      <text v-if="variantId" class="vchip">{{ $t('inventoryStock.sku').replace('{id}', variantId) }}</text>
+      <input
+        class="kw"
+        :value="variantId"
+        :placeholder="$t('inventoryMovements.filterVariant')"
+        confirm-type="search"
+        @input="(e: any) => (variantId = e.detail.value)"
+        @confirm="applyAll"
+        @blur="applyAll"
+      />
+    </view>
+
+    <!-- 日期区间 -->
+    <view class="ranges">
+      <picker mode="date" :value="dateFrom" @change="(e: any) => onPickDate('from', e.detail.value)">
+        <text class="range">{{ $t('inventoryMovements.filterDateFrom') }}：{{ dateFrom || '—' }}</text>
+      </picker>
+      <picker mode="date" :value="dateTo" @change="(e: any) => onPickDate('to', e.detail.value)">
+        <text class="range">{{ $t('inventoryMovements.filterDateTo') }}：{{ dateTo || '—' }}</text>
+      </picker>
     </view>
 
     <!-- 按日分组的流水列表 -->
@@ -52,6 +70,10 @@
           <text class="name" :class="m.direction">{{ m.direction === 'out' ? '－' : '＋' }}{{ m.quantity }}</text>
           <text class="biz">{{ $t('inventoryStock.' + dirKey(m.direction)) }} · {{ $t('inventoryStock.' + bizTypeKey(m.bizType)) }}</text>
         </view>
+        <view class="sub">
+          <text class="delta" v-if="m.beforeOnHand != null && m.afterOnHand != null">{{ $t('inventoryMovements.delta') }} {{ m.beforeOnHand }} → {{ m.afterOnHand }}</text>
+          <text class="delta muted" v-else>{{ $t('inventoryMovements.delta') }} —</text>
+        </view>
         <view class="sub"><text>#{{ m.productVariantId }} · {{ locName(m.stockLocationId) }}</text></view>
         <view class="sub">
           <text>{{ m.code }}</text>
@@ -61,9 +83,15 @@
       </view>
     </view>
 
-    <view v-if="loading || loadingMore" class="more">{{ $t('inventoryMovements.loadingMore') }}</view>
-    <view v-else-if="finished && items.length" class="more">{{ $t('inventoryMovements.noMore') }}</view>
-    <view v-if="!items.length && !loading" class="empty">{{ $t('inventoryMovements.empty') }}</view>
+    <view v-if="page.loading.value" class="more">{{ $t('inventoryMovements.loadingMore') }}</view>
+    <view v-else-if="!page.items.value.length" class="empty">{{ $t('inventoryMovements.empty') }}</view>
+
+    <view class="more" v-if="page.loadingMore.value">{{ $t('inventoryMovements.loadingMore') }}</view>
+    <view class="more" v-else-if="page.error.value" @tap="page.refresh()">
+      <text class="err">{{ page.error.value }}</text>
+      <text class="retry">{{ $t('inventoryMovements.retry') }}</text>
+    </view>
+    <view class="more" v-else-if="page.items.value.length && !page.hasMore.value">{{ $t('inventoryMovements.noMore') }}</view>
 
     <view style="height: 120rpx" />
   </view>
@@ -71,35 +99,41 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { onLoad, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
-import { useLocaleStore } from '../../../stores/localeStore';
-import { fetchMovements, type MovementRow } from '../../../apis/stock-doc';
+import { onLoad } from '@dcloudio/uni-app';
+import { fetchMovements, type MovementQueryParams, type MovementRow } from '../../../apis/stock-doc';
 import { fetchTenantInventoryOverview, type TenantStockLocation } from '../../../apis/inventory';
+import { useListPage } from '../../../composables/useListPage';
 import { bizTypeKey, dayKey, dirKey, formatDateTime } from '../../../utils/inventoryFormat';
-
-const locale = useLocaleStore();
-const PAGE = 20;
 
 // 与后端流水 bizType 取值一一对应（order/afterSales/stockIn/stockOut/stockMove/stocktake/purchase/manual/mirror）
 const BIZ = ['order', 'afterSales', 'stockIn', 'stockOut', 'stockMove', 'stocktake', 'purchase', 'manual', 'mirror'];
 
-const items = ref<MovementRow[]>([]);
 const summary = ref<{ inQty: number; outQty: number }>({ inQty: 0, outQty: 0 });
-const totalItems = ref(0);
+
+// 首屏由 onLoad 触发一次刷新（避免 setup 立即加载 + onLoad 各发一次请求）
+const page = useListPage<MovementRow>({
+  take: 20,
+  immediate: false,
+  fetcher: async ({ skip, take, filter }) => {
+    const res = await fetchMovements({
+      ...(filter as MovementQueryParams),
+      page: Math.floor(skip / take) + 1,
+      pageSize: take,
+    });
+    summary.value = res.summary; // 汇总条数据来自响应，走旁路 ref
+    return { items: res.items, total: res.totalItems };
+  },
+});
 
 const direction = ref<'' | 'in' | 'out'>('');
 const bizType = ref('');
 const datePreset = ref<'' | 'today' | '7d' | 'month'>('');
+const dateFrom = ref('');
+const dateTo = ref('');
 const locationId = ref('');
 const variantId = ref('');
 
 const locations = ref<TenantStockLocation[]>([]);
-
-const page = ref(1);
-const loading = ref(false);
-const loadingMore = ref(false);
-const finished = ref(false);
-let seq = 0;
 
 const locNames = computed(() => locations.value.map((l) => l.name));
 const locIndex = computed(() => {
@@ -109,13 +143,14 @@ const locIndex = computed(() => {
 const curLocName = computed(() => locations.value[locIndex.value]?.name ?? '');
 
 const hasFilter = computed(
-  () => !!direction.value || !!bizType.value || !!datePreset.value || !!locationId.value || !!variantId.value,
+  () => !!direction.value || !!bizType.value || !!datePreset.value || !!dateFrom.value || !!dateTo.value
+    || !!locationId.value || !!variantId.value,
 );
 
 // 按天分组（同一天的多条流水归到一组，日期用本地时区）
 const groups = computed(() => {
   const map = new Map<string, MovementRow[]>();
-  for (const m of items.value) {
+  for (const m of page.items.value) {
     const k = dayKey(m.createdAt) || '-';
     const arr = map.get(k);
     if (arr) arr.push(m);
@@ -128,83 +163,87 @@ function locName(id: string): string {
   return locations.value.find((l) => l.id === id)?.name ?? `#${id}`;
 }
 
-/** 日期预设 → from（ISO，含当日 00:00，本地时区） */
-function dateFrom(preset: string): string | undefined {
-  const now = new Date();
-  if (preset === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  if (preset === '7d') {
-    const d = new Date(now.getTime() - 6 * 24 * 3600 * 1000);
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  }
-  if (preset === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  return undefined;
+/** 'YYYY-MM-DD' → 该日当地时间 00:00 的 ISO 串 */
+function isoFrom(day: string): string | undefined {
+  const [y, m, d] = day.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d).toISOString();
 }
 
-async function load(reset = true): Promise<void> {
-  const my = ++seq;
-  const target = reset ? 1 : page.value + 1;
-  if (reset) loading.value = true;
-  else loadingMore.value = true;
-  try {
-    const res = await fetchMovements({
-      productVariantId: variantId.value || undefined,
-      locationId: locationId.value || undefined,
-      bizType: bizType.value || undefined,
-      direction: direction.value || undefined,
-      from: dateFrom(datePreset.value),
-      page: target,
-      pageSize: PAGE,
-    });
-    if (my !== seq) return; // 竞态守卫
-    page.value = target;
-    summary.value = res.summary;
-    totalItems.value = res.totalItems;
-    items.value = reset ? res.items : items.value.concat(res.items);
-    finished.value = items.value.length >= res.totalItems;
-  } catch (e: any) {
-    if (my !== seq) return;
-    uni.showToast({ title: e?.message || locale.t('inventoryMovements.loadFailed'), icon: 'none' });
-  } finally {
-    if (my === seq) {
-      loading.value = false;
-      loadingMore.value = false;
-    }
-  }
+/** 'YYYY-MM-DD' → 该日当地时间 23:59:59.999 的 ISO 串 */
+function isoTo(day: string): string | undefined {
+  const [y, m, d] = day.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
 }
 
-async function loadMore(): Promise<void> {
-  if (loading.value || loadingMore.value || finished.value) return;
-  await load(false);
+/** Date → 本地 'YYYY-MM-DD' */
+function localDay(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function reload(): void {
-  void load(true);
+/** 所有筛选变更都走这里：条件一次性写入，只刷一次 */
+async function applyAll(): Promise<void> {
+  page.filter.value = {
+    productVariantId: variantId.value || undefined,
+    locationId: locationId.value || undefined,
+    bizType: bizType.value || undefined,
+    direction: direction.value || undefined,
+    from: isoFrom(dateFrom.value),
+    to: isoTo(dateTo.value),
+  };
+  await page.refresh();
 }
+
 function onDirection(d: '' | 'in' | 'out'): void {
   direction.value = d;
-  reload();
+  void applyAll();
 }
 function onBiz(b: string): void {
   bizType.value = b;
-  reload();
+  void applyAll();
 }
+/** 日期预设：唯一数据源是 dateFrom/dateTo */
 function onDate(p: '' | 'today' | '7d' | 'month'): void {
   datePreset.value = p;
-  reload();
+  const now = new Date();
+  if (p === 'today') {
+    dateFrom.value = localDay(now);
+    dateTo.value = localDay(now);
+  } else if (p === '7d') {
+    dateFrom.value = localDay(new Date(now.getTime() - 6 * 24 * 3600 * 1000));
+    dateTo.value = localDay(now);
+  } else if (p === 'month') {
+    dateFrom.value = localDay(new Date(now.getFullYear(), now.getMonth(), 1));
+    dateTo.value = localDay(now);
+  } else {
+    dateFrom.value = '';
+    dateTo.value = '';
+  }
+  void applyAll();
+}
+/** 手动选日期 → 清空预设高亮 */
+function onPickDate(which: 'from' | 'to', v: string): void {
+  if (which === 'from') dateFrom.value = v;
+  else dateTo.value = v;
+  datePreset.value = '';
+  void applyAll();
 }
 function onLocChange(e: any): void {
   const l = locations.value[Number(e.detail.value)];
   locationId.value = l?.id ?? '';
-  reload();
+  void applyAll();
 }
 function onClear(): void {
   direction.value = '';
   bizType.value = '';
   datePreset.value = '';
+  dateFrom.value = '';
+  dateTo.value = '';
   locationId.value = '';
   variantId.value = '';
-  reload();
+  void applyAll();
 }
 
 onLoad(async (q: any) => {
@@ -215,14 +254,8 @@ onLoad(async (q: any) => {
   } catch (_e) {
     // 仓库筛选项加载失败不阻断流水列表
   }
-  await load(true);
+  await applyAll();
 });
-
-onPullDownRefresh(async () => {
-  await load(true);
-  uni.stopPullDownRefresh();
-});
-onReachBottom(loadMore);
 </script>
 
 <style lang="scss" scoped>
@@ -246,9 +279,13 @@ onReachBottom(loadMore);
     }
   }
 
-  .locrow { display: flex; align-items: center; gap: 16rpx; margin: 4rpx 0 20rpx;
+  .locrow { display: flex; align-items: center; gap: 16rpx; margin: 4rpx 0 12rpx;
     .locpill { font-size: 24rpx; color: $wa-ink; background: $wa-card; border-radius: $wa-radius; padding: 14rpx 24rpx; }
-    .vchip { font-size: 22rpx; color: $wa-accent; background: $wa-card; border-radius: 999rpx; padding: 10rpx 20rpx; }
+    .kw { flex: 1; font-size: 24rpx; color: $wa-ink; background: $wa-card; border-radius: $wa-radius; padding: 16rpx 20rpx; }
+  }
+
+  .ranges { display: flex; gap: 16rpx; margin-bottom: 20rpx;
+    .range { flex: 1; font-size: 24rpx; color: $wa-ink; background: $wa-card; border-radius: $wa-radius; padding: 14rpx 20rpx; }
   }
 
   .grp {
@@ -266,9 +303,15 @@ onReachBottom(loadMore);
     .sub { margin-top: 10rpx; font-size: 24rpx; color: $wa-ink;
       &.dim { color: $wa-muted; }
     }
+    .delta { font-size: 24rpx; font-weight: 600; color: $wa-ink;
+      &.muted { color: $wa-muted; font-weight: 400; }
+    }
   }
 
-  .more { text-align: center; color: $wa-muted; font-size: 24rpx; padding: 24rpx 0; }
+  .more { text-align: center; color: $wa-muted; font-size: 24rpx; padding: 24rpx 0;
+    .err { display: block; }
+    .retry { display: block; margin-top: 8rpx; color: $wa-accent; }
+  }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
 }
 </style>

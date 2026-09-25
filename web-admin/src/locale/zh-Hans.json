@@ -1293,7 +1293,7 @@
   },
   "inventoryMovements": {
     "empty": "暂无流水",
-    "loadFailed": "加载流水失败",
+    "retry": "重试",
     "inTotal": "入库合计 {n}",
     "outTotal": "出库合计 {n}",
     "dirAll": "全部方向",
@@ -1306,6 +1306,10 @@
     "date7d": "近 7 天",
     "dateMonth": "本月",
     "clearFilter": "清空筛选",
+    "filterVariant": "商品 SKU",
+    "filterDateFrom": "开始日期",
+    "filterDateTo": "结束日期",
+    "delta": "结存变化",
     "loadingMore": "加载中…",
     "noMore": "没有更多了"
   },

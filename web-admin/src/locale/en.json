@@ -1293,7 +1293,7 @@
   },
   "inventoryMovements": {
     "empty": "No movements",
-    "loadFailed": "Failed to load movements",
+    "retry": "Retry",
     "inTotal": "In total {n}",
     "outTotal": "Out total {n}",
     "dirAll": "All directions",
@@ -1306,6 +1306,10 @@
     "date7d": "Last 7 days",
     "dateMonth": "This month",
     "clearFilter": "Clear filters",
+    "filterVariant": "Variant SKU",
+    "filterDateFrom": "From",
+    "filterDateTo": "To",
+    "delta": "On-hand",
     "loadingMore": "Loading…",
     "noMore": "No more"
   },
