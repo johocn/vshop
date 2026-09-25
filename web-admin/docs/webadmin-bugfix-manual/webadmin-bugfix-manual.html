@@ -131,6 +131,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#stocktake-ops">16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</a></li>
       <li><a href="#gate-hardening">16.9.9 门禁改造验收总结报告（渲染门禁 + 打印像素门禁 · 2026-09-25）</a></li>
       <li><a href="#gap4-batch1">17 售后处理筛选分页 + 分类管理树形 / 排序 / 图标 / 批量（gap4 批 1 · 2026-09-25）</a></li>
+      <li><a href="#gap4-batch2">18 风格体系：全局配置结构化表单 + 行内校验 + 合并预览（gap4 批 2 · 2026-09-25）</a></li>
     </ol>
   </nav>
 
@@ -1616,7 +1617,85 @@ flowchart TD
     </div>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="gap4-batch2">
+    <h2>18 风格体系：全局配置结构化表单 + 行内校验 + 合并预览（gap4 批 2 · 2026-09-25）</h2>
+    <p>本章为 <strong>gap4「管理后台体验补齐」批 2</strong> 的验收章节，覆盖风格体系后台的<strong>「可读、可校验、可预览」</strong>三件事：<strong>① 全局配置（L1）高频字段从「手写 JSON」提升为结构化表单</strong>、<strong>② 字段级行内校验（就地标红 + 保存前置拦截）</strong>、<strong>③ L0→L3 合并预览接入</strong>（全局配置页 + 店铺覆盖页）。验收口径沿用硬规范「功能交付 = 实现 + API/e2e 回归 + 手机视口截图 + 操作手册」。本轮 <mark class="key">5 张截图全部为手机视口 390×844（dpr=2 → 780×1688）、本地 dev server、每张图 0 pageerror / 0 console.error</mark>。</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>验证脚本</td><td><code class="mono">python _e2e/_verify_gap4_batch2.py</code>（Playwright Python sync，视口 390×844 / dpr=2 / is_mobile / has_touch；退出码 <mark class="key">0 = 通过</mark>）</td></tr>
+      <tr><td>本轮结果</td><td><mark class="key">PASS（失败 0 / SKIP 0）</mark>，退出码 0；落图 5 张到 <code class="mono">docs/verify/gap4-batch2-*.png</code></td></tr>
+      <tr><td>覆盖页面</td><td><code class="mono">pages/platform/global-config/index</code>（全局配置 / L1）· <code class="mono">pages/decorate/theme/index</code>（主题风格 / L3 店铺覆盖）</td></tr>
+      <tr><td>文档门禁</td><td><code class="mono">npm run verify:manual</code>（cwd <code class="mono">web-admin</code>）→ <mark class="key">PASS（失败 0）</mark></td></tr>
+    </table>
+    </div>
+
+    <h3>18.1 全局配置页（L1）：结构化表单操作步骤</h3>
+    <p><strong>入口</strong>：工作台 →「平台」→「全局配置」（<code class="mono">pages/platform/global-config/index</code>）。页面顶部有 <strong>nshop 商城 / youshop 商城</strong> 分段器，切换即加载该端的 L1 配置（两端的 <code class="mono">themeTokens</code> / <code class="mono">defaults</code> 各自独立）。</p>
+    <p><strong>操作步骤</strong></p>
+    <ol style="font-size:14px;line-height:1.8;">
+      <li><strong>主题令牌 themeTokens（3 项文本框）</strong>：主色 <code class="mono">primaryColor</code>、辅色 <code class="mono">accentColor</code>、圆角 <code class="mono">radius</code>。这三项是该端所有店铺的<strong>最底层兜底</strong>（未配模板 / 店铺覆盖时生效）。</li>
+      <li><strong>商品详情默认配置（结构化）</strong>：<strong>版式</strong>用胶囊单选「经典 / 楼层 / 双通道」（对应 <code class="mono">defaults.product.layout</code>，取值与 C 端 <code class="mono">ProductDetailRenderer</code> 的 <code class="mono">layout</code> 一致）；<strong>7 个功能块开关</strong>（主图 / 价格 / 促销 / 服务 / 参数 / 评价 / 详情 = <code class="mono">defaults.product.blocks.*</code>）。</li>
+      <li><strong>行内校验（本轮重点）</strong>：字段失焦即校验——颜色必须为 <code class="mono">#RRGGBB</code>、圆角须为 0–48 的数字、版式须为上述三值之一。不合法时<strong>该字段下方立即出现红字错误提示</strong>，其余字段编辑态保留。</li>
+      <li><strong>保存前置拦截（本轮重点）</strong>：点「保存」时先逐字段校验；只要有非法项<strong>整单拒绝提交</strong>，toast 提示「有 N 处需要修正」，并把所有出错字段同时标红。</li>
+      <li><strong>JSON 高级编辑（逃生口）</strong>：其它页面（首页 / 分类 / 购物车 / 我的）的默认配置未结构化，仍通过「JSON 高级编辑」维护 <code class="mono">defaults</code>；写坏 JSON 会在保存时提示「defaults 不是合法 JSON 对象」。</li>
+      <li><strong>合并预览（本轮重点）</strong>：见 18.3。</li>
+    </ol>
+    <div class="callout">
+      <p><strong>字段与规格一致性</strong>：结构化字段表共 <mark class="key">11 项</mark> = 3 个令牌 + 1 个版式 select + <strong>7</strong> 个功能块开关（含易漏的「参数 <code class="mono">params</code>」「详情 <code class="mono">description</code>」）。字段表集中在 <code class="mono">src/constants/config-schema.ts</code>（<code class="mono">GLOBAL_CONFIG_FIELDS</code> + <code class="mono">validateField</code>），页面按 schema 驱动渲染——<strong>新增字段只需改 schema 一处</strong>。</p>
+      <p class="muted" style="font-size:13px;margin-bottom:0;">实现要点：结构化字段的合并根是 <code class="mono">{ themeTokens, defaults }</code> 一条记录，字段 <code class="mono">path</code> 已含前缀（如 <code class="mono">themeTokens.primaryColor</code> / <code class="mono">defaults.product.layout</code>），读写走 <code class="mono">src/utils/config-path.ts</code> 的 <code class="mono">getByPath</code> / <code class="mono">setByPath</code>。</p>
+    </div>
+
+    <h3>18.2 合并预览：L0→L3 逐级合并结果的读法</h3>
+    <p>两个页面都接入了后端的真实合并链（<code class="mono">templateMergedPreview(app, templateId?, overrides?)</code>），展示<strong>逐级回退后的最终生效值</strong>，并对每个 key 标注来源层级：</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>徽标</th><th>含义</th></tr>
+      <tr><td><mark class="key">L1</mark></td><td>来自<strong>全局配置</strong>（<code class="mono">ShopGlobalConfig</code>，本章 18.1 的页面）</td></tr>
+      <tr><td><mark class="key">L2</mark></td><td>来自<strong>风格模板</strong>（模板库 <code class="mono">ShopTemplate</code>，已在店铺覆盖页被引用）</td></tr>
+      <tr><td><mark class="key">L3</mark></td><td>来自<strong>店铺覆盖</strong>（渠道 customFields：<code class="mono">templateId</code> + <code class="mono">themeTokensOverride</code>）</td></tr>
+      <tr><td><mark class="key">L4</mark></td><td>来自<strong>页面 / 模块内建默认</strong>（无任何后台配置时的兜底）</td></tr>
+    </table>
+    </div>
+    <p><strong>用法</strong></p>
+    <ol style="font-size:14px;line-height:1.8;">
+      <li><strong>全局配置页</strong>：点「立即预览」→ 卡片内展示合并后的 JSON；点「显示来源 / 隐藏来源」切换下方 <code class="mono">key → 层级</code> 列表。<span class="muted">（预览用的是<strong>当前编辑态</strong>而非已保存态——即「改前可见」，不必先保存就能看到结果）</span></li>
+      <li><strong>主题风格页（L3 店铺覆盖）</strong>：<strong>进页面即自动展开预览</strong>（不必手点）；三行 <code class="mono">primaryColor / accentColor / radius</code> 各显示生效值与来源徽标；改「令牌覆盖」或换模板后点「刷新预览」复核。留空字段自动回退上一级（L3 覆盖 → L2 模板 → L1 全局配置）。</li>
+    </ol>
+    <div class="callout warn">
+      <p><strong>合并口径提示（勿误读）</strong>：后端 <code class="mono">mergePreview</code> 的合并是<strong>扁平键合并</strong>——<code class="mono">L1 = {...themeTokens, ...defaults}</code>、<code class="mono">L2 = {...theme, ...pages}</code>、<code class="mono">L3 = overrides 的全部键</code>。因此预览 JSON 里会同时出现 <code class="mono">primaryColor</code>（L1 展开的扁平键）与 <code class="mono">themeTokens.primaryColor</code>（结构化根），两者都指向同一生效值；<strong>来源徽标按扁平键逐条标注</strong>，这是预期行为而非重复配置。</p>
+      <p class="muted" style="font-size:13px;margin-bottom:0;">页面级配置的落点键为 <code class="mono">product → detailConfig</code> / <code class="mono">home → shopContent</code> / <code class="mono">category</code> / <code class="mono">cart</code> / <code class="mono">profile</code>（见 <code class="mono">src/utils/merge-config.ts</code> 的 <code class="mono">PAGE_CF_FIELD</code>）；写 overrides 时勿自造 <code class="mono">{theme, pages:{…}}</code> 形状，否则会产出不存在的键并错标来源。</p>
+    </div>
+
+    <h3>18.3 验收结论与截图证据（手机 390×844 dpr=2 → 780×1688，共 5 张）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>验收点</th><th>结论</th><th>证据（脚本断言 / 截图）</th></tr>
+      <tr><td>A1</td><td>结构化表单渲染：3 个令牌输入框 + 1 个版式 select（经典 / 楼层 / 双通道）+ 7 个功能块开关</td><td><mark class="key">通过</mark></td><td><code class="mono">.in=3</code>、<code class="mono">uni-switch=7</code>、chips 含 经典/楼层/双通道、body 含 7 个块名 → <code class="mono">gap4-batch2-globalconfig-form.png</code></td></tr>
+      <tr><td>A2</td><td>非法主色<strong>行内标红</strong>：主色输入「red」失焦 → 字段下方出现「颜色需为 #RRGGBB」</td><td><mark class="key">通过</mark></td><td><code class="mono">field0.err='颜色需为 #RRGGBB'</code> → <code class="mono">gap4-batch2-globalconfig-invalid-color.png</code></td></tr>
+      <tr><td>A2′</td><td>保存前置拦截：非法值下点「保存」<strong>整单拒绝</strong>并提示「有 1 处需要修正」</td><td><mark class="key">通过</mark></td><td><code class="mono">toast='有 1 处需要修正'</code>（未提交）</td></tr>
+      <tr><td>A3</td><td>合法保存成功：主色改为合法值 → 点「保存」→ toast「已保存」；刷新后<strong>落库回读一致</strong>；再保存原值还原</td><td><mark class="key">通过</mark></td><td><code class="mono">toast='已保存'</code>、<code class="mono">persisted='#123456' == 保存值</code>、还原 toast「已保存」（收尾核对库值回 <code class="mono">#ff6600</code>）→ <code class="mono">gap4-batch2-globalconfig-saved.png</code></td></tr>
+      <tr><td>A4</td><td>「立即预览」输出 L0→L3 合并 JSON（含 <code class="mono">themeTokens</code> / <code class="mono">defaults</code>）+ 来源徽标逐条标注 L1/L3</td><td><mark class="key">通过</mark></td><td><code class="mono">pre.len=195</code>、<code class="mono">badges=['L1','L1','L1','L3',…]</code> → <code class="mono">gap4-batch2-globalconfig-preview.png</code></td></tr>
+      <tr><td>B1</td><td>店铺覆盖页（L3）合并预览卡：三行 <code class="mono">primaryColor / accentColor / radius</code> 各带来源徽标，且<strong>进页自动预览</strong></td><td><mark class="key">通过</mark></td><td><code class="mono">keys=['primaryColor','accentColor','radius']</code>、<code class="mono">src=['L1','L1','L1']</code>、<code class="mono">vals=['#ff6600','#fff3e6','8']</code> → <code class="mono">gap4-batch2-theme-preview.png</code></td></tr>
+      <tr><td>—</td><td>全程无 JS 异常（pageerror / console.error）</td><td><mark class="key">通过</mark></td><td>两页断言均为 <code class="mono">[]</code>（0 条）</td></tr>
+    </table>
+    </div>
+    <p><strong>A. 全局配置页（4 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch2-globalconfig-form.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch2-globalconfig-invalid-color.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch2-globalconfig-saved.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch2-globalconfig-preview.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左一：<b>结构化表单</b>——「主题令牌 themeTokens」3 个输入框（主色 #ff6600 / 辅色 #fff3e6 / 圆角 8）+「商品详情默认配置」版式胶囊（经典 / 楼层 / 双通道）与 7 个功能块开关；左二：<b>行内校验标红</b>——主色输入「red」后该字段下方红字「颜色需为 #RRGGBB」，其余字段不受影响；左三：<b>合法保存成功</b>——主色改为合法值后点「保存」，屏幕中央出现「✓ 已保存」toast；左四：<b>合并预览</b>——JSON 显示 <code class="mono">primaryColor/themeTokens/defaults</code> 合并结果，下方逐 key 标注来源徽标（扁平键 <b>L1</b>、结构化根 <b>L3</b>）</figcaption></figure>
+    <p><strong>B. 主题风格页 / L3 店铺覆盖（1 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch2-theme-preview.png" style="width:34%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;"><b>店铺覆盖页（L3）</b>——上方为令牌覆盖输入（主色 #E1251B / 辅色 #FFF3E6 / 圆角 8）与旧版主题迁移条；底部「合并结果预览（真实生效值）」三行 <code class="mono">primaryColor / accentColor / radius</code> 分别显示生效值与来源徽标 <b>L1</b>（当前未引用模板、未填覆盖 → 全部回退到 L1 全局配置），并带「刷新预览」按钮</figcaption></figure>
+
+    <h3>18.4 验收口径与残留说明</h3>
+    <div class="callout warn">
+      <p>① <strong>脚本端口</strong>：dev server 实际端口 <mark class="key">5280</mark>（<code class="mono">vite.config.ts</code> <code class="mono">strictPort: true</code>），路径前缀 <code class="mono">/guanli/</code>；脚本 BASE = <code class="mono">http://localhost:5280/guanli/</code>。</p>
+      <p>② <strong>选择器修正</strong>：uni-app H5 把 <code class="mono">&lt;input class="in"&gt;</code> 渲染为 <code class="mono">&lt;uni-input class="in"&gt;</code> 包裹真实 <code class="mono">input</code>，故填充须用 <code class="mono">.in &gt; input</code>；<code class="mono">&lt;switch&gt;</code> 渲染为 <code class="mono">uni-switch</code>。</p>
+      <p>③ <strong>toast 断言踩坑（已修，供后续复用）</strong>：H5 的 <code class="mono">uni-toast</code> 元素<strong>常驻 DOM</strong>，隐藏后 <code class="mono">inner_text</code> 仍返回<strong>上一条文案</strong>，导致「合法保存成功」误读到 A2 的「有 1 处需要修正」。脚本因此给 <code class="mono">toast_text()</code> 加了 <code class="mono">not_equal</code> 参数（显式排除上一条）；同文案的连续 toast（还原步骤）则在 <code class="mono">reload</code> 后直接轮询。后续批次涉及连续 toast 断言时请沿用此写法。</p>
+      <p>④ <strong>本轮写库范围（仅本地 dev 库）</strong>：「合法保存成功」需写 <code class="mono">updateShopGlobalConfig</code>。脚本在 <code class="mono">WA_SHOT_ALLOW_WRITE=1</code> 下把主色改为测试值 <code class="mono">#123456</code> → 保存 → 刷新回读确认落库 → <strong>再保存原值还原</strong>，收尾额外用 API 复核库中主色已回到 <code class="mono">#ff6600</code>；未开写开关时只做幂等保存（原值写回）。目标域名含 <code class="mono">e.joho.cn</code>（生产）时<strong>硬拦</strong>。全程零文件改动、未触碰 <code class="mono">d:\zhao\vendure</code> 任何文件。</p>
+      <p style="margin-bottom:0;">⑤ <strong>使用手册（<code class="mono">src/static/manual/index.html</code>）本轮仍未同步</strong>：该文件为数据驱动单文件（<code class="mono">var CHAPTERS</code> + <code class="mono">shots/</code>），面向 C 端用户，与修复手册的「静态 section + <code class="mono">assets/</code>」体系不一致；按批 1 约定本轮<strong>只改修复手册</strong>，发布手册留待 Task 4.9 一并处理。</p>
+    </div>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS），2026-09-25 追加第 18 章 gap4 批 2 验收（风格体系：全局配置结构化表单 11 字段 / 行内校验标红 + 保存前置拦截 / L0→L3 合并预览含来源徽标，5 张手机视口取证图，verify:manual PASS）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
