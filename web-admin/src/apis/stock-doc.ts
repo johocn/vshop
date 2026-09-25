@@ -133,18 +133,34 @@ export interface StockDocList {
   items: StockDocSummaryRow[];
 }
 
-/** type 传空/非法 → 不过滤（后端白名单校验） */
+/** type 传空/非法 → 不过滤（后端白名单校验）；locationId 按明细源/目标仓匹配；from/to 为 ISO 时间串 */
 export async function fetchStockDocList(
-  params: { type?: string; page?: number; pageSize?: number } = {},
+  params: {
+    type?: string;
+    locationId?: string;
+    from?: string;
+    to?: string;
+    operator?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): Promise<StockDocList> {
   const { stockDocList } = await getAdminClient().request<{ stockDocList: StockDocList }>(
-    `query StockDocList($type: String, $page: Int, $pageSize: Int) {
-      stockDocList(type: $type, page: $page, pageSize: $pageSize) {
+    `query StockDocList($type: String, $locationId: ID, $from: String, $to: String, $operator: String, $page: Int, $pageSize: Int) {
+      stockDocList(type: $type, locationId: $locationId, from: $from, to: $to, operator: $operator, page: $page, pageSize: $pageSize) {
         totalItems
         items { id code type remark operator createdAt itemCount totalQty }
       }
     }`,
-    { type: params.type || null, page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
+    {
+      type: params.type || null,
+      locationId: params.locationId ?? null,
+      from: params.from ?? null,
+      to: params.to ?? null,
+      operator: params.operator ?? null,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+    },
   );
   return stockDocList;
 }
