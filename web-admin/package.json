@@ -4,7 +4,11 @@
   "description": "youshop 多租户手机管理后台 (e.joho.cn/guanli)",
   "scripts": {
     "dev:h5": "uni",
-    "build:h5": "uni build"
+    "build:h5": "uni build",
+    "test:smoke:live": "python scripts/_smoke_stocktake_live.py",
+    "test:e2e:stocktake": "python _e2e/_verify_stocktake_ops_e2e.py",
+    "verify:manual": "python _e2e/_verify_manual_docs.py",
+    "verify:print": "python _e2e/_verify_print_baseline.py"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-4060620250520001",
