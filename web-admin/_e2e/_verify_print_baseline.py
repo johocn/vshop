@@ -142,15 +142,19 @@ def measure(pg):
       const root = document.querySelector('.st-print');
       if (!root) return null;
       const mm = (px) => px * 25.4 / 96;
+      const px = (v) => v * 96 / 25.4;
       const r = root.getBoundingClientRect();
-      const ths = [...document.querySelectorAll('.st-print .p-tbl thead th')].map(t => mm(t.getBoundingClientRect().width));
+      const tbl0 = document.querySelector('.st-print .p-tbl');
+      // 计划外修正：列宽断言只应量「差异表」（第一张 .p-tbl）；原选择器会把未盘清单表一起算进来（9+3=12 列）
+      const ths = tbl0 ? [...tbl0.querySelectorAll('thead th')].map(t => mm(t.getBoundingClientRect().width)) : [];
       const thead = document.querySelector('.st-print .p-tbl thead');
       const tr = document.querySelector('.st-print .p-tbl tbody tr');
       const cs = getComputedStyle(root);
       const over = [];
+      const lim = px(186.5);   // 计划外修正：原代码拿 CSS px 直接与 186.5（mm 阈值）比 → 任何 >186.5px 元素都误判溢出
       for (const el of root.querySelectorAll('*')) {
         const b = el.getBoundingClientRect();
-        if (b.width > 186.5 || b.right > r.left + 186.5) over.push((el.className || el.tagName) + ':' + b.width.toFixed(1));
+        if (b.width > lim || b.right > r.left + lim) over.push((el.className || el.tagName) + ':' + b.width.toFixed(1));
       }
       return {
         widthMM: mm(r.width), heightMM: mm(r.height), colsMM: ths,
@@ -264,10 +268,13 @@ def geometry_asserts(case, m, code):
 
 def task_meta(pg, tid):
     """返回 'code|state'（每次按 taskId 现取，empty-a4 用的是另一个任务）"""
+    # 计划外修正：原代码只带 Authorization，后端会因缺渠道头直接 FORBIDDEN（code 恒为空），
+    # 故补上 vendure-token（与前端 apis 层的渠道头同名）
     raw = pg.evaluate("""async ([id]) => {
       const t = localStorage.getItem('wa_auth_token');
+      const c = localStorage.getItem('wa_channel_token') || '';
       const r = await fetch('/admin-api', {method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+t,'vendure-token':c},
         body: JSON.stringify({query:'query($id: ID!){ stocktakeTask(id:$id){ code state } }', variables:{id}})});
       const d = await r.json();
       const x = ((d.data||{}).stocktakeTask) || {};
@@ -277,7 +284,7 @@ def task_meta(pg, tid):
     return code, state
 
 
-def run(pg, case, tid, record, force, big=False):
+def run(pg, case, tid, record, force, big=False, empty=False):
     print('\n[%s] task=%s' % (case, tid))
     code, state = task_meta(pg, tid)
     # —— 计划外增补 (b)：POSTED 保持原 check；其它终态（生产无 POSTED 任务）降级为显式 SKIP ——
@@ -290,7 +297,11 @@ def run(pg, case, tid, record, force, big=False):
         check('%s 任务可查且已终态（免受并发改动影响）' % case, False, 'code=%s state=%s' % (code, state))
     open_diff(pg, tid)
     # —— 计划外增补 (c)：无有效数据行 = 数据不足（不编造、不写基线、相应断言转 SKIP）——
-    short = rows_in_table(pg) == 0
+    # empty-a4 的「无差异行」正是其预期空态，故不按数据不足处理，改为显式校验 --empty-task 语义
+    nrows = rows_in_table(pg)
+    if empty:
+        check('%s --empty-task 确实无差异行（空态语义）' % case, nrows == 0, 'rows=%d' % nrows)
+    short = (nrows == 0) and not empty
     if big:
         n = inject_big(pg, BIG_ROWS)
         if n == -2:
@@ -386,7 +397,7 @@ def main():
 
         run(pg, 'diff-a4', str(a.task), a.record, a.force)
         if a.empty_task:
-            run(pg, 'empty-a4', str(a.empty_task), a.record, a.force)
+            run(pg, 'empty-a4', str(a.empty_task), a.record, a.force, empty=True)
         else:
             skip('empty-a4', '未提供 --empty-task / WA_PRINT_EMPTY_TASK')
         run(pg, 'big-a4', str(a.task), a.record, a.force, big=True)
