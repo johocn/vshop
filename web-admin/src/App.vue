@@ -35,4 +35,11 @@ uni-input .uni-input-input {
   min-height: 1.4em;
   line-height: 1.4em;
 }
+
+/* 打印：@page 版心 12mm 由页面自己声明，浏览器对 body 的默认 8px 外边距会把版心顶出纸面
+   导致整页被缩放，故必须归零。uni-app H5 会给所有 SFC 的 <style> 强制补 scoped（App.vue 除外），
+   页面内的 html/body 规则会被改写成 html[data-v-x]/body[data-v-x] 而永不命中，只能放在这里。 */
+@media print {
+  html, body { margin: 0; padding: 0; background: #fff; }
+}
 </style>
