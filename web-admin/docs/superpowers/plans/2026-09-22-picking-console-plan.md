@@ -2775,6 +2775,23 @@ git commit -m "docs(web-admin): 配货台与库位操作手册第 15 章 + 手�
 36. **就近选仓在 t2 未命中时显示「请手动选择目标仓」**：t2 渠道下商品未绑定配送档案/仓库时，后端候选快照不返回推荐仓，前端**不伪造**推荐，展示手动提示（截图 `picking_console_pending_390.png` 可见）。属预期行为。
 37. **提交范围扩至 3 项（计划 Step 9 只写 `web-admin/docs web-admin/scripts`）**：① `web-admin/src/static/manual/shots/`（截图源）+ `web-admin/dist/`（消费 Task 9 偏差 15 的约定「dist 重建留到 Task 15 统一提交」）；② `web-admin/_e2e/_shot_picking_console.py`（截图可复现脚本，与仓库既有 `_shot_*` 惯例一致）；③ 手册 `assets/`。**计划文件本身另起 `docs(plan)` 提交**（沿用 Task 13/14 惯例）。临时探查脚本（`_e2e/_probe_*.py`、`_e2e/_q.sql`、`_shot_run.log`、`_tmp_commit_msg.txt`）已清理，不入库。
 
+**偏差说明（Task 13 补充 · 打印版式的像素级一致性门禁，2026-09-25 增补）**：
+
+> 计划 Task 13 的测试只写「四个纯函数模板的快照断言」（`templates.spec.ts`），**没有任何版式/像素级一致性口径**。按用户裁决（落点＝配货台·拣货打印线 / 单据范围＝四种全做 / 组织方式＝并入 `verify:print` 统一门禁）补齐，正文不改，偏差记此。
+
+38. **并入统一门禁，不另建脚本**：四单据作为 `family=templates` 并入既有 `_e2e/_verify_print_baseline.py`（`npm run verify:print`），新增 `--only {all,stocktake,templates}`；`--only templates` **离线**可跑（不需登录、不需 `--task`），盘库线三 case 行为逐字不变（`--task` 仍只对 all/stocktake 必需，缺则 `exit 2`）。`record/compare` 逻辑从原 `run()` 抽成 `record_or_compare()` 供两条线共用；`slice_pages()` 参数化（盘库线默认值不变）、`pdf_asserts()` 泛化为 `(tag, expect_n, expect_mm, mode)`。
+39. **不在 Python 里复刻模板，新增计划外产出器 `_e2e/_print_cases.ts`**：四个模板是 TS 纯函数，若在门禁中用 Python 拼 HTML 等于制造第二份真相。产出器只做两件事：`--manifest` 输出四 case 的冻结期望值（行数 / 分组数 / 分组标题 / 未归位行数 / 列数 / 合计 / 单数 / 件数），`<case>` 输出该 case 的完整 HTML。门禁只负责「渲染 + 结构/计算样式断言 + PDF 真分页 + 截图切片 + 零容差比对」。`tsconfig.json` 只 `include: src/**`，故 `_e2e/*.ts` 不进类型检查，不污染 vue-tsc 基线（仍 1465 类计数）。
+40. **四 case 的受控渲染契约（与盘库线不同处）**：`emulateMedia('print')` + dpr2，视口宽＝该档**内容宽**（A4 纵 186mm / 热敏 92mm / A4 横 273mm，CSS px 取整 → 703 / 348 / 1032），`full_page` 截图后按**该档内容高**切片（273 / 142 / 186mm → page_h_dev 2064 / 1073 / 1406）。故热敏与横向档不复用盘库线的 794×1123 视口与 `PAGE_H_DEV=2049`。
+41. **真分页由 PDF 承担，切片不承担分页**：视口内 `emulateMedia('print')` **不产生分页**，故用 `pg.pdf(prefer_css_page_size=True)` 断言真实页数与纸张尺寸。页数：发货单 / 包裹标签 = **硬语义 `== 3`**（「一单一页」「一件一页」），拣货单 / 批次总览 = `>= 2`（长表跨页）。纸张尺寸**改按 mm 判（±0.5mm）而非 pt**：实测 Chrome 把自定义页尺寸量化到整数 CSS px，A4 实测 209.89×297.01mm、热敏 99.82×149.94mm —— 若按 pt 申报（283.465×425.197pt）会有 0.505pt 残差而误判 FAIL。
+42. **`env.json.fingerprint` 刻意不含 HTML 哈希**：只记 `content_mm` / `page_h_dev` / `print_at` / `fixture`（manifest 归一）等。这样「改模板 CSS」必然落到**像素差异 FAIL**，只有「改冻结 fixture」才降级 `SKIP pixel` 并提示重录，两种语义不混。指纹键复用既有 `FP_KEYS`。
+43. **负向验证（三项注入 → 全部 FAIL；复原 → PASS）**：注入 ① `doc-common.ts` `.grp` 底色 `#ddd → #e0e0e0` ② 同文件 `.meta` 行高 `1.7 → 1.9` ③ `parcel-label.ts` `.v.big` `16px → 15px`。结果 **失败 6 / SKIP 0 / exit 1**：
+    - `picking-a4`：结构断言命中（底色实测 `rgb(224,224,224)`）+ 像素 diff（page1 625652 px / page2 628064 px，最大通道差 255）
+    - `parcel-thermal`：结构断言命中（`15px`）+ 像素 diff（125606 / 15952 px）
+    - `shipping-a4` 与 `batch-a4l`：**只**命中像素 diff（213614 px / 631286+372838 px）——注入 ② 这类**行高/位移型**缺陷**没有任何结构断言能发现**，证明像素层不可被结构断言替代
+    - 红标差异图 7 张落 `_e2e/baselines/print/_diff/<case>/`；复原后复跑 `--only templates` → **PASS（0 失败 / 0 SKIP / exit 0）**
+44. **盘库线回归确认**：另跑 `python _e2e/_verify_print_baseline.py --task 17`（全量：四单据 + 盘库三 case）→ **PASS（0 失败 / 6 SKIP）**，6 条 SKIP 均为本线既有的「非 POSTED 终态降级」与「真实数据无差异行」（fixture 承接像素阶段），确认本次重构无回归。
+45. **基线落点与规模**：`_e2e/baselines/print/<case>/{page-N.png, env.json}`——`picking-a4` 2 页 / `shipping-a4` 2 页 / `parcel-thermal` 3 页 / `batch-a4l` 2 页；红标取证图落同级 `_diff/<case>/`（**不入库**）。`_print_cases.ts` 的清单补 `batch-a4l.cols = 6`（原缺该键，门禁取期望值时 `KeyError`）。
+
 ---
 
 ## 自审记录（写完计划后对规格做的复查）
