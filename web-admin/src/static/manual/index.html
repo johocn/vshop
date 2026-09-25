@@ -905,6 +905,126 @@ var CHAPTERS = [
 <div class="shot-box"><img class="img" src="shots/b3_decorate_category.png" alt="分类页装修"><div class="imgcap">图 N3 · 分类页装修</div></div>
 <div class="shot-box"><img class="img" src="shots/b3_decorate_cart.png" alt="购物车页装修"><div class="imgcap">图 N4 · 购物车页装修</div></div>
 <div class="shot-box"><img class="img" src="shots/b3_decorate_profile.png" alt="我的页装修"><div class="imgcap">图 N5 · 我的页装修</div></div>`},
+{book:'op', id:'op-38', title:'多人协同盘库（任务 / 盘次 / 差异过账）', html:`
+<p class="lead">协同盘库用于把一次盘点<mark class="mark">拆成任务与盘次</mark>，让多人、多仓、分区域地并行盘，最后<mark class="mark">汇总复核后一次性过账</mark>。入口：租户后台 → 库存 → <mark class="mark">协同盘库</mark>。</p>
+<div class="note"><b>和「库存单据 → 盘库」的区别：</b>op-23 第 4 节的盘库是<mark class="mark">单人、一次性、按变体直接改数</mark>的快捷入口；协同盘库会先<mark class="mark">固化应盘清单</mark>、记录每个盘次的<mark class="mark">已盘进度</mark>，并在过账前给出<mark class="mark">差异复核页</mark>。随手修正用前者，正式盘点用后者。</div>
+
+<h3>1. 一句话流程</h3>
+<div class="flow">
+  <div class="frow"><div class="fnode primary">建任务</div><span class="farrow">→</span><div class="fnode">自动拆盘次</div><span class="farrow">→</span><div class="fnode">认领 / 指派</div><span class="farrow">→</span><div class="fnode">录入 或 扫码快盘</div></div>
+  <div class="frow"><div class="fnode">提交盘次</div><span class="farrow">→</span><div class="fnode">看板跟进</div><span class="farrow">→</span><div class="fnode">差异复核</div><span class="farrow">→</span><div class="fnode primary">过账</div></div>
+</div>
+
+<h3>2. 入口与权限</h3>
+<table>
+  <thead><tr><th>事项</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><b>看到入口</b></td><td>需要「盘点录入」权限（<code>StocktakeCount</code>）；没有该权限的账号<mark class="mark">看不到「协同盘库」菜单</mark>。</td></tr>
+    <tr><td><b>能盘</b></td><td>看板 / 录入 / 扫码三页的操作按钮同受该权限控制：无权限时置灰并提示「无盘点权限」，服务端也会独立拦截。</td></tr>
+    <tr><td><b>能过账</b></td><td>过账另需「盘点过账」权限（<code>StocktakePost</code>）。<mark class="mark">能盘 ≠ 能过账</mark>，可只给店长或财务。</td></tr>
+  </tbody>
+</table>
+<img class="img" src="shots/t45_board_no_permission_390.png" alt="无盘点权限的看板">
+<div class="imgcap">图 H1 · 无盘点权限：顶部红字提示，右下「＋新建盘点任务」置灰且点不开</div>
+
+<h3>3. 第一步：建任务</h3>
+<ol class="steps">
+  <li><b>盘点仓库 *</b>：一次盘点只针对<mark class="mark">一个仓库</mark>；多仓一起盘用「盘点活动码」分组。</li>
+  <li><b>任务名称 *</b>：便于在看板里辨认。</li>
+  <li><b>盘点活动码</b>（选填）：多仓协同填<mark class="mark">同一个活动码</mark>，看板会把各仓任务归到一组显示，各仓仍<mark class="mark">独立过账</mark>。</li>
+  <li><b>圈范围</b>：可全盘，也可只圈<mark class="mark">分类 / 品牌 / 指定变体</mark>（专项盘）；另可勾选<mark class="mark">「包含账面为 0 的变体」</mark>，用于确认某 SKU 是真的没货。</li>
+  <li><b>按库区自动拆盘次</b>：见下。</li>
+</ol>
+<h4>「按库区自动拆盘次」怎么选</h4>
+<p>该开关只决定<mark class="mark">盘次怎么拆</mark>，不影响<mark class="mark">应盘清单里有哪些货</mark>——两种选法的应盘总数完全一致。</p>
+<table>
+  <thead><tr><th>选法</th><th>盘次产出</th><th>适合</th></tr></thead>
+  <tbody>
+    <tr><td><b>勾选</b>（默认）</td><td>每个库区一个盘次 + 一个「未归位」盘次</td><td>多人按区域分工，各盘一片</td></tr>
+    <tr><td><b>不勾选</b></td><td>整仓只有 1 个「整仓」盘次</td><td>一个人从头盘到尾</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>不会丢库位：</b>即使不勾选，应盘行上<mark class="mark">仍保留各自的库位归属</mark>，录入页的库区页签、格子网格与「未归位」清单照常用——只是不再把整仓硬拆成多个盘次分给别人。</div>
+<img class="img" src="shots/t40_new_sheet_split_on_390.png" alt="新建任务-勾选自动拆盘次">
+<div class="imgcap">图 H2 · 新建任务：「按库区自动拆盘次」默认勾选</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/t40_task_waves_on_390.png" alt="勾选时两个盘次"><div class="imgcap">图 H3 · 勾选：库区 A + 未归位桶</div></div>
+  <div><img class="img" src="shots/t40_task_waves_off_390.png" alt="不勾选时一个整仓盘次"><div class="imgcap">图 H4 · 不勾选：仅 1 个「整仓」盘次</div></div>
+</div>
+
+<h3>4. 第二步：认领或指派盘次</h3>
+<p>任务详情页列出全部盘次及状态（待认领 / 已认领 / 录入中 / 已提交）。<mark class="mark">认领</mark>＝盘点员自己接手；<mark class="mark">指派</mark>＝管理员从本租户人员里指定负责人。</p>
+<div class="warn"><b>同一盘次独占：</b>一个盘次同一时间<mark class="mark">只能一个人负责</mark>。已被他人认领时你点录入会被拒并提示负责人是谁；需要换人时由负责人点<mark class="mark">「释放」</mark>退回待认领。</div>
+<img class="img" src="shots/t11_assign_sheet.png" alt="指派盘次面板">
+<div class="imgcap">图 H5 · 指派面板：从本租户人员中选择负责人</div>
+
+<h3>5. 第三步：手机录入（按清单盘）</h3>
+<ul>
+  <li><mark class="mark">库区页签</mark>：库位功能启用时可按库区切换，只看本库区的货。</li>
+  <li><mark class="mark">格子网格</mark>：显示每个库位上有几个 SKU、哪些格子是空的；点格子把清单收敛到该格，再点一次回到库区全量。</li>
+  <li><mark class="mark">未归位清单</mark>：尚未绑定库位的商品单独成组，避免漏盘。</li>
+  <li><mark class="mark">筛选</mark>：全部 / 未盘 / 已盘，随时知道还剩多少。</li>
+</ul>
+<div class="tip"><b>库位功能三档：</b>渠道层面分<mark class="mark">未启用库位 / 仅库区 / 库区 + 库位</mark>三档。未启用时录入页不显示网格、直接按清单录入；仅库区时显示库区页签但不暴露具体格子；库区 + 库位时才显示格子网格。</div>
+<img class="img" src="shots/t12_count_editable_zone_uncounted.png" alt="录入页-库区与未盘清单">
+<div class="imgcap">图 H6 · 录入页：库区页签 + 格子网格 + 未盘清单</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/t12_count_editable_binpicked.png" alt="点选格子后清单收敛"><div class="imgcap">图 H7 · 点格子后收敛到该格</div></div>
+  <div><img class="img" src="shots/t12_count_editable_unassigned.png" alt="未归位清单"><div class="imgcap">图 H8 · 「未归位」清单</div></div>
+</div>
+
+<h3>6. 第四步：扫码快盘</h3>
+<p>清单很长或货很分散时改用<mark class="mark">扫码快盘</mark>：一屏只专注一件，输入实盘数后「确认并下一件」。</p>
+<ol class="steps">
+  <li><b>扫码 / 手动输入</b>：扫库位码定位到格子；扫商品条码或内部码命中商品；相机不可用时改用手动输入。</li>
+  <li><b>快捷加减</b>：<code>−1</code> / <code>+1</code>，也可直接输入大号数字。</li>
+  <li><b>上一件 / 跳过</b>：单件来回推进，或跳到下一件未盘。</li>
+  <li><b>盘盈登记</b>：扫到<mark class="mark">清单外</mark>的商品会提示「不在应盘清单内，登记为盘盈？」，确认后按盘盈行记录。</li>
+</ol>
+<img class="img" src="shots/t13_scan_editable.png" alt="扫码快盘-单件专注">
+<div class="imgcap">图 H9 · 扫码快盘：大号 SKU 与实盘数，底部扫码 / 手动输入</div>
+
+<h3>7. 第五步：差异复核与过账</h3>
+<table>
+  <thead><tr><th>区块</th><th>看什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>四宫格摘要</b></td><td>应盘 / 已盘 / 未盘 / 盘盈，一眼看全局</td></tr>
+    <tr><td><b>未盘项清单</b></td><td>还没盘的行；确认放过时必须<mark class="mark">显式勾选「确认跳过 N 项未盘」</mark>才能过账</td></tr>
+    <tr><td><b>差异表</b></td><td>按<mark class="mark">变体</mark>汇总的账面 / 实盘 / 差值（同一 SKU 的差异一次算清）</td></tr>
+    <tr><td><b>账面变动提示</b></td><td>建任务后账面被其他业务动过的变体会被标出，并提示「建议复核」</td></tr>
+    <tr><td><b>归位变更</b></td><td>本次录入中发生库位变化或新增盘盈行的记录</td></tr>
+  </tbody>
+</table>
+<ol class="steps">
+  <li>核对差异表与未盘清单，必要时回录入页补盘。</li>
+  <li>点<mark class="mark">「过账」</mark>，弹窗提示「账面已变动，确认按当前账面重算并过账？」——过账按<mark class="mark">过账那一刻的账面</mark>重算差异并生成盘点单据。</li>
+  <li>确认后任务变为<mark class="mark">已过账</mark>，按钮置灰并提示「本任务已过账，不可重复过账」。</li>
+</ol>
+<div class="warn"><b>三个口径：</b>① 过账<mark class="mark">不冻结出入库</mark>，期间变动会被标出并以过账时账面重算；② 已过账<mark class="mark">不可撤销</mark>，要重盘请新建任务；③ 过账只写入<mark class="mark">物理仓</mark>的账面数量。</div>
+<img class="img" src="shots/t14_diff_summary.png" alt="差异页-四宫格摘要">
+<div class="imgcap">图 H10 · 差异页：四宫格摘要 + 差异表 + 吸底过账条（未盘未确认时置灰）</div>
+<img class="img" src="shots/t14_diff_uncounted_expanded.png" alt="未盘项清单与显式跳过">
+<div class="imgcap">图 H11 · 未盘项清单 + 显式跳过勾选</div>
+
+<h3>8. 与「库存单据 → 盘库」的选型</h3>
+<table>
+  <thead><tr><th>场景</th><th>用哪个</th></tr></thead>
+  <tbody>
+    <tr><td>某个 SKU 数不对，随手改一下</td><td><mark class="mark">库存单据 → 盘库</mark>（op-23 第 4 节）</td></tr>
+    <tr><td>月末 / 季末正式盘点，多人分工</td><td><mark class="mark">协同盘库</mark>（本节）</td></tr>
+    <tr><td>只盘某个分类或几个指定商品</td><td><mark class="mark">协同盘库</mark> + 圈范围选分类 / 指定变体</td></tr>
+    <tr><td>多仓同一天一起盘</td><td><mark class="mark">协同盘库</mark> + 同一个「盘点活动码」</td></tr>
+  </tbody>
+</table>
+
+<h3>9. 常见问题</h3>
+<details><summary>菜单里找不到「协同盘库」</summary><p>该入口需要「盘点录入」权限，请让管理员在<mark class="mark">成员与角色</mark>里给你的角色勾上。</p></details>
+<details><summary>录入页输入框是灰的、点不动</summary><p>按页面提示分因：① <mark class="mark">「无盘点权限」</mark>＝角色缺盘点录入权限；② <mark class="mark">「请先在任务详情页认领该盘次」</mark>＝盘次未认领或已被他人认领。</p></details>
+<details><summary>「＋新建盘点任务」点不开</summary><p>多半是没有盘点录入权限，按钮会置灰且不弹出表单。</p></details>
+<details><summary>过账按钮一直是灰的</summary><p>三种原因：① 还有盘次<mark class="mark">未提交</mark>；② 有未盘项但<mark class="mark">未勾选「确认跳过」</mark>；③ 角色没有<mark class="mark">盘点过账</mark>权限。</p></details>
+<details><summary>盘点期间还能正常发货吗</summary><p>能。系统<mark class="mark">不冻结出库</mark>；期间账面变动会在差异页标出，并以过账时账面重算差异。</p></details>
+<details><summary>不勾「按库区自动拆盘次」会不会丢库位信息？</summary><p>不会。盘次只剩一个「整仓」，但应盘行的库位归属保留，库区页签、格子网格与未归位清单照常可用。</p></details>
+`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
