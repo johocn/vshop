@@ -700,7 +700,22 @@
       "reasonLabel": "Reason: {reason}",
       "rejectLabel": "Rejected: {reason}",
       "loading": "Loading…",
-      "empty": "No after-sale tickets"
+      "empty": "No after-sale tickets",
+      "filterKeyword": "After-sale / order no.",
+      "filterType": "After-sale type",
+      "filterTypeAll": "All types",
+      "filterDateFrom": "Applied from",
+      "filterDateTo": "Applied to",
+      "filterRefundMin": "Min refund (CNY)",
+      "filterRefundMax": "Max refund (CNY)",
+      "filterApply": "Filter",
+      "filterClear": "Clear",
+      "sortCreated": "By applied time",
+      "sortRefund": "By amount",
+      "shown": "{n} of {m} shown",
+      "loadMore": "Scroll up to load more",
+      "noMore": "No more items",
+      "retry": "Retry"
     },
     "detail": {
       "afterSalePrefix": "After-sale #",
