@@ -6,21 +6,38 @@
   光栅化：element.screenshot(.st-print) → PIL 按 271mm 内容高切片成页（本机无 PDF 光栅化库）
   比对：同机逐像素零容差；跨机/跨版本自动降级为结构断言并输出 SKIP pixel（不虚报 PASS）
 
+两阶段（像素级一致性要求的可判定形态）：
+  阶段 ①「真实数据结构断言」——照旧打线上/本地真实任务，数据不足时该 case 的结构断言转 SKIP；
+  阶段 ②「受控渲染像素基线」——把 .st-print 的内容整体替换为**冻结的合成 fixture**（任务头 / 四宫格 /
+    差异表 9 列 / 未盘清单 / 页脚），使渲染结果与后端数据解耦 → 基线可在任意环境（含生产只读）录制与
+    比对，不依赖「生产存在已过账且有差异行的任务」。
+
+数据 fixture 契约（三个 case，env.json.fingerprint.fixture 记录，改动即需重录）：
+  diff-a4  = 6 行差异 + 3 行未盘 + 四宫格 6/4/2/1        （单页）
+  empty-a4 = 0 行差异（空态行）+ 无未盘区块 + 四宫格 0/0/0/0（单页空态）
+  big-a4   = 120 行差异 + 24 行未盘 + 四宫格 120/106/14/6  （强制跨 >= 3 页）
+载体任务（--task）只用于把 .st-print 渲染出来，其真实数据不进基线；但须满足「可查 + 未盘清单区块存在」
+（uncountedCount > 0），否则 fixture 无处填充未盘清单 → 显式 FAIL，不静默退化成真实数据基线。
+
 用法（在 web-admin 目录下）：
   python _e2e/_verify_print_baseline.py --task <taskId>                # 比对
   python _e2e/_verify_print_baseline.py --task <taskId> --record       # 录基线
   python _e2e/_verify_print_baseline.py --task <taskId> --record --force
-  python _e2e/_verify_print_baseline.py --task <id> --empty-task <id>  # 追加 empty-a4
   python _e2e/_verify_print_baseline.py                                # 用环境变量 WA_PRINT_TASK
 环境变量：WA_PRINT_BASE（默认 https://e.joho.cn/guanli/）、WA_PRINT_TASK、WA_SMOKE_USER、WA_SMOKE_PWD、WA_SMOKE_CHANNEL
   WA_API_ORIGIN（计划外增补 a）：非空且 WA_PRINT_BASE 指向 localhost 时，把 **/admin-api 转发到该源（只读）；
   为空时不注册任何路由，行为与计划逐字一致。
 退出码：0 = 全部通过（含显式 SKIP）；1 = 断言失败；2 = 环境不可用
 
+SKIP 边界（反假 PASS，2026-09-25 收紧）：
+  像素阶段**不得**因「数据不足」降级为 SKIP——数据已由 fixture 保证，缺数据即环境异常 → FAIL；
+  唯一允许的像素降级是「渲染环境指纹不符」（规格 §10.5：跨机/跨版本，结构断言照跑）。
+
 计划外增补（Task 16 执行偏差，逐条见交付报告）：
   (a) WA_API_ORIGIN 反代：本机无可写后端，登录与查询经 /admin-api 只读转发到生产。
   (b) 「任务必须 POSTED」在其它终态（如 CANCELLED）时降级为显式 SKIP，其余断言不放宽。
-  (c) 数据不足（无有效数据行）时 skip 相应断言（跨页/像素比对）并拒绝写基线，绝不伪造 PASS。
+  (c) 阶段 ① 数据不足（无有效差异行）时 skip 真实数据侧的结构断言，绝不伪造 PASS；
+      阶段 ② 因 fixture 而不再存在「数据不足」分支（原 --empty-task 参数随之取消）。
 """
 import argparse
 import io
@@ -57,7 +74,21 @@ COL_TOL_MM = 0.3
 WIDTH_TOL_MM = 0.3
 FONT_STACK = '"PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif'
 PRINT_AT = '2026-09-25 10:00'                       # 冻结打印时间，保证页脚可复现
-BIG_ROWS = 120
+
+# —— 合成 fixture（数据受控；文案常量镜像 src/locale/zh-Hans.json 的 stocktake.diff.* 词条）——
+FIX_CODE = 'FX20260925-001'
+FIX_TITLE = FIX_CODE + ' · 固定样例盘库任务'
+FIX_SUB = '仓库: 固定样例仓 | 活动: FX-ACT-01'
+EMPTY_TEXT = '暂无差异'                              # stocktake.diff.empty
+UNC_TITLE = '未盘项（%d）'                            # stocktake.diff.uncountedTitle
+FOOT_TASK = '任务号'                                 # stocktake.diff.footerTask
+FOOT_AT = '打印时间'                                  # stocktake.diff.footerAt
+# case → fixture 规格（rows/unc 为行数，sum 为四宫格 应盘/已盘/未盘/盘盈）
+FIXTURE = {
+    'diff-a4': {'rows': 6, 'unc': 3, 'sum': [6, 4, 2, 1]},
+    'empty-a4': {'rows': 0, 'unc': 0, 'sum': [0, 0, 0, 0]},
+    'big-a4': {'rows': 120, 'unc': 24, 'sum': [120, 106, 14, 6]},
+}
 
 BASE = os.environ.get('WA_PRINT_BASE', 'https://e.joho.cn/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
@@ -70,6 +101,16 @@ BASE_DIR = ROOT / 'baselines' / 'print'
 API_ORIGIN = os.environ.get('WA_API_ORIGIN', '').rstrip('/')
 
 FAILS, SKIPS = [], []
+
+
+def pkg_version(name):
+    """包版本（进指纹）：playwright 包没有 __version__，必须走 importlib.metadata；
+    取不到就记 unknown（不静默当成「版本未变」）。跨版本不符即降级 SKIP（规格 §10.5）。"""
+    try:
+        from importlib.metadata import version
+        return version(name)
+    except Exception:  # noqa: BLE001
+        return 'unknown'
 
 
 def check(name, ok, detail=''):
@@ -168,16 +209,113 @@ def measure(pg):
     }""")
 
 
-def inject_big(pg, n):
-    return pg.evaluate("""(n) => {
-      const tb = document.querySelector('.st-print .p-tbl tbody');
-      if (!tb) return -1;
-      const rows = [...tb.querySelectorAll('tr')].filter(r => !r.querySelector('.p-empty'));
-      if (!rows.length) return -2;
-      const src = rows[0];
-      for (let i = 0; i < n; i++) tb.appendChild(src.cloneNode(true));
-      return tb.querySelectorAll('tr').length;
-    }""", n)
+def fixture_spec(case):
+    """按 case 生成冻结的合成 fixture（纯函数：同一 case 恒等输出，不受后端数据影响）。"""
+    f = FIXTURE[case]
+    rows = []
+    for i in range(1, f['rows'] + 1):
+        counted, snap = 10 + i % 7, 8 + i % 5
+        d = counted - snap
+        rows.append([
+            'A-%02d-%02d' % (1 + (i - 1) // 12, 1 + (i - 1) % 12),
+            'Z%02d' % (1 + (i - 1) % 8),
+            'FX-SKU-%04d' % i,
+            '固定样例商品 %04d' % i,
+            str(counted), str(snap), str(snap),
+            ('+' if d > 0 else '') + str(d),
+            '1' if i % 5 == 0 else '',
+        ])
+    unc = [['FX-UNC-%04d' % i, '固定未盘样例 %04d' % i, str(3 + i % 9)]
+           for i in range(1, f['unc'] + 1)]
+    return {
+        'case': case, 'title': FIX_TITLE, 'sub': FIX_SUB,
+        'sum': [str(v) for v in f['sum']],
+        'rows': rows, 'unc': unc,
+        'emptyText': EMPTY_TEXT, 'uncTitle': UNC_TITLE % f['unc'],
+        'footTask': '%s: %s' % (FOOT_TASK, FIX_CODE),
+        'footAt': '%s: %s' % (FOOT_AT, PRINT_AT),
+    }
+
+
+# 把 .st-print 的内容整体替换为冻结 fixture（保留真实表头/四宫格标签等 i18n 文案，几何仍受测）
+FIXTURE_JS = """(spec) => {
+  const root = document.querySelector('.st-print');
+  if (!root) return {ok: false, why: 'no .st-print'};
+  // uni-app H5 强制给本组件每个元素加 scoped 属性（data-v-*）；新建节点必须继承该属性，
+  // 否则 scoped 打印样式（如 .p-tbl td[data-v-*]）不命中 → 注入的表格会退化成无样式
+  const vattr = Array.from(root.attributes).map(a => a.name).find(n => n.indexOf('data-v-') === 0) || '';
+  const mk = (tag, cls, txt) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (vattr) e.setAttribute(vattr, '');
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  };
+  const setText = (sel, txt) => {
+    const e = root.querySelector(sel);
+    if (e) e.textContent = txt;
+    return !!e;
+  };
+
+  setText('.p-head .p-title', spec.title);
+  const sub = root.querySelector('.p-head .p-sub');
+  if (sub) { Array.from(sub.children).forEach(c => c.remove()); sub.textContent = spec.sub; }
+
+  const ns = root.querySelectorAll('.p-sum .p-cell .p-n');
+  spec.sum.forEach((v, i) => { if (ns[i]) ns[i].textContent = v; });
+
+  const tb = root.querySelector('.p-sec .p-tbl tbody');
+  if (!tb) return {ok: false, why: 'no diff tbody'};
+  tb.textContent = '';
+  let hasEmpty = false;
+  if (!spec.rows.length) {
+    const tr = mk('tr');
+    const td = mk('td', 'p-empty', spec.emptyText);
+    td.setAttribute('colspan', '9');
+    tr.appendChild(td);
+    tb.appendChild(tr);
+    hasEmpty = true;
+  } else {
+    spec.rows.forEach(r => {
+      const tr = mk('tr');
+      ['c1', 'c2', 'c3', 'c4', 'c5 num', 'c6 num', 'c7 num', 'c8 num', 'c9 num']
+        .forEach((cls, i) => tr.appendChild(mk('td', cls, r[i])));
+      tb.appendChild(tr);
+    });
+  }
+
+  const uncSec = Array.from(root.querySelectorAll('.p-sec'))
+    .find(s => s.querySelector('.p-tbl.p-unc')) || null;
+  let uncRows = 0;
+  if (spec.unc.length) {
+    if (!uncSec) return {ok: false, why: 'no .p-unc section（载体任务须 uncountedCount > 0）'};
+    uncSec.style.display = '';
+    setText('.p-sec-t', spec.uncTitle);
+    const utb = uncSec.querySelector('tbody');
+    utb.textContent = '';
+    spec.unc.forEach(r => {
+      const tr = mk('tr');
+      ['u1', 'u2', 'u3 num'].forEach((cls, i) => tr.appendChild(mk('td', cls, r[i])));
+      utb.appendChild(tr);
+    });
+    uncRows = utb.querySelectorAll('tr').length;
+  } else if (uncSec) {
+    uncSec.style.display = 'none';
+  }
+
+  const foot = root.querySelector('.p-foot');
+  if (!foot || foot.children.length < 2) return {ok: false, why: 'no .p-foot children'};
+  // 页脚是 display:flex + space-between：两个子项各自赋值（合并成一个文本节点会丢掉分栏）
+  foot.children[0].textContent = spec.footTask;
+  foot.children[1].textContent = spec.footAt;
+
+  return {ok: true, vattr: vattr, hasEmpty: hasEmpty,
+          diffRows: tb.querySelectorAll('tr').length, uncRows: uncRows};
+}"""
+
+
+def apply_fixture(pg, spec):
+    return pg.evaluate(FIXTURE_JS, spec)
 
 
 # —— 计划外增补 (c)：有效数据行数（排除 .p-empty 占位行），用于识别「数据不足」——
@@ -209,15 +347,15 @@ def arr(img):
     return np.asarray(img, dtype=np.int16)
 
 
-def build_env(pg, tid, m, pages):
+def build_env(pg, tid, m, pages, spec):
     return {
-        'case_task_id': str(tid),
+        'case_task_id': str(tid),          # 载体任务（只用于渲染出 .st-print，其数据不进基线）
         'title': m['text'].split('\n')[0] if m.get('text') else '',
         'pages': pages,
         'page_h_dev': PAGE_H_DEV,
         'fingerprint': {
             'chromium': pg.evaluate('() => navigator.userAgent'),
-            'playwright': getattr(playwright, '__version__', 'unknown'),
+            'playwright': pkg_version('playwright'),
             'os': platform.platform(),
             'python': platform.python_version(),
             'viewport': VIEW, 'dpr': DPR,
@@ -225,12 +363,15 @@ def build_env(pg, tid, m, pages):
             'page_h_dev': PAGE_H_DEV,
             'font_stack': FONT_STACK,
             'print_at': PRINT_AT,
+            # 数据 fixture 也是受控渲染契约的一部分：改了 fixture 就得重录基线
+            'fixture': {'code': FIX_CODE, 'title': spec['title'], 'sum': spec['sum'],
+                        'rows': len(spec['rows']), 'unc': len(spec['unc'])},
         },
         'recorded_at': time.strftime('%Y-%m-%d %H:%M:%S'),
     }
 
 
-FP_KEYS = ['chromium', 'playwright', 'os', 'viewport', 'dpr', 'content_mm', 'page_h_dev', 'print_at']
+FP_KEYS = ['chromium', 'playwright', 'os', 'viewport', 'dpr', 'content_mm', 'page_h_dev', 'print_at', 'fixture']
 
 
 def pdf_asserts(pg, case, expect_pages):
@@ -284,8 +425,12 @@ def task_meta(pg, tid):
     return code, state
 
 
-def run(pg, case, tid, record, force, big=False, empty=False):
-    print('\n[%s] task=%s' % (case, tid))
+def run(pg, case, tid, record, force):
+    spec = fixture_spec(case)
+    nrow, nunc = len(spec['rows']), len(spec['unc'])
+    print('\n[%s] carrier task=%s fixture=rows:%d unc:%d' % (case, tid, nrow, nunc))
+
+    # ---------------- 阶段 ①：真实数据结构断言（照旧；数据不足只影响本阶段） ----------------
     code, state = task_meta(pg, tid)
     # —— 计划外增补 (b)：POSTED 保持原 check；其它终态（生产无 POSTED 任务）降级为显式 SKIP ——
     if bool(code) and state == 'POSTED':
@@ -296,39 +441,42 @@ def run(pg, case, tid, record, force, big=False, empty=False):
     else:
         check('%s 任务可查且已终态（免受并发改动影响）' % case, False, 'code=%s state=%s' % (code, state))
     open_diff(pg, tid)
-    # —— 计划外增补 (c)：无有效数据行 = 数据不足（不编造、不写基线、相应断言转 SKIP）——
-    # empty-a4 的「无差异行」正是其预期空态，故不按数据不足处理，改为显式校验 --empty-task 语义
     nrows = rows_in_table(pg)
-    if empty:
-        check('%s --empty-task 确实无差异行（空态语义）' % case, nrows == 0, 'rows=%d' % nrows)
-    short = (nrows == 0) and not empty
-    if big:
-        n = inject_big(pg, BIG_ROWS)
-        if n == -2:
-            skip('%s 注入行成功' % case, '数据不足：数据源无有效数据行（inject_big=%s），无法注入' % n)
-        else:
-            check('%s 注入行成功' % case, n >= BIG_ROWS, 'rows=%s' % n)
+    if nrows == 0:
+        skip('%s 真实数据有差异行' % case,
+             '数据不足：数据源无有效差异行（不阻塞阶段 ② —— 像素基线数据由 fixture 提供）')
+    else:
+        check('%s 真实数据有差异行' % case, True, 'rows=%d' % nrows)
+    geometry_asserts(case, measure(pg), code)
+
+    # ---------------- 阶段 ②：受控渲染像素基线（内容整体冻结为 fixture） ----------------
+    fr = apply_fixture(pg, spec)
+    if not isinstance(fr, dict) or not fr.get('ok'):
+        check('%s fixture 注入成功' % case, False, str(fr))
+        return
+    check('%s fixture 注入成功' % case, True, 'vattr=%s' % fr.get('vattr'))
+    want_rows = 1 if nrow == 0 else nrow          # 空态时 tbody 只有一行占位 .p-empty[colspan=9]
+    check('%s fixture 生效：差异表行数' % case, fr['diffRows'] == want_rows,
+          'rows=%s 期望=%s' % (fr['diffRows'], want_rows))
+    check('%s fixture 生效：空态行' % case, fr['hasEmpty'] == (nrow == 0), 'hasEmpty=%s' % fr['hasEmpty'])
+    check('%s fixture 生效：未盘清单行数' % case, fr['uncRows'] == nunc,
+          'rows=%s 期望=%s' % (fr['uncRows'], nunc))
+
     m = measure(pg)
-    geometry_asserts(case, m, code)
+    geometry_asserts(case + '[fixture]', m, FIX_CODE)
     png = pg.locator('.st-print').screenshot()
     w, pages = slice_pages(png)
-    check('%s 光栅宽度 = 186mm @dpr2（±2px）' % case, abs(w - round(CONTENT_W_CSS * DPR)) <= 2,
+    check('%s[fixture] 光栅宽度 = 186mm @dpr2（±2px）' % case, abs(w - round(CONTENT_W_CSS * DPR)) <= 2,
           'w=%d 期望=%d' % (w, round(CONTENT_W_CSS * DPR)))
-    if big:
-        if short:
-            skip('%s 内容跨 >= 3 页' % case, '数据不足：数据源无有效数据行，跨页行为不可验证')
-        else:
-            check('%s 内容跨 >= 3 页' % case, len(pages) >= 3, 'pages=%d' % len(pages))
+    if case == 'big-a4':
+        check('%s[fixture] 内容跨 >= 3 页' % case, len(pages) >= 3, 'pages=%d' % len(pages))
     pdf_asserts(pg, case, len(pages))
 
     folder = BASE_DIR / case
-    env_now = build_env(pg, tid, m, len(pages))
+    env_now = build_env(pg, tid, m, len(pages), spec)
     if record:
         if folder.exists() and not force:
             check('%s 基线已存在（要覆盖请加 --force）' % case, False, str(folder))
-            return
-        if short:
-            skip('%s 录制基线' % case, '数据不足（无有效数据行）→ 拒绝写入基线，避免生成空的/伪造的 page-1.png')
             return
         folder.mkdir(parents=True, exist_ok=True)
         for i, p in enumerate(pages):
@@ -337,9 +485,7 @@ def run(pg, case, tid, record, force, big=False, empty=False):
         print('  REC  %s → %d 页 + env.json' % (folder, len(pages)))
         return
 
-    if short:
-        skip('%s 像素比对' % case, '数据不足：数据源无有效数据行 → 无基线可比，跳过（不伪造 PASS）')
-        return
+    # —— SKIP 边界已收紧：像素阶段没有「数据不足」降级路径（数据由 fixture 保证），缺基线即 FAIL ——
     env_path = folder / 'env.json'
     if not env_path.exists():
         check('%s 基线存在' % case, False, '未找到 %s（先跑 --record）' % env_path)
@@ -374,7 +520,6 @@ def run(pg, case, tid, record, force, big=False, empty=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--task', default=os.environ.get('WA_PRINT_TASK', ''))
-    ap.add_argument('--empty-task', default=os.environ.get('WA_PRINT_EMPTY_TASK', ''))
     ap.add_argument('--record', action='store_true')
     ap.add_argument('--force', action='store_true')
     a = ap.parse_args()
@@ -383,6 +528,8 @@ def main():
         raise SystemExit(2)
 
     print('受控渲染：viewport=%s dpr=%d content=%.0fx%.0fmm page_h_dev=%d' % (VIEW, DPR, CONTENT_W_MM, CONTENT_H_MM, PAGE_H_DEV))
+    print('数据 fixture：' + '；'.join('%s=rows:%d/unc:%d' % (c, FIXTURE[c]['rows'], FIXTURE[c]['unc'])
+                                  for c in ('diff-a4', 'empty-a4', 'big-a4')))
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         ctx = b.new_context(viewport=VIEW, device_scale_factor=DPR, locale='zh-CN')
@@ -395,12 +542,10 @@ def main():
         pg.emulate_media(media='print')
         login(pg)
 
+        # 三个 case 共用同一载体任务：内容一律由 fixture 覆盖，故不再需要 --empty-task
         run(pg, 'diff-a4', str(a.task), a.record, a.force)
-        if a.empty_task:
-            run(pg, 'empty-a4', str(a.empty_task), a.record, a.force, empty=True)
-        else:
-            skip('empty-a4', '未提供 --empty-task / WA_PRINT_EMPTY_TASK')
-        run(pg, 'big-a4', str(a.task), a.record, a.force, big=True)
+        run(pg, 'empty-a4', str(a.task), a.record, a.force)
+        run(pg, 'big-a4', str(a.task), a.record, a.force)
 
         check('全程无 JS 运行时异常', not [e for e in errs if e.startswith('PAGEERR')], str([e for e in errs if e.startswith('PAGEERR')][:2]))
         print('  console.error 计数 = %d' % len([e for e in errs if e.startswith('CONSOLE')]))
