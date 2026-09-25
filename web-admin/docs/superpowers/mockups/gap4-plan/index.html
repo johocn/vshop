@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>web-admin 第 4 轮补齐 · 方案对比</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;background:#eceef4;color:#1c2233;-webkit-font-smoothing:antialiased;padding:22px 26px 60px}
+  a{color:#2f6bff;text-decoration:none}
+  h1{font-size:20px;letter-spacing:-.3px}
+  .lead{font-size:12.5px;color:#6b758a;margin:6px 0 20px;line-height:1.7}
+  h2{font-size:14px;font-weight:700;margin:26px 0 12px;padding-left:9px;border-left:3px solid #2f6bff}
+  /* 现状表 */
+  .gapwrap{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .panel{background:#fff;border:1px solid #e3e6ee;border-radius:13px;padding:14px 16px}
+  .panel h3{font-size:12.5px;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.g{background:#1fa97a}.dot.r{background:#e5484d}.dot.o{background:#e8950c}
+  .panel ul{list-style:none;font-size:12px;line-height:1.95;color:#4a5368}
+  .panel li{padding-left:16px;position:relative}
+  .panel li:before{content:"·";position:absolute;left:5px;color:#b3bacb;font-weight:700}
+  .panel li b{color:#1c2233;font-weight:600}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:#f2f4f9;border-radius:4px;padding:1px 5px;color:#5a6274}
+  /* 方案卡 */
+  .schemes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+  .sc{background:#fff;border:1px solid #e3e6ee;border-radius:13px;overflow:hidden;display:flex;flex-direction:column}
+  .sc.rec{border:2px solid #2f6bff;box-shadow:0 6px 24px rgba(47,107,255,.14)}
+  .sc .hd{padding:12px 15px;border-bottom:1px solid #eef0f6;display:flex;align-items:center;gap:8px}
+  .sc .hd .tag{font-size:10px;font-weight:700;letter-spacing:.4px;background:#eef0f6;color:#6b758a;border-radius:5px;padding:3px 7px}
+  .sc.rec .hd .tag{background:#2f6bff;color:#fff}
+  .sc .hd .nm{font-size:13.5px;font-weight:700}
+  .sc .hd .sp{flex:1}
+  .sc .bd{padding:13px 15px;font-size:12px;line-height:1.8;color:#4a5368;flex:1}
+  .sc .bd .row{display:flex;gap:8px;margin-bottom:9px}
+  .sc .bd .row:last-child{margin-bottom:0}
+  .sc .bd .k{font-size:10.5px;font-weight:700;color:#8a93a6;flex:none;width:44px;padding-top:2px}
+  .sc .bd .v{flex:1}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;margin-right:5px}
+  .pill.ok{color:#1fa97a;background:rgba(31,169,122,.12)}
+  .pill.warn{color:#e8950c;background:rgba(232,149,12,.13)}
+  .pill.bad{color:#e5484d;background:rgba(229,72,77,.1)}
+  .pill.info{color:#2f6bff;background:rgba(47,107,255,.1)}
+  /* 对照表 */
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e3e6ee;border-radius:13px;overflow:hidden;font-size:12px}
+  th,td{padding:10px 13px;text-align:left;border-bottom:1px solid #eef0f6;vertical-align:top}
+  th{background:#f7f8fc;font-size:11.5px;font-weight:700;color:#6b758a}
+  tr:last-child td{border-bottom:none}
+  td.w{width:150px;font-weight:600;color:#1c2233}
+  td.rec{background:#f6f9ff}
+  .yes{color:#1fa97a;font-weight:700}
+  .no{color:#e5484d;font-weight:700}
+  .mid{color:#e8950c;font-weight:700}
+  /* 版式入口 */
+  .mocklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .ml{background:#fff;border:1px solid #e3e6ee;border-radius:13px;padding:15px;display:block;transition:.16s}
+  .ml:hover{border-color:#2f6bff;box-shadow:0 6px 20px rgba(47,107,255,.13);transform:translateY(-2px)}
+  .ml .t{font-size:13px;font-weight:700;color:#1c2233;margin-bottom:5px}
+  .ml .d{font-size:11.5px;color:#6b758a;line-height:1.65}
+  .ml .go{font-size:11.5px;color:#2f6bff;font-weight:600;margin-top:9px;display:block}
+  .foot{margin-top:30px;font-size:11.5px;color:#8a93a6;line-height:1.8;border-top:1px solid #dfe3ec;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>web-admin 第 4 轮补齐 · 方案对比</h1>
+<p class="lead">
+  依据：<span class="mono">docs/superpowers/specs/2026-09-20-web-admin-gap3-inventory.md</span>（已复核，四项过时）<br>
+  已定：<b>一份总纲 spec + 4 批串行</b> · 第 4 批含<b>定时底座 + 预留超时释放 / 批次交接复核异常件 / 长期报表</b>（周期盘自动建任务移入 backlog）
+</p>
+
+<h2>一、缺口现状（2026-09-25 实测复核）</h2>
+<div class="gapwrap">
+  <div class="panel">
+    <h3><span class="dot g"></span>已交付 —— 本轮不得重复做</h3>
+    <ul>
+      <li><b>G1 主题风格体系</b>：<span class="mono">constants/theme-migration.ts</span> 已存在（legacy themeId 迁移）</li>
+      <li><b>G3 库存单据闭环</b>：后端 <span class="mono">stockDocList</span> + 前端「单据中心」页已上线</li>
+      <li><b>G4 库存流水</b>：已有 <span class="mono">onReachBottom</span> 分页加载（非写死 50）</li>
+      <li><b>G7.1 调整库存</b>：<span class="mono">stock/index.vue</span> 已有调整库存弹层</li>
+      <li><b>后端迁移</b>：<span class="mono">migrations/</span> 幂等迁移已存在（非裸 synchronize）</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h3><span class="dot r"></span>仍空缺 —— 本轮要做</h3>
+    <ul>
+      <li><b>G5 售后列表</b>：<span class="mono">take: 50</span> 写死，无 skip / 关键词 / 日期 / 金额筛选</li>
+      <li><b>G6 分类管理</b>：无排序、无层级移动、无图标、无批量</li>
+      <li><b>G2 残项</b>：合并预览未接到「全局配置 / 店铺覆盖」页</li>
+      <li><b>G7.4 / G7.5 死代码</b>：<span class="mono">product.ts</span> / <span class="mono">collection.ts</span> 无用函数仍在</li>
+      <li><b>后端闭环</b>：<span class="mono">cjk-plugin</span> 内<b>无 JobQueue / Worker / cron</b>；预留单无超时释放（仅取消/退款时对称 release）</li>
+    </ul>
+  </div>
+</div>
+
+<h2>二、三种做法（实现取向，非批次结构）</h2>
+<div class="schemes">
+
+  <div class="sc rec">
+    <div class="hd"><span class="tag">A</span><span class="nm">公共层抽取 + 就地对齐</span><span class="sp"></span><span class="pill info">推荐</span></div>
+    <div class="bd">
+      <div class="row"><span class="k">列表</span><span class="v">抽 <span class="mono">useListPage()</span> composable（分页游标 / 筛选态 / 下拉刷新 / 加载更多 / 空态），售后 · 流水 · 单据中心 · 报表复用同一套。新增列表页直接接入，不再各自手写。</span></div>
+      <div class="row"><span class="k">分类</span><span class="v">走 Vendure 原生 <span class="mono">updateCollection</span>（<span class="mono">position</span> + <span class="mono">parentId</span>），不新增本地排序字段；原生能力不足则降级「仅层级展示 + 仅排序」。</span></div>
+      <div class="row"><span class="k">报表</span><span class="v">并入既有 <span class="mono">pages/data/dashboard</span>，新增一层「视图」分段（经营数据 / 作业分析），复用现成图表与 7·30 天筛选。</span></div>
+      <div class="row"><span class="k">定时</span><span class="v">在 <span class="mono">cjk-plugin</span> 注册 JobQueue + 独立 worker 入口脚本，复用仓库既有 <span class="mono">npm run dev:worker</span> 约定。</span></div>
+      <div class="row"><span class="k">取舍</span><span class="v"><span class="pill ok">一次性消除列表标准分裂</span><span class="pill ok">后续页面零成本对齐</span><span class="pill warn">需先搭 composable 再改页</span></span></div>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="hd"><span class="tag">B</span><span class="nm">逐页就地改造</span></div>
+    <div class="bd">
+      <div class="row"><span class="k">列表</span><span class="v">售后列表单独补筛选 + 分页，照抄订单列表写法；不动公共层。</span></div>
+      <div class="row"><span class="k">分类</span><span class="v">同 A（原生 position / parentId）。</span></div>
+      <div class="row"><span class="k">报表</span><span class="v">新增独立「作业报表」页，独立入口。</span></div>
+      <div class="row"><span class="k">定时</span><span class="v">同 A。</span></div>
+      <div class="row"><span class="k">取舍</span><span class="v"><span class="pill ok">改动面最小 / 风险最低</span><span class="pill bad">列表两套标准继续分裂</span><span class="pill bad">第 5 轮还要再对齐一次</span></span></div>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="hd"><span class="tag">C</span><span class="nm">抽列表页脚手架组件</span></div>
+    <div class="bd">
+      <div class="row"><span class="k">列表</span><span class="v">做成 <span class="mono">&lt;ListPage&gt;</span> 模板组件（工具栏 / 筛选抽屉 / 分页 / 空态用 slot 拼装），页面只写业务行。</span></div>
+      <div class="row"><span class="k">分类</span><span class="v">同 A。</span></div>
+      <div class="row"><span class="k">报表</span><span class="v">同 A。</span></div>
+      <div class="row"><span class="k">定时</span><span class="v">同 A。</span></div>
+      <div class="row"><span class="k">取舍</span><span class="v"><span class="pill ok">一致性最强</span><span class="pill bad">uni-app 下 slot 抽象易踩坑</span><span class="pill bad">改造面最大 / 回归面最大</span></span></div>
+    </div>
+  </div>
+
+</div>
+
+<h2>三、逐轴对照</h2>
+<table>
+  <thead>
+    <tr><th class="w">决策轴</th><th>A 公共层抽取</th><th>B 逐页改造</th><th>C 脚手架组件</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="w">列表分页/筛选复用</td><td class="rec"><span class="yes">composable 复用</span></td><td><span class="no">复制粘贴</span></td><td class="rec"><span class="yes">组件 + slot</span></td></tr>
+    <tr><td class="w">改动文件数</td><td class="rec"><span class="mid">中</span></td><td><span class="yes">少</span></td><td><span class="no">多</span></td></tr>
+    <tr><td class="w">后续新页成本</td><td class="rec"><span class="yes">低</span></td><td><span class="no">高</span></td><td class="rec"><span class="yes">最低</span></td></tr>
+    <tr><td class="w">uni-app 兼容风险</td><td class="rec"><span class="yes">低</span></td><td class="rec"><span class="yes">低</span></td><td><span class="mid">中（slot / 作用域）</span></td></tr>
+    <tr><td class="w">回归面</td><td class="rec"><span class="yes">可控（4 页）</span></td><td class="rec"><span class="yes">最小（1 页）</span></td><td><span class="no">大</span></td></tr>
+    <tr><td class="w">分类 position/层级</td><td class="rec" colspan="3">A / B / C 一致：优先 Vendure 原生，不可用则降级</td></tr>
+    <tr><td class="w">报表落点</td><td class="rec">并入数据看板（新增视图分段）</td><td>独立报表页</td><td class="rec">并入数据看板（新增视图分段）</td></tr>
+  </tbody>
+</table>
+
+<h2>四、版式 mockup（逐页预览）</h2>
+<div class="mocklinks">
+  <a class="ml" href="./list-consistency.html">
+    <div class="t">① 售后列表 · 一致性对齐</div>
+    <div class="d">现状（只有 4 个状态 tab，第 50 条之后看不到）与对齐后（筛选栏 + 日期/金额区间 + 加载更多）双机并排。</div>
+    <span class="go">打开预览 →</span>
+  </a>
+  <a class="ml" href="./category-tree.html">
+    <div class="t">② 分类管理 · 树形 + 排序 + 图标</div>
+    <div class="d">现状（平铺 + 四个动作）与目标（层级树 + 排序模式 + 图标 + 批量选择）双机并排。</div>
+    <span class="go">打开预览 →</span>
+  </a>
+  <a class="ml" href="./report.html">
+    <div class="t">③ 长期报表 · 两种落点</div>
+    <div class="d">落点甲（数据看板内新增「作业分析」视图分段）与落点乙（独立「作业报表」页）并排对比。</div>
+    <span class="go">打开预览 →</span>
+  </a>
+</div>
+
+<p class="foot">
+  本页为 brainstorming 阶段的可视化对比，尚未构成已批准的规格。批准后才会写入<br>
+  <span class="mono">docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md</span> 并转入 writing-plans。
+</p>
+
+</body>
+</html>
