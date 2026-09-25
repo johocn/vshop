@@ -3252,6 +3252,16 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 | D12 | 全批次（后端）**部署致命** | `packages/cjk-plugin` 的 `main = lib/index.js`，dev-server 以 ts-node 运行 `index.ts` 时经 node_modules junction **加载的是 `lib/` 编译产物**；且本仓库**历史上把 `lib/` 入库**（如 commit `2a3a64e9a` 同时提交 `src/` 与 `lib/`）。故后端改动**只提交 src 会导致服务器 `git pull` 后仍跑旧代码** | `d:\zhao\vendure` 的 push→pull 部署链路不会在服务器构建（内存不足，禁止服务器构建） | **规则修订：所有后端 Task 的 commit 必须在 src 之外一并提交 `packages/cjk-plugin/lib` 产物**（先 `npm run build`，再 `git add packages/cjk-plugin/src/... packages/cjk-plugin/lib`，仍禁 `git add -A`）。本规则覆盖 Task 1.6 / 3.1 / 4.1 / 4.2 / 4.3 / 4.5 的 commit 步骤。首次落地见 commit `2d4def348`（src）+ `7264d1080`（lib） |
 | D13 | 批 4（Task 4.9） | Task 4.9 的 `pm2 start "npm run start:worker" ...` 不成立：`packages/dev-server/package.json` **没有任何 `start:*` 脚本**（只有 `dev:server` / `dev:worker` / `dev`） | 计划按「生产有 start 脚本」假设书写，未核验 | 执行 Task 4.9 时**必须先在服务器 `pm2 list` / `pm2 describe <name>` 读出既有 pm2 条目的真实 name 与 script/cwd/interpreter**，按现状照抄一份 worker 条目（若既有条目就是 `dev:worker` 形式，worker 条目也用同形式），**不得照抄计划里的命令**；真实口径回填本表 |
 | D14 | 批 1（执行顺序调整） | **Task 1.6 的 Step 1+2（后端 `icon` 字段 + 幂等迁移）被提前**到 Task 1.5 之前执行 | Task 1.4 已让 `fetchCollectionsOptimized` 查询 `customFields { icon }`，后端字段缺失会让分类页**运行时报 `Cannot query field "icon"`**，Task 1.5 的联调无法进行 | 已完成并提交（后端仓 `2d4def348` src + `7264d1080` lib）。**Task 1.6 执行时只做 Step 3/4/5**（前端 API + 页面批量条 + 门禁），Step 1/2 跳过（已完成），Task 1.6 的 commit 命令相应去掉后端两条命令 |
+| D15 | 批 1（Task 1.5 缺陷，验收期暴露） | 分类**根级** ↑↓ 换序**静默无效**（子级正常） | `swapSibling()` 用 `nodeIndex.get(parentId).children` 找兄弟，但根分类的 `parentId` 指向 Vendure **根集合**（该集合不在 `collections` 列表里，永远查不到）→ 兄弟数组为空 → `i<0` 静默 return | 已修（commit `e2c1b9f`）：兄弟改为**从扁平列表 `cats.value` 按 `parentId` 过滤 + position/name 排序**取，并把节点真实 `parentId` 传给 `moveCollection`；顺带删除因此变成死代码的 `indexNodes`/`nodeIndex`。**Task 1.5 的 `indexNodes` 写法作废，后续同类需求一律用扁平列表取同级** |
+| D16 | 批 1（规格偏离修正） | 图标原落成「`uni.showModal({editable:true})` 手打字符串」，规格 §4.4 要求「写入 `customFields` + 复用 MediaPicker」，且页面上**不显示**图标（无法验收） | Task 1.6 只写了「批改图标」的文本弹窗 | 已按规格收口（commit `7dec6b5`）：改用 `MediaLibraryModal`（`:max="1"` / `media-type="image"`，即 MediaPicker 的底层共享组件）选图，取 `assets[0].id` 写入 `customFields.icon`；新增**行内图标区**（未设置显示「＋」，点击可单条设置），并用 `fetchAssets(n, 0, undefined, ids)` **一次批量预取** id→preview 建 `iconUrlById` 渲染。历史遗留的非 asset-id 文本值查不到即静默不显示 |
+
+**批 1 执行结论（Task 1.8 收口）**
+
+- **批次门禁全部通过**：`build:h5` EXIT=0；售后列表类型筛选（12≠20，行内全为筛选类型）与上滑加载累计（20→25）e2e 通过；分类树缩进 14.56px + 折叠（5→3 行）+ 换序回读一致（根级/子级均验证）；死代码删除后构建无引用报错。
+- **核验项 0.1 / 0.2 未被推翻**：`updateCollection` 接受 `position`、`moveCollection(collectionId,parentId,index)` 存在且可用（探针 PASS，另见 D15 的根级修正）。
+- **证据**：`docs/verify/gap4-batch1-*.png` 共 10 张（390×844 / dpr=2 = 780×1688，逐张人工看图核对为真实页面，无白屏/登录页/报错页）；两页 console 0 error / 0 pageerror。手册第 17 章已补（`webadmin-bugfix-manual.html`），`npm run verify:manual` PASS。
+- **测试数据副作用（仅本地库）**：验收期以 `WA_SHOT_ALLOW_WRITE=1` 造过 fixture（生产域名硬拦，未改 vendure 任何文件）；售后样本服务端无删除 mutation，遗留 23 条置 `Closed` 的记录与一次性分类，属本地库脏数据，不影响线上。
+- `src/static/manual/index.html`（发布用使用手册）为数据驱动 `op-N` + `shots/` 结构，与修复手册不一致，**本轮只更新修复手册**；发布手册待批次 4 的 Task 4.9 一并处理。
 
 ---
 
