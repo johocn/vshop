@@ -262,11 +262,18 @@ export async function createStocktakeTask(input: {
           stockLocationId: input.stockLocationId,
           name: input.name,
           activityCode: input.activityCode ?? null,
-          // 草稿发布时要按保存时的开关还原，故写进 scope（顶层字段保留仅为 SDL 兼容）
+          // 拆盘开关走顶层：SDL 的 StocktakeScopeInput 只有 zones/categoryIds/variantIds/includeZeroBook，
+          // 把它塞进 scope 会被 GraphQL 以「未定义字段」直接拒绝。调用方混在 scope 里时这里上提到顶层，
+          // 后端会归并进 scopeJson，草稿发布时据此还原拆盘档位。
           scope: input.scope
-            ? { ...input.scope, autoSplitByZone: input.scope.autoSplitByZone ?? input.autoSplitByZone ?? null }
+            ? {
+              zones: input.scope.zones,
+              categoryIds: input.scope.categoryIds,
+              variantIds: input.scope.variantIds,
+              includeZeroBook: input.scope.includeZeroBook,
+            }
             : null,
-          autoSplitByZone: input.autoSplitByZone ?? null,
+          autoSplitByZone: input.scope?.autoSplitByZone ?? input.autoSplitByZone ?? undefined,
           note: input.note ?? null,
           state: input.state ?? null,
         },
@@ -436,7 +443,28 @@ export async function updateStocktakeTask(taskId: string, input: {
       `mutation UpdateStocktakeTask($taskId: ID!, $input: StocktakeTaskUpdateInput!) {
         updateStocktakeTask(taskId: $taskId, input: $input) { ${TASK_FIELDS} }
       }`,
-      { taskId, input },
+      {
+        taskId,
+        input: {
+          // 未传的字段序列化后会被丢弃，后端据此判定「不修改」
+          name: input.name,
+          activityCode: input.activityCode,
+          note: input.note,
+          stockLocationId: input.stockLocationId,
+          // 同 createStocktakeTask：拆盘开关只能走顶层，scope 内不带该字段
+          scope: input.scope === undefined
+            ? undefined
+            : input.scope === null
+              ? null
+              : {
+                zones: input.scope.zones,
+                categoryIds: input.scope.categoryIds,
+                variantIds: input.scope.variantIds,
+                includeZeroBook: input.scope.includeZeroBook,
+              },
+          autoSplitByZone: input.scope?.autoSplitByZone ?? undefined,
+        },
+      },
     );
     return r.updateStocktakeTask;
   } catch (e: any) {
