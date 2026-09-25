@@ -259,3 +259,24 @@ export function nextUncountedLine(lines: StocktakeLineRow[], currentId?: string 
   }
   return null;
 }
+
+export type CsvCell = string | number | boolean | null | undefined;
+
+/** variance 列定义（规格 §7.4，与后端 exportOf 的 variance 列一致） */
+export const VARIANCE_CSV_COLUMNS = [
+  '库位编码', '库位', '变体 SKU', '变体名称', '盘点数', '快照账面', '过账账面', '差异', '盘盈', '账面变动',
+] as const;
+
+/**
+ * CSV 序列化（规格 §7.4：前后端同一规则，规则变更必须两端同步）
+ * ① 首字符 BOM ② 行尾 CRLF ③ 含 , " \n \r 时整体引号包裹、内部 " 翻倍 ④ null/undefined 空、boolean 是/否
+ */
+export function toCsv(rows: CsvCell[][]): string {
+  const cell = (v: CsvCell): string => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'boolean') return v ? '是' : '否';
+    const s = String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return '\uFEFF' + rows.map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n';
+}
