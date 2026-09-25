@@ -1025,6 +1025,84 @@ var CHAPTERS = [
 <details><summary>盘点期间还能正常发货吗</summary><p>能。系统<mark class="mark">不冻结出库</mark>；期间账面变动会在差异页标出，并以过账时账面重算差异。</p></details>
 <details><summary>不勾「按库区自动拆盘次」会不会丢库位信息？</summary><p>不会。盘次只剩一个「整仓」，但应盘行的库位归属保留，库区页签、格子网格与未归位清单照常可用。</p></details>
 `},
+{book:'op', id:'op-39', title:'盘库看板分页 · 草稿 · 统计 · 导出与打印', html:`
+<p class="lead">本节讲盘库的<mark class="mark">日常作业细节</mark>：任务多了怎么翻页找、能不能先存草稿再盘、进度怎么看、结果怎么导出和打印。入口、建任务与过账流程见 op-38。</p>
+
+<h3>1. 看板：翻页与「已结束」筛选</h3>
+<p>看板顶部的页签把任务按状态分堆：<mark class="mark">全部 / 草稿 / 盘点中 / 待过账 / 已结束</mark>。切到「已结束」会把<mark class="mark">已过账和已取消</mark>的任务一起列出来，用于回头看历史。</p>
+<ul>
+  <li><mark class="mark">翻页</mark>：列表往下滑到底会自动加载下一页，不需要点「下一页」。</li>
+  <li><mark class="mark">下拉刷新</mark>：从顶部下拉刷新，<mark class="mark">回到第 1 页</mark>并重新拉取最新状态。</li>
+  <li><mark class="mark">计数</mark>：列表底部写着「已加载 x / 共 y 条」——前面是<mark class="mark">已经加载出来的卡片数</mark>，后面是<mark class="mark">这个页签下的全部条数</mark>。两者不等说明下面还有，继续下滑即可。</li>
+</ul>
+<img class="img" src="shots/stocktake-ops-46-pagination.png" alt="看板分页与计数">
+<div class="imgcap">图 Z1 · 看板：任务卡片 + 底部「已加载 28 / 共 28 条」</div>
+
+<h3>2. 草稿：先存草稿，合适的时候再发布</h3>
+<p>盘点计划常常提前定，但要等货摆好才能盘。这时用<mark class="mark">存为草稿</mark>：把仓库、名称、盘哪些货先记下来，<mark class="mark">不生成应盘清单、也不影响任何库存</mark>。</p>
+<ol class="steps">
+  <li>新建任务时填完表单，点<mark class="mark">「存为草稿」</mark>（而不是「创建任务」）。</li>
+  <li>草稿出现在看板的<mark class="mark">「草稿」页签</mark>里，随时可以点开查看。</li>
+  <li>要开始时进草稿详情点<mark class="mark">「发布任务」</mark>；范围还想改就点<mark class="mark">「编辑范围」</mark>改完再发。</li>
+  <li>发布后就和普通任务一样：认领盘次 → 录入或扫码 → 提交 → 差异复核 → 过账。</li>
+</ol>
+<div class="warn"><b>草稿不锁清单：</b>应盘清单在<mark class="mark">点「发布任务」的那一刻</mark>才按当时的库存与商品生成。所以草稿放久了再发布，清单里的货可能和当初设想的不一样——发布前建议看一眼范围。</div>
+<img class="img" src="shots/stocktake-ops-48-new-draft-buttons.png" alt="新建任务-存为草稿与创建任务">
+<div class="imgcap">图 Z2 · 新建任务抽屉底部：「存为草稿」与「创建任务」两个按钮</div>
+<img class="img" src="shots/stocktake-ops-47-draft-detail.png" alt="草稿详情-发布任务">
+<div class="imgcap">图 Z3 · 草稿详情：顶部标着「草稿」，底部是「编辑范围 / 发布任务」</div>
+
+<h3>3. 统计：一眼看清作业量</h3>
+<p>任务详情里的<mark class="mark">统计</mark>页签回答「现在盘得怎么样了」，给出两张表：</p>
+<table>
+  <thead><tr><th>表</th><th>看什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>按库位</b></td><td>每个库区 / 库位<mark class="mark">应盘多少、已盘多少、还剩多少、盘盈多少</mark>；没绑定库位的商品归到「未归位」一栏</td></tr>
+    <tr><td><b>按盘点人</b></td><td>每个人<mark class="mark">盘了多少行、其中盘盈多少行</mark>、参与了几个盘次、最后一次盘是什么时候</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>只看作业量：</b>统计表<mark class="mark">刻意不显示差异数量或金额</mark>——它用来分工与催进度。差异是账面与实盘的对比，一律以<mark class="mark">差异页</mark>为准。</div>
+<img class="img" src="shots/stocktake-ops-49-stats-by-bin.png" alt="统计-按库位">
+<div class="imgcap">图 Z4 · 统计 · 按库位（含「未归位」组：应盘 / 已盘 / 未盘 / 盘盈）</div>
+<img class="img" src="shots/stocktake-ops-50-stats-by-counter.png" alt="统计-按盘点人">
+<div class="imgcap">图 Z5 · 统计 · 按盘点人（还没人盘过时显示「暂无统计数据」）</div>
+
+<h3>4. 导出：拿到一份能算的表</h3>
+<p>差异页顶部工具条上有两个导出按钮：</p>
+<table>
+  <thead><tr><th>按钮</th><th>导什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>导出 CSV</b></td><td><mark class="mark">当前屏幕上这份差异表</mark>，点完立即下载，适合马上要用</td></tr>
+    <tr><td><b>完整导出</b></td><td>让后台生成一份完整表，可选<mark class="mark">按库位作业量 / 按盘点人作业量 / 差异明细 / 全部盘点行</mark>四种内容</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>Excel 打开不乱码：</b>导出的 CSV 已带中文兼容标记，<mark class="mark">双击用 Excel 打开中文不会变乱码</mark>，可以直接做透视或打印。</div>
+<div class="warn"><b>完整导出有行数上限：</b>单次最多两万行，超出会被截断（页面会给出提示）。需要全量底稿时建议按任务分批导出。</div>
+<img class="img" src="shots/stocktake-ops-51-diff-toolbar.png" alt="差异页工具条-导出与打印">
+<div class="imgcap">图 Z6 · 差异页工具条：导出 CSV / 完整导出 / 打印</div>
+<img class="img" src="shots/stocktake-ops-53-export-kinds.png" alt="完整导出-四种内容">
+<div class="imgcap">图 Z7 · 完整导出：选一种要导出的内容</div>
+<img class="img" src="shots/stocktake-ops-52-export-toast.png" alt="导出成功提示">
+<div class="imgcap">图 Z8 · 点「导出 CSV」：立即下载并给出提示</div>
+
+<h3>5. 打印盘点结果单</h3>
+<p>差异页点<mark class="mark">「打印」</mark>（或直接按 <code>Ctrl/Cmd + P</code>）走浏览器打印：可以打 A4 纸质单，也可以「另存为 PDF」。</p>
+<ul>
+  <li>打印单上只有：<mark class="mark">任务信息 → 应盘 / 已盘 / 未盘 / 盘盈 → 差异表 → 未盘清单 → 页脚（任务号与打印时间）</mark>；屏幕上的页签、按钮不会被打出来。</li>
+  <li>版式已按 A4 <mark class="mark">纵向</mark>固定：自动分页时<mark class="mark">每页都重复表头</mark>，一行不会被拆到两页。</li>
+  <li>打印前建议在预览里确认缩放为 <mark class="mark">100%（默认）</mark>——若打印机驱动默认「适应页面」，长表格可能被整体缩小。</li>
+</ul>
+<img class="img" src="shots/stocktake-ops-51b-print-region.png" alt="打印内容区">
+<div class="imgcap">图 Z9 · 打印内容区：任务信息 + 四宫格 + 九列差异表 + 页脚（本图为展示内容，手机屏上表格会折行）</div>
+
+<h3>6. 常见问题</h3>
+<details><summary>找不到已经过账的老任务</summary><p>把页签切到<mark class="mark">「已结束」</mark>——已过账和已取消都在那一栏；「全部」也能看到，但会和进行中的任务混在一起。</p></details>
+<details><summary>列表下面还有任务，但滑不出来了</summary><p>继续往下滑到底会自动加载下一页。若底部写着「共 y 条」而屏幕上只有几行，先<mark class="mark">下拉刷新</mark>回到第 1 页再往下滑。</p></details>
+<details><summary>草稿能不能直接开始盘？</summary><p>不能。草稿只记录了范围，<mark class="mark">点「发布任务」之后</mark>才会生成盘次与应盘清单，才能认领和录入。</p></details>
+<details><summary>草稿放久了，发布出来的清单和当初不一样</summary><p>属正常设计：清单在<mark class="mark">发布那一刻</mark>按当时的库存与商品生成。发布前点「编辑范围」复核一遍即可。</p></details>
+<details><summary>导出的表格用 Excel 打开是乱码</summary><p>本功能导出的文件已带中文兼容标记，正常不会乱码；若仍乱码，确认文件没有经过记事本另存或第三方工具转换。也可用「完整导出」由后台生成的文件对照。</p></details>
+<details><summary>打印出来没有页码</summary><p>浏览器打印本身不提供页码（属浏览器限制，不是开关）。需要带页码的 PDF 时，在打印对话框的「更多设置」里勾选<mark class="mark">页眉和页脚</mark>即可由浏览器补上。</p></details>
+`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
