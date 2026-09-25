@@ -130,11 +130,12 @@ with sync_playwright() as p:
     qnames = {f['name'] for f in qs['__type']['fields']} if qs else set()
     mnames = {f['name'] for f in ms['__type']['fields']} if ms else set()
     for f in ['stocktakeTasks', 'stocktakeTask', 'stocktakeWaves', 'stocktakeExpectedLines',
-              'stocktakeDiff', 'stocktakeResolveCode', 'variantBinsByLocation', 'binOccupancy']:
+              'stocktakeDiff', 'stocktakeResolveCode', 'variantBinsByLocation', 'binOccupancy',
+              'stocktakeStats', 'stocktakeExport']:
         check('Query %s 已注册' % f, f in qnames)
     for f in ['createStocktakeTask', 'addStocktakeWave', 'assignStocktakeWave', 'claimStocktakeWave',
               'releaseStocktakeWave', 'saveStocktakeCounts', 'submitStocktakeWave', 'postStocktake',
-              'cancelStocktakeTask', 'cancelStocktakeWave']:
+              'cancelStocktakeTask', 'cancelStocktakeWave', 'openStocktakeTask', 'updateStocktakeTask']:
         check('Mutation %s 已注册' % f, f in mnames)
 
     # ---------- 2) 权限点枚举 ----------
@@ -176,6 +177,30 @@ with sync_playwright() as p:
               {'DRAFT', 'OPEN', 'COUNTING', 'COUNTED', 'POSTED', 'CANCELLED'}, t2_items[0]['state'])
     else:
         check('stocktakeDiff 可查（无任务，跳过）', True, 'SKIP：%s 下暂无盘点任务' % CHANNEL)
+
+    # ---- 盘库运营增强（2026-09-25 规格 §10.3）：新入口只读断言 ----
+    many = data(pg, 'query($o: StocktakeTaskOptionsInput){ stocktakeTasks(options:$o){ totalItems items { id code state } } }',
+                {'o': {'page': 1, 'pageSize': 5, 'states': ['POSTED', 'CANCELLED']}}, 'statesFilter')
+    m_items = ((many or {}).get('stocktakeTasks') or {}).get('items') or []
+    m_states = {x['state'] for x in m_items}
+    check('states 多值过滤可用（只回终态）', bool(many) and m_states.issubset({'POSTED', 'CANCELLED'}),
+          'states=%s' % sorted(m_states))
+
+    if t2_items:
+        tid = str(t2_items[0]['id'])
+        st = data(pg, 'query($id: ID!){ stocktakeStats(taskId:$id){ expectedLines countedLines byBin { binCode expectedLines countedLines } byCounter { countedByName countedLines } } }',
+                  {'id': tid}, 'stats')
+        check('stocktakeStats 可只读调用', bool(st) and st.get('stocktakeStats') is not None,
+              str((st or {}).get('stocktakeStats'))[:160])
+
+        ex = data(pg, 'query($id: ID!, $k: String!){ stocktakeExport(taskId:$id, kind:$k){ filename mimeType totalRows truncated content } }',
+                  {'id': tid, 'k': 'by_bin'}, 'export')
+        f = ((ex or {}).get('stocktakeExport')) or {}
+        check('stocktakeExport 返回 CSV（含 BOM）', (f.get('content') or '').startswith('\ufeff'),
+              str(f.get('filename')))
+        check('stocktakeExport 未落盘（只取内容，totalRows 有值）', f.get('totalRows') is not None)
+    else:
+        check('stocktakeStats / stocktakeExport（无任务，跳过）', True, 'SKIP：%s 下暂无盘点任务' % CHANNEL)
 
     # 渠道收口：换另一渠道再查，两边 id 集合必须无交集（前车之鉴，规格 §12 必测）
     # 可比渠道优先取登录账号自己的 myTenantAccess.channels；线上该账号只属于单一渠道，
