@@ -62,6 +62,78 @@ export async function fetchAfterSales(state?: string): Promise<AfterSaleRow[]> {
   return afterSalesRequests?.items ?? [];
 }
 
+// ---- 分页 + 筛选（第 4 轮补齐，G5） ----
+
+export interface AfterSaleListFilter {
+  /** 售后单号 / 订单号，精确匹配 */
+  keyword?: string;
+  /** 售后类型 = AFTER_SALE_TYPES 的 key */
+  type?: string;
+  /** 申请时间区间（含端点），格式 yyyy-MM-dd */
+  from?: string;
+  to?: string;
+  /** 退款金额区间，单位分 */
+  minRefund?: number;
+  maxRefund?: number;
+}
+
+export type AfterSaleSortBy = 'createdAt' | 'refundAmount';
+
+/** 把 UI 筛选态转成 Vendure 生成的 AfterSalesRequestAdminFilterParameter */
+export function buildAfterSaleFilter(f: AfterSaleListFilter): Record<string, unknown> {
+  const and: Record<string, unknown>[] = [];
+  if (f.type) and.push({ type: { eq: f.type } });
+  if (f.from || f.to) {
+    and.push({
+      createdAt: {
+        between: {
+          start: `${f.from || '1970-01-01'}T00:00:00.000Z`,
+          end: `${f.to || '2999-12-31'}T23:59:59.999Z`,
+        },
+      },
+    });
+  }
+  if (f.minRefund != null || f.maxRefund != null) {
+    and.push({ refundAmount: { between: { start: f.minRefund ?? 0, end: f.maxRefund ?? 2147483647 } } });
+  }
+  if (f.keyword) {
+    const kw = f.keyword.trim();
+    and.push({ _or: [{ id: { eq: kw } }, { orderId: { eq: kw } }] });
+  }
+  return and.length ? { _and: and } : {};
+}
+
+/** 售后分页列表：skip/take/filter/sort 全部透传给 Vendure 标准列表查询 */
+export async function fetchAfterSalePage(p: {
+  skip: number;
+  take: number;
+  filter?: Record<string, unknown>;
+  sort?: Record<string, string>;
+}): Promise<{ items: AfterSaleRow[]; total: number }> {
+  const { afterSalesRequests } = await getAdminClient().request<{
+    afterSalesRequests: { items: AfterSaleRow[]; totalItems: number };
+  }>(
+    `query AfterSalesPage($options: AfterSalesRequestAdminListOptions) {
+      afterSalesRequests(options: $options) {
+        totalItems
+        items { ${AFTER_SALE_FIELDS} }
+      }
+    }`,
+    {
+      options: {
+        skip: p.skip,
+        take: p.take,
+        ...(p.filter && Object.keys(p.filter).length ? { filter: p.filter } : {}),
+        ...(p.sort ? { sort: p.sort } : {}),
+      },
+    },
+  );
+  return {
+    items: afterSalesRequests?.items ?? [],
+    total: afterSalesRequests?.totalItems ?? 0,
+  };
+}
+
 /** 售后详情：Admin API 无单查 query，用列表过滤 id 获取单条
  *  注意：afterSalesRequests 的 filter.id / filter.orderId 后端为 String 类型（非 ID），
  *  变量必须声明为 String，否则 GraphQL 校验报 400 导致详情查不到。 */
