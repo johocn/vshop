@@ -489,7 +489,9 @@ onLoad(async (q: any) => {
 
   /* 表格：固定布局，禁用斑马纹 */
   .p-tbl { table-layout: fixed; border-collapse: collapse; width: 186mm; }
-  .p-tbl th, .p-tbl td { border-bottom: 0.2mm solid #000; padding: 0.8mm 1mm; text-align: left;
+  /* box-sizing 必须 border-box：§7.5 的列宽是「含内边距的最终列宽」，默认 content-box 会把
+     padding 0.8mm 1mm 叠加在定值之外（每列 +2mm，9 列 204mm > 186mm 版心 → 打印被裁切） */
+  .p-tbl th, .p-tbl td { box-sizing: border-box; border-bottom: 0.2mm solid #000; padding: 0.8mm 1mm; text-align: left;
     font-size: 8.5pt; line-height: 12pt; overflow-wrap: anywhere; }
   .p-tbl thead { display: table-header-group; }
   .p-tbl thead th { background: #F2F2F2; border-top: 0.2mm solid #000; font-weight: 700; }
