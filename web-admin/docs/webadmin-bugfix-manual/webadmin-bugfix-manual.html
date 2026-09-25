@@ -1154,9 +1154,41 @@ flowchart TD
       <tr><td>收尾</td><td>验证截图移出发布目录 + 清理服务器残留</td><td>首屏截图存 <code class="mono">docs/webadmin-bugfix-manual/assets/manual_op38_{preview,live}_390.png</code>；发布目录 <code class="mono">shots/</code> 内 2 张临时图已 <code class="mono">rm</code>（现 <mark class="key">404</mark>），线上手册与 H1 图均 <mark class="key">200</mark></td></tr>
       <tr><td>提交与推送</td><td><code class="mono">git push origin master</code></td><td><code class="mono">47e4083..4ea6a19</code>：<code class="mono">6ed0791 docs(manual): 线上使用手册新增 op-38 多人协同盘库</code>、<code class="mono">4ea6a19 build(web-admin): 重新构建以收录线上手册 op-38 与 t41 OFF 档截图</code></td></tr>
     </table>
-    <p><strong>O. 线上手册 op-38 首屏渲染（本地预览 / 线上复验）</strong></p>
+    <p><strong>O. 线上手册 op-38 渲染级验证（本地预览 / 线上复验 / 常驻门禁）</strong></p>
     <figure style="margin:0 0 10px;"><img src="assets/manual_op38_preview_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><img src="assets/manual_op38_preview_390_b.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="assets/manual_op38_live_390.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左 / 中：本地 <code class="mono">file://</code> 预览（标题「40. 多人协同盘库（任务 / 盘次 / 差异过账）」+ <code class="mono">.flow</code> 流程图 + 权限表与图 H1）；右：线上 <code class="mono">e.joho.cn</code> 复验首屏——与本地渲染<strong>逐像素一致</strong></figcaption></figure>
-    <p class="muted" style="font-size:13px;">补充说明：线上手册是<strong>单文件数据驱动</strong>，章节序号由 <code class="mono">renderReader()</code> 按「本书内序号 + 1」实时计算（故 <code class="mono">op-38</code> 显示为第 40 章，op 书现有 40 章），<strong>不需要</strong>改动封面、目录或任何计数器；后续再追补章节只需往 <code class="mono">CHAPTERS</code> 数组里加一条对象即可。<code class="mono">_e2e/_verify_manual_op38.py</code> 为可复跑的常驻验证脚本（<code class="mono">local|live</code> 两模式），与既有的 <code class="mono">_verify_manual_op20.py</code> 同构。</p>
+    <p class="muted" style="font-size:13px;">补充说明：线上手册是<strong>单文件数据驱动</strong>，章节序号由 <code class="mono">renderReader()</code> 按「本书内序号 + 1」实时计算（故 <code class="mono">op-38</code> 显示为第 40 章，op 书现有 40 章），<strong>不需要</strong>改动封面、目录或任何计数器；后续再追补章节只需往 <code class="mono">CHAPTERS</code> 数组里加一条对象即可。</p>
+    <p><strong>O.1 常驻门禁（2026-09-25 升级：旧一次性脚本并入统一门禁）</strong></p>
+    <p>此前 op-38 的渲染验证靠一次性脚本 <code class="mono">_e2e/_verify_manual_op38.py</code>（<code class="mono">local|live</code> 两模式），存在四处「假通过」缺口：<mark class="key">退出码恒 0</mark>（断言失败也返回 0）、图数用 <code class="mono">&gt;= 11</code> 放宽、<strong>无</strong>响应码 / 像素尺寸 / 双落点字节断言、取证截图写进<strong>发布目录</strong> <code class="mono">shots/</code>（复跑会污染线上静态目录）。本轮把 op-38 断言组<strong>并入统一渲染门禁</strong> <code class="mono">_e2e/_verify_manual_render.py</code>，旧脚本<mark class="key">删除</mark>（避免两份真相）；一条 <code class="mono">npm run verify:manual:render</code> 同时覆盖 op-38 与 op-39，退出码 1 即失败。<br />门禁契约（手机视口 <strong>390×844 dpr=2</strong>，图片天然尺寸 <strong>780×1688</strong>）：</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>层</th><th>断言组</th><th>判定</th></tr>
+      <tr><td>L1 离线<br />（<code class="mono">file://</code>，不依赖网络与登录）</td><td><code class="mono">openChapter('op-38')</code> 渲染成功</td><td><code class="mono">CHAPTERS</code> 中标题存在且注入 <code class="mono">#readerContent</code>（实测「40. 多人协同盘库（任务 / 盘次 / 差异过账）」）</td></tr>
+      <tr><td>L1</td><td>结构计数</td><td><code class="mono">h3</code> 小节 = <strong>9</strong>、FAQ <code class="mono">&lt;details&gt;</code> = <strong>6</strong>（<mark class="key">精确等值</mark>）</td></tr>
+      <tr><td>L1</td><td>图数 + 真解码</td><td>图数 <mark class="key">= 11</mark>（精确，非 <code class="mono">&gt;=</code>）；每图 <code class="mono">complete</code> 且 <code class="mono">naturalWidth&gt;0</code>；每图 <strong>780×1688</strong></td></tr>
+      <tr><td>L1</td><td>反假</td><td>0 <code class="mono">pageerror</code> / 0 <code class="mono">console.error</code></td></tr>
+      <tr><td>L2 线上<br />（<code class="mono">e.joho.cn</code> 真实链路）</td><td>同 L1 全组</td><td>结构计数 + 图数 + 真解码 + 尺寸 + 0 JS 异常（op-38 与 op-39 各一套）</td></tr>
+      <tr><td>L2</td><td>资源响应码</td><td>每张 PNG <strong>200</strong>（op-39 按文件名前缀 <code class="mono">stocktake-ops-</code>；op-38 图名<strong>无统一前缀</strong>，按「本章 11 个文件名」过滤——线上手册空闲时会预加载全册图片，实测 166 个 <code class="mono">shots/</code> 响应，故不按命中数断言，改成过滤后仍要求 11 张全 200）</td></tr>
+      <tr><td>L2 旁路</td><td>字节一致</td><td>线上 <code class="mono">shots/&lt;name&gt;</code> 与本地 <code class="mono">src/static/manual/shots/&lt;name&gt;</code> <strong>逐张字节数相等</strong>（防缺图 / 旧图 / 静默替换）</td></tr>
+      <tr><td>反假三重保障</td><td>汇总行 + 非 0 退出码 + 取证图落点</td><td><code class="mono">===== 渲染级验证：PASS/FAIL（失败 N）=====</code> 显式失败明细；失败 <code class="mono">exit 1</code>；取证截图写 <code class="mono">docs/webadmin-bugfix-manual/assets/</code>（<mark class="key">非</mark>发布目录）</td></tr>
+      <tr><td>INFO（不计失败）</td><td>双落点核对</td><td>修复手册 <code class="mono">assets/</code> 的同名副本若存在须字节一致，缺失 / 不一致<strong>如实打印</strong></td></tr>
+    </table>
+    </div>
+    <p><strong>O.2 实测（2026-09-25）</strong></p>
+    <p class="muted" style="font-size:13px;">命令 <code class="mono">python _e2e/_verify_manual_render.py</code>（cwd <code class="mono">web-admin</code>）：<br />op-38 组 L1 7 条 + L2 7 条全 <mark class="key">OK</mark>（<code class="mono">h3 = 9</code>、<code class="mono">FAQ = 6</code>、<code class="mono">图数 = 11</code>、破图 <code class="mono">[]</code>、尺寸 780x1688 <code class="mono">[]</code>、JS 异常 <code class="mono">[]</code>）；<code class="mono">L2 每张 PNG 响应码 200 [200] n=9</code>、<code class="mono">L2 线上手册 op-38 每张 PNG 响应码 200 [200] n=11</code>；旁路 <code class="mono">线上 shots/ 与本地逐张字节一致（op-38 11 张）[]</code>；<code class="mono">===== 渲染级验证：PASS（失败 0）=====</code>，退出码 <mark class="key">0</mark>。取证图：<code class="mono">assets/manual-render-online-op38.png</code>（线上 op-38 首屏，179153 B）。</p>
+    <figure style="margin:0 0 10px;"><img src="assets/manual-render-online-op38.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">门禁落地的线上取证图：<code class="mono">assets/manual-render-online-op38.png</code>（390×844 dpr=2 = 780×1688）——线上 <code class="mono">e.joho.cn/guanli/static/manual/</code> 的 op-38 章节首屏；取证图统一写 <code class="mono">docs/…/assets/</code>，<strong>不再</strong>写进发布目录 <code class="mono">shots/</code></figcaption></figure>
+    <p><strong>O.3 负向验证（证明门禁真会 FAIL）</strong></p>
+    <p class="muted" style="font-size:13px;">两次临时注入到 <code class="mono">src/static/manual/index.html</code> 的 op-38 章节（<strong>验完已复原</strong>，<code class="mono">git diff</code> 无差异）：① 把图 <code class="mono">shots/t14_diff_summary.png</code> 的 <code class="mono">src</code> 改成不存在的 <code class="mono">shots/t14_diff_summary_X.png</code>；② 删掉 1 条 FAQ <code class="mono">&lt;details&gt;</code>。<br />期望的 FAIL 全部触发，共 <mark class="key">7 条失败</mark>、<code class="mono">===== 渲染级验证：FAIL（失败 7）=====</code>、退出码 <mark class="key">1</mark>：</p>
+    <ol class="steps" style="font-size:13px;">
+      <li><code class="mono">FAQ 条数 = 6 got=5</code>——结构计数捕获「悄悄删内容」；</li>
+      <li><code class="mono">每图真实解码 ['shots/t14_diff_summary_X.png']</code> + <code class="mono">每图尺寸 ['shots/t14_diff_summary_X.png 0x0']</code>——捕获破图；</li>
+      <li><code class="mono">图数 = 11 got=11</code> 仍 <mark class="key">OK</mark>——<strong>破图不会被图数断言发现，必须靠真解码</strong>（这正是本组存在的原因）；</li>
+      <li><code class="mono">L1 用户手册源（op-38）无 JS 异常 ['CONSOLE:Failed to load resource: net::ERR_FILE_NOT_FOUND']</code>；</li>
+      <li><code class="mono">L2 线上手册 op-38 每张 PNG 响应码 200 [200] n=10</code>——线上未请求那个坏名字，过滤后只匹配到 10/11，<mark class="key">响应码断言兜住</mark>；</li>
+      <li>旁路 <code class="mono">L2 线上 shots/ 与本地逐张字节一致（op-38 11 张）['t14_diff_summary_X.png 本地缺失']</code>。</li>
+    </ol>
+    <p class="muted" style="font-size:13px;">复原后复跑即恢复 <code class="mono">PASS（失败 0）</code>，证明失败是注入引起、非环境噪声。</p>
+    <p><strong>O.4 双落点核对（如实登记，不判 FAIL）</strong></p>
+    <p class="muted" style="font-size:13px;">对 op-38 的 11 张图核对发布目录 <code class="mono">src/static/manual/shots/</code> 与修复手册 <code class="mono">docs/webadmin-bugfix-manual/assets/</code>：11 张<strong>全部存在且均为 780×1688</strong>；其中 <strong>3 张有同名副本且字节一致</strong>（<code class="mono">t45_board_no_permission_390</code> / <code class="mono">t40_new_sheet_split_on_390</code> / <code class="mono">t40_task_waves_off_390</code>）；<strong>7 张无同名副本</strong>（t11 / t12×3 / t13 / t14×2）；<strong>1 张不一致</strong>：<code class="mono">t40_task_waves_on_390.png</code> <code class="mono">assets 100659 B ≠ shots 100385 B</code>——像素差 <strong>110 px / 1,316,640</strong>，bbox <code class="mono">rows 1569–1574, cols 725–755</code>，最大通道差 149，位于<strong>右下角状态栏时钟区</strong>（属重渲染噪声），两侧 mtime 均为 <code class="mono">2026-09-25 00:36:00</code>。此处<strong>没有</strong>任何承诺被破坏（发布目录与线上已由 L2 旁路断言严格对齐），故门禁只作 INFO 打印、<mark class="key">不</mark>写 FAIL；也<mark class="key">不</mark>为「凑一致」放宽容差。</p>
 
     <section id="stocktake-ops">
       <h4>16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</h4>
@@ -1342,7 +1374,7 @@ flowchart TD
     </section>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
