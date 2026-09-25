@@ -461,7 +461,7 @@ onLoad(async (q: any) => {
 @media print {
   @page { size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }
 
-  html, body { margin: 0; padding: 0; background: #fff; }
+  /* html/body 的打印归零见 src/App.vue：uni-app H5 会把本块强制加 scoped，写在这里永不命中 */
   .page { background: #fff !important; padding: 0 !important; }
   .st-screen { display: none !important; }
 
