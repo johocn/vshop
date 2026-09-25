@@ -40,22 +40,6 @@ const getChannelStockLocationId = resolveStockLocationId;
 // 税吃掉 13%（录入 200 显示 176.99）。税率动态取默认 TaxRate（当前生产仅 13% 一条）。
 let _taxRatePercent: number | null = null;
 
-export async function fetchTaxRatePercent(): Promise<number> {
-  if (_taxRatePercent != null) return _taxRatePercent;
-  const { taxRates } = await getAdminClient().request<{
-    taxRates: { items: Array<{ value: number; enabled: boolean }> };
-  }>(`query TaxRates { taxRates { items { value enabled } } }`);
-  const rate = (taxRates?.items || []).find((r) => r.enabled)?.value ?? 0;
-  _taxRatePercent = rate;
-  return rate;
-}
-
-/** 净价(分) -> Vendure price 输入（含税口径，分） */
-export function grossPriceFromNet(netCents: number, ratePercent: number): number {
-  if (!ratePercent) return Math.round(netCents);
-  return Math.round(netCents * (1 + ratePercent / 100));
-}
-
 /**
  * 把选中图片资产先绑定到当前渠道（vendure-token 所在渠道）。
  * 背景：Vendure 的 asset 关联按渠道隔离（AssetService.updateEntityAssets 用
@@ -105,70 +89,6 @@ export interface ProductDetail extends ProductListItem {
 export interface CollectionListItem {
   id: string;
   name: string;
-}
-
-export async function fetchProducts(
-  take = 20,
-  skip = 0,
-  term?: string,
-): Promise<{ totalItems: number; items: ProductListItem[] }> {
-  const { products } = await getAdminClient().request<{
-    products: { totalItems: number; items: ProductListItem[] };
-  }>(
-    `query Products($take: Int, $skip: Int, $term: String) {
-      products(options: { take: $take, skip: $skip, filter: { name: { contains: $term } } }) {
-        totalItems
-        items { id name enabled slug }
-      }
-    }`,
-    { take, skip, term },
-  );
-  return products;
-}
-
-export async function fetchProduct(id: string): Promise<ProductListItem | null> {
-  const { product } = await getAdminClient().request<{ product: ProductListItem | null }>(
-    `query Product($id: ID!) { product(id: $id) { id name enabled slug } }`,
-    { id },
-  );
-  return product;
-}
-
-export async function fetchProductDetail(id: string): Promise<ProductDetail> {
-  const { product } = await getAdminClient().request<{
-    product: {
-      id: string;
-      name: string;
-      enabled: boolean;
-      slug: string;
-      featuredAsset?: { preview: string } | null;
-      translations?: Array<{ languageCode: string; description: string }>;
-    };
-  }>(
-    `query ProductDetail($id: ID!) {
-      product(id: $id) {
-        id name enabled slug featuredAsset { preview }
-        translations { languageCode description }
-      }
-    }`,
-    { id },
-  );
-  const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
-  return {
-    id: product.id,
-    name: product.name,
-    enabled: product.enabled,
-    slug: product.slug,
-    featuredAsset: product.featuredAsset,
-    description: zh?.description ?? '',
-  };
-}
-
-export async function setProductEnabled(id: string, enabled: boolean): Promise<void> {
-  await getAdminClient().request(
-    `mutation SetEnabled($id: ID!, $enabled: Boolean!) { updateProduct(input: { id: $id, enabled: $enabled }) { id enabled } }`,
-    { id, enabled },
-  );
 }
 
 export async function createProduct(name: string, slug: string, description = ''): Promise<string> {
