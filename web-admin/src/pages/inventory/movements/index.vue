@@ -39,7 +39,7 @@
     <!-- 仓库 + 商品关键词 -->
     <view class="locrow">
       <picker mode="selector" :range="locNames" :value="locIndex" @change="onLocChange">
-        <view class="locpill">{{ $t('inventoryMovements.locAll') }} · {{ curLocName }} ▾</view>
+        <view class="locpill">{{ $t('inventoryMovements.locAll') }}{{ curLocName ? ' · ' + curLocName : '' }} ▾</view>
       </picker>
       <input
         class="kw"
@@ -100,10 +100,13 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchMovements, type MovementQueryParams, type MovementRow } from '../../../apis/stock-doc';
 import { fetchTenantInventoryOverview, type TenantStockLocation } from '../../../apis/inventory';
 import { useListPage } from '../../../composables/useListPage';
 import { bizTypeKey, dayKey, dirKey, formatDateTime } from '../../../utils/inventoryFormat';
+
+const locale = useLocaleStore();
 
 // 与后端流水 bizType 取值一一对应（order/afterSales/stockIn/stockOut/stockMove/stocktake/purchase/manual/mirror）
 const BIZ = ['order', 'afterSales', 'stockIn', 'stockOut', 'stockMove', 'stocktake', 'purchase', 'manual', 'mirror'];
@@ -135,12 +138,13 @@ const variantId = ref('');
 
 const locations = ref<TenantStockLocation[]>([]);
 
-const locNames = computed(() => locations.value.map((l) => l.name));
+// 下拉第 0 项固定为「全部仓」，故列表项索引 = 仓库数组索引 + 1
+const locNames = computed(() => [locale.t('inventoryMovements.locAll'), ...locations.value.map((l) => l.name)]);
 const locIndex = computed(() => {
   const i = locations.value.findIndex((l) => l.id === locationId.value);
-  return i < 0 ? 0 : i;
+  return i < 0 ? 0 : i + 1;
 });
-const curLocName = computed(() => locations.value[locIndex.value]?.name ?? '');
+const curLocName = computed(() => locations.value.find((l) => l.id === locationId.value)?.name ?? '');
 
 const hasFilter = computed(
   () => !!direction.value || !!bizType.value || !!datePreset.value || !!dateFrom.value || !!dateTo.value
@@ -231,8 +235,8 @@ function onPickDate(which: 'from' | 'to', v: string): void {
   void applyAll();
 }
 function onLocChange(e: any): void {
-  const l = locations.value[Number(e.detail.value)];
-  locationId.value = l?.id ?? '';
+  const n = Number(e.detail.value);
+  locationId.value = n === 0 ? '' : locations.value[n - 1]?.id ?? '';
   void applyAll();
 }
 function onClear(): void {
