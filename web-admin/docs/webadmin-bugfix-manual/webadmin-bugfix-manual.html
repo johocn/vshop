@@ -130,6 +130,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#stocktake-collab">16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</a></li>
       <li><a href="#stocktake-ops">16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印（2026-09-25）</a></li>
       <li><a href="#gate-hardening">16.9.9 门禁改造验收总结报告（渲染门禁 + 打印像素门禁 · 2026-09-25）</a></li>
+      <li><a href="#gap4-batch1">17 售后处理筛选分页 + 分类管理树形 / 排序 / 图标 / 批量（gap4 批 1 · 2026-09-25）</a></li>
     </ol>
   </nav>
 
@@ -1529,7 +1530,90 @@ flowchart TD
 
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="gap4-batch1">
+    <h2>17 售后处理筛选分页 + 分类管理树形 / 排序 / 图标 / 批量（gap4 批 1 · 2026-09-25）</h2>
+    <p>本章为 <strong>gap4「管理后台体验补齐」批 1</strong> 的验收章节，覆盖 <strong>① 售后处理列表的类型筛选与上滑分页</strong>、<strong>② 商品分类管理的树形缩进 / 折叠 / 换序 / 行内图标 / 批量操作（含批量删除限制）</strong>。验收口径沿用硬规范「功能交付 = 实现 + API/e2e 回归 + 手机视口截图 + 操作手册」。本轮 <mark class="key">9 张截图全部为手机视口 390×844（dpr=2 → 780×1688）、本地 dev server、每个页面 0 pageerror / 0 console.error</mark>。</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>项</th><th>内容</th></tr>
+      <tr><td>验证脚本</td><td><code class="mono">python _e2e/_verify_gap4_batch1.py</code>（Playwright Python sync，视口 390×844 / dpr=2 / is_mobile / has_touch；退出码 <mark class="key">0 = 通过</mark>）</td></tr>
+      <tr><td>本轮结果</td><td><mark class="key">PASS（失败 0 / SKIP 0）</mark>，退出码 0；落图 9 张到 <code class="mono">docs/verify/gap4-batch1-*.png</code></td></tr>
+      <tr><td>覆盖页面</td><td><code class="mono">pages/after-sale/list/index</code>（售后处理）· <code class="mono">pages/product/categories/index</code>（分类管理）</td></tr>
+      <tr><td>文档门禁</td><td><code class="mono">npm run verify:manual</code>（cwd <code class="mono">web-admin</code>）→ <mark class="key">PASS（失败 0）</mark></td></tr>
+    </table>
+    </div>
+
+    <h3>17.1 售后处理列表：类型筛选与分页操作步骤</h3>
+    <p><strong>入口</strong>：工作台 →「售后处理」（<code class="mono">pages/after-sale/list/index</code>，已开启 <code class="mono">enablePullDownRefresh</code>）。</p>
+    <p><strong>操作步骤</strong></p>
+    <ol style="font-size:14px;line-height:1.8;">
+      <li><strong>状态 tab</strong>：顶部 4 个页签「全部 / 待处理 / 已退款 / 已拒绝」，点页签即按售后单状态过滤。</li>
+      <li><strong>关键词</strong>：输入框「售后单号 / 订单号」按单号或订单号模糊匹配。</li>
+      <li><strong>类型筛选（本轮重点）</strong>：点类型胶囊「售后类型：仅退款 / 退货退款 / 换货」之一即生效——胶囊高亮，列表只留该类型，页脚计数同步变化；点「全部类型」清除该条件。<span class="muted">（多种类型可组合，选中后胶囊显示为主题色）</span></li>
+      <li><strong>申请时间区间</strong>：点「申请开始：—」「申请结束：—」各选一个日期，形成闭区间过滤。</li>
+      <li><strong>退款金额区间</strong>：在「退款下限(元)」「退款上限(元)」输入数值。</li>
+      <li><strong>排序</strong>：点「按申请时间」或「按金额」切换排序键；点「清空」一键重置以上全部条件。</li>
+      <li><strong>上滑分页（本轮重点）</strong>：单页 <code class="mono">take = 20</code>；在列表上<strong>持续上滑触底</strong>会自动加载下一页并<strong>追加</strong>到已有列表（不覆盖），页脚显示「已显示 N / 总数」；全部加载完后列表底部出现「没有更多了」。</li>
+      <li><strong>下拉刷新</strong>：在列表顶部下拉即重新拉取第一页（筛选条件保留）。</li>
+    </ol>
+    <p class="muted" style="font-size:13px;">口径提示：页脚文案为「<code class="mono">已显示 {n} / {m}</code>」（<strong>无「共」字</strong>）；列表默认「全部」页签不做状态过滤，因此已关闭（Closed）的售后单也会计入总数。</p>
+
+    <h3>17.2 分类管理：树形 / 排序 / 移动 / 图标 / 批量操作步骤</h3>
+    <p><strong>入口</strong>：工作台 →「商品」→「分类管理」（<code class="mono">pages/product/categories/index</code>）。每一行由 6 个区域组成：勾选框 <code class="mono">☐/☑</code> · 折叠箭头（父分类 <code class="mono">▾</code>，折叠后 <code class="mono">▸</code>；叶子为 <code class="mono">·</code>）· 行内图标区 · 分类名 · 子分类数 · 操作区（<code class="mono">↑ ↓ ↳归位映射 重命名 删除</code>）。</p>
+    <p><strong>操作步骤</strong></p>
+    <ol style="font-size:14px;line-height:1.8;">
+      <li><strong>树形缩进</strong>：子分类按其层级深度左缩进（<code class="mono">depth × 28rpx</code>，实测一级子分类左内边距 <strong>14.56px</strong>），父分类同时显示子分类数。</li>
+      <li><strong>折叠 / 展开</strong>：点父分类的 <code class="mono">▾</code> 收起其子行（箭头变 <code class="mono">▸</code>，行数减少），再点 <code class="mono">▸</code> 展开还原。</li>
+      <li><strong>排序（本轮重点）</strong>：点行内的 <code class="mono">↑</code> / <code class="mono">↓</code> 在同一父级内与相邻兄弟交换（后端调 Vendure <code class="mono">moveCollection</code> 写 position）；<strong>刷新页面后顺序与换序结果一致</strong>（位置已持久化）。</li>
+      <li><strong>移动（改父级）</strong>：点 <code class="mono">↳</code> 弹出动作面板，选择目标父分类（含「顶层」）后该分类连同其子树整体迁移。</li>
+      <li><strong>行内图标</strong>：点行内图标区（未设置时显示虚线框 + <code class="mono">＋</code>）打开媒体库，选中图片后写入 <code class="mono">Collection.customFields.icon</code>，该行图标区改为显示缩略图。</li>
+      <li><strong>重命名 / 删除</strong>：点「重命名」改名（只更新 translations，不动商品的过滤器）；点「删除」二次确认后删除单条分类。</li>
+      <li><strong>批量操作</strong>：勾选任意行后，底部固定出现批量条（<strong>已选数量 + 批量改图标 / 批量移动 / 批量删除</strong>）；「批量改图标」「批量移动」对全部勾选项生效。</li>
+    </ol>
+    <div class="callout warn">
+      <p><strong>批量删除限制（重要）</strong>：批量删除<strong>只放行「空分类」</strong>（既无商品、又无子分类），其余一律拦截并逐条提示原因，<strong>被拦截的分类不会被删除</strong>：</p>
+      <p>① <strong>有子分类</strong> → 提示「「分类名」<mark class="key">含子分类</mark>，不能删除」；</p>
+      <p>② <strong>有商品</strong>（<code class="mono">productVariantCount &gt; 0</code>）→ 提示「「分类名」<mark class="key">含商品</mark>，不能删除」。</p>
+      <p class="muted" style="font-size:13px;margin-bottom:0;">判定依据：子分类来自已加载的分类表（可靠）；商品数来自 <code class="mono">collections.items.productVariantCount</code>（admin-api 实测可用）。批量删除结束后勾选态自动清空。</p>
+    </div>
+    <div class="callout warn">
+      <p><strong>已知边界（不阻塞，如实登记）</strong>：<code class="mono">↑</code>/<code class="mono">↓</code> 换序发生在<strong>同一父级内</strong>，需要该父级分类本身在当前列表里。若某分类的 <code class="mono">parentId</code> 指向<strong>未被 <code class="mono">collections</code> 查询返回的根集合</strong>（本地默认渠道数据的 <code class="mono">parentId = "1"</code> 即属此类），则同级兄弟数组取不到、点 <code class="mono">↑</code>/<code class="mono">↓</code> 会静默无操作。因此本轮<strong>换序验收以「父分类已在列表内」的子分类为对象</strong>（点 <code class="mono">↓</code> 后与相邻子分类交换并刷新回读一致）。</p>
+    </div>
+
+    <h3>17.3 验收结论与截图证据（手机 390×844 dpr=2 → 780×1688，共 9 张）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>验收点</th><th>结论</th><th>证据（脚本断言 / 截图）</th></tr>
+      <tr><td>A1</td><td>售后列表默认态：首页 20 条 + 页脚「已显示 20 / 25」</td><td><mark class="key">通过</mark></td><td><code class="mono">cards=20</code>、<code class="mono">progress='已显示 20 / 25'</code> → <code class="mono">gap4-batch1-aftersale-default.png</code></td></tr>
+      <tr><td>A2</td><td>上滑加载更多<strong>累计</strong>：20 → 25 条 + 页脚「已显示 25 / 25」+「没有更多了」</td><td><mark class="key">通过</mark></td><td><code class="mono">before=20 → after=25</code>、<code class="mono">noMore=True</code> → <code class="mono">gap4-batch1-aftersale-loadmore.png</code></td></tr>
+      <tr><td>A3</td><td>类型筛选<strong>生效</strong>：点「售后类型：仅退款」后列表只剩仅退款且条数变化（12 ≠ 默认 20）</td><td><mark class="key">通过</mark></td><td>逐行核对卡片文本全部含「仅退款」、无「退货退款 / 换货」 → <code class="mono">gap4-batch1-aftersale-type-filter.png</code></td></tr>
+      <tr><td>B1</td><td>分类树：父分类折叠箭头 <code class="mono">▾</code> 可见 + 子行 <code class="mono">padding-left &gt; 0</code>（14.56px）+ 每行行内图标区可见</td><td><mark class="key">通过</mark></td><td><code class="mono">caret=['·','▾','·','·','·']</code>、<code class="mono">padding=[0,0,14.56,14.56,0]</code>、<code class="mono">ico=5 == rows=5</code> → <code class="mono">gap4-batch1-categories-tree.png</code></td></tr>
+      <tr><td>B2</td><td>折叠生效：点 <code class="mono">▾</code> 后子行收起（5 → 3 行，箭头变 <code class="mono">▸</code>），再点展开还原 5 行</td><td><mark class="key">通过</mark></td><td><code class="mono">rows 5→3</code>、<code class="mono">glyph='▸'</code>、再次展开 <code class="mono">rows=5</code> → <code class="mono">gap4-batch1-categories-collapsed.png</code></td></tr>
+      <tr><td>B3</td><td>勾选 2 项后底部批量条出现（数量 2 + 批量改图标 / 批量移动 / 批量删除）</td><td><mark class="key">通过</mark></td><td><code class="mono">bulk='2 批量改图标 批量移动 批量删除'</code> → <code class="mono">gap4-batch1-categories-picked-bulk.png</code></td></tr>
+      <tr><td>B4</td><td>批删限制①：含子分类被拦截且未真删</td><td><mark class="key">通过</mark></td><td>toast「「数码电器」含子分类，不能删除」、<code class="mono">rows=5</code> 不变 → <code class="mono">gap4-batch1-categories-bulkdelete-blocked-children.png</code></td></tr>
+      <tr><td>B5</td><td>批删限制②：含商品被拦截且未真删</td><td><mark class="key">通过</mark></td><td>toast「「精选好物」含商品，不能删除」、<code class="mono">rows=5</code> 不变（<code class="mono">productVariantCount=5</code>）→ <code class="mono">gap4-batch1-categories-bulkdelete-blocked-products.png</code></td></tr>
+      <tr><td>B6</td><td>换序后<strong>回读一致</strong>：点 <code class="mono">↓</code> 交换子分类 → 刷新后顺序 == 换序后顺序；再点 <code class="mono">↑</code> 复原</td><td><mark class="key">通过</mark></td><td><code class="mono">after-click == after-reload == ['食品生鲜','数码电器','生鲜特惠','数码专区','精选好物']</code>，↑ 复原回原顺序 → <code class="mono">gap4-batch1-categories-reorder.png</code></td></tr>
+      <tr><td>—</td><td>全程无 JS 异常（pageerror / console.error）</td><td><mark class="key">通过</mark></td><td>两页断言均为 <code class="mono">[]</code>（0 条）</td></tr>
+    </table>
+    </div>
+    <p><strong>A. 售后处理列表（3 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch1-aftersale-default.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch1-aftersale-type-filter.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch1-aftersale-loadmore.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：<b>默认态</b>——4 个状态页签 + 关键词 / 类型胶囊 / 申请时间 / 退款区间 / 排序共 5 组筛选控件，列表按最新在前；中：<b>类型筛选生效</b>——「售后类型：仅退款」胶囊高亮为主题色，列表行全部为仅退款；右：<b>上滑加载累计</b>——滚到底部可见「没有更多了」与页脚「已显示 25 / 25」</figcaption></figure>
+    <p><strong>B. 分类管理（6 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch1-categories-tree.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch1-categories-collapsed.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch1-categories-picked-bulk.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：<b>分类树</b>——父分类「数码电器」带 <b>▾</b> 折叠箭头与子分类数「2」，其下「数码专区 / 生鲜特惠」两行<b>左缩进</b>；每行可见行内图标区（虚线框 ＋）与 ↑↓↳ 操作区；中：<b>折叠生效</b>——点 ▾ 后子行收起、箭头变 <b>▸</b>，仅剩 3 行；右：<b>勾选后的底部批量条</b>——已选 2 项 + 批量改图标 / 批量移动 / 批量删除</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch1-categories-bulkdelete-blocked-children.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch1-categories-bulkdelete-blocked-products.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch1-categories-reorder.png" style="width:31%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左：<b>批删限制①</b>——勾选有子分类的「数码电器」后提示「含子分类，不能删除」，5 行仍在；中：<b>批删限制②</b>——勾选有商品的「精选好物」后提示「含商品，不能删除」；右：<b>换序回读一致</b>——点 ↓ 后「生鲜特惠」排到「数码专区」之前，刷新页面顺序保持</figcaption></figure>
+
+    <h3>17.4 验收口径与残留说明</h3>
+    <div class="callout warn">
+      <p>① <strong>脚本端口与计划骨架不同</strong>：dev server 实际端口是 <mark class="key">5280</mark>（<code class="mono">vite.config.ts</code> <code class="mono">strictPort: true</code>），路径前缀 <code class="mono">/guanli/</code>；脚本以 <code class="mono">http://localhost:5280/guanli/</code> 为 BASE（不是骨架里的 5173）。</p>
+      <p>② <strong>选择器按真实 DOM 修正</strong>：uni-app H5 把 <code class="mono">&lt;text&gt;</code> 渲染为 <code class="mono">&lt;uni-text&gt;</code>，操作区须用 <code class="mono">.ops uni-text</code> 定位；类型胶囊的文本是「售后类型：仅退款」而非骨架里的「退款」（后者会命中「退货退款 / 已退款」等元素）。</p>
+      <p>③ <strong>本地 dev 数据不足以直接验收，本轮使用了 API fixture</strong>：本地库售后单原为 0 条、分类全部挂在未返回的根集合下（树是平的），无法支撑「类型筛选 / 上滑分页 / 树形缩进 / 折叠 / 换序」五组断言。脚本在显式开关 <code class="mono">WA_SHOT_ALLOW_WRITE=1</code> 下通过<strong>公开 GraphQL API</strong>造样本：<code class="mono">setOrderCustomFields</code> 刷新订单售后时效窗口 → shop-api <code class="mono">createAfterSalesRequest</code> ×23（不带 <code class="mono">orderLineId</code>，故不触发「同一订单行重复售后」校验）→ <code class="mono">moveCollection</code> 把两分类挂到同一父分类下。目标域名含 <code class="mono">e.joho.cn</code>（生产）时<strong>硬拦</strong>，全程零文件改动、未触碰 <code class="mono">d:\zhao\vendure</code> 任何文件。</p>
+      <p>④ <strong>残留（如实登记）</strong>：分类层级与「数码专区 / 生鲜特惠」的位置已在脚本收尾时还原到 <code class="mono">parentId '1'</code>；但售后单<strong>服务端无删除 mutation</strong>，23 条样本只能 <code class="mono">cancelAfterSalesRequest</code> 置为 <strong>Closed</strong>（行仍在本地 dev 库，脚本二次运行会因 <code class="mono">totalItems ≥ 25</code> 直接复用、不再新增）。生产库未做任何写入。</p>
+      <p>⑤ <strong>使用手册（<code class="mono">src/static/manual/index.html</code>）本轮未同步</strong>：该文件是<strong>数据驱动单文件</strong>（<code class="mono">var CHAPTERS = [...]</code>、章节编号由 JS 自动生成、图片目录为 <code class="mono">shots/</code>），与修复手册的「静态 section + 手写编号 + <code class="mono">assets/</code>」体系<strong>不一致</strong>；且它面向 C 端用户、本轮两个页面均为管理后台功能，故按约定<strong>只改修复手册</strong>。</p>
+      <p style="margin-bottom:0;">⑥ <strong>行内图标区未写真实缩略图</strong>：本地 dev server 返回的 asset preview URL 使用 Windows 反斜杠路径（<code class="mono">/assets/preview\…</code>），写入图标会让浏览器 404、破坏「0 console.error」口径；本轮因此只验「图标区每行可见（<code class="mono">.ico</code> 容器 + <code class="mono">＋</code> 占位）」，<strong>不写图标</strong>，以保证 9 张取证图全部零异常。</p>
+    </div>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
