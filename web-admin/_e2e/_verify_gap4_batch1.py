@@ -443,32 +443,54 @@ def main():
               'toast=%r rows=%d（「精选好物」productVariantCount=5）' % (blocked2, pg.locator('.card').count()))
         shot(pg, 'categories-bulkdelete-blocked-products', '批删限制 ②：有商品的分类被拦截（toast 提示，未删除）')
 
-        # --- 换序 + 回读一致 ---
-        # 只对**子分类**换序：根分类的 parentId 指向未被 collections 查询返回的根集合（本地数据 parentId='1'），
-        # swapSibling 找不到兄弟数组会直接 return（应用现有局限，非本次断言目标）。
-        pg.reload(wait_until='networkidle', timeout=60000)
-        time.sleep(5)
-        order0 = row_names(pg)
-        if has_parent and '数码专区' in order0:
-            i_a = order0.index('数码专区')
-            pg.locator('.card').nth(i_a).locator('.ops uni-text', has_text='↓').first.click()
+        # --- 换序 + 回读一致（B6a 根级为主图；B6b 子级为辅） ---
+        # 修复 e2c1b9f 后 swapSibling 改为「从扁平列表按 parentId 过滤 + position/name 排序」取兄弟，
+        # 因此根分类（parentId 指向未被 collections 返回的根集合 '1'）也能换序——B6a 即该缺陷的回归验证。
+        def reload_rows(settle=5):
+            pg.reload(wait_until='networkidle', timeout=60000)
+            time.sleep(settle)
+            return row_names(pg)
+
+        # ---- B6a：根级换序（必须成立，主图） ----
+        order0 = reload_rows()
+        pads0 = [row_padding_left(pg, i) for i in range(pg.locator('.card').count())]
+        root_idx = [i for i, p in enumerate(pads0) if p == 0]
+        detail_head = '根级行=%r（padding=%r）' % ([order0[i] for i in root_idx], pads0)
+        if len(root_idx) >= 2:
+            root_a = order0[root_idx[0]]
+            pg.locator('.card').nth(root_idx[0]).locator('.ops uni-text', has_text='↓').first.click()
             time.sleep(3)
             order_move = row_names(pg)
-            pg.reload(wait_until='networkidle', timeout=60000)
-            time.sleep(5)
-            order_read = row_names(pg)
-            check('B6 ↓ 换序生效且回读一致（刷新后顺序 == 换序后顺序）',
+            order_read = reload_rows()
+            check('B6a 根级 ↓ 换序生效且回读一致：根「%s」与相邻根兄弟交换' % root_a,
                   order_move == order_read and order_read != order0,
-                  'before=%r after-click=%r after-reload=%r' % (order0, order_move, order_read))
-            shot(pg, 'categories-reorder', '↓ 换序后刷新回读：同父级子分类顺序与换序结果一致（位置持久化）')
-            # 还原：对已下移的那一行点 ↑
-            pg.locator('.card').nth(order_read.index('数码专区')).locator('.ops uni-text', has_text='↑').first.click()
+                  '%s 换序前=%r 点↓后=%r 刷新回读=%r' % (detail_head, order0, order_move, order_read))
+            shot(pg, 'categories-reorder', '根级换序（修复后）：点根分类 ↓ → 与相邻根分类交换，刷新后顺序一致')
+            pg.locator('.card').nth(order_read.index(root_a)).locator('.ops uni-text', has_text='↑').first.click()
             time.sleep(3)
-            pg.reload(wait_until='networkidle', timeout=60000)
-            time.sleep(4)
-            check('B6 复原：↑ 换回原顺序', row_names(pg) == order0, 'rows=%r' % row_names(pg))
+            order_back = reload_rows(4)
+            check('B6a 复原：点 ↑ 换回原顺序', order_back == order0,
+                  '复原后=%r（原=%r）' % (order_back, order0))
         else:
-            skip('B6 ↓ 换序生效且回读一致', '无同父级子分类可换序（fixture 未生效）')
+            skip('B6a 根级换序', '顶层根级行 < 2，取不到相邻根兄弟')
+
+        # ---- B6b：子级换序（父分类已在列表内，复核修复未回归） ----
+        c_order0 = reload_rows()
+        if has_parent and '数码专区' in c_order0:
+            i_a = c_order0.index('数码专区')
+            pg.locator('.card').nth(i_a).locator('.ops uni-text', has_text='↓').first.click()
+            time.sleep(3)
+            c_move = row_names(pg)
+            c_read = reload_rows()
+            check('B6b 子级 ↓ 换序生效且回读一致（父分类在列表内）',
+                  c_move == c_read and c_read != c_order0,
+                  '换序前=%r 点↓后=%r 刷新回读=%r' % (c_order0, c_move, c_read))
+            shot(pg, 'categories-reorder-child', '子级换序：同父级子分类 ↓ 交换，刷新后顺序一致（复核无回归）')
+            pg.locator('.card').nth(c_read.index('数码专区')).locator('.ops uni-text', has_text='↑').first.click()
+            time.sleep(3)
+            check('B6b 复原：点 ↑ 换回原顺序', reload_rows(4) == c_order0, 'rows=%r' % row_names(pg))
+        else:
+            skip('B6b 子级换序', '无同父级子分类可换序（fixture 未生效）')
         check('B 分类页 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
 
         sizes = []
