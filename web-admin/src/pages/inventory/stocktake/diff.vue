@@ -1,5 +1,6 @@
 <template>
   <view class="page">
+    <view class="st-screen">
     <!-- ① 工具条：导出与打印（非 H5 平台隐藏，见 §8.4） -->
     <view class="tools">
       <text class="tbtn" @tap="exportCurrentView">{{ $t('stocktake.diff.exportView') }}</text>
@@ -93,11 +94,94 @@
       <view class="krow" v-for="k in kinds" :key="k.kind" @tap="pickKind(k.kind)">{{ $t(k.label) }}</view>
       <view class="krow cancel" @tap="kindVisible = false">{{ $t('stocktake.diff.cancel') }}</view>
     </view>
+    </view>
+
+    <!-- ⑥ 打印区：屏幕不显示（.st-print{display:none}），仅 @media print 显示（规格 §7.5） -->
+    <view v-if="diff" class="st-print">
+      <!-- 任务头：只在第一页（position: static，禁用 fixed） -->
+      <view class="p-head">
+        <view class="p-title">{{ printTask?.code || '—' }} · {{ printTask?.name || '' }}</view>
+        <view class="p-sub">
+          {{ $t('stocktake.task.warehouse') }}: {{ printTask?.locationName || '—' }}
+          <text v-if="printTask?.activityCode"> | {{ $t('stocktake.task.activity') }}: {{ printTask.activityCode }}</text>
+        </view>
+      </view>
+
+      <!-- 四宫格（独立块级外壳，break-inside: avoid） -->
+      <view class="p-sum">
+        <view class="p-cell"><text class="p-n">{{ diff.expectedTotal }}</text><text class="p-l">{{ $t('stocktake.diff.summaryExpected') }}</text></view>
+        <view class="p-cell"><text class="p-n">{{ diff.countedTotal }}</text><text class="p-l">{{ $t('stocktake.diff.summaryCounted') }}</text></view>
+        <view class="p-cell"><text class="p-n">{{ diff.uncountedCount }}</text><text class="p-l">{{ $t('stocktake.diff.summaryUncounted') }}</text></view>
+        <view class="p-cell"><text class="p-n">{{ diff.extraCount }}</text><text class="p-l">{{ $t('stocktake.diff.summaryExtra') }}</text></view>
+      </view>
+
+      <!-- 差异表：9 列，列宽按 §7.5 固定分配（合计 186mm） -->
+      <view class="p-sec">
+        <table class="p-tbl">
+          <thead>
+            <tr>
+              <th class="c1">{{ $t('stocktake.diff.printColBinCode') }}</th>
+              <th class="c2">{{ $t('stocktake.diff.printColZone') }}</th>
+              <th class="c3">{{ $t('stocktake.diff.printColSku') }}</th>
+              <th class="c4">{{ $t('stocktake.diff.printColName') }}</th>
+              <th class="c5 num">{{ $t('stocktake.diff.printColCounted') }}</th>
+              <th class="c6 num">{{ $t('stocktake.diff.printColSnapBook') }}</th>
+              <th class="c7 num">{{ $t('stocktake.diff.printColBook') }}</th>
+              <th class="c8 num">{{ $t('stocktake.diff.printColDiff') }}</th>
+              <th class="c9 num">{{ $t('stocktake.diff.printColExtra') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in diff.rows" :key="r.variantId">
+              <td class="c1">{{ r.targetBinCode || '—' }}</td>
+              <td class="c2">{{ r.targetZoneCode || '—' }}</td>
+              <td class="c3">{{ r.variantSku }}</td>
+              <td class="c4">{{ r.variantName }}</td>
+              <td class="c5 num">{{ r.countedTotal }}</td>
+              <td class="c6 num">{{ r.snapBookQty }}</td>
+              <td class="c7 num">{{ r.currentBookQty }}</td>
+              <td class="c8 num">{{ r.diff > 0 ? '+' + r.diff : r.diff }}</td>
+              <td class="c9 num">{{ r.isExtra ? '1' : '' }}</td>
+            </tr>
+            <tr v-if="!diff.rows.length">
+              <td class="p-empty" colspan="9">{{ $t('stocktake.diff.empty') }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </view>
+
+      <!-- 未盘清单（印刷版必须带上，否则过账依据不完整） -->
+      <view v-if="diff.uncountedCount > 0" class="p-sec">
+        <view class="p-sec-t">{{ $t('stocktake.diff.uncountedTitle').replace('{n}', String(diff.uncountedCount)) }}</view>
+        <table class="p-tbl p-unc">
+          <thead>
+            <tr>
+              <th class="u1">{{ $t('stocktake.diff.printColSku') }}</th>
+              <th class="u2">{{ $t('stocktake.diff.printColName') }}</th>
+              <th class="u3 num">{{ $t('stocktake.diff.colBook') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="l in diff.uncountedLines" :key="l.id">
+              <td class="u1">{{ l.variantSku }}</td>
+              <td class="u2">{{ l.variantName }}</td>
+              <td class="u3 num">{{ l.bookQty }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </view>
+
+      <!-- 页脚：任务号 + 打印时间（无页码，理由见 §7.5「页码」行） -->
+      <view class="p-foot">
+        <text>{{ $t('stocktake.diff.footerTask') }}: {{ printTask?.code || '—' }}</text>
+        <text>{{ $t('stocktake.diff.footerAt') }}: {{ printAt }}</text>
+      </view>
+    </view>
   </view>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { fetchStocktakeDiff, fetchStocktakeTask, postStocktake, stocktakeExport, type StocktakeDiff, type StocktakeExportFile, type StocktakeTask } from '../../../apis/stocktake';
 import { toCsv, VARIANCE_CSV_COLUMNS } from '../../../utils/stocktake-grid';
@@ -120,6 +204,20 @@ const lastMessage = ref('');
 const taskCode = ref('');
 /** 打印区任务头数据（Task 15 消费） */
 const printTask = ref<StocktakeTask | null>(null);
+
+/**
+ * 打印时间：§10.5 基线要可复现，截图脚本会用 window.__STOCKTAKE_PRINT_AT__ 冻结；
+ * 未冻结时取当前时间（本地 yyyy-MM-dd HH:mm）。
+ */
+function currentStamp() {
+  const frozen = (window as any).__STOCKTAKE_PRINT_AT__;
+  const d = frozen ? new Date(frozen) : new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+const printAt = ref(currentStamp());
+
+onMounted(() => { printAt.value = currentStamp(); });
 
 /** 过账权限（规格 §9：能盘 ≠ 能过账） */
 const canPostPermission = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakePost'));
@@ -199,6 +297,7 @@ async function pickKind(kind: string) {
 }
 
 function onPrint() {
+  printAt.value = currentStamp();
   // 打印根节点常驻 DOM（打印样式内 display 切换），此处只需触发系统打印
   window.print();
 }
@@ -351,5 +450,62 @@ onLoad(async (q: any) => {
   .krow { padding: 26rpx 32rpx; font-size: 27rpx; color: $wa-ink; border-bottom: 1rpx solid $wa-rule;
     &.cancel { text-align: center; color: $wa-muted; border-bottom: 0; }
   }
+}
+</style>
+
+<style lang="scss">
+/* 打印样式：唯一出处是规格 §7.5。不引用主题变量；几何只用 mm、字号只用 pt；
+   禁用 transform: scale / zoom / vw / 自适应列宽；缩放固定 100%。 */
+.st-print { display: none; }
+
+@media print {
+  @page { size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }
+
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .page { background: #fff !important; padding: 0 !important; }
+  .st-screen { display: none !important; }
+
+  .st-print { display: block; width: 186mm; background: #fff; color: #000;
+    font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    font-size: 8.5pt; line-height: 12pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  /* 任务头：只在第一页 */
+  .p-head { break-inside: avoid; padding-bottom: 2mm; border-bottom: 0.2mm solid #000; }
+  .p-title { font-size: 14pt; line-height: 18pt; font-weight: 700; }
+  .p-sub { font-size: 8.5pt; line-height: 12pt; margin-top: 1mm; }
+
+  /* 四宫格 */
+  .p-sum { display: flex; break-inside: avoid; margin: 3mm 0; border: 0.2mm solid #000; }
+  .p-cell { flex: 1; text-align: center; padding: 1.5mm 0; border-left: 0.2mm solid #000; }
+  .p-cell:first-child { border-left: 0; }
+  .p-n { display: block; font-size: 12pt; line-height: 14pt; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .p-l { display: block; font-size: 8.5pt; line-height: 12pt; }
+
+  /* 分区外壳：各自不跨页 */
+  .p-sec { break-inside: avoid; margin-top: 3mm; }
+  .p-sec-t { font-size: 8.5pt; line-height: 12pt; font-weight: 700; margin-bottom: 1mm; }
+
+  /* 表格：固定布局，禁用斑马纹 */
+  .p-tbl { table-layout: fixed; border-collapse: collapse; width: 186mm; }
+  .p-tbl th, .p-tbl td { border-bottom: 0.2mm solid #000; padding: 0.8mm 1mm; text-align: left;
+    font-size: 8.5pt; line-height: 12pt; overflow-wrap: anywhere; }
+  .p-tbl thead { display: table-header-group; }
+  .p-tbl thead th { background: #F2F2F2; border-top: 0.2mm solid #000; font-weight: 700; }
+  .p-tbl tbody tr { break-inside: avoid; height: 6mm; }
+  .p-tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .p-tbl .p-empty { text-align: center; border-bottom: 0; }
+
+  /* 差异表列宽（§7.5 定值，合计 186mm） */
+  .p-tbl .c1 { width: 22mm; } .p-tbl .c2 { width: 30mm; } .p-tbl .c3 { width: 38mm; }
+  .p-tbl .c4 { width: 17mm; } .p-tbl .c5 { width: 17mm; } .p-tbl .c6 { width: 17mm; }
+  .p-tbl .c7 { width: 15mm; } .p-tbl .c8 { width: 12mm; } .p-tbl .c9 { width: 18mm; }
+  /* 未盘清单列宽（§7.5 未定义，本计划新增，合计 186mm） */
+  .p-unc .u1 { width: 30mm; } .p-unc .u2 { width: 138mm; } .p-unc .u3 { width: 18mm; }
+
+  /* 页脚 */
+  .p-foot { break-inside: avoid; margin-top: 3mm; padding-top: 1mm; border-top: 0.2mm solid #000;
+    font-size: 7.5pt; line-height: 10pt; display: flex; justify-content: space-between; }
 }
 </style>
