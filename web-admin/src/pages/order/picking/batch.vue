@@ -79,8 +79,8 @@
       <text v-if="batch && batch.state === 'PICKED'" class="ab" :class="{ dis: busy }" @tap="advance('PRINTED')">
         {{ $t('orderAdmin.picking.markPrinted') }}
       </text>
-      <!-- SHIPPED 之后：交接 / 异常件 -->
-      <text v-if="batch && batch.state === 'SHIPPED'" class="ab" :class="{ dis: busy }" @tap="openHandover">
+      <!-- SHIPPED / EXCEPTION 都可交接（EXCEPTION 的唯一出口就是回 HANDOVER 再复核） -->
+      <text v-if="batch && (batch.state === 'SHIPPED' || batch.state === 'EXCEPTION')" class="ab" :class="{ dis: busy }" @tap="openHandover">
         {{ $t('orderAdmin.picking.doHandover') }}
       </text>
       <text v-if="batch && (batch.state === 'SHIPPED' || batch.state === 'HANDOVER')" class="ab ghost" :class="{ dis: busy }" @tap="openException">
@@ -218,8 +218,10 @@ const stateClass = computed(() => {
 
 const createdLabel = computed(() => String(batch.value?.createdAt || '').replace('T', ' ').slice(0, 16));
 
+/** 与同卡「创建时间」（createdLabel）统一口径：直接截 ISO 字符串。
+ *  若此处改用 toLocaleString，会与 createdLabel 形成两种渲染，同一卡内两行时间看似相差 8 小时。 */
 function fmtAt(v?: string | null): string {
-  return v ? new Date(v).toLocaleString() : '—';
+  return v ? String(v).replace('T', ' ').slice(0, 16) : '—';
 }
 
 // 拣货汇总分组：off 档不分组（无库位概念）；zone / bin 档按库区分组，排序沿用服务端 pathIndex（不重排）
