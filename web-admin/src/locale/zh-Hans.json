@@ -1120,7 +1120,8 @@
       "movements": "库存流水",
       "locations": "仓库管理",
       "rules": "预警规则",
-      "docs": "单据中心"
+      "docs": "单据中心",
+      "reservation": "预留单"
     },
     "card": {
       "noThumb": "无图",
@@ -1318,6 +1319,25 @@
     "delta": "结存变化",
     "loadingMore": "加载中…",
     "noMore": "没有更多了"
+  },
+  "inventoryReservation": {
+    "title": "预留单",
+    "shown": "已显示 {n} / {m}",
+    "variant": "SKU",
+    "qty": "预占量",
+    "createdAt": "创建时间",
+    "remaining": "剩余有效期",
+    "never": "不过期",
+    "expired": "待释放",
+    "release": "释放",
+    "releaseConfirm": "确认释放订单 #{id} 的预留？释放后该单不再占用库存。",
+    "releaseDone": "已释放",
+    "releaseFailed": "释放失败",
+    "loading": "加载中…",
+    "noMore": "没有更多了",
+    "empty": "暂无预留单",
+    "tab": { "": "全部", "PENDING_ALLOC": "待备货", "ALLOCATED": "已备货", "DONE": "已完成", "RELEASED": "已释放" },
+    "state": { "PENDING_ALLOC": "待备货", "ALLOCATED": "已备货", "DONE": "已完成", "RELEASED": "已释放" }
   },
   "inventoryBin": {
     "offTitle": "库位功能未启用",

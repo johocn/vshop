@@ -1120,7 +1120,8 @@
       "movements": "Movements",
       "locations": "Warehouses",
       "rules": "Alert rules",
-      "docs": "Documents"
+      "docs": "Documents",
+      "reservation": "Reservations"
     },
     "card": {
       "noThumb": "No image",
@@ -1318,6 +1319,25 @@
     "delta": "On-hand",
     "loadingMore": "Loading…",
     "noMore": "No more"
+  },
+  "inventoryReservation": {
+    "title": "Reservations",
+    "shown": "Showing {n} / {m}",
+    "variant": "SKU",
+    "qty": "Reserved qty",
+    "createdAt": "Created at",
+    "remaining": "Time left",
+    "never": "No expiry",
+    "expired": "Pending release",
+    "release": "Release",
+    "releaseConfirm": "Release the reservation for order #{id}? The stock will no longer be held for this order.",
+    "releaseDone": "Released",
+    "releaseFailed": "Release failed",
+    "loading": "Loading…",
+    "noMore": "No more",
+    "empty": "No reservations",
+    "tab": { "": "All", "PENDING_ALLOC": "Pending allocation", "ALLOCATED": "Allocated", "DONE": "Done", "RELEASED": "Released" },
+    "state": { "PENDING_ALLOC": "Pending allocation", "ALLOCATED": "Allocated", "DONE": "Done", "RELEASED": "Released" }
   },
   "inventoryBin": {
     "offTitle": "Bin feature is off",
