@@ -1,5 +1,12 @@
 <template>
   <view class="page">
+    <!-- ① 工具条：导出与打印（非 H5 平台隐藏，见 §8.4） -->
+    <view class="tools">
+      <text class="tbtn" @tap="exportCurrentView">{{ $t('stocktake.diff.exportView') }}</text>
+      <text class="tbtn" @tap="exportFull">{{ $t('stocktake.diff.exportFull') }}</text>
+      <text class="tbtn" @tap="onPrint">{{ $t('stocktake.diff.print') }}</text>
+    </view>
+
     <!-- ① 摘要四宫格 -->
     <view class="sum" v-if="diff">
       <view class="cell">
@@ -81,13 +88,19 @@
         {{ posting ? $t('stocktake.diff.posting') : $t('stocktake.diff.post') }}
       </button>
     </view>
+
+    <view v-if="kindVisible" class="kinds">
+      <view class="krow" v-for="k in kinds" :key="k.kind" @tap="pickKind(k.kind)">{{ $t(k.label) }}</view>
+      <view class="krow cancel" @tap="kindVisible = false">{{ $t('stocktake.diff.cancel') }}</view>
+    </view>
   </view>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { fetchStocktakeDiff, fetchStocktakeTask, postStocktake, type StocktakeDiff } from '../../../apis/stocktake';
+import { fetchStocktakeDiff, fetchStocktakeTask, postStocktake, stocktakeExport, type StocktakeDiff, type StocktakeExportFile, type StocktakeTask } from '../../../apis/stocktake';
+import { toCsv, VARIANCE_CSV_COLUMNS } from '../../../utils/stocktake-grid';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
 
@@ -104,6 +117,9 @@ const showUncounted = ref(false);
 const recheckConfirmed = ref(false);
 /** 最近一次被服务端拦下的原因（弹窗/提示里原样透出，绝不静默失败） */
 const lastMessage = ref('');
+const taskCode = ref('');
+/** 打印区任务头数据（Task 15 消费） */
+const printTask = ref<StocktakeTask | null>(null);
 
 /** 过账权限（规格 §9：能盘 ≠ 能过账） */
 const canPostPermission = computed(() => auth.isSuperAdmin || auth.hasPermission('StocktakePost'));
@@ -122,10 +138,77 @@ const canPost = computed(() => {
   return diff.value.uncountedCount === 0 || skipConfirmed.value;
 });
 
+const kindVisible = ref(false);
+const kinds = [
+  { kind: 'variance', label: 'stocktake.diff.kindVariance' },
+  { kind: 'lines', label: 'stocktake.diff.kindLines' },
+  { kind: 'by_bin', label: 'stocktake.diff.kindByBin' },
+  { kind: 'by_counter', label: 'stocktake.diff.kindByCounter' },
+] as const;
+
+/** 浏览器落盘（H5）：Blob + a[download]；文件名沿用后端命名规则 */
+function saveText(filename: string, mimeType: string, content: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function stampName(kind: string) {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `stocktake-${taskCode.value || 'task'}-${kind}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}.csv`;
+}
+
+/** 当前视图导出（规格 §3.4）：内存数据即时落盘，不等待网络 */
+function exportCurrentView() {
+  const rows = diff.value?.rows || [];
+  if (!rows.length) {
+    uni.showToast({ title: locale.t('stocktake.diff.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const body = rows.map((r) => [
+    r.targetBinCode || '', r.targetZoneCode || '', r.variantSku, r.variantName, r.countedTotal,
+    r.snapBookQty, r.currentBookQty, r.diff, r.isExtra, r.snapBookQty !== r.currentBookQty,
+  ]);
+  saveText(stampName('variance'), 'text/csv;charset=utf-8', toCsv([[...VARIANCE_CSV_COLUMNS], ...body]));
+  uni.showToast({ title: locale.t('stocktake.diff.exportDone').replace('{n}', String(body.length)), icon: 'none' });
+}
+
+function exportFull() { kindVisible.value = true; }
+
+async function pickKind(kind: string) {
+  kindVisible.value = false;
+  try {
+    const f: StocktakeExportFile = await stocktakeExport(taskId.value, kind);
+    saveText(f.filename, f.mimeType, f.content);
+    uni.showToast({
+      title: f.truncated
+        ? locale.t('stocktake.diff.exportTruncated').replace('{n}', String(f.totalRows))
+        : locale.t('stocktake.diff.exportDone').replace('{n}', String(f.totalRows)),
+      icon: 'none', duration: f.truncated ? 3500 : 2000,
+    });
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('stocktake.diff.exportFailed'), icon: 'none' });
+  }
+}
+
+function onPrint() {
+  // 打印根节点常驻 DOM（打印样式内 display 切换），此处只需触发系统打印
+  window.print();
+}
+
 async function loadDiff() {
   diff.value = await fetchStocktakeDiff(taskId.value);
   const t = await fetchStocktakeTask(taskId.value);
   taskState.value = t?.state || '';
+  taskCode.value = t?.code || '';
+  printTask.value = t;
 }
 
 /**
@@ -257,5 +340,16 @@ onLoad(async (q: any) => {
   .block { display: block; font-size: 23rpx; color: $wa-danger; margin-bottom: 12rpx; text-align: center; }
   .main { width: 100%; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
   .main[disabled] { opacity: .5; }
+}
+
+.tools { display: flex; gap: 16rpx; margin-bottom: 16rpx;
+  .tbtn { flex: 1; text-align: center; font-size: 25rpx; color: $wa-ink; background: $wa-card;
+    border-radius: $wa-radius; padding: 16rpx 0; }
+}
+.kinds { position: fixed; left: 24rpx; right: 24rpx; bottom: calc(160rpx + env(safe-area-inset-bottom));
+  background: $wa-card; border-radius: $wa-radius; overflow: hidden; box-shadow: 0 8rpx 24rpx rgba(0,0,0,.15);
+  .krow { padding: 26rpx 32rpx; font-size: 27rpx; color: $wa-ink; border-bottom: 1rpx solid $wa-rule;
+    &.cancel { text-align: center; color: $wa-muted; border-bottom: 0; }
+  }
 }
 </style>
