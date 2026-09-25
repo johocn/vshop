@@ -105,6 +105,8 @@ const sortBy = ref<AfterSaleSortBy>('createdAt');
 
 const page = useListPage<AfterSaleRow>({
   take: 20,
+  // 首屏由 onLoad 里的 reload() 触发（避免 setup 加载 + onLoad 加载发两次请求）
+  immediate: false,
   fetcher: ({ skip, take, filter, sort }) => fetchAfterSalePage({ skip, take, filter, sort }),
 });
 
@@ -130,8 +132,10 @@ function combinedFilter(): Record<string, unknown> {
 }
 
 async function reload() {
-  await page.applyFilter(combinedFilter());
-  await page.setSort({ [sortBy.value]: 'DESC' });
+  // 条件与排序一次性写入后只刷一次，避免 applyFilter + setSort 各发一次请求
+  page.filter.value = combinedFilter();
+  page.sort.value = { [sortBy.value]: 'DESC' };
+  await page.refresh();
 }
 
 function onApply() { void reload(); }
