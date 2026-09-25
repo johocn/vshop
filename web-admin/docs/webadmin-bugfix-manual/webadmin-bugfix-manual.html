@@ -1230,7 +1230,7 @@ flowchart TD
       </ul>
       <figure style="margin:0 0 10px;"><img src="assets/stocktake-ops-51b-print-region.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">打印区（为取证临时强制显形）：任务头 + 四宫格 + 九列差异表 + 页脚；390px 视口下必然横向溢出、列头折行</figcaption></figure>
       <p class="muted" style="font-size:13px;">打印区实拍是为取证<strong>临时强制显形</strong>的（截图可见 186mm 表格在手机视口下溢出、列头竖排折行），A4 几何正确性以打印基线脚本为准。任务 16 实测（本地 dist + 生产只读数据）：打印区宽 <code class="mono">186.00mm</code>、差异表 <code class="mono">cols=9</code> 且列宽偏差 <code class="mono">[]</code>、<code class="mono">overflow=[] scroll=703/703</code>、PDF 页尺寸 <code class="mono">594.960 × 841.920pt</code>、文本含任务号 <code class="mono">TK20260924-017</code>，见偏差 D43。</p>
-      <p class="muted" style="font-size:13px;">基线限制如实记录：生产 <code class="mono">t2</code> 的 21 条任务<strong>全部 <code class="mono">CANCELLED</code> 且差异行为 0</strong>，没有 POSTED 任务 = 没有可注入基线的数据源，故 <code class="mono">_e2e/baselines/print/</code> <strong>未生成</strong>（不伪造空基线），逐页像素比对与跨页用例全部记 <mark class="key">SKIP</mark>。详见偏差 D12 / D41 / D42 / D43。</p>
+      <p class="muted" style="font-size:13px;">基线限制如实记录（<strong>历史结论，已由第 10 小节取代</strong>）：生产 <code class="mono">t2</code> 的 21 条任务<strong>全部 <code class="mono">CANCELLED</code> 且差异行为 0</strong>，当时判定「没有 POSTED 任务 = 没有可注入基线的数据源」，故 <code class="mono">_e2e/baselines/print/</code> 一度 <strong>未生成</strong>、逐页像素比对与跨页用例全部记 <mark class="key">SKIP</mark>（详见偏差 D12 / D41 / D42 / D43）。该死结已由「数据受控合成 fixture」解开：基线已录制、像素比对已生效，见第 10 小节与偏差 D58。</p>
 
       <p><strong>7. 回归门禁</strong></p>
       <div class="table-wrap">
@@ -1239,7 +1239,7 @@ flowchart TD
         <tr><td><code class="mono">npm run test:smoke:live</code></td><td>只读冒烟：打生产 <code class="mono">t2</code> 走接口断言（字段存在 / 鉴权 / schema 生效），<strong>零写入</strong>；无任务时对应断言记 SKIP</td><td>0 通过 / 1 有失败项</td></tr>
         <tr><td><code class="mono">npm run test:e2e:stocktake</code></td><td>手机视口端到端回归（Playwright）：看板分页 / 草稿 / 统计 / 导出 / 打印，逐张截图并断言 DOM</td><td>0 通过 / 1 有失败 / 2 环境不可用（缺 playwright、登录失败，或<strong>目标是生产且开了 <code class="mono">WA_SHOT_ALLOW_WRITE</code> 被硬拦</strong>）</td></tr>
         <tr><td><code class="mono">npm run verify:manual</code></td><td>文档门禁：修复手册新章 / 线上手册 op-39 / 引用截图是否落盘 / 线上手册是否可达</td><td>0 通过 / 1 有失败 / 2 手册文件缺失</td></tr>
-        <tr><td><code class="mono">npm run verify:print</code></td><td>打印基线：结构断言（必跑）+ 像素比对（仅录制环境生效，跨机降级为 SKIP）</td><td>0 通过 / 1 有失败 / 2 环境不可用（缺 <code class="mono">--task</code> / 缺 playwright）</td></tr>
+        <tr><td><code class="mono">npm run verify:print</code></td><td>打印基线：结构断言（必跑）+ 受控渲染像素比对（数据由合成 fixture 固定，同机<strong>零容差</strong>；仅「渲染环境指纹不符」降级为 SKIP，见第 10 小节）</td><td>0 通过 / 1 有失败 / 2 环境不可用（缺 <code class="mono">--task</code> / 缺 playwright）</td></tr>
       </table>
       </div>
       <p class="muted" style="font-size:13px;">纪律：<strong>不许伪造 PASS</strong>。断言不成立就 FAIL，数据不足就显式 SKIP 并把理由写进输出，退出码即结论。</p>
@@ -1271,10 +1271,78 @@ flowchart TD
       </ul>
       <p>实测（2026-09-25）：<mark class="key">20 条断言全 OK → ===== 渲染级验证：PASS（失败 0）=====</mark>，exit 0；线上 9 张图响应码全 <code class="mono">200</code>、与本地 <code class="mono">shots/</code> 字节逐张一致，0 pageerror / 0 console.error。下图即该脚本在手机视口下对<strong>线上手册 op-39</strong> 的渲染取证（<code class="mono">239566 B</code>）。</p>
       <figure style="margin:0 0 10px;"><img src="assets/manual-render-online-op39.png" style="width:30%;border:1px solid var(--rule);border-radius:10px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">渲染级验证取证：线上手册 <code class="mono">op-39</code> 真机渲染（章节标题「41. 盘库看板分页 · 草稿 · 统计 · 导出与打印」+ 正文 + 首个手机截图均已解码；手机视口 390×844 dpr=2 → 780×1688）</figcaption></figure>
+
+      <p><strong>10. 打印版式像素级一致性要求（2026-09-25 追补）</strong></p>
+      <p>第 6 小节写下的「三层承诺」里，第②③层（跨机结构断言、物理打印人工走查）本就靠结构与走查兜住，真正悬空的是第①层——<strong>受控渲染下的像素级一致</strong>。它此前只是一句承诺：生产 <code class="mono">t2</code> 没有已过账且有差异行的任务（偏差 D41），<code class="mono">_e2e/baselines/print/</code> 从未生成，<code class="mono">verify:print</code> 长期是「结构断言 PASS + 像素比对全 SKIP」。本小节把这个要求做成<strong>可判定、可复跑、可反证</strong>的门禁。</p>
+
+      <p><strong>10.1 解法：把「数据」从基线里拿掉（数据受控合成 fixture）</strong></p>
+      <p>像素基线本质上是<strong>版式</strong>的指纹，不是数据的指纹。所以脚本把 <code class="mono">.st-print</code> 的内容<strong>整体替换为一组冻结的合成 fixture</strong>（任务头 / 四宫格 / 九列差异表 / 未盘清单 / 页脚），只保留真实的 i18n 表头与四宫格标签——渲染结果因而与后端数据彻底解耦，基线可在<strong>任意环境（含生产只读）</strong>录制与比对，这才解开了 D41 的死结。载体任务（<code class="mono">--task</code>）只负责把 <code class="mono">.st-print</code> 渲染出来，它的真实数据不进基线；但载体任务必须满足「可查 + 未盘清单区块存在」，否则 fixture 无处填充 → 显式 <mark class="key">FAIL</mark>，绝不静默退化成「真实数据基线」。</p>
+      <p class="muted" style="font-size:13px;">实现要点（踩过的坑）：uni-app H5 会给每个 SFC 的每个 <code class="mono">&lt;style&gt;</code> 无条件补 <code class="mono">scoped</code>（偏差 D37），因此<strong>新建的 table / tr / td 必须继承本组件的 <code class="mono">data-v-*</code> 属性</strong>，否则 scoped 打印样式不命中、注入的表格会退化成无边框无内边距（这也是本项目 <code class="mono">v-html</code> 兜底不可用的原因）。页脚是 <code class="mono">display:flex + space-between</code>，两个子项必须<strong>分别赋值</strong>，合并成一个文本节点会丢掉分栏。</p>
+
+      <p><strong>10.2 契约清单</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>项</th><th>要求</th></tr>
+        <tr><td>渲染环境</td><td>Playwright Chromium（headless）+ <code class="mono">emulateMedia({media:'print'})</code> + 视口 <code class="mono">794×1123</code> @dpr2；截图对象是 <code class="mono">.st-print</code> 元素本身（宽 186mm → 光栅 <code class="mono">1406px</code>，断言 ±2px）</td></tr>
+        <tr><td>切片</td><td>按内容区高 <code class="mono">271mm</code>（<code class="mono">PAGE_H_DEV=2049</code> 设备像素）纵向切为逐页 PNG，页序即基线文件序</td></tr>
+        <tr><td>比对</td><td><strong>同机逐像素零容差</strong>（RGB 三分量全等）；任何差异 → 该页生成 <mark class="key">红标 diff 图</mark> 到 <code class="mono">_e2e/baselines/print/_diff/&lt;case&gt;/</code> 并 FAIL，附「差异像素数 + 最大通道差」</td></tr>
+        <tr><td>基线内容</td><td>每 case 一份 <code class="mono">page-N.png</code> + <code class="mono">env.json</code>；<code class="mono">fingerprint</code> 记录 chromium / playwright / OS / 视口 / dpr / 内容毫米 / 切片高 / 打印时间 / fixture 规格</td></tr>
+        <tr><td>跨机降级</td><td>指纹不符（换机 / 换 OS / 升 Playwright 或 Chromium）→ 该 case 记 <code class="mono">SKIP 像素比对</code>，<strong>结构断言照跑</strong>；不虚报 PASS，也不放宽容差（规格 §10.5）</td></tr>
+        <tr><td><mark class="key">SKIP 边界（收紧）</mark></td><td>像素阶段<strong>没有「数据不足」降级路径</strong>——数据由 fixture 保证，故「基线不存在」「数据不足」「页数不符」一律判 <mark class="key">FAIL</mark>；唯一允许的像素降级是「渲染环境指纹不符」。阶段①（打真实数据的结构断言）数据不足时仍按老规矩显式 SKIP</td></tr>
+      </table>
+      </div>
+
+      <p><strong>10.3 三个 fixture case</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>case</th><th>差异表行</th><th>未盘清单行</th><th>四宫格（应盘/已盘/未盘/盘盈）</th><th>页数</th><th>覆盖意图</th></tr>
+        <tr><td><code class="mono">diff-a4</code></td><td>6</td><td>3</td><td>6 / 4 / 2 / 1</td><td>1</td><td>常规单页：表头 + 九列 + 未盘区块同页</td></tr>
+        <tr><td><code class="mono">empty-a4</code></td><td>0（空态占位行）</td><td>0（区块隐藏）</td><td>0 / 0 / 0 / 0</td><td>1</td><td>空态：<code class="mono">colspan=9</code> 占位行 + 未盘块隐藏</td></tr>
+        <tr><td><code class="mono">big-a4</code></td><td>120</td><td>24</td><td>120 / 106 / 14 / 6</td><td>6</td><td>跨页：续页重复表头 + 行不跨页（断言 ≥3 页）</td></tr>
+      </table>
+      </div>
+
+      <p><strong>10.4 一键命令</strong></p>
+      <ul>
+        <li><strong>首次录制 / 版式有意变更后重录</strong>：<code class="mono">python _e2e/_verify_print_baseline.py --task 17 --record --force</code>（<code class="mono">--record</code> 写基线；基线已存在时须显式 <code class="mono">--force</code>，防误覆盖）</li>
+        <li><strong>日常比对</strong>：<code class="mono">npm run verify:print -- --task 17</code>（等价 <code class="mono">python _e2e/_verify_print_baseline.py --task 17</code>）</li>
+        <li><strong>改打本地构建产物</strong>：加上 <code class="mono">WA_PRINT_BASE=http://localhost:5280/guanli/ WA_API_ORIGIN=https://e.joho.cn</code>（脚本把页面发出的 <code class="mono">/admin-api</code> 只读转发到线上，用于登录与读数据；仅当 <code class="mono">WA_PRINT_BASE</code> 指向 localhost 时启用）</li>
+      </ul>
+
+      <p><strong>10.5 实测（2026-09-25，如实照抄命令输出）</strong></p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>环节</th><th>命令</th><th>实测结果</th></tr>
+        <tr><td>首次录制</td><td><code class="mono">… --task 17 --record --force</code>（打生产只读）</td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 6）=====</mark>，exit 0；基线落盘 <code class="mono">diff-a4 → 1 页</code>、<code class="mono">empty-a4 → 1 页</code>、<code class="mono">big-a4 → 6 页</code>；<code class="mono">big-a4[fixture] 内容跨 &gt;= 3 页 pages=6</code>、<code class="mono">PDF 页数 pdf=7 png=6</code>、<code class="mono">PDF 页尺寸 594.960 × 841.920 pt</code>、<code class="mono">PAGEERR []</code>、<code class="mono">console.error = 0</code></td></tr>
+        <tr><td>自证复跑</td><td>同一命令去掉 <code class="mono">--record</code></td><td><mark class="key">PASS（失败 0 / SKIP 6）</mark>，三 case 全部 <code class="mono">OK … 逐页像素零容差一致</code>，未生成 <code class="mono">_diff/</code></td></tr>
+        <tr><td>跨环境复核</td><td><code class="mono">WA_PRINT_BASE=http://localhost:5280/guanli/</code> + <code class="mono">WA_API_ORIGIN=https://e.joho.cn</code></td><td><mark class="key">PASS（失败 0 / SKIP 6）</mark>：用线上产物录制的基线，与<strong>本地 <code class="mono">npm run build:h5</code> 产物</strong>的渲染结果逐像素零容差一致（同一 Chromium 下指纹各键全等）</td></tr>
+        <tr><td>SKIP 6 条</td><td>—</td><td>全部属<strong>阶段①</strong>：3×「任务可查且已终态」（生产无 POSTED，用只读 <code class="mono">CANCELLED</code> 载体任务 <code class="mono">TK20260924-017</code> 代替）+ 3×「真实数据有差异行」（该载体任务差异行为 0）；<strong>阶段② 像素断言 0 SKIP</strong></td></tr>
+      </table>
+      </div>
+
+      <p><strong>10.6 负向验证：门禁必须真的会 FAIL</strong></p>
+      <p>「PASS」只有在「能 FAIL」的前提下才有意义。于是做一次受控破坏——把打印样式里的数据行高 <code class="mono">.p-tbl tbody tr { height: 6mm }</code> 临时改成 <code class="mono">7mm</code>，重建产物后复跑同一命令：</p>
+      <div class="table-wrap">
+      <table>
+        <tr><th>步骤</th><th>操作</th><th>结果</th></tr>
+        <tr><td>① 破坏</td><td><code class="mono">height: 6mm → 7mm</code> + <code class="mono">npm run build:h5</code></td><td><mark class="key">===== 打印基线：FAIL（失败 3 / SKIP 6）=====</mark>，exit 1：<code class="mono">diff-a4 page-1 差异像素 46159</code>、<code class="mono">empty-a4 page-1 差异像素 12751</code>、<code class="mono">big-a4 page-5 106370 / page-6 179283</code>（最大通道差 <code class="mono">255</code>），并在 <code class="mono">_diff/</code> 生成红标 diff 图</td></tr>
+        <tr><td>② 复原</td><td><code class="mono">7mm → 6mm</code> + <code class="mono">npm run build:h5</code></td><td><mark class="key">===== 打印基线：PASS（失败 0 / SKIP 6）=====</mark>，三 case 全部 <code class="mono">OK … 逐页像素零容差一致</code></td></tr>
+      </table>
+      </div>
+      <figure style="margin:0 0 10px;"><img src="assets/print-pixel-neg-diff-a4.png" style="width:46%;border:1px solid var(--rule);border-radius:6px;" /><img src="assets/print-pixel-neg-big-a4-p5.png" style="width:46%;border:1px solid var(--rule);border-radius:6px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">负向验证红标 diff 图（脚本自动产物，不一致像素染为纯红）：左 <code class="mono">diff-a4 page-1</code>（46159 像素，行高 7mm 使每行下移、表头与四宫格整体错位）；右 <code class="mono">big-a4 page-5</code>（106370 像素，跨页累计偏移）</figcaption></figure>
+      <p class="muted" style="font-size:13px;">红标图是脚本自动产物；取证后已删除 <code class="mono">_diff/</code> 临时目录，两份代表性红标图归档进 <code class="mono">assets/</code> 作为「门禁有效性」的证据。同一个 <code class="mono">height: 7mm</code> 破坏在<strong>结构断言上完全看不出来</strong>（宽 186mm、列数 9、列宽偏差空、页尺寸正确），只有像素比对能抓到——这正是本小节存在的理由。</p>
+
+      <p><strong>10.7 反假 PASS 的三重保障</strong></p>
+      <ul>
+        <li><strong>fixture 生效断言</strong>：注入后立刻断言差异表行数 / 空态占位行 / 未盘行数三项与 fixture 规格相符——注入静默失败不会变成「比对了一个没换内容的页面」。</li>
+        <li><strong>fixture 下复跑全量结构断言</strong>：<code class="mono">[fixture]</code> 组断言用的是合成任务号 <code class="mono">FX20260925-001</code>（而非载体任务号），故「DOM 文本含任务号」是真的子串命中，杜绝旧代码里 <code class="mono">'' in text</code> 恒真的空过陷阱。</li>
+        <li><strong>SKIP 边界收紧</strong>：像素阶段删除了「数据不足 → SKIP」这条降级路径（见 10.2 末行）；缺基线、页数不符、指纹不符以外的任何异常都是 FAIL。</li>
+      </ul>
+      <p class="muted" style="font-size:13px;">纪律重申：<strong>不许伪造 PASS，也不许把「跑不了」写成「通过了」</strong>；环境变了（换机 / 升级浏览器）就<strong>重录基线</strong>，而不是放宽容差。旧口径里的 <code class="mono">--empty-task</code> 参数与 <code class="mono">inject_big</code> 注入函数已随之取消 / 删除，详见偏差 D58。</p>
     </section>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
