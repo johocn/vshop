@@ -123,33 +123,6 @@ async function buildFilters(productIds: string | string[] = []) {
   return [{ code: 'product-id-filter', arguments: [{ name: 'productIds', value: JSON.stringify(ids) }] }];
 }
 
-export async function createCollection(input: CollectionInput): Promise<string> {
-  const { createCollection } = await getAdminClient().request<{ createCollection: { id: string } }>(
-    `mutation CreateCollection($input: CreateCollectionInput!) { createCollection(input: $input) { id } }`,
-    {
-      input: {
-        isPrivate: false,
-        // CreateCollectionTranslationInput requires description: String!
-        translations: [{ languageCode: LAN, name: input.name, slug: input.slug || input.name, description: input.name }],
-        filters: await buildFilters(input.productIds || []),
-      },
-    },
-  );
-  return createCollection.id;
-}
-
-export async function updateCollection(id: string, productIds: string[], name?: string): Promise<void> {
-  const input: Record<string, unknown> = {
-    id,
-    filters: await buildFilters(productIds),
-  };
-  if (name) input.translations = [{ languageCode: LAN, name, slug: name, description: name }];
-  await getAdminClient().request(
-    `mutation UpdateCollection($input: UpdateCollectionInput!) { updateCollection(input: $input) { id } }`,
-    { input },
-  );
-}
-
 /** 排序 / 移动（Vendure 原生 moveCollection）。index 为同父级内的目标序号（0 起） */
 export async function moveCollection(id: string, parentId: string | null, index: number): Promise<void> {
   await getAdminClient().request(
