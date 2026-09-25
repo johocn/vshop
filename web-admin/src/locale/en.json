@@ -899,7 +899,12 @@
     "topLevel": "Top level",
     "moveFail": "Move failed",
     "reparent": "Move to…",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "bulkIcon": "Batch icon",
+    "bulkMove": "Batch move",
+    "bulkDelete": "Batch delete",
+    "blockedChildren": "\"{name}\" has sub-categories and cannot be deleted",
+    "blockedProducts": "\"{name}\" has products and cannot be deleted"
   },
   "productEdit": {
     "save": "Save",
