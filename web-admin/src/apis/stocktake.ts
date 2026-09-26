@@ -98,6 +98,39 @@ export interface StocktakeStats {
   byCounter: StocktakeCounterStat[];
 }
 
+export interface StocktakeKpiDay {
+  /** 'YYYY-MM-DD'（窗口内每一天都有一行，无数据日为 0） */
+  day: string;
+  expected: number;
+  diff: number;
+}
+
+export interface StocktakeKpi {
+  /** 窗口内「已提交/已过账」任务数（COUNTED / POSTED） */
+  taskCount: number;
+  expectedTotal: number;
+  diffTotal: number;
+  days: StocktakeKpiDay[];
+}
+
+/**
+ * 看板盘库 KPI（D48）：服务端按 createdAt 窗口判定任务并聚合差异，
+ * 无 listTasks 的 pageSize ≤ 100 硬顶，也不再逐任务发 stocktakeDiff。
+ */
+export async function fetchStocktakeKpi(args: { from: string; to: string }): Promise<StocktakeKpi> {
+  try {
+    const r = await getAdminClient().request<{ stocktakeKpi: StocktakeKpi }>(
+      `query StocktakeKpi($from: String, $to: String) {
+        stocktakeKpi(from: $from, to: $to) { taskCount expectedTotal diffTotal days { day expected diff } }
+      }`,
+      { from: args.from, to: args.to },
+    );
+    return r.stocktakeKpi ?? { taskCount: 0, expectedTotal: 0, diffTotal: 0, days: [] };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '盘库 KPI 查询失败'));
+  }
+}
+
 /** 后端全量导出（规格 §6.4）：content 是完整 CSV 文本（含 BOM） */
 export interface StocktakeExportFile {
   filename: string;

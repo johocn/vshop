@@ -1,10 +1,11 @@
-// 作业分析报表纯函数：时间窗口切分、KPI 聚合、差异趋势、CSV 行组装。
+// 作业分析报表纯函数：时间窗口切分、发货件数合计、差异率格式化、CSV 行组装。
 // 口径见 docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md §7.3（务必与规格一致，勿自行发明口径）。
-import type { PickBatch } from '../apis/picking';
-import type { StocktakeTask, StocktakeDiff } from '../apis/stocktake';
-
-export const SHIPPED_BATCH_STATES = ['SHIPPED', 'HANDOVER', 'REVIEWED'];
-
+//
+// 注（D48）：「拣货单数」「盘库次数」的窗口判定与「盘点差异趋势」的按日聚合已整体下沉到后端
+// （`pickBatchShippedCount` / `stocktakeKpi`）。原因同 D46：前端原先只能取到被服务端硬顶 100 条的
+// 分页结果，窗口内批次/任务超过 100 条时较老记录被截断，三个 KPI 同源同步失真。收益：无上限、
+// 单次请求、无分页漂移；代价：这些口径不再有前端单测覆盖，改由 e2e（`_e2e/_verify_d48_dashboard_kpi_window.py`）
+// 与 `_e2e/_verify_d46_ops_counter_window.py` 守护。
 export interface OpsWindow {
   start: Date;
   /** 含 */
@@ -24,75 +25,25 @@ export function buildOpsWindow(days: number, now = new Date()): OpsWindow {
   return { start, end, days };
 }
 
-export function inWindow(iso: string | null | undefined, w: OpsWindow): boolean {
-  if (!iso) return false;
-  const t = new Date(iso).getTime();
-  return !Number.isNaN(t) && t >= w.start.getTime() && t < w.end.getTime();
-}
-
-/** 'YYYY-MM-DD'（本地时区），用于订单列表 custom 时间窗口 */
+/** 'YYYY-MM-DD'（本地时区），用于订单列表 custom 时间窗口与 CSV 文件名 */
 export function ymd(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-export function countBatches(batches: PickBatch[], w: OpsWindow): number {
-  return batches.filter((b) => SHIPPED_BATCH_STATES.includes(String(b.state)) && inWindow(b.createdAt, w)).length;
 }
 
 export function sumShippedItems(rows: Array<{ totalQuantity?: number | null }>): number {
   return rows.reduce((s, r) => s + (r.totalQuantity ?? 0), 0);
 }
 
-/** 已提交/已过账的盘点任务（DRAFT/OPEN/COUNTING/CANCELLED 不计） */
-const DONE_TASK_STATES = ['SUBMITTED', 'POSTED'];
-
-export function countStocktakeTasks(tasks: StocktakeTask[], w: OpsWindow): number {
-  return tasks.filter((t) => DONE_TASK_STATES.includes(String(t.state)) && inWindow(t.createdAt, w)).length;
-}
-
-export interface VarianceRate {
-  expected: number;
-  diff: number;
-  /** 百分比，两位小数字符串；分母为 0 → '0.00' */
-  rate: string;
-}
-
-export function varianceRate(diffs: StocktakeDiff[]): VarianceRate {
-  let expected = 0;
-  let diff = 0;
-  for (const d of diffs) {
-    expected += d?.expectedTotal ?? 0;
-    diff += Math.abs(d?.diffCount ?? 0);
-  }
-  return { expected, diff, rate: expected > 0 ? ((diff / expected) * 100).toFixed(2) : '0.00' };
+/** 差异率 = Σ差异件数 ÷ Σ应盘件数（两位小数字符串）；分母为 0 → '0.00' */
+export function varianceRate(expected: number, diff: number): string {
+  return expected > 0 ? ((diff / expected) * 100).toFixed(2) : '0.00';
 }
 
 export interface TrendPointRow {
   day: string;
   expected: number;
   diff: number;
-}
-
-/** 按日聚合差异趋势（任务归期用 createdAt）；窗口内每一天都有行（无数据日为 0） */
-export function varianceTrend(
-  pairs: Array<{ createdAt: string; diff: StocktakeDiff }>,
-  w: OpsWindow,
-): TrendPointRow[] {
-  const byDay = new Map<string, { expected: number; diff: number }>();
-  for (let i = 0; i < w.days; i++) {
-    const d = new Date(w.start);
-    d.setDate(d.getDate() + i);
-    byDay.set(ymd(d), { expected: 0, diff: 0 });
-  }
-  for (const p of pairs) {
-    const key = ymd(new Date(p.createdAt));
-    const cell = byDay.get(key);
-    if (!cell) continue;
-    cell.expected += p.diff?.expectedTotal ?? 0;
-    cell.diff += Math.abs(p.diff?.diffCount ?? 0);
-  }
-  return [...byDay.entries()].map(([day, v]) => ({ day, ...v }));
 }
 
 export interface CounterRow {
@@ -102,8 +53,6 @@ export interface CounterRow {
   qty: number;
 }
 
-// 注（D46）：原先在此处实现的「作业员明细」聚合（`groupByOperator` + `opsCountableDocs`）已整体下沉到
-// 后端 `stockDocOperatorStats`（SQL GROUP BY 操作人，且口径排除 STOCKTAKE）。原因：前端只能取到
-// `stockDocList({pageSize:100})` 这一被服务端 `clampPageSize` 硬顶 100 条的分页结果，窗口内单据超过 100 条时
-// 较老单据被截断、低频作业员整行消失。收益：无上限、单次请求、无分页漂移；代价：该口径不再有前端单测覆盖，
-// 改由 e2e（`_e2e/_verify_d46_ops_counter_window.py`）与既有 `_verify_d43_ops_counter_scope.py` 守护。
+// 注（D46）：「作业员明细」聚合（`groupByOperator` + `opsCountableDocs`）已整体下沉到后端
+// `stockDocOperatorStats`（SQL GROUP BY 操作人，且口径排除 STOCKTAKE），改由 e2e 守护：
+// `_e2e/_verify_d46_ops_counter_window.py`（窗口上限两态）与 `_e2e/_verify_d43_ops_counter_scope.py`（STOCKTAKE 排除口径）。
