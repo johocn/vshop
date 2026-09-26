@@ -31,6 +31,11 @@ ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
 USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
 PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
 CHANNEL_CODE = os.environ.get('WA_D25_CHANNEL', 'shop-a')
+# 输出名标签：本地跑留空（gap4-d25-<mode>.png）；线上复验用 WA_D25_TAG=online-
+# （gap4-d25-online-<mode>.png），避免线上跑覆盖本地取证。
+TAG = os.environ.get('WA_D25_TAG', '')
+# 诊断开关：置 1 则不注入渠道，沿用登录后的默认渠道（用于判定「未授权」类报错是否由注入渠道引起）。
+NO_INJECT = os.environ.get('WA_D25_NO_INJECT') == '1'
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 PAGE = 'pages/data/dashboard/index'
 
@@ -144,7 +149,7 @@ def goto_page(pg, wait_js, settle=1.0):
 
 def shot(pg, name):
     OUT.mkdir(parents=True, exist_ok=True)
-    f = OUT / ('gap4-d25-%s.png' % name)
+    f = OUT / ('gap4-d25-%s%s.png' % (TAG, name))
     pg.screenshot(path=str(f))
     check('截图 %s' % f.name, f.exists() and f.stat().st_size > 5000, '%dB' % (f.stat().st_size if f.exists() else 0))
 
@@ -261,7 +266,9 @@ def audit(name, ops, expect_empty):
 
 
 def main():
-    _, ctoken = admin_token()
+    ctoken = None
+    if not NO_INJECT:
+        _, ctoken = admin_token()
     with sync_playwright() as p:
         b = p.chromium.launch()
         ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2,
@@ -288,8 +295,11 @@ def main():
         pg.route('**/admin-api?*', handler)
 
         login(pg)
-        inject_channel(pg, CHANNEL_CODE, ctoken)
-        info('已登录，渠道 %s' % CHANNEL_CODE)
+        if NO_INJECT:
+            info('已登录；未注入渠道，沿用登录后默认渠道')
+        else:
+            inject_channel(pg, CHANNEL_CODE, ctoken)
+            info('已登录，渠道 %s' % CHANNEL_CODE)
 
         for mode, expect_empty in (('empty', True), ('data', False)):
             MODE['v'] = mode
