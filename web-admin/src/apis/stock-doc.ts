@@ -134,6 +134,12 @@ export interface StockDocSummaryRow {
   createdAt: string;
   itemCount: number;
   totalQty: number;
+  /**
+   * 盘点任务反查（D44）：仅「盘点任务过账」生成的盘库单有值（后端按 postedStockDocId 反查）；
+   * 库存明细页「调整」产生的手工调数单同 type 但无任务引用 → 两字段为 null。
+   */
+  taskId: string | null;
+  taskCode: string | null;
 }
 
 export interface StockDocList {
@@ -157,7 +163,7 @@ export async function fetchStockDocList(
     `query StockDocList($type: String, $locationId: ID, $from: String, $to: String, $operator: String, $page: Int, $pageSize: Int) {
       stockDocList(type: $type, locationId: $locationId, from: $from, to: $to, operator: $operator, page: $page, pageSize: $pageSize) {
         totalItems
-        items { id code type remark operator createdAt itemCount totalQty }
+        items { id code type remark operator createdAt itemCount totalQty taskId taskCode }
       }
     }`,
     {
