@@ -132,7 +132,7 @@ import { fetchInventoryHealth, type InventoryHealth } from '../../../apis/invent
 import { fetchPickBatches } from '../../../apis/picking';
 import { fetchStocktakeTasks, fetchStocktakeDiff, type StocktakeDiff } from '../../../apis/stocktake';
 import { fetchOrders } from '../../../apis/order';
-import { fetchStockDocList } from '../../../apis/stock-doc';
+import { fetchStockDocOperatorStats } from '../../../apis/stock-doc';
 import { buildOrderFilter } from '../../../utils/orderFilter';
 import { downloadCsv } from '../../../utils/csv';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -140,8 +140,6 @@ import {
   buildOpsWindow,
   countBatches,
   countStocktakeTasks,
-  groupByOperator,
-  opsCountableDocs,
   inWindow,
   sumShippedItems,
   varianceRate,
@@ -238,12 +236,15 @@ async function loadOps(): Promise<void> {
     rows = varianceTrend(pairs, w);
   } catch (e) { console.error('ops stocktake failed', e); }
 
-  // ⑤ 作业员明细：单据中心按操作人聚合（最近 100 条，期间按单据 createdAt 归期）
-  // 类型口径见 opsCountableDocs：排除 STOCKTAKE（盘点过账单 + D42 起的手工改数单），避免作业量虚高
+  // ⑤ 作业员明细：服务端按操作人聚合（D46），无「最近 100 条」窗口上限
+  // 口径（排除 STOCKTAKE）已随之下沉到 SQL，见 stockDocOperatorStats 的实现注释
   let byCounter: CounterRow[] = [];
   try {
-    const docs = await fetchStockDocList({ pageSize: 100 });
-    byCounter = groupByOperator(opsCountableDocs(docs.items), w);
+    const stats = await fetchStockDocOperatorStats({
+      from: w.start.toISOString(),
+      to: new Date(w.end.getTime() - 1).toISOString(),
+    });
+    byCounter = stats.map((s) => ({ operator: s.operator, count: s.count, qty: s.qty }));
   } catch (e) { console.error('ops docs failed', e); }
 
   ops.value = { pickCount, shippedItems, stocktakeCount, rate, byCounter };
