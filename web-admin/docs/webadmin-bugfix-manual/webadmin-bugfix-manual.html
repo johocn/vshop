@@ -133,6 +133,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#gap4-batch1">17 售后处理筛选分页 + 分类管理树形 / 排序 / 图标 / 批量（gap4 批 1 · 2026-09-25）</a></li>
       <li><a href="#gap4-batch2">18 风格体系：全局配置结构化表单 + 行内校验 + 合并预览（gap4 批 2 · 2026-09-25）</a></li>
       <li><a href="#gap4-batch3">19 库存域收尾：库存流水 / 单据中心筛选 + 分页（gap4 批 3 · 2026-09-25）</a></li>
+      <li><a href="#gap4-batch4">20 仓内作业闭环：预留单超时释放 / 批次交接复核 / 作业分析报表（gap4 批 4 · 2026-09-26）</a></li>
     </ol>
   </nav>
 
@@ -1782,7 +1783,115 @@ flowchart TD
     </div>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS），2026-09-25 追加第 18 章 gap4 批 2 验收（风格体系：全局配置结构化表单 11 字段 / 行内校验标红 + 保存前置拦截 / L0→L3 合并预览含来源徽标，5 张手机视口取证图，verify:manual PASS），2026-09-25 追加第 19 章 gap4 批 3 验收（库存域收尾：库存流水仓库/商品/方向/日期筛选 + 每行「结存变化 前 → 后」+ 服务端同条件汇总；单据中心类型/仓库/日期/操作人筛选 + 进度条；两页迁移 useListPage；连带修复 stockDocList 日期区间无时区 timestamp 口径偏 8 小时的缺陷，7 张手机视口取证图，verify:manual PASS）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <section id="gap4-batch4">
+    <h2>20 仓内作业闭环：预留单超时释放 / 批次交接复核 / 作业分析报表（gap4 批 4 · 2026-09-26）</h2>
+    <p>本章覆盖 gap4 批 4 的三块能力：<strong>预留单</strong>（超时自动释放 + 后台可查可见）、<strong>拣货批次交接 / 异常件 / 复核</strong>（状态机扩展后的后台 UI 与列表分组）、<strong>数据看板「作业分析」视图</strong>（KPI + 差异趋势 + CSV 导出）。三块共同构成「仓内作业闭环」——库存被预占后要么按期转备货、要么到期自动归还，批次出库后必须交接并复核归档，作业量则按人按日沉淀成报表。</p>
+    <div class="callout">
+      <p><strong>一句话读懂交付边界</strong>：本轮<strong>没有新增写库链路</strong>（预留单释放任务、批次状态机、报表聚合都是既有的后端能力），web-admin 侧补齐的是<mark class="key">入口可达、状态可见、口径可对账、结果可导出</mark>四件事；同时把「定时任务只在常驻 worker 进程执行」这一部署前提写进后台手册（见 20.5）。</p>
+    </div>
+
+    <h3>20.1 三块能力的入口与关键点</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>能力</th><th>后台入口</th><th>关键点</th></tr>
+      <tr><td>预留单</td><td>工作台 →「库存与预警」→ 快捷宫格第 9 项「预留单」（<code class="mono">pages/inventory/reservation/index</code>）</td><td>状态页签 5 个；待备货行显示 <code class="mono">mm:ss</code> 剩余有效期并每秒递减；待备货 / 已备货行可手工「释放」；已释放行为终态只读</td></tr>
+      <tr><td>批次交接 / 复核</td><td>工作台 →「订单」→「配货台」→ 批次详情（<code class="mono">pages/order/picking/batch</code>）</td><td>状态推进卡按状态动态出按钮；交接对象 / 交接时间 / 异常原因 / 复核时间均头部只读展示；<strong>已复核为终态</strong>，整页只读</td></tr>
+      <tr><td>作业分析</td><td>工作台 →「数据看板」→ 顶部视图分段「作业分析」（<code class="mono">pages/data/dashboard/index</code>）</td><td>4 张 KPI 卡 + 近 7 日盘点差异趋势（每日一行「差异 / 应盘」）+ 作业员明细 + 一键导出 CSV</td></tr>
+    </table>
+    </div>
+
+    <h3>20.2 预留单：宫格入口 / 状态页签 / 倒计时 / 释放</h3>
+    <p><strong>入口</strong>：「库存与预警」页顶部快捷宫格由 8 项扩为 <strong>9 项</strong>，末位新增「🔒 预留单」。点进去即为预留单列表。</p>
+    <ul style="font-size:14px;line-height:1.8;">
+      <li><strong>状态页签</strong>：<code class="mono">全部 / 待备货 / 已备货 / 已完成 / 已释放</code>。默认「全部」<strong>不做过滤</strong>（空 key），页签为空态与列表空态是两回事，勿混。</li>
+      <li><strong>卡片四行</strong>：第一行 <code class="mono">#订单号 + 状态徽标</code>；随后是 <code class="mono">SKU / 预占量 / 创建时间 / 剩余有效期</code>。</li>
+      <li><strong>倒计时</strong>：只有<strong>待备货（<code class="mono">PENDING_ALLOC</code>）</strong>行渲染「剩余有效期 <code class="mono">mm:ss</code>」并每秒递减；<mark class="key">归零后显示「待释放」</mark>（此时前端已无权放行，等 worker 扫描），其余状态行不再显示该项。</li>
+      <li><strong>释放按钮</strong>：待备货 / 已备货行出现「释放」；已完成 / 已释放行不渲染（终态不可再释放）。</li>
+    </ul>
+    <div class="callout">
+      <p><strong>TTL 从哪来</strong>：有效期为渠道自定义字段 <code class="mono">customFields.reservationTtlMinutes</code>（默认 <strong>30 分钟</strong>），按渠道各自设值——多店铺 / 多城市可各自不同。</p>
+    </div>
+
+    <h3>20.3 批次交接与复核：状态机扩展</h3>
+    <p>后端状态机（<code class="mono">pick-batch-math.ts</code> <code class="mono">TRANSITIONS</code>）与后台按钮的对应关系如下，<strong>按钮集合由状态唯一决定</strong>，本轮验收就是逐状态核对其「该出的都在、不该出的都没出」：</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>状态</th><th>状态推进卡按钮</th><th>其他可见性</th></tr>
+      <tr><td>已打单 <code class="mono">PRINTED</code></td><td>仅「取消批次」</td><td>底部整批发货条在位；<strong>不显示</strong>交接对象 / 交接时间</td></tr>
+      <tr><td>已发货 <code class="mono">SHIPPED</code></td><td>「交接登记」+「登记异常件」</td><td>底部发货条撤下（已非可发货态）</td></tr>
+      <tr><td>已交接 <code class="mono">HANDOVER</code></td><td>「登记异常件」+「确认复核完成」</td><td>头部新增只读「交接对象」「交接时间」</td></tr>
+      <tr><td>异常件 <code class="mono">EXCEPTION</code></td><td>仅「交接登记」（<strong>只能回交接</strong>）</td><td>头部只读「异常原因：…」</td></tr>
+      <tr><td>已复核 <code class="mono">REVIEWED</code>（终态）</td><td>状态推进卡<strong>整块隐藏</strong></td><td>头部「复核时间」；成员行勾选框消失、改地址置灰（整页只读）</td></tr>
+    </table>
+    </div>
+    <p>列表分组同步调整：<strong>「已完成」收纳 <code class="mono">REVIEWED</code></strong>，「进行中」仅含 <code class="mono">PENDING / PICKED / PRINTED / SHIPPED / HANDOVER / EXCEPTION</code>。<mark class="key">这是本轮必须一起改的地方</mark>——若沿用旧口径（SHIPPED 才进已完成），批次复核完就会「无处可达」。</p>
+
+    <h3>20.4 作业分析报表：KPI 口径与导出</h3>
+    <p>数据看板顶部新增视图分段 <code class="mono">经营数据 / 作业分析</code>，<strong>经营数据为既有视图（回归确认未被破坏）</strong>，作业分析为新增：</p>
+    <ul style="font-size:14px;line-height:1.8;">
+      <li><strong>KPI 4 卡</strong>：拣货单数 / 发货件数 / 盘库次数 / 盘点差异率。取不到值统一显示 <code class="mono">—</code>（代表接口失败降级，<mark class="key">不是 0</mark>）。</li>
+      <li><strong>盘点差异趋势</strong>：窗口内<strong>每日一行</strong>（近 7 天窗 = 7 行），行文本为「差异件数 / 盘点总件数」；<strong>0 差异日不画条</strong>（条宽 0%），有差异日按占比画条。</li>
+      <li><strong>差异率口径</strong>：<code class="mono">Σ|各日差异| / Σ各日应盘 × 100</code>，保留两位小数——是<strong>先求和再相除</strong>，不是「各日比率的平均」，这一点在验收中用「页面读值 vs 手算值」逐字对账（<code class="mono">3.95%</code>）。</li>
+      <li><strong>导出 CSV</strong>：文件名 <code class="mono">ops-report-7d-&lt;yyyy-mm-dd&gt;.csv</code>，表头 <code class="mono">日期,盘点总件数,差异件数</code>，行数 = 趋势行数 + 表头，编码带 BOM（Excel 直接双击不乱码）。<strong>与页面趋势同源同值</strong>。</li>
+    </ul>
+
+    <h3>20.5 worker-only：定时任务只在常驻 worker 进程执行</h3>
+    <div class="callout warn">
+      <p><strong>本项目已把 <code class="mono">runTasksInWorkerOnly</code> 置为 <code class="mono">true</code>：server 进程完全不跑 <code class="mono">ScheduledTask</code>。</strong>因此<mark class="key">服务器必须常驻一个 worker 进程</mark>，否则下列功能一起失效：<code class="mono">release-expired-reservations</code>（预留单超时释放）、<code class="mono">order-timeout-compensation</code>（订单超时补偿扫描）、<code class="mono">flash-sale-status-transition</code>（秒杀状态转换）。完整运维步骤（pm2 条目 / 自检命令 / TTL 配置入口）见 Task 4.9 追加的「定时任务与常驻 worker」运维章节。</p>
+    </div>
+    <p>本轮以<strong>两段式对照</strong>证明该结论成立（而不是只看日志说「任务在跑」）：</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>阶段</th><th>操作</th><th>观察结果</th></tr>
+      <tr><td>对照</td><td>只起 <code class="mono">npm run dev:server</code>，造一张<strong>已过期</strong>的待备货预留单（<code class="mono">expiresAt = now - 1min</code>）</td><td>等 <strong>140s+</strong> 仍为 <code class="mono">PENDING_ALLOC</code>（<mark class="key">未释放</mark>）</td></tr>
+      <tr><td>实验</td><td>再起 <code class="mono">npm run dev:worker</code></td><td><strong>≤2 分钟</strong>转为 <code class="mono">RELEASED</code>；worker 日志出现 <code class="mono">释放到期预留单 1 条（涉及 1 个渠道）</code>；未到期的那张始终 <code class="mono">PENDING_ALLOC</code>（TTL 未被误伤）</td></tr>
+    </table>
+    </div>
+    <div class="callout">
+      <p><strong>释放留痕的两个前提（本轮实测踩到，务必知悉）</strong>：</p>
+      <p>① 释放<strong>只作用 <code class="mono">PENDING_ALLOC</code></strong>（此时无 item、无物理占用），故写 <code class="mono">OrderStockLedger</code> 时 <code class="mono">reason</code> 显式标注「不改实物库存」，<code class="mono">quantity</code> 记被释放的占用量、<code class="mono">bizCode = RES-&lt;预留单 id&gt;</code>——<strong>是预留单 id，不是订单号</strong>，按订单号检索会查不到。</p>
+      <p style="margin-bottom:0;">② 该渠道必须有<strong>可用仓</strong>（默认物理仓，退而取虚拟仓）。两者皆缺时释放仍会成功，但日志打 <code class="mono">warn 预留单 #N 释放时无可用仓，跳过流水留痕</code> 并<strong>跳过留痕</strong>。本轮 <code class="mono">shop-a</code> 渠道初始无系统仓，正是先调用 <code class="mono">ensureTenantInventoryLocations</code>（幂等补建：虚拟仓恒建、开关开启时补默认物理仓）后才复现出 <code class="mono">RES-7</code> 这条流水。</p>
+    </div>
+
+    <h3>20.6 验收结论与截图证据（手机 390×844 dpr=2 → 780×1688，共 15 张）</h3>
+    <p>脚本 <code class="mono">_e2e/_verify_gap4_batch4.py</code>；渠道：A 段（批次）<code class="mono">__default_channel__</code>、B 段（预留单 / 看板）<code class="mono">shop-a</code>；A 段推进批次状态不可逆，故需 <code class="mono">WA_SHOT_ALLOW_WRITE=1</code>。</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>验收点</th><th>结论</th><th>证据（脚本断言 / 截图）</th></tr>
+      <tr><td>A1</td><td>PRINTED 详情：徽标「已打单」、状态推进卡仅「取消批次」、底部发货条在位、<strong>未交接前不显示交接对象/时间</strong></td><td><mark class="key">通过</mark></td><td><code class="mono">acts=['取消批次'] bulk=1</code> → <code class="mono">gap4-batch4-printed-detail.png</code></td></tr>
+      <tr><td>A2</td><td>整批发货 → SHIPPED：徽标「已发货」，按钮变「交接登记」+「登记异常件」，发货条撤下</td><td><mark class="key">通过</mark></td><td><code class="mono">acts=['交接登记','登记异常件'] bulk=0</code> → <code class="mono">gap4-batch4-shipped-detail.png</code></td></tr>
+      <tr><td>A3</td><td>交接登记 → HANDOVER：头部新增只读「交接对象 / 交接时间」，且 <strong>API 落库逐字一致</strong></td><td><mark class="key">通过</mark></td><td>UI 与 API 同为「顺丰速运 / 仓管 老王」 → <code class="mono">gap4-batch4-handover-sheet.png</code> / <code class="mono">gap4-batch4-handover-detail.png</code></td></tr>
+      <tr><td>A4</td><td>登记异常件 → EXCEPTION：头部只读「异常原因：…」逐字一致；按钮收敛为仅「交接登记」</td><td><mark class="key">通过</mark></td><td><code class="mono">acts=['交接登记']</code> → <code class="mono">gap4-batch4-exception-detail.png</code></td></tr>
+      <tr><td>A5</td><td>异常回交接 → 复核 → REVIEWED 终态：复核时间非空、状态推进卡整块隐藏、发货条不渲染、成员行勾选框消失；API 对账为 REVIEWED</td><td><mark class="key">通过</mark></td><td><code class="mono">acts=0 check=0</code> → <code class="mono">gap4-batch4-reviewed-detail.png</code></td></tr>
+      <tr><td>A6</td><td>列表分组：该批次出现在「已完成」Tab，且<strong>不再</strong>出现在「进行中」Tab</td><td><mark class="key">通过</mark></td><td>已完成 <code class="mono">5</code> 条含本次批次 → <code class="mono">gap4-batch4-list-done-reviewed.png</code> / <code class="mono">gap4-batch4-list-active.png</code></td></tr>
+      <tr><td>B1</td><td>快捷宫格 <strong>9 项</strong>且末位为「预留单」；点该宫格<strong>真实跳转</strong>到预留单页（不是只有个图标）</td><td><mark class="key">通过</mark></td><td>9 项无重复、<code class="mono">url</code> 命中 <code class="mono">pages/inventory/reservation/index</code> → <code class="mono">gap4-batch4-stock-grid-reservation.png</code></td></tr>
+      <tr><td>B2</td><td>默认「全部」Tab：页签文案齐全、UI 行数 == API <code class="mono">totalItems</code>、计数条一致；待备货行 <code class="mono">mm:ss</code> 倒计时<strong>每秒递减</strong>、预占量与 fixture 一致、有「释放」按钮</td><td><mark class="key">通过</mark></td><td>UI 3 == API 3；<code class="mono">43:56 → 43:54</code> → <code class="mono">gap4-batch4-resv-list-default.png</code></td></tr>
+      <tr><td>B3</td><td>「已释放」Tab：所有行徽标均为「已释放」、UI 行数 == API RELEASED <code class="mono">totalItems</code>、API 明细逐条可见、<strong>终态行无「释放」按钮</strong></td><td><mark class="key">通过</mark></td><td>UI 2 == API 2；<code class="mono">rel=0</code>；worker 释放的 <code class="mono">#999902</code> 在列 → <code class="mono">gap4-batch4-resv-tab-released.png</code></td></tr>
+      <tr><td>B4</td><td>「经营数据」回归：视图分段两枚、3 张 KPI 卡 + 销售趋势 + 库存健康均在位</td><td><mark class="key">通过</mark></td><td><code class="mono">cards=3</code> → <code class="mono">gap4-batch4-dash-biz.png</code></td></tr>
+      <tr><td>B5</td><td>「作业分析」：KPI 4 卡且值均非 <code class="mono">—</code>；趋势 <strong>7 行</strong>、行格式统一「差异 / 应盘」；<strong>差异率 KPI == Σ|差异| / Σ应盘 手算值</strong>；0 差异日条宽 0%</td><td><mark class="key">通过</mark></td><td><code class="mono">nums=['0','0','4','3.95%']</code>；行 <code class="mono">3/76</code> 为唯一有差异日 → <code class="mono">gap4-batch4-dash-ops-kpi.png</code> / <code class="mono">gap4-batch4-dash-ops-trend.png</code></td></tr>
+      <tr><td>B6</td><td>作业员明细在位；导出按钮触发<strong>真实下载</strong>：文件名含周期与日期、表头一致、行数 = 趋势行数 + 表头</td><td><mark class="key">通过</mark></td><td><code class="mono">ops-report-7d-2026-09-26.csv</code>，<code class="mono">lines=8 rows=7</code> → <code class="mono">gap4-batch4-dash-ops-counter.png</code></td></tr>
+      <tr><td>—</td><td>全程无 JS 异常（pageerror / console.error）</td><td><mark class="key">通过</mark></td><td>各段断言均为 <code class="mono">[]</code>（0 条）</td></tr>
+    </table>
+    </div>
+    <p><strong>A. 批次交接 / 异常 / 复核（8 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch4-printed-detail.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch4-shipped-detail.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-handover-sheet.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-handover-detail.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左一：<b>已打单</b>——状态推进卡只有「取消批次」，底部整批发货条在位，头部尚无交接对象/交接时间；左二：<b>已发货</b>——按钮变为「交接登记」+「登记异常件」，发货条已撤下；左三：<b>交接登记弹层</b>——标题「交接登记」+ 交接对象输入框（点确定前）；左四：<b>已交接</b>——头部只读展示「交接对象 / 交接时间」，与 API <code class="mono">handoverTo</code> 逐字一致</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch4-exception-detail.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch4-reviewed-detail.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-list-done-reviewed.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-list-active.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左一：<b>异常件</b>——头部只读「异常原因：外箱破损，已换箱重封」，按钮收敛为仅「交接登记」（EXCEPTION 只能回交接）；左二：<b>已复核（终态）</b>——复核时间只读展示，状态推进卡整块隐藏、发货条撤下、成员行勾选框消失（整页只读）；左三：<b>「已完成」Tab</b>——REVIEWED 归终态可见（旧口径下复核完的批次会无处可达）；左四：<b>「进行中」Tab</b>——仅 PENDING/PICKED/PRINTED/SHIPPED/HANDOVER/EXCEPTION，已复核批次已移出</figcaption></figure>
+    <p><strong>B. 预留单与数据看板（7 张）</strong></p>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch4-stock-grid-reservation.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch4-resv-list-default.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-resv-tab-released.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-dash-biz.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左一：<b>快捷宫格</b>——共 9 项，末位为新增「预留单」（点进去是真实路由，不是死图标）；左二：<b>预留单默认「全部」Tab</b>——待备货行显示 <code class="mono">mm:ss</code> 剩余有效期（每秒递减）与「释放」按钮，已释放行只读；左三：<b>「已释放」Tab</b>——worker 超时释放的 <code class="mono">#999902</code> 与历史释放单可见，终态行无「释放」按钮；左四：<b>经营数据（回归）</b>——既有 3 张 KPI 卡 + 销售趋势 + 库存健康未被新视图破坏</figcaption></figure>
+    <figure style="margin:0 0 10px;"><img src="../verify/gap4-batch4-dash-ops-kpi.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;" /><img src="../verify/gap4-batch4-dash-ops-trend.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><img src="../verify/gap4-batch4-dash-ops-counter.png" style="width:24%;border:1px solid var(--rule);border-radius:10px;margin-left:8px;" /><figcaption style="font-size:12px;color:var(--muted);margin-top:6px;">左一：<b>作业分析 KPI</b>——拣货单数 / 发货件数 / 盘库次数 / 盘点差异率（<code class="mono">3.95%</code> = 3 / 76）；左二：<b>盘点差异趋势</b>——近 7 天每日一行「差异 / 应盘」，仅 2026-09-24 有差异故只有该日画条；左三：<b>作业员明细 + 导出</b>——按操作人聚合单据数与件数，底部「导出 CSV」下载的 <code class="mono">ops-report-7d-2026-09-26.csv</code> 与页面趋势同源同值（8 行 = 表头 + 7 日）</figcaption></figure>
+
+    <h3>20.7 验收口径与残留说明</h3>
+    <div class="callout warn">
+      <p>① <strong>A / B 两段渠道不同，脚本按段注入</strong>：A 段（批次状态机）走 <code class="mono">__default_channel__</code>——本地库里批次存量与可配货订单都在默认渠道，<code class="mono">shop-a</code> 无订单会直接 <code class="mono">ENV-FAIL</code>；B 段（预留单 / 看板）走 <code class="mono">shop-a</code>。可用 <code class="mono">WA_B4_CHANNEL</code> / <code class="mono">WA_B4_RESV_CHANNEL</code> 覆盖。<mark class="key">这是本轮修正的脚本缺陷</mark>：把两段统一到单一渠道后 A 段必然 ENV-FAIL。</p>
+      <p>② <strong>A 段是写操作，必须显式开护栏</strong>：批次状态推进不可逆（PRINTED → … → REVIEWED 是终态），故只在 <code class="mono">WA_SHOT_ALLOW_WRITE=1</code> 时执行；未开则 <code class="mono">ENV-FAIL</code> 退出，<strong>不产出「没验证却通过」的假证据</strong>。另有生产域名硬拦（与批 2 / 批 3 同口径）。</p>
+      <p>③ <strong>预留单 fixture 直连库造</strong>：验收需要「<strong>已过期但尚未释放</strong>」与「<strong>未到期</strong>」两种精确状态，业务接口造不出，故用临时脚本 <code class="mono">packages/dev-server/_tmp_seed_resv.mjs</code>（用完即删）直插 <code class="mono">stock_reservation</code>。脚本开头做数据自检，缺任一状态即 <code class="mono">ENV-FAIL</code>（沿用批 3 D22：禁止拿空态当证据）。</p>
+      <p>④ <strong>worker-only 的两段式对照结论已固化进本章 20.5</strong>，且本轮顺带暴露两个真实口径问题并已处置：<code class="mono">reservations</code> 列表的租户条件缺括号导致后续过滤被 <code class="mono">AND</code> 优先级吃掉（已修）；<code class="mono">shop-a</code> 渠道无系统仓导致释放跳过流水留痕（先 <code class="mono">ensureTenantInventoryLocations</code> 补建后复现）。两者均已记入计划偏差区。</p>
+      <p>⑤ <strong>发货件数的归期口径</strong>：作业分析按<strong>发货发生日</strong>归期，不按订单下单日回溯——跨日发货的订单会落在发货当天的 KPI 上，与订单列表的「今日订单」口径<strong>不同</strong>，对账时不要互校。</p>
+      <p style="margin-bottom:0;">⑥ <strong>使用手册（<code class="mono">src/static/manual/index.html</code>）本轮仍未同步</strong>：按批 1 约定本轮只改修复手册，发布手册与「定时任务与常驻 worker」运维章节一并留待 Task 4.9 处理。</p>
+    </div>
+  </section>
+
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS），2026-09-25 追加第 18 章 gap4 批 2 验收（风格体系：全局配置结构化表单 11 字段 / 行内校验标红 + 保存前置拦截 / L0→L3 合并预览含来源徽标，5 张手机视口取证图，verify:manual PASS），2026-09-25 追加第 19 章 gap4 批 3 验收（库存域收尾：库存流水仓库/商品/方向/日期筛选 + 每行「结存变化 前 → 后」+ 服务端同条件汇总；单据中心类型/仓库/日期/操作人筛选 + 进度条；两页迁移 useListPage；连带修复 stockDocList 日期区间无时区 timestamp 口径偏 8 小时的缺陷，7 张手机视口取证图，verify:manual PASS），2026-09-26 追加第 20 章 gap4 批 4 验收（仓内作业闭环：预留单宫格入口 / 5 状态页签 / mm:ss 倒计时 + 手工释放；拣货批次 PRINTED→SHIPPED→HANDOVER→EXCEPTION→REVIEWED 状态机 UI 与「已完成」分组；数据看板「作业分析」4 张 KPI + 近 7 日盘点差异趋势（差异率 == Σ|差异|/Σ应盘 手算对账）+ 作业员明细 CSV 导出；含 worker-only 两段式对照结论与「渠道须有可用仓才留痕」实测口径，15 张手机视口取证图，verify:manual PASS）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>

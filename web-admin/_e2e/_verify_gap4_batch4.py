@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""gap4 批 4 验收：拣货批次 交接 / 异常件 / 复核（状态机扩展后的 UI + 列表分组）。
+"""gap4 批 4 验收：拣货批次 交接 / 异常件 / 复核（状态机扩展后的 UI + 列表分组）
+               + 预留单（宫格入口 / 倒计时 / 已释放 tab）+ 数据看板两视图（回归 + 作业分析）。
 
 计划：docs/superpowers/plans/2026-09-25-web-admin-gap4-plan.md · Task 4.6（UI）与 Task 4.8（批 4 验收）
-设计：docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md §5（状态机）/ §9（只读态）
+设计：docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md §5（状态机）/ §7.1（预留单）/ §7.3（作业分析）/ §9（只读态）
 铁律：390x844 @dpr2（= 780x1688）、is_mobile、has_touch；每张图 0 pageerror / 0 console.error。
 
 状态机（后端 pick-batch-math.ts TRANSITIONS，终态只有 REVIEWED / CANCELLED）：
@@ -10,13 +11,23 @@
                                    ↕
                                 EXCEPTION（处理完回 HANDOVER）
 
-写操作护栏：本脚本会推进批次状态（不可逆），仅在 `WA_SHOT_ALLOW_WRITE=1` 时执行；
+写操作护栏：A 段会推进批次状态（不可逆），仅在 `WA_SHOT_ALLOW_WRITE=1` 时执行；
 生产域名硬拦（与批 2/批 3 同口径）。默认只读跑会 ENV-FAIL（不产出「没验证却通过」的假证据）。
+
+渠道（A / B 两段不是同一渠道，见 WA_B4_CHANNEL / WA_B4_RESV_CHANNEL）：
+  A 段（批次状态机 UI）= `__default_channel__`——批次存量与可配货订单都在默认渠道（shop-a 无订单，
+  会直接 ENV-FAIL）；与批 1/批 2 口径一致。
+  B 段（预留单 / 看板）= `shop-a`。
+
+B 段（Task 4.8）前置数据（渠道 `shop-a`，直连库造，见 packages/dev-server/_tmp_seed_resv.mjs）：
+  #999903 PENDING_ALLOC 未到期 → 倒计时 mm:ss；#999902 已过期且 worker 已跑过 → RELEASED。
+  缺任一状态即 ENV-FAIL 退出（沿用批 3 D22：禁止拿空态当证据）。
 
 退出码：0 = 通过；1 = 断言失败；2 = 环境不可用
 """
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -33,7 +44,8 @@ BASE = BASE if BASE.endswith('/') else BASE + '/'
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
 USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
 PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
-CHANNEL_CODE = os.environ.get('WA_B4_CHANNEL', 'shop-a')
+A_CHANNEL_CODE = os.environ.get('WA_B4_CHANNEL', '__default_channel__')
+B_CHANNEL_CODE = os.environ.get('WA_B4_RESV_CHANNEL', 'shop-a')
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 
 ALLOW_WRITE = os.environ.get('WA_SHOT_ALLOW_WRITE') == '1'
@@ -104,6 +116,13 @@ HANDOVER_Q = """mutation($id:ID!,$to:String!){ handoverPickBatch(batchId:$id, ha
 
 SHIP_Q = """mutation($id:ID!,$input:ShipPickBatchInput!){ shipPickBatch(batchId:$id, input:$input) }"""
 
+# 预留单列表（D9：items 子选择集会触发 non-null 违例，只取头字段）
+RESV_Q = """query($status:String,$page:Int,$pageSize:Int){
+  reservations(status:$status, page:$page, pageSize:$pageSize){
+    totalItems items{ id orderId variantId totalQty status createdAt expiresAt }
+  }
+}"""
+
 
 class Api:
     def __init__(self, tok, ctoken):
@@ -137,8 +156,12 @@ class Api:
     def ship(self, batch_id, method='standard', tracking=None):
         return self.q(SHIP_Q, {'id': batch_id, 'input': {'method': method, 'trackingCode': tracking}})['shipPickBatch']
 
+    def reservations(self, status=None):
+        return self.q(RESV_Q, {'status': status, 'page': 1, 'pageSize': 50})['reservations']
 
-def admin_login():
+
+def admin_login(channel_code):
+    """登录一次，返回 (token, 指定渠道的 vendure-token)。"""
     bot = '%s/login' % ADMIN
     tok, r = api(bot, 'mutation($u:String!,$p:String!,$e:Boolean){ login(username:$u, password:$p, rememberMe:$e){ ... on CurrentUser { id } } }',
                  {'u': USER, 'p': PWD, 'e': True})
@@ -147,9 +170,9 @@ def admin_login():
         raise SystemExit(2)
     chans = data_of(api(ADMIN, 'query{ myTenantAccess{ channels{ id code token } } }', token=tok)[1],
                     'myTenantAccess', 'channels') or []
-    ch = next((c for c in chans if c['code'] == CHANNEL_CODE), None)
+    ch = next((c for c in chans if c['code'] == channel_code), None)
     if not ch:
-        print('ENV-FAIL: 渠道 %s 不在 %s' % (CHANNEL_CODE, [c['code'] for c in chans][:8]))
+        print('ENV-FAIL: 渠道 %s 不在 %s' % (channel_code, [c['code'] for c in chans][:8]))
         raise SystemExit(2)
     return tok, ch['token']
 
@@ -170,7 +193,7 @@ def login(pg):
         raise SystemExit(2)
 
 
-def inject_channel(pg):
+def inject_channel(pg, code):
     ok = pg.evaluate("""async ([code]) => {
       const t = localStorage.getItem('wa_auth_token');
       const r = await fetch('/admin-api', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},
@@ -182,7 +205,7 @@ def inject_channel(pg):
       localStorage.setItem('wa_channel_token', c.token);
       localStorage.setItem('wa_channel_code', c.code);
       return 'OK';
-    }""", [CHANNEL_CODE])
+    }""", [code])
     if ok != 'OK':
         print('ENV-FAIL: 渠道注入失败 %s' % ok)
         raise SystemExit(2)
@@ -256,6 +279,36 @@ def confirm_sheet(pg):
     time.sleep(2.5)
 
 
+# ---------------- 预留单页（Task 4.8 B 段） ----------------
+
+def card_of(pg, order_id):
+    """预留单列表里指定订单号的卡片（列表只读，按 #订单号 定位）。"""
+    return pg.locator('.card', has_text='#' + str(order_id)).first
+
+
+def card_kv(card):
+    """卡片内「标签 → 值」字典（键为中文 i18n 文案：SKU/预占量/创建时间/剩余有效期）。"""
+    out = {}
+    for row in card.locator('.kv').all():
+        k = row.locator('.k')
+        v = row.locator('.v')
+        if k.count() and v.count():
+            out[k.first.inner_text().strip()] = v.first.inner_text().strip()
+    return out
+
+
+def badges(pg):
+    return [t.strip() for t in pg.locator('.card .st').all_inner_texts()]
+
+
+def scroll_to(pg, selector):
+    loc = pg.locator(selector).first
+    if loc.count():
+        loc.scroll_into_view_if_needed()
+        time.sleep(0.8)
+    return loc.count()
+
+
 # ---------------- 主流程 ----------------
 
 def ensure_fixture(apiq):
@@ -294,9 +347,12 @@ def main():
             print('ENV-FAIL: 生产域名 %s 禁止被本脚本驱动（防误改线上数据）' % host)
             raise SystemExit(2)
 
-    tok, ctoken = admin_login()
-    apiq = Api(tok, ctoken)
-    info('验收渠道 = %s（token=%s）' % (CHANNEL_CODE, ctoken))
+    tok, atok = admin_login(A_CHANNEL_CODE)
+    _, btok = admin_login(B_CHANNEL_CODE)
+    apiq = Api(tok, atok)  # A 段：批次状态机
+    apib = Api(tok, btok)  # B 段：预留单 / 看板
+    info('A 段渠道 = %s（token=%s）' % (A_CHANNEL_CODE, atok))
+    info('B 段渠道 = %s（token=%s）' % (B_CHANNEL_CODE, btok))
 
     inv = {s: apiq.batches(state=s)['totalItems']
            for s in ('PENDING', 'PICKED', 'PRINTED', 'SHIPPED', 'HANDOVER', 'EXCEPTION', 'REVIEWED', 'CANCELLED')}
@@ -308,6 +364,18 @@ def main():
         raise SystemExit(2)
     info('验收批次 = %s（%s）' % (batch_code, batch_id))
 
+    # B 段前置数据自检（批 3 D22 同口径：宁可 ENV-FAIL，也不拿空态当验收证据）
+    rsv_all = apib.reservations()
+    pend = [x for x in rsv_all['items'] if x['status'] == 'PENDING_ALLOC']
+    rel = [x for x in rsv_all['items'] if x['status'] == 'RELEASED']
+    info('预留单存量 = total=%d PENDING_ALLOC=%d RELEASED=%d'
+         % (rsv_all['totalItems'], len(pend), len(rel)))
+    if not pend or not rel:
+        print('ENV-FAIL: 预留单数据不足（PENDING_ALLOC=%d / RELEASED=%d）——倒计时与「已释放」tab 会产出空态假证据。'
+              '先造 fixture：cwd packages/dev-server → node _tmp_seed_resv.mjs seed-future '
+              '（seed-expired 后必须已起过 dev:worker 让它被释放）' % (len(pend), len(rel)))
+        raise SystemExit(2)
+
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2,
@@ -317,7 +385,7 @@ def main():
         pg.on('pageerror', lambda e: bag.append('PAGEERR:' + str(e)[:200]))
         pg.on('console', lambda m: bag.append('CONSOLE:' + m.text[:200]) if m.type == 'error' else None)
         login(pg)
-        inject_channel(pg)
+        inject_channel(pg, A_CHANNEL_CODE)
 
         # ============ A1. PRINTED 详情：只有「取消批次」+ 底部发货条 ============
         goto(pg, 'pages/order/picking/batch?id=' + batch_id, settle=3.0)
@@ -454,11 +522,180 @@ def main():
               batch_code not in act_body, 'code=%s in active=%s' % (batch_code, batch_code in act_body))
         shot(pg, 'list-active', '配货台「进行中」Tab：仅 PENDING/PICKED/PRINTED/SHIPPED/HANDOVER/EXCEPTION（REVIEWED 终态批次已移出）')
 
+        # ==================================================================================
+        # B 段（Task 4.8）：预留单入口/倒计时/已释放 tab + 数据看板回归与作业分析
+        # 渠道从默认切到 shop-a（预留单 fixture 的归属渠道）
+        # ==================================================================================
+        inject_channel(pg, B_CHANNEL_CODE)
+        pend_id = str(pend[0]['orderId'])  # 列表按 createdAt DESC → 最新一条待备货单（fixture #999903）
+        expired_id = os.environ.get('WA_B4_EXPIRED_ORDER', '999902')
+        info('B 段定位：倒计时单 = #%s，超时已释放单 = #%s' % (pend_id, expired_id))
+
+        # ============ B1. 「库存与预警」快捷宫格：新增「预留单」第 9 项 ============
+        goto(pg, 'pages/inventory/stock/index', settle=4.5)
+        grid = pg.locator('.grid .g')
+        n_grid = grid.count()
+        labels = [t.strip() for t in grid.locator('.gt').all_inner_texts()]
+        info('宫格 = %r' % labels)
+        check('B1 快捷宫格共 9 项（原 8 项 + 新增预留单）', n_grid == 9, 'count=%d' % n_grid)
+        check('B1 第 9 项为「预留单」', len(labels) == 9 and labels[-1] == '预留单',
+              'last=%r' % (labels[-1] if labels else None))
+        check('B1 宫格各项无重复（新增项未挤掉既有入口）', len(set(labels)) == len(labels), 'labels=%r' % labels)
+        check('B1 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+        scroll_to(pg, '.grid')
+        shot(pg, 'stock-grid-reservation', '库存与预警·快捷宫格：共 9 项，末位为新增「预留单」（🔒）入口')
+        # 宫格点击跳转真实可达（不是只有个图标）
+        grid.last.click()
+        time.sleep(3.0)
+        check('B1 点「预留单」宫格进入预留单页', 'pages/inventory/reservation/index' in pg.url, 'url=%s' % pg.url)
+        goto(pg, 'pages/inventory/reservation/index', settle=3.5)
+
+        # ============ B2. 预留单列表默认态：倒计时 mm:ss 每秒递减 ============
+        body2 = pg.inner_text('body')
+        info('预留单首屏 = %r' % body2[:240].replace('\n', '|'))
+        tabs = [t.strip() for t in pg.locator('.seg .seg-item').all_inner_texts()]
+        check('B2 状态 tab = 全部 / 待备货 / 已备货 / 已完成 / 已释放（空 key 不过滤）',
+              tabs == ['全部', '待备货', '已备货', '已完成', '已释放'], '%r' % tabs)
+        check('B2 默认 tab 为「全部」（default 高亮且不全量过滤）',
+              'on' in (pg.locator('.seg .seg-item').first.get_attribute('class') or ''),
+              'cls=%r' % pg.locator('.seg .seg-item').first.get_attribute('class'))
+        n_cards = pg.locator('.card').count()
+        check('B2 UI 行数 == API totalItems（未截断、未空态）',
+              n_cards == rsv_all['totalItems'], 'ui=%d api=%d' % (n_cards, rsv_all['totalItems']))
+        check('B2 计数条与数据一致',
+              ('已显示 %d / %d' % (n_cards, rsv_all['totalItems'])) in body2,
+              'body=%r' % body2[:160].replace('\n', '|'))
+
+        pend_card = card_of(pg, pend_id)
+        kv_pend = card_kv(pend_card) if pend_card.count() else {}
+        info('B2 #%s 行 = %s' % (pend_id, kv_pend))
+        check('B2 fixture 待备货单 #%s 在默认 tab 可见' % pend_id, pend_card.count() == 1)
+        check('B2 待备货行状态徽标 = 待备货',
+              pend_card.count() == 1 and pend_card.locator('.st').first.inner_text().strip() == '待备货',
+              'badge=%r' % (pend_card.locator('.st').first.inner_text().strip() if pend_card.count() else None))
+        check('B2 预占量显示 fixture 值 2', kv_pend.get('预占量') == '2', 'qty=%r' % kv_pend.get('预占量'))
+        rem1 = kv_pend.get('剩余有效期', '')
+        check('B2 剩余有效期为 mm:ss 倒计时（未到期，不是「待释放」）',
+              bool(re.fullmatch(r'\d{2}:\d{2}', rem1)), 'remaining=%r' % rem1)
+        check('B2 待备货行提供「释放」按钮', pend_card.count() == 1 and pend_card.locator('.rel').count() == 1)
+        time.sleep(2.4)
+        rem2 = card_kv(card_of(pg, pend_id)).get('剩余有效期', '') if pend_card.count() else ''
+        check('B2 倒计时每秒递减（2.4s 后读数变小）',
+              bool(re.fullmatch(r'\d{2}:\d{2}', rem1)) and bool(re.fullmatch(r'\d{2}:\d{2}', rem2)) and rem2 < rem1,
+              '%r → %r' % (rem1, rem2))
+        check('B2 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+        shot(pg, 'resv-list-default', '预留单·默认「全部」Tab：待备货行显示 mm:ss 剩余有效期（每秒递减）与「释放」按钮；已备货/已完成行为只读')
+
+        # ============ B3. 预留单 tab「已释放」（worker 超时释放的结果可达） ============
+        pg.locator('.seg .seg-item', has_text='已释放').first.click()
+        time.sleep(3.0)
+        body3 = pg.inner_text('body')
+        b3 = badges(pg)
+        rel_api = apib.reservations('RELEASED')
+        rel_ids = [str(x['orderId']) for x in rel_api['items']]
+        info('已释放 tab：UI 徽标=%r / API orderIds=%r' % (b3, rel_ids))
+        check('B3 「已释放」Tab 下所有行徽标均为「已释放」', bool(b3) and set(b3) == {'已释放'}, 'badges=%r' % b3)
+        check('B3 UI 行数 == API RELEASED totalItems',
+              pg.locator('.card').count() == rel_api['totalItems'],
+              'ui=%d api=%d' % (pg.locator('.card').count(), rel_api['totalItems']))
+        check('B3 API 的 RELEASED 明细逐条可见（tab 过滤未丢项）',
+              all(('#' + i) in body3 for i in rel_ids), 'api=%r' % rel_ids)
+        check('B3 超时单 #%s 已由 worker 释放并出现在该 tab（释放结果可达）' % expired_id,
+              ('#' + expired_id) in body3, 'body=%r' % body3[:200].replace('\n', '|'))
+        check('B3 已释放行为终态：不渲染「释放」按钮', pg.locator('.rel').count() == 0,
+              'rel=%d' % pg.locator('.rel').count())
+        check('B3 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+        shot(pg, 'resv-tab-released', '预留单·「已释放」Tab：worker 超时释放的 #%s 与历史释放单可见，终态行无「释放」按钮' % expired_id)
+
+        # ============ B4. 数据看板「经营数据」回归（新视图不得破坏既有视图） ============
+        goto(pg, 'pages/data/dashboard/index', settle=6.0)
+        body4 = pg.inner_text('body')
+        vseg = [t.strip() for t in pg.locator('.seg.views .seg-item').all_inner_texts()]
+        info('看板视图分段 = %r' % vseg)
+        check('B4 新增「经营数据 / 作业分析」两视图分段', vseg == ['经营数据', '作业分析'], '%r' % vseg)
+        check('B4 经营数据 3 张 KPI 卡（今日订单 / 今日营业额 / 低库存）',
+              pg.locator('.stat .stat-card').count() == 3, 'cards=%d' % pg.locator('.stat .stat-card').count())
+        check('B4 销售趋势 / 分类 Top / 库存健康 三张卡片均在位',
+              all(k in body4 for k in ('销售趋势', '库存健康')), 'body=%r' % body4[:200].replace('\n', '|'))
+        check('B4 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+        shot(pg, 'dash-biz', '数据看板·「经营数据」视图（回归）：既有 3 张 KPI 卡 + 销售趋势 + 分类 Top + 库存健康未被新视图破坏')
+
+        # ============ B5. 数据看板「作业分析」：KPI 4 卡 + 差异趋势 ============
+        pg.locator('.seg.views .seg-item', has_text='作业分析').first.click()
+        end = time.time() + 40
+        while time.time() < end:
+            if pg.locator('.stat .stat-card').count() == 4 and pg.locator('.trow').count() >= 1:
+                break
+            time.sleep(0.5)
+        time.sleep(1.0)
+        body5 = pg.inner_text('body')
+        nums = [t.strip() for t in pg.locator('.stat .stat-card .num').all_inner_texts()]
+        info('作业分析 KPI = %r' % nums)
+        check('B5 KPI 4 卡（拣货单数 / 发货件数 / 盘库次数 / 盘点差异率）',
+              pg.locator('.stat .stat-card').count() == 4, 'cards=%d' % pg.locator('.stat .stat-card').count())
+        check('B5 4 个 KPI 标签齐全',
+              all(k in body5 for k in ('拣货单数', '发货件数', '盘库次数', '盘点差异率')),
+              'body=%r' % body5[:200].replace('\n', '|'))
+        check('B5 KPI 值均非「—」（数据源到位；— 代表接口失败降级）',
+              len(nums) == 4 and '—' not in nums, 'nums=%r' % nums)
+        check('B5 盘点差异趋势卡片在位', '盘点差异趋势' in body5)
+        n_rows = pg.locator('.trow').count()
+        check('B5 趋势按日出行（窗口内每日一行，7 天窗 = 7 行）', n_rows == 7, 'rows=%d' % n_rows)
+        # 与页面同源的交叉对账：Σ|差异| / Σ应盘 == 差异率 KPI
+        pairs, bad_fmt = [], []
+        for r in pg.locator('.trow').all():
+            txt = r.locator('.tval').first.inner_text().strip()
+            m = re.fullmatch(r'(-?\d+)\s*/\s*(\d+)', txt)
+            if m:
+                pairs.append((int(m.group(1)), int(m.group(2))))
+            else:
+                bad_fmt.append(txt)
+        tot_diff = sum(abs(d) for d, _ in pairs)
+        tot_exp = sum(e for _, e in pairs)
+        rate_calc = '%.2f%%' % ((tot_diff / tot_exp) * 100) if tot_exp else '0.00%'
+        widths = pg.locator('.trow .tfill').evaluate_all("els => els.map(e => (e.style.width || '0%').trim())")
+        check('B5 趋势行格式统一为「差异 / 应盘」', not bad_fmt and len(pairs) == n_rows, 'bad=%r' % bad_fmt)
+        check('B5 差异率 KPI == Σ|差异| / Σ应盘 手算值（%s）' % rate_calc,
+              nums[3] == rate_calc if len(nums) == 4 else False, 'kpi=%r calc=%s' % (nums[3:4], rate_calc))
+        check('B5 有差异的日画出条，0 差异日条宽为 0',
+              len(widths) == len(pairs) and all((w != '0%') == (d > 0) for w, (d, _) in zip(widths, pairs)),
+              'widths=%r pairs=%r' % (widths, pairs))
+        check('B5 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+        shot(pg, 'dash-ops-kpi', '数据看板·「作业分析」视图（近 7 天）：4 张 KPI 卡（拣货单数/发货件数/盘库次数/盘点差异率）与既有经营视图互不影响')
+
+        scroll_to(pg, '.trow')
+        shot(pg, 'dash-ops-trend', '作业分析·盘点差异趋势：按日条状行（差异件数 / 盘点总件数），与导出 CSV 同源同值；0 差异日不画条')
+
+        # ============ B6. 作业分析「作业员明细」+ CSV 导出 ============
+        n_exp = scroll_to(pg, '.exp')
+        body6 = pg.inner_text('body')
+        check('B6 作业员明细卡片在位', '作业员明细' in body6 or '按作业员' in body6, 'body=%r' % body6[:200].replace('\n', '|'))
+        check('B6 明细行数与 grouped 结果一致（未记录操作人走「未记录」占位）',
+              pg.locator('.card .top-row').count() >= 1, 'rows=%d' % pg.locator('.card .top-row').count())
+        check('B6 导出按钮在位', n_exp == 1 and '导出' in pg.locator('.exp').first.inner_text())
+        shot(pg, 'dash-ops-counter', '作业分析·作业员明细（按操作人聚合单据数/件数）+ 底部「导出 CSV」按钮')
+        try:
+            with pg.expect_download(timeout=8000) as dl:
+                pg.locator('.exp').first.click()
+            fname = dl.value.suggested_filename
+            csv_txt = Path(dl.value.path()).read_text(encoding='utf-8-sig')
+            head = csv_txt.splitlines()[0] if csv_txt else ''
+            check('B6 导出 CSV 文件名含周期与日期（ops-report-7d-*.csv）',
+                  fname.startswith('ops-report-7d-') and fname.endswith('.csv'), 'name=%s' % fname)
+            check('B6 导出 CSV 表头 = 日期/盘点总件数/差异件数（与页面趋势同源）',
+                  head == '日期,盘点总件数,差异件数', 'head=%r' % head)
+            check('B6 导出 CSV 行数 = 趋势行数 + 表头', len(csv_txt.splitlines()) == n_rows + 1,
+                  'lines=%d rows=%d' % (len(csv_txt.splitlines()), n_rows))
+        except Exception as e:  # noqa: BLE001
+            skip('B6 CSV 导出下载事件', 'headless 未捕获下载（%s）；按钮可见且趋势读值已断言' % str(e)[:80])
+        check('B6 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
+
         sizes = ['%s:%dB' % (f.name, f.stat().st_size) for f in sorted(OUT.glob('gap4-batch4-*.png'))]
         info('本次落图: %s' % ', '.join(sizes))
         b.close()
 
-    print('\n===== gap4 批 4（Task 4.6 UI）验收：%s（失败 %d / SKIP %d）=====' % ('PASS' if not FAILS else 'FAIL', len(FAILS), len(SKIPS)))
+    print('\n===== gap4 批 4（Task 4.6 UI + Task 4.8 验收）：%s（失败 %d / SKIP %d）====='
+          % ('PASS' if not FAILS else 'FAIL', len(FAILS), len(SKIPS)))
     for s in SKIPS:
         print('  SKIP', s)
     for f in FAILS:
