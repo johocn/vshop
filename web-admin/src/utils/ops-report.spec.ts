@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildOpsWindow, countBatches, countStocktakeTasks, groupByOperator, inWindow, sumShippedItems,
+  buildOpsWindow, countBatches, countStocktakeTasks, groupByOperator, inWindow, opsCountableDocs, sumShippedItems,
   varianceRate, varianceTrend, ymd,
 } from './ops-report.ts';
 
@@ -155,5 +155,28 @@ describe('作业员明细', () => {
     const w = buildOpsWindow(7, NOW);
     const rows = groupByOperator([{ operator: '张三', createdAt: '2026-09-24T09:00:00' }], w);
     assert.deepEqual(rows, [{ operator: '张三', count: 1, qty: 0 }]);
+  });
+
+  it('opsCountableDocs 排除 STOCKTAKE（盘点过账单 + 手工改数单），保留其余类型（D43）', () => {
+    const docs = [
+      { type: 'PURCHASE', code: 'PO-1' },
+      { type: 'STOCKTAKE', code: 'ST-1' },
+      { type: 'TRANSFER', code: 'TF-1' },
+      { type: 'ISSUE', code: 'IS-1' },
+      { type: null, code: 'X-1' },
+    ];
+    assert.deepEqual(opsCountableDocs(docs).map((d) => d.code), ['PO-1', 'TF-1', 'IS-1', 'X-1']);
+    // 排除后聚合口径：只有非 STOCKTAKE 单据进入作业员明细
+    const w = buildOpsWindow(7, NOW);
+    assert.deepEqual(
+      groupByOperator(
+        opsCountableDocs([
+          { type: 'STOCKTAKE', operator: '15', createdAt: '2026-09-25T09:00:00', totalQty: 1 },
+          { type: 'PURCHASE', operator: '15', createdAt: '2026-09-25T09:00:00', totalQty: 20 },
+        ]),
+        w,
+      ),
+      [{ operator: '15', count: 1, qty: 20 }],
+    );
   });
 });

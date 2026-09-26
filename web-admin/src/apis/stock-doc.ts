@@ -12,6 +12,14 @@ import { getAdminClient } from './client';
 
 export type StockDocType = 'PURCHASE' | 'TRANSFER' | 'STOCKTAKE' | 'ISSUE';
 
+/**
+ * 手工调数单据备注的**语言无关前缀**（D43）。
+ * 库存明细页「调整」走 `createStockDoc(type:'STOCKTAKE')`，与「盘点任务过账单」同 type；
+ * 若要按备注区分两者，备注后半段的本地化文案会随语言变化（切英文站即失效），
+ * 故固定一个 ASCII 前缀作为稳定判据，本地化文案只作可读性后缀。
+ */
+export const MANUAL_ADJUST_REMARK_FLAG = 'MANUAL-ADJUST';
+
 export interface StockDocItemInput {
   variantId: string;
   fromStockLocationId?: string;

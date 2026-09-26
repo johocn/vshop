@@ -141,6 +141,7 @@ import {
   countBatches,
   countStocktakeTasks,
   groupByOperator,
+  opsCountableDocs,
   inWindow,
   sumShippedItems,
   varianceRate,
@@ -238,10 +239,11 @@ async function loadOps(): Promise<void> {
   } catch (e) { console.error('ops stocktake failed', e); }
 
   // ⑤ 作业员明细：单据中心按操作人聚合（最近 100 条，期间按单据 createdAt 归期）
+  // 类型口径见 opsCountableDocs：排除 STOCKTAKE（盘点过账单 + D42 起的手工改数单），避免作业量虚高
   let byCounter: CounterRow[] = [];
   try {
     const docs = await fetchStockDocList({ pageSize: 100 });
-    byCounter = groupByOperator(docs.items, w);
+    byCounter = groupByOperator(opsCountableDocs(docs.items), w);
   } catch (e) { console.error('ops docs failed', e); }
 
   ops.value = { pickCount, shippedItems, stocktakeCount, rate, byCounter };
