@@ -1183,7 +1183,8 @@
       "placeholder": "输入目标数量",
       "invalid": "请输入非负整数",
       "confirm": "确定",
-      "done": "库存已调整",
+      "done": "已调整 {code}",
+      "remark": "手工调整（库存明细页）",
       "failed": "调整库存失败"
     },
     "safety": {

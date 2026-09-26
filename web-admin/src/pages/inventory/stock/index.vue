@@ -66,7 +66,7 @@
       </text>
     </view>
 
-    <!-- 调整库存弹层（setVariantStock 为绝对值设置） -->
+    <!-- 调整库存弹层（走盘库单单据 STOCKTAKE：绝对值设置 + 留痕，见 D42） -->
     <view v-if="adjustRow" class="mask" @tap="closeAdjust">
       <view class="sheet" @tap.stop>
         <text class="stitle">{{ $t('inventoryStock.adjust.title') }}</text>
@@ -110,7 +110,6 @@ import InventoryStockCard from '../../../components/inventory/InventoryStockCard
 import InventoryFilterBar from '../../../components/inventory/InventoryFilterBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import {
-  adjustStock,
   fetchInventoryStockPage,
   fetchTenantInventoryOverview,
   saveInventoryAlertRules,
@@ -332,7 +331,10 @@ async function onBulkPurchase(): Promise<void> {
   }
 }
 
-// ---- 调整库存（setVariantStock 为绝对值设置）----
+// ---- 调整库存（走盘库单单据：绝对值设置 + 留痕，见 D42）----
+// 不走核心 setVariantStock（@Allow(ViewStock)，租户管理员恒 403）；
+// 改走 cjk-plugin createStockDoc(type: 'STOCKTAKE')：服务端取 realQty ?? qty 作目标库存绝对值，
+// 落 StockDoc 单据 + OrderStockLedger 流水，可审计、可在单据中心回查。
 async function onConfirmAdjust(): Promise<void> {
   const row = adjustRow.value;
   if (!row) return;
@@ -349,9 +351,17 @@ async function onConfirmAdjust(): Promise<void> {
   if (adjusting.value) return;
   adjusting.value = true;
   try {
-    await adjustStock(row.variantId, locId, target);
+    const doc = await createStockDoc({
+      type: 'STOCKTAKE',
+      remark: locale.t('inventoryStock.adjust.remark'),
+      // qty 为 schema 必填，realQty 覆盖为盘点实存（服务端取 realQty ?? qty 作目标存量）
+      items: [{ variantId: row.variantId, toStockLocationId: locId, qty: target, realQty: target }],
+    });
     adjustRow.value = null;
-    uni.showToast({ title: locale.t('inventoryStock.adjust.done'), icon: 'success' });
+    uni.showToast({
+      title: locale.t('inventoryStock.adjust.done').replace('{code}', doc.code),
+      icon: 'success',
+    });
     await load(true);
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('inventoryStock.adjust.failed'), icon: 'none' });
