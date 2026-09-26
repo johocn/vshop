@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildOpsWindow, countBatches, countStocktakeTasks, groupByOperator, inWindow, opsCountableDocs, sumShippedItems,
+  buildOpsWindow, countBatches, countStocktakeTasks, inWindow, sumShippedItems,
   varianceRate, varianceTrend, ymd,
 } from './ops-report.ts';
 
@@ -129,54 +129,7 @@ describe('差异趋势', () => {
   });
 });
 
-describe('作业员明细', () => {
-  it('按操作人聚合单据数与件数，期间按 createdAt 过滤，空操作人归到一个未记录分组', () => {
-    const w = buildOpsWindow(7, NOW);
-    const rows = groupByOperator(
-      [
-        { operator: '张三', createdAt: '2026-09-24T09:00:00', totalQty: 12 },
-        { operator: '张三', createdAt: '2026-09-25T09:00:00', totalQty: 3 },
-        { operator: '李四', createdAt: '2026-09-24T09:00:00', totalQty: 7 },
-        { operator: null, createdAt: '2026-09-24T09:00:00', totalQty: 1 },
-        { operator: '王五', createdAt: '2026-09-18T09:00:00', totalQty: 99 },
-      ],
-      w,
-    );
-    assert.equal(rows.length, 3);
-    // 单据数降序：张三（2 单）居首；同为 1 单的两组顺序不作断言（只断言集合，避免依赖 locale 排序细节）
-    assert.deepEqual(rows[0], { operator: '张三', count: 2, qty: 15 });
-    assert.deepEqual(
-      rows.slice(1).map((r) => `${r.operator}:${r.count}:${r.qty}`).sort(),
-      ['李四:1:7', ':1:1'].sort(),
-    );
-  });
-
-  it('totalQty 缺失按 0 计', () => {
-    const w = buildOpsWindow(7, NOW);
-    const rows = groupByOperator([{ operator: '张三', createdAt: '2026-09-24T09:00:00' }], w);
-    assert.deepEqual(rows, [{ operator: '张三', count: 1, qty: 0 }]);
-  });
-
-  it('opsCountableDocs 排除 STOCKTAKE（盘点过账单 + 手工改数单），保留其余类型（D43）', () => {
-    const docs = [
-      { type: 'PURCHASE', code: 'PO-1' },
-      { type: 'STOCKTAKE', code: 'ST-1' },
-      { type: 'TRANSFER', code: 'TF-1' },
-      { type: 'ISSUE', code: 'IS-1' },
-      { type: null, code: 'X-1' },
-    ];
-    assert.deepEqual(opsCountableDocs(docs).map((d) => d.code), ['PO-1', 'TF-1', 'IS-1', 'X-1']);
-    // 排除后聚合口径：只有非 STOCKTAKE 单据进入作业员明细
-    const w = buildOpsWindow(7, NOW);
-    assert.deepEqual(
-      groupByOperator(
-        opsCountableDocs([
-          { type: 'STOCKTAKE', operator: '15', createdAt: '2026-09-25T09:00:00', totalQty: 1 },
-          { type: 'PURCHASE', operator: '15', createdAt: '2026-09-25T09:00:00', totalQty: 20 },
-        ]),
-        w,
-      ),
-      [{ operator: '15', count: 1, qty: 20 }],
-    );
-  });
-});
+// 注（D46）：「作业员明细」的聚合与类型口径原在此有 3 条单测（`groupByOperator` / `opsCountableDocs`），
+// 现已整体下沉到后端 `stockDocOperatorStats`（SQL GROUP BY + 排除 STOCKTAKE），纯函数被删除，
+// 故单测改为 e2e 覆盖：`_e2e/_verify_d46_ops_counter_window.py`（窗口上限两态）
+// 与 `_e2e/_verify_d43_ops_counter_scope.py`（STOCKTAKE 排除口径）。

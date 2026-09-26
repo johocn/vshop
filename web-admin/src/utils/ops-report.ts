@@ -51,18 +51,6 @@ export function countStocktakeTasks(tasks: StocktakeTask[], w: OpsWindow): numbe
   return tasks.filter((t) => DONE_TASK_STATES.includes(String(t.state)) && inWindow(t.createdAt, w)).length;
 }
 
-/**
- * 作业员明细的**单据类型口径**：只统计「人手执行的库存单据」，排除 `STOCKTAKE`。
- * 起因（D43）：`stock_doc(type='STOCKTAKE')` 下混着两类单 ——
- *   ① 盘点任务过账单（`stocktake.service.ts` 过账时生成，`remark = 盘点任务 {code}`，被 `stocktake_task.postedStockDocId` 反查）；
- *   ② 库存明细页「调整」产生的手工改数单（D42 起复用该类型，`remark` 带 `MANUAL-ADJUST` 前缀）。
- * 二者都不属于「作业员手工开的库存单据」：盘点的人工作业量已由 `stocktakeStats(taskId)` 的盘次/应盘行口径覆盖，
- * 手工改数是数据修正、不是作业量。计入会让「谁干了多少活」虚高（且手改单密集时会挤占最近 100 条窗口）。
- */
-export function opsCountableDocs<T extends { type?: string | null }>(docs: T[]): T[] {
-  return docs.filter((d) => d.type !== 'STOCKTAKE');
-}
-
 export interface VarianceRate {
   expected: number;
   diff: number;
@@ -114,24 +102,8 @@ export interface CounterRow {
   qty: number;
 }
 
-/**
- * 作业员明细：按操作人聚合单据数与件数（期间用单据 createdAt 归期）。
- * 排序按单据数降序，同数按操作人升序（保证渲染顺序稳定，不随接口返回顺序抖动）。
- */
-export function groupByOperator(
-  rows: Array<{ operator?: string | null; createdAt?: string | null; totalQty?: number | null }>,
-  w: OpsWindow,
-): CounterRow[] {
-  const map = new Map<string, { count: number; qty: number }>();
-  for (const r of rows) {
-    if (!inWindow(r.createdAt, w)) continue;
-    const key = (r.operator ?? '').trim();
-    const cell = map.get(key) ?? { count: 0, qty: 0 };
-    cell.count += 1;
-    cell.qty += r.totalQty ?? 0;
-    map.set(key, cell);
-  }
-  return [...map.entries()]
-    .map(([operator, v]) => ({ operator, ...v }))
-    .sort((a, b) => b.count - a.count || a.operator.localeCompare(b.operator));
-}
+// 注（D46）：原先在此处实现的「作业员明细」聚合（`groupByOperator` + `opsCountableDocs`）已整体下沉到
+// 后端 `stockDocOperatorStats`（SQL GROUP BY 操作人，且口径排除 STOCKTAKE）。原因：前端只能取到
+// `stockDocList({pageSize:100})` 这一被服务端 `clampPageSize` 硬顶 100 条的分页结果，窗口内单据超过 100 条时
+// 较老单据被截断、低频作业员整行消失。收益：无上限、单次请求、无分页漂移；代价：该口径不再有前端单测覆盖，
+// 改由 e2e（`_e2e/_verify_d46_ops_counter_window.py`）与既有 `_verify_d43_ops_counter_scope.py` 守护。

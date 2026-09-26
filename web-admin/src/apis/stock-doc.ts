@@ -178,3 +178,34 @@ export async function fetchStockDocList(
   );
   return stockDocList;
 }
+
+// ---- 作业员明细聚合（D46）----
+export interface StockDocOperatorStat {
+  /** 空串 = 未记录操作人（页面渲染为「未记录」占位） */
+  operator: string;
+  count: number;
+  qty: number;
+}
+
+/**
+ * 作业员明细：**服务端**按操作人聚合（D46）。
+ *
+ * 为什么不用 `fetchStockDocList`：其 `pageSize` 被服务端 `clampPageSize` 硬顶在 100，原实现
+ * 「取最新 100 条 → 浏览器里按窗口过滤 → 按操作人聚合」在窗口内单据超过 100 条时会截掉**较老**单据，
+ * 低频作业员整行消失、合计系统性偏低（生产 t2 实测 31 条，已进入 100 上限的危险区）。
+ * 聚合下沉到 SQL 后返回行数 = 操作人数，无上限；口径（排除 STOCKTAKE）也随之下沉，不再由前端过滤承担。
+ * 返回顺序：单据数降序，同数按操作人升序（服务端已排好，页面直接渲染）。
+ */
+export async function fetchStockDocOperatorStats(
+  params: { from?: string; to?: string } = {},
+): Promise<StockDocOperatorStat[]> {
+  const { stockDocOperatorStats } = await getAdminClient().request<{
+    stockDocOperatorStats: StockDocOperatorStat[];
+  }>(
+    `query StockDocOperatorStats($from: String, $to: String) {
+      stockDocOperatorStats(from: $from, to: $to) { operator count qty }
+    }`,
+    { from: params.from ?? null, to: params.to ?? null },
+  );
+  return stockDocOperatorStats;
+}
