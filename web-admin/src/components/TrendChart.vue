@@ -23,14 +23,15 @@ function draw() {
   if (!canvas || !ctx) return;
   const pts = props.points || [];
   const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  const W = rect.width, H = rect.height;
-  if (W === 0 || H === 0) return;
-  if (canvas.width !== Math.round(W * dpr)) {
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
+  // 尺寸取 offsetWidth/offsetHeight（整数 CSS px），与 uni 包装缓冲的换算同源；
+  // getBoundingClientRect() 返回的是亚像素值，会和 uni 取整后的缓冲尺寸差 1px 反复互踩。
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  if (!W || !H) return;
+  const wantW = Math.round(W * dpr), wantH = Math.round(H * dpr);
+  if (canvas.width !== wantW || canvas.height !== wantH) {
+    canvas.width = wantW;
+    canvas.height = wantH; // 改 width/height 会顺带把变换矩阵重置为单位阵
   }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
   const padL = 46, padR = 46, padT = 14, padB = 26;
@@ -88,7 +89,11 @@ function draw() {
 function resize() { draw(); }
 
 onMounted(() => {
-  // uni-app H5 将 <canvas> 编译为 <uni-canvas> 外层组件，真正的画布是内层 <canvas class="uni-canvas-canvas">
+  // uni-app H5 将 <canvas> 编译为 <uni-canvas> 外层组件，真正的画布是内层 <canvas class="uni-canvas-canvas">。
+  // 内层画布由 uni 的 hidpi 包装器接管：缓冲尺寸 = 元素尺寸 × dpr，并在 2d 上下文上打 __hidpi__ 标记，
+  // 再由它打补丁过的原型方法把「CSS px 坐标」自动乘以 dpr 写进缓冲。
+  // 因此这里只能按 CSS px 作图，绝不能再 ctx.setTransform(dpr, …) —— 坐标会被乘两次（dpr²），
+  // 整幅图右下偏移、超出画布右/下边缘而被裁切（D25 缺陷根因）。
   const root = document.getElementById('trendChart') as HTMLCanvasElement | null;
   canvas = (root?.querySelector('canvas') || root) as HTMLCanvasElement | null;
   ctx = canvas?.getContext('2d') || null;
