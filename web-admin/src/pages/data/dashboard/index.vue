@@ -121,7 +121,8 @@
 // 数据看板：经营数据（KPI + 销售趋势 + Top 榜 + 库存健康）与作业分析（长期报表）两视图，共用 7/30 天分段。
 // 经营视图统计源：operations-plugin dashboardOverview / salesTrend / categoryTop；库存健康 lowStock 取 dashboardOverview、
 // outOfStock / totalSku 取 stockLevels（缺数据不伪造，显示 "−"）。
-// 作业视图口径见 docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md §7.3，聚合逻辑为 utils/ops-report.ts 纯函数。
+// 作业视图口径见 docs/superpowers/specs/2026-09-25-web-admin-gap4-design.md §7.3；
+// 拣货单数/盘库三次（D48）与作业员明细（D46）的窗口判定与聚合已在服务端完成，无 pageSize 硬顶。
 // 任一接口失败时对应 KPI 显示 "—"（不使用 0 假装有数据）。
 import { computed, ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
@@ -129,8 +130,8 @@ import TrendChart from '../../../components/TrendChart.vue';
 import { fetchTodayOverview, type TodayOverview } from '../../../apis/stats';
 import { fetchSalesTrend, fetchCategoryTop, type TrendPoint, type CategoryTopRow } from '../../../apis/operations';
 import { fetchInventoryHealth, type InventoryHealth } from '../../../apis/inventory';
-import { fetchPickBatches } from '../../../apis/picking';
-import { fetchStocktakeTasks, fetchStocktakeDiff, type StocktakeDiff } from '../../../apis/stocktake';
+import { fetchPickBatchShippedCount } from '../../../apis/picking';
+import { fetchStocktakeKpi } from '../../../apis/stocktake';
 import { fetchOrders } from '../../../apis/order';
 import { fetchStockDocOperatorStats } from '../../../apis/stock-doc';
 import { buildOrderFilter } from '../../../utils/orderFilter';
@@ -138,12 +139,8 @@ import { downloadCsv } from '../../../utils/csv';
 import { useLocaleStore } from '../../../stores/localeStore';
 import {
   buildOpsWindow,
-  countBatches,
-  countStocktakeTasks,
-  inWindow,
   sumShippedItems,
   varianceRate,
-  varianceTrend,
   ymd,
   type CounterRow,
   type TrendPointRow,
@@ -194,12 +191,14 @@ function switchDays(d: 7 | 30): void {
 
 async function loadOps(): Promise<void> {
   const w = buildOpsWindow(days.value);
+  // 时间区间下推（D48）：三个 KPI 全部由服务端在窗口内聚合，避免「取最近 100 条 + 客户端过滤」的硬顶截断
+  const from = w.start.toISOString();
+  const to = new Date(w.end.getTime() - 1).toISOString();
 
-  // ① 拣货单数：统计期内已完成的拣货批次数（按批次 createdAt 归期）
+  // ① 拣货单数：统计期内已完成的拣货批次数（服务端按 createdAt 归期 COUNT，无上限）
   let pickCount: number | null = null;
   try {
-    const batches = await fetchPickBatches({ pageSize: 100 });
-    pickCount = countBatches(batches.items, w);
+    pickCount = await fetchPickBatchShippedCount({ from, to });
   } catch (e) { console.error('ops batches failed', e); }
 
   // ② 发货件数：统计期内已发货族订单的 totalQuantity 合计（按订单 createdAt 归期，分页累加上限 10 页 = 1000 单）
@@ -218,32 +217,22 @@ async function loadOps(): Promise<void> {
     shippedItems = sumShippedItems(acc);
   } catch (e) { console.error('ops orders failed', e); }
 
-  // ③④ 盘库次数 + 差异率 + 差异趋势：逐任务取差异，单任务失败不阻塞整表
+  // ③④ 盘库次数 + 差异率 + 差异趋势：服务端窗口内任务判定 + 差异聚合（三项同源，无窗口上限）
   let stocktakeCount: number | null = null;
   let rate: string | null = null;
   let rows: TrendPointRow[] = [];
   try {
-    const tasks = await fetchStocktakeTasks({ pageSize: 100 });
-    stocktakeCount = countStocktakeTasks(tasks.items, w);
-    const scoped = tasks.items.filter(
-      (t) => ['SUBMITTED', 'POSTED'].includes(String(t.state)) && inWindow(t.createdAt, w),
-    );
-    const pairs: Array<{ createdAt: string; diff: StocktakeDiff }> = [];
-    for (const t of scoped) {
-      try { pairs.push({ createdAt: t.createdAt, diff: await fetchStocktakeDiff(t.id) }); } catch { /* 单任务失败不阻塞整表 */ }
-    }
-    rate = varianceRate(pairs.map((p) => p.diff)).rate;
-    rows = varianceTrend(pairs, w);
+    const kpi = await fetchStocktakeKpi({ from, to });
+    stocktakeCount = kpi.taskCount;
+    rate = varianceRate(kpi.expectedTotal, kpi.diffTotal);
+    rows = kpi.days;
   } catch (e) { console.error('ops stocktake failed', e); }
 
   // ⑤ 作业员明细：服务端按操作人聚合（D46），无「最近 100 条」窗口上限
   // 口径（排除 STOCKTAKE）已随之下沉到 SQL，见 stockDocOperatorStats 的实现注释
   let byCounter: CounterRow[] = [];
   try {
-    const stats = await fetchStockDocOperatorStats({
-      from: w.start.toISOString(),
-      to: new Date(w.end.getTime() - 1).toISOString(),
-    });
+    const stats = await fetchStockDocOperatorStats({ from, to });
     byCounter = stats.map((s) => ({ operator: s.operator, count: s.count, qty: s.qty }));
   } catch (e) { console.error('ops docs failed', e); }
 

@@ -110,6 +110,24 @@ export async function fetchPickBatches(
   }
 }
 
+/**
+ * 看板「拣货单数」KPI（D48）：服务端按 createdAt 窗口 COUNT 已完成批次
+ * （SHIPPED / HANDOVER / REVIEWED），无 pageSize ≤ 100 硬顶，避免窗口内批次被截断后静默低估。
+ */
+export async function fetchPickBatchShippedCount(args: { from: string; to: string }): Promise<number> {
+  try {
+    const { pickBatchShippedCount } = await getAdminClient().request<{ pickBatchShippedCount: number }>(
+      `query PickBatchShippedCount($from: String, $to: String) {
+        pickBatchShippedCount(from: $from, to: $to)
+      }`,
+      { from: args.from, to: args.to },
+    );
+    return pickBatchShippedCount ?? 0;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '拣货单数统计失败'));
+  }
+}
+
 /** 批次详情（含 members 订单快照，members 为 JSON 标量 -> 单独取回再挂到 PickBatch 上） */
 export async function fetchPickBatch(id: string): Promise<(PickBatch & { members?: PickOrderSnapshot[] | null }) | null> {
   try {
