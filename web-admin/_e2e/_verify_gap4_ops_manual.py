@@ -120,6 +120,20 @@ def main():
             time.sleep(0.6)
             shot(pg, '03-selfcheck', '四步自检与有效期配置')
 
+        # 5) 常见问题新增 FAQ：渠道被删除/改名后仍会释放（2026-09-26 D38 后端 df8f43ed4 的线上口径）
+        faq = pg.locator('#readerContent details', has_text='渠道被删除或改名后')
+        check('常见问题含「渠道被删除或改名后」FAQ', faq.count() == 1, 'count=%d' % faq.count())
+        if faq.count():
+            faq.first.locator('summary').click()
+            time.sleep(0.4)
+            ftxt = faq.first.inner_text()
+            check('FAQ 口径：释放只认预留单自身渠道编号', '渠道编号' in ftxt, ftxt.strip()[:60])
+            check('FAQ 口径：这类单无法写库存流水', '库存流水' in ftxt)
+            check('FAQ 口径：日志出现「已不存在」warn', '已不存在' in ftxt)
+            faq.first.evaluate('el => el.scrollIntoView({block:"center"})')
+            time.sleep(0.5)
+            shot(pg, '04-faq-orphan-channel', '常见问题：渠道删除/改名后仍会释放')
+
         errs = [e for e in bag if e.startswith('PAGEERR') or e.startswith('CONSOLE')]
         check('全程无 JS 异常（pageerror / console.error）', not errs, str(errs[:3]))
         for e in bag:

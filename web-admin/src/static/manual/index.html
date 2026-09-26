@@ -1149,6 +1149,7 @@ var CHAPTERS = [
 <details><summary>预留单一直显示「待备货」，等到期了也不变「已释放」</summary><p>先按第 3 节四步自检——十有八九是<mark class="mark">worker 进程没在跑</mark>（或启动后崩了）。把 worker 起起来，存量过期单会在下一个周期内被补释放。</p></details>
 <details><summary>「已配货」的预留单会自己释放吗</summary><p>不会，<mark class="mark">也不应该</mark>。货已经按仓拆好等着发货，释放会打断履约。自动释放只针对「待备货」状态。</p></details>
 <details><summary>释放后库存流水里怎么找</summary><p>流水备注里带 <code>RES-</code> 前缀（后面跟的是<mark class="mark">预留单编号，不是订单号</mark>），备注写明「不改实物库存」——因为待备货的预留单并没有真正占用实物，释放是账面记账。若该渠道<mark class="mark">尚未建系统仓</mark>，会跳过这条留痕并在日志给出提示。</p></details>
+<details><summary>渠道被删除或改名后，那些预留单还会释放吗</summary><p>会。<mark class="mark">释放只认预留单自己记录的渠道编号</mark>，不依赖该渠道是否还在——渠道被删或改了名，到期的「待备货」单照样会被 worker 释放，不会一直占着库存。只是这类单<mark class="mark">无法写库存流水</mark>（归属渠道已不存在），日志里会出现一条 <code>warn</code>「渠道 "xxx" 已不存在」，属正常提示，不影响释放结果。</p></details>
 <details><summary>手工释放和自动释放有区别吗</summary><p>结果一样，都是把「待备货」置为「已释放」。区别只在触发者：手工是在预留单页面点「释放」，自动是 worker 到点执行。</p></details>
 `},
 {book:'mp', id:'mp-1', title:'概述', html:`
