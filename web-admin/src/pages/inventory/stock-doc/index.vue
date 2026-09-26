@@ -56,6 +56,11 @@
         <text class="dot">·</text>
         <text>{{ $t('stockDocCenter.totalQty').replace('{n}', String(d.totalQty)) }}</text>
       </view>
+      <!-- 盘库单来源（D44）：taskCode 有值 = 盘点任务过账单；为空 = 库存明细页「调整」的手工调数单 -->
+      <view class="sub" v-if="d.type === 'STOCKTAKE'">
+        <text class="src" :class="{ manual: !d.taskCode }">{{ d.taskCode ? $t('stockDocCenter.fromTask') : $t('stockDocCenter.fromManual') }}</text>
+        <text v-if="d.taskCode" class="dim2">{{ $t('stockDocCenter.taskCodeLabel') }}：{{ d.taskCode }}</text>
+      </view>
       <view class="sub dim" v-if="d.remark">
         <text>{{ $t('stockDocCenter.remarkLabel') }}：{{ d.remark }}</text>
       </view>
@@ -238,6 +243,9 @@ onLoad(async () => {
     .sub { margin-top: 10rpx; font-size: 24rpx; color: $wa-ink;
       .dot { margin: 0 8rpx; color: $wa-muted; }
       &.dim { color: $wa-muted; }
+      .src { font-size: 22rpx; color: $wa-ink; background: $wa-bg; border-radius: 6rpx; padding: 2rpx 12rpx; margin-right: 12rpx;
+        &.manual { color: $wa-muted; } }
+      .dim2 { color: $wa-muted; }
     }
   }
 
