@@ -51,6 +51,18 @@ export function countStocktakeTasks(tasks: StocktakeTask[], w: OpsWindow): numbe
   return tasks.filter((t) => DONE_TASK_STATES.includes(String(t.state)) && inWindow(t.createdAt, w)).length;
 }
 
+/**
+ * 作业员明细的**单据类型口径**：只统计「人手执行的库存单据」，排除 `STOCKTAKE`。
+ * 起因（D43）：`stock_doc(type='STOCKTAKE')` 下混着两类单 ——
+ *   ① 盘点任务过账单（`stocktake.service.ts` 过账时生成，`remark = 盘点任务 {code}`，被 `stocktake_task.postedStockDocId` 反查）；
+ *   ② 库存明细页「调整」产生的手工改数单（D42 起复用该类型，`remark` 带 `MANUAL-ADJUST` 前缀）。
+ * 二者都不属于「作业员手工开的库存单据」：盘点的人工作业量已由 `stocktakeStats(taskId)` 的盘次/应盘行口径覆盖，
+ * 手工改数是数据修正、不是作业量。计入会让「谁干了多少活」虚高（且手改单密集时会挤占最近 100 条窗口）。
+ */
+export function opsCountableDocs<T extends { type?: string | null }>(docs: T[]): T[] {
+  return docs.filter((d) => d.type !== 'STOCKTAKE');
+}
+
 export interface VarianceRate {
   expected: number;
   diff: number;

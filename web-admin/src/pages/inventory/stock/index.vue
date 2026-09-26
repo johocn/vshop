@@ -117,7 +117,7 @@ import {
   type InventoryStockSummary,
   type TenantStockLocation,
 } from '../../../apis/inventory';
-import { createStockDoc } from '../../../apis/stock-doc';
+import { createStockDoc, MANUAL_ADJUST_REMARK_FLAG } from '../../../apis/stock-doc';
 import { parseQtyInput, sortKey, suggestQty } from '../../../utils/inventoryFormat';
 
 const locale = useLocaleStore();
@@ -353,7 +353,8 @@ async function onConfirmAdjust(): Promise<void> {
   try {
     const doc = await createStockDoc({
       type: 'STOCKTAKE',
-      remark: locale.t('inventoryStock.adjust.remark'),
+      // 备注 = 语言无关前缀 + 本地化可读文案（判据用前缀，见 D43）
+      remark: `${MANUAL_ADJUST_REMARK_FLAG} | ${locale.t('inventoryStock.adjust.remark')}`,
       // qty 为 schema 必填，realQty 覆盖为盘点实存（服务端取 realQty ?? qty 作目标存量）
       items: [{ variantId: row.variantId, toStockLocationId: locId, qty: target, realQty: target }],
     });
