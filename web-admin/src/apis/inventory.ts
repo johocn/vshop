@@ -1,45 +1,17 @@
 // 库存域 admin-api 调用（Task 9，schema 已实测校准）
-// 校准结果（本地 admin-api 实测）：
-//   - stockLevels(locationId: ID!, page: Int, pageSize: Int) { totalItems items { id productVariantId
-//       stockLocationId stockOnHand stockAllocated } } —— 可用（注意参数是 locationId/page/pageSize，
-//       不是计划里的 options:{take,skip}；行类型为 StockLevelRow，无 productId/stockLocated，
-//       实际字段为 productVariantId / stockOnHand / stockAllocated）
-//   - stockLocations { items { id name } } —— 可用（默认仓 + 二道区仓）
+// 校准结果（本地 + 生产租户账号实测）：
+//   - stockLocations { items { id name } } —— 可用（@Allow(ReadCatalog, ReadStockLocation)；租户管理员有 ReadCatalog）
 //   - setVariantStock(productVariantId: ID!, stockLocationId: ID!, stockOnHand: Int!) → Boolean —— 可用，
 //     替代计划里的 adjustSimpleStock（本地 schema 无此 mutation；setVariantStock 为绝对值设置）
+//   - stockLevels(locationId, page, pageSize) 已弃用（D41）：@Allow(ViewStock)，而 ViewStock 是 inventory-plugin 的
+//     超管语义全局库存权限、不在租户白名单内 → 租户管理员恒 403。库存数量统一走 cjk-plugin 租户级 inventoryStockPage
 //   - myShopStock / myShopProductStock / myShopStockAdjust —— 租户级接口，superadmin 实测
-//     "You are not currently authorized to perform this action"，不可用，故库存列表走 stockLevels
+//     "You are not currently authorized to perform this action"，不可用，故库存列表走 inventoryStockPage
 import { getAdminClient, graphQlErrorMsg } from './client';
-
-export interface StockRow {
-  id: string;
-  productVariantId: string;
-  stockLocationId: string;
-  stockOnHand: number;
-  stockAllocated: number;
-}
 
 export interface StockLocationRow {
   id: string;
   name: string;
-}
-
-export async function fetchStock(
-  locationId: string,
-  page = 1,
-  pageSize = 20,
-): Promise<{ totalItems: number; items: StockRow[] }> {
-  const { stockLevels } = await getAdminClient().request<{
-    stockLevels: { totalItems: number; items: StockRow[] };
-  }>(
-    `query Stock($locationId: ID!, $page: Int, $pageSize: Int) {
-      stockLevels(locationId: $locationId, page: $page, pageSize: $pageSize) {
-        totalItems items { id productVariantId stockLocationId stockOnHand stockAllocated }
-      }
-    }`,
-    { locationId, page, pageSize },
-  );
-  return stockLevels;
 }
 
 export async function fetchStockLocations(): Promise<StockLocationRow[]> {
@@ -49,21 +21,21 @@ export async function fetchStockLocations(): Promise<StockLocationRow[]> {
   return stockLocations.items;
 }
 
-// 库存健康概览（数据看板用）：总SKU + 缺货数。取默认仓 stockLevels：
-//  - totalSku = totalItems（服务端精确总数）
-//  - outOfStock = 当前页内 stockOnHand ≤ 0 的数量（pageSize=1000 近似，无后端时前端不伪造）
+// 库存健康概览（数据看板用）：总SKU + 缺货数。
+// 走 cjk-plugin 租户级 inventoryStockPage（@Allow 含 ReadCatalog，租户管理员可用；与「库存明细页」同源同口径，
+// 服务端已算好分桶计数，前端不再二次推导）：
+//  - totalSku = summary.skuCount（服务端精确总数）
+//  - outOfStock = summary.outCount（服务端 bucket='out' 计数）
+// 早期实现走核心 stockLevels（需 ViewStock）→ 租户账号恒 403、卡片退化成「−」，见 D41。
 export interface InventoryHealth {
   totalSku: number;
   outOfStock: number;
 }
 
-export async function fetchInventoryHealth(): Promise<InventoryHealth | null> {
+export async function fetchInventoryHealth(): Promise<InventoryHealth> {
   try {
-    const locations = await fetchStockLocations();
-    if (!locations.length) return null;
-    const first = await fetchStock(locations[0].id, 1, 1000);
-    const outOfStock = first.items.filter((s) => s.stockOnHand <= 0).length;
-    return { totalSku: first.totalItems, outOfStock };
+    const page = await fetchInventoryStockPage({ page: 1, pageSize: 1 });
+    return { totalSku: page.summary.skuCount, outOfStock: page.summary.outCount };
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '查询库存健康失败'));
   }
