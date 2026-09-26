@@ -1,8 +1,9 @@
 // 库存域 admin-api 调用（Task 9，schema 已实测校准）
 // 校准结果（本地 + 生产租户账号实测）：
 //   - stockLocations { items { id name } } —— 可用（@Allow(ReadCatalog, ReadStockLocation)；租户管理员有 ReadCatalog）
-//   - setVariantStock(productVariantId: ID!, stockLocationId: ID!, stockOnHand: Int!) → Boolean —— 可用，
-//     替代计划里的 adjustSimpleStock（本地 schema 无此 mutation；setVariantStock 为绝对值设置）
+//   - setVariantStock(productVariantId: ID!, stockLocationId: ID!, stockOnHand: Int!) → Boolean —— 已弃用（D42）：
+//     与 stockLevels 同为 @Allow(ViewStock) 超管语义，租户管理员恒 403。手工调数改走 cjk-plugin
+//     createStockDoc(type: 'STOCKTAKE')（@Allow(ViewStock, UpdateStockLocation)，租户持有后者）
 //   - stockLevels(locationId, page, pageSize) 已弃用（D41）：@Allow(ViewStock)，而 ViewStock 是 inventory-plugin 的
 //     超管语义全局库存权限、不在租户白名单内 → 租户管理员恒 403。库存数量统一走 cjk-plugin 租户级 inventoryStockPage
 //   - myShopStock / myShopProductStock / myShopStockAdjust —— 租户级接口，superadmin 实测
@@ -41,20 +42,8 @@ export async function fetchInventoryHealth(): Promise<InventoryHealth> {
   }
 }
 
-// 库存调整：setVariantStock 为绝对值设置（非增量），调用方需传目标库存数
-export async function adjustStock(
-  productVariantId: string,
-  stockLocationId: string,
-  stockOnHand: number,
-): Promise<boolean> {
-  const { setVariantStock } = await getAdminClient().request<{ setVariantStock: boolean }>(
-    `mutation AdjustStock($productVariantId: ID!, $stockLocationId: ID!, $stockOnHand: Int!) {
-      setVariantStock(productVariantId: $productVariantId, stockLocationId: $stockLocationId, stockOnHand: $stockOnHand)
-    }`,
-    { productVariantId, stockLocationId, stockOnHand },
-  );
-  return setVariantStock;
-}
+// 库存调整（D42）：不再走核心 setVariantStock（@Allow(ViewStock) → 租户恒 403），
+// 调用方改用 createStockDoc(type: 'STOCKTAKE')（见 apis/stock-doc.ts）。
 
 // ---- 租户库存仓（方案3）：编码/性质由服务端生成（前端不可指定），归属强制当前租户 ----
 // 为什么不再直接用核心 createStockLocation/updateStockLocation：

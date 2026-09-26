@@ -1183,7 +1183,8 @@
       "placeholder": "Enter target quantity",
       "invalid": "Please enter a non-negative integer",
       "confirm": "Confirm",
-      "done": "Stock adjusted",
+      "done": "Adjusted {code}",
+      "remark": "Manual adjustment (stock detail page)",
       "failed": "Failed to adjust stock"
     },
     "safety": {
