@@ -1103,6 +1103,54 @@ var CHAPTERS = [
 <details><summary>导出的表格用 Excel 打开是乱码</summary><p>本功能导出的文件已带中文兼容标记，正常不会乱码；若仍乱码，确认文件没有经过记事本另存或第三方工具转换。也可用「完整导出」由后台生成的文件对照。</p></details>
 <details><summary>打印出来没有页码</summary><p>浏览器打印本身不提供页码（属浏览器限制，不是开关）。需要带页码的 PDF 时，在打印对话框的「更多设置」里勾选<mark class="mark">页眉和页脚</mark>即可由浏览器补上。</p></details>
 `},
+{book:'op', id:'op-40', title:'定时任务与常驻 worker（运维必读）', html:`
+<p class="lead">后台有些动作<mark class="mark">不是点出来的，而是系统到点自动做的</mark>——比如超时未备货的「预留单」自动释放。这类「定时任务」只在<mark class="mark">常驻 worker 进程</mark>里跑。本节讲清楚：它们是什么、服务器必须起哪个进程、怎么自检、改配置在哪。</p>
+
+<div class="warn"><b>一句话铁律：</b>服务器上必须<mark class="mark">常年挂着 worker 进程</mark>，否则「预留单超时释放 / 订单超时补偿 / 秒杀状态转换」<mark class="mark">永远不会执行</mark>。它失效时<mark class="mark">不报错、不告警</mark>——页面照常、接单照常，只是预留单一直停在「待备货」、占用的库存一直不回来。</div>
+
+<h3>1. 服务器要跑两个进程，不是只跑一个</h3>
+<table>
+  <thead><tr><th>进程</th><th>pm2 名称</th><th>负责</th></tr></thead>
+  <tbody>
+    <tr><td>接口服务</td><td><code>vendure</code></td><td>页面、接口、后台界面；<mark class="mark">不跑定时任务</mark></td></tr>
+    <tr><td>后台作业</td><td><code>vendure-worker</code></td><td><mark class="mark">所有定时任务的唯一执行者</mark>（含预留单超时释放）</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>为什么要分开：</b>系统已开启「定时任务只在 worker 进程执行」。好处是接口服务重启或扩容时，同一件事不会被重复执行；代价是<mark class="mark">少起 worker 就等于这些自动化全部停摆</mark>。</div>
+
+<h3>2. worker 自动做哪些事</h3>
+<table>
+  <thead><tr><th>自动任务</th><th>周期</th><th>做什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>超时释放预留单</b></td><td><mark class="mark">每分钟</mark></td><td>超过有效期的「待备货」预留单自动置为「已释放」；<mark class="mark">货已按仓拆好的（已配货）不动</mark>，避免打断发货</td></tr>
+    <tr><td><b>订单超时补偿</b></td><td>每 5 分钟</td><td>未支付订单超时关单与库存回补</td></tr>
+    <tr><td><b>秒杀状态转换</b></td><td><mark class="mark">每分钟</mark></td><td>秒杀场次到点自动开始 / 结束</td></tr>
+  </tbody>
+</table>
+<div class="note">worker 启动时会注册<mark class="mark">十余个定时任务</mark>（还含清理会话、拼团检查、会员积分过期、预售状态转换等）。要看完整清单，查 worker 启动日志里的 <code>Registered scheduled task</code>。</div>
+
+<h3>3. 怎么确认它真的在跑（四步自检）</h3>
+<table>
+  <thead><tr><th>#</th><th>看什么</th><th>正常的样子</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>pm2 list</code></td><td><code>vendure</code> 与 <code>vendure-worker</code> <mark class="mark">两条都是 online</mark>；worker 的重启次数不再一直涨</td></tr>
+    <tr><td>2</td><td>worker 启动日志</td><td>有 <code>Registered scheduled task</code> 若干条，其中含「超时释放预留单 · 每分钟」</td></tr>
+    <tr><td>3</td><td>worker 运行日志</td><td>每分钟一条 <code>Executing scheduled task</code>，并伴随 <code>completed successfully</code></td></tr>
+    <tr><td>4</td><td>实造一张已过期的预留单</td><td><mark class="mark">两分钟内自动变「已释放」</mark>，日志出现「预留单超时释放 N 单」</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>排查口径：</b>如果第 2、3 步在<mark class="mark">接口服务的日志</mark>里找不到，是正常的——它们<mark class="mark">只出现在 worker 日志</mark>。反过来，若 worker 日志里也没有，就是 worker 没起来。</div>
+
+<h3>4. 预留单有效期在哪改</h3>
+<p>入口在<mark class="mark">渠道编辑页</mark>的自定义字段 <code>reservationTtlMinutes</code>，<mark class="mark">默认 30 分钟</mark>；填了非法值或留空都按 30 分钟算。</p>
+<div class="tip"><b>改完要重启 worker 吗？不用。</b>有效期是在<mark class="mark">下单预占那一刻</mark>被算好并写进这张预留单的，释放时只比对已写好的到期时间。所以改配置<mark class="mark">只影响此后新建的预留单</mark>，存量单仍按原来的时间释放。<mark class="mark">只有改动代码</mark>才需要重启 worker。</div>
+
+<h3>5. 常见问题</h3>
+<details><summary>预留单一直显示「待备货」，等到期了也不变「已释放」</summary><p>先按第 3 节四步自检——十有八九是<mark class="mark">worker 进程没在跑</mark>（或启动后崩了）。把 worker 起起来，存量过期单会在下一个周期内被补释放。</p></details>
+<details><summary>「已配货」的预留单会自己释放吗</summary><p>不会，<mark class="mark">也不应该</mark>。货已经按仓拆好等着发货，释放会打断履约。自动释放只针对「待备货」状态。</p></details>
+<details><summary>释放后库存流水里怎么找</summary><p>流水备注里带 <code>RES-</code> 前缀（后面跟的是<mark class="mark">预留单编号，不是订单号</mark>），备注写明「不改实物库存」——因为待备货的预留单并没有真正占用实物，释放是账面记账。若该渠道<mark class="mark">尚未建系统仓</mark>，会跳过这条留痕并在日志给出提示。</p></details>
+<details><summary>手工释放和自动释放有区别吗</summary><p>结果一样，都是把「待备货」置为「已释放」。区别只在触发者：手工是在预留单页面点「释放」，自动是 worker 到点执行。</p></details>
+`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>

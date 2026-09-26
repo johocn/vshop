@@ -134,6 +134,7 @@ footer{border-top:1px solid var(--rule);margin-top:60px;padding-top:24px;color:v
       <li><a href="#gap4-batch2">18 风格体系：全局配置结构化表单 + 行内校验 + 合并预览（gap4 批 2 · 2026-09-25）</a></li>
       <li><a href="#gap4-batch3">19 库存域收尾：库存流水 / 单据中心筛选 + 分页（gap4 批 3 · 2026-09-25）</a></li>
       <li><a href="#gap4-batch4">20 仓内作业闭环：预留单超时释放 / 批次交接复核 / 作业分析报表（gap4 批 4 · 2026-09-26）</a></li>
+      <li><a href="#gap4-worker-ops">20.8 定时任务与常驻 worker（生产运维 · 2026-09-26）</a></li>
     </ol>
   </nav>
 
@@ -1887,11 +1888,74 @@ flowchart TD
       <p>③ <strong>预留单 fixture 直连库造</strong>：验收需要「<strong>已过期但尚未释放</strong>」与「<strong>未到期</strong>」两种精确状态，业务接口造不出，故用临时脚本 <code class="mono">packages/dev-server/_tmp_seed_resv.mjs</code>（用完即删）直插 <code class="mono">stock_reservation</code>。脚本开头做数据自检，缺任一状态即 <code class="mono">ENV-FAIL</code>（沿用批 3 D22：禁止拿空态当证据）。</p>
       <p>④ <strong>worker-only 的两段式对照结论已固化进本章 20.5</strong>，且本轮顺带暴露两个真实口径问题并已处置：<code class="mono">reservations</code> 列表的租户条件缺括号导致后续过滤被 <code class="mono">AND</code> 优先级吃掉（已修）；<code class="mono">shop-a</code> 渠道无系统仓导致释放跳过流水留痕（先 <code class="mono">ensureTenantInventoryLocations</code> 补建后复现）。两者均已记入计划偏差区。</p>
       <p>⑤ <strong>发货件数的归期口径</strong>：作业分析按<strong>发货发生日</strong>归期，不按订单下单日回溯——跨日发货的订单会落在发货当天的 KPI 上，与订单列表的「今日订单」口径<strong>不同</strong>，对账时不要互校。</p>
-      <p style="margin-bottom:0;">⑥ <strong>使用手册（<code class="mono">src/static/manual/index.html</code>）本轮仍未同步</strong>：按批 1 约定本轮只改修复手册，发布手册与「定时任务与常驻 worker」运维章节一并留待 Task 4.9 处理。</p>
+      <p style="margin-bottom:0;">⑥ <strong>使用手册（<code class="mono">src/static/manual/index.html</code>）已随 Task 4.9 同步</strong>：新增 <code class="mono">op-40</code>「定时任务与常驻 worker」条目；运维章节见本章 <a href="#gap4-worker-ops">20.8</a>。</p>
     </div>
+
+    <h3 id="gap4-worker-ops">20.8 定时任务与常驻 worker（生产运维 · 2026-09-26 随 Task 4.9 落地）</h3>
+    <div class="callout warn">
+      <p style="margin-bottom:0;"><strong>一句话铁律：生产必须常驻 worker 进程，否则「预留单超时释放 / 订单超时补偿 / 秒杀状态转换」永不执行。</strong>本项目 <code class="mono">packages/dev-server/dev-config.ts</code> 已置 <code class="mono">DefaultSchedulerPlugin.runTasksInWorkerOnly = true</code> —— server 进程<strong>完全不跑</strong> ScheduledTask，定时任务只由 worker 进程按 cron 触发。少起一个进程，故障表现是「<strong>静默失效</strong>」：接口不报错、页面不报错、日志不报错，只是预留单永远停在 <code class="mono">PENDING_ALLOC</code>、库存永远不释放。</p>
+    </div>
+    <p><strong>① 必须常驻的进程与 pm2 条目</strong>（本轮已在生产落地：<code class="mono">vendure-worker</code>，pm2 id 4，fork 模式，已 <code class="mono">pm2 save</code>）</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>—</th><th>server（既有）</th><th>worker（本轮新增）</th></tr>
+      <tr><td>pm2 name</td><td><code class="mono">vendure</code></td><td><code class="mono">vendure-worker</code></td></tr>
+      <tr><td>script</td><td><code class="mono">prod-start.js</code></td><td><code class="mono">prod-start-worker.js</code></td></tr>
+      <tr><td>cwd</td><td colspan="2"><code class="mono">/www/apps/vendure/packages/dev-server</code></td></tr>
+      <tr><td>interpreter / mode</td><td colspan="2"><code class="mono">node</code> / <code class="mono">fork</code>（单实例，与 server 同构）</td></tr>
+      <tr><td>入口</td><td><code class="mono">require('./dist/index')</code></td><td><code class="mono">require('./dist/index-worker')</code>（先 dotenv + <code class="mono">NODE_ENV=production</code>）</td></tr>
+      <tr><td>作用</td><td>GraphQL API + Admin UI + JobQueue 消费</td><td><code class="mono">bootstrapWorker</code> + <code class="mono">startJobQueue()</code> + <strong>全部 ScheduledTask 的唯一执行者</strong></td></tr>
+    </table>
+    </div>
+    <p>首次创建（之后日常发布只需 <code class="mono">pm2 restart</code>）：</p>
+    <pre><code class="mono">pm2 start /www/apps/vendure/packages/dev-server/prod-start-worker.js \
+  --name vendure-worker \
+  --cwd /www/apps/vendure/packages/dev-server \
+  --interpreter node
+pm2 save    # 写入 dump.pm2，机器重启后自动拉起</code></pre>
+    <div class="callout">
+      <p style="margin-bottom:0;"><strong>命名口径（重要）</strong>：计划原文写的是 <code class="mono">youshop-api</code> / <code class="mono">youshop-worker</code>，但服务器 pm2 里<strong>没有</strong> <code class="mono">youshop-api</code>，真实 server 条目名为 <code class="mono">vendure</code>。故 worker 取 <code class="mono">vendure-worker</code> 与既有条目成对。<strong>动 pm2 之前先 <code class="mono">pm2 list</code> / <code class="mono">pm2 describe</code> 实读 name / script / cwd / interpreter，不要照抄计划里的名字与路径。</strong></p>
+    </div>
+    <p><strong>② worker 承担的副作用清单</strong>（<code class="mono">runTasksInWorkerOnly: true</code> 之后，下列副作用<strong>只会在 worker 进程里发生</strong>）</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>任务 id</th><th>周期</th><th>副作用</th><th>代码位置</th></tr>
+      <tr><td><code class="mono">release-expired-reservations</code></td><td><mark class="key">每分钟</mark></td><td>把超时（<code class="mono">expiresAt &lt; now</code>）的 <code class="mono">PENDING_ALLOC</code> 预留单转 <code class="mono">RELEASED</code>，并写 <code class="mono">OrderStockLedger</code> 留痕（<code class="mono">bizCode = RES-&lt;预留单id&gt;</code>）；<strong>只动 PENDING_ALLOC</strong>，<code class="mono">ALLOCATED</code>（货已按仓拆好等发货）不释放，<code class="mono">expiresAt</code> 为 NULL 的历史单不回溯</td><td><code class="mono">packages/cjk-plugin/src/inventory/reservation-expiry.task.ts</code></td></tr>
+      <tr><td><code class="mono">order-timeout-compensation</code></td><td>每 5 分钟</td><td>未支付订单超时补偿（关单 / 回补）</td><td><code class="mono">packages/order-timeout-plugin/src/plugin.ts</code></td></tr>
+      <tr><td><code class="mono">flash-sale-status-transition</code></td><td><mark class="key">每分钟</mark></td><td>秒杀场次开始 / 结束的状态推进</td><td><code class="mono">packages/flash-sale-plugin/src/flash-sale.job.ts</code></td></tr>
+    </table>
+    </div>
+    <p>worker 启动时<strong>实际注册 12 个定时任务</strong>，除上表外还有 <code class="mono">clean-sessions</code> / <code class="mono">clean-orphaned-settings-store</code> / <code class="mono">clean-jobs</code> / <code class="mono">group-buy-check</code> / <code class="mono">member-points-expire</code> / <code class="mono">order-complete-auto</code> / <code class="mono">operations-content-lifecycle</code> / <code class="mono">pre-sale-status-transition</code> / <code class="mono">distribution-settle-commissions</code>，完整清单以启动日志为准。</p>
+    <p><strong>③ 自检命令（按顺序做，全绿才算 worker 生效）</strong></p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>命令</th><th>期望结果</th></tr>
+      <tr><td>1</td><td><code class="mono">pm2 list</code></td><td><code class="mono">vendure</code> 与 <code class="mono">vendure-worker</code> <strong>两条都 online</strong>，且 worker 的 <code class="mono">↺</code>（重启计数）不再持续增长</td></tr>
+      <tr><td>2</td><td><code class="mono">grep -E 'Registered scheduled task' ~/.pm2/logs/vendure-worker-out.log</code></td><td>出现 <code class="mono">release-expired-reservations - Every minute</code> 等 12 条注册记录（<strong>server 日志里不会出现这些行</strong>，这是 <code class="mono">runTasksInWorkerOnly</code> 最直观的证据）</td></tr>
+      <tr><td>3</td><td><code class="mono">grep -E 'Executing scheduled task "release-expired-reservations"' ~/.pm2/logs/vendure-worker-out.log</code></td><td>每分钟一条，并伴随 <code class="mono">completed successfully</code></td></tr>
+      <tr><td>4</td><td>造一张已过期预留单后观察</td><td>≤2 分钟转 <code class="mono">RELEASED</code>，日志出现 <code class="mono">预留单超时释放 N 单</code>；若同渠道有可用仓还会出现 <code class="mono">释放到期预留单 N 条（涉及 M 个渠道）</code></td></tr>
+    </table>
+    </div>
+    <p><strong>④ TTL 配置入口</strong>：渠道自定义字段 <code class="mono">customFields.reservationTtlMinutes</code>（后台渠道编辑页），<strong>默认 30 分钟</strong>，非法 / 缺失自动回落 30。<strong>口径提醒</strong>：该值在<strong>下单预占时</strong>被读入、算出 <code class="mono">expiresAt</code> 落库（<code class="mono">stock-reservation.service.ts</code> 的 <code class="mono">ttlMinutes()</code>），worker 释放时只比较已落库的 <code class="mono">expiresAt</code>。因此<strong>改 TTL 只影响此后新建的预留单，存量单沿用原 <code class="mono">expiresAt</code>、<span style="color:var(--danger,#c0392b)">无需重启 worker</span></strong>（计划原文写「改完需重启 worker」，与实际实现不符，已记入计划偏差区）。仅当改动<strong>代码</strong>时才需 <code class="mono">pm2 restart vendure-worker</code>。</p>
+    <p><strong>⑤ 本轮生产部署实况与端到端证据（2026-09-26）</strong></p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>动作</th><th>结果</th></tr>
+      <tr><td>1</td><td>本地构建后端产物（<code class="mono">npx tsc -p packages/dev-server/tsconfig.prod.json</code>）并提交 <code class="mono">dist/</code> + 新增 worker 入口</td><td>commit <code class="mono">41cdd1f8b</code>；<strong>入库的 <code class="mono">dist/dev-config.js</code> 此前仍是 <code class="mono">runTasksInWorkerOnly: false</code></strong>，与 <code class="mono">dev-config.ts</code> 的 <code class="mono">true</code> 不一致 → 已重建，否则服务器 pull 后 D1 结论不成立</td></tr>
+      <tr><td>2</td><td>服务器 <code class="mono">git pull --ff-only</code>（14 commits / 67 files）+ <code class="mono">pm2 restart vendure --update-env</code></td><td>server online；启动日志的 schema 待执行项由 <code class="mono">synchronize: true</code> 自动落库（见下方「schema 说明」），无致命错误</td></tr>
+      <tr><td>3</td><td>新增 <code class="mono">vendure-worker</code> + <code class="mono">pm2 save</code></td><td>id 4 / fork / <strong>online</strong>；日志注册 12 个任务并每分钟执行 <code class="mono">release-expired-reservations</code> → <code class="mono">completed successfully</code></td></tr>
+      <tr><td>4</td><td>生产端到端：直插一张已过期预留单（渠道取<strong>真实存在的</strong> <code class="mono">t1</code>）→ 等一个 cron 周期 → 核状态</td><td><mark class="key">RELEASED_OK</mark>：<code class="mono">status=PENDING_ALLOC → RELEASED</code>；日志 <code class="mono">预留单超时释放 1 单</code>；随后已清理该测试行</td></tr>
+      <tr><td>5</td><td>留痕核对</td><td>该渠道（<code class="mono">t1</code>）<strong>无可用仓</strong>，日志为 <code class="mono">warn 预留单 #19 释放时无可用仓，跳过流水留痕</code> —— 属已知前置条件（见 20.5 ②），非缺陷；需留痕的渠道先用 <code class="mono">ensureTenantInventoryLocations</code> 补建系统仓</td></tr>
+    </table>
+    </div>
+    <div class="callout">
+      <p><strong>schema 说明（别被启动日志误导）</strong>：生产 server 启动时会打印 <code class="mono">Your database schema does not match your current configuration. Generate a new migration for the following changes:</code> 并列出若干 <code class="mono">ALTER TABLE ... ADD ...</code>。这<strong>不是待办迁移</strong>：<code class="mono">dev-config</code> 的 <code class="mono">getDbConfig()</code> 对 postgres 返回 <code class="mono">synchronize: true</code> 且<strong>在 <code class="mono">synchronize: false</code> 之后展开</strong>，实际生效的是 <code class="mono">true</code> —— 该提示先打印、随后由 Auto-Sync 当场建列。因此 <code class="mono">migrations</code> 表为空是<strong>正常现象</strong>。（已直连库核对：<code class="mono">stock_reservation.expiresAt</code>、<code class="mono">pick_batch</code> 的 <code class="mono">handoverAt/handoverTo/reviewedAt/exceptionAt/exceptionNote</code>、<code class="mono">channel.customFieldsReservationttlminutes</code>、<code class="mono">collection.customFieldsIcon</code> 均已存在。）</p>
+      <p style="margin-bottom:0;"><strong>遗留噪音（非本轮引入、不影响功能）</strong>：error 日志中的 <code class="mono">Cannot find module './stock-city-filter'</code> 为<strong>历史条目</strong>，当前启动（2026-09-26 08:20）<strong>0 条 error</strong>，且 <code class="mono">packages/cjk-plugin/lib/src/inventory/stock-city-filter.js</code> 在服务器上存在。</p>
+    </div>
+    <p><strong>⑥ 发布顺序（后端与前端必须分开做，且后端先）</strong>：① 后端本地 <code class="mono">npx tsc -p packages/dev-server/tsconfig.prod.json</code> 重建 <code class="mono">dist/</code> 并提交（后端产物入库，<strong>服务器绝不构建</strong>）→ ② 服务器 <code class="mono">git pull --ff-only</code> → ③ <code class="mono">pm2 restart vendure</code>；若本轮改了 worker 相关代码则 <code class="mono">pm2 restart vendure-worker</code> → ④ 前端本地 <code class="mono">node scripts/deploy.mjs</code>（脚本自身第一步即 <code class="mono">npm run build:h5</code>，构建与上传一把梭）→ ⑤ 按 ③ 节自检表逐条验。<strong>服务器内存不足，任何构建都必须在本地完成。</strong></p>
   </section>
 
-  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS），2026-09-25 追加第 18 章 gap4 批 2 验收（风格体系：全局配置结构化表单 11 字段 / 行内校验标红 + 保存前置拦截 / L0→L3 合并预览含来源徽标，5 张手机视口取证图，verify:manual PASS），2026-09-25 追加第 19 章 gap4 批 3 验收（库存域收尾：库存流水仓库/商品/方向/日期筛选 + 每行「结存变化 前 → 后」+ 服务端同条件汇总；单据中心类型/仓库/日期/操作人筛选 + 进度条；两页迁移 useListPage；连带修复 stockDocList 日期区间无时区 timestamp 口径偏 8 小时的缺陷，7 张手机视口取证图，verify:manual PASS），2026-09-26 追加第 20 章 gap4 批 4 验收（仓内作业闭环：预留单宫格入口 / 5 状态页签 / mm:ss 倒计时 + 手工释放；拣货批次 PRINTED→SHIPPED→HANDOVER→EXCEPTION→REVIEWED 状态机 UI 与「已完成」分组；数据看板「作业分析」4 张 KPI + 近 7 日盘点差异趋势（差异率 == Σ|差异|/Σ应盘 手算对账）+ 作业员明细 CSV 导出；含 worker-only 两段式对照结论与「渠道须有可用仓才留痕」实测口径，15 张手机视口取证图，verify:manual PASS）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
+  <footer>vShop · web-admin 后台修复操作手册 · 生成于 2026-09-04（2026-09-13 追加第 12 章，2026-09-21 追加第 13 章，2026-09-22 追加第 14 章，2026-09-23 追加第 15 章，2026-09-23 追加第 16 章，2026-09-25 追加 16.8 交付总结报告，2026-09-25 追加 16.9 追补（偏差 #40 / #45），2026-09-25 追加 16.9.6 OFF 档端到端回归，2026-09-25 追加 16.9.7 线上使用手册 op-38 同步，2026-09-25 追加 16.9.8 盘库运营增强（分页 / 草稿 / 统计 / 导出 / 打印）与线上手册 op-39，2026-09-25 追加 16.9.8 渲染级截图验证门禁，2026-09-25 追加 16.9.8 打印版式像素级一致性要求（基线录制 + fixture 契约 + 负向验证），2026-09-25 追加 16.9.7 O 小节 op-38 渲染门禁并入统一脚本（精确图数 / 结构计数 / 响应码 / 字节一致），2026-09-25 追加 16.9.8 第 11 小节 配货台四类单据（拣货单 / 发货单 / 包裹标签 / 批次总览）打印版式像素级一致性门禁（并入 verify:print / 四 case 基线 / 负向验证），2026-09-25 追加 16.9.9 门禁改造验收总结报告（任务 B 渲染门禁 + 任务 C 打印像素门禁），2026-09-25 追加第 17 章 gap4 批 1 验收（售后处理类型筛选 / 上滑分页 + 分类树 / 折叠 / 换序 / 行内图标 / 批量操作与批删限制，9 张手机视口取证图），2026-09-25 追加第 17 章根级分类换序修复（e2c1b9f）后的重新取证与回归（换序验收改为主验根级，新增 categories-reorder-child 图，共 10 张，verify:manual PASS），2026-09-25 追加第 18 章 gap4 批 2 验收（风格体系：全局配置结构化表单 11 字段 / 行内校验标红 + 保存前置拦截 / L0→L3 合并预览含来源徽标，5 张手机视口取证图，verify:manual PASS），2026-09-25 追加第 19 章 gap4 批 3 验收（库存域收尾：库存流水仓库/商品/方向/日期筛选 + 每行「结存变化 前 → 后」+ 服务端同条件汇总；单据中心类型/仓库/日期/操作人筛选 + 进度条；两页迁移 useListPage；连带修复 stockDocList 日期区间无时区 timestamp 口径偏 8 小时的缺陷，7 张手机视口取证图，verify:manual PASS），2026-09-26 追加第 20 章 gap4 批 4 验收（仓内作业闭环：预留单宫格入口 / 5 状态页签 / mm:ss 倒计时 + 手工释放；拣货批次 PRINTED→SHIPPED→HANDOVER→EXCEPTION→REVIEWED 状态机 UI 与「已完成」分组；数据看板「作业分析」4 张 KPI + 近 7 日盘点差异趋势（差异率 == Σ|差异|/Σ应盘 手算对账）+ 作业员明细 CSV 导出；含 worker-only 两段式对照结论与「渠道须有可用仓才留痕」实测口径，15 张手机视口取证图，verify:manual PASS），2026-09-26 追加 20.8「定时任务与常驻 worker」生产运维章节（<code class="mono">runTasksInWorkerOnly</code> 铁律：不常驻 worker 则预留单永不释放 / 实测 pm2 条目 <code class="mono">vendure-worker</code> 与「命令前先实读」口径 / 3 类副作用代码清单 / 4 步自检命令 / TTL 口径更正（改 TTL 无需重启 worker）/ 生产部署实况与 <code class="mono">RELEASED_OK</code> 端到端证据 / schema 由 <code class="mono">synchronize: true</code> 自动落库的说明），并同步线上使用手册 op-40）） · 适用于 Nuxt/Vue3 uni-app H5 前端</footer>
 </div>
 
 <script src="./_shared/js/mermaid.min.js"></script>
