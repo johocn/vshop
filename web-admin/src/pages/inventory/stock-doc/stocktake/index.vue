@@ -24,7 +24,7 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { useLocaleStore } from '../../../../stores/localeStore';
-import { fetchStockLocations } from '../../../../apis/inventory';
+import { fetchStocktakeLocationOptions } from '../../../../apis/inventory';
 import { createStockDoc } from '../../../../apis/stock-doc';
 
 const locale = useLocaleStore();
@@ -67,7 +67,9 @@ async function onSave() {
 }
 
 onMounted(async () => {
-  locations.value = await fetchStockLocations();
+  // D52：仓候选与后端守卫同口径（渠道启用物理仓库存 → 只给物理仓；纯虚拟库存店 → 给全部仓）。
+  // 此前用 fetchStockLocations()（全量仓），物理仓模式下选到虚拟仓会在提交时被后端拒绝。
+  locations.value = await fetchStocktakeLocationOptions();
   locNames.value = locations.value.map((l) => l.name);
 });
 </script>
