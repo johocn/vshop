@@ -22,6 +22,25 @@ export async function fetchStockLocations(): Promise<StockLocationRow[]> {
   return stockLocations.items;
 }
 
+/**
+ * 盘点仓候选（2026-09-27 口径修正）：跟渠道库存模式走，与后端 `assertStockLocationAllowed` 同规则。
+ * - `physicalStockEnabled = true`：账面权威在物理仓 → 只给物理仓（盘虚拟仓会让同一 SKU 出现
+ *   「盘点账面 vs 可售账面」两个口径）；
+ * - `false`（纯虚拟库存店，生产 t1/t2/t3 等）：店内无物理仓，虚拟仓即唯一账面 → 给全部仓。
+ * 概览接口不可用时退回全量（不阻塞建任务，后端仍有硬校验兜底）。
+ */
+export async function fetchStocktakeLocationOptions(): Promise<StockLocationRow[]> {
+  try {
+    const overview = await fetchTenantInventoryOverview();
+    const usable = overview.physicalStockEnabled
+      ? overview.locations.filter((l) => l.kind === 'physical')
+      : overview.locations;
+    return usable.map((l) => ({ id: String(l.id), name: l.name }));
+  } catch {
+    return fetchStockLocations();
+  }
+}
+
 // 库存健康概览（数据看板用）：总SKU + 缺货数。
 // 走 cjk-plugin 租户级 inventoryStockPage（@Allow 含 ReadCatalog，租户管理员可用；与「库存明细页」同源同口径，
 // 服务端已算好分桶计数，前端不再二次推导）：
