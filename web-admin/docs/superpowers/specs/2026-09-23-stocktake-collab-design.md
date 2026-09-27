@@ -77,6 +77,8 @@
 
 **理由**：ST 单据与库存过账本身就是仓库级的；让一个任务跨仓会引入「部分仓盘完、部分仓未盘完」的中间态，状态机与权限复杂度陡增。用户要的「协同」实质是**统一发起、统一看板、统一进度**，不需要同一条任务记录。
 
+**补充（2026-09-27 · D51）**：「一个任务 = 一个仓库」之外，还需**校验仓库性质**——本节原稿只约束「仓的数量」，未约束「仓的种类」。定稿口径为**跟渠道 `physicalStockEnabled` 走**（物理仓模式必须选物理仓、纯虚拟库存店不限），依据是生产 SQL 核实「24/24 存量任务全指虚拟仓、除默认渠道外开关全为 `f`」。详见 [盘点仓「库存模式」校验 + 物理仓写入补虚拟镜像设计稿](2026-09-27-stocktake-location-gate-and-mirror-sync-design.md) §2，并由 `stocktake.service.ts#assertStockLocationAllowed` 在 `createTask` / `updateTask` 收口。
+
 ### 3.4 应盘清单：双源合并
 
 **决策**：`应盘 = 已归位 ∪ 有账面`；按归位关系落到库区/库位；账上有货但未归位的变体进**未归位桶**（单独一个盘次）。
@@ -254,6 +256,8 @@ postStocktake(taskId, confirm):
 6. createStockDoc({ type: 'STOCKTAKE', items, note: '盘点任务 ' + code })
 7. task.state = POSTED、记录 postedStockDocId / postedAt
 ```
+
+**补充（2026-09-27 · D51）**：第 5 步的写入原语是 `setPhysicalStock`（**绝对值覆盖**）。原实现里该原语**不补虚拟镜像**（只有 `StockMovementEvent` 且 `type='SALE'` 才拉齐虚拟仓），故过账后虚拟仓 `onHand` 可能停在旧值。定稿：`adjustPhysicalStock` / `setPhysicalStock` 写入完成后**按变体补镜像**，且被写入的仓本身是虚拟仓时**早退**（否则「Σ 绑定物理仓 = 0」会把刚写入的数清零）。详见 [盘点仓「库存模式」校验 + 物理仓写入补虚拟镜像设计稿](2026-09-27-stocktake-location-gate-and-mirror-sync-design.md) §2。
 
 ---
 
