@@ -270,7 +270,7 @@ describe('resolveHomeSections · 运营区块覆盖槽位', () => {
     expect(hot.section).toMatchObject({ limit: 4 });
     const extra = out.filter((r) => r.slotKey === null);
     expect(extra.length).toBe(1);
-    expect(extra[0].section).toMatchObject({ type: 'hot', limit: 6 });
+    expect(extra[0]!.section).toMatchObject({ type: 'hot', limit: 6 });
     expect(out[out.length - 1]).toBe(extra[0]);
   });
   it('未纳入骨架的类型（richText）保持原序追加末尾', () => {
@@ -402,8 +402,13 @@ export interface ResolvedSection {
   auto: boolean;
 }
 
-/** 合法 section type 白名单：未知 type 一律丢弃，避免渲染器拿到无法映射的区块 */
-const KNOWN_TYPES = new Set<string>(HOME_SKELETON.map((s) => s.match));
+/** 合法 section type 白名单：未知 type 一律丢弃，避免渲染器拿到无法映射的区块。
+ *  含未纳入骨架的 `richText`（合法类型，未被任何槽位消费时按原序追加到末尾），
+ *  与后台校验的 VALID_TYPES 对齐；不能仅取 HOME_SKELETON 的 match（会漏掉 richText）。 */
+const KNOWN_TYPES = new Set<string>([
+  'banner', 'notice', 'nav', 'goods', 'richText',
+  'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest',
+]);
 
 /**
  * 骨架合并（纯函数、确定性）：
@@ -428,7 +433,7 @@ export function resolveHomeSections(content: ShopContent | null | undefined): Re
     const covered = idx >= 0;
     if (covered) consumed.add(idx);
     if (hidden.has(slot.key)) continue;
-    if (covered) out.push({ section: pool[idx], slotKey: slot.key, auto: false });
+    if (covered) out.push({ section: pool[idx]!, slotKey: slot.key, auto: false });
     else if (slot.fallback) out.push({ section: slot.fallback, slotKey: slot.key, auto: true });
   }
 
@@ -443,7 +448,9 @@ export function resolveHomeSections(content: ShopContent | null | undefined): Re
 - [ ] **Step 4: 运行测试，确认通过**
 
 Run（cwd = `d:\zhao\nshop`）：`npx vitest run layers/base/app/utils/__tests__/home-skeleton.spec.ts`
-Expected: PASS（17 passed）
+Expected: PASS（16 passed）
+
+> 仓库开启了 `noUncheckedIndexedAccess`：测试中 `extra[0].section` 这类下标访问需写成 `extra[0]!.section`。
 
 - [ ] **Step 5: 类型检查**
 
@@ -1806,7 +1813,7 @@ git -C d:/zhao/vshop push
 | Spec 章节 | 对应任务 |
 | --- | --- |
 | §3.1 骨架定义 | Task 2 |
-| §3.2 `resolveHomeSections` 规则 1-7 | Task 2（17 条单测覆盖 7 条规则） |
+| §3.2 `resolveHomeSections` 规则 1-7 | Task 2（16 条单测覆盖 7 条规则） |
 | §3.3 分类导航常驻 | Task 11 Step 3 |
 | §3.4 新增区块类型 + `hiddenSlots` + 解析容错 | Task 1（前台）、Task 13（后台） |
 | §3.5 前台渲染改造 | Task 3（composable）、Task 9（BannerBlock）、Task 10（渲染器）、Task 11（页面） |
