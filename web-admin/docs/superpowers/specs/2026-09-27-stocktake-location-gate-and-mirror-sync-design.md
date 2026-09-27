@@ -81,10 +81,37 @@
 
 | 项 | 现状 | 判据 |
 |---|---|---|
-| 库存明细页「调整」（`pages/inventory/stock-doc/stocktake/index.vue`） | 仍可指向虚拟仓，后端**无对应 gate** | 该页是 D42 复用 `stock_doc(type:'STOCKTAKE')` 的入口，与「协同盘库任务」不是同一条链路；同类二义面未收口，待裁决 |
+| 库存明细页「调整」/ 快捷盘点（`pages/inventory/stock-doc/stocktake/index.vue`） | ~~仍可指向虚拟仓，后端**无对应 gate**~~ → **已由 D52 收口（见 §4.1）** | 该页是 D42 复用 `stock_doc(type:'STOCKTAKE')` 的入口，与「协同盘库任务」不是同一条链路；同类二义面未收口，待裁决 |
 | 盘点进度分母含已取消盘次的行 | `countedTotal` 过滤 `isExtra` 但**不排已取消盘次**的行 | 统计口径问题，与本次「仓库性质校验」无关 |
 | 盈亏时点 | 是**过账时点**的量（`recheck` 已提示账面变动） | 规格 §6.2 已定稿（过账时重算），非缺陷 |
 | TRANSFER 两段写入 | 会产生 1 次中间态镜像流水（同事务、最终值正确） | 可优化为事务内合并，本轮不做 |
+
+### 4.1 D52 补记（ⓐ 项已收口 · 2026-09-27）
+
+**口径不变，只把守卫补到同一条链路的另一个入口。** D51 的 `assertStockLocationAllowed` 原为 `StocktakeService` 的**私有**方法；D52 把它上移为**唯一实现** `VirtualPhysicalStockService.assertStocktakeLocationAllowed`，协同盘库任务（`createTask` / `updateTask`）与库存单据 `STOCKTAKE` 分支（库存明细页「调整」/「快捷盘点」入口）**共用同一份**，杜绝两处口径漂移。
+
+| 文件 | 改动 |
+|---|---|
+| `src/inventory/virtual-physical-stock.service.ts` | 新增 `assertStocktakeLocationAllowed(ctx, stockLocationId)`：仓不存在 → `UserInputError`；渠道 `physicalStockEnabled` 为假 → **放行**；为真且仓 `kind !== 'physical'` → `UserInputError`（文案含「必须选物理仓」）。规则跟**渠道库存模式**走，不跟仓的 `kind` 硬绑 |
+| `src/inventory/stock-doc.service.ts` | `STOCKTAKE` 分支在 `setPhysicalStock` 前调用守卫；该方法运行在 `withTransaction` 事务内 → 抛出即**整单回滚**，不留残单 / 残流水 |
+| `src/stocktake/stocktake.service.ts` | 原 15 行内联守卫删除，改为委托 `virtualPhysicalStockService.assertStocktakeLocationAllowed`；构造函数注入 `VirtualPhysicalStockService`（同模块 provider，无循环依赖） |
+| `web-admin/src/pages/inventory/stock-doc/stocktake/index.vue` | 快捷盘点页仓候选由 `fetchStockLocations()`（全量仓）改为 `fetchStocktakeLocationOptions()`（与后端同口径：物理仓模式只给物理仓） |
+
+**「库存明细页『调整』链路」经复核不需改**：`onConfirmAdjust` 的 `defaultTargetId` 取 `defaultPhysicalLocationId || 首个物理仓 || 虚拟仓`，且 `inventory-stock.service.ts#resolveLocations` 的仓池为「有物理仓时只取物理仓」→ 物理仓模式下前端本就到不了虚拟仓；真正可达的缺口是**快捷盘点页原用全量仓**与**直调 API**，前者改候选、后者由 gate 兜住。
+
+**验证证据**：
+
+| 项 | 结果 |
+|---|---|
+| 后端单测 | `npx vitest --config vitest.config.mts --run` → **37 files / 265 tests 全绿**（258 → **+7**：4 例 `assertStocktakeLocationAllowed` + 3 例 `StockDocService STOCKTAKE` 守卫） |
+| 后端类型检查 | `tsc -p tsconfig.build.json --noEmit` → **exit 0** |
+| 后端部署 | commit `889b99786` → push → 服务器 `git pull --ff-only` + `pm2 restart vendure`（status `online` / unstable restarts `0`） |
+| API 双态回归 | `_e2e/_verify_d52_stock_doc_stocktake_location_gate.py` → **9 项通过 / 0 项失败** |
+| 手机视口取证 | 2 张 **780×1688**：`docs/verify/d52_stock_doc_stocktake_locations_t2_virtual_allowed_390.png`、`..._default_physical_only_390.png`，全程 **0 pageerror** |
+
+**零真实库存写入的关键设计**：拒绝态用**虚拟仓**（写入前即被 gate 抛出）；放行态探针用**不存在的 variantId**（过 gate 后在写入阶段因 `stock_level."productVariantId"` 外键失败、整单回滚）→ 实测 `insert or update on table "stock_level" violates foreign key constraint "FK_9950eae3180f39c71978748bd08"`，单据 / 流水 `totalItems` 前后不变（t2 单据 12 / 流水 12），残留 **0**。
+
+**关联**：修复手册 20.19 节；计划偏差表 **D52** 行；本节新增的守卫与 D51 为**同一份实现**（非复制），故 D51 的 §2 口径表继续适用，无需改动。
 
 ---
 
@@ -128,5 +155,5 @@
 
 - [多人协同盘库设计稿（2026-09-23）](2026-09-23-stocktake-collab-design.md)：§3.3 一任务一仓 / §6.3 过账（本次为其补「仓库性质」前置校验）
 - [多人协同盘库实施计划（2026-09-23）](../plans/2026-09-23-stocktake-collab-plan.md)：偏差说明区
-- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节
-- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`
+- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节（D51）/ **第 20.19 节（D52 收口 ⓐ 项）**
+- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`、**`web-admin/_e2e/_verify_d52_stock_doc_stocktake_location_gate.py`**
