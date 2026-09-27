@@ -84,7 +84,7 @@
 | 库存明细页「调整」/ 快捷盘点（`pages/inventory/stock-doc/stocktake/index.vue`） | ~~仍可指向虚拟仓，后端**无对应 gate**~~ → **已由 D52 收口（见 §4.1）** | 该页是 D42 复用 `stock_doc(type:'STOCKTAKE')` 的入口，与「协同盘库任务」不是同一条链路；同类二义面未收口，待裁决 |
 | 盘点进度分母含已取消盘次的行 | ~~`countedTotal` 过滤 `isExtra` 但**不排已取消盘次**的行~~ → **已由 D53 收口（见 §4.2）** | 统计口径问题，与本次「仓库性质校验」无关；D53 按「任务级进度口径」单独立项修正 |
 | 盈亏时点 | 是**过账时点**的量（`recheck` 已提示账面变动） | 规格 §6.2 已定稿（过账时重算），非缺陷 |
-| TRANSFER 两段写入 | 会产生 1 次中间态镜像流水（同事务、最终值正确） | 可优化为事务内合并，本轮不做 |
+| TRANSFER 两段写入 | ~~会产生 1 次中间态镜像流水（同事务、最终值正确）~~ → **已由 D54 收口（见 §4.3）** | 可优化为事务内合并，原「本轮不做」，D54 按「事务内合并补镜像」独立立项 |
 
 ### 4.1 D52 补记（ⓐ 项已收口 · 2026-09-27）
 
@@ -162,6 +162,49 @@
 
 **关联**：修复手册 20.20 节；计划偏差表 **D53** 行；协同盘库实施计划偏差区「后续偏差去向」交叉表 **D53** 行。
 
+### 4.3 D54 补记（④ 项收口 + 「镜像补齐端到端证明」缺口关闭 · 2026-09-27）
+
+D51 遗留两项合并到 D54 一次收口：**(A)** §4 表第 4 行「TRANSFER 中间态镜像流水」；**(B)** §2 镜像补齐守卫此前**只有单测 + 代码审阅**，没有真实写入链路的端到端证据。
+
+**(A) 事务内合并补镜像。** 移库的「源仓出 / 目标仓入」两段各自调 `adjustPhysicalStock`，D51 的写法是写一段补一次镜像：源仓出 → Σ 绑定仓 7→4 → 虚拟仓写 −3；目标仓入 → Σ 回到 7 → 虚拟仓再写 +3。两仓皆绑定时产出 **2 条净零镜像流水**（同事务、最终值正确，但账本有噪点）。
+
+| 文件 | 改动 |
+|---|---|
+| `src/inventory/virtual-physical-stock.service.ts` | ① `adjustPhysicalStock` 增第 7 参 `opts?: { deferMirror?: boolean }`（默认 `false`，行为不变）；② 新增公开方法 `syncMirrorAfterWrites(ctx, variantId, locationIds)`：逐个探仓性质，**只要有一个非虚拟仓**就按 Σ 绑定仓补**一次**镜像；`syncMirrorAfterWrite` 变薄壳委托 `[locationId]`。语义等价（每次现算 Σ、幂等），只是把「写一次补一次」合并为「全部写完补一次」 |
+| `src/inventory/stock-doc.service.ts` | `TRANSFER` 分支两段 `adjustPhysicalStock` 均传 `{ deferMirror: true }`，两段写完再 `syncMirrorAfterWrites(ctx, variantId, [from, to])` |
+
+**为什么不能「两段都推迟后就完事」**：合并补镜像必须仍以「Σ 绑定物理仓」为唯一权威。若把两段写入合并成一句却跳过补镜像，虚拟仓会停在旧值；若对**全虚拟仓**的写入也补镜像，则退化成 D51 §2 警告过的反例（盘点写虚拟仓后被 Σ 清零）——故 `syncMirrorAfterWrites` 保留「全虚拟仓早退」。单测 4 例正是钉住这四种分支。
+
+**(B) 端到端证明（本地全链路 + 生产只读）。** 生产**禁写真实库存**，且生产 `order_stock_ledger` 中 `bizType='mirror'` **实测 0 行**（近期单据全落在纯虚拟库存店 `t2`，无物理仓绑定 → 镜像补齐在生产从未被真实触发），故写入侧证据只能在本地 dev-server 真实跑，生产侧只做**只读一致性核对**。
+
+| 步骤 | 断言 | 本地实测（渠道 `official-01`，变体 1，绑定 loc8 + loc13） |
+|---|---|---|
+| ① 前提 | 渠道为物理库存模式 + 绑定 2 物理仓 + 起点全 0 | `physicalStockEnabled=true`；绑定 `[loc8 default, loc13]`；虚拟/物理仓 onHand 均 0 |
+| ② PURCHASE +7 → loc8 | 物理仓 = 7 **且虚拟仓立即 = 7**（B 核心） | `{loc7: 7, loc8: 7}`；镜像流水 +1（loc7 / `in` / 7 / `虚拟镜像同步(variant=1)` / `0 → 7`） |
+| ③ TRANSFER 3 loc8 → loc13 | loc8=4、loc13=3、虚拟仓仍 7，且**镜像流水不增**（A 核心） | `{loc7: 7, loc8: 4, loc13: 3}`；镜像流水仍为 13 条（**未新增**） |
+| ④ STOCKTAKE loc13 → 10 | loc13=10、loc8=4、虚拟仓 = 14 | `{loc7: 14, loc8: 4, loc13: 10}`；镜像流水 13 → 14（`7 → 14`） |
+| ⑤ UI（手机视口） | 态①最新卡片 = 镜像同步；态②最新卡片 = 移库（**无中间态镜像**）；态③最新卡片 = 镜像同步 | 卡片原文：`＋7 / 入库 · 镜像同步 / 0 → 7 / #1 · official-01 虚拟仓 / 虚拟镜像同步(variant=1)`；态②为 `＋3 / 入库 · 移库 / …:target-in`；按「镜像同步」胶囊过滤后行数 = 服务端 `totalItems`（13 / 13 / 14） |
+| ⑥ 收尾 | 盘库归零 → 虚拟仓回 0 | `{loc7: 0, loc8: 0, loc13: 0}` |
+
+**生产只读核对（零写入，2026-09-27 实测）**：`__default_channel__` 是**唯一** `physicalStockEnabled=true` 渠道；变体 **57** 绑 loc5「主站默认物理仓」(50) + loc7「北京前置仓」(10) → **Σ = 60**，虚拟仓 loc4「`__default_channel__ 虚拟仓`」onHand **= 60** ⇒ 当下一致；同库 `bizType='mirror'` 流水 **0 行**。
+
+**验证证据**：
+
+| 项 | 结果 |
+|---|---|
+| 后端单测 | `npx vitest --config vitest.config.mts --run` → **37 files / 275 tests 全绿**（270 → **+5**：4 例「合并补镜像」语义 + 1 例 `StockDocService TRANSFER` 分支断言） |
+| 后端类型检查 / 构建 | `tsc -p tsconfig.build.json --noEmit` → **exit 0**；`npm run build --workspace @vendure/cjk-plugin` 成功，`lib/` 5 个产物随提交 |
+| 本地全链路 e2e | `_e2e/_verify_d54_transfer_mirror_merge.py`（`WA_D54_STATE=local`）→ **31 项通过 / 0 项失败** |
+| 生产只读核对 | 同脚本 `prod-after` 态（需生产凭据）；无凭据时以等价 SQL 只读核对，结论见上（虚拟仓 60 == Σ 60） |
+| 手机视口取证 | 4 张 **780×1688**（390×844 dpr2）：`docs/verify/d54-after-{purchase,transfer,stocktake}-390.png`、`docs/verify/d54-mirror-only-390.png`，全程 **0 pageerror** |
+| 生产残留 | 本项**全程零生产写入**（本地写入全部在自建 `official-01` fixture 上，末尾自清理归零） |
+
+**证据边界（如实登记）**：本地渠道 `official-01` 原本 `defaultTaxZoneId` 为空 → 核心 `productVariant.stockLevels` 报 `The active tax zone could not be determined`；读虚拟仓 onHand 的另一条路 `inventoryStockPage` 也不通——其仓池 `resolveLocations` 在「有物理仓时**只取物理仓**」，显式传虚拟仓会抛「仓库不属于当前租户」。故脚本先给该本地渠道补了默认税区（本地 fixture 调整，与本次缺陷无关）后走核心 `stockLevels`。
+
+**为何「虚拟仓 onHand」只能这样读**：`tenantInventoryOverview` 只给仓清单不给数量；`inventoryStockPage` 物理仓模式下读不到虚拟仓；`stockMovementLedger` 只看流水。核心 `productVariant.stockLevels` 是唯一能同时读到物理仓与虚拟仓 onHand 的 admin-api 面。
+
+**关联**：修复手册 20.21 节；计划偏差表 **D54** 行；验收脚本 `web-admin/_e2e/_verify_d54_transfer_mirror_merge.py`。
+
 ---
 
 ## 5. 验证证据（真实数字）
@@ -204,5 +247,5 @@
 
 - [多人协同盘库设计稿（2026-09-23）](2026-09-23-stocktake-collab-design.md)：§3.3 一任务一仓 / §6.3 过账（本次为其补「仓库性质」前置校验）
 - [多人协同盘库实施计划（2026-09-23）](../plans/2026-09-23-stocktake-collab-plan.md)：偏差说明区
-- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节（D51）/ 第 20.19 节（D52 收口 ⓐ 项）/ **第 20.20 节（D53 收口 ⓑ 项）**
-- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`、`web-admin/_e2e/_verify_d52_stock_doc_stocktake_location_gate.py`、**`web-admin/_e2e/_verify_d53_stocktake_progress_denominator.py`**
+- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节（D51）/ 第 20.19 节（D52 收口 ⓐ 项）/ **第 20.20 节（D53 收口 ⓑ 项）** / **第 20.21 节（D54 收口 ④ 项 + 镜像补齐端到端证明）**
+- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`、`web-admin/_e2e/_verify_d52_stock_doc_stocktake_location_gate.py`、**`web-admin/_e2e/_verify_d53_stocktake_progress_denominator.py`**、**`web-admin/_e2e/_verify_d54_transfer_mirror_merge.py`**
