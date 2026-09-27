@@ -60,7 +60,7 @@
         </button>
       </view>
       <view v-else class="acts">
-        <button class="ghost" :disabled="busy || !canCount" @tap="onCreateDraft">{{ $t('stocktake.board.formSaveDraft') }}</button>
+        <button class="ghost" :disabled="busy || !canCount" @tap="onSaveDraft">{{ $t('stocktake.board.formSaveDraft') }}</button>
         <button class="submit" :disabled="busy || !canCount" @tap="onCreateOpen">
           {{ busy ? $t('stocktake.board.formSubmitting') : $t('stocktake.board.formSubmit') }}
         </button>
@@ -72,7 +72,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import { createStocktakeTask, updateStocktakeTask, type StocktakeTask } from '../../apis/stocktake';
-import { fetchStockLocations } from '../../apis/inventory';
+import { fetchStocktakeLocationOptions } from '../../apis/inventory';
 import { fetchStorageZones, type StorageZone } from '../../apis/storage-bin';
 import { fetchCollectionsOptimized, type CollectionItem } from '../../apis/collection';
 import { useLocaleStore } from '../../stores/localeStore';
@@ -120,7 +120,7 @@ async function loadZones(locId: string) {
 watch(() => props.visible, async (v) => {
   if (!v) return;
   if (!locations.value.length) {
-    locations.value = await fetchStockLocations();
+    locations.value = await fetchStocktakeLocationOptions();
     locNames.value = locations.value.map((l) => l.name);
   }
   if (!cats.value.length) {

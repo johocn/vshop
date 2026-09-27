@@ -44,7 +44,7 @@ import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import TaskCard from '../../../components/stocktake/TaskCard.vue';
 import TaskFormSheet from '../../../components/stocktake/TaskFormSheet.vue';
 import { fetchStocktakeTasks, type StocktakeTask } from '../../../apis/stocktake';
-import { fetchStockLocations } from '../../../apis/inventory';
+import { fetchStocktakeLocationOptions } from '../../../apis/inventory';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { useBinMode } from '../../../composables/useBinMode';
@@ -182,7 +182,7 @@ onShow(async () => {
   await ensureBinMode();
   if (!locations.value.length) {
     try {
-      locations.value = await fetchStockLocations();
+      locations.value = await fetchStocktakeLocationOptions();
       locNames.value = locations.value.map((l) => l.name);
     } catch { /* 仓库列表失败不阻塞任务列表 */ }
   }
