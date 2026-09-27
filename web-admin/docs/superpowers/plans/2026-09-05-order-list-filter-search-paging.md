@@ -26,11 +26,11 @@
 **Files:**
 - Modify: `web-admin/src/utils/orderFormat.ts`
 
-- [ ] **Step 1: 读取当前文件**
+- [x] **Step 1: 读取当前文件**
 
 Read `d:\zhao\vshop\web-admin\src\utils\orderFormat.ts`，确认已 import `OrderRow`/`ShopOrderRow`（来自 `../apis/order`）。
 
-- [ ] **Step 2: 追加过滤层代码**
+- [x] **Step 2: 追加过滤层代码**
 
 在文件末尾追加（一个 Edit，追加在**最后一个导出函数之后**）：
 
@@ -91,19 +91,19 @@ export function filterShopRows(rows: ShopOrderRow[], f: OrderFilter = {}, now = 
 
 > 若 `OrderRow`/`ShopOrderRow` 未 import，补回开头 `import { OrderRow, ShopOrderRow } from '../apis/order';`（若已存在则不重复）。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 跑 `npx tsc --noEmit`。
 预期：`orderFormat.ts` **无新增报错**；仅存量的 coupon.ts/product.ts/scanner.ts 报错（忽略）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web-admin/src/utils/orderFormat.ts
 git commit -m "feat(orderFormat): 新增本地过滤层 filterChannelRows/filterShopRows"
 ```
 
-- [ ] **Step 5: 汇报** — 追加成功、仅动该文件、`orderFormat.ts` 无新增 tsc 错误、commit hash。
+- [x] **Step 5: 汇报** — 追加成功、仅动该文件、`orderFormat.ts` 无新增 tsc 错误、commit hash。
 
 ---
 
@@ -114,7 +114,7 @@ git commit -m "feat(orderFormat): 新增本地过滤层 filterChannelRows/filter
 
 **串行 Edit 要求**：一次一个 Edit，确认成功再下一个。下面 7 处改动按顺序逐个做。
 
-- [ ] **Step 1: import 补 computed 与过滤函数**
+- [x] **Step 1: import 补 computed 与过滤函数**
 
 把脚本 import 块（`from 'vue'` 那行）改为同时引入 `computed`：
 ```ts
@@ -132,7 +132,7 @@ import {
 ```
 > 用两个串行 Edit 分别完成。
 
-- [ ] **Step 2: 新增过滤/分页状态与选项常量**
+- [x] **Step 2: 新增过滤/分页状态与选项常量**
 
 在 `const totalItems = ref(0);` 之后插入：
 ```ts
@@ -151,7 +151,7 @@ const deliveryLabel = computed(() => (delivery.value ? deliveryOpts[deliveryArr.
 const dateLabel = computed(() => (dateRange.value ? dateOpts[dateArr.indexOf(dateRange.value) as never] : ''));
 ```
 
-- [ ] **Step 3: 重写 `load()`（shop 与 channel 两个分支整体替换）**
+- [x] **Step 3: 重写 `load()`（shop 与 channel 两个分支整体替换）**
 
 把整个 `load()` 函数（当前第 181-215 行）替换为：
 ```ts
@@ -188,7 +188,7 @@ async function load() {
 ```
 > 注意 channel 分支**不再传 `keyword`**（本地过滤代替）；shop 分支移除原 handler 里两段手工 `rows.filter`（code/customerName），统一交 `filterShopRows`。
 
-- [ ] **Step 4: 重写 `loadMore()`**
+- [x] **Step 4: 重写 `loadMore()`**
 
 把当前 `loadMore()`（第 217-238 行）替换为：
 ```ts
@@ -216,7 +216,7 @@ async function loadMore() {
 }
 ```
 
-- [ ] **Step 5: 在 onScope/onTab/onStatTap/onSearch 开头加 resetPage()**
+- [x] **Step 5: 在 onScope/onTab/onStatTap/onSearch 开头加 resetPage()**
 
 为这 4 个函数各加一行 `resetPage();` 作为函数体第一行（在已有的 `if (scope.value === key) return;` 等 early-return **之后**、`load()` **之前**）：
 ```ts
@@ -245,7 +245,7 @@ function onSearch() {
 ```
 > 用 4 个串行 Edit（或一次替换整块函数区，若它们相邻）。
 
-- [ ] **Step 6: 新增 handler 函数**
+- [x] **Step 6: 新增 handler 函数**
 
 在 `copyCode` 函数之后追加：
 ```ts
@@ -270,18 +270,18 @@ function onDateRange(v: '' | 'today' | '7d' | '30d') {
 }
 ```
 
-- [ ] **Step 7: 类型检查**
+- [x] **Step 7: 类型检查**
 
 `npx tsc --noEmit`：`index.vue` 不在 tsc 范围（未装 vue-tsc），确认 Script 段新增变量/函数引用无破坏（tsc 只跑 .ts/.d.ts，故以 Step 1 import 警告为准：`filterChannelRows`/`filterShopRows`/`computed` 已导入则无碍）。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
 git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态与 handlers"
 ```
 
-- [ ] **Step 9: 汇报** — 各改动成功、串行未覆盖、commit hash。
+- [x] **Step 9: 汇报** — 各改动成功、串行未覆盖、commit hash。
 
 ---
 
@@ -292,7 +292,7 @@ git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态�
 
 **串行 Edit**。
 
-- [ ] **Step 1: 搜索框 placeholder 改写**
+- [x] **Step 1: 搜索框 placeholder 改写**
 
 把第 33 行：
 ```html
@@ -303,7 +303,7 @@ git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态�
       <input v-model="kw" class="kw" placeholder="订单号 / 顾客 / 手机号 / 商品名" confirm-type="search" @confirm="onSearch" />
 ```
 
-- [ ] **Step 2: 搜索行下插入筛选行**
+- [x] **Step 2: 搜索行下插入筛选行**
 
 把（search `/view` 之后、`<!-- 手机：卡片列表` 注释之前）插入：
 ```html
@@ -318,7 +318,7 @@ git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态�
     </view>
 ```
 
-- [ ] **Step 3: 桌面表格后插入分页条**
+- [x] **Step 3: 桌面表格后插入分页条**
 
 把（`.dt` 表格 /`view` 之后、`<view v-if="!views.length...` 空态之前）插入：
 ```html
@@ -330,7 +330,7 @@ git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态�
     </view>
 ```
 
-- [ ] **Step 4: 新增样式（filter + pgbar）**
+- [x] **Step 4: 新增样式（filter + pgbar）**
 
 在 `.search` 规则之后插入：
 ```scss
@@ -364,25 +364,25 @@ git commit -m "feat(order-list): 数据流转 raw 模型 + 过滤/分页状态�
   }
 ```
 
-- [ ] **Step 5: 桌面媒体查询显示分页条**
+- [x] **Step 5: 桌面媒体查询显示分页条**
 
 在 `@media (min-width: 768px)` 块末尾追加一行：
 ```css
   .page .pgbar { display: flex; }
 ```
 
-- [ ] **Step 6: 构建验证**
+- [x] **Step 6: 构建验证**
 
 在 `d:\zhao\vshop\web-admin` 跑 `npm run build:h5`。预期末尾 `DONE  Build complete.`（Dart Sass `legacy-js-api` DEPRECATION 警告可忽略）。失败则修模板/样式后重跑。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
 git commit -m "feat(order-list): 筛选行 + 桌面分页条 + 样式"
 ```
 
-- [ ] **Step 8: 汇报** — 改动成功、build 结果、commit hash。
+- [x] **Step 8: 汇报** — 改动成功、build 结果、commit hash。
 
 ---
 
@@ -391,11 +391,11 @@ git commit -m "feat(order-list): 筛选行 + 桌面分页条 + 样式"
 **Files:**
 - Modify: `web-admin/_e2e/verify_order_actions.py`
 
-- [ ] **Step 1: 读取现有 E2E**
+- [x] **Step 1: 读取现有 E2E**
 
 Read `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`。它已有：登录→选店 t1→订单列表→切「本店商品单」，手机+桌面两视口，断言统计4卡/桌面缩略图/复制/发货等。
 
-- [ ] **Step 2: 追加「按商品名搜索」断言（shop scope）**
+- [x] **Step 2: 追加「按商品名搜索」断言（shop scope）**
 
 在切到「本店商品单」scope 之后（在既有断言区之前插入）：
 ```python
@@ -412,7 +412,7 @@ Read `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`。它已有：登录
                 pg.locator('.search .btn').click(); time.sleep(3)
 ```
 
-- [ ] **Step 3: 追加筛选行 + 桌面分页条断言**
+- [x] **Step 3: 追加筛选行 + 桌面分页条断言**
 
 在既有桌面相关断言之后插入：
 ```python
@@ -427,22 +427,22 @@ Read `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`。它已有：登录
 ```
 > 若 `ALL_OK` 变量在脚本中已定义，直接替换该赋值行；`product_name_ok` 在切 scope 后定义，确保在本文件作用域内先定义后引用（若某视口无 `.card` 商品 → `product_name_ok` False，属数据依赖，可接受并在打印注明）。
 
-- [ ] **Step 4: 打印补齐**
+- [x] **Step 4: 打印补齐**
 
 在打印行追加：`PRODUCT_NAME_OK=product_name_ok FILTER_CHIPS=filter_chips PGBAR=pf_channel`。
 
-- [ ] **Step 5: 语法检查**
+- [x] **Step 5: 语法检查**
 
 在 `d:\zhao\vshop\web-admin` 跑 `python -m py_compile _e2e/verify_order_actions.py`，期望 exit 0。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add web-admin/_e2e/verify_order_actions.py
 git commit -m "test(order-list): E2E 补按商品名搜索/筛选行/分页条断言"
 ```
 
-- [ ] **Step 7: 汇报** — 修改落盘、`py_compile` 结果、commit hash。
+- [x] **Step 7: 汇报** — 修改落盘、`py_compile` 结果、commit hash。
 
 ---
 
@@ -451,22 +451,22 @@ git commit -m "test(order-list): E2E 补按商品名搜索/筛选行/分页条�
 **Files:**
 - Modify: `web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` + assets
 
-- [ ] **Step 1: 部署**
+- [x] **Step 1: 部署**
 
 在 `d:\zhao\vshop\web-admin` 跑 `node scripts/deploy.mjs`。预期 `[deploy] 产物校验通过: ... KB` 与 `deploy done`（本地构建→scp→服务器解压，服务器不构建）。失败区分构建/网络/ssh；涉服务器权限则停止并报告。
 
-- [ ] **Step 2: 线上 E2E**
+- [x] **Step 2: 线上 E2E**
 
 跑 `python _e2e/verify_order_actions.py`（web-admin 目录），输出截图 `order_actions_mobile_390.png`/`order_actions_desk_1440.png`。记录两视口 `ALL_OK` 与全部计数，解读：
 - `STAT_4=4`、`DG_ROWS` 桌面>0、`COPY_OK=True`、`THUMB_IMG`（有封面商品>0）。
 - 新增：`PRODUCT_NAME_OK`（商品单搜索命中）、`FILTER_CHIPS>=2`（筛选行）、`PGBAR`（桌面 channel=1）。
 - `REMIND/REDEEM` 数据依赖（可为 0），如实说明非缺陷。`ALL_OK=False` 时先定位是哪个子条件、判断是否数据依赖。
 
-- [ ] **Step 3: 手册补 8.4.3**
+- [x] **Step 3: 手册补 8.4.3**
 
 打开 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html`，在「8.4.2」小节之后、`</section>` 之前追加「8.4.3 搜索/筛选/分页完善」，说明：搜索框支持按商品名（本店商品单全量可靠、渠道单当页生效）；新增配送方式+时间筛选（一键清除）；桌面渠道单加分页条（每页 20/50/100、共 N 单）。把本部署新成的两张截图复制到 `assets/` 并按既有 figure 结构引用。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html
@@ -474,7 +474,7 @@ git add web-admin/docs/webadmin-bugfix-manual/assets/order_actions_mobile_390.pn
 git commit -m "docs(webadmin): 手册补 8.4.3 搜索/筛选/分页章节及验收截图"
 ```
 
-- [ ] **Step 5: 汇报** — 部署结果、线上 E2E 完整计数与解读、手册是否更新、commit hash。
+- [x] **Step 5: 汇报** — 部署结果、线上 E2E 完整计数与解读、手册是否更新、commit hash。
 
 ---
 
@@ -483,3 +483,20 @@ git commit -m "docs(webadmin): 手册补 8.4.3 搜索/筛选/分页章节及验�
 - **Spec 覆盖**：①按商品名（Task1 `filterChannelRows` 含 prodNames + Task2 shop 分支接 `filterShopRows` + Task4 E2E）✓ ②筛选行配送+时间（Task1 `withinDate`/`deliveryOf` + Task3 模板 + Task2 state/handlers）✓ ③分页条每页条数（Task2 perPage/page/channelRaw + Task3 `.pgbar`）✓。错误处理（越界守卫/window SSR/isGhostView 保留）已含。取舍（渠道当页/商品全量）记入手册。
 - **占位符**：无 TBD/TODO；每步含可运行代码。
 - **类型一致性**：`OrderFilter` 各字段、`filterChannelRows(rows, f, now)`/`filterShopRows(rows, f, now)`、`deliveryArr/dateArr` 索引与 `onDeliveryPick` 的 `as never` 用法一致；`channelRaw: Ref<OrderRow[]>`、`page/perPage/totalItems` 贯穿 load/loadMore/pgbar 一致。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表筛选 / 搜索 / 分页全部落地并经线上验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `4a37cea` / `6cababd` / `dec1acd` / `4216506` / `be36743`（Task 1–5）+ `74e12a3` |
+| 产物 | `src/utils/orderFormat.ts:174 filterShopRows`、`OrderListPager.vue`、`pages/order/list/index.vue:415-420 onPage/onPerPage`、`_e2e/verify_order_actions.py` |
+| 手册 | `webadmin-bugfix-manual.html` 8.4.3（L390–402）线上验收结论 ✅（`FILTER_CHIPS=2` / `PRODUCT_NAME_OK=True`） |
+| 偏差（如实记录） | `filterChannelRows` 已删除（`orderFormat.ts:172` 注释），渠道过滤改为服务端（`0b2105b` / `86bb81d` / `41082fa`）；UI 已抽入 `components/order-list/`。8.4.3 手册「当页本地过滤」为陈旧表述 |
+
+**本次回填动作**：勾选本计划全部 34 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4.3、vshop git log 与产物文件。
+
+---

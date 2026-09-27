@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `src/apis/order.ts`
 
-- [ ] **Step 1: 扩展 `OrderRow.shippingAddress` 类型**
+- [x] **Step 1: 扩展 `OrderRow.shippingAddress` 类型**
 
 把：
 ```ts
@@ -34,7 +34,7 @@ shippingAddress?: {
 } | null;
 ```
 
-- [ ] **Step 2: 扩展 `ORDER_FIELDS` 里 `shippingAddress` 查询字段**
+- [x] **Step 2: 扩展 `ORDER_FIELDS` 里 `shippingAddress` 查询字段**
 
 把：
 ```
@@ -47,12 +47,12 @@ shippingAddress { fullName streetLine1 city province countryCode postalCode phon
 
 （`order(id)` 的 `ORDER_DETAIL_FIELDS` 已用这些字段，确认它们在 Order 类型上可用；`orders()` 列表同样返回 Order 类型，字段一致可用。）
 
-- [ ] **Step 3: 构建校验**
+- [x] **Step 3: 构建校验**
 
 Run: `npm run build:app`（web-admin 本地构建）
 Expected: 构建通过，无 TS/编译错误。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/apis/order.ts
@@ -66,14 +66,14 @@ git commit -m "feat(orders): 列表查询补充 shippingAddress 省市区街道�
 **Files:**
 - Modify: `src/utils/orderFormat.ts`
 
-- [ ] **Step 1: `OrderView` 增加 `address` 字段**
+- [x] **Step 1: `OrderView` 增加 `address` 字段**
 
 在接口里 `delivery` 下方加：
 ```ts
 address: string; // 省市区+街道 完整地址；无 → ''
 ```
 
-- [ ] **Step 2: 新增 `formatAddress` 纯函数**
+- [x] **Step 2: 新增 `formatAddress` 纯函数**
 
 （放在 `maskPhone` 附近或 `channelToView` 之前）
 ```ts
@@ -95,7 +95,7 @@ export function formatAddress(a?: ShipAddressLike | null): string {
 }
 ```
 
-- [ ] **Step 3: 配送方式名补全：自提→「门店自提」**
+- [x] **Step 3: 配送方式名补全：自提→「门店自提」**
 
 把 `channelToView` 里：
 ```ts
@@ -107,7 +107,7 @@ delivery: o.customFields?.deliveryType === 'pickup' ? '门店自提' : o.shippin
 ```
 （快递分支已展示 `shippingMethod.name` 全名，无需改动。）
 
-- [ ] **Step 4: `channelToView` 与 `shopToView` 补 `address`**
+- [x] **Step 4: `channelToView` 与 `shopToView` 补 `address`**
 
 `channelToView` 返回值增加一行：
 ```ts
@@ -118,7 +118,7 @@ address: formatAddress(o.shippingAddress),
 address: '', // 本店商品单接口无地址
 ```
 
-- [ ] **Step 5: 新增 `LOGISTICS_COLORS` + `shipColor` 纯函数**
+- [x] **Step 5: 新增 `LOGISTICS_COLORS` + `shipColor` 纯函数**
 
 （放在 `isUnpaid` 之后）
 ```ts
@@ -134,12 +134,12 @@ export function shipColor(state: string, fallback = ''): string {
 }
 ```
 
-- [ ] **Step 6: 构建校验**
+- [x] **Step 6: 构建校验**
 
 Run: `npm run build:app`
 Expected: 构建通过。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/utils/orderFormat.ts
@@ -153,11 +153,11 @@ git commit -m "feat(order-format): OrderView.address + formatAddress + 门店自
 **Files:**
 - Modify: `src/pages/order/list/index.vue`
 
-- [ ] **Step 1: 引入 `shipColor`**
+- [x] **Step 1: 引入 `shipColor`**
 
 在 `import { ... } from '../../../utils/orderFormat';` 的成员里新增 `shipColor`。
 
-- [ ] **Step 2: 手机卡片 `.sub` 下方新增地址行**
+- [x] **Step 2: 手机卡片 `.sub` 下方新增地址行**
 
 把：
 ```html
@@ -169,7 +169,7 @@ git commit -m "feat(order-format): OrderView.address + formatAddress + 门店自
 <view class="addr" v-if="o.address"><text class="addr-ic">📍</text><text class="addr-tx">{{ o.address }}</text></view>
 ```
 
-- [ ] **Step 3: 手机卡片状态标签改物流着色**
+- [x] **Step 3: 手机卡片状态标签改物流着色**
 
 把：
 ```html
@@ -180,7 +180,7 @@ git commit -m "feat(order-format): OrderView.address + formatAddress + 门店自
 <text class="st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
 ```
 
-- [ ] **Step 4: 手机卡片新增 `.addr` 样式**
+- [x] **Step 4: 手机卡片新增 `.addr` 样式**
 
 在 `.sub` 样式规则后追加（花括号保持 scoped）：
 ```scss
@@ -200,12 +200,12 @@ git commit -m "feat(order-format): OrderView.address + formatAddress + 门店自
 }
 ```
 
-- [ ] **Step 5: 构建校验**
+- [x] **Step 5: 构建校验**
 
 Run: `npm run build:app`
 Expected: 构建通过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/order/list/index.vue
@@ -219,7 +219,7 @@ git commit -m "feat(order-list): 手机卡片补地址行 + 状态物流着色"
 **Files:**
 - Modify: `src/pages/order/list/index.vue`
 
-- [ ] **Step 1: 表头新增「地址」列**
+- [x] **Step 1: 表头新增「地址」列**
 
 把表头（`<view class="dt-row head">` 内）：
 ```html
@@ -233,7 +233,7 @@ git commit -m "feat(order-list): 手机卡片补地址行 + 状态物流着色"
 <text class="c-deliv">配送</text>
 ```
 
-- [ ] **Step 2: 数据行新增地址单元格**
+- [x] **Step 2: 数据行新增地址单元格**
 
 把数据行：
 ```html
@@ -247,7 +247,7 @@ git commit -m "feat(order-list): 手机卡片补地址行 + 状态物流着色"
 <text class="c-deliv">{{ o.delivery }}</text>
 ```
 
-- [ ] **Step 3: 表头行状态着色**
+- [x] **Step 3: 表头行状态着色**
 
 把表头行（`dt-row head`）里 `c-st` 头无着色，无需改；仅数据行：
 把：
@@ -259,7 +259,7 @@ git commit -m "feat(order-list): 手机卡片补地址行 + 状态物流着色"
 <text class="c-st" :style="{ color: shipColor(o.state, stateLabel(ORDER_STATES, o.state).color) }">{{ stateLabel(ORDER_STATES, o.state).label }}</text>
 ```
 
-- [ ] **Step 4: 新增 `.c-addr` 样式 + 调整 grid 列模板**
+- [x] **Step 4: 新增 `.c-addr` 样式 + 调整 grid 列模板**
 
 把 `.dt-row` 的：
 ```scss
@@ -274,12 +274,12 @@ grid-template-columns: 2fr 3fr 1.8fr 1.4fr 1fr 1fr 1.6fr 1fr 1.4fr;
 .c-addr { font-size: 13px; color: $wa-muted; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ```
 
-- [ ] **Step 5: 构建校验**
+- [x] **Step 5: 构建校验**
 
 Run: `npm run build:app`
 Expected: 构建通过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/order/list/index.vue
@@ -293,12 +293,12 @@ git commit -m "feat(order-list): 桌面表新增地址列 + 状态物流着色 +
 **Files:**
 - Modify: `_e2e/verify_order_actions.py`
 
-- [ ] **Step 1: 本地构建产出**
+- [x] **Step 1: 本地构建产出**
 
 Run: `npm run build:app`
 Expected: 构建通过，`dist/build/h5`（或仓库既定产物目录）刷新。
 
-- [ ] **Step 2: 在 E2E 脚本增加地址/物流着色断言**
+- [x] **Step 2: 在 E2E 脚本增加地址/物流着色断言**
 
 在 `run()` 切到「本店商品单」scope 后（或在渠道单有数据时），追加：
 
@@ -316,12 +316,12 @@ print('ADDR_MOBILE=', addr_mobile, 'ADDR_COL=', addr_col, 'OK_ADDR=', ok_addr)
 
 > 说明：线上「本店商品单」无地址（`o.address=''`→地址行不渲染），故 `addr_mobile` 可能为 0；地址行/地址列的真实数据在「本店渠道单」有快递单时出现。断言以「不出现报错 + 元素存在性」为主，最终以线上截图人工复核。
 
-- [ ] **Step 3: 双视口实跑**
+- [x] **Step 3: 双视口实跑**
 
 Run: `python _e2e/verify_order_actions.py`
 Expected: 脚本运行结束，输出 `ALL_OK` 相关与新增 `OK_ADDR` 行，无 `PAGEERROR`。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add _e2e/verify_order_actions.py
@@ -336,17 +336,17 @@ git commit -m "test(e2e): 断言地址行/地址列/物流着色元素"
 - Modify: `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html`
 - Run: `scripts/deploy.mjs`
 
-- [ ] **Step 1: 本地构建 + 部署**
+- [x] **Step 1: 本地构建 + 部署**
 
 Run: `node scripts/deploy.mjs`（本地构建 → scp 产物 → 服务器解压/拷入 → 重启，**绝不在服务器构建**）
 Expected: 部署脚本成功结束，线上 `https://e.joho.cn/guanli/` 生效。
 
-- [ ] **Step 2: 线上 E2E 回归 + 截图**
+- [x] **Step 2: 线上 E2E 回归 + 截图**
 
 Run: `python _e2e/verify_order_actions.py`
 Expected: 双视口 `ALL_OK` 为 True、无 `PAGEERROR`；`_e2e/` 落 `order_actions_mobile_390.png` 与 `order_actions_desk_1440.png`。截图需人工复核地址行/地址列/物流着色。
 
-- [ ] **Step 3: 更新操作手册**
+- [x] **Step 3: 更新操作手册**
 
 在 `webadmin-bugfix-manual.html` 追加「配送信息补齐」小节（编号顺势接 8.4.x）：
 - 手机卡片：收货人·手机·配送方式名下方灰底地址行（仅快递单），状态物流着色；
@@ -354,7 +354,7 @@ Expected: 双视口 `ALL_OK` 为 True、无 `PAGEERROR`；`_e2e/` 落 `order_act
 - 放入手机 390 与桌面 1440 验收截图；
 - 卡片标题建议 6-10 字，注：本店商品单无地址/方式名 → 显示占位。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html
@@ -371,3 +371,19 @@ git commit -m "docs(manual): 订单列表配送信息补齐章节 + 验收截图
 
 **类型一致性：** `formatAddress`/`shipColor` 在 Task2 定义，Task3/4 引用同名；`ShipAddressLike` 与 `OrderRow.shippingAddress`（Task1）字段同构。`OrderView.address` 在 Task2 定义，Task3/4 模板读取 `o.address` 一致。
 ```
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表配送信息（地址行 / 物流配色）已落地并经线上验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `b7fee20`（`OrderView.address` / `formatAddress` / 门店自提 / `shipColor`）、`ed80986`（手机地址行）、`e65c343`（桌面地址列 + grid）、`2d06847`（E2E）、`72181a2`（手册） |
+| 产物 | `src/utils/orderFormat.ts:19,46,52,85`；重构后迁入 `components/order-list/OrderListCardRow.vue:52,150`、`OrderListTableRow.vue:35,53,160`；`pages/order/list/index.vue:170` stats 4 字段 |
+| 手册 | `webadmin-bugfix-manual.html` 8.4.4 线上验收结论 ✅（`ADDR_COL=19` / `HAS_ADDR_HEADER` / `STATUS_COLORED=True`） |
+
+**本次回填动作**：勾选本计划全部 31 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4.4、vshop git log 与产物文件。
+
+---

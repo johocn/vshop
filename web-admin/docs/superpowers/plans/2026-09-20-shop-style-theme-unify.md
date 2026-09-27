@@ -53,7 +53,7 @@
 - Create: `d:\zhao\vendure\packages\shop-template-plugin\src\palette-presets.ts`
 - Create: `d:\zhao\vendure\packages\shop-template-plugin\src\__tests__\palette-presets.spec.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `d:\zhao\vendure\packages\shop-template-plugin\src\__tests__\palette-presets.spec.ts`：
 
@@ -91,7 +91,7 @@ describe('PALETTE_PRESETS 权威副本', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run（在 `d:\zhao\vendure` 下）：
 ```bash
@@ -99,7 +99,7 @@ npx vitest run packages/shop-template-plugin/src/__tests__/palette-presets.spec.
 ```
 Expected: FAIL —— `Failed to resolve import "../palette-presets"`。
 
-- [ ] **Step 3: 实现预设表**
+- [x] **Step 3: 实现预设表**
 
 创建 `d:\zhao\vendure\packages\shop-template-plugin\src\palette-presets.ts`：
 
@@ -138,7 +138,7 @@ export const PALETTE_PRESETS: Record<string, ThemePaletteDef> = {
 };
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx vitest run packages/shop-template-plugin/src/__tests__/palette-presets.spec.ts`
 Expected: PASS（3 passed）。
@@ -151,7 +151,7 @@ Expected: PASS（3 passed）。
 - Modify: `d:\zhao\vendure\packages\shop-template-plugin\src\merge-config.ts`
 - Create: `d:\zhao\vendure\packages\shop-template-plugin\src\__tests__\merge-config.spec.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `d:\zhao\vendure\packages\shop-template-plugin\src\__tests__\merge-config.spec.ts`：
 
@@ -202,12 +202,12 @@ describe('mergePreview 预览 = C 端实际渲染', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx vitest run packages/shop-template-plugin/src/__tests__/merge-config.spec.ts`
 Expected: FAIL —— `resolvePaletteTokens is not a function`。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 把 `d:\zhao\vendure\packages\shop-template-plugin\src\merge-config.ts` **整体替换**为：
 
@@ -273,12 +273,12 @@ export function mergePreview(
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx vitest run packages/shop-template-plugin/src/__tests__/merge-config.spec.ts`
 Expected: PASS（8 passed）。
 
-- [ ] **Step 5: 构建插件**
+- [x] **Step 5: 构建插件**
 
 Run（在 `d:\zhao\vendure` 下）：
 ```bash
@@ -294,7 +294,7 @@ Expected: 无报错，`packages/shop-template-plugin/lib/src/merge-config.js` �
 - Modify: `d:\zhao\vendure\packages\shop-template-plugin\src\plugin.ts`
 - Modify: `d:\zhao\vendure\packages\shop-template-plugin\src\shop-template-admin.resolver.ts`
 
-- [ ] **Step 1: 注册渠道字段 `themeTokensOverride`**
+- [x] **Step 1: 注册渠道字段 `themeTokensOverride`**
 
 在 `src/plugin.ts` 的 `configuration` 回调里，把既有 `mergeCustomFields(config.customFields.Channel, [...])` 那段改为：
 
@@ -306,7 +306,7 @@ Expected: 无报错，`packages/shop-template-plugin/lib/src/merge-config.js` �
         ]);
 ```
 
-- [ ] **Step 2: 加 `palettePresets` query 到 admin API SDL**
+- [x] **Step 2: 加 `palettePresets` query 到 admin API SDL**
 
 在 `src/plugin.ts` 的 `adminApiExtensions.schema` 里，给 `extend type Query` 增加一行（放在 `templateMergedPreview` 之后）：
 
@@ -328,7 +328,7 @@ Expected: 无报错，`packages/shop-template-plugin/lib/src/merge-config.js` �
             }
 ```
 
-- [ ] **Step 3: 加 resolver**
+- [x] **Step 3: 加 resolver**
 
 在 `src/shop-template-admin.resolver.ts` 顶部 import 后加入预设导入，并在类内 `templateMergedPreview` 之后追加 resolver：
 
@@ -344,7 +344,7 @@ import { PALETTE_PRESETS } from './palette-presets';
     }
 ```
 
-- [ ] **Step 4: 构建并核对 SDL 生效**
+- [x] **Step 4: 构建并核对 SDL 生效**
 
 Run（在 `d:\zhao\vendure` 下）：
 ```bash
@@ -352,7 +352,7 @@ pnpm --filter @vendure/shop-template-plugin build
 ```
 Expected: 无报错。
 
-- [ ] **Step 5: API 核验（本地 admin-api）**
+- [x] **Step 5: API 核验（本地 admin-api）**
 
 确保本地 vendure 已启动（`pnpm dev` 或既有本地实例），用管理员 token 执行：
 
@@ -366,7 +366,7 @@ query { activeChannel { id customFields { templateId themeTokensOverride } } }
 ```
 Expected: `themeTokensOverride` 字段存在（值为 null 即可，证明 customField 已注册）。
 
-- [ ] **Step 6: 提交构建产物（用户明确要求提交时）**
+- [x] **Step 6: 提交构建产物（用户明确要求提交时）**
 
 ```bash
 git add vendure/packages/shop-template-plugin/src vendure/packages/shop-template-plugin/lib
@@ -382,7 +382,7 @@ git commit -m "feat(shop-template): L3 令牌字段 + palette 预设权威副本
 - Modify: `d:\zhao\nshop\layers\base\app\utils\__tests__\merge-config.spec.ts`
 - Modify: `d:\zhao\nshop\layers\base\app\composables\useThemeConfig.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `d:\zhao\nshop\layers\base\app\utils\__tests__\merge-config.spec.ts` 顶部 import 行改为：
 
@@ -436,7 +436,7 @@ describe('parseThemeTokensOverride 坏数据一律不覆盖', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run（在 `d:\zhao\nshop` 下）：
 ```bash
@@ -444,7 +444,7 @@ pnpm vitest run layers/base/app/utils/__tests__/merge-config.spec.ts
 ```
 Expected: FAIL —— `parseThemeTokensOverride is not a function`。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 在 `d:\zhao\nshop\layers\base\app\utils\merge-config.ts` 中，把 `mergeThemeTokens` 整段替换为：
 
@@ -472,12 +472,12 @@ export function mergeThemeTokens(
 
 > 注意：`parseJsonText` 定义在 `mergeThemeTokens` **之后**，但函数声明会提升，`parseThemeTokensOverride` 内调用安全；若 lint 报「no-use-before-define」，把 `parseThemeTokensOverride` 挪到 `parseJsonText` 定义之后。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm vitest run layers/base/app/utils/__tests__/merge-config.spec.ts`
 Expected: PASS（含既有 3 条 palette 用例 + 新增 7 条）。
 
-- [ ] **Step 5: 接入消费入口**
+- [x] **Step 5: 接入消费入口**
 
 把 `d:\zhao\nshop\layers\base\app\composables\useThemeConfig.ts` 的 import 与 `themeTokens` 计算属性改为：
 
@@ -495,7 +495,7 @@ import { mergePageConfig, mergeThemeTokens, parseThemeTokensOverride } from "../
   );
 ```
 
-- [ ] **Step 6: 类型检查**
+- [x] **Step 6: 类型检查**
 
 Run（在 `d:\zhao\nshop` 下）：
 ```bash
@@ -514,7 +514,7 @@ Expected: 无新增类型错误（既有历史错误不计）。
 
 > vshop 仓无测试运行器（`package.json` 无 vitest、无 `scripts/`、无 `node_modules/vitest`），**不新增测试框架**；本 Task 的验证以 `build:h5` 通过 + Task 11 的手机视口截图为准。语义与 nshop 逐行对齐，nshop 的单测即为该实现的行为基准。
 
-- [ ] **Step 1: 建立预设副本**
+- [x] **Step 1: 建立预设副本**
 
 把 `d:\zhao\nshop\layers\base\app\utils\palette-presets.ts` 完整复制为 `d:\zhao\vshop\src\utils\palette-presets.ts`，并把文件头注释第一行改为：
 
@@ -526,7 +526,7 @@ Expected: 无新增类型错误（既有历史错误不计）。
 
 （其余内容——`PaletteToken`、`ThemePaletteDef`、`PALETTE_PRESETS` 8 套——保持与 nshop 完全一致。）
 
-- [ ] **Step 2: 补 palette 展开与 L3 入参**
+- [x] **Step 2: 补 palette 展开与 L3 入参**
 
 把 `d:\zhao\vshop\src\utils\merge-config.ts` 的头部 import 与 `mergeThemeTokens` 整段替换为：
 
@@ -577,7 +577,7 @@ export function mergeThemeTokens(
 
 > `parseThemeTokensOverride` 依赖文件末尾的 `parseJsonText`（函数声明提升，安全）。
 
-- [ ] **Step 3: 接入租户 store**
+- [x] **Step 3: 接入租户 store**
 
 `d:\zhao\vshop\src\stores\tenant.ts`：
 
@@ -617,7 +617,7 @@ import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, ThemeToken
 
 并在 `return { ... }` 的导出列表中加入 `rawThemeOverride`（放在 `themeTokens,` 之后）。
 
-- [ ] **Step 4: 确认渠道解析接口返回该字段**
+- [x] **Step 4: 确认渠道解析接口返回该字段**
 
 打开 `d:\zhao\vshop\src\api\queries\channel.ts`，找到 `resolveChannelByCode` 使用的查询（返回 `customFields { ... }` 的那段），确保 customFields 选择集包含 `themeTokensOverride`；若无则加上：
 
@@ -625,7 +625,7 @@ import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, ThemeToken
             themeTokensOverride
 ```
 
-- [ ] **Step 5: 构建验证**
+- [x] **Step 5: 构建验证**
 
 Run（在 `d:\zhao\vshop` 下）：
 ```bash
@@ -641,7 +641,7 @@ Expected: 构建成功，无 TS 报错。
 - Modify: `d:\zhao\vshop\web-admin\src\apis\channel.ts`
 - Modify: `d:\zhao\vshop\web-admin\src\apis\template.ts`
 
-- [ ] **Step 1: 渠道接口加 L3 字段**
+- [x] **Step 1: 渠道接口加 L3 字段**
 
 `src/apis/channel.ts`：
 
@@ -658,7 +658,7 @@ Expected: 构建成功，无 TS 报错。
         customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode odooBaseUrl odooApiKey detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig }
 ```
 
-- [ ] **Step 2: 模板 API 加 palettePresets**
+- [x] **Step 2: 模板 API 加 palettePresets**
 
 `src/apis/template.ts` 在 `templateApi` 对象内、`globalConfig` 之前插入：
 
@@ -671,7 +671,7 @@ Expected: 构建成功，无 TS 报错。
   },
 ```
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -686,7 +686,7 @@ Expected: 无新增错误（若该仓库无 tsconfig 校验脚本，跳过并在
 **Files:**
 - Create: `d:\zhao\vshop\web-admin\src\constants\theme-migration.ts`
 
-- [ ] **Step 1: 建映射表**
+- [x] **Step 1: 建映射表**
 
 创建 `d:\zhao\vshop\web-admin\src\constants\theme-migration.ts`：
 
@@ -720,7 +720,7 @@ export function buildThemeIdMigration(themeId: string | null | undefined): Theme
 }
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：`npx tsc --noEmit -p tsconfig.json`
 Expected: 无新增错误。
@@ -734,7 +734,7 @@ Expected: 无新增错误。
 
 版式 A 自上而下共 6 段：目标端分段器 → 当前生效摘要卡 → 风格模板卡片网格 → 令牌覆盖三项 → 旧版主题提示条（条件） → 合并结果预览。一次保存同时写 `templateId` 与 `themeTokensOverride`，两项独立。
 
-- [ ] **Step 1: 替换 template 段**
+- [x] **Step 1: 替换 template 段**
 
 把 `src/pages/decorate/theme/index.vue` 的 `<template>` 整段替换为：
 
@@ -827,7 +827,7 @@ Expected: 无新增错误。
 </template>
 ```
 
-- [ ] **Step 2: 替换 script 段**
+- [x] **Step 2: 替换 script 段**
 
 把 `<script lang="ts" setup>` 整段替换为：
 
@@ -1013,7 +1013,7 @@ async function save() {
 </script>
 ```
 
-- [ ] **Step 3: 替换 style 段**
+- [x] **Step 3: 替换 style 段**
 
 把 `<style lang="scss" scoped>` 整段替换为：
 
@@ -1068,7 +1068,7 @@ async function save() {
 }
 ```
 
-- [ ] **Step 4: 页面可编译**
+- [x] **Step 4: 页面可编译**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1083,11 +1083,11 @@ Expected: 构建成功（此时 i18n 新键可能在 Task 10 才补齐；先确�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\decorate\shop-info\index.vue`
 
-- [ ] **Step 1: 删模板卡片与分段器**
+- [x] **Step 1: 删模板卡片与分段器**
 
 删除 `<template>` 中整个「风格模板」card（从 `<view class="card">` 内 `<view class="img-title">{{ $t('decorateShopInfo.tplTitle') }}</view>` 一直到该 card 结束的 `</view>`，即 `tpl-wrap` + `tplEmpty` 那段）。
 
-- [ ] **Step 2: 版式处加跳转提示**
+- [x] **Step 2: 版式处加跳转提示**
 
 在最后一个 `<view class="hint">{{ $t('decorateShopInfo.layoutHint') }}</view>` **之后**、该 card 的 `</view>` 之前插入：
 
@@ -1095,7 +1095,7 @@ Expected: 构建成功（此时 i18n 新键可能在 Task 10 才补齐；先确�
       <view class="hint link" @tap="goDetailDecorate">{{ $t('decorateShopInfo.moreBlocks') }}</view>
 ```
 
-- [ ] **Step 3: 脚本清理与跳转函数**
+- [x] **Step 3: 脚本清理与跳转函数**
 
 `<script setup>` 中：
 
@@ -1112,7 +1112,7 @@ function goDetailDecorate() {
 
 > 若 `pages/decorate/product/index` 不是详情装修页实际路径，用 Grep 在 `src/pages/decorate/` 下确认后替换为真实路径（不要留错路径）。
 
-- [ ] **Step 4: 样式补充**
+- [x] **Step 4: 样式补充**
 
 在 `<style>` 的 `.hint` 规则后追加：
 
@@ -1120,7 +1120,7 @@ function goDetailDecorate() {
   .hint.link { color: $wa-accent; }
 ```
 
-- [ ] **Step 5: 确认模板选择不再出现**
+- [x] **Step 5: 确认模板选择不再出现**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1136,7 +1136,7 @@ Expected: 构建成功；全局搜索 `decorateShopInfo.tplTitle` 仅剩 locale 
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\en.json`
 
-- [ ] **Step 1: 替换 `decorateTheme` 段（zh-Hans）**
+- [x] **Step 1: 替换 `decorateTheme` 段（zh-Hans）**
 
 把 `zh-Hans.json` 的 `"decorateTheme"` 对象替换为：
 
@@ -1178,7 +1178,7 @@ Expected: 构建成功；全局搜索 `decorateShopInfo.tplTitle` 仅剩 locale 
   },
 ```
 
-- [ ] **Step 2: 补 `decorateShopInfo.moreBlocks`（zh-Hans）**
+- [x] **Step 2: 补 `decorateShopInfo.moreBlocks`（zh-Hans）**
 
 在 `zh-Hans.json` 的 `decorateShopInfo` 对象内（`"layoutHint"` 之后）加：
 
@@ -1186,7 +1186,7 @@ Expected: 构建成功；全局搜索 `decorateShopInfo.tplTitle` 仅剩 locale 
     "moreBlocks": "更多块级设置（价格/促销/服务/参数/评价等）→ 去详情装修页",
 ```
 
-- [ ] **Step 3: 同步 en.json**
+- [x] **Step 3: 同步 en.json**
 
 对 `en.json` 做同名键的英文版本（键名必须完全一致）：
 
@@ -1234,7 +1234,7 @@ Expected: 构建成功；全局搜索 `decorateShopInfo.tplTitle` 仅剩 locale 
     "moreBlocks": "More block settings (price / promo / service / specs / reviews) → open detail decoration",
 ```
 
-- [ ] **Step 4: JSON 合法性校验**
+- [x] **Step 4: JSON 合法性校验**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1242,7 +1242,7 @@ node -e "JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8')
 ```
 Expected: 输出 `i18n OK`。
 
-- [ ] **Step 5: 键对齐校验**
+- [x] **Step 5: 键对齐校验**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1260,7 +1260,7 @@ Expected: 输出 `decorateTheme aligned`。
 
 ### 11.1 全局配置：defaults 结构化
 
-- [ ] **Step 1: 页面选择 + 版式分段器替代裸 JSON**
+- [x] **Step 1: 页面选择 + 版式分段器替代裸 JSON**
 
 在 `global-config/index.vue` 的 `defaultsTitle` 之后、`<textarea>` 之前插入结构化区（JSON textarea 折叠保留为逃生口）：
 
@@ -1302,7 +1302,7 @@ Expected: 输出 `decorateTheme aligned`。
       </view>
 ```
 
-- [ ] **Step 2: 脚本：常量与双向同步**
+- [x] **Step 2: 脚本：常量与双向同步**
 
 在 `global-config/index.vue` 的 `<script setup>` 中，`APP_OPTS` 之后加：
 
@@ -1387,7 +1387,7 @@ function syncFromJson() {
 ```
 （保留原 JSON 解析校验作为逃生口校验：若 `jsonOpen` 为真且 JSON 非法，仍走原 `invalidDefaults` 报错分支。）
 
-- [ ] **Step 3: 样式补充**
+- [x] **Step 3: 样式补充**
 
 在 `global-config/index.vue` 样式中加：
 
@@ -1400,7 +1400,7 @@ function syncFromJson() {
 
 ### 11.2 模板库：theme / pages 结构化
 
-- [ ] **Step 4: 配色方案下拉 + 令牌三项**
+- [x] **Step 4: 配色方案下拉 + 令牌三项**
 
 在 `templates/index.vue` 的 `themeLabel` field 之前插入：
 
@@ -1423,7 +1423,7 @@ function syncFromJson() {
           <view class="field"><text class="label">{{ $t('platformTemplates.radiusLabel') }}</text><input class="input" v-model="themeTokens.radius" type="number" placeholder="8" @blur="syncThemeJson" /></view>
 ```
 
-- [ ] **Step 5: pages 页面分段器 + 版式 + 块显隐**
+- [x] **Step 5: pages 页面分段器 + 版式 + 块显隐**
 
 在 `pagesLabel` field 之前插入：
 
@@ -1461,7 +1461,7 @@ function syncFromJson() {
           </view>
 ```
 
-- [ ] **Step 6: 脚本：状态与双向同步**
+- [x] **Step 6: 脚本：状态与双向同步**
 
 `templates/index.vue` `<script setup>` 内加：
 
@@ -1593,7 +1593,7 @@ onLoad(async () => {
 
 （即：保存时以结构化表单渲染出的 JSON 为准，手改 textarea 的差异被覆盖——符合「冲突时以表单为准并提示」；提示用内联校验错误呈现。）
 
-- [ ] **Step 7: 修正 overrides 占位示例（多一层 `theme` 的错误层级）**
+- [x] **Step 7: 修正 overrides 占位示例（多一层 `theme` 的错误层级）**
 
 `templates/index.vue` 合并预览 Tab 的 textarea 占位改为扁平键：
 
@@ -1601,7 +1601,7 @@ onLoad(async () => {
             <textarea class="ta" v-model="overridesJson" placeholder='{"primaryColor":"#123456","product":{"layout":"list"}}' />
 ```
 
-- [ ] **Step 8: i18n 补齐两页新增键**
+- [x] **Step 8: i18n 补齐两页新增键**
 
 `zh-Hans.json`：
 
@@ -1611,7 +1611,7 @@ onLoad(async () => {
 
 `en.json` 同步同名键：`pageSection` = `Per-page defaults (L0 fallback)`、`layoutLabel` = `Product detail layout`、`blocksLabel` = `Block visibility`、`jsonExpand` = `Show raw JSON editor`、`jsonCollapse` = `Hide raw JSON editor`；`paletteLabel` = `Palette`、`paletteNone` = `None (explicit tokens)`、`primaryLabel` = `Primary color`、`accentLabel` = `Accent color`、`radiusLabel` = `Radius`、`pagesPick` = `Page`、`layoutLabel` = `Product detail layout`、`blocksLabel` = `Block visibility`。
 
-- [ ] **Step 9: 构建**
+- [x] **Step 9: 构建**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1627,7 +1627,7 @@ Expected: 构建成功。
 - Create（截图）: `d:\zhao\vshop\web-admin\src\static\manual\shots\`
 - Modify: `d:\zhao\vshop\web-admin\docs\theme-admin-manual\theme-admin-manual.html`
 
-- [ ] **Step 1: 启动本地服务**
+- [x] **Step 1: 启动本地服务**
 
 Run（在 `d:\zhao\vshop\web-admin` 下，后台运行）：
 ```bash
@@ -1635,7 +1635,7 @@ pnpm dev:h5
 ```
 Expected: 本地端口可访问（记录实际端口，下文以 `<WA>` 代替）。
 
-- [ ] **Step 2: 逐条走 §7 验收标准（手机视口 390×844、dpr=2）**
+- [x] **Step 2: 逐条走 §7 验收标准（手机视口 390×844、dpr=2）**
 
 用 Playwright 移动视口（`viewport: {width:390,height:844}, deviceScaleFactor:2`）逐条截图：
 
@@ -1649,11 +1649,11 @@ Expected: 本地端口可访问（记录实际端口，下文以 `<WA>` 代替�
 
 截图命名：`theme-unify-01-<描述>.png` … `theme-unify-07-<描述>.png`，存入 `src/static/manual/shots/`。
 
-- [ ] **Step 3: 手册补章节**
+- [x] **Step 3: 手册补章节**
 
 在 `docs/theme-admin-manual/theme-admin-manual.html` 追加一节 `<section id="theme-unify">`，包含：L3 令牌层说明、主题页 6 段结构说明、旧 `themeId` 迁移步骤、模板库/全局配置结构化表单操作步骤、上述截图（沿用文件内既有 `figure.diagram.phone` 样式）、以及「五级回退链 L0→L4」速查表。同时在 `src/static/manual/index.html` 的目录里加该节入口。
 
-- [ ] **Step 4: 回归 e2e**
+- [x] **Step 4: 回归 e2e**
 
 Run（web-admin 既有 e2e 脚本，若仓库有 `scripts/` 下的 e2e 入口则按既有惯例执行）：
 ```bash
@@ -1665,7 +1665,7 @@ Expected: 全绿；若无该脚本，则以 Step 2 的 7 条手工验收 + 截�
 
 ## Task 13: 部署
 
-- [ ] **Step 1: 后续端（vendure + shop-template-plugin）**
+- [x] **Step 1: 后续端（vendure + shop-template-plugin）**
 
 ```bash
 # 本地（已在 Task 2/3 构建过 lib/）
@@ -1679,11 +1679,11 @@ cd <vendure 目录> && git pull && pm2 restart <vendure 进程名>
 ```
 Expected: 启动日志出现 `ShopTemplatePlugin initialized`，无 schema 报错。
 
-- [ ] **Step 2: C 端（nshop / vshop）**
+- [x] **Step 2: C 端（nshop / vshop）**
 
 本地构建后按各自仓库既有方式发布静态产物（nshop 走 `pnpm deploy`，vshop 走本地构建 + 上传静态目录）。**禁止服务器构建。**
 
-- [ ] **Step 3: web-admin**
+- [x] **Step 3: web-admin**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1692,7 +1692,7 @@ node scripts/deploy.mjs
 ```
 Expected: 部署成功；线上 `/guanli` 主题页为版式 A。
 
-- [ ] **Step 4: 速查卡同步**
+- [x] **Step 4: 速查卡同步**
 
 在 `nshop/docs/domains/shop-style-theme.md` 补充：L3 令牌层 `themeTokensOverride`、主题页为唯一风格入口、`themeId` 只读兼容与迁移、后端 `palettePresets` 权威副本与三处同步提示。
 
@@ -1722,3 +1722,21 @@ Expected: 部署成功；线上 `/guanli` 主题页为版式 A。
 **2. 占位扫描**：无 TBD / TODO / 「类似 Task N」；每个改动步骤均给出可粘贴代码与可执行命令。Task 9 Step 3 的跳转路径给了「用 Grep 确认真实路径」的明确指令（因该路径未在读过的文件中出现），Task 12 Step 4 的 e2e 给了「无脚本时以 7 条手工验收为准」的兜底。
 
 **3. 类型与命名一致性**：`themeTokensOverride`（渠道字段 / 接口字段 / parse 函数名）、`parseThemeTokensOverride`、`resolvePaletteTokens`、`mergeThemeTokens(globalConfig, template, channelThemeOverride?)` 在 Task 2/4/5/6 中签名一致；`PALETTE_PRESETS` 三处同名；`buildThemeIdMigration` / `isLegacyThemeId` 在 Task 7 定义、Task 8 使用一致。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：L3 主题令牌 + 调色板预设 + 模板库 / 全局配置已落地上线；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 后端（vendure） | `a3cf305f3`（`themeTokensOverride` + palette 预设）、`606ca86b3` / `b3dfd519a`（合并预览）；`shop-template-plugin/src/palette-presets.ts`、`merge-config.ts:23 resolvePaletteTokens`、`shop-template-admin.resolver.ts:133 palettePresets`、`plugin.ts:165 themeTokensOverride` |
+| 后台（web-admin） | `11e9887`（主题风格页 / 模板库 / 全局配置）、`18c2a7d`（C 端配色预设 + 旧 `themeId` 迁移）；`src/constants/theme-migration.ts`、`src/apis/channel.ts:44`、`src/utils/palette-presets.ts`、`decorate/theme/index.vue:93/217` |
+| 前台（nshop） | `merge-config.ts:82 parseThemeTokensOverride` |
+| 手册 | `theme-admin-manual.html` `<section id="theme-unify">`（L220，含 7 条验收表 L269–275 + 截图） |
+| 偏差 | gap4 批 2 D17–D21 |
+
+**本次回填动作**：勾选本计划全部 62 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`theme-admin-manual.html` §theme-unify、gap4 D 表、三仓 git log 与产物文件。
+
+---

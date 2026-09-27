@@ -62,7 +62,7 @@
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\stocktake\stocktake-ops.spec.ts`
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\stocktake\stocktake-math.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 新建 `src/stocktake/stocktake-ops.spec.ts`：
 
@@ -90,12 +90,12 @@ describe('parseStateFilter（规格 §7.1）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run（plugin 目录）: `npm test -- stocktake-ops`
 Expected: FAIL —— `parseStateFilter is not a function`（或导出不存在）。
 
-- [ ] **Step 3: 实现纯函数**
+- [x] **Step 3: 实现纯函数**
 
 在 `src/stocktake/stocktake-math.ts` 末尾追加（与既有纯函数同风格：无副作用、无 DB、无 ctx）：
 
@@ -120,12 +120,12 @@ export function parseStateFilter(options?: { state?: string | null; states?: str
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test -- stocktake-ops`
 Expected: PASS（3 个用例全绿）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/stocktake/stocktake-math.ts src/stocktake/stocktake-ops.spec.ts
@@ -138,7 +138,7 @@ git commit -m "feat(stocktake): 状态过滤解析纯函数 parseStateFilter"
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts:1703`（`StocktakeTaskOptionsInput`）
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\stocktake\stocktake.service.ts:123-136`（`listTasks`）
 
-- [ ] **Step 1: SDL 增字段**
+- [x] **Step 1: SDL 增字段**
 
 `src/plugin.ts` 第 1703 行整行替换为（**注意：真实类型名是 `StocktakeTaskOptionsInput`，不是规格 §6.1 写的 `StocktakeTaskListOptions`**）：
 
@@ -146,7 +146,7 @@ git commit -m "feat(stocktake): 状态过滤解析纯函数 parseStateFilter"
                 input StocktakeTaskOptionsInput { page: Int, pageSize: Int, state: String, states: [String!], activityCode: String, stockLocationId: ID }
 ```
 
-- [ ] **Step 2: service 用纯函数决策 where**
+- [x] **Step 2: service 用纯函数决策 where**
 
 `src/stocktake/stocktake.service.ts` 的 `listTasks` 里，把
 
@@ -166,12 +166,12 @@ git commit -m "feat(stocktake): 状态过滤解析纯函数 parseStateFilter"
 
 并在同文件的 `./stocktake-math` 导入列表中补 `parseStateFilter,`（该文件已从 `'typeorm'` 导入 `In`，无需新增依赖）。
 
-- [ ] **Step 3: 编译确认无类型错误**
+- [x] **Step 3: 编译确认无类型错误**
 
 Run（plugin 目录）: `npm run build`
 Expected: 成功，`lib/` 重建、无 TS 报错。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/plugin.ts src/stocktake/stocktake.service.ts lib
@@ -186,7 +186,7 @@ git commit -m "feat(stocktake): 列表支持 states 多状态过滤"
 
 **背景（为什么必须做）：** 现在 `diffOf` 把 `targetBinCode` 硬编码为 `null`（`stocktake.service.ts:509`），且 `StocktakeVarianceRow` 没有库区字段。规格 §7.5 的差异表头两列（库位编码 22mm / 库位 30mm）与 §7.4 的 `variance` CSV 前两列都取自这里，不补就只能永远打印 `—`。
 
-- [ ] **Step 1: SDL 增库区编码字段**
+- [x] **Step 1: SDL 增库区编码字段**
 
 `src/plugin.ts` 的 `type StocktakeVarianceRow` 内，把 `targetBinCode: String` 这一行下方补一行：
 
@@ -194,7 +194,7 @@ git commit -m "feat(stocktake): 列表支持 states 多状态过滤"
                     targetZoneCode: String
 ```
 
-- [ ] **Step 2: `diffOf` 解析编码**
+- [x] **Step 2: `diffOf` 解析编码**
 
 `src/stocktake/stocktake.service.ts` 的 `diffOf` 中，在 `const summary = summarizeVariance(...)` 之后、`return {` 之前插入：
 
@@ -230,7 +230,7 @@ git commit -m "feat(stocktake): 列表支持 states 多状态过滤"
 
 （`StorageBin` / `StorageZone` 在该文件顶部已导入；`In` 已导入。）
 
-- [ ] **Step 3: 编译 + 本地冒烟看真值**
+- [x] **Step 3: 编译 + 本地冒烟看真值**
 
 Run: `npm run build`
 Expected: 成功。
@@ -240,7 +240,7 @@ Run（plugin 仓库根 `d:\zhao\vendure`）: `git stash list` 之外的临时验
 Run: `npm test`
 Expected: PASS（既有用例不受影响）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/plugin.ts src/stocktake/stocktake.service.ts lib
@@ -253,7 +253,7 @@ git commit -m "feat(stocktake): 差异行补真库位/库区编码（打印与�
 - Modify: `src/stocktake/stocktake-ops.spec.ts`（追加用例）
 - Modify: `src/stocktake/stocktake-math.ts`（追加实现）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `src/stocktake/stocktake-ops.spec.ts` 追加（并在文件顶部 import 里加 `aggregateByBin, aggregateByCounter, type StatLine`）：
 
@@ -317,12 +317,12 @@ describe('aggregateByCounter（规格 §7.3）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npm test -- stocktake-ops`
 Expected: FAIL —— `aggregateByBin is not a function`。
 
-- [ ] **Step 3: 实现聚合**
+- [x] **Step 3: 实现聚合**
 
 在 `src/stocktake/stocktake-math.ts` 末尾追加：
 
@@ -424,12 +424,12 @@ export function aggregateByCounter(lines: StatLine[]): CounterStat[] {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test -- stocktake-ops`
 Expected: PASS（8 个用例全绿 = `parseStateFilter` 3 + `aggregateByBin` 2 + `aggregateByCounter` 3，其中「零行返回空数组」为自审补充的 §9 用例）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/stocktake/stocktake-math.ts src/stocktake/stocktake-ops.spec.ts
@@ -442,7 +442,7 @@ git commit -m "feat(stocktake): 作业量统计聚合纯函数（按库位 / 按
 - Modify: `src/stocktake/stocktake-ops.spec.ts`（追加用例）
 - Modify: `src/stocktake/stocktake-math.ts`（追加实现）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 追加（顶部 import 加 `CSV_MAX_ROWS, toCsv`）：
 
@@ -471,12 +471,12 @@ describe('toCsv（规格 §7.4）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npm test -- stocktake-ops`
 Expected: FAIL —— `toCsv is not a function`。
 
-- [ ] **Step 3: 实现序列化**
+- [x] **Step 3: 实现序列化**
 
 在 `src/stocktake/stocktake-math.ts` 末尾追加：
 
@@ -503,12 +503,12 @@ export function toCsv(rows: CsvCell[][], maxRows: number = CSV_MAX_ROWS): string
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test -- stocktake-ops`
 Expected: PASS（11 个用例全绿）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/stocktake/stocktake-math.ts src/stocktake/stocktake-ops.spec.ts
@@ -521,7 +521,7 @@ git commit -m "feat(stocktake): CSV 序列化纯函数 toCsv"
 - Modify: `src/stocktake/stocktake.service.ts:192-293`（`createTask`）
 - Modify: `src/stocktake/stocktake.service.ts`（新增 `materializeTask` / `openTask` / `updateTask`，放在 `createTask` 之后）
 
-- [ ] **Step 1: 用「建头 / 物化」两段重写 `createTask`**
+- [x] **Step 1: 用「建头 / 物化」两段重写 `createTask`**
 
 把 `createTask` 整体替换为下面两段代码（`buildTaskHead` + `materializeTask` + 精简后的 `createTask`）。**`materializeTask` 内部的清单生成算法一行不动**（规格 §7.2：只换调用位置与档位来源）：
 
@@ -703,7 +703,7 @@ git commit -m "feat(stocktake): CSV 序列化纯函数 toCsv"
 
 **注意**：`autoSplitByZone` 从 `input` 顶层挪进 `scopeJson`（草稿发布时才能还原），因此前端保存草稿时要把该开关写进 `scope`。直接创建的语义不变（`raw.autoSplitByZone !== false` 与旧行为 `input.autoSplitByZone !== false` 等价）。
 
-- [ ] **Step 2: SDL 增 `state` 入参与两个 mutation**
+- [x] **Step 2: SDL 增 `state` 入参与两个 mutation**
 
 `src/plugin.ts`：
 
@@ -734,7 +734,7 @@ git commit -m "feat(stocktake): CSV 序列化纯函数 toCsv"
                     updateStocktakeTask(taskId: ID!, input: StocktakeTaskUpdateInput!): StocktakeTask!
 ```
 
-- [ ] **Step 3: resolver 增两个 mutation**
+- [x] **Step 3: resolver 增两个 mutation**
 
 `src/stocktake/stocktake.admin.resolver.ts`，在 `createStocktakeTask` 之后插入：
 
@@ -752,7 +752,7 @@ git commit -m "feat(stocktake): CSV 序列化纯函数 toCsv"
     }
 ```
 
-- [ ] **Step 4: 编译 + 既有单测回归**
+- [x] **Step 4: 编译 + 既有单测回归**
 
 Run: `npm run build`
 Expected: 成功（若报 `head.state` 只读之类错误，检查 `StocktakeTask.state` 声明为可变 `state!: StocktakeTaskState`，实体已符合）。
@@ -760,7 +760,7 @@ Expected: 成功（若报 `head.state` 只读之类错误，检查 `StocktakeTas
 Run: `npm test`
 Expected: PASS（32 + 11 条全绿）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/plugin.ts src/stocktake/stocktake.service.ts src/stocktake/stocktake.admin.resolver.ts lib
@@ -774,7 +774,7 @@ git commit -m "feat(stocktake): 草稿 DRAFT 与发布时物化（open/update mu
 - Modify: `src/plugin.ts`（SDL）
 - Modify: `src/stocktake/stocktake.admin.resolver.ts`（两个 query）
 
-- [ ] **Step 1: service 实现 `statsOf`**
+- [x] **Step 1: service 实现 `statsOf`**
 
 在 `src/stocktake/stocktake.service.ts` 的「差异与过账」区之前插入：
 
@@ -804,7 +804,7 @@ git commit -m "feat(stocktake): 草稿 DRAFT 与发布时物化（open/update mu
     }
 ```
 
-- [ ] **Step 2: service 实现 `exportOf`**
+- [x] **Step 2: service 实现 `exportOf`**
 
 紧接 `statsOf` 之后追加（列定义严格照规格 §7.4 表）：
 
@@ -857,7 +857,7 @@ git commit -m "feat(stocktake): 草稿 DRAFT 与发布时物化（open/update mu
     }
 ```
 
-- [ ] **Step 3: SDL 增类型与入口**
+- [x] **Step 3: SDL 增类型与入口**
 
 `src/plugin.ts`：
 
@@ -898,7 +898,7 @@ git commit -m "feat(stocktake): 草稿 DRAFT 与发布时物化（open/update mu
                     stocktakeExport(taskId: ID!, kind: String!): StocktakeExportFile!
 ```
 
-- [ ] **Step 4: resolver 增两个 query**
+- [x] **Step 4: resolver 增两个 query**
 
 `src/stocktake/stocktake.admin.resolver.ts`，在 `stocktakeResolveCode` 之后插入：
 
@@ -916,13 +916,13 @@ git commit -m "feat(stocktake): 草稿 DRAFT 与发布时物化（open/update mu
     }
 ```
 
-- [ ] **Step 5: 补 import、编译、跑测**
+- [x] **Step 5: 补 import、编译、跑测**
 
 `stocktake.service.ts` 顶部 `./stocktake-math` 导入补：`aggregateByBin, aggregateByCounter, toCsv, CSV_MAX_ROWS, type CsvCell, type StatLine`。
 
 Run: `npm run build` → 成功；Run: `npm test` → PASS。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/plugin.ts src/stocktake/stocktake.service.ts src/stocktake/stocktake.admin.resolver.ts lib
@@ -933,11 +933,11 @@ git commit -m "feat(stocktake): 作业量统计与全量 CSV 导出（stats/expo
 
 **Files:** 无（部署动作）
 
-- [ ] **Step 1: 本地重建并确认产物入库**
+- [x] **Step 1: 本地重建并确认产物入库**
 
 Run（plugin 目录）: `npm run build`，确认 `lib/stocktake/` 内出现新文件（如 `lib/stocktake/stocktake-ops` 不适用，纯函数在 `lib/stocktake/stocktake-math.js`）。
 
-- [ ] **Step 2: 提交并推送**
+- [x] **Step 2: 提交并推送**
 
 ```bash
 git add -A src lib
@@ -945,12 +945,12 @@ git commit -m "build(cjk-plugin): 重建 lib 以收录盘库运营增强"
 git push
 ```
 
-- [ ] **Step 3: 服务器拉取重启（服务器不构建）**
+- [x] **Step 3: 服务器拉取重启（服务器不构建）**
 
 Run: `ssh joho "cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure"`
 Expected: Fast-forward 列出 `packages/cjk-plugin/src/...` 与 `lib/...`；pm2 状态 `online`。
 
-- [ ] **Step 4: 线上 schema 冒烟（只读）**
+- [x] **Step 4: 线上 schema 冒烟（只读）**
 
 在 Task 9 的脚本里执行（下一步），此时先确认 `https://e.joho.cn/admin-api` 返回 200：
 
@@ -962,7 +962,7 @@ Expected: `200`。
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\scripts\_smoke_stocktake_live.py`
 
-- [ ] **Step 1: 读现有脚本，找到插入点**
+- [x] **Step 1: 读现有脚本，找到插入点**
 
 Run: 打开 `scripts/_smoke_stocktake_live.py` 确认现有 helper（**勿另起一套**）：
 `check(name, ok, detail='')` / `skip`（如已实现）/ `gql(pg, q, var=None, api='admin')` / `data(pg, q, var=None, tag='', api='admin')`（返回 JSON 的 `data`，出错时计 FAIL 并返回 `None`）/ `http_gql(url, q, var, channel_token)` / `login(pg)` / `set_channel(pg, token)` / `goto(pg, path, settle)`。
@@ -971,7 +971,7 @@ Run: 打开 `scripts/_smoke_stocktake_live.py` 确认现有 helper（**勿另起
 1. 第 1 节「SDL 齐备」的两份名单各补新入口（`Query` 补 `stocktakeStats`、`stocktakeExport`；`Mutation` 补 `openStocktakeTask`、`updateStocktakeTask`）。
 2. 第 3 节 `stocktakeDiff` 断言之后、第 4 节「shop-api 不含盘库字段」之前，插入新的「盘库运营增强」只读断言块（此时 `pg` 仍是目标渠道、`t2_items` 已就绪）。
 
-- [ ] **Step 2: 追加只读断言**
+- [x] **Step 2: 追加只读断言**
 
 第 1 节名单改为：
 
@@ -1016,12 +1016,12 @@ Run: 打开 `scripts/_smoke_stocktake_live.py` 确认现有 helper（**勿另起
 
 （`shop-api` 未泄漏由既有第 4 节承担，本任务不动；DRAFT 任务下的「全零不报错」属写操作场景，生产只读不做，由 Task 18 在非生产或 SKIP 中记录。）
 
-- [ ] **Step 3: 跑线上只读冒烟**
+- [x] **Step 3: 跑线上只读冒烟**
 
 Run（`d:\zhao\vshop\web-admin`）: `python scripts/_smoke_stocktake_live.py`
 Expected: 全部 PASS；**不建任务、不发布、不导出写盘**。新增入口若在旧后端上跑失败，说明 Task 8 未生效 —— 先回 Task 8 排查，不得改断言绕过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add scripts/_smoke_stocktake_live.py
@@ -1039,7 +1039,7 @@ git commit -m "test(stocktake): 只读冒烟覆盖 states/stats/export 新入口
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\apis\stocktake.ts`
 
-- [ ] **Step 1: 类型定义**
+- [x] **Step 1: 类型定义**
 
 在 `StocktakeDiff` 接口之后插入：
 
@@ -1081,7 +1081,7 @@ export interface StocktakeExportFile {
 }
 ```
 
-- [ ] **Step 1b: 差异行补 `targetZoneCode`（与后端 Task 3 对齐）**
+- [x] **Step 1b: 差异行补 `targetZoneCode`（与后端 Task 3 对齐）**
 
 后端 Task 3 已把 `targetZoneCode` 填进 `StocktakeVarianceRow`，前端不请求就永远拿不到（打印「库位」列与 variance CSV 第 2 列都靠它）。
 
@@ -1097,7 +1097,7 @@ export interface StocktakeExportFile {
   targetZoneCode?: string | null;
 ```
 
-- [ ] **Step 2: `fetchStocktakeTasks` 支持 `states`**
+- [x] **Step 2: `fetchStocktakeTasks` 支持 `states`**
 
 把该函数签名与查询变量改为（只改这两处，`TASK_FIELDS` 不动）：
 
@@ -1123,7 +1123,7 @@ export async function fetchStocktakeTasks(options?: {
       },
 ```
 
-- [ ] **Step 3: `createStocktakeTask` 支持草稿 + 把拆盘开关写进 scope**
+- [x] **Step 3: `createStocktakeTask` 支持草稿 + 把拆盘开关写进 scope**
 
 签名与 input 改为：
 
@@ -1152,7 +1152,7 @@ export async function createStocktakeTask(input: {
         },
 ```
 
-- [ ] **Step 4: 新增 4 个函数**
+- [x] **Step 4: 新增 4 个函数**
 
 追加到「变更」区末尾（`cancelStocktakeWave` 之后）：
 
@@ -1223,12 +1223,12 @@ export async function stocktakeExport(taskId: string, kind: string): Promise<Sto
 }
 ```
 
-- [ ] **Step 5: 类型检查**
+- [x] **Step 5: 类型检查**
 
 Run: `npx tsc --noEmit -p tsconfig.json`（若仓库 tsconfig 名称不同，用 `npx vue-tsc --noEmit`）
 Expected: 仅出现**既有基线报错**；`apis/stocktake.ts` 无新报错（基线报错清单在计划末尾「偏差说明区」记录）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/apis/stocktake.ts
@@ -1240,7 +1240,7 @@ git commit -m "feat(stocktake): API 层补草稿/统计/导出/states"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\utils\stocktake-grid.ts`
 
-- [ ] **Step 1: 追加 `toCsv` 与 variance 列定义**
+- [x] **Step 1: 追加 `toCsv` 与 variance 列定义**
 
 在 `src/utils/stocktake-grid.ts` 末尾追加：
 
@@ -1267,7 +1267,7 @@ export function toCsv(rows: CsvCell[][]): string {
 }
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add src/utils/stocktake-grid.ts
@@ -1282,7 +1282,7 @@ git commit -m "feat(stocktake): 前端 CSV 序列化与 variance 列定义"
 
 **为什么单独成任务：** Task 12–15 引用的新词条全部落在这里，一次补齐、两份同步；漏词条不会构建失败（`t()` 原样返回 key），只会在界面上显形，必须在页面任务之前做完。
 
-- [ ] **Step 1: `zh-Hans.json` 三处插入**
+- [x] **Step 1: `zh-Hans.json` 三处插入**
 
 1) `stocktake.board` 块内，`"modeOffHint"` 那一行之后（block 收尾前）追加：
 
@@ -1353,7 +1353,7 @@ git commit -m "feat(stocktake): 前端 CSV 序列化与 variance 列定义"
       "footerAt": "打印时间"
 ```
 
-- [ ] **Step 2: `en.json` 同结构同位置插入**
+- [x] **Step 2: `en.json` 同结构同位置插入**
 
 1) `stocktake.board`：
 
@@ -1424,17 +1424,17 @@ git commit -m "feat(stocktake): 前端 CSV 序列化与 variance 列定义"
       "footerAt": "Printed at"
 ```
 
-- [ ] **Step 3: JSON 合法性校验**
+- [x] **Step 3: JSON 合法性校验**
 
 Run: `node -e "JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8'));JSON.parse(require('fs').readFileSync('src/locale/en.json','utf8'));console.log('JSON OK')"`
 Expected: `JSON OK`（多一个逗号就抛 SyntaxError）。
 
-- [ ] **Step 4: 词条覆盖自查**
+- [x] **Step 4: 词条覆盖自查**
 
 Run: `node -e "const z=require('./src/locale/zh-Hans.json'),e=require('./src/locale/en.json');const f=(o,p='')=>Object.entries(o).flatMap(([k,v])=>typeof v==='object'&&v?f(v,p+k+'.'):[p+k]);const a=new Set(f(z)),b=new Set(f(e));console.log('zh-only:',[...a].filter(k=>!b.has(k)),'| en-only:',[...b].filter(k=>!a.has(k)))"`
 Expected: 两个数组均为空（zh / en 键集完全一致）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/locale/zh-Hans.json src/locale/en.json
@@ -1449,7 +1449,7 @@ git commit -m "feat(stocktake): 补分页/草稿/统计/导出/打印词条（zh
 
 **为什么抽组件：** 规格 §8.2 要求草稿详情的「编辑范围」复用新建抽屉并预填 —— 把表单抽成 `TaskFormSheet.vue`（`mode: create | edit`），看板与草稿详情共用一份，避免两处表单漂移。
 
-- [ ] **Step 1: 新建 `src/components/stocktake/TaskFormSheet.vue`**
+- [x] **Step 1: 新建 `src/components/stocktake/TaskFormSheet.vue`**
 
 ```vue
 <template>
@@ -1705,7 +1705,7 @@ async function onCreateOpen() {
 </style>
 ```
 
-- [ ] **Step 2: `index.vue` 换成组件 + 分页**
+- [x] **Step 2: `index.vue` 换成组件 + 分页**
 
 1) 模板：把第 33–102 行整段 `<!-- ⑤ 新建任务表单 -->` 的 `<view v-if="formVisible" ...>…</view>` 替换为：
 
@@ -1819,17 +1819,17 @@ async function openForm() {
 
 （保留 `locations / locNames / locIdx / locId / curLocName` 与仓库筛选逻辑；`fetchStorageZones / fetchCollectionsOptimized` 的导入若不再被 `index.vue` 使用则一并删除，避免 `noUnusedLocals` 报错。）
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 Run: `npm run build:h5`
 Expected: 构建成功；若报未使用导入或未定义引用，按报错清理（`index.vue` 不该再引用被抽走的表单变量）。
 
-- [ ] **Step 4: 本地手机视口走查**
+- [x] **Step 4: 本地手机视口走查**
 
 Run: `node scripts/serve-h5.mjs`（记下端口），再用 `python scripts/_probe_stocktake_local.py` 同款登录方式打开看板。
 Expected: 5 个页签可见；切换「已结束」不再混入在盘任务；列表底部出现「已加载 x / 共 y 条」；下拉刷新回到第 1 页。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/components/stocktake/TaskFormSheet.vue src/pages/inventory/stocktake/index.vue
@@ -1841,7 +1841,7 @@ git commit -m "feat(stocktake): 看板分页与草稿页签，新建表单抽成
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\inventory\stocktake\task.vue`
 
-- [ ] **Step 1: 模板加页签与草稿分支**
+- [x] **Step 1: 模板加页签与草稿分支**
 
 在任务信息卡之后、`<!-- ② 盘次列表 -->` 之前插入页签条：
 
@@ -1944,7 +1944,7 @@ git commit -m "feat(stocktake): 看板分页与草稿页签，新建表单抽成
     <TaskFormSheet :visible="editVisible" mode="edit" :draft="task" @close="editVisible = false" @saved="onDraftSaved" />
 ```
 
-- [ ] **Step 2: 脚本**
+- [x] **Step 2: 脚本**
 
 import 与状态：
 
@@ -2012,7 +2012,7 @@ async function onDraftSaved() {
     stats.value = null;
 ```
 
-- [ ] **Step 3: 样式**
+- [x] **Step 3: 样式**
 
 `.tabs` 与 `.stats .seg` 用与看板一致的浅色分段样式，追加到 `<style lang="scss" scoped>` 内：
 
@@ -2041,14 +2041,14 @@ async function onDraftSaved() {
 }
 ```
 
-- [ ] **Step 4: 构建 + 本地走查**
+- [x] **Step 4: 构建 + 本地走查**
 
 Run: `npm run build:h5`
 Expected: 成功。
 
 走查（本地）：新建一个草稿任务 → 详情显示「编辑范围 / 发布任务」+ 草稿提示 → 点「发布任务」→ 出现盘次与页签、提示消失；打开「统计」→ 两张表可切换。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/pages/inventory/stocktake/task.vue
@@ -2060,7 +2060,7 @@ git commit -m "feat(stocktake): 详情统计页签与草稿态动作条"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\inventory\stocktake\diff.vue`
 
-- [ ] **Step 1: 工具条模板**
+- [x] **Step 1: 工具条模板**
 
 在 `.page` 内、四宫格之前插入（三个按钮：当前视图 CSV / 完整导出 / 打印）：
 
@@ -2082,7 +2082,7 @@ git commit -m "feat(stocktake): 详情统计页签与草稿态动作条"
     </view>
 ```
 
-- [ ] **Step 2: 脚本**
+- [x] **Step 2: 脚本**
 
 `diff.vue` 顶部现状（第 88 / 90 行）是一条 vue 导入 + 一条 apis 导入；本任务把 apis 那条**整行替换**为（**同一模块只能有一条 import，勿另起一行，否则 `Duplicate identifier`**）：
 
@@ -2182,7 +2182,7 @@ async function loadDiff() {
 }
 ```
 
-- [ ] **Step 3: 工具条样式**
+- [x] **Step 3: 工具条样式**
 
 ```scss
 .tools { display: flex; gap: 16rpx; margin-bottom: 16rpx;
@@ -2197,13 +2197,13 @@ async function loadDiff() {
 }
 ```
 
-- [ ] **Step 4: 构建 + 本地导出走查**
+- [x] **Step 4: 构建 + 本地导出走查**
 
 Run: `npm run build:h5` → 成功。
 
 走查（本地）：打开差异页 → 点「导出 CSV」应立即下载 `stocktake-xxx-variance-*.csv`；点「完整导出」选 `by_bin` 下载并核对中文列名不乱码（用 Excel/Numbers 打开）；空差异任务点导出应提示「无数据可导出」而非下空文件。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/pages/inventory/stocktake/diff.vue
@@ -2217,7 +2217,7 @@ git commit -m "feat(stocktake): 差异页双轨导出（当前视图 / 后端全
 
 **本节是打印样式的唯一出处（规格 §7.5）**：所有几何用 `mm` / `pt` 钉死，禁用自适应列宽、禁用主题变量、禁用 `px/rem/em/%`（表格总宽除外），缩放固定 100%。
 
-- [ ] **Step 1: 模板——屏幕内容包一层 `.st-screen`，并新增打印区**
+- [x] **Step 1: 模板——屏幕内容包一层 `.st-screen`，并新增打印区**
 
 1) 在模板根 `<view class="page">` 之后插入 `<view class="st-screen">`，并把原有的 ①–⑤ 五块（`<!-- ① 摘要四宫格 -->` 到吸底 `.postbar` 结束）整段包进去，然后在 `.postbar` 之后闭合 `</view>`。改后骨架为：
 
@@ -2343,7 +2343,7 @@ const printUncountedHtml = computed(() => {
 
 走 v-html 兜底时，`<view v-if="diff.uncountedCount > 0" class="p-sec">` 的小标题 `p-sec-t` 保留不动，只把其中的 `<table>` 换成 `v-html` 容器。
 
-- [ ] **Step 2: 脚本——`printTask` / `printAt` / `onPrint`**
+- [x] **Step 2: 脚本——`printTask` / `printAt` / `onPrint`**
 
 import 只改 `vue` 那一条（`diff.vue` 第 88 行现状是 `import { computed, ref } from 'vue';`，`computed` 已被页面用着，**不能删**）：
 
@@ -2381,7 +2381,7 @@ function onPrint() {
 }
 ```
 
-- [ ] **Step 3: 打印样式（独立非 scoped 块，逐条落实 §7.5）**
+- [x] **Step 3: 打印样式（独立非 scoped 块，逐条落实 §7.5）**
 
 在 `<style lang="scss" scoped>` 块**之后**再追加一个不带 `scoped` 的样式块（scoped 会改写选择器，`v-html` 与 `@page` 都不吃它）：
 
@@ -2444,7 +2444,7 @@ function onPrint() {
 </style>
 ```
 
-- [ ] **Step 4: 构建 + 打印预览走查**
+- [x] **Step 4: 构建 + 打印预览走查**
 
 Run: `npm run build:h5` → 成功。
 
@@ -2455,7 +2455,7 @@ Run: `npm run build:h5` → 成功。
 4. A4 纵向、无横向裁切、无缩放。
 5. DevTools 里确认 `.st-print table` 真实存在（若不存在 → 走 Step 1 的 `v-html` 兜底）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/pages/inventory/stocktake/diff.vue
@@ -2470,7 +2470,7 @@ git commit -m "feat(stocktake): 差异页打印视图与像素级打印样式"
 
 **为什么这样取基线（坑已探明）：** 本机无任何 PDF 解析/光栅化库（`pypdf` / `PyPDF2` / `pypdfium2` / `fitz` 全缺，实测只有 `pillow` + `numpy` + `playwright`），所以逐页 PNG 由**元素截图 + 按 271mm 内容高切片**得到；PDF 只用正则读 `/MediaBox` 与页数做结构断言。「PDF 文本可复制」改为 DOM 文本断言（详见计划末尾偏差说明区）。
 
-- [ ] **Step 1: 新建 `_e2e/_verify_print_baseline.py`**
+- [x] **Step 1: 新建 `_e2e/_verify_print_baseline.py`**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -2825,7 +2825,7 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 2: 脚本自检**
+- [x] **Step 2: 脚本自检**
 
 Run: `python -c "import ast,pathlib;ast.parse(pathlib.Path('_e2e/_verify_print_baseline.py').read_text(encoding='utf-8'));print('AST OK')"`
 Expected: `AST OK`
@@ -2836,7 +2836,7 @@ Expected: 打印 usage，无异常。
 Run（缺 `--task` 时必须是 ENV-FAIL 而不是崩栈）: `python _e2e/_verify_print_baseline.py`
 Expected: `ENV-FAIL: 缺 --task ...`，退出码 2。
 
-- [ ] **Step 3: 选定基线任务并录制**
+- [x] **Step 3: 选定基线任务并录制**
 
 挑一个**已过账、行数够多（≥ 40 行）**的历史任务作 `diff-a4` / `big-a4` 的数据源（已终态任务不会再变，基线才稳）：
 
@@ -2861,12 +2861,12 @@ python _e2e/_verify_print_baseline.py --task <taskId> --empty-task <emptyTaskId>
 
 找不到就保持 SKIP（脚本会明说原因，**不许拿有差异任务冒充空态**）。
 
-- [ ] **Step 4: 立即复跑比对（基线必须能自证）**
+- [x] **Step 4: 立即复跑比对（基线必须能自证）**
 
 Run: `python _e2e/_verify_print_baseline.py --task <taskId>`
 Expected: `PASS`；每个 case 打印 `OK  ... 逐页像素零容差一致`，不产生 `_diff/` 目录。
 
-- [ ] **Step 5: 负向验证（证明基线不是永远绿）**
+- [x] **Step 5: 负向验证（证明基线不是永远绿）**
 
 把 `diff.vue` 打印样式里的 `.p-tbl tbody tr { ... height: 6mm; }` 临时改成 `height: 7mm`，重新 `npm run build:h5` 并（本地 serve）跑同一命令。
 
@@ -2874,7 +2874,7 @@ Expected: `FAIL ... 逐页像素零容差一致 page-N 差异像素 xxxxx`，且
 
 随后改回 `6mm`、重建、复跑 → 恢复 `PASS`；删除 `_diff/` 临时产物。
 
-- [ ] **Step 6: 提交（脚本 + 基线一起进仓）**
+- [x] **Step 6: 提交（脚本 + 基线一起进仓）**
 
 ```bash
 git add _e2e/_verify_print_baseline.py _e2e/baselines/print
@@ -2886,7 +2886,7 @@ git commit -m "test(stocktake): 打印像素基线脚本与 A4 基线（diff/emp
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\package.json`
 
-- [ ] **Step 1: 加四个脚本**
+- [x] **Step 1: 加四个脚本**
 
 把 `"scripts"` 块整体替换为：
 
@@ -2903,7 +2903,7 @@ git commit -m "test(stocktake): 打印像素基线脚本与 A4 基线（diff/emp
 
 约定（四个脚本统一遵守，已在各自的 import 处实现）：缺 `python` / `playwright` / `pillow` / `numpy` 一律打印 `ENV-FAIL: ...` 并以**退出码 2** 结束（区别于断言失败的 1），不伪装成 PASS。
 
-- [ ] **Step 2: 校验**
+- [x] **Step 2: 校验**
 
 Run: `npm pkg get scripts`
 Expected: 六个键齐全，无语法错误。
@@ -2911,7 +2911,7 @@ Expected: 六个键齐全，无语法错误。
 Run: `npm run verify:print`（未设 `WA_PRINT_TASK` 时）
 Expected: `ENV-FAIL: 缺 --task ...`，退出码 2（`npm` 会打印 `npm ERR!` 包裹，属预期）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add package.json
@@ -2926,7 +2926,7 @@ git commit -m "build(web-admin): 盘库回归门禁脚本（smoke/e2e/manual/pri
 
 移动视口铁律：`390×844`、`deviceScaleFactor: 2`（= 780×1688）、`is_mobile`、`has_touch`；每张图断言 **0 pageerror / 0 console.error**。打印区本身**不**由手机截图证明（A4 几何手机视口证明不了），由 Task 16 的 A4 基线承担（规格 §9）。
 
-- [ ] **Step 1: 新建 `_e2e/_verify_stocktake_ops_e2e.py`**
+- [x] **Step 1: 新建 `_e2e/_verify_stocktake_ops_e2e.py`**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -3163,21 +3163,21 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 2: 与真实 DOM 对齐（必须实测，不许猜类名）**
+- [x] **Step 2: 与真实 DOM 对齐（必须实测，不许猜类名）**
 
 脚本里的 `.tcard`（看板任务卡，已按 `src/components/stocktake/TaskCard.vue` 实测根类名 `tcard` 写死）、`.kinds .krow`、`.tools .tbtn`、`.stats .seg .sg`、`.tabs .tb`、`.footnote` 取自 Task 12–15 的模板类名与 `index.vue` 现状。
 
 Run: `python _e2e/_verify_stocktake_ops_e2e.py`
 先跑一遍看 `T46 触底后条目不减` 的 `before/after` —— 若为 0，说明该选择器在当前 DOM 下取不到任务卡（模板类名可能被改），打开 `index.vue` / `TaskCard.vue` 核对真实类名改掉再跑。**只允许改选择器，不许放宽断言。**
 
-- [ ] **Step 3: 正式跑 + 收图**
+- [x] **Step 3: 正式跑 + 收图**
 
 Run: `npm run test:e2e:stocktake`
 Expected: `PASS`；`docs/webadmin-bugfix-manual/assets/` 下出现
 `stocktake-ops-46-pagination.png` / `47-draft-detail.png` / `48-new-draft-buttons.png` / `49-stats-by-bin.png` / `50-stats-by-counter.png` / `51-diff-toolbar.png` / `51b-print-region.png` / `52-export-toast.png` / `53-export-kinds.png`（缺草稿时的 T47/T48 → SKIP，原因写在输出里）。
 逐张肉眼确认：**手机竖版、无横向滚动、无错位/空白页**。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add _e2e/_verify_stocktake_ops_e2e.py docs/webadmin-bugfix-manual/assets/stocktake-ops-4*.png docs/webadmin-bugfix-manual/assets/stocktake-ops-5*.png
@@ -3192,7 +3192,7 @@ git commit -m "test(stocktake): T46-T53 手机视口截图回归与证据图"
 - Create: `d:\zhao\vshop\web-admin\_e2e\_verify_manual_docs.py`
 - Modify: 本计划文件末尾「偏差说明区」（回填实测值）
 
-- [ ] **Step 1: 修复手册新增一章**
+- [x] **Step 1: 修复手册新增一章**
 
 在 `webadmin-bugfix-manual.html` 的目录后追加 `<section id="stocktake-ops">`，标题 `16.9.8 盘库运营增强：分页 / 草稿 / 统计 / 导出 / 打印`，内容按下列小标题逐条写实（每条都要有截图或命令）：
 1. 变更清单（后端 4 个入口 + 前端 3 页 + 打印样式 + 门禁脚本）。
@@ -3204,11 +3204,11 @@ git commit -m "test(stocktake): T46-T53 手机视口截图回归与证据图"
 7. 回归门禁：`npm run test:smoke:live` / `test:e2e:stocktake` / `verify:manual` / `verify:print` 的用途、退出码语义（0/1/2）。
 8. 线上复验记录：日期、命令、结论、SKIP 项（照实写）。
 
-- [ ] **Step 2: 线上用户手册新增 op-39**
+- [x] **Step 2: 线上用户手册新增 op-39**
 
 在 `src/static/manual/index.html` 现有 `op-38` 之后追加 `op-39`（用户向、不写内部术语）：看板分页与已结束筛选、草稿先存后发、统计看作业量、导出 CSV（Excel 打开中文不乱码）、打印盘点结果单。截图引用 `assets/stocktake-ops-51-diff-toolbar.png` 等（路径与线上静态目录一致）。
 
-- [ ] **Step 3: 新建 `_e2e/_verify_manual_docs.py`**
+- [x] **Step 3: 新建 `_e2e/_verify_manual_docs.py`**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -3272,12 +3272,12 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 4: 本地构建并部署前端**
+- [x] **Step 4: 本地构建并部署前端**
 
 Run: `npm run build:h5` → 成功
 Run: `node scripts/deploy.mjs` → 按脚本提示校验通过（本地构建 → scp 产物 → 服务器解压；**不在服务器构建**）
 
-- [ ] **Step 5: 线上复验**
+- [x] **Step 5: 线上复验**
 
 Run: `npm run verify:manual`
 Expected: `PASS`（线上手册含 `op-39`、截图与章节齐备）。
@@ -3288,11 +3288,11 @@ Expected: `PASS`（生产 + 无草稿时 T47/T48 记 SKIP）。
 Run（本地 serve 的差异页 + 固定任务）: `python _e2e/_verify_print_baseline.py --task <taskId>`
 Expected: `PASS` 或（换机/换 Chromium 版本时）结构断言 PASS + `SKIP <case> 像素比对`。
 
-- [ ] **Step 6: 回填「偏差说明区」的实测值**
+- [x] **Step 6: 回填「偏差说明区」的实测值**
 
 把本计划末尾偏差说明区中标着「执行时回填」的行补成实测值（`tsc` 基线报错清单、基线任务的 `id/code`、Chromium 版本、SKIP 项清单），**不许留空、不许写「无」而不给依据**。
 
-- [ ] **Step 7: 提交并推送**
+- [x] **Step 7: 提交并推送**
 
 ```bash
 git add docs/webadmin-bugfix-manual src/static/manual/index.html _e2e/_verify_manual_docs.py docs/superpowers/plans/2026-09-25-stocktake-ops-enhancement-plan.md
@@ -3365,4 +3365,22 @@ git push
 | D55 | 授权与推送（Task 19 Step 7） | 计划 Step 4 的 `node scripts/deploy.mjs`（生产部署）与 Step 7 的 `git push` | **用户已明确授权**本轮生产部署与 `git push`，故两步按计划原文执行（不再适用「未获授权不推送」的常规纪律）。提交信息按计划原文：`docs(stocktake): 修复手册新章 + 线上手册 op-39 + 文档门禁脚本 + 偏差回填`；暂存路径**逐条指定且全部带 `web-admin/` 前缀**、**未用** `git add -A` / `git add .`：`web-admin/docs/webadmin-bugfix-manual/`、`web-admin/src/static/manual/`、`web-admin/_e2e/_verify_manual_docs.py`、`web-admin/docs/superpowers/plans/2026-09-25-stocktake-ops-enhancement-plan.md` |
 | D56 | 验证增强（Task 19 后追补，用户指令「请补充渲染级截图验证方案」） | 规格 §11 的文档门禁（`_verify_manual_docs.py`）只做**静态判定**——「截图文件是否落盘 + 页面是否含 `op-39`」；手册引用的图 404 / 0 字节 / 路径写错 / 尺寸错版**都发现不了**，且上一轮对线上手册的复验只到 HTTP 层（页面 200、PNG 200），未证明「真渲染出图」 | 按用户裁决落地（独立门禁 / L1 离线 + L2 线上 / 写进修复手册 16.9.8）：① **新增** `web-admin/_e2e/_verify_manual_render.py`——L1 离线用 `file://` 渲染《修复手册》`#stocktake-ops` 与《用户手册源》`openChapter('op-39')`；L2 线上打开已部署手册同断言，外加**每张 PNG 响应码 200** 与**线上 `shots/` 与本地逐张字节一致**（防缺图/旧图）；断言口径＝区块可达 + 图数 `9` + 每图 `complete` 且 `naturalWidth>0` + 尺寸 `780x1688` + 0 pageerror / 0 console.error；手机视口 `390x844 @dpr2` 取证截图；退出码沿用既有约定 `0/1/2`。② `package.json` 增 `verify:manual:render`。③ 修复手册 16.9.8 增第 9 小节「渲染级截图验证」+ 取证图 `assets/manual-render-online-op39.png`（**239566 B**）。**驱动要点（上一轮探针失败根因）**：手册是单文件 JS 书、**无 hash 路由**，`#op-39` 与按文本点导航项**都定位不到**，必须调页内全局函数 `openChapter(id)`（`renderReader()` 注入 `#readerContent`）。**实测**：`npm run verify:manual:render` → **20 条断言全 OK** → `===== 渲染级验证：PASS（失败 0）=====`，exit **0**（L1 修复手册 9 图 / L1 用户手册源 9 图 / L2 线上 9 图，逐图 `complete=true`、`naturalWidth=780`、`naturalHeight=1688`；线上响应码集合 `{200}` n=9、与本地 `shots/` 字节逐张一致；0 JS 异常）。**计划正文未改**（本行即唯一追补区） |
 | D57 | 执行期修正（同一追补，**已修脚本**+注释） | D56 方案的 L1 断言原按「`#stocktake-ops` 区块内**全部** `img`」计数 `= 9`；而修复手册 16.9.8 第 9 小节把**取证图**放进了同一区块 → 复跑实测 `got=10`，门禁**如实 FAIL**（是断言口径错位，不是该放宽） | 处置：三层断言的选择器统一**收敛为交付截图** `img[src*="stocktake-ops-"]`（`#stocktake-ops` 与 `#readerContent` 各自套用），**图数仍要求 `=== 9`**、解码（`complete` + `naturalWidth>0`）与尺寸（`780x1688`）断言**一律不变**。复跑 `npm run verify:manual:render` → **20 条断言全 OK** → `===== 渲染级验证：PASS（失败 0）=====`，exit **0**；取证图字节稳定 `239566 B`。同批 `npm run verify:manual` 亦为 `===== 文档门禁：PASS（失败 0）=====`（7 条全 OK） |
-| D58 | 验证补强（Task 16 后追补，用户指令「请补充打印版式的像素级一致性要求」；**已改脚本 + 手册新小节**） | 规格 §3.5「三层一致性」的第①层「受控渲染像素级一致」此前**无法判定**：D41 / D43 / D54 记录 `_e2e/baselines/print/` 从未生成、`verify:print` 长期「结构断言 PASS + 像素比对全 SKIP」，根因是生产 `t2` 无 POSTED / 有差异行任务（数据源不足），而旧口径又把「数据不足」当作合法 SKIP → 纸面承诺 | 按用户四项裁决落地：**(1) 两者都做**——阶段① 结构断言继续打真实数据（数据不足只影响本阶段，仍记 SKIP）；阶段② 像素基线改打「数据受控合成 fixture」。**(2) 落点**：修复手册 16.9.8 新增第 10 小节 + 本偏差行（**计划正文未改**）。**(3) SKIP 收紧**：像素阶段删除「数据不足 → SKIP」降级路径——缺基线 / 数据不足 / 页数不符一律 FAIL，唯一允许的降级＝「渲染环境指纹不符」（规格 §10.5）。**(4) 负向验证**：做。**实现**：`fixture_spec()` 纯函数生成冻结数据（`diff-a4` = 6 行差异 + 3 行未盘 + 四宫格 6/4/2/1 → 1 页；`empty-a4` = 0/0 + 0/0/0/0 → 1 页；`big-a4` = 120 行 + 24 未盘 + 120/106/14/6 → 6 页）；`FIXTURE_JS` 把 `.st-print` 内容整体替换（**新建 table / tr / td 必须继承本组件 `data-v-*` 属性**，否则 uni-app 强制补 `scoped` 使打印样式不命中——与 D37 同源坑；页脚 `display:flex` 两个子项需分别赋值）；注入后先断言「差异表行数 / 空态占位行 / 未盘行数」确实生效，再以 `[fixture]` 前缀**复跑全量结构断言**（任务号断言改用合成号 `FX20260925-001`，杜绝旧代码里 `'' in text` 恒真的空过陷阱）；`FP_KEYS` 增 `fixture` 键；**删除** `--empty-task` 参数与 `inject_big` 注入函数（三个 case 共用同一载体任务）。**实证（载体 `--task 17` = `TK20260924-017`，state=`CANCELLED`，生产只读）**：首次录制 `--record --force` → `===== 打印基线：PASS（失败 0 / SKIP 6）=====`，基线落盘 `diff-a4 → 1 页` / `empty-a4 → 1 页` / `big-a4 → 6 页`（`big-a4[fixture] 内容跨 >= 3 页 pages=6`、`PDF 页数 pdf=7 png=6`、`PDF 页尺寸 594.960 × 841.920 pt`、`PAGEERR []`、`console.error = 0`）；自证复跑 `PASS`；**跨环境复核**：`WA_PRINT_BASE=http://localhost:5280/guanli/` + `WA_API_ORIGIN=https://e.joho.cn`（本地 `build:h5` 产物 + `/admin-api` 只读转发）→ 与线上产物录制的基线**逐像素零容差一致**；SKIP 6 条全部属阶段①（3× 载体任务非 POSTED + 3× 载体任务无差异行），**阶段② 0 SKIP**。**负向验证（受控破坏）**：`diff.vue` 打印样式 `.p-tbl tbody tr { height: 6mm → 7mm }` + `npm run build:h5` → `===== 打印基线：FAIL（失败 3 / SKIP 6）=====`，exit **1**：`diff-a4 page-1 差异像素 46159`、`empty-a4 page-1 12751`、`big-a4 page-5 106370 / page-6 179283`（最大通道差 `255`），`_diff/` 生成红标 diff 图；改回 `6mm` + 重建 → 恢复 `PASS`。**指纹修复（执行期发现）**：`env.json.fingerprint.playwright` 原为 `getattr(playwright,'__version__','unknown')` → 恒为 `unknown`，使契约中「升 Playwright 即降级 SKIP」的承诺失效；改用 `importlib.metadata.version('playwright')`（实测 `1.62.0`）并**重录基线**，重录后负向验证数值与重录前**逐条相同**（46159 / 12751 / 106370 / 179283）＝基线逐像素等价。**指纹现值**：`chromium HeadlessChrome/151.0.7922.34`、`playwright 1.62.0`、`os Windows-11-10.0.26200-SP0`、`python 3.14.2`、`viewport 794×1123 @dpr2`、`content_mm 186×271`、`page_h_dev 2049`、`print_at 2026-09-25 10:00` + `fixture{code,title,sum,rows,unc}`。**入库产物**：`_e2e/baselines/print/{diff-a4,empty-a4,big-a4}/`（各自 `page-N.png` + `env.json`）、两张红标取证图 `docs/webadmin-bugfix-manual/assets/print-pixel-neg-diff-a4.png` / `print-pixel-neg-big-a4-p5.png`；手册第 10 小节的图名**刻意不含** `stocktake-ops-` 前缀，故 `_verify_manual_render.py` 的「图数 = 9」与 `_verify_manual_docs.py` 的 `assets/stocktake-ops-*` 断言**均未放宽**（复跑：`===== 文档门禁：PASS（失败 0）=====`、`===== 渲染级验证：PASS（失败 0）=====`） |
+| D58 | 验证补强（Task 16 后追补，用户指令「请补充打印版式的像素级一致性要求」；**已改脚本 + 手册新小节**） | 规格 §3.5「三层一致性」的第①层「受控渲染像素级一致」此前**无法判定**：D41 / D43 / D54 记录 `_e2e/baselines/print/` 从未生成、`verify:print` 长期「结构断言 PASS + 像素比对全 SKIP」，根因是生产 `t2` 无 POSTED / 有差异行任务（数据源不足），而旧口径又把「数据不足」当作合法 SKIP → 纸面承诺 | 按用户四项裁决落地：**(1) 两者都做**——阶段① 结构断言继续打真实数据（数据不足只影响本阶段，仍记 SKIP）；阶段② 像素基线改打「数据受控合成 fixture」。**(2) 落点**：修复手册 16.9.8 新增第 10 小节 + 本偏差行（**计划正文未改**）。**(3) SKIP 收紧**：像素阶段删除「数据不足 → SKIP」降级路径——缺基线 / 数据不足 / 页数不符一律 FAIL，唯一允许的降级＝「渲染环境指纹不符」（规格 §10.5）。**(4) 负向验证**：做。**实现**：`fixture_spec()` 纯函数生成冻结数据（`diff-a4` = 6 行差异 + 3 行未盘 + 四宫格 6/4/2/1 → 1 页；`empty-a4` = 0/0 + 0/0/0/0 → 1 页；`big-a4` = 120 行 + 24 未盘 + 120/106/14/6 → 6 页）；`FIXTURE_JS` 把 `.st-print` 内容整体替换（**新建 table / tr / td 必须继承本组件 `data-v-*` 属性**，否则 uni-app 强制补 `scoped` 使打印样式不命中——与 D37 同源坑；页脚 `display:flex` 两个子项需分别赋值）；注入后先断言「差异表行数 / 空态占位行 / 未盘行数」确实生效，再以 `[fixture]` 前缀**复跑全量结构断言**（任务号断言改用合成号 `FX20260925-001`，杜绝旧代码里 `'' in text` 恒真的空过陷阱）；`FP_KEYS` 增 `fixture` 键；**删除** `--empty-task` 参数与 `inject_big` 注入函数（三个 case 共用同一载体任务）。**实证（载体 `--task 17` = `TK20260924-017`，state=`CANCELLED`，生产只读）**：首次录制 `--record --force` → `===== 打印基线：PASS（失败 0 / SKIP 6）=====`，基线落盘 `diff-a4 → 1 页` / `empty-a4 → 1 页` / `big-a4 → 6 页`（`big-a4[fixture] 内容跨 >= 3 页 pages=6`、`PDF 页数 pdf=7 png=6`、`PDF 页尺寸 594.960 × 841.920 pt`、`PAGEERR []`、`console.error = 0`）；自证复跑 `PASS`；**跨环境复核**：`WA_PRINT_BASE=http://localhost:5280/guanli/` + `WA_API_ORIGIN=https://e.joho.cn`（本地 `build:h5` 产物 + `/admin-api` 只读转发）→ 与线上产物录制的基线**逐像素零容差一致**；SKIP 6 条全部属阶段①（3× 载体任务非 POSTED + 3× 载体任务无差异行），**阶段② 0 SKIP**。**负向验证（受控破坏）**：`diff.vue` 打印样式 `.p-tbl tbody tr { height: 6mm → 7mm }` + `npm run build:h5` → `===== 打印基线：FAIL（失败 3 / SKIP 6）=====`，exit **1**：`diff-a4 page-1 差异像素 46159`、`empty-a4 page-1 12751`、`big-a4 page-5 106370 / page-6 179283`（最大通道差 `255`），`_diff/` 生成红标 diff 图；改回 `6mm` + 重建 → 恢复 `PASS`。**指纹修复（执行期发现）**：`env.json.fingerprint.playwright` 原为 `getattr(playwright,'__version__','unknown')` → 恒为 `unknown`，使契约中「升 Playwright 即降级 SKIP」的承诺失效；改用 `importlib.metadata.version('playwright')`（实测 `1.62.0`）并**重录基线**，重录后负向验证数值与重录前**逐条相同**（46159 / 12751 / 106370 / 179283）＝基线逐像素等价。**指纹现值**：`chromium HeadlessChrome/151.0.7922.34`、`playwright 1.62.0`、`os Windows-11-10.0.26200-SP0`、`python 3.14.2`、`viewport 794×1123 @dpr2`、`content_mm 186×271`、`page_h_dev 2049`、`print_at 2026-09-25 10:00` + `fixture{code,title,sum,rows,unc}`。**入库产物**：`_e2e/baselines/print/{diff-a4,empty-a4,big-a4}/`（各自 `page-N.png` + `env.json`）、两张红标取证图 `docs/webadmin-bugfix-manual/assets/print-pixel-neg-diff-a4.png` / `print-pixel-neg-big-a4-p5.png`；手册第 10 小节的图名**刻意不含** `stocktake-ops-` 前缀，故 `_verify_manual_render.py` 的「图数 = 9」与 `_verify_manual_docs.py` 的 `assets/stocktake-ops-*` 断言**均未放宽**（复跑：`===== 文档门禁：PASS（失败 0）=====`、`===== 渲染级验证：PASS（失败 0）=====` |
+
+## 执行结论（2026-09-28 回填）
+
+**结论：Task 1–19 全部完成并部署上线；偏差说明区回填至 D58；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 后端 | `b88adfed1` / `ec38f2ada` / `b10f7a159` / `2a3a64e9a`；`stocktake.service.ts`、`stocktake-ops.spec.ts` |
+| 前端 | `bce2249` / `9ea9614` / `3ec2732` / `6aa9c14` / `12d727e` / `6dbe818` / `f4d7f13` |
+| 验证脚本 | `_e2e/_verify_stocktake_ops_e2e.py`、`_e2e/_verify_print_baseline.py` |
+| 手册 | 修复手册 16.9.8（L1200）+ 线上手册 `op-39` |
+| 偏差 | 偏差说明区 D1–D58（含 D11/D12/D13 已回填、D51/D53/D54 执行与部署结论） |
+
+**本次回填动作**：勾选本计划全部 96 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：本文件偏差说明区 D1–D58、`webadmin-bugfix-manual.html` 16.9.8、前后端 git log。
+
+---

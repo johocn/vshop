@@ -25,7 +25,7 @@
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\utils\orderFormat.ts:80,82-92`
 
-- [ ] **Step 1: 替换 `StatsValue` 接口**
+- [x] **Step 1: 替换 `StatsValue` 接口**
 
 把（当前第 80 行）：
 ```ts
@@ -36,7 +36,7 @@ export interface StatsValue { today: string; toShip: string; refund: string }
 export interface StatsValue { today: string; unpaid: string; toShip: string; refund: string }
 ```
 
-- [ ] **Step 2: 替换 `computeStats`**
+- [x] **Step 2: 替换 `computeStats`**
 
 把（当前第 82-92 行）：
 ```ts
@@ -70,12 +70,12 @@ export function computeStats(rows: { state: string; placedAt?: string | null }[]
 ```
 > `isUnpaid/isToBeShipped/isRefundApprox/isToday` 均已在同文件定义，无需新增 import。除这两处外（接口+函数体）不改其它任何内容。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npx tsc --noEmit`。
 预期：`orderFormat.ts` **不新增任何报错**（其它文件存量错误在预期内，忽略）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 在 `d:\zhao\vshop`：
 ```bash
@@ -90,7 +90,7 @@ git commit -m "feat(orderFormat): 统计补 unpaid 待付款字段"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue:5-18,140,236-240`
 
-- [ ] **Step 1: 改 `stats` ref 初始化为 4 字段**
+- [x] **Step 1: 改 `stats` ref 初始化为 4 字段**
 
 把（第 140 行）：
 ```ts
@@ -101,7 +101,7 @@ git commit -m "feat(orderFormat): 统计补 unpaid 待付款字段"
   const stats = ref<{ today: string; unpaid: string; toShip: string; refund: string }>({ today: '—', unpaid: '—', toShip: '—', refund: '—' });
 ```
 
-- [ ] **Step 2: 头顶统计模板改为 4 卡（今日/待付款/待发货/待退款）并加 `@tap`**
+- [x] **Step 2: 头顶统计模板改为 4 卡（今日/待付款/待发货/待退款）并加 `@tap`**
 
 把（第 5-18 行）：
 ```html
@@ -142,7 +142,7 @@ git commit -m "feat(orderFormat): 统计补 unpaid 待付款字段"
       </view>
 ```
 
-- [ ] **Step 3: 新增 `onStatTap` handler**
+- [x] **Step 3: 新增 `onStatTap` handler**
 
 在 `onTab` 函数（第 236-240 行）之后插入：
 ```ts
@@ -153,18 +153,18 @@ function onStatTap(key: string) {
 }
 ```
 
-- [ ] **Step 4: `.stat` 加可点光标**
+- [x] **Step 4: `.stat` 加可点光标**
 
 在 `.stats .stat` 规则（第 305 行，`flex: 1; ... flex-direction: column;` 内）末尾追加 `cursor: pointer;`，改为：
 ```scss
     .stat { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 20rpx 0; text-align: center; display: flex; flex-direction: column; cursor: pointer;
 ```
 
-- [ ] **Step 5: 类型检查**
+- [x] **Step 5: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npx tsc --noEmit`。`index.vue` 不在 tsc 校验范围，确认无因本改动破坏的报错；若其它文件存量错误不变即可。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
@@ -178,7 +178,7 @@ git commit -m "feat(order-list): 头顶统计改 4 卡(今日/待付款/待发�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue:74-76,423-425`
 
-- [ ] **Step 1: 桌面 `.c-goods` 模板加缩略图**
+- [x] **Step 1: 桌面 `.c-goods` 模板加缩略图**
 
 把（第 74-76 行）：
 ```html
@@ -198,7 +198,7 @@ git commit -m "feat(order-list): 头顶统计改 4 卡(今日/待付款/待发�
         </view>
 ```
 
-- [ ] **Step 2: 桌面 `.c-goods` 样式加缩略图行**
+- [x] **Step 2: 桌面 `.c-goods` 样式加缩略图行**
 
 把（第 423-425 行）：
 ```scss
@@ -218,11 +218,11 @@ git commit -m "feat(order-list): 头顶统计改 4 卡(今日/待付款/待发�
 ```
 > 桌面表格用 px（`font-size:14px` 等），故这里用 px；`g.image` 已由 `channelToView`/`shopToView` 填充，channel 与 shop 均生效，有图显示、无图占位。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npx tsc --noEmit`，确认无新增破坏。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
@@ -236,7 +236,7 @@ git commit -m "feat(order-list): 桌面商品列补商品缩略图(与手机一�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue:244-249`
 
-- [ ] **Step 1: 改 `goShip` / `goDetail`**
+- [x] **Step 1: 改 `goShip` / `goDetail`**
 
 把（第 244-249 行）：
 ```ts
@@ -271,11 +271,11 @@ function goDetail(o: OrderView) {
 ```
 > `goRemind`（催付）是复制文案、不依赖跳转，商品单下仍可用，不改。`goRedeem` 沿用现状不改。
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npx tsc --noEmit`，确认无新增破坏。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
@@ -289,7 +289,7 @@ git commit -m "feat(order-list): 商品单受限操作提示 + 发货二次确�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue:37,73,263,373,422`
 
-- [ ] **Step 1: 卡片头与桌面订单号加 `@tap`**
+- [x] **Step 1: 卡片头与桌面订单号加 `@tap`**
 
 卡片头（第 37 行）：
 ```html
@@ -308,7 +308,7 @@ git commit -m "feat(order-list): 商品单受限操作提示 + 发货二次确�
         <text class="c-code" @tap="copyCode(o.code)">{{ o.code }}</text>
 ```
 
-- [ ] **Step 2: 新增 `copyCode` handler**
+- [x] **Step 2: 新增 `copyCode` handler**
 
 在 `goRemind` 函数（第 256-263 行）之后插入：
 ```ts
@@ -318,7 +318,7 @@ function copyCode(code: string) {
 }
 ```
 
-- [ ] **Step 3: 加可点光标**
+- [x] **Step 3: 加可点光标**
 
 卡片 `.head .code`（第 373 行）末尾加 `cursor: pointer;`：
 ```scss
@@ -329,11 +329,11 @@ function copyCode(code: string) {
       .c-code { font-size: 14px; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 ```
 
-- [ ] **Step 4: 类型检查**
+- [x] **Step 4: 类型检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npx tsc --noEmit`，确认无新增破坏。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add web-admin/src/pages/order/list/index.vue
@@ -347,12 +347,12 @@ git commit -m "feat(order-list): 点击订单号复制到剪贴板"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`
 
-- [ ] **Step 1: 本地构建验证**
+- [x] **Step 1: 本地构建验证**
 
 在 `d:\zhao\vshop\web-admin` 运行 `npm run build:h5`。
 预期：末尾 `DONE  Build complete.`，无编译错误（Dart Sass `legacy-js-api` DEPRECATION 警告无害，忽略）。若本次改造引入编译错误则修复后重跑；若是既有/环境问题则停止并如实报告。
 
-- [ ] **Step 2: 扩展 E2E 断言**
+- [x] **Step 2: 扩展 E2E 断言**
 
 编辑 `_e2e/verify_order_actions.py`。「本店商品单」scope 断言区，在 `ok_thumb_img = thumb_img>0` 后新增：
 
@@ -385,11 +385,11 @@ git commit -m "feat(order-list): 点击订单号复制到剪贴板"
 
 > 注意：`code_el.first` 在 Playwright 对已存在元素返回带状态动作的 locator，需确认 `count()>0` 后再 click，避免空 locator 报错。
 
-- [ ] **Step 3: 语法检查**
+- [x] **Step 3: 语法检查**
 
 在 `d:\zhao\vshop\web-admin` 运行 `python -m py_compile _e2e/verify_order_actions.py`，期望 exit 0。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web-admin/_e2e/verify_order_actions.py
@@ -404,22 +404,22 @@ git commit -m "test(order-list): E2E 补统计4卡/桌面缩略图/复制单号�
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 - Run: `scripts/deploy.mjs`、`python _e2e/verify_order_actions.py`
 
-- [ ] **Step 1: 部署**
+- [x] **Step 1: 部署**
 
 在 `d:\zhao\vshop\web-admin` 运行 `node scripts/deploy.mjs`。期望末尾 `[deploy] 产物校验通过: ...` 与 `deploy done`。若失败如实报告，属服务器权限/凭据则停止。
 
-- [ ] **Step 2: 线上 E2E**
+- [x] **Step 2: 线上 E2E**
 
 运行 `python _e2e/verify_order_actions.py`。记录 mobile/desk 的 `ALL_OK` 与全部计数（SHIP/DETAIL/REDEEM/THUMB_TOTAL/THUMB_IMG/REMIND/STAT_4/DG_ROWS/COPY_OK/PAGEERRORS）。
 - `STAT_4` 应为 4；`DG_ROWS` 桌面 >0；`COPY_OK` 桌面 True。
 - `THUMB_IMG`：商品单有封面图商品应 >0（无图回退占位正常）。
 - `REMIND` 数据依赖：t1 若无待付款单可为 0，非失败，如实说明。
 
-- [ ] **Step 3: 手册补充**
+- [x] **Step 3: 手册补充**
 
 打开 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的「8.4.1 催付 + 商品单缩略图」节之后追加「8.4.2 补齐缺失：桌面缩略图/统计4卡/受限提示/交互补强」，说明：桌面商品列缩略图、顶栏统计 4 卡（今日/待付款/待发货/待退款，跨渠道概览口径+点击切 tab）、商品单受限操作 toast、发货二次确认、点订单号复制。把本部署后新生成的 `_e2e/order_actions_mobile_390.png`、`_e2e/order_actions_desk_1440.png` 复制到 `docs/webadmin-bugfix-manual/assets/` 并引用为验收图（沿用既有 figure 结构）。保持手册既有风格不变。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html
@@ -437,3 +437,19 @@ git commit -m "docs(webadmin): 手册补 8.4.2 缺失补齐章节及验收截图
 - **onStatTap 映射**：待付款→`ArrangingPayment`、待发货→`PaymentAuthorized`、待退款→`Cancelled`、今日→`''`(全部)，与 `tabs[]` 的 key 一致；`load()` 按 `cur` 过滤。
 - **桌面缩略图**：复用 `g.image`（channel 与 shop 均已填充），仅模板+样式，零数据改动。
 - **goShip 逻辑顺序**：先 shop 拦截 toast，再 showModal 确认，确认后 navigate；取消不发跳。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表缺口项（4 卡统计 / 缩略图 / 受限提示 / 复制订单号）已落地并经线上验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `280c90f`（`StatsValue` 补 `unpaid`）、`de37ba0`（统计改 4 卡 + 切 tab）、`bfdbddd`（桌面缩略图）、`9298900`（受限提示 + 发货二次确认）、`1fcd06a`（复制订单号）、`04e3fee`（E2E） |
+| 产物 | `components/order-list/OrderListHeadBar.vue:4-21`（4 卡 + stat-tap）、`OrderListTableRow.vue:46,115`、`OrderListCardRow.vue:119 copyCode`、`orderFormat.ts shipColor` |
+| 手册 | `webadmin-bugfix-manual.html` 8.4.2 线上验收结论 ✅（`STAT_4=4` / `DG_ROWS=18` / `COPY_OK=True`） |
+
+**本次回填动作**：勾选本计划全部 30 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4.2、vshop git log 与产物文件。
+
+---

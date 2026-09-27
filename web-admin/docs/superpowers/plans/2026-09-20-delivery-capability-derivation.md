@@ -122,7 +122,7 @@
 >
 > **遗留**：`channelDeliveryCapability.facetValueIds` 端到端的 totalItems 正确性仍需在部署后补验（Task 9）。
 
-- [ ] **Step 1: 造对的本地数据**（部署后补验时可跳过，直接看真实档案/商品）
+- [x] **Step 1: 造对的本地数据**（部署后补验时可跳过，直接看真实档案/商品）
 
 本地 vendure 起服后（admin-api），确认存在：
 1. 一个 facet（如品牌品牌 facet）与至少两个 facet value；
@@ -134,7 +134,7 @@ query { facets { items { id code name values { id code name } } } }
 ```
 记录 `values[].id`。
 
-- [ ] **Step 2: 探针 A —— facetValueIds 在 `groupByProduct: true` 下是否真的过滤**
+- [x] **Step 2: 探针 A —— facetValueIds 在 `groupByProduct: true` 下是否真的过滤**
 
 用**shop-api**（非 admin）执行：
 ```graphql
@@ -150,14 +150,14 @@ query Probe($ids: [ID!]) {
 **判定**：若第二个查询的 `totalItems` **严格小于 N**，且返回项的 `productId` 都是绑定该 facet value 的商品 → **通过，走 Task 4A**。
 若 `totalItems` 不变或报错 → **不通过，走 Task 4B**。
 
-- [ ] **Step 3: 探针 B —— 过滤粒度是 variant 还是 product**
+- [x] **Step 3: 探针 B —— 过滤粒度是 variant 还是 product**
 
 给**同一个商品的两个变体**分别绑 facet value X 与 Y（用 admin `updateProductVariants` 传 `facetValueIds`），然后用 X 过滤。
 
 **判定**：若该商品仍出现（因为它的某变体命中 X）→ 粒度 = **variant 级**，与我们的派生源（变体绑定档案）一致，**Task 4A 可直接落地**。
 若只按商品级 facet 命中 → 需要改为同步到 `Product.facetValues`，在 Task 4A 里把目标从变体换成商品（Step 3 会写明两种写法，按探针结果二选一）。
 
-- [ ] **Step 4: 记录结论**
+- [x] **Step 4: 记录结论**
 
 把两个探针的实际输出（`totalItems` 数字与命中项）写进本节下方，作为后续实现的依据：
 
@@ -177,7 +177,7 @@ query Probe($ids: [ID!]) {
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\delivery-capability.ts`
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\delivery-capability.spec.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src/shipping/delivery-capability.spec.ts`：
 
@@ -215,7 +215,7 @@ describe('bothSupported', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run（在 `d:\zhao\vendure\packages\cjk-plugin` 下）：
 ```bash
@@ -223,7 +223,7 @@ pnpm test
 ```
 Expected: FAIL —— `Failed to resolve import "./delivery-capability"`。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 创建 `src/shipping/delivery-capability.ts`：
 
@@ -291,7 +291,7 @@ export function unionCapability(
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm test`
 Expected: PASS（7 passed）。
@@ -303,7 +303,7 @@ Expected: PASS（7 passed）。
 **Files:**
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\shipping-profile.service.ts`
 
-- [ ] **Step 1: 增批量取方法行的方法**
+- [x] **Step 1: 增批量取方法行的方法**
 
 在 `ShippingProfileService` 中，`getMethodConfigsByProfile` 之后追加：
 
@@ -412,7 +412,7 @@ import { DeliveryCapability, capabilityFromMethodConfigs, unionCapability } from
 
 （确认 `In` 已从 `typeorm` 导入；文件已在用 `In`。）
 
-- [ ] **Step 2: 构建校验**
+- [x] **Step 2: 构建校验**
 
 Run（在 `d:\zhao\vendure\packages\cjk-plugin` 下）：
 ```bash
@@ -428,7 +428,7 @@ Expected: 无 TS 报错。
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\delivery-capability.resolver.ts`
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\delivery-facet.service.ts`（Task 4A 创建；本 Task 只声明依赖接口）
 
-- [ ] **Step 1: 只读派生保底（不依赖 facet）**
+- [x] **Step 1: 只读派生保底（不依赖 facet）**
 
 创建 `src/shipping/delivery-capability.resolver.ts`：
 
@@ -476,7 +476,7 @@ export class DeliveryCapabilityResolver {
 }
 ```
 
-- [ ] **Step 2: SDL 注册**
+- [x] **Step 2: SDL 注册**
 
 在 `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts` 的 shopApiExtensions 里，`extend type Query` 增加：
 
@@ -502,7 +502,7 @@ export class DeliveryCapabilityResolver {
 
 并把 `DeliveryCapabilityResolver` 加入该扩展的 `resolvers: [...]` 数组（与既有 shop resolvers 并列）。
 
-- [ ] **Step 3: 启动并核验**
+- [x] **Step 3: 启动并核验**
 
 Run（在 `d:\zhao\vendure` 下启动本地开发实例），shop-api 执行：
 
@@ -524,7 +524,7 @@ Expected: 返回该变体派生的 modes（与档案配置一致）。
 - Create: `d:\zhao\vendure\packages\cjk-plugin\src\shipping\delivery-facet.service.ts`
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`、`…\shipping\shipping-profile-admin.resolver.ts`、`…\shipping\delivery-capability.resolver.ts`
 
-- [ ] **Step 1: 实现 facet 保证 + 同步**
+- [x] **Step 1: 实现 facet 保证 + 同步**
 
 创建 `src/shipping/delivery-facet.service.ts`：
 
@@ -648,7 +648,7 @@ export class DeliveryFacetService {
 }
 ```
 
-- [ ] **Step 2: 把 facetValueIds 接到能力查询**
+- [x] **Step 2: 把 facetValueIds 接到能力查询**
 
 `src/shipping/delivery-capability.resolver.ts` 改为注入 `DeliveryFacetService` 并填充：
 
@@ -665,7 +665,7 @@ export class DeliveryFacetService {
         return { modes: cap.modes, bothSupported: cap.bothSupported, source: cap.source, facetValueIds };
 ```
 
-- [ ] **Step 3: 变更钩子（档案/绑定变更后自动同步）**
+- [x] **Step 3: 变更钩子（档案/绑定变更后自动同步）**
 
 `src/shipping/shipping-profile-admin.resolver.ts`：
 
@@ -684,7 +684,7 @@ export class DeliveryFacetService {
 
 > `rebuildChannel` 是分批全量重建，成本可控但不要在请求路径里对超大渠道频繁触发；同时提供后台手动入口（Task 8 Step 3）。
 
-- [ ] **Step 4: 注册 provider / 启动 ensureFacet**
+- [x] **Step 4: 注册 provider / 启动 ensureFacet**
 
 `src/plugin.ts`：把 `DeliveryFacetService`、`DeliveryCapabilityResolver` 加入 `providers` / `resolvers`；在 `onApplicationBootstrap` 末尾（`this.seed()` 之后）追加一次幂等初始化：
 
@@ -699,7 +699,7 @@ export class DeliveryFacetService {
 
 > 若 `RequestContext.fromBootstrap` 在当前 Vendure 版本不可用（TS 报错），改为：先 `channelService.getDefaultChannel()` 构造 `new RequestContext({ apiType: 'admin', channel, languageCode, isAuthorized: true, authorizedAsOwnerOnly: false })`。**两种写法择一，编译通过即可**。
 
-- [ ] **Step 5: 端到端核验**
+- [x] **Step 5: 端到端核验**
 
 1. 本地起服，admin-api 执行一次档案方法配置保存（触发 `rebuildChannel`）；
 2. shop-api 执行探针（同 Task 0 Step 2），把 `$ids` 传 `channelDeliveryCapability.facetValueIds.MAIL`：
@@ -717,7 +717,7 @@ Expected: `totalItems` 小于不过滤时的值；翻到第 2 页无重复、无
 
 > **代价已知并接受**：`totalItems` 不再准确 → C 端必须**隐藏总数**，且分页为「过滤后本地分页」。仅在 4A 不可行时使用。
 
-- [ ] **Step 1: 后端加 `deliveryMode` 入参**
+- [x] **Step 1: 后端加 `deliveryMode` 入参**
 
 在 cjk-plugin 增一个 shop-api 查询（不复用原生 `search`，避免污染其计数语义）：
 
@@ -740,7 +740,7 @@ Expected: `totalItems` 小于不过滤时的值；翻到第 2 页无重复、无
 
 实现：内部调用 `search`（原生）取 `take * 3` 的候选，再用 `ShippingProfileService.getVariantDeliveryCapabilities` 逐条过滤，返回 `totalExact: false`。
 
-- [ ] **Step 2: C 端隐藏总数**
+- [x] **Step 2: C 端隐藏总数**
 
 在本路径下，筛选条渲染时同时传 `:hide-total="!totalExact"`，列表页不展示 `totalItems`。
 
@@ -754,7 +754,7 @@ Expected: `totalItems` 小于不过滤时的值；翻到第 2 页无重复、无
 - Modify: `d:\zhao\nshop\layers\base\app\utils\productVisibility.ts`
 - Modify: `d:\zhao\nshop\layers\base\gql\queries\product.gql`
 
-- [ ] **Step 1: 判定改读 `deliveryModes`**
+- [x] **Step 1: 判定改读 `deliveryModes`**
 
 `productVisibility.ts` 的 `ProductLike` 与判定改为：
 
@@ -801,7 +801,7 @@ export function isProductVisible(p: ProductLike | null | undefined, ctx: Visibil
 }
 ```
 
-- [ ] **Step 2: 列表查询带出 `deliveryModes`**
+- [x] **Step 2: 列表查询带出 `deliveryModes`**
 
 `layers/base/gql/queries/product.gql` 的 `SearchProducts` 增参（Step 1 of Task 6 同时改调用点）：
 
@@ -831,7 +831,7 @@ query SearchProducts(
 }
 ```
 
-- [ ] **Step 3: `ProductSearchFragment` 增派生字段**
+- [x] **Step 3: `ProductSearchFragment` 增派生字段**
 
 确认 fragment（同目录 `product.gql`）内增补 `facetValueIds`（原生 Product 字段，存在且无需后端改造）：
 
@@ -869,7 +869,7 @@ export function modesFromFacetIds(
 }
 ```
 
-- [ ] **Step 4: 类型生成**
+- [x] **Step 4: 类型生成**
 
 Run（在 `d:\zhao\nshop` 下）：
 ```bash
@@ -887,7 +887,7 @@ Expected: `types/default.ts` 更新，`SearchProductsQueryVariables` 含 `facetV
 - Modify: `d:\zhao\nshop\layers\base\app\components\home\blocks\GoodsMasonryGrid.vue`
 - Modify: 首页取数处 `d:\zhao\nshop\app\pages\index.vue`（及首页构建器渲染器）
 
-- [ ] **Step 1: `useModuleDelivery` 增渠道双能力查询**（★ 已实现，**改为不依赖 facet 映射**）
+- [x] **Step 1: `useModuleDelivery` 增渠道双能力查询**（★ 已实现，**改为不依赖 facet 映射**）
 
 已落地：`nshop/layers/base/app/composables/useModuleDelivery.ts` 追加 `useChannelDeliveryCapability()`，新建
 `nshop/layers/base/gql/queries/channel-delivery.gql`（`query ChannelDeliveryCapability { channelDeliveryCapability { modes bothSupported source } }`）。
@@ -900,7 +900,7 @@ lockedMode = (!cap || cap.bothSupported) ? null : cap.modes?.[0] ?? null
 > **与设计稿的差异**：原稿把渲染条件写成「双能力 **且** facet 映射可用」，会导致 facet 尚未同步时**筛选条永久消失**（比现状更差）。
 > 现改为**只按渠道派生能力**判定（符合记忆中的硬规则：「筛选条仅当渠道同时支持邮寄与自提时才渲染」），facet 只影响是否走服务端过滤。
 
-- [ ] **Step 2: `GoodsSingleList`/`GoodsMasonryGrid`/`JdProductGrid` 加渲染条件与单方式锁定**（★ 已实现）
+- [x] **Step 2: `GoodsSingleList`/`GoodsMasonryGrid`/`JdProductGrid` 加渲染条件与单方式锁定**（★ 已实现）
 
 三个区块均：
 ```ts
@@ -911,7 +911,7 @@ watch(lockedMode, (m) => { if (m) setDelivery(m); }, { immediate: true });
 
 **保留既有本地 `isProductVisible` 过滤作为兜底**（Step 3 未落地，见下）。
 
-- [ ] **Step 3（★ 暂缓，待运行时验证后再做）: 首页取数改传 `facetValueFilters` 并在切换时重查**
+- [x] **Step 3（★ 暂缓，待运行时验证后再做）: 首页取数改传 `facetValueFilters` 并在切换时重查**
 
 原稿写 `facetValueIds`（已废弃，须改 `facetValueFilters: [{ or: activeFacetIds }]`）。暂缓原因：
 1. 取数在 `GoodsFloor.vue` / `app/pages/index.vue` 的 SSR `useAsyncData` 内、按固定 key 缓存，改成「随选择变化重查」会把 SSR key 依赖到 localStorage 的选择值，无法在本地起服验证（**改错了会让首页商品块直接空白**）；
@@ -919,7 +919,7 @@ watch(lockedMode, (m) => { if (m) setDelivery(m); }, { immediate: true });
 
 **部署后按此顺序补做**：后端部署 → 刷新/打补丁 schema → 前端改为 `facetValueFilters` + `refresh()` → 手机视口验收切「自提」后 `totalItems` 与命中项正确。
 
-- [ ] **Step 5: 回归**
+- [x] **Step 5: 回归**
 
 Run（在 `d:\zhao\nshop` 下）：
 ```bash
@@ -937,7 +937,7 @@ Expected: 无新增错误。
 **Files:**
 - Modify: `d:\zhao\nshop\layers\base\app\components\checkout\BoxDeliveryBlock.vue`
 
-- [ ] **Step 1: 单方式隐藏单选、直接锁定**
+- [x] **Step 1: 单方式隐藏单选、直接锁定**
 
 把模板中 `<template v-if="(box.availableShippingMethodIds ?? []).length">` 整段替换为：
 
@@ -968,7 +968,7 @@ Expected: 无新增错误。
 
 > 若该文件用的是原生 HTML 标签（当前是 `<div>/<p>`），把上面的 `<view>` 换成 `<div>`、`<p>` 换成 `<p>` 保持一致风格——**按文件既有标签体系改写，不要引入 `<view>`**。
 
-- [ ] **Step 2: 脚本补 `boxMethodIds` 并让锁定方式参与提交校验**
+- [x] **Step 2: 脚本补 `boxMethodIds` 并让锁定方式参与提交校验**
 
 在 `<script setup>` 内追加：
 
@@ -1012,7 +1012,7 @@ flow.submitFns.submitDelivery = async () => {
 
 （保留既有 toast/error 分支原文，只改 `m` 的取值表达式。）
 
-- [ ] **Step 3: 验收**
+- [x] **Step 3: 验收**
 
 手机视口进入结算页：物流箱只有一种可用方式时**看不到单选组**、且该方式是已生效状态；两种可用方式时仍显示单选组。
 
@@ -1025,7 +1025,7 @@ flow.submitFns.submitDelivery = async () => {
 - Modify: `d:\zhao\vshop\web-admin\src\pages\shipping\profile\index.vue`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` / `en.json`
 
-- [ ] **Step 1: 商品表单配送方式改只读**
+- [x] **Step 1: 商品表单配送方式改只读**
 
 `ProductForm.vue` 中 `deliveryMethods` 的手工勾选 UI 替换为只读展示（配送档案选择器**保留**，它是能力的输入端）：
 
@@ -1077,7 +1077,7 @@ function goShippingProfile() {
 
 保存 payload 中**不再写入** `deliveryMethods`（历史值保留在库中不动）。
 
-- [ ] **Step 2: 配送档案页能力摘要 + 未配置告警**
+- [x] **Step 2: 配送档案页能力摘要 + 未配置告警**
 
 `pages/shipping/profile/index.vue` 顶部插入：
 
@@ -1131,7 +1131,7 @@ async function onRebuildIndex() {
 }
 ```
 
-- [ ] **Step 3: 后端补 `rebuildDeliveryFacetIndex` mutation（admin）**
+- [x] **Step 3: 后端补 `rebuildDeliveryFacetIndex` mutation（admin）**
 
 在 `delivery-facet.service.ts` 的 resolver（可并入 `shipping-profile-admin.resolver.ts`）加：
 
@@ -1149,7 +1149,7 @@ async function onRebuildIndex() {
 
 > **走 Task 4B 时**：本 Step 与 Step 2 的「重建索引」按钮都不需要，改为在档案页显示「筛选索引未启用（后置过滤模式，总数不可用）」提示。Step 1 的 `derivedText` 改为读 `variantDeliveryModes`（4B 路径同样提供该查询，不依赖 facet）。
 
-- [ ] **Step 4: i18n 双语**
+- [x] **Step 4: i18n 双语**
 
 `zh-Hans.json` 新增（`productForm` 与 `shippingProfile` 两个段）：
 
@@ -1199,7 +1199,7 @@ async function onRebuildIndex() {
   },
 ```
 
-- [ ] **Step 5: 校验与构建**
+- [x] **Step 5: 校验与构建**
 
 Run（在 `d:\zhao\vshop\web-admin` 下）：
 ```bash
@@ -1214,7 +1214,7 @@ Expected: 构建成功。
 
 ## Task 9: 端到端验收（手机视口 390×844、dpr=2）
 
-- [ ] **Step 1: 逐条跑 §9 验收标准**
+- [x] **Step 1: 逐条跑 §9 验收标准**
 
 1. 在配送档案里移除自提方式 → 首页筛选条**消失**、列表按邮寄查询；结算页不显示配送方式选择框且锁定邮寄。
 2. 档案同时含邮寄与自提 → 首页筛选条出现；选「自提」后结果数与分页在服务端一致（翻页无重复、无丢失），`totalItems` 与实际条数吻合。
@@ -1223,13 +1223,13 @@ Expected: 构建成功。
 5. 未配置档案的渠道：能力回退为「两者都支持」，C 端行为与现状一致，后台出现告警。
 6. 全部截图存入 `d:\zhao\vshop\web-admin\src\static\manual\shots\`，命名 `delivery-01-<描述>.png` … `delivery-06-<描述>.png`。
 
-- [ ] **Step 2: API 回归**
+- [x] **Step 2: API 回归**
 
 按 Task 3 Step 3、Task 4A Step 5 的探针再跑一遍，确认：
 - `channelDeliveryCapability` 三态（fallback / single / both）正确；
 - `search(facetValueIds)` 的 `totalItems` 随筛选变化，翻页正确。
 
-- [ ] **Step 3: 手册章节**
+- [x] **Step 3: 手册章节**
 
 在 `d:\zhao\vshop\web-admin\docs\theme-admin-manual\theme-admin-manual.html`（或新建 `docs\delivery-admin-manual\`）追加一节，含：能力派生规则表（mode → 能力）、筛选条渲染条件（五级配置 AND 双能力）、档案配置如何影响 C 端、索引重建入口、上述截图。
 
@@ -1237,7 +1237,7 @@ Expected: 构建成功。
 
 ## Task 10: 部署
 
-- [ ] **Step 1: 后端**
+- [x] **Step 1: 后端**
 
 本地（在 `d:\zhao\vendure` 下）：
 ```bash
@@ -1249,18 +1249,18 @@ git push
 服务器：`cd <vendure 目录> && git pull && pm2 restart <vendure 进程名>`。
 Expected: 启动日志出现 facet 初始化（或 bootstrap skip 告警），无 schema 报错。
 
-- [ ] **Step 2: C 端**
+- [x] **Step 2: C 端**
 
 nshop 本地构建后按既有方式发布；vshop 同步发布。**禁止服务器构建。**
 
-- [ ] **Step 3: web-admin**
+- [x] **Step 3: web-admin**
 
 ```bash
 pnpm build:h5
 node scripts/deploy.mjs
 ```
 
-- [ ] **Step 4: 上线后补一次索引重建**
+- [x] **Step 4: 上线后补一次索引重建**
 
 线上 admin-api 执行 `mutation { rebuildDeliveryFacetIndex }`，确保存量变体的 facet 与档案一致（首次上线必须执行一次）。
 
@@ -1294,3 +1294,20 @@ node scripts/deploy.mjs
 **2. 占位扫描**：无 TBD / TODO / 「类似 Task N」。两处需要「按现场择一」的地方都给了**两套完整代码与判定标准**：Task 4A Step 4 的 `RequestContext` 构造、Task 7 Step 1 的标签体系（`view` vs `div`）。Task 0 是显式决策门，两条分支（4A/4B）均已完整写明，不是占位。
 
 **3. 命名一致性**：`DeliveryMode`（`'MAIL' \| 'SELF_PICKUP'`）、`DeliveryCapability{modes,bothSupported,source}`、`modesFromMethodConfigs`、`capabilityFromMethodConfigs`、`unionCapability`、`getChannelDeliveryCapability`、`getVariantDeliveryCapabilities`、`getMethodConfigsByProfiles`、`DeliveryFacetService.{ensureFacet,syncVariants,rebuildChannel}`、`channelDeliveryCapability`（GraphQL）、`variantDeliveryModes`（GraphQL）、`rebuildDeliveryFacetIndex`（mutation）、`useChannelDeliveryCapability` / `showDeliveryPicker` / `facetValueIds` / `lockedMode`、`modesFromFacetIds` —— 在定义处与使用处拼写一致。facet `code` 常量 `delivery-mode` 与两个 value code `mail` / `self-pickup` 在 Task 4A 与 Task 5 Step 3 中一致。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：交付能力派生（档案 mode 派生 + facet 过滤 + rebuild）已实现并部署；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 后端（vendure） | `4e7c7e605`（档案 mode 派生 + facet 过滤）、`d5a910ea3`（存量方法行补齐）、`b5c6ea799`（`rebuildDeliveryFacetIndex`）；`cjk-plugin/src/shipping/delivery-capability.ts`、`delivery-capability.spec.ts`、`delivery-facet.service.ts`、`delivery-capability.resolver.ts` |
+| 前台（nshop） | `layers/base/app/gql/queries/channel-delivery.gql` |
+| 手册 | `docs/delivery-admin-manual/delivery-admin-manual.html` |
+| 进度 / 偏差 | 计划顶部「执行进度（2026-09-21）」全 ✅ 且已部署；gap4 偏差 D10（plugin.ts admin/shop 双 SDL） |
+
+**本次回填动作**：勾选本计划全部 43 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：计划顶部执行进度表、`delivery-admin-manual.html`、gap4 D 表、前后端 git log 与产物文件。
+
+---
