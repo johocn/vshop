@@ -89,7 +89,7 @@ cd d:\zhao\vshop\web-admin ; npm run dev:h5                       # 5280，/admi
 
 **设计口径（写进代码注释）**：`themeTokens` 与 `defaults` 合成**同一份编辑态**（`draft`），结构化表单与 JSON 框是这份编辑态的两个视图——**改任一边立即同步另一边**；JSON 框在高级模式下是**完整编辑态**，`themeTokens` / `defaults` 缺哪个就以空对象覆盖哪个（与改造前「JSON 框整体覆盖 `defaults`」语义一致）。
 
-- [ ] **Step 1: 状态与 JSON 互转工具重写（替换第 108–123 行整块）**
+- [x] **Step 1: 状态与 JSON 互转工具重写（替换第 108–123 行整块）**
 
 ```ts
 const app = ref<'nshop' | 'vshop'>('nshop');
@@ -127,7 +127,7 @@ function mergeTokensFromJson(raw: unknown) {
 }
 ```
 
-- [ ] **Step 2: `writeField` 两个分支都同步 JSON（替换第 125–133 行）**
+- [x] **Step 2: `writeField` 两个分支都同步 JSON（替换第 125–133 行）**
 
 ```ts
 function writeField(f: ConfigField, v: unknown) {
@@ -141,7 +141,7 @@ function writeField(f: ConfigField, v: unknown) {
 }
 ```
 
-- [ ] **Step 3: `syncFromJson` 支持两个根（替换第 145–155 行）**
+- [x] **Step 3: `syncFromJson` 支持两个根（替换第 145–155 行）**
 
 ```ts
 /** 逃生口：JSON 手改在失焦时并入编辑态（坏 JSON / 非对象保持表单值不变，保存时由 save() 统一报错） */
@@ -165,7 +165,7 @@ function syncFromJson() {
 }
 ```
 
-- [ ] **Step 4: `load()` 收尾改用 `syncToJson()`（替换第 174 行）**
+- [x] **Step 4: `load()` 收尾改用 `syncToJson()`（替换第 174 行）**
 
 把
 
@@ -179,7 +179,7 @@ function syncFromJson() {
     syncToJson();
 ```
 
-- [ ] **Step 5: `save()` 改为「先并 JSON → 再校验结构化字段」（替换第 181–209 行）**
+- [x] **Step 5: `save()` 改为「先并 JSON → 再校验结构化字段」（替换第 181–209 行）**
 
 ```ts
 async function save() {
@@ -242,7 +242,7 @@ async function save() {
 
 > 注意：`saving.value = true` 之前**不再**有单独的第 2 段 JSON 校验块（已提到最前），原第 196–209 行整段删除。
 
-- [ ] **Step 6: 模板里的变量名同步改（第 58、60 行）**
+- [x] **Step 6: 模板里的变量名同步改（第 58、60 行）**
 
 ```html
           <text class="chip" :class="{ on: jsonOpen }" @tap="jsonOpen = !jsonOpen">{{ $t('platformGlobalConfig.advancedJson') }}</text>
@@ -252,7 +252,7 @@ async function save() {
 
 （`defaultsJson` → `draftJson`，两处；改完全文件不得再出现 `defaultsJson`）
 
-- [ ] **Step 7: i18n 三处文案更新**
+- [x] **Step 7: i18n 三处文案更新**
 
 `src/locale/zh-Hans.json`：
 
@@ -284,7 +284,7 @@ async function save() {
 
 （键名 `invalidDefaults` → `invalidJson`，仅此一处调用点，已确认：`src/pages/platform/global-config/index.vue:205`）
 
-- [ ] **Step 8: 类型检查与残留扫描**
+- [x] **Step 8: 类型检查与残留扫描**
 
 Run:
 
@@ -294,7 +294,7 @@ cd d:\zhao\vshop\web-admin ; npx vue-tsc --noEmit -p tsconfig.json 2>&1 | Select
 
 Expected: `vue-tsc` 无本页报错（既有其它页报错不算本任务）；`Select-String` **无输出**。
 
-- [ ] **Step 9: 提交**
+- [x] **Step 9: 提交**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -310,7 +310,7 @@ git commit -m "feat(web-admin): 全局配置 JSON 高级编辑并入 themeTokens
 - Create: `_e2e/_verify_d55_global_config_json_roots.py`
 - 产出: `docs/verify/d55-global-config-json-both-roots-390.png`（780×1688）
 
-- [ ] **Step 1: 写脚本（完整内容如下）**
+- [x] **Step 1: 写脚本（完整内容如下）**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -449,7 +449,7 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 2: 跑脚本**
+- [x] **Step 2: 跑脚本**
 
 Run:
 
@@ -459,7 +459,7 @@ cd d:\zhao\vshop\web-admin ; python _e2e\_verify_d55_global_config_json_roots.py
 
 Expected: 6 项 PASS，`EXIT=0`，且 `docs/verify/d55-global-config-json-both-roots-390.png` 为 **780×1688**。
 
-- [ ] **Step 3: 尺寸自证**
+- [x] **Step 3: 尺寸自证**
 
 Run:
 
@@ -469,7 +469,7 @@ cd d:\zhao\vshop\web-admin ; python -c "from PIL import Image;im=Image.open('doc
 
 Expected: `(780, 1688)`
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -488,7 +488,7 @@ git commit -m "test(web-admin): D55-③ 全局配置 JSON 双根双向同步验�
 
 **造数据口径**：只用 admin-api 的 `createStockDoc(type:'PURCHASE')`，每次 1 条明细 → 每次 +1 条库存流水；`variantId` / `toStockLocationId` **从当前 flow 第一页既有流水里取**（不硬编码 id）。目标：把 `shop-a` 流水从 20 条推到 **≥25 条**。
 
-- [ ] **Step 1: 写脚本（完整内容如下）**
+- [x] **Step 1: 写脚本（完整内容如下）**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -674,7 +674,7 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 2: 跑脚本**
+- [x] **Step 2: 跑脚本**
 
 Run:
 
@@ -686,7 +686,7 @@ Expected: S1a/S1b/S2/S3/S4/S5 全 PASS，`EXIT=0`；输出里能看到「本轮�
 
 > 若 `S3` 失败且 `loaded == 20`：说明 H5 的 `onReachBottom` 未触发——改用 `pg.mouse.wheel(0, 20000)` 或 `pg.locator('.more').scroll_into_view_if_needed()` 后再滚动，重跑；脚本内 `scroll_to_bottom` 是唯一改动点。
 
-- [ ] **Step 3: 改 batch3 脚本的 skip 说明（第 473–475 行）**
+- [x] **Step 3: 改 batch3 脚本的 skip 说明（第 473–475 行）**
 
 把
 
@@ -705,7 +705,7 @@ Expected: S1a/S1b/S2/S3/S4/S5 全 PASS，`EXIT=0`；输出里能看到「本轮�
          % (CHANNEL_CODE, doc0['totalItems'], led0['totalItems'], TAKE, TAKE))
 ```
 
-- [ ] **Step 4: 回归 batch3（确认未被改坏）**
+- [x] **Step 4: 回归 batch3（确认未被改坏）**
 
 Run:
 
@@ -715,7 +715,7 @@ cd d:\zhao\vshop\web-admin ; python _e2e\_verify_gap4_batch3.py ; echo "EXIT=$LA
 
 Expected: 仍为 `PASS（失败 0 / SKIP 1）`，`EXIT=0`。
 
-- [ ] **Step 5: 尺寸自证 + 提交**
+- [x] **Step 5: 尺寸自证 + 提交**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -735,7 +735,7 @@ Expected: `(780, 1688)`
 
 统一约定：新段落一律用既有 class（`<mark class="mark">` 高亮、`<h3>`、`<div class="shot-box">` 包图、`<div class="imgcap">` 图注、`<div class="note">` 提示）。
 
-- [ ] **Step 1: `op-29` 数据看板 —— 追加「5. 作业分析」（在 `op-29` 块内、`<div class="note"><b>权限：`（第 824 行）之前插入）**
+- [x] **Step 1: `op-29` 数据看板 —— 追加「5. 作业分析」（在 `op-29` 块内、`<div class="note"><b>权限：`（第 824 行）之前插入）**
 
 ```html
 <h3>5. 作业分析（拣货 / 盘库 / 差异率 / 发货件数）</h3>
@@ -747,7 +747,7 @@ Expected: `(780, 1688)`
 <div class="note"><b>口径说明：</b>「作业员」列显示 <mark class="mark">库存单据上的操作人原值</mark>（本地环境可能是数字 ID）；「发货件数」按<mark class="mark">订单创建时间</mark>归期，非发货时间。</div>
 ```
 
-- [ ] **Step 2: 新增 `op-41`「拣货批次：交接 / 复核 / 异常件」（插在第 1154 行 `` `}, `` 与第 1155 行 `{book:'mp'...` 之间）**
+- [x] **Step 2: 新增 `op-41`「拣货批次：交接 / 复核 / 异常件」（插在第 1154 行 `` `}, `` 与第 1155 行 `{book:'mp'...` 之间）**
 
 ```javascript
 {book:'op', id:'op-41', title:'拣货批次：打印 / 交接 / 复核 / 异常件', html:`
@@ -766,7 +766,7 @@ Expected: `(780, 1688)`
 
 > 注意：`op-41` 是 `book:'op'` 数组的**最后一项之后**插入，因此上一项（`op-40`）结尾的 `` `}, `` 保留，新项结尾也必须是 `` `}, ``。
 
-- [ ] **Step 3: `op-24` 预留单 —— 追加「预留单独立页」（在 `op-24` 块内、`<h3>3. 对账</h3>`（第 764 行）之前插入）**
+- [x] **Step 3: `op-24` 预留单 —— 追加「预留单独立页」（在 `op-24` 块内、`<h3>3. 对账</h3>`（第 764 行）之前插入）**
 
 ```html
 <h3>3. 预留单独立页（倒计时 / 手工释放）</h3>
@@ -778,7 +778,7 @@ Expected: `(780, 1688)`
 
 （原「3. 对账」编号顺延为「4. 对账」，只改这一行标题文本）
 
-- [ ] **Step 4: `op-23` —— 新增「7. 单据中心」，原「7. 库存预警」顺延为「8.」**
+- [x] **Step 4: `op-23` —— 新增「7. 单据中心」，原「7. 库存预警」顺延为「8.」**
 
 先在 `§6 库存流水` 正文（第 745 行）之后、第 746 行的 `<img>` 之前插入筛选说明：
 
@@ -797,7 +797,7 @@ Expected: `(780, 1688)`
 <div class="shot-box"><img class="img" src="shots/gap4_op23_stockdoc_filter.png" alt="单据中心-筛选与进度"><div class="imgcap">图 I6 · 单据中心（类型 + 仓库 + 日期筛选 + 进度「已显示 N / M」）</div></div>
 ```
 
-- [ ] **Step 5: `op-36` 店铺全局配置 —— 追加「编辑方式」三段（在 `op-36` 块内、第 890 行的 `<div class="shot-box">` 之前插入）**
+- [x] **Step 5: `op-36` 店铺全局配置 —— 追加「编辑方式」三段（在 `op-36` 块内、第 890 行的 `<div class="shot-box">` 之前插入）**
 
 ```html
 <h3>1. 结构化表单（推荐）</h3>
@@ -811,7 +811,7 @@ Expected: `(780, 1688)`
 <div class="shot-box"><img class="img" src="shots/gap4_op36_config_json.png" alt="全局配置-JSON双根"><div class="imgcap">图 G4 · JSON 高级编辑（themeTokens + defaults 两个根，与表单双向同步）</div></div>
 ```
 
-- [ ] **Step 6: `op-35` 商品分类 —— 追加「层级树 / 排序 / 图标 / 批量」（在 `op-35` 块内、第 885 行的 `<div class="shot-box">` 之前插入）**
+- [x] **Step 6: `op-35` 商品分类 —— 追加「层级树 / 排序 / 图标 / 批量」（在 `op-35` 块内、第 885 行的 `<div class="shot-box">` 之前插入）**
 
 ```html
 <h3>层级树与排序</h3>
@@ -822,7 +822,7 @@ Expected: `(780, 1688)`
 <div class="shot-box"><img class="img" src="shots/gap4_op35_categories_bulk.png" alt="分类管理-批量操作"><div class="imgcap">图 C3 · 勾选多个分类 → 底部批量操作条</div></div>
 ```
 
-- [ ] **Step 7: `op-31` 售后 —— 在「入口与筛选」小节内追加类型筛选与上滑加载（第 848 行段落之后、第 849 行 `<div class="shot-box">` 之前插入）**
+- [x] **Step 7: `op-31` 售后 —— 在「入口与筛选」小节内追加类型筛选与上滑加载（第 848 行段落之后、第 849 行 `<div class="shot-box">` 之前插入）**
 
 ```html
 <p>状态标签旁还有<mark class="mark">售后类型筛选</mark>：全部 / 仅退款 / 退货退款 / 换货，可与状态标签叠加使用；列表<mark class="mark">分页加载</mark>，上滑到底自动加载下一页并累积显示，末尾提示「没有更多了」。</p>
@@ -830,7 +830,7 @@ Expected: `(780, 1688)`
 <div class="shot-box"><img class="img" src="shots/gap4_op31_aftersale_loadmore.png" alt="售后处理-上滑加载更多"><div class="imgcap">图 S1c · 上滑加载更多（累计条数增加，到底提示「没有更多了」）</div></div>
 ```
 
-- [ ] **Step 8: 结构与语法自检**
+- [x] **Step 8: 结构与语法自检**
 
 Run:
 
@@ -850,7 +850,7 @@ Expected: 引用的 `gap4_op*` 图名出现次数 = **19**；`op 条目数` 比�
 - Create: `src/static/manual/shots/gap4_op*.png`（19 张）
 - 源：`docs/verify/gap4-batch*.png` + `docs/verify/d55-global-config-json-both-roots-390.png`
 
-- [ ] **Step 1: 拷贝映射（17 张，逐条执行；PowerShell）**
+- [x] **Step 1: 拷贝映射（17 张，逐条执行；PowerShell）**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -882,7 +882,7 @@ Get-ChildItem src\static\manual\shots\gap4_op*.png | Measure-Object | Select-Obj
 
 Expected: 最后一行输出 **19**。
 
-- [ ] **Step 2: 图片尺寸自证（19 张全部 780×1688）**
+- [x] **Step 2: 图片尺寸自证（19 张全部 780×1688）**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -891,7 +891,7 @@ python -c "from PIL import Image; import glob; [print(f, Image.open(f).size) for
 
 Expected: 每行都是 `(780, 1688)`。若某张不是（如 batch4 的 `handover-sheet`），按 Step 3 重拍该张。
 
-- [ ] **Step 3: 仅对不合格的图重拍（示例：交接单）**
+- [x] **Step 3: 仅对不合格的图重拍（示例：交接单）**
 
 ```powershell
 cd d:\zhao\vshop\web-admin ; python _e2e\_verify_gap4_batch4.py ; echo "EXIT=$LASTEXITCODE"
@@ -899,7 +899,7 @@ cd d:\zhao\vshop\web-admin ; python _e2e\_verify_gap4_batch4.py ; echo "EXIT=$LA
 
 Expected: `EXIT=0`（该脚本按固定视口重出 `docs/verify/gap4-batch4-*.png`），随后重跑 Step 1 的 `Copy-Item` 与 Step 2 校验。
 
-- [ ] **Step 4: 手册门禁**
+- [x] **Step 4: 手册门禁**
 
 ```powershell
 cd d:\zhao\vshop\web-admin ; npm run verify:manual ; echo "EXIT=$LASTEXITCODE"
@@ -907,7 +907,7 @@ cd d:\zhao\vshop\web-admin ; npm run verify:manual ; echo "EXIT=$LASTEXITCODE"
 
 Expected: `PASS`，失败 0（含「手册引用的截图全部存在」）。
 
-- [ ] **Step 5: 构建门禁**
+- [x] **Step 5: 构建门禁**
 
 ```powershell
 cd d:\zhao\vshop\web-admin ; npm run build:h5 ; echo "EXIT=$LASTEXITCODE"
@@ -915,7 +915,7 @@ cd d:\zhao\vshop\web-admin ; npm run build:h5 ; echo "EXIT=$LASTEXITCODE"
 
 Expected: `EXIT=0`（允许既有 Sass deprecation 警告）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -933,7 +933,7 @@ git commit -m "docs(manual): 发布手册补齐 gap4 批1/2/3/4 能力（op-31/3
 
 > **收口方式（§0.4 第 4 条）**：Step 4（提交 + 推送）与 Step 5（部署）**一气呵成、不再逐项征询**。若验收中发现「待补事项」（如需补拍某张图），先提醒用户，待其处理完后与收口合并为**一次**提交/推送/部署。
 
-- [ ] **Step 1: 偏差表新增 D55 行**
+- [x] **Step 1: 偏差表新增 D55 行**
 
 在第 3293 行的 **D54 行之后、空行之前**插入一行，格式对齐既有行：
 
@@ -941,7 +941,7 @@ git commit -m "docs(manual): 发布手册补齐 gap4 批1/2/3/4 能力（op-31/3
 | D55 | gap4 计划自认「未做 / 未同步」三项全部收口：①发布用使用手册未同步（批1/2/3/4）②「上滑加载更多」第二页 UI 证据 ③全局配置 JSON 高级编辑未并入 themeTokens | ① 批 1/2/3 结论均写「发布手册待批次 4 的 Task 4.9 一并处理」，而 Task 4.9 实测只落了 `op-40`（`45f4f45`）；② 本地 shop-a 恰好 20 条流水 == 单页 `take:20`，无第二页可加载（D22②）；③ 并入主题令牌会改变既有 load/save 语义，D21② 原留档为范围外 | 用户指令「继续处理 D51 剩余项」后的追单：用户明确「上面三项内容只写计划，暂不执行，写完计划统一执行」，且在 `AskUserQuestion` 选定「①②③ 全做」 | **③（改代码）**：`src/pages/platform/global-config/index.vue` 编辑态统一为 `{themeTokens, defaults}`（新增 `syncToJson` / `mergeTokensFromJson`，`writeField` 两分支均回写 JSON，`syncFromJson` 并入两个根，`save()` 改为「先并 JSON 再校验结构化字段」），i18n `invalidDefaults`→`invalidJson` 并把 `advancedJson` / `otherPagesHint` 文案改为含 themeTokens（zh-Hans + en 成对）；验收 `_e2e/_verify_d55_global_config_json_roots.py` **6 项 PASS**（JSON 双根 / JSON→表单 radius / 表单→JSON 主色 / 坏 JSON 拦截 / 0 pageerror / 780×1688 取证），**全程零落库**。**②（造数据 + UI 取证）**：新增 `_e2e/_verify_d55_movements_page2.py`（仅允许本地 BASE，生产域名 `ENV-FAIL`；用 `createStockDoc(type:'PURCHASE')` 把 shop-a 流水从 20 条推到 ≥25 条，变体/仓从既有流水首行推导、不硬编码）→ 首屏 20 条、上滑后累积 == `min(totalItems, 40)` 且 >20、出现「没有更多了」、0 pageerror、取证 `docs/verify/gap4-batch3-movements-page2-390.png`（780×1688）；原 `_verify_gap4_batch3.py:473` 的 `skip` 改为指向新脚本，C1–C5 分页契约保留。**①（发布手册）**：`src/static/manual/index.html` 8 处改动——`op-31` 补类型筛选 + 上滑加载、`op-35` 补层级树/排序/图标/批量、`op-36` 补结构化表单 + 合并预览 + JSON 双根兜底、`op-23` §6 补五组筛选 + 结存变化 + 上滑第二页并新增 §7 单据中心（原 §7 库存预警顺延 §8）、`op-24` 补预留单独立页倒计时/手工释放、`op-29` 补作业分析 4 KPI + 差异趋势 + 作业员 + CSV、**新增 `op-41` 拣货批次（状态机/交接/异常件/复核只读）**；配图 19 张（17 张由 `docs/verify/gap4-batch*.png` 拷贝重命名 + 2 张新拍），全部 780×1688。**门禁**：`npm run verify:manual` PASS、`npm run build:h5` EXIT=0、`_verify_gap4_batch3.py` 回归 PASS。**部署**：`node scripts/deploy.mjs`（cwd = `d:\zhao\vshop\web-admin`，见偏差 #49）上线线上手册 `https://e.joho.cn/guanli/static/manual/index.html`。**副作用**：本地 shop-a 增加若干采购入库单与流水（本地库脏数据，不涉生产） |
 ```
 
-- [ ] **Step 2: 修复手册新增 20.22 节**
+- [x] **Step 2: 修复手册新增 20.22 节**
 
 在 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的 20.21 节 `</section>` 之后、`<footer>` 之前插入：
 
@@ -960,7 +960,7 @@ git commit -m "docs(manual): 发布手册补齐 gap4 批1/2/3/4 能力（op-31/3
 
 并在页脚追加：`，2026-09-27 追加 20.22 gap4 计划剩余项收口（<strong>已修复 · D55</strong>：发布手册 op-31/35/36/23/24/29 同步 + 新增 op-41 拣货批次；库存流水上滑第二页 UI 取证；全局配置 JSON 并入 themeTokens 双向同步）`
 
-- [ ] **Step 3: 文档门禁复核**
+- [x] **Step 3: 文档门禁复核**
 
 ```powershell
 cd d:\zhao\vshop\web-admin ; npm run verify:manual ; echo "EXIT=$LASTEXITCODE"
@@ -968,7 +968,7 @@ cd d:\zhao\vshop\web-admin ; npm run verify:manual ; echo "EXIT=$LASTEXITCODE"
 
 Expected: `PASS`，失败 0。
 
-- [ ] **Step 4: 提交 + 推送**
+- [x] **Step 4: 提交 + 推送**
 
 ```powershell
 cd d:\zhao\vshop\web-admin
@@ -977,7 +977,7 @@ git commit -m "docs(web-admin): D55 偏差登记 + 修复手册 20.22（gap4 剩
 git push
 ```
 
-- [ ] **Step 5: 部署（本地构建 → 上传）**
+- [x] **Step 5: 部署（本地构建 → 上传）**
 
 ```powershell
 cd d:\zhao\vshop\web-admin ; node scripts\deploy.mjs
@@ -985,7 +985,7 @@ cd d:\zhao\vshop\web-admin ; node scripts\deploy.mjs
 
 Expected: 退出码 0。
 
-- [ ] **Step 6: 线上复核（只读）**
+- [x] **Step 6: 线上复核（只读）**
 
 ```powershell
 curl.exe -s "https://e.joho.cn/guanli/static/manual/index.html" | Select-String -Pattern "op-41|作业分析" | Select-Object -First 5
@@ -1011,9 +1011,32 @@ Expected: 能匹配到 `op-41`（线上手册已含新条目）。
 
 **当前状态：待触发（用户规划中）**。本计划**只写不执行**；收到用户明确的「执行」指令后，按 `## 0.4` 执行契约统一开工，Task 1→6 一口气做完。
 
+> **状态更新（2026-09-28）**：用户已下达执行指令，本计划 **Task 1→6 已按 Inline 单会话连续执行完毕并上线**；38 个 Step 全部勾选。结果见文末 **「执行结论（2026-09-28 执行完毕）」**。
+
 **执行方式（默认 = 推荐项）**：**Inline 单会话连续执行** —— 遇阻按各 Task 内已标注的推荐/兜底方案自行决断，不逐项征询；仅两处硬门禁停下报告结论：**Task 5 Step 4（`npm run verify:manual` PASS）+ Step 5（`npm run build:h5` EXIT=0）**、**Task 6 Step 3（文档门禁复核）**。
 **备选**：Subagent-Driven —— 每个 Task 派一个全新 subagent 实现，Task 之间由主会话做两阶段评审；粒度更细、上下文更干净，但往返更多。执行前用户可指定切换。
 
 **推进节奏**：Task 1→2（③ 代码 + 验收，不落库）→ Task 3（② 仅本地造数 + 上滑第二页取证）→ Task 4→5（① 手册文案 + 19 张配图 + 双门禁）→ Task 6（偏差表 D55 + 修复手册 20.22 + 收口上线）。Task 6 Step 5 部署前必须确认前五个 Task 均已提交。
 
 **收口**：按 `## 0.4` 第 3/4/6 条执行 —— 删除文件免询问但先备份到 `d:\zhao\_backup\d55-<ts>\`；验证全绿后 `commit → push → node scripts\deploy.mjs` 一气呵成（有「待补事项」则先提醒用户并合并成一次收口）；完成后给三项证据总表 + 「问题-方案-影响」+「已删文件-备份路径」清单。
+
+---
+
+## 执行结论（2026-09-28 执行完毕）
+
+**结论：Task 1–6 全部执行完毕并上线；38 个 Step 已勾选。**
+
+| 项 | 交付证据 | commit |
+|---|---|---|
+| ③ JSON 并入 `themeTokens` | `src/pages/platform/global-config/index.vue` + 双语言包；`_e2e/_verify_d55_global_config_json_roots.py` **6 项 PASS、零落库** | `b51f945` / `dfc21a2` |
+| ② 流水第二页 UI 取证 | `_e2e/_verify_d55_movements_page2.py` → `docs/verify/gap4-batch3-movements-page2-390.png`（780×1688）；batch3 回归 **PASS（失败 0 / SKIP 1）** | `2088d73` |
+| ① 发布手册同步 | `src/static/manual/index.html` 8 处（op-31/35/36/23/24/29 + 新增 **op-41**）+ **18 张**配图 | `50fa224` |
+| 偏差与手册回填 | gap4 计划偏差表 **D55** 行 + 修复手册 **20.22** 节 + footer | `6984ecd` |
+
+门禁与上线：`npm run verify:manual` **PASS**、`npm run build:h5` 构建成功、`_verify_gap4_batch3.py` **PASS**、`node scripts\deploy.mjs`（cwd `d:\zhao\vshop\web-admin`）退出码 **0**；线上 `https://e.joho.cn/guanli/static/manual/index.html` 复验 `op-41` 命中 1 次、「作业分析」4 次。
+
+**计划偏差（如实登记）**：作业分析原计划 3 张取证图，实测该页三板块同屏（`scrollHeight=984 < 视口 844`）三张必然同图 → **合并为 1 张** `gap4_op29_ops.png`，配图总数 19 → **18**（Task 4 Step 8、§1 文件结构表与上文「推进节奏」的「19」均为笔误，以本节为准）。
+
+**清理**：11 个临时探针与日志已备份至 `d:\zhao\_backup\d55-20260928-0659\` 后删除。
+
+**副作用**：本地库 shop-a 增加 3 张采购入库单 + 5 条流水（仅本地脏数据，不涉生产）。
