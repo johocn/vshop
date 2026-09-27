@@ -10,10 +10,35 @@ export interface NavSection { type: 'nav'; items: NavItem[]; shape?: NavShape; l
 export type GoodsLayout = 'compact' | 'masonry' | 'single';
 export interface GoodsSection { type: 'goods'; title?: string; collectionId?: string; layout?: GoodsLayout; }
 export interface RichTextSection { type: 'richText'; html: string; }
-export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection;
+// 热门 / 推荐商品积木（与前台 shop-content schema 对齐；本工程无 LocalizedText，标题用 string）
+export type GoodsCardLayout = 'compact' | 'sliding' | 'hero';
+export interface HotGoodsSection {
+  type: 'hot';
+  title?: string;
+  source?: 'auto' | 'collection';
+  collectionId?: string;
+  limit?: number;
+  layout?: GoodsCardLayout;
+}
+export interface RecommendGoodsSection {
+  type: 'recommend';
+  title?: string;
+  source?: 'auto' | 'collection' | 'slugs';
+  collectionId?: string;
+  slugs?: string[];
+  limit?: number;
+  layout?: GoodsCardLayout;
+  dedupe?: boolean;
+}
+export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | HotGoodsSection | RecommendGoodsSection;
 export interface ShopContent { version: number; theme?: ShopTheme; sections: ShopSection[]; }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend'];
+const GOODS_SOURCES = {
+  hot: ['auto', 'collection'],
+  recommend: ['auto', 'collection', 'slugs'],
+} as const;
+const GOODS_CARD_LAYOUTS = ['compact', 'sliding', 'hero'];
 
 export function parseShopContent(raw: string | null | undefined): ShopContent | null {
   if (!raw) return null;
@@ -36,6 +61,17 @@ export function isValidShopContent(data: any): data is ShopContent {
     if (sec.type === 'nav' && (!Array.isArray(sec.items) || sec.items.length === 0)) return false;
     if (sec.type === 'goods' && sec.collectionId != null && typeof sec.collectionId !== 'string') return false;
     if (sec.type === 'richText' && typeof sec.html !== 'string') return false;
+    if (sec.type === 'hot' || sec.type === 'recommend') {
+      // limit：正整数且 ≤ 30
+      if (sec.limit != null && (!Number.isInteger(sec.limit) || sec.limit < 1 || sec.limit > 30)) return false;
+      // layout：三选一枚举
+      if (sec.layout != null && !GOODS_CARD_LAYOUTS.includes(sec.layout)) return false;
+      // source：各自枚举（hot 无 slugs）
+      const sources: readonly string[] = sec.type === 'hot' ? GOODS_SOURCES.hot : GOODS_SOURCES.recommend;
+      if (sec.source != null && !sources.includes(sec.source)) return false;
+      // source=slugs 时必须带字符串数组
+      if (sec.source === 'slugs' && (!Array.isArray(sec.slugs) || !sec.slugs.every((s: any) => typeof s === 'string'))) return false;
+    }
   }
   return true;
 }
