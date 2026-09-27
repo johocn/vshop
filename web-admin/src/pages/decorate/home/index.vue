@@ -92,6 +92,80 @@
         <view class="muted hint">{{ $t('decorateHome.goodsHint') }}</view>
       </template>
 
+      <!-- hot：热门商品 -->
+      <template v-else-if="sec.type === 'hot'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.source') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.source || sec.source === 'auto' }" @tap="sec.source = 'auto'">{{ $t('decorateHome.sourceAuto') }}</text>
+            <text class="btn" :class="{ active: sec.source === 'collection' }" @tap="sec.source = 'collection'">{{ $t('decorateHome.sourceCollection') }}</text>
+          </view>
+        </view>
+        <view class="field" v-if="sec.source === 'collection'">
+          <text class="lbl">{{ $t('decorateHome.collectionId') }}</text>
+          <input v-model="sec.collectionId" :placeholder="$t('decorateHome.collectionIdPlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limit') }}</text>
+          <input type="number" v-model.number="sec.limit" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.goodsLayout') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">{{ $t('decorateHome.goodsLayoutCompact') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'sliding' }" @tap="sec.layout = 'sliding'">{{ $t('decorateHome.goodsLayoutSliding') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'hero' }" @tap="sec.layout = 'hero'">{{ $t('decorateHome.goodsLayoutHero') }}</text>
+          </view>
+        </view>
+      </template>
+
+      <!-- recommend：推荐商品 -->
+      <template v-else-if="sec.type === 'recommend'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.source') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.source || sec.source === 'auto' }" @tap="sec.source = 'auto'">{{ $t('decorateHome.sourceAuto') }}</text>
+            <text class="btn" :class="{ active: sec.source === 'collection' }" @tap="sec.source = 'collection'">{{ $t('decorateHome.sourceCollection') }}</text>
+            <text class="btn" :class="{ active: sec.source === 'slugs' }" @tap="sec.source = 'slugs'">{{ $t('decorateHome.sourceSlugs') }}</text>
+          </view>
+        </view>
+        <view class="field" v-if="sec.source === 'collection'">
+          <text class="lbl">{{ $t('decorateHome.collectionId') }}</text>
+          <input v-model="sec.collectionId" :placeholder="$t('decorateHome.collectionIdPlaceholder')" />
+        </view>
+        <view class="field" v-if="sec.source === 'slugs'">
+          <text class="lbl">{{ $t('decorateHome.slugList') }}</text>
+          <textarea v-model="sec.slugsText" :placeholder="$t('decorateHome.slugPlaceholder')" auto-height />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limit') }}</text>
+          <input type="number" v-model.number="sec.limit" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.goodsLayout') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">{{ $t('decorateHome.goodsLayoutCompact') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'sliding' }" @tap="sec.layout = 'sliding'">{{ $t('decorateHome.goodsLayoutSliding') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'hero' }" @tap="sec.layout = 'hero'">{{ $t('decorateHome.goodsLayoutHero') }}</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.dedupe') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: sec.dedupe !== false }" @tap="sec.dedupe = true">{{ $t('decorateHome.toggleOn') }}</text>
+            <text class="btn" :class="{ active: sec.dedupe === false }" @tap="sec.dedupe = false">{{ $t('decorateHome.toggleOff') }}</text>
+          </view>
+        </view>
+      </template>
+
       <!-- richText：富文本 -->
       <view v-else-if="sec.type === 'richText'" class="field">
         <text class="lbl">{{ $t('decorateHome.richText') }}</text>
@@ -104,6 +178,8 @@
       <button class="mini" @tap="addNotice">{{ $t('decorateHome.addNotice') }}</button>
       <button class="mini" @tap="addNav">{{ $t('decorateHome.addNav') }}</button>
       <button class="mini" @tap="addGoods">{{ $t('decorateHome.addGoods') }}</button>
+      <button class="mini" @tap="addHot">{{ $t('decorateHome.addHot') }}</button>
+      <button class="mini" @tap="addRecommend">{{ $t('decorateHome.addRecommend') }}</button>
       <button class="mini" @tap="addRichText">{{ $t('decorateHome.addRichText') }}</button>
     </view>
 
@@ -128,6 +204,12 @@ interface SectionVM {
   shape?: string;
   layout?: string;
   html?: string;
+  // hot / recommend 专属
+  source?: string;
+  limit?: number;
+  dedupe?: boolean;
+  // recommend source=slugs 的编辑态原文（落库时拆成 slugs: string[]）
+  slugsText?: string;
 }
 
 const locale = useLocaleStore();
@@ -141,7 +223,7 @@ onMounted(async () => {
     channelId.value = ch.id;
     const raw = (ch.customFields as any)?.shopContent;
     const parsed = parseShopContent(raw);
-    sections.value = parsed ? parsed.sections as unknown as SectionVM[] : [];
+    sections.value = parsed ? (parsed.sections as unknown as SectionVM[]).map(toViewModel) : [];
   } catch {
     // 读取失败置空，用户仍可通过保存重新写入
     sections.value = [];
@@ -154,6 +236,8 @@ function typeLabel(t: string): string {
     case 'notice': return locale.t('decorateHome.typeNotice');
     case 'nav': return locale.t('decorateHome.typeNav');
     case 'goods': return locale.t('decorateHome.typeGoods');
+    case 'hot': return locale.t('decorateHome.typeHot');
+    case 'recommend': return locale.t('decorateHome.typeRecommend');
     case 'richText': return locale.t('decorateHome.typeRichText');
     default: return t;
   }
@@ -164,7 +248,45 @@ function addBanner() { sections.value.push({ type: 'banner', images: [{ image: '
 function addNotice() { sections.value.push({ type: 'notice', text: '' }); }
 function addNav() { sections.value.push({ type: 'nav', items: [{ label: '' }], shape: 'square', layout: 'grid5x2' }); }
 function addGoods() { sections.value.push({ type: 'goods', collectionId: '', layout: 'compact' }); }
+function addHot() { sections.value.push({ type: 'hot', source: 'auto', limit: 10, layout: 'compact' }); }
+function addRecommend() { sections.value.push({ type: 'recommend', source: 'auto', limit: 10, layout: 'compact', dedupe: true }); }
 function addRichText() { sections.value.push({ type: 'richText', html: '' }); }
+
+// 落库 JSON → 编辑态（slugs 数组转为多行文本，便于 textarea 编辑）
+function toViewModel(sec: any): SectionVM {
+  const vm = { ...sec } as SectionVM;
+  if (sec?.type === 'recommend' && Array.isArray(sec.slugs)) vm.slugsText = sec.slugs.join('\n');
+  return vm;
+}
+
+// 编辑态 → 落库 JSON：空字符串字段不写入，缺失项由前台按默认值兜底
+function toSection(vm: SectionVM): any {
+  if (vm.type !== 'hot' && vm.type !== 'recommend') return vm;
+  const sec: any = { type: vm.type };
+  const title = (vm.title ?? '').trim();
+  if (title) sec.title = title;
+  const source = vm.source || 'auto';
+  sec.source = source;
+  if (source === 'collection') {
+    const cid = (vm.collectionId ?? '').trim();
+    if (cid) sec.collectionId = cid;
+  }
+  if (vm.type === 'recommend' && source === 'slugs') {
+    const slugs = parseSlugs(vm.slugsText ?? '');
+    if (slugs.length) sec.slugs = slugs;
+  }
+  if (typeof vm.limit === 'number' && Number.isFinite(vm.limit)) {
+    sec.limit = Math.min(30, Math.max(1, Math.round(vm.limit)));
+  }
+  sec.layout = vm.layout || 'compact';
+  if (vm.type === 'recommend') sec.dedupe = vm.dedupe !== false;
+  return sec;
+}
+
+// 多行 / 逗号分隔 → string[]，trim + 过滤空项
+function parseSlugs(text: string): string[] {
+  return text.split(/[\n,]/).map((s) => s.trim()).filter((s) => s.length > 0);
+}
 
 function addBannerItem(sec: SectionVM) { sec.images?.push({ image: '' }); }
 function removeBannerItem(sec: SectionVM, i: number) { sec.images?.splice(i, 1); }
@@ -199,11 +321,11 @@ async function save() {
   }
 }
 
-// 组装顶层 JSON 并经 schema 校验；非法返回 null
+// 组装顶层 JSON并经 schema 校验；非法返回 null
 function buildContent(): ShopContent | null {
   const content: ShopContent = {
     version: 1,
-    sections: sections.value as unknown as ShopSection[],
+    sections: sections.value.map(toSection) as unknown as ShopSection[],
   };
   return isValidShopContent(content) ? content : null;
 }
