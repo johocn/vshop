@@ -57,7 +57,7 @@
         <view class="chips">
           <text class="chip" :class="{ on: jsonOpen }" @tap="jsonOpen = !jsonOpen">{{ $t('platformGlobalConfig.advancedJson') }}</text>
         </view>
-        <textarea v-if="jsonOpen" class="ta tall" v-model="defaultsJson" @blur="syncFromJson" />
+        <textarea v-if="jsonOpen" class="ta tall" v-model="draftJson" @blur="syncFromJson" />
       </view>
       <view v-if="err" class="err">{{ err }}</view>
       <button class="btn" :disabled="saving" @tap="save">{{ saving ? $t('platformGlobalConfig.saving') : $t('platformGlobalConfig.save') }}</button>
@@ -108,18 +108,40 @@ const app = ref<'nshop' | 'vshop'>('nshop');
 const tokens = ref<Record<string, string>>({ primaryColor: '#ff6600', accentColor: '#fff3e6', radius: '8' });
 const defs = ref<Record<string, any>>({});
 const jsonOpen = ref(false);
-const defaultsJson = ref('{}');
+const draftJson = ref('{}');
 const err = ref('');
 const saving = ref(false);
 const fieldErrors = ref<Record<string, string>>({});
+
+/**
+ * 设计口径：themeTokens 与 defaults 合成同一份编辑态（draft），结构化表单与 JSON 框
+ * 是这份编辑态的两个视图 —— 改任一边立即同步另一边。JSON 框在高级模式下是完整编辑态，
+ * themeTokens / defaults 缺哪个就以空对象覆盖哪个。
+ */
+
+/** themeTokens 的可编辑键：JSON 并入时只认这三项，其余键不参与表单往返 */
+const TOKEN_KEYS = ['primaryColor', 'accentColor', 'radius'] as const;
 
 /** 结构化字段的合并根：themeTokens + defaults 一条记录，路径前缀已含二者 */
 const draft = computed<Record<string, any>>(() => ({ themeTokens: tokens.value, defaults: defs.value }));
 
 const readField = (f: ConfigField) => getByPath(draft.value, f.path);
 
+/** 编辑态的完整 JSON 形态：JSON 高级编辑框与结构化表单共用同一份编辑态 */
 function syncToJson() {
-  defaultsJson.value = JSON.stringify(defs.value, null, 2);
+  draftJson.value = JSON.stringify({ themeTokens: tokens.value, defaults: defs.value }, null, 2);
+}
+
+/** 把 JSON 里的 themeTokens 并入令牌：只覆盖 TOKEN_KEYS 中出现的键，值统一成字符串（与输入框态一致），缺键沿用当前编辑态 */
+function mergeTokensFromJson(raw: unknown) {
+  const t = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {};
+  const next: Record<string, string> = { ...tokens.value };
+  for (const k of TOKEN_KEYS) {
+    if (t[k] !== undefined) next[k] = String(t[k]);
+  }
+  tokens.value = next;
 }
 
 function writeField(f: ConfigField, v: unknown) {
@@ -127,8 +149,8 @@ function writeField(f: ConfigField, v: unknown) {
     tokens.value = setByPath({ themeTokens: tokens.value }, f.path, v).themeTokens;
   } else {
     defs.value = setByPath({ defaults: defs.value }, f.path, v).defaults;
-    syncToJson();
   }
+  syncToJson();
   checkField(f);
 }
 
@@ -142,16 +164,24 @@ function checkField(f: ConfigField): boolean {
   return !code;
 }
 
-/** 逃生口：JSON 手改后合并回表单（以表单为准，冲突时表单值胜出） */
+/** 逃生口：JSON 手改在失焦时并入编辑态（坏 JSON / 非对象保持表单值不变，保存时由 save() 统一报错） */
 function syncFromJson() {
-  const text = defaultsJson.value.trim();
+  const text = draftJson.value.trim();
   if (!text) return;
+  let v: unknown;
   try {
-    const v = JSON.parse(text);
-    if (v && typeof v === 'object' && !Array.isArray(v)) defs.value = v;
+    v = JSON.parse(text);
   } catch {
-    /* 坏 JSON 保持表单值不变，保存时由 save() 统一报错 */
+    return;
   }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+  const root = v as Record<string, unknown>;
+  mergeTokensFromJson(root.themeTokens);
+  if (root.defaults && typeof root.defaults === 'object' && !Array.isArray(root.defaults)) {
+    defs.value = root.defaults as Record<string, any>;
+  }
+  syncToJson();
+  fieldErrors.value = {};
 }
 
 function switchApp(a: 'nshop' | 'vshop') {
@@ -171,7 +201,7 @@ async function load() {
       };
     }
     defs.value = cfg?.defaults && typeof cfg.defaults === 'object' ? cfg.defaults : {};
-    defaultsJson.value = JSON.stringify(defs.value, null, 2);
+    syncToJson();
     fieldErrors.value = {};
   } catch (e: any) {
     uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.loadFailed')), icon: 'none' });
@@ -180,7 +210,30 @@ async function load() {
 
 async function save() {
   err.value = '';
-  // 1) 结构化字段逐项校验：只标红出错项，保留其余编辑态
+  // 1) 高级 JSON 模式：先并入编辑态（themeTokens + defaults），再做结构化校验
+  if (jsonOpen.value) {
+    const text = draftJson.value.trim();
+    if (text) {
+      let v: unknown;
+      try {
+        v = JSON.parse(text);
+      } catch {
+        err.value = locale.t('platformGlobalConfig.invalidJson');
+        return;
+      }
+      if (!v || typeof v !== 'object' || Array.isArray(v)) {
+        err.value = locale.t('platformGlobalConfig.invalidJson');
+        return;
+      }
+      const root = v as Record<string, unknown>;
+      mergeTokensFromJson(root.themeTokens);
+      defs.value = root.defaults && typeof root.defaults === 'object' && !Array.isArray(root.defaults)
+        ? (root.defaults as Record<string, any>)
+        : {};
+      syncToJson();
+    }
+  }
+  // 2) 结构化字段逐项校验：只标红出错项，保留其余编辑态
   const failed = FIELDS.filter((f) => validateField(f, readField(f)) !== null);
   fieldErrors.value = failed.reduce<Record<string, string>>((acc, f) => {
     acc[f.path] = validateField(f, readField(f))!;
@@ -192,20 +245,6 @@ async function save() {
       icon: 'none',
     });
     return;
-  }
-  // 2) JSON 高级模式下额外校验 JSON 文本本身，并把解析结果并入编辑态
-  if (jsonOpen.value) {
-    const text = defaultsJson.value.trim();
-    if (text) {
-      try {
-        const v = JSON.parse(text);
-        if (v === null || typeof v !== 'object' || Array.isArray(v)) throw new Error('bad');
-        defs.value = v;
-      } catch {
-        err.value = locale.t('platformGlobalConfig.invalidDefaults');
-        return;
-      }
-    }
   }
   saving.value = true;
   try {
