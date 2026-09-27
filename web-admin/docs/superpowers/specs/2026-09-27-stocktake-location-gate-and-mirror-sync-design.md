@@ -82,7 +82,7 @@
 | 项 | 现状 | 判据 |
 |---|---|---|
 | 库存明细页「调整」/ 快捷盘点（`pages/inventory/stock-doc/stocktake/index.vue`） | ~~仍可指向虚拟仓，后端**无对应 gate**~~ → **已由 D52 收口（见 §4.1）** | 该页是 D42 复用 `stock_doc(type:'STOCKTAKE')` 的入口，与「协同盘库任务」不是同一条链路；同类二义面未收口，待裁决 |
-| 盘点进度分母含已取消盘次的行 | `countedTotal` 过滤 `isExtra` 但**不排已取消盘次**的行 | 统计口径问题，与本次「仓库性质校验」无关 |
+| 盘点进度分母含已取消盘次的行 | ~~`countedTotal` 过滤 `isExtra` 但**不排已取消盘次**的行~~ → **已由 D53 收口（见 §4.2）** | 统计口径问题，与本次「仓库性质校验」无关；D53 按「任务级进度口径」单独立项修正 |
 | 盈亏时点 | 是**过账时点**的量（`recheck` 已提示账面变动） | 规格 §6.2 已定稿（过账时重算），非缺陷 |
 | TRANSFER 两段写入 | 会产生 1 次中间态镜像流水（同事务、最终值正确） | 可优化为事务内合并，本轮不做 |
 
@@ -112,6 +112,55 @@
 **零真实库存写入的关键设计**：拒绝态用**虚拟仓**（写入前即被 gate 抛出）；放行态探针用**不存在的 variantId**（过 gate 后在写入阶段因 `stock_level."productVariantId"` 外键失败、整单回滚）→ 实测 `insert or update on table "stock_level" violates foreign key constraint "FK_9950eae3180f39c71978748bd08"`，单据 / 流水 `totalItems` 前后不变（t2 单据 12 / 流水 12），残留 **0**。
 
 **关联**：修复手册 20.19 节；计划偏差表 **D52** 行；本节新增的守卫与 D51 为**同一份实现**（非复制），故 D51 的 §2 口径表继续适用，无需改动。
+
+### 4.2 D53 补记（ⓑ 项已收口 · 2026-09-27）
+
+**口径修正，不动 D51/D52 的守卫。** 「取消盘次」的语义是**放弃这一批盘点**，前端与服务端早已两处按此办理：`resolveTaskStateAfterWaves` 让 `CANCELLED` 不阻塞任务进 `COUNTED`；`post()` 的 `pending` 用 `waves.filter(w => w.state !== 'SUBMITTED' && w.state !== 'CANCELLED')` 把它从「未提交盘次」里剔除。**但任务级进度没跟上**——`buildTaskView` 仍按**全量**行/盘次统计，于是：
+
+| 症状 | 根因 |
+|---|---|
+| 任务已 `COUNTED`，看板卡片却永远停在「已盘 3/10」「盘次 1/2 已提交」 | `expectedTotal` / `waveCount` 的分母里含**永远盘不到**的已取消盘次行 |
+| 前端 `pct(expected, counted)` 与卡片文本自相矛盾 | 同一个卡片上「进度条」与「已盘 X/Y」用了不同口径的来源 |
+
+**改动**（后端 `vendure/packages/cjk-plugin`，commit `bce9d98a6`）：
+
+| 文件 | 改动 |
+|---|---|
+| `src/stocktake/stocktake-math.ts` | 新增纯函数 `progressWaves(waves, taskState)`：任务自身 `CANCELLED` → **原样返回全部**；无取消盘次 → **原样返回**（早退，不改变既有任务的口径、也不多一次分配）；否则 `filter(w => w.state !== 'CANCELLED')` |
+| `src/stocktake/stocktake.service.ts` | `buildTaskView` 只取一次全量 `waves`/`lines` 后，用 `progressWaves` 得 `liveWaves`，再以 `liveWaveIds` 过滤 `lines` → `expectedTotal` / `countedTotal` / `waveCount` / `submittedWaveCount` **四项全部**改按 `liveWaves` 口径 |
+| `src/stocktake/stocktake-math.spec.ts` | 新增 5 例：进行中任务剔除已取消盘次且保序 / 无取消盘次走早退（`toBe` 同一引用）/ 全部取消 → 空数组 / 任务自身取消 → 保留全量 / `POSTED` 同样只算未取消 |
+
+**为什么四项要一起改**：只改 `expectedTotal` 会造出新的自相矛盾——「进度 100% 但卡片写 0/1 盘次已提交」「任务已 `COUNTED` 却提示还有盘次未提交」。
+
+**为什么任务自身 `CANCELLED` 时保留全量**：整个任务已作废，卡片上这个数是「当初盘到哪」的历史信息。若一并归零成 `0/0`，前端 `stocktake-grid.ts#pct()` 在 `expected === 0` 时返回 **100**，作废任务会被显示成「已盘满」——反而失真。
+（生产实测印证：取消唯一盘次后 `TK20260927-002` 显示「已盘 0/0 + 0/0 盘次已提交」（状态 `待过账`）；再取消整个任务后回到「已盘 0/9」。）
+
+**刻意不改的两处**：`statsOf`（作业量统计，按库位/盘点人看「干了多少活」，不是进度）与 `diffOf` / `post`（过账口径，已取消盘次的行按**未盘**处理、过账前须显式确认，与 `post()` 的 `pending` 自洽）。
+
+**验证证据**：
+
+| 项 | 结果 |
+|---|---|
+| 后端单测 | `npx vitest --config vitest.config.mts --run` → **37 files / 270 tests 全绿**（265 → **+5**） |
+| 后端类型检查 / 构建 | `tsc -p tsconfig.build.json --noEmit` → **exit 0**；`npm run build` 成功，`lib/` 5 个产物随提交 |
+| 后端部署 | commit `bce9d98a6` → push（`889b99786..bce9d98a6`）→ 服务器 `git pull --ff-only` + `pm2 restart vendure`（status `online` / unstable restarts `0`） |
+| API + UI 双态回归 | `_e2e/_verify_d53_stocktake_progress_denominator.py` → **7 项通过 / 0 项失败**（详见下表） |
+| 手机视口取证 | 3 张 **780×1688**（390×844 dpr2）：`docs/verify/d53_progress_denominator_{before_wave_cancel,after_wave_cancel,after_task_cancel}_390.png`，全程 **0 pageerror** |
+| 生产残留 | 探针任务建后即 `cancelStocktakeTask`（终态 `CANCELLED`），**零库存写入、全程未调 `postStocktake`** |
+
+**e2e 实测明细**（渠道 `t2`，纯虚拟库存店）：
+
+| 步骤 | 断言 | 实测 |
+|---|---|---|
+| ① 前提 | `t2` `physicalStockEnabled=false`（读 overview） | `False`，locations=2 |
+| ② 基线 | 建任务并记基线 | `TK20260927-002` `state=OPEN` `expectedTotal=9` `countedTotal=0` `waveCount=1` |
+| ③ 取消盘次 | `expectedTotal` 恰减被取消盘次的 `expectedCount`；`waveCount` 恰 -1 | 取消盘次 #40（`whole`，`expectedCount=9`）→ `expectedTotal` **9 → 0**、`waveCount` **1 → 0**、任务转 `COUNTED` |
+| ④ UI 同值 | 看板卡片含 `countedTotal/expectedTotal` | 卡片「**已盘 0/0**」+「0/0 盘次已提交」（截图 `after_wave_cancel`） |
+| ⑤ 取消任务 | `state=CANCELLED` 且 `expectedTotal` **回到全量** | `CANCELLED` / `expectedTotal=9` / `waveCount=1`；卡片「**已盘 0/9**」（截图 `after_task_cancel`） |
+
+**证据边界（如实登记）**：生产**全部 26 个渠道** `binMode = off`（已实测），`binMode=off` 时 `buildExpected` 只产出**单个 `whole` 盘次**，故生产探针只能取到「唯一盘次被取消」这一形态（分母 9 → 0 + 任务取消后回到 9）；**「多盘次、取消其一、任务仍在进行中」的混合态**由 `stocktake-math.spec.ts` 的 5 例单测覆盖（含保序与早退）。生产要取到多盘次形态，需先把某渠道 `customFields.binMode` 改为 `zone`/`bin`——属渠道配置变更，不在本项范围。
+
+**关联**：修复手册 20.20 节；计划偏差表 **D53** 行；协同盘库实施计划偏差区「后续偏差去向」交叉表 **D53** 行。
 
 ---
 
@@ -155,5 +204,5 @@
 
 - [多人协同盘库设计稿（2026-09-23）](2026-09-23-stocktake-collab-design.md)：§3.3 一任务一仓 / §6.3 过账（本次为其补「仓库性质」前置校验）
 - [多人协同盘库实施计划（2026-09-23）](../plans/2026-09-23-stocktake-collab-plan.md)：偏差说明区
-- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节（D51）/ **第 20.19 节（D52 收口 ⓐ 项）**
-- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`、**`web-admin/_e2e/_verify_d52_stock_doc_stocktake_location_gate.py`**
+- 修复手册：`docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 20.18 节（D51）/ 第 20.19 节（D52 收口 ⓐ 项）/ **第 20.20 节（D53 收口 ⓑ 项）**
+- 验收脚本：`web-admin/_e2e/_verify_d51_stocktake_location_gate.py`、`web-admin/_e2e/_verify_d52_stock_doc_stocktake_location_gate.py`、**`web-admin/_e2e/_verify_d53_stocktake_progress_denominator.py`**

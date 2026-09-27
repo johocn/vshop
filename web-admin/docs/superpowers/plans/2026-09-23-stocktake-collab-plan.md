@@ -7375,7 +7375,7 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 58 | op-38 的渲染级验证手段（计划 Task 16 只给「手机截图 + 手册」，验证脚本为一次性脚本） | 一次性脚本 `_e2e/_verify_manual_op38.py`（`local\|live` 两模式），与 `_verify_manual_op20.py` 同构；不在 `package.json` 里 | **并入统一渲染门禁** `_e2e/_verify_manual_render.py`（旧脚本**删除**，避免两份真相），一条 `npm run verify:manual:render` 同时覆盖 op-38 + op-39：`openChapter('op-38')` 渲染成功 + **精确**图数 `= 11` + `h3 = 9` + FAQ `<details> = 6` + 每图 `complete && naturalWidth>0` + 每图 **780×1688** + L2 线上每张 PNG **响应码 200** + 线上 `shots/` 与本地**逐张字节一致** + 0 `pageerror`/`console.error`；失败打印汇总行并 `exit 1`；取证图统一落 `docs/webadmin-bugfix-manual/assets/manual-render-online-op38.png`（**非**发布目录 `shots/`） | 用户 2026-09-25 裁决（并入统一门禁 / 精确图数 + 结构计数 / 修复手册 O 小节 + 本表 / 做负向验证）。原脚本四处「假通过」缺口：①**退出码恒 0**（断言失败也返回 0，CI 不可用）；②图数用 `>= 11` 放宽；③无响应码 / 像素尺寸 / 双落点字节断言；④取证图写进**发布目录** `shots/`（16.9.7 已记「现 404」，复跑会再污染线上静态目录）。**负向验证实测**：把 `shots/t14_diff_summary.png` 改成不存在的 `shots/t14_diff_summary_X.png` + 删 1 条 FAQ → `FAIL（失败 7）` / exit **1**（FAQ 5≠6、真解码 FAIL、尺寸 0x0、`ERR_FILE_NOT_FOUND`、响应码 n=10、旁路「本地缺失」；**图数仍 11** 说明破图必须靠真解码捕获）；复原后复跑 `PASS（失败 0）`。**如实登记不判 FAIL**：双落点核对为 INFO——11 张均存在且 780×1688，其中 3 张 `assets/` 同名副本字节一致、7 张无副本、1 张 `t40_task_waves_on_390.png` `assets 100659 ≠ shots 100385`（110 px / bbox `rows 1569–1574, cols 725–755`，右下状态栏时钟区，重渲染噪声），无承诺被破坏故不放宽容差也不写 FAIL。另：线上手册空闲时会预加载**全册**图片（实测 166 个 `shots/` 响应），op-38 响应码断言按「本章 11 个文件名」过滤而非按命中数，强度不变 |
 
 **后续偏差去向（2026-09-26 起）**：本表停在 **#58**（2026-09-25 · op-38 渲染门禁）。此后本域（协同盘库 / 库存单据 / 租户与邀请码）的偏差统一改用 **D 编号**，集中登记在
-[`2026-09-25-web-admin-gap4-plan.md`](./2026-09-25-web-admin-gap4-plan.md) 的偏差说明区（表头 `| # | 批次 | 偏差 | 原因 | 处置 |`，现 **D1–D52**）——**同一批偏差只在一处维护**，本表不再逐条续写、只留去向。与本计划（协同盘库）直接相关的：
+[`2026-09-25-web-admin-gap4-plan.md`](./2026-09-25-web-admin-gap4-plan.md) 的偏差说明区（表头 `| # | 批次 | 偏差 | 原因 | 处置 |`，现 **D1–D53**）——**同一批偏差只在一处维护**，本表不再逐条续写、只留去向。与本计划（协同盘库）直接相关的：
 
 | D 编号 | 主题 | 手册节 |
 |---|---|---|
@@ -7387,6 +7387,7 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | **D50** | **G5**：邀请码职责边界落档（删误导性 TODO，校验/发奖权威在 Strapi/zhao-sso） | 20.17 |
 | D51 | 盘点仓「库存模式」校验 + 物理仓写入补虚拟镜像 | 20.18 |
 | D52 | 库存单据 `STOCKTAKE` 补盘库仓性质守卫（守卫单点化，与协同盘库任务共用同一份口径） | 20.19 |
+| **D53** | **任务级进度分母排除已取消盘次**（`expectedTotal` / `countedTotal` / `waveCount` / `submittedWaveCount` 四项同口径，收口 D51 §4 ⓑ 项） | 20.20 |
 
 设计稿：`docs/superpowers/specs/2026-09-27-stocktake-location-gate-and-mirror-sync-design.md`（D51 / D52）、`docs/superpowers/specs/2026-09-27-vendure-webadmin-remaining-gaps-design.md`（G1–G5 / D47–D50）。
 
