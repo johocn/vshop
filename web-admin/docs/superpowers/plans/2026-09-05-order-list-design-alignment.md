@@ -16,7 +16,7 @@
 
 - Modify: `d:\zhao\vshop\web-admin\src\utils\orderFormat.ts`
 
-- [ ] **Step 1: 扩展** **`OrderGood`** **增加** **`image`**
+- [x] **Step 1: 扩展** **`OrderGood`** **增加** **`image`**
 
   在 `orderFormat.ts` 的 `interface OrderGood`(`name/qty/price`)中新增可选字段，改为：
 
@@ -29,7 +29,7 @@ export interface OrderGood {
 }
 ```
 
-- [ ] **Step 2: 新增** **`imageFullUrl`** **与** **`isShippable`** **纯函数**
+- [x] **Step 2: 新增** **`imageFullUrl`** **与** **`isShippable`** **纯函数**
 
   在 `export function maskPhone(` **前** 插入两个导出函数（位置随意，保持模块级）：
 
@@ -49,7 +49,7 @@ export function isShippable(state: string): boolean {
 }
 ```
 
-- [ ] **Step 3:** **`channelToView`** **补缩略图**
+- [x] **Step 3:** **`channelToView`** **补缩略图**
 
   将 `channelToView` 的 `goods` 映射体替换为带 `image` 的版本（其余字段不动）：
 
@@ -64,7 +64,7 @@ export function isShippable(state: string): boolean {
 
 `shopToView` 的 `goods` **保持原样**（`myShopOrders` 无图字段）。两处 `goods` 映射都要保留。
 
-- [ ] **Step 4: 构建设置检查（类型编译）**
+- [x] **Step 4: 构建设置检查（类型编译）**
 
   运行：
 
@@ -74,7 +74,7 @@ export function isShippable(state: string): boolean {
 
   期望：不报 `orderFormat.ts` 相关类型错误（`featuredAsset` 尚不在 `OrderRow` 类型里会报错——这是**预期**，Task 2 补类型）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -90,7 +90,7 @@ git commit -m "feat(orderFormat): 缩略图字段+imageFullUrl+发货态 isShipp
 
 - Modify: `d:\zhao\vshop\web-admin\src\apis\order.ts`
 
-- [ ] **Step 1: 扩展** **`OrderRow.lines`** **类型补** **`featuredAsset`**
+- [x] **Step 1: 扩展** **`OrderRow.lines`** **类型补** **`featuredAsset`**
 
   将 `order.ts:29` 的 `lines` 行替换为：
 
@@ -98,7 +98,7 @@ git commit -m "feat(orderFormat): 缩略图字段+imageFullUrl+发货态 isShipp
   lines?: Array<{ quantity: number; productVariant?: { name: string; featuredAsset?: { source?: string | null } | null } | null; linePriceWithTax?: number }>;
 ```
 
-- [ ] **Step 2:** **`ORDER_FIELDS`** **补** **`featuredAsset { source }`**
+- [x] **Step 2:** **`ORDER_FIELDS`** **补** **`featuredAsset { source }`**
 
   将 `order.ts:38` 的 lines 段替换为：
 
@@ -108,12 +108,12 @@ git commit -m "feat(orderFormat): 缩略图字段+imageFullUrl+发货态 isShipp
 
 注意：不修改 `fetchShopOrders` 的 `myShopOrders` 查询体（商品单接口没有该字段）。
 
-- [ ] **Step 3: 类型编译通过**
+- [x] **Step 3: 类型编译通过**
 
   运行：`cd d:\zhao\vshop\web-admin && npx vue-tsc --noEmit`
   期望：通过（`featuredAsset` 已补类型）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -129,7 +129,7 @@ git commit -m "feat(order): lines 查询补 featuredAsset 缩略图字段"
 
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue`
 
-- [ ] **Step 1: 模板——将** **`topbar`** **与** **`stats`** **合并进** **`.headbar`**
+- [x] **Step 1: 模板——将** **`topbar`** **与** **`stats`** **合并进** **`.headbar`**
 
   把 `index.vue` 第 3–21 行（整个 `.topbar` 与 `.stats` 两个块）整体替换为：
 
@@ -154,7 +154,7 @@ git commit -m "feat(order): lines 查询补 featuredAsset 缩略图字段"
     </view>
 ```
 
-- [ ] **Step 2: 样式——删除旧** **`.topbar`，新增** **`.headbar`**
+- [x] **Step 2: 样式——删除旧** **`.topbar`，新增** **`.headbar`**
 
   将 `<style>` 中 `.topbar { ... }`（第 259–272 行）整段替换为：
 
@@ -175,7 +175,7 @@ git commit -m "feat(order): lines 查询补 featuredAsset 缩略图字段"
   }
 ```
 
-- [ ] **Step 3: 样式——`stats`** **改为可换行的全宽块（手机第 2 行）**
+- [x] **Step 3: 样式——`stats`** **改为可换行的全宽块（手机第 2 行）**
 
   将现有 `.stats { ... }`（第 274–289 行）属性**补充**两行（其余不变），改为：
 
@@ -194,7 +194,7 @@ git commit -m "feat(order): lines 查询补 featuredAsset 缩略图字段"
   }
 ```
 
-- [ ] **Step 4: 样式——桌面(≥768) headbar 单行内联**
+- [x] **Step 4: 样式——桌面(≥768) headbar 单行内联**
 
   在文件末尾 `@media (min-width: 768px) { ... }` 块内追加 4 条规则（保留已有 `.page`/`.card-list`/`.dt` 三行）：
 
@@ -205,7 +205,7 @@ git commit -m "feat(order): lines 查询补 featuredAsset 缩略图字段"
   .page .headbar .redeem-btn { order: 2; }
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -221,7 +221,7 @@ git commit -m "feat(order-list): headbar 统一订单→统计→核销码，桌
 
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue`
 
-- [ ] **Step 1: 模板——卡片商品行加缩略图**
+- [x] **Step 1: 模板——卡片商品行加缩略图**
 
   将第 42–45 行的卡片 `goods` 循环块替换为（新增 `image` 分支 + 占位块）：
 
@@ -234,7 +234,7 @@ git commit -m "feat(order-list): headbar 统一订单→统计→核销码，桌
         </view>
 ```
 
-- [ ] **Step 2: 模板——收货人行(第 41 行) 追加配送方式**
+- [x] **Step 2: 模板——收货人行(第 41 行) 追加配送方式**
 
   将第 41 行替换为：
 
@@ -242,7 +242,7 @@ git commit -m "feat(order-list): headbar 统一订单→统计→核销码，桌
         <view class="sub">{{ o.customerName }}{{ o.phoneMask }}{{ o.delivery ? ' · ' + o.delivery : '' }}</view>
 ```
 
-- [ ] **Step 3: 模板——foot 行去掉重复配送**
+- [x] **Step 3: 模板——foot 行去掉重复配送**
 
   将第 47 行替换为：
 
@@ -250,7 +250,7 @@ git commit -m "feat(order-list): headbar 统一订单→统计→核销码，桌
           <text class="time">{{ o.payment ? o.payment + ' · ' : '' }}{{ fmtTime(o.time) }}</text>
 ```
 
-- [ ] **Step 4: 样式——新增** **`.g-thumb`**
+- [x] **Step 4: 样式——新增** **`.g-thumb`**
 
   在 `.goods` 样式块内、`.g-name` 规则之前追加：
 
@@ -258,7 +258,7 @@ git commit -m "feat(order-list): headbar 统一订单→统计→核销码，桌
         .g-thumb { width: 56rpx; height: 56rpx; border-radius: 8rpx; background: #f0f2f7; flex-shrink: 0; margin-right: 16rpx; }
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -274,7 +274,7 @@ git commit -m "feat(order-list): 卡片商品缩略图+收货人行配送位置"
 
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\list\index.vue`
 
-- [ ] **Step 1: 模板——手机卡片操作区加「发货」**
+- [x] **Step 1: 模板——手机卡片操作区加「发货」**
 
   将第 50–53 行卡片 `actions` 替换为（按钮顺序：发货→去核销→详情）：
 
@@ -286,7 +286,7 @@ git commit -m "feat(order-list): 卡片商品缩略图+收货人行配送位置"
         </view>
 ```
 
-- [ ] **Step 2: 模板——桌面表格操作区加「发货」**
+- [x] **Step 2: 模板——桌面表格操作区加「发货」**
 
   将第 80–82 行的 `c-ops` 内操作替换为同款：
 
@@ -296,7 +296,7 @@ git commit -m "feat(order-list): 卡片商品缩略图+收货人行配送位置"
           <text class="act ghost" @tap="goDetail(o)">详情</text>
 ```
 
-- [ ] **Step 3: 脚本——导入** **`isShippable`** **并新增** **`goShip`**
+- [x] **Step 3: 脚本——导入** **`isShippable`** **并新增** **`goShip`**
 
   在 `orderFormat` import 列表（第 100 行附近）追加 `isShippable`：
 
@@ -320,7 +320,7 @@ function goShip(o: OrderView) {
 }
 ```
 
-- [ ] **Step 4: 样式——新增** **`.ship`** **按钮色**
+- [x] **Step 4: 样式——新增** **`.ship`** **按钮色**
 
   手机卡片 `.actions` 内（`.redeem` 规则旁，约第 376 行）追加：
 
@@ -341,7 +341,7 @@ function goShip(o: OrderView) {
         .redeem { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -357,12 +357,12 @@ git commit -m "feat(order-list): 操作区状态化快捷按钮 发货/去核销
 
 - Create: `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`
 
-- [ ] **Step 1: 本地构建**
+- [x] **Step 1: 本地构建**
 
   运行：`cd d:\zhao\vshop\web-admin && npm run build:h5`
   期望：构建成功（出门重新生成 `dist/build/h5`，`assets/` 非空）。若 `vue-tsc` 夹在构建里且报 `errors`，回到对应 Task 修类型。
 
-- [ ] **Step 2: 写 E2E 脚本**（断言发货/去核销/详情按钮 + 缩略图）
+- [x] **Step 2: 写 E2E 脚本**（断言发货/去核销/详情按钮 + 缩略图）
 
   创建 `_e2e/verify_order_actions.py`：
 
@@ -398,7 +398,7 @@ run({'width':390,'height':844},'mobile')
 run({'width':1440,'height':900},'desk')
 ```
 
-- [ ] **Step 3: 本地起 dev server 冒烟（可选，若已部署可跳过）**
+- [x] **Step 3: 本地起 dev server 冒烟（可选，若已部署可跳过）**
 
   如需先看效果：`cd d:\zhao\vshop\web-admin && npm run dev:h5`，用浏览器打开本地地址验证。验收后停掉。若直接部署，跳到 Task 7。
 
@@ -410,17 +410,17 @@ run({'width':1440,'height':900},'desk')
 
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 
-- [ ] **Step 1: 部署到线上**
+- [x] **Step 1: 部署到线上**
 
   运行：`cd d:\zhao\vshop\web-admin && node scripts/deploy.mjs`
   期望日志末行 `deploy done`（本地构建→scp→服务器解压+备份轮转+reload nginx，遵循「本地构建、服务器只解压」铁律）。
 
-- [ ] **Step 2: 跑线上 E2E**
+- [x] **Step 2: 跑线上 E2E**
 
   运行：`python _e2e/verify_order_actions.py`
   期望两视口 `ALL_OK True`、`HAS_SHIP/HAS_REDEEM/HAS_DETAIL` 均 True、`HAS_THUMB_IMG True`（渠道单有图）、`PAGEERRORS (none)`。
 
-- [ ] **Step 3: 归档截图**
+- [x] **Step 3: 归档截图**
 
   把生成的 `order_actions_mobile_390.png`、`order_actions_desk_1440.png` 复制到：
 
@@ -428,7 +428,7 @@ run({'width':1440,'height':900},'desk')
 
   - `docs/webadmin-bugfix-manual/assets/order_actions_desk_1440.png`
 
-- [ ] **Step 4: 更新操作手册**——第 8 章「对齐设计方案」小节
+- [x] **Step 4: 更新操作手册**——第 8 章「对齐设计方案」小节
 
   在手册 `webadmin-bugfix-manual.html` 的订单本地化章节内追加一段（含两张新截图），内容：
 
@@ -445,7 +445,7 @@ run({'width':1440,'height':900},'desk')
 </div>
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd d:\zhao\vshop
@@ -463,4 +463,20 @@ git commit -m "test+docs(order-list): 快捷按钮E2E+手册对齐设计方案�
 2. **占位符扫描**：无 TBD/TODO；所有代码步骤含完整代码。✓
 3. **类型一致性**：`imageFullUrl`/`isShippable`/`OrderGood.image`/`featuredAsset` 在各 Task 前后签名一致；`goShip(o: OrderView)` 与模板 `goShip(o)` 一致；`isShippable(o.state)` 与 `isShippable(state:string)` 一致。✓
 4. **注意**：`git add` 路径需带 `web-admin/` 前缀（仓库根在 `d:\zhao\vshop`）；Task 7 Step 1 会触发线上部署。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表对齐设计方案已落地上线；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `7ad0354`（`imageFullUrl` / `isShippable` / `OrderGood.image`）、`34497d1`（对齐上线 + 手册 8.4 + 构建产物） |
+| 产物 | `src/utils/orderFormat.ts:10/27/36/124`、`src/apis/order.ts:37/46 featuredAsset`、`components/order-list/OrderListHeadBar.vue`、`_e2e/verify_order_actions.py` |
+| 手册 | `webadmin-bugfix-manual.html` 8.4（L356–365，含验收截图；结论并入 8.4.1 / 8.4.2） |
+
+**本次回填动作**：勾选本计划全部 32 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4、vshop git log 与产物文件。
+
+---
 

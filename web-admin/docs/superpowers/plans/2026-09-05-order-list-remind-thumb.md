@@ -31,7 +31,7 @@
 **Files:**
 - Modify: `src/apis/order.ts`（在 `fetchShopOrders`（约 75 行）之后追加）
 
-- [ ] **Step 1.1: 追加 `fetchProductThumbs` 函数**
+- [x] **Step 1.1: 追加 `fetchProductThumbs` 函数**
 
 在 `src/apis/order.ts` 的 `fetchShopOrders` 函数结束后（`return myShopOrders ?? []; }` 之后）追加：
 
@@ -64,12 +64,12 @@ export async function fetchProductThumbs(ids: string[]): Promise<Record<string, 
 }
 ```
 
-- [ ] **Step 1.2: 类型检查**
+- [x] **Step 1.2: 类型检查**
 
 Run: `cd d:\zhao\vshop\web-admin && npx tsc --noEmit`
 Expected: exit 0，无新增错误（不应有 `getAdminClient`/`Record` 未定义类报错）。
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 ```bash
 git add src/apis/order.ts
@@ -83,7 +83,7 @@ git commit -m "feat(order): 数据层 fetchProductThumbs 按 productId 批量取
 **Files:**
 - Modify: `src/utils/orderFormat.ts`
 
-- [ ] **Step 2.1: 新增催付判断与文案纯函数**
+- [x] **Step 2.1: 新增催付判断与文案纯函数**
 
 在 `src/utils/orderFormat.ts` 的 `isShippable` 函数之后追加：
 
@@ -106,7 +106,7 @@ export function buildReminderText(o: OrderView, opts?: { shopName?: string }): s
 }
 ```
 
-- [ ] **Step 2.2: `shopToView` 增 `thumbMap` 参数并填图**
+- [x] **Step 2.2: `shopToView` 增 `thumbMap` 参数并填图**
 
 将 `src/utils/orderFormat.ts` 的 `shopToView` 函数整体替换为：
 
@@ -132,12 +132,12 @@ export function shopToView(s: ShopOrderRow, thumbMap: Record<string, string> = {
 }
 ```
 
-- [ ] **Step 2.3: 类型检查**
+- [x] **Step 2.3: 类型检查**
 
 Run: `cd d:\zhao\vshop\web-admin && npx tsc --noEmit`
 Expected: exit 0。若 `imageFullUrl`/`fmtMoney` 在 `shopToView` 处未在作用域（不存在的可能性低，二者均为同文件顶层函数），确认 import/定义存在；当前文件已定义二者，应通过。
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 ```bash
 git add src/utils/orderFormat.ts
@@ -151,7 +151,7 @@ git commit -m "feat(orderFormat): 催付 isUnpaid+buildReminderText, shopToView 
 **Files:**
 - Modify: `src/pages/order/list/index.vue`
 
-- [ ] **Step 3.1: 车导入新增工具**
+- [x] **Step 3.1: 车导入新增工具**
 
 把 `src/pages/order/list/index.vue` 的 import 语句（`import { ... } from '../../../utils/orderFormat';`）扩展，加入 `isUnpaid` 与 `buildReminderText`：
 
@@ -165,7 +165,7 @@ import { channelToView, shopToView, isGhostView, isShippable, buildReminderText,
 import { fetchOrders, fetchShopOrders, fetchProductThumbs, ShopOrderRow, OrderRow } from '../../../apis/order';
 ```
 
-- [ ] **Step 3.2: 卡片与表格操作区加催付按钮**
+- [x] **Step 3.2: 卡片与表格操作区加催付按钮**
 
 在卡片操作区（当前模板约 51-55 行）发货/核销之后、详情之前插入催付：
 
@@ -189,7 +189,7 @@ import { fetchOrders, fetchShopOrders, fetchProductThumbs, ShopOrderRow, OrderRo
 </view>
 ```
 
-- [ ] **Step 3.3: 新增 `goRemind` handler**
+- [x] **Step 3.3: 新增 `goRemind` handler**
 
 在 `src/pages/order/list/index.vue` 的 `goRedeemPage` 函数之后、`onMounted` 之前插入：
 
@@ -204,7 +204,7 @@ function goRemind(o: OrderView) {
 }
 ```
 
-- [ ] **Step 3.4: `load()` 商品单分支接入查图**
+- [x] **Step 3.4: `load()` 商品单分支接入查图**
 
 把 `load()` 函数内 `scope.value === 'shop'` 分支的 `shopToView` 调用改为先查图映射：
 
@@ -241,7 +241,7 @@ let thumbMap: Record<string, string> = {};
 try { thumbMap = await fetchProductThumbs(ids); } catch { thumbMap = {}; }
 ```
 
-- [ ] **Step 3.5: 新增 `.remind` 样式**
+- [x] **Step 3.5: 新增 `.remind` 样式**
 
 在 `src/pages/order/list/index.vue` 样式 `@import` 区对应 `.actions .ghost` 的相邻位置，为卡片与表格 `.c-ops` 都加 `.remind`（卡片与桌面各一份，或用共用类）。在卡片 `.actions` 规则块内（`.ghost` 之后）追加：
 
@@ -251,12 +251,12 @@ try { thumbMap = await fetchProductThumbs(ids); } catch { thumbMap = {}; }
 
 并在桌面 `.c-ops` 规则块内（`.ghost` 之后，约 419 行）同样追加 `.remind { color: $wa-accent; background: transparent; border: 1rpx solid $wa-accent; }`。
 
-- [ ] **Step 3.6: 类型检查**
+- [x] **Step 3.6: 类型检查**
 
 Run: `cd d:\zhao\vshop\web-admin && npx tsc --noEmit`
 Expected: exit 0。若提示 `Record` 未引入/`thumbMap` 未定义，按报错补类型标注（本处 `thumbMap` 由 `fetchProductThumbs` 返回推断，无需额外 import；`Record` 为 TS 内置，无需 import）。
 
-- [ ] **Step 3.7: Commit**
+- [x] **Step 3.7: Commit**
 
 ```bash
 git add src/pages/order/list/index.vue
@@ -271,12 +271,12 @@ git commit -m "feat(order-list): 待付款催付按钮+复制文案, 商品单�
 - Modify: `_e2e/verify_order_actions.py`
 - Verify: `npm run build:h5` 产物
 
-- [ ] **Step 4.1: 本地构建**
+- [x] **Step 4.1: 本地构建**
 
 Run: `cd d:\zhao\vshop\web-admin && npm run build:h5`
 Expected: 成功生成 `dist/`，无编译错误。若 `@dcloudio` 报兼容问题，记录输出后再定。
 
-- [ ] **Step 4.2: 扩展 E2E 断言催付与缩略图**
+- [x] **Step 4.2: 扩展 E2E 断言催付与缩略图**
 
 打开 `_e2e/verify_order_actions.py`，在既有「切到本店商品单」后的断言区追加（保留原有 ship/detail/redeem/thumb 断言，新增）：
 
@@ -295,7 +295,7 @@ print('=== TAG', tag, '===  ALL_OK', ok_ship and ok_detail and ok_thumb and ok_r
 
 > 注：若线上「本店商品单」的待付款单为空，`remind_btns` 可能为 0——此时把阈值调整为「切到待付款 tab 断言」（`.tabs` 点“待付款”后数 `.act.remind`）。实现时以真实线上数据为准，断言脚本保持能真实通过。
 
-- [ ] **Step 4.3: Commit**
+- [x] **Step 4.3: Commit**
 
 ```bash
 git add _e2e/verify_order_actions.py
@@ -310,34 +310,34 @@ git commit -m "test(order-list): 新增催付按钮与商品单缩略图 E2E 断
 - Modify: `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html`
 - 执行: `scripts/deploy.mjs`（本地构建 → scp → 服务器解压/拷入，**绝不在服务器构建**）
 
-- [ ] **Step 5.1: 本地构建**
+- [x] **Step 5.1: 本地构建**
 
 Run: `cd d:\zhao\vshop\web-admin && npm run build:h5`
 Expected: 成功生成 `dist/`。
 
-- [ ] **Step 5.2: 部署（本地构建产物 → 服务器）**
+- [x] **Step 5.2: 部署（本地构建产物 → 服务器）**
 
 Run: `cd d:\zhao\vshop\web-admin && node scripts/deploy.mjs`
 按仓库部署铁律：本地构建，服务器仅解压/`pm2 restart`，`deploy.mjs` 走 scp 产物→服务器解压/拷入路径。确认输出无报错。
 
-- [ ] **Step 5.3: 线上 E2E 回归**
+- [x] **Step 5.3: 线上 E2E 回归**
 
 Run: `cd d:\zhao\vshop\web-admin && python _e2e/verify_order_actions.py`
 Expected: 两个 viewport（手机 390×844 / 桌面 1440×900）`ALL_OK True`，`REMIND_BTNS`/`PROD_THUMB_IMG` 均 > 0（或按 Step 4.2 的真实数据阈值通过）。
 该脚本同时输出 `order_actions_mobile_390.png`、`order_actions_desk_1440.png` 两张截图。
 
-- [ ] **Step 5.4: 用手机视口截图补抓催付+缩略图场景**
+- [x] **Step 5.4: 用手机视口截图补抓催付+缩略图场景**
 
 若默认截图未突出催付/缩略图，手动用同脚本或一次 Playwright 登录到「本店商品单」+点「待付款」tab 后截图，命名 `order_remind_thumb_mobile_390.png`。拷贝到 `docs/webadmin-bugfix-manual/assets/`。
 
-- [ ] **Step 5.5: 手册补充**
+- [x] **Step 5.5: 手册补充**
 
 在 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的 8.4 章节追加子小节「催付 + 商品单缩略图」，含：
 - 催促按钮：待付款(ArrangingPayment)订单操作区显示「催付」，点击复制含订单号+金额+顾客名文案并 toast 提示。
 - 商品单缩略图：前端按 `productId` 调 `products(filter:{id:{in}})` 批量取图；查图失败/无图→占位块。
 - 插入第 5.4 步截图，图注手机/桌面。
 
-- [ ] **Step 5.6: Commit**
+- [x] **Step 5.6: Commit**
 
 ```bash
 git add docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html docs/webadmin-bugfix-manual/assets/*
@@ -352,3 +352,17 @@ git commit -m "docs(webadmin): 手册补催付+商品单缩略图章节及截图
 - **类型一致性**：`fetchProductThumbs` 返回 `Record<string,string>`（相对路径），`shopToView` 第二参 `thumbMap: Record<string,string>` 且内部 `imageFullUrl(thumbMap[...])` 拼完整——两端一致；`buildReminderText` 接受 `OrderView`，页面 `o` 即 `OrderView`，一致。
 - **循环依赖**：`order.ts` 不 import `orderFormat`；`orderFormat` 仅 import `order.ts` 的类型 —— 无环。
 - **占位符扫描**：无 TBD/TODO；除 Step 4.2 的「以线上数据为准」说明外，均为可直接执行代码。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表催付文案 + 商品缩略图已落地并经线上验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `d3a3720`（Task 1 数据层）、`afd84ca`（Task 2 orderFormat）、`f8ad669`（Task 3 页面接线）、`bd94642`（Task 4 E2E）、`95f7199`（Task 5 手册）、`e1db359`（修线上查图变量 ID→String） |
+| 产物 | `orderFormat.ts:41 isUnpaid`、`:57 buildReminderText`、`:130 shopToView(thumbMap)`；`apis/order.ts fetchProductThumbs`；`pages/order/list/index.vue:405 goRemind`、`:70/:240` |
+| 手册 | `webadmin-bugfix-manual.html:367` 8.4.1 + 8.4.2 线上验收结论 ✅（双视口 `ALL_OK`；记录了「待付款单为空则 `REMIND=0`，属数据依赖」的偏差） |
+
+**本次回填动作**：勾选本计划全部 23 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4.1 / 8.4.2、vshop git log 与产物文件。

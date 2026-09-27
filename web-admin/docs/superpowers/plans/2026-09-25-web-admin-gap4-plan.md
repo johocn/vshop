@@ -50,7 +50,7 @@
 
 **契约（与规格 §4.1 一致）：** `items / total / loading / finished / error / loadMore() / refresh() / applyFilter(f) / resetFilter() / shown / hasMore`，外加 `filter`（只读）、`setSort()`、`syncFromQuery()`、`toQuery()`。
 
-- [ ] **Step 1: 创建文件（完整实现，直接落地）**
+- [x] **Step 1: 创建文件（完整实现，直接落地）**
 
 ```ts
 // 列表页公共层：分页 + 下拉刷新 + 上滑加载 + 筛选态 + 竞态防护。
@@ -202,12 +202,12 @@ export function useListPage<T>(options: ListPageOptions<T>) {
 }
 ```
 
-- [ ] **Step 2: 类型门禁**
+- [x] **Step 2: 类型门禁**
 
 Run: `npm run build:h5`（cwd `d:\zhao\vshop\web-admin`）
 Expected: 构建成功，无 TS 报错（新文件未被引用时也应通过）。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web-admin/src/composables/useListPage.ts
@@ -225,7 +225,7 @@ git commit -m "feat(web-admin): add useListPage list composable"
 
 > 既有校准注释提醒 `filter.id` / `filter.orderId` 变量类型须为 `String`。本任务改为**整个 options 作为单个变量传递**，filter 内的值退回 GraphQL 字面量（ID 标量接受字符串字面量），从根上绕开变量类型不匹配问题。
 
-- [ ] **Step 1: 追加分页查询与筛选构造**
+- [x] **Step 1: 追加分页查询与筛选构造**
 
 ```ts
 // ---- 分页 + 筛选（第 4 轮补齐，G5） ----
@@ -301,7 +301,7 @@ export async function fetchAfterSalePage(p: {
 }
 ```
 
-- [ ] **Step 2: 写一个即用即删的探针，确认 filter/sort 语法被接受**
+- [x] **Step 2: 写一个即用即删的探针，确认 filter/sort 语法被接受**
 
 创建 `d:\zhao\vshop\web-admin\scripts\_probe_aftersale_page.mjs`（**用完删除**）：
 
@@ -345,14 +345,14 @@ for (const options of [
 Run: `node scripts/_probe_aftersale_page.mjs`（cwd `d:\zhao\vshop\web-admin`）
 Expected: 6 组 options 全部无 `errors`，`total` 为数字。任一报错先修 `buildAfterSaleFilter` 的字段名/操作符，再继续。
 
-- [ ] **Step 3: 删除探针**
+- [x] **Step 3: 删除探针**
 
 ```bash
 git status --short
 ```
 确认 `scripts/_probe_aftersale_page.mjs` 未提交，然后删除该文件。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web-admin/src/apis/afterSale.ts
@@ -368,7 +368,7 @@ git commit -m "feat(web-admin): paged + filtered after-sale list query"
 - Modify: `d:\zhao\vshop\web-admin\src\pages.json`（`pages/after-sale/list/index` 补 `enablePullDownRefresh`）
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`
 
-- [ ] **Step 1: `pages.json` 开启下拉刷新**
+- [x] **Step 1: `pages.json` 开启下拉刷新**
 
 把 [pages.json](file:///d:/zhao/web-admin/src/pages.json#L28) 第 28 行改为：
 
@@ -376,7 +376,7 @@ git commit -m "feat(web-admin): paged + filtered after-sale list query"
 { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理", "enablePullDownRefresh": true } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（两个语言包同步）**
+- [x] **Step 2: 补 i18n 词条（两个语言包同步）**
 
 `zh-Hans.json` 的 `afterSale.list` 下新增：
 
@@ -418,7 +418,7 @@ git commit -m "feat(web-admin): paged + filtered after-sale list query"
 "retry": "Retry"
 ```
 
-- [ ] **Step 3: 页面接入（template 关键段 + 完整 script）**
+- [x] **Step 3: 页面接入（template 关键段 + 完整 script）**
 
 `<template>` 中在既有 `.tabs` 之后插入筛选区，列表尾部插入进度提示：
 
@@ -596,14 +596,14 @@ onShow(() => { if (page.items.value.length) void reload(); });
 .retry { display: block; margin-top: 16rpx; color: $wa-accent; }
 ```
 
-- [ ] **Step 4: 构建门禁 + 手机视口手测**
+- [x] **Step 4: 构建门禁 + 手机视口手测**
 
 Run: `npm run build:h5`（cwd `d:\zhao\vshop\web-admin`）
 Expected: 构建成功。
 
 再用 Playwright（390×844，dpr=2）打开 `pages/after-sale/list/index`，人工核对 5 条：① 有关键词/类型/日期/金额/排序入口；② 改筛选后列表变化；③ 上滑出现「上滑加载更多」并累计；④ 下拉刷新复位；⑤ 底部显示「已显示 N / M」。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web-admin/src/pages/after-sale/list/index.vue web-admin/src/pages.json web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -619,7 +619,7 @@ git commit -m "feat(web-admin): after-sale list paging + filters via useListPage
 
 **现状：** [collection.ts](file:///d:/zhao/web-admin/src/apis/collection.ts#L3-L13) 的 `CollectionItem` 只有 `{id,name}`；[buildCollectionTree](file:///d:/zhao/web-admin/src/apis/collection.ts#L33-L53) 只做**扁平缩进**，没有展开/收起。本任务把查询补全，并新增「嵌套树 + 折叠过滤」纯函数（保留 `buildCollectionTree` 不动，避免影响既有下拉）。
 
-- [ ] **Step 1: 扩展查询字段**
+- [x] **Step 1: 扩展查询字段**
 
 替换 `CollectionItem` 与 `fetchCollectionsOptimized`：
 
@@ -651,7 +651,7 @@ export async function fetchCollectionsOptimized(take = 200): Promise<CollectionI
 
 > 若 `customFields { icon }` 尚未在 Collection 上定义，GraphQL 会报未知字段——此时先执行 Task 1.6 Step 1 添加 `icon` 自定义字段，再回到本步。判据：探针报 `Cannot query field "icon" on type "Collection"`。
 
-- [ ] **Step 2: 新增嵌套树 + 折叠过滤纯函数**
+- [x] **Step 2: 新增嵌套树 + 折叠过滤纯函数**
 
 ```ts
 export interface CollectionTreeNode extends CollectionItem {
@@ -698,12 +698,12 @@ export function flattenCollectionTree(
 }
 ```
 
-- [ ] **Step 3: 类型门禁**
+- [x] **Step 3: 类型门禁**
 
 Run: `npm run build:h5`
 Expected: 通过（`fetchPlatformCollections` / `buildCollectionTree` 未改动，既有引用不受影响）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web-admin/src/apis/collection.ts
@@ -720,7 +720,7 @@ git commit -m "feat(web-admin): collection query fields + nested tree helpers"
 
 **后端依据：** `moveCollection(input: MoveCollectionInput!)`，`MoveCollectionInput = { collectionId, parentId, index }`，由 `moveToIndex(index, target, siblings)` 重排同父级 `position`（[collection.service.ts](file:///d:/zhao/vendure/packages/core/src/service/services/collection.service.ts#L620-L657)）。**排序与移动是同一个 mutation**：同父级换 `index` = 排序；换 `parentId` = 移动。
 
-- [ ] **Step 1: 新增 API**
+- [x] **Step 1: 新增 API**
 
 ```ts
 /** 排序 / 移动（Vendure 原生 moveCollection）。index 为同父级内的目标序号（0 起） */
@@ -732,7 +732,7 @@ export async function moveCollection(id: string, parentId: string | null, index:
 }
 ```
 
-- [ ] **Step 2: 页面改为树形渲染 + 上移/下移 + 改父级**
+- [x] **Step 2: 页面改为树形渲染 + 上移/下移 + 改父级**
 
 在 `categories/index.vue` 的 `<script setup>` 中改为消费嵌套树；template 用 `v-for` 渲染 `rows`（`flattenCollectionTree` 结果），按 `depth` 缩进：
 
@@ -812,7 +812,7 @@ async function reload() {
 }
 ```
 
-- [ ] **Step 3: 补 i18n 词条（双语）**
+- [x] **Step 3: 补 i18n 词条（双语）**
 
 `zh-Hans.json` 新增 `category` 命名空间：
 
@@ -826,14 +826,14 @@ async function reload() {
 "category": { "topLevel": "Top level", "moveFail": "Move failed", "reparent": "Move to…", "collapse": "Collapse" }
 ```
 
-- [ ] **Step 4: 探针验证排序/移动真的落库**
+- [x] **Step 4: 探针验证排序/移动真的落库**
 
 即用即删脚本 `scripts/_probe_collection_move.mjs`：取同父级两个分类 `A,B`，调 `moveCollection(B,...)` 把 B 移到 index 0，再 `fetchCollectionsOptimized` 回读，断言 B.position < A.position；再对 A 调 `parentId: B` 断言回读 `A.parentId === B.id`。
 
 Run: `node scripts/_probe_collection_move.mjs`
 Expected: 两次断言均打印 `PASS`。**失败即视为 0.2 核验被推翻**——删除排序/移动 UI，只保留层级展示 + 图标 + 批量，并把原因写入偏差说明区。
 
-- [ ] **Step 5: 删除探针 + Commit**
+- [x] **Step 5: 删除探针 + Commit**
 
 ```bash
 git add web-admin/src/apis/collection.ts web-admin/src/pages/product/categories/index.vue web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -853,7 +853,7 @@ git commit -m "feat(web-admin): collection tree, position sort and reparent via 
 
 **迁移写法参照：** [migrate-stock-tables.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/migrations/migrate-stock-tables.ts#L19-L47)（`CREATE TABLE IF NOT EXISTS` + `hasColumn`/`addColumn` 幂等），provider 注册见 [plugin.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/plugin.ts#L171-L194)。
 
-- [ ] **Step 1: 后端加 `icon` 自定义字段**
+- [x] **Step 1: 后端加 `icon` 自定义字段**
 
 在 `cjk-plugin/src/plugin.ts` 的 `configuration` 中合并 Collection 自定义字段（沿用该文件既有的幂等 merge 风格）：
 
@@ -871,7 +871,7 @@ config.customFields.Collection = [
 ];
 ```
 
-- [ ] **Step 2: 幂等迁移补列**
+- [x] **Step 2: 幂等迁移补列**
 
 ```ts
 // migrate-collection-icon.ts
@@ -905,7 +905,7 @@ export class CollectionIconMigration implements OnApplicationBootstrap {
 
 在 `plugin.ts` 的 `providers` 中加入 `CollectionIconMigration`（与 `StockTableMigration` 并列）。
 
-- [ ] **Step 3: 前端 API**
+- [x] **Step 3: 前端 API**
 
 ```ts
 /** 设置分类图标（写入 Collection.customFields.icon） */
@@ -936,7 +936,7 @@ export function pickDeletableCollections(
 
 > 空分类判定口径：**子分类来自已加载的分类表**（可靠）；**商品数**需要 `productVariantCount`——若 `collections.items.productVariantCount` 不可用，则改为「逐条调 `deleteCollection` 并把 `NOT_DELETED` 当作因商品不可删」，不做客户端预判。二选一，落地时以探针结果为准并记录到偏差区。
 
-- [ ] **Step 4: 页面加勾选与批量条**
+- [x] **Step 4: 页面加勾选与批量条**
 
 在 `rows` 渲染行首加勾选框 `@tap="togglePick(c.id)"`，底部固定批量条：
 
@@ -968,12 +968,12 @@ async function bulkDelete() {
 
 配套 i18n（双语）：`category.bulkIcon/bulkMove/bulkDelete/blockedChildren/blockedProducts`。
 
-- [ ] **Step 5: 门禁**
+- [x] **Step 5: 门禁**
 
 Run: `npm run build:h5`（web-admin）+ 后端 `cd d:\zhao\vendure && npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 两侧均通过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 前端仓（cwd=`d:\zhao\vshop`）：
 
@@ -997,7 +997,7 @@ git commit -m "feat(cjk-plugin): collection icon custom field"
 - Modify: `d:\zhao\vshop\web-admin\src\apis\product.ts`
 - Modify: `d:\zhao\vshop\web-admin\src\apis\collection.ts`
 
-- [ ] **Step 1: 逐个 grep 确认零消费方**
+- [x] **Step 1: 逐个 grep 确认零消费方**
 
 对每个待删符号在 `d:\zhao\vshop\web-admin\src` 内 grep **符号名**（排除定义行本身）：
 
@@ -1011,19 +1011,19 @@ createCollection / updateCollection / mapProductToCollection
 Run: 用 Grep 工具逐个执行（`output_mode: content`, `-n: true`, `path: d:\zhao\vshop\web-admin\src`）
 Expected: 每个符号只命中定义处。**任一符号有其它命中 → 保留该符号并在其上方加注释** `// 仍被 <文件> 使用：<用途>`，不删除。
 
-- [ ] **Step 2: 删除确认无消费方的符号**
+- [x] **Step 2: 删除确认无消费方的符号**
 
 `product.ts` 删除 Step 1 中零命中的符号（口径：实际走 `createProductFull` / `updateProductFull` / `fetchProductFull`）。
 `collection.ts` 删除 `createCollection` / `updateCollection` / `mapProductToCollection`（租户隔离路径走 `createTenantCollection` / `renameCollection`；`mapProductToCollection` 由后端自动处理）。
 
 > 注意 `collection.ts` 的 `moveCollection`（Task 1.5 新增）与 `setCollectionIcon`（Task 1.6 新增）**不在删除清单**。
 
-- [ ] **Step 3: 门禁**
+- [x] **Step 3: 门禁**
 
 Run: `npm run build:h5`
 Expected: 构建通过，无 "is not exported by" / 未定义引用报错。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web-admin/src/apis/product.ts web-admin/src/apis/collection.ts
@@ -1039,7 +1039,7 @@ git commit -m "chore(web-admin): remove dead apis (G7.4/G7.5)"
 - Create: `d:\zhao\vshop\web-admin\docs\verify\gap4-batch1-*.png`
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 
-- [ ] **Step 1: 写 e2e 脚本（Playwright，手机视口 390×844 dpr=2）**
+- [x] **Step 1: 写 e2e 脚本（Playwright，手机视口 390×844 dpr=2）**
 
 脚本骨架（沿用 `_e2e/` 既有 Python 风格）：
 
@@ -1078,19 +1078,19 @@ async def main():
 asyncio.run(main())
 ```
 
-- [ ] **Step 2: 起本地服务并跑脚本**
+- [x] **Step 2: 起本地服务并跑脚本**
 
 Run: `npm run dev:h5`（后台）→ `python _e2e/_verify_gap4_batch1.py`
 Expected: `docs/verify/` 生成 4 张 780×1688 截图；人工核对：筛选生效、加载更多累计、分类树有缩进与展开箭头。
 
-- [ ] **Step 3: 手册新增章节**
+- [x] **Step 3: 手册新增章节**
 
 在 [webadmin-bugfix-manual.html](file:///d:/zhao/web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html) 末尾新增一批章节（编号接现有最大编号），含：① 售后列表筛选与分页操作步骤；② 分类树/排序/移动/图标/批量操作步骤与批删限制说明；③ 上述 4 张截图。
 
 Run: `npm run verify:manual`
 Expected: 通过（图片引用全部存在）。
 
-- [ ] **Step 4: 批 1 收口提交 + 更新偏差区**
+- [x] **Step 4: 批 1 收口提交 + 更新偏差区**
 
 ```bash
 git add web-admin/_e2e/_verify_gap4_batch1.py web-admin/docs/verify web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html web-admin/docs/superpowers/plans/2026-09-25-web-admin-gap4-plan.md
@@ -1117,7 +1117,7 @@ git commit -m "test(docs): gap4 batch1 acceptance evidence + manual chapter"
 - Modify: `d:\zhao\vshop\web-admin\src\pages\platform\global-config\index.vue`（现约 220 行；JSON 文本框 + `jsonOpen` 开关在 L65-L72，加载/保存在 L140-L217）
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`
 
-- [ ] **Step 1: 新增共享的路径读写工具**
+- [x] **Step 1: 新增共享的路径读写工具**
 
 Create: `d:\zhao\vshop\web-admin\src\utils\config-path.ts`
 
@@ -1142,7 +1142,7 @@ export function setByPath(obj: Record<string, any>, path: string, value: unknown
 }
 ```
 
-- [ ] **Step 2: 全局配置页新增预览卡片**
+- [x] **Step 2: 全局配置页新增预览卡片**
 
 在 `<template>` 的保存按钮之后插入：
 
@@ -1198,16 +1198,16 @@ async function genPreview() {
 }
 ```
 
-- [ ] **Step 3: 补 i18n（双语）**
+- [x] **Step 3: 补 i18n（双语）**
 
 `globalConfig` 命名空间新增：`mergedPreview / mergedHint / previewNow / showSources / hideSources`，值分别「合并预览 / 展示 L0→L3 逐级合并后的最终配置 / 立即预览 / 显示来源 / 隐藏来源」（en 对应英文）。
 
-- [ ] **Step 4: 构建 + 手测**
+- [x] **Step 4: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：进全局配置页 → 点「立即预览」→ 出现 merged JSON 与来源标签；改一个 token 再点预览，merged 随之变化。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web-admin/src/pages/platform/global-config/index.vue web-admin/src/utils/config-path.ts web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1222,14 +1222,14 @@ git commit -m "feat(web-admin): merged preview in global config page"
 - Modify: 店铺覆盖页（先定位，见 Step 1）
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`（复用 Task 2.1 的 `globalConfig.*` 词条，不新增）
 
-- [ ] **Step 1: 定位店铺覆盖页**
+- [x] **Step 1: 定位店铺覆盖页**
 
 Run: 用 Grep 工具搜 `updateChannelCustomFields`，`path: d:\zhao\vshop\web-admin\src\pages`，`output_mode: content`，`-n: true`
 Expected: 命中调用该函数的页面文件（channel customFields 编辑页）。记下路径，代入下面步骤。
 
 > 已确认的通道字段清单见 [channel.ts](file:///d:/zhao/web-admin/src/apis/channel.ts#L64)：`templateId / themeTokensOverride / pageCategoryConfig / pageCartConfig / pageProfileConfig / detailConfig`。
 
-- [ ] **Step 2: 加同款预览卡片，overrides 用店铺覆盖字段**
+- [x] **Step 2: 加同款预览卡片，overrides 用店铺覆盖字段**
 
 复用 Task 2.1 的模板与 `genPreview`，仅把 overrides 换成店铺覆盖口径（`templateId` 传入，使合并链走到「L2 模板 → L3 覆盖」）：
 
@@ -1245,12 +1245,12 @@ const overrides = {
 const r = await templateApi.mergedPreview(APP, channel.templateId || undefined, overrides);
 ```
 
-- [ ] **Step 3: 构建 + 手测**
+- [x] **Step 3: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：进店铺覆盖页 → 点「立即预览」→ merged 中 `theme` 反映 `themeTokensOverride`，来源标签显示含 L3 覆盖的键。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web-admin/src/pages/platform
@@ -1265,7 +1265,7 @@ git commit -m "feat(web-admin): merged preview in shop override page"
 - Modify: `d:\zhao\vshop\web-admin\src\pages\platform\global-config\index.vue`
 - Create: `d:\zhao\vshop\web-admin\src\constants\config-schema.ts`
 
-- [ ] **Step 1: 定义字段 schema（高频字段结构化）**
+- [x] **Step 1: 定义字段 schema（高频字段结构化）**
 
 Create: `d:\zhao\vshop\web-admin\src\constants\config-schema.ts`
 
@@ -1318,7 +1318,7 @@ export function validateField(f: ConfigField, raw: unknown): string | null {
 }
 ```
 
-- [ ] **Step 2: 页面渲染结构化表单，JSON 收进高级开关**
+- [x] **Step 2: 页面渲染结构化表单，JSON 收进高级开关**
 
 把原「默认值 JSON」文本框区块改为：结构化字段列表 + 既有 `jsonOpen` 开关（`v-if="jsonOpen"` 时才渲染原 textarea）。字段输入直接写回 `themeTokens` / `defaults`：
 
@@ -1370,16 +1370,16 @@ function checkField(f: ConfigField) {
 
 > 保留既有 `syncToJson` / `syncFromJson`：打开 JSON 高级模式时用当前 draft 刷新文本框；关闭时把文本框解析回 draft，实现双向同步（沿用原有函数，只改数据源）。
 
-- [ ] **Step 3: 补 i18n（双语）**
+- [x] **Step 3: 补 i18n（双语）**
 
 `globalConfig` 新增：`structured / advancedJson / primaryColor / accentColor / radius / detailLayout / blockGallery / blockPrice / blockPromo / blockService / blockReviews`，以及 `globalConfig.err.{color,number,min,max,select,boolean}`（如「颜色需为 #RRGGBB / 需为数字 / 低于下限 / 超过上限 / 取值不合法 / 需为开关值」）。
 
-- [ ] **Step 4: 构建 + 手测（不改 JSON 走完全流程）**
+- [x] **Step 4: 构建 + 手测（不改 JSON 走完全流程）**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：全程不打开 JSON → 改主色/圆角 → 选版式 `floor` → 关掉 `reviews` 块 → 保存 → 点「立即预览」，merged 反映以上三处改动。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web-admin/src/pages/platform/global-config/index.vue web-admin/src/constants/config-schema.ts web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1393,7 +1393,7 @@ git commit -m "feat(web-admin): structured global config form with JSON fallback
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\platform\global-config\index.vue`（`save()` 在 L140-L217）
 
-- [ ] **Step 1: `save()` 改为先跑字段校验，按字段标红**
+- [x] **Step 1: `save()` 改为先跑字段校验，按字段标红**
 
 ```ts
 async function save() {
@@ -1427,16 +1427,16 @@ async function save() {
 }
 ```
 
-- [ ] **Step 2: 补 i18n（双语）**
+- [x] **Step 2: 补 i18n（双语）**
 
 `globalConfig.err` 增加 `fixFirst`（「有 {n} 处需要修正」）、`json`（「JSON 格式不合法」）。
 
-- [ ] **Step 3: 构建 + 手测**
+- [x] **Step 3: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：把主色改成 `abc` → 该字段标红且提示，其余字段保留；改回合法值 → 保存成功。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web-admin/src/pages/platform/global-config/index.vue web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1452,16 +1452,16 @@ git commit -m "feat(web-admin): inline validation for global config"
 - Create: `d:\zhao\vshop\web-admin\docs\verify\gap4-batch2-*.png`
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 
-- [ ] **Step 1: e2e 脚本（手机视口 390×844 dpr=2）**
+- [x] **Step 1: e2e 脚本（手机视口 390×844 dpr=2）**
 
 沿用 Task 1.8 Step 1 骨架，覆盖 5 个动作：全局配置页结构化表单截图；非法主色标红截图；合法保存成功截图；「立即预览」merged JSON 截图；店铺覆盖页预览截图。
 
-- [ ] **Step 2: 跑脚本 + 人工核对**
+- [x] **Step 2: 跑脚本 + 人工核对**
 
 Run: `npm run dev:h5`（后台）→ `python _e2e/_verify_gap4_batch2.py`
 Expected: `docs/verify/` 生成 5 张 780×1688 截图，人工核对 3 条验收标准全过。
 
-- [ ] **Step 3: 手册章节 + 提交**
+- [x] **Step 3: 手册章节 + 提交**
 
 手册新增「风格体系：结构化配置与合并预览」章节（含 5 张截图），Run: `npm run verify:manual` 通过后：
 
@@ -1489,7 +1489,7 @@ git commit -m "test(docs): gap4 batch2 acceptance evidence + manual chapter"
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\inventory\stock-doc.admin.resolver.ts`（L51-L60）
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\inventory\stock-doc.service.ts`（`listDocs` L326-L378）
 
-- [ ] **Step 1: SDL 加参数**
+- [x] **Step 1: SDL 加参数**
 
 把 [plugin.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/plugin.ts#L1437-L1439) 改为：
 
@@ -1499,7 +1499,7 @@ extend type Query {
 }
 ```
 
-- [ ] **Step 2: resolver 透传**
+- [x] **Step 2: resolver 透传**
 
 ```ts
 @Query()
@@ -1518,7 +1518,7 @@ async stockDocList(
 }
 ```
 
-- [ ] **Step 3: service 加 where 条件**
+- [x] **Step 3: service 加 where 条件**
 
 `listDocs` 签名与查询改为：
 
@@ -1565,14 +1565,14 @@ async listDocs(
     // ...（其余与现状一致，勿改）
 ```
 
-- [ ] **Step 4: 探针验证四个筛选**
+- [x] **Step 4: 探针验证四个筛选**
 
 即用即删 `scripts/_probe_stockdoc_filters.mjs`：分别用 `{}`、`{type:'PURCHASE'}`、`{locationId:'1'}`、`{from:'2026-01-01T00:00:00.000Z', to:'2026-12-31T23:59:59.999Z'}`、`{operator:'superadmin'}` 调 `stockDocList`，打印 `totalItems`。
 
 Run: `node scripts/_probe_stockdoc_filters.mjs`
 Expected: 五组均无 `errors`；带筛选的 `totalItems` ≤ 全量 `totalItems`；日期/仓库筛选后数量和手工核对一致。
 
-- [ ] **Step 5: 后端门禁 + 删除探针 + Commit**
+- [x] **Step 5: 后端门禁 + 删除探针 + Commit**
 
 Run: `cd d:\zhao\vendure && npx tsc -p packages/cjk-plugin/tsconfig.json --noEmit`
 Expected: 通过。
@@ -1595,7 +1595,7 @@ git commit -m "feat(cjk-plugin): stockDocList filters (location/date/operator)"
 
 **后端依据：** `stockMovementLedger` 已支持 `productVariantId / locationId / bizCode / bizType / direction / from / to / page / pageSize`，返回 `StockDocLedgerEntry` 含 `beforeOnHand / afterOnHand`（[plugin.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/plugin.ts#L1202-L1217)），并带 `summary: { inQty, outQty }`。**本页后端零改动。**
 
-- [ ] **Step 1: API 返回 summary + 补齐参数类型**
+- [x] **Step 1: API 返回 summary + 补齐参数类型**
 
 ```ts
 export interface MovementQuery {
@@ -1622,7 +1622,7 @@ export async function fetchMovements(q: MovementQuery): Promise<{
 
 > `MovementRow` 需确保已含 `beforeOnHand?: number | null` 与 `afterOnHand?: number | null`；缺则补上，并在 GraphQL 选择集中加上这两个字段。
 
-- [ ] **Step 2: 页面改用 useListPage + 筛选区**
+- [x] **Step 2: 页面改用 useListPage + 筛选区**
 
 ```ts
 const page = useListPage<MovementRow>({
@@ -1648,16 +1648,16 @@ const summary = ref({ inQty: 0, outQty: 0 });
 
 顶部汇总条：`{{ $t('movements.inQty') }}: {{ summary.inQty }} ／ {{ $t('movements.outQty') }}: {{ summary.outQty }}`。
 
-- [ ] **Step 3: 补 i18n（双语）**
+- [x] **Step 3: 补 i18n（双语）**
 
 `movements`：`filterLocation / filterVariant / filterDirection / directionIn / directionOut / filterDateFrom / filterDateTo / inQty / outQty / delta`。
 
-- [ ] **Step 4: 构建 + 手测**
+- [x] **Step 4: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：按仓库筛选后结果与单据明细一致；`in`/`out` 数量与顶部汇总一致；有 `beforeOnHand/afterOnHand` 的行显示 `A → B`，缺失显示 `—`；上滑翻页累计不重复。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web-admin/src/apis/stock-doc.ts web-admin/src/pages/inventory/movements/index.vue web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1673,7 +1673,7 @@ git commit -m "feat(web-admin): movements filters + before/after onHand via useL
 - Modify: `d:\zhao\vshop\web-admin\src\pages\inventory\stock-doc\index.vue`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`
 
-- [ ] **Step 1: API 透传四个新参数**
+- [x] **Step 1: API 透传四个新参数**
 
 ```ts
 export async function fetchStockDocList(p: {
@@ -1690,7 +1690,7 @@ export async function fetchStockDocList(p: {
 }
 ```
 
-- [ ] **Step 2: 页面迁移 + 筛选区**
+- [x] **Step 2: 页面迁移 + 筛选区**
 
 ```ts
 const page = useListPage<StockDocRow>({
@@ -1704,16 +1704,16 @@ const page = useListPage<StockDocRow>({
 
 筛选区：类型（沿用既有类型胶囊，取值见 `DOC_TYPES`）、仓库（`picker`）、日期区间（两个 `picker mode="date"`）、操作人（文本输入，失焦提交）。列表行保持既有渲染，补「已显示 N / M」进度与空/错误态（由 `useListPage` 提供）。
 
-- [ ] **Step 3: 补 i18n（双语）**
+- [x] **Step 3: 补 i18n（双语）**
 
 `stockDoc`：`filterType / filterLocation / filterDateFrom / filterDateTo / filterOperator`。
 
-- [ ] **Step 4: 构建 + 手测**
+- [x] **Step 4: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：四个筛选各自生效且可叠加；清空筛选恢复全量；上滑翻页累计不重复、不丢项。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web-admin/src/apis/stock-doc.ts web-admin/src/pages/inventory/stock-doc/index.vue web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1729,16 +1729,16 @@ git commit -m "feat(web-admin): stock doc center filters (type/location/date/ope
 - Create: `d:\zhao\vshop\web-admin\docs\verify\gap4-batch3-*.png`
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 
-- [ ] **Step 1: e2e 脚本**
+- [x] **Step 1: e2e 脚本**
 
 沿用 Task 1.8 Step 1 骨架，覆盖：库存流水默认态 / 按仓库筛选 / 按方向筛选 / `before → after` 行截图；单据中心默认态 / 按仓库+日期筛选 / 上滑加载更多。
 
-- [ ] **Step 2: 跑脚本 + 对账核对**
+- [x] **Step 2: 跑脚本 + 对账核对**
 
 Run: `npm run dev:h5`（后台）→ `python _e2e/_verify_gap4_batch3.py`
 Expected: 生成 7 张 780×1688 截图；按「当前筛选条件」用探针接口取同一条件的 `totalItems`，与页面「已显示 N / M」的 M 完全一致（对账证据写入截图清单）。
 
-- [ ] **Step 3: 手册章节 + 提交**
+- [x] **Step 3: 手册章节 + 提交**
 
 手册新增「库存流水与单据中心：筛选与分页」章节（含 7 张截图），Run: `npm run verify:manual` 通过后：
 
@@ -1776,7 +1776,7 @@ git commit -m "test(docs): gap4 batch3 acceptance evidence + manual chapter"
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\migrations\index.ts`
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`（import L70 + providers L191 一带）
 
-- [ ] **Step 1: 实体加字段**
+- [x] **Step 1: 实体加字段**
 
 在 [stock-reservation.entity.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/inventory/stock-reservation.entity.ts) 的 `createdAt` 之后追加（import 行已含 `Index`，无需改）：
 
@@ -1791,7 +1791,7 @@ git commit -m "test(docs): gap4 batch3 acceptance evidence + manual chapter"
     expiresAt!: Date | null;
 ```
 
-- [ ] **Step 2: 幂等迁移（列名从元数据推导，sqlite / postgres 通用）**
+- [x] **Step 2: 幂等迁移（列名从元数据推导，sqlite / postgres 通用）**
 
 创建 `d:\zhao\vendure\packages\cjk-plugin\src\migrations\migrate-reservation-expires-at.ts`：
 
@@ -1835,7 +1835,7 @@ export class ReservationExpiresAtMigration implements OnApplicationBootstrap {
 }
 ```
 
-- [ ] **Step 3: 注册迁移**
+- [x] **Step 3: 注册迁移**
 
 `src\migrations\index.ts` 追加一行（与既有导出行风格一致）：
 
@@ -1847,17 +1847,17 @@ export { ReservationExpiresAtMigration } from './migrate-reservation-expires-at'
 1. L70 的 `import { ... } from './migrations'` 花括号内追加 `ReservationExpiresAtMigration`
 2. providers 列表（`ChannelCustomColumnMigration,` 之后）追加 `ReservationExpiresAtMigration,`
 
-- [ ] **Step 4: 构建**
+- [x] **Step 4: 构建**
 
 Run（cwd `d:\zhao\vendure\packages\cjk-plugin`）: `npm run build`
 Expected: tsc 无错误；`lib/src/migrations/migrate-reservation-expires-at.js` 已生成。
 
-- [ ] **Step 5: 启动验证列已补**
+- [x] **Step 5: 启动验证列已补**
 
 Run（cwd `d:\zhao\vendure\packages\dev-server`）: `npm run dev:server`
 Expected: 启动日志出现（或至少不报）`[ReservationExpiresAtMigration]`；无 `failed to ensure column`。二次启动不再打印 `added`（幂等成立）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 后端仓（cwd=`d:\zhao\vendure`）：
 
@@ -1875,7 +1875,7 @@ git commit -m "feat(cjk-plugin): add expiresAt to stock reservation (idempotent 
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`（`type Reservation` SDL，L1249-L1259）
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\inventory\stock-reservation.service.spec.ts`
 
-- [ ] **Step 1: 先写失败测试**
+- [x] **Step 1: 先写失败测试**
 
 在 `stock-reservation.service.spec.ts` 追加（沿用文件内既有 fake repo 构造方式；若既有 harness 只支持 `findOne/save`，则为 `createQueryBuilder` 补一个最小 fake，见下方注释要求）：
 
@@ -1904,12 +1904,12 @@ describe('StockReservationService.releaseExpired', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run（cwd `d:\zhao\vendure\packages\cjk-plugin`）: `npm test`
 Expected: FAIL —— `svc.releaseExpired is not a function`。
 
-- [ ] **Step 3: 实现（服务层）**
+- [x] **Step 3: 实现（服务层）**
 
 在 [stock-reservation.service.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/inventory/stock-reservation.service.ts) 顶部 import 追加：
 
@@ -2001,12 +2001,12 @@ export const DEFAULT_RESERVATION_TTL_MINUTES = 30;
     }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test`
 Expected: PASS（两个用例全绿）。
 
-- [ ] **Step 5: SDL 补 `expiresAt`**
+- [x] **Step 5: SDL 补 `expiresAt`**
 
 [plugin.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/plugin.ts#L1249-L1259) 的 `type Reservation` 内，`createdAt: DateTime!` 之后插入：
 
@@ -2016,7 +2016,7 @@ Expected: PASS（两个用例全绿）。
 
 （前端倒计时依赖该字段；`reservation(id)` 详情同样返回它，一并生效。）
 
-- [ ] **Step 6: 构建 + 探针验证**
+- [x] **Step 6: 构建 + 探针验证**
 
 Run: `npm run build` → 通过。
 
@@ -2025,7 +2025,7 @@ Run: `npm run build` → 通过。
 Run: `node scripts/_probe_reservation_expire.mjs`
 Expected: 无 `errors`；新产出的 `PENDING_ALLOC` 单 `expiresAt` 非空且 ≈ `createdAt + 30min`；历史单 `expiresAt` 为 `null`。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 后端仓（cwd=`d:\zhao\vendure`）：
 
@@ -2045,7 +2045,7 @@ git commit -m "feat(cjk-plugin): reservation TTL + releaseExpired with ledger tr
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\migrations\index.ts`
 - Modify: `d:\zhao\vendure\packages\dev-server\dev-config.ts`（L309-L314）
 
-- [ ] **Step 1: 定义 ScheduledTask**
+- [x] **Step 1: 定义 ScheduledTask**
 
 创建 `d:\zhao\vendure\packages\cjk-plugin\src\inventory\reservation-expiry.task.ts`：
 
@@ -2103,7 +2103,7 @@ export const releaseExpiredReservationsTask = new ScheduledTask({
 });
 ```
 
-- [ ] **Step 2: channel custom field 幂等补列**
+- [x] **Step 2: channel custom field 幂等补列**
 
 创建 `d:\zhao\vendure\packages\cjk-plugin\src\migrations\migrate-reservation-ttl-column.ts`（结构与 `migrate-channel-custom-column.ts` 完全一致）：
 
@@ -2145,7 +2145,7 @@ export class ReservationTtlColumnMigration implements OnApplicationBootstrap {
 
 `src\migrations\index.ts` 追加 `export { ReservationTtlColumnMigration } from './migrate-reservation-ttl-column';`
 
-- [ ] **Step 3: 注册字段与任务（`plugin.ts`）**
+- [x] **Step 3: 注册字段与任务（`plugin.ts`）**
 
 在 [plugin.ts](file:///d:/zhao/vendure/packages/cjk-plugin/src/plugin.ts) 顶层（`export class CjkPlugin` 之前）加一个与 order-timeout-plugin 同款的按名去重合并函数：
 
@@ -2183,7 +2183,7 @@ function mergeCustomFields<T extends { name: string }>(
 
 （`LanguageCode` 若文件内未 import，从 `@vendure/core` 补入；已有则直接用。providers 列表追加 `ReservationTtlColumnMigration,`。）
 
-- [ ] **Step 4: worker-only 口径**
+- [x] **Step 4: worker-only 口径**
 
 [dev-config.ts](file:///d:/zhao/vendure/packages/dev-server/dev-config.ts#L309-L314) 改为：
 
@@ -2198,12 +2198,12 @@ function mergeCustomFields<T extends { name: string }>(
     },
 ```
 
-- [ ] **Step 5: 构建 + 单测**
+- [x] **Step 5: 构建 + 单测**
 
 Run（cwd `d:\zhao\vendure\packages\cjk-plugin`）: `npm run build && npm test`
 Expected: 均通过。
 
-- [ ] **Step 6: 证明任务只在 worker 执行（本批最关键的一步，不要跳过）**
+- [x] **Step 6: 证明任务只在 worker 执行（本批最关键的一步，不要跳过）**
 
 1. 起后端（两条独立进程，**只起 server**）：cwd `d:\zhao\vendure\packages\dev-server` → `npm run dev:server`
 2. 用探针造一条已过期的滞留单（即用即删 `scripts/_probe_seed_expired_reservation.mjs`，用 `rawConnection` 直插）：
@@ -2225,7 +2225,7 @@ Expected: `status` 仍为 `PENDING_ALLOC`（**未释放**）→ 证明 server �
 5. 等待 ≤ 2 分钟后再查
 Expected: `status` = `RELEASED`；`stockMovementLedger(bizCode: "RES-999901")` 能查到 1 条 `bizType=manual` / `direction=out` / `quantity=1` 的流水。worker 日志出现 `释放到期预留单 1 条`。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 后端仓（cwd=`d:\zhao\vendure`）：
 
@@ -2245,7 +2245,7 @@ git commit -m "feat(cjk-plugin): scheduled release of expired reservations (work
 - Modify: `d:\zhao\vshop\web-admin\src\pages\inventory\stock\index.vue`（`QUICK` 宫格）
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`
 
-- [ ] **Step 1: API 层**
+- [x] **Step 1: API 层**
 
 [reservation.ts](file:///d:/zhao/vshop/web-admin/src/apis/reservation.ts) 追加（`Reservation` 接口补 `expiresAt: string | null`）：
 
@@ -2298,7 +2298,7 @@ export async function releaseReservationAdmin(id: string): Promise<Reservation> 
 }
 ```
 
-- [ ] **Step 2: 页面**
+- [x] **Step 2: 页面**
 
 创建 `d:\zhao\vshop\web-admin\src\pages\inventory\reservation\index.vue`（结构复刻 `pages/inventory/stock-doc/index.vue` 的列表骨架；列表逻辑用 Task 1.1 的 `useListPage`）：
 
@@ -2419,7 +2419,7 @@ function onRelease(r: Reservation): void {
 
 样式沿用项目既有 `$wa-*` 变量（`.seg` 与数据看板 `.seg` 同款；卡片 `.card` 同款；`.rel` 释放按钮用 `$wa-accent`）。
 
-- [ ] **Step 3: 注册页面 + 入口**
+- [x] **Step 3: 注册页面 + 入口**
 
 `src/pages.json` 的 `pages` 数组内，紧跟 `pages/inventory/stock-doc/index` 之后插入：
 
@@ -2433,7 +2433,7 @@ function onRelease(r: Reservation): void {
   { key: 'reservation', icon: '🔒', url: '/pages/inventory/reservation/index' },
 ```
 
-- [ ] **Step 4: i18n 双语（两份都改，缺一不可）**
+- [x] **Step 4: i18n 双语（两份都改，缺一不可）**
 
 `zh-Hans.json` 新增 `inventoryReservation` 命名空间：
 
@@ -2461,12 +2461,12 @@ function onRelease(r: Reservation): void {
 
 `en.json` 同构补全（`title: "Reservations"`、`tab/state` 对应 `All / Pending allocation / Allocated / Done / Released` 等），并在 `inventoryStock.quick` 内补 `"reservation": "预留单"` / `"Reservations"`。
 
-- [ ] **Step 5: 构建 + 手测**
+- [x] **Step 5: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：库存与预警页宫格出现第 9 项「预留单」→ 进入页面；tab 切换筛选生效；`PENDING_ALLOC` 行显示 `mm:ss` 倒计时且每秒递减；点释放 → 确认弹窗 → toast + 行状态变「已释放」；上滑翻页正常。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 前端仓（cwd=`d:\zhao\vshop`）：
 
@@ -2501,7 +2501,7 @@ git commit -m "feat(web-admin): reservation page with countdown + manual release
 | REVIEWED | （终态） |
 | CANCELLED | （终态） |
 
-- [ ] **Step 1: 状态与字段**
+- [x] **Step 1: 状态与字段**
 
 `pick-batch.entity.ts`：
 
@@ -2536,7 +2536,7 @@ export type PickBatchState =
     exceptionNote!: string | null;
 ```
 
-- [ ] **Step 2: 迁移**
+- [x] **Step 2: 迁移**
 
 复制 Task 4.1 的迁移结构，改表/列：
 
@@ -2583,7 +2583,7 @@ export class PickBatchHandoverColumnMigration implements OnApplicationBootstrap 
 
 注册：`migrations/index.ts` 导出 + `plugin.ts` providers 追加。
 
-- [ ] **Step 3: 状态机**
+- [x] **Step 3: 状态机**
 
 `pick-batch-math.ts` 的 `TRANSITIONS` 整体替换为：
 
@@ -2601,7 +2601,7 @@ const TRANSITIONS: Record<PickBatchState, PickBatchState[]> = {
 };
 ```
 
-- [ ] **Step 4: 服务与 resolver**
+- [x] **Step 4: 服务与 resolver**
 
 `pick-batch.service.ts`：
 
@@ -2665,7 +2665,7 @@ const TRANSITIONS: Record<PickBatchState, PickBatchState[]> = {
     }
 ```
 
-- [ ] **Step 5: SDL（`plugin.ts`）**
+- [x] **Step 5: SDL（`plugin.ts`）**
 
 `type PickBatch` 内 `shippedAt: DateTime` 之后追加：
 
@@ -2686,7 +2686,7 @@ const TRANSITIONS: Record<PickBatchState, PickBatchState[]> = {
 
 > 注意：`packages/cjk-plugin/src/plugin.ts` 里有两套 SDL（admin / shop）。`type PickBatch` 仅 admin 侧存在，本步只改 admin 那一段（勿复制到 shop 段，否则 shop 侧会出现无 resolver 的悬空字段）。
 
-- [ ] **Step 6: 构建 + 状态机回归**
+- [x] **Step 6: 构建 + 状态机回归**
 
 Run（cwd `d:\zhao\vendure\packages\cjk-plugin`）: `npm run build && npm test`
 Expected: 通过。即用即删 `scripts/_probe_pick_batch_flow.mjs` 验证迁移链：
@@ -2694,7 +2694,7 @@ Expected: 通过。即用即删 `scripts/_probe_pick_batch_flow.mjs` 验证迁�
 Run: `node scripts/_probe_pick_batch_flow.mjs`
 Expected: 前 5 步 `state` 依次推进且 `handoverAt/reviewedAt` 有值；非法跨步报 `不能从 SHIPPED 变为 REVIEWED`。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 后端仓（cwd=`d:\zhao\vendure`）：
 
@@ -2712,7 +2712,7 @@ git commit -m "feat(cjk-plugin): pick batch handover/review/exception states"
 - Modify: `d:\zhao\vshop\web-admin\src\pages\order\picking\batch.vue`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json` + `src\locale\en.json`
 
-- [ ] **Step 1: API**
+- [x] **Step 1: API**
 
 `apis/picking.ts`：
 
@@ -2766,7 +2766,7 @@ export async function registerPickBatchException(batchId: string, reason: string
 }
 ```
 
-- [ ] **Step 2: 页面**
+- [x] **Step 2: 页面**
 
 `pages/order/picking/batch.vue`：
 
@@ -2871,16 +2871,16 @@ async function submitException(): Promise<void> {
 
 （`load()` = 该页既有刷新函数，按文件内实际函数名引用；`import` 追加 `handoverPickBatch, registerPickBatchException`。）
 
-- [ ] **Step 3: i18n 双语**
+- [x] **Step 3: i18n 双语**
 
 `orderAdmin.picking` 下新增：`handoverTo / handoverAt / reviewedAt / exceptionNote / doHandover / handoverPlaceholder / handoverDone / handoverFailed / registerException / exceptionPlaceholder / exceptionDone / exceptionFailed / doReview / cancel / confirm`，并在 `orderAdmin.picking.state` 下补 `HANDOVER / REVIEWED / EXCEPTION` 三个状态名（zh-Hans：已交接 / 已复核 / 异常件；en：Handed over / Reviewed / Exception）。**两份语言包同步补齐**。
 
-- [ ] **Step 4: 构建 + 手测**
+- [x] **Step 4: 构建 + 手测**
 
 Run: `npm run build:h5`
 Expected: 通过。手测：找一个 PRINTED 批次 → 标记发货 → `SHIPPED` → 出现「交接」与「登记异常」→ 交接填对象后变 `HANDOVER` 且显示交接对象/时间 → 「复核」→ `REVIEWED`；另起一个批次从 `HANDOVER` 登记异常 → `EXCEPTION` 且显示原因 → 再交接回 `HANDOVER`。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 前端仓（cwd=`d:\zhao\vshop`）：
 
@@ -2907,7 +2907,7 @@ git commit -m "feat(web-admin): pick batch handover/review/exception UI"
 | 盘库次数 | 统计期内已提交（`SUBMITTED`/已过账）盘点任务数（按 `createdAt` 归期） | `fetchStocktakeTasks({pageSize: 100})` |
 | 盘点差异率 | 统计期内 Σ(`diffCount`) ÷ Σ(`expectedTotal`)，两位小数百分比 | 上一步任务逐条 `fetchStocktakeDiff(taskId)` |
 
-- [ ] **Step 1: 纯函数 + 单测**
+- [x] **Step 1: 纯函数 + 单测**
 
 创建 `src/utils/ops-report.ts`：
 
@@ -3010,7 +3010,7 @@ export function varianceTrend(
 }
 ```
 
-- [ ] **Step 2: 页面加「视图」分段**
+- [x] **Step 2: 页面加「视图」分段**
 
 `pages/data/dashboard/index.vue`：模板最上方（`.stat` 之前）插入视图分段，并把**现有全部卡片包进 `view === 'biz'` 分支**：
 
@@ -3057,7 +3057,7 @@ export function varianceTrend(
 
 关键点：**两视图共用既有 7 / 30 天分段**（分段块保持在两分支之外，即移到 `.views` 之后、`<template>` 之前），`switchOps()` 与 `loadDynamic()` 一样按 `days` 拉数据。
 
-- [ ] **Step 3: 脚本装载**
+- [x] **Step 3: 脚本装载**
 
 ```ts
 import { buildOpsWindow, countBatches, countStocktakeTasks, sumShippedItems, varianceRate, varianceTrend, ymd, type TrendPointRow } from '../../../utils/ops-report';
@@ -3110,7 +3110,7 @@ async function loadOps(): Promise<void> {
 
 （`inWindowLoose` 与 `TrendChart` 的入参形状按仓库现有定义对齐：`TrendChart` 接收 `points` 且页面既有传入为 `{date, value}` —— 组装时按该形状映射，勿改组件契约。作业员明细用 `fetchStockDocList({pageSize: 100})` 取回后按 `operator` 分组聚合 `{count, qty: totalQty}`，期间用 `createdAt` 过滤。）
 
-- [ ] **Step 4: CSV 导出**
+- [x] **Step 4: CSV 导出**
 
 ```ts
 function exportCsv(): void {
@@ -3124,11 +3124,11 @@ function exportCsv(): void {
 
 （`trend` = `varianceTrend` 的原始 `{day, expected, diff}`，导出内容与页面趋势图同源同值。）
 
-- [ ] **Step 5: i18n 双语**
+- [x] **Step 5: i18n 双语**
 
 `dataDashboard` 下新增 `view.biz / view.ops` 与 `ops.pickCount / ops.shippedItems / ops.stocktakeCount / ops.varianceRate / ops.varianceTrend / ops.byCounter / ops.unknownOperator / ops.exportCsv / ops.csvDay / ops.csvExpected / ops.csvDiff`，zh-Hans / en 双份同步。
 
-- [ ] **Step 6: 构建 + 对账 + 降级判定**
+- [x] **Step 6: 构建 + 对账 + 降级判定**
 
 Run: `npm run build:h5`
 Expected: 通过。
@@ -3136,7 +3136,7 @@ Expected: 通过。
 对账（**必须做**）：用手工筛选同区间的「单据中心」条数核对「拣货单数/盘库次数」，用「库存流水」的 `in/out` 合计核对「发货件数」的量级，差异率用 `盘点差异` 页同任务的两个数手算复核。
 若某项数据源口径不足（如订单列表无法按发货时间归期、盘点任务接口拿不到 `SUBMITTED` 集合），**按降级处理**：该 KPI 位置显示 `—` 并在 §6 偏差区写明原因 —— **禁止用 0 假装有数据**（沿用数据看板既有约定：接口失败显示 `—`）。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 前端仓（cwd=`d:\zhao\vshop`）：
 
@@ -3153,7 +3153,7 @@ git commit -m "feat(web-admin): ops analytics view on dashboard (KPI/trend/by-co
 - Create: `d:\zhao\vshop\web-admin\_e2e\_verify_gap4_batch4.py`
 - Create: `d:\zhao\vshop\web-admin\docs\verify\gap4-batch4-*.png`
 
-- [ ] **Step 1: e2e 脚本**
+- [x] **Step 1: e2e 脚本**
 
 沿用 Task 1.8 Step 1 的 Playwright 骨架（390×844、dpr=2 → 780×1688、`docs/verify/` 落盘），覆盖 6 张：
 
@@ -3164,19 +3164,19 @@ git commit -m "feat(web-admin): ops analytics view on dashboard (KPI/trend/by-co
 5. 数据看板「作业分析」视图（KPI 4 卡 + 差异趋势）
 6. 作业分析「作业员明细」+ 导出按钮
 
-- [ ] **Step 2: worker-only 证明（回归，证明上一轮结论未漂移）**
+- [x] **Step 2: worker-only 证明（回归，证明上一轮结论未漂移）**
 
 Run: 只起 `npm run dev:server` → 造过期单 → 等 2 分钟 → 查状态
 Expected: 仍 `PENDING_ALLOC`。
 Run: 再起 `npm run dev:worker` → 等 ≤2 分钟
 Expected: `RELEASED` + 流水 `RES-<id>` 行 + 前端列表状态与倒计时显示一致（倒计时归零显示「待释放」→ 刷新后变「已释放」）。
 
-- [ ] **Step 3: 跑脚本**
+- [x] **Step 3: 跑脚本**
 
 Run: `npm run dev:h5`（后台）→ `python _e2e/_verify_gap4_batch4.py`
 Expected: 生成 6 张 780×1688 截图；脚本内断言预留单页倒计时文本匹配 `^\d{2}:\d{2}$` 或「待释放」。
 
-- [ ] **Step 4: 手册章节 + 提交**
+- [x] **Step 4: 手册章节 + 提交**
 
 手册新增「仓内作业闭环：预留单超时释放 / 批次交接复核 / 作业分析报表」章节（含 6 张截图），Run: `npm run verify:manual` 通过后：
 
@@ -3195,7 +3195,7 @@ git commit -m "test(docs): gap4 batch4 acceptance evidence + manual chapter"
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 - Modify: `d:\zhao\vshop\web-admin\src\static\manual\index.html`（会发布的「youshop 使用手册」）
 
-- [ ] **Step 1: 写「定时任务与常驻 worker」运维章节**
+- [x] **Step 1: 写「定时任务与常驻 worker」运维章节**
 
 必须包含以下 5 条（缺一条视为未完成）：
 
@@ -3211,7 +3211,7 @@ pm2 save
 4. **自检命令**：`pm2 list` 应看到 worker 为 `online`；worker 日志出现 `ReleaseExpiredReservationsTask` 或 `释放到期预留单 N 条`。
 5. **TTL 配置入口**：店铺渠道 `customFields.reservationTtlMinutes`，默认 30 分钟；多城市/多店铺可各自设值，改完需重启 worker（自定义字段值在 ctx 构建时读取，无需重启 server）。
 
-- [ ] **Step 2: 部署**
+- [x] **Step 2: 部署**
 
 按本仓库既有部署机制（web-admin 走 `scripts/deploy.mjs`；vendure 后端走 git pull + 构建 + pm2 restart），**本地构建产物上传，服务器只解压/重启，绝不在服务器构建**。
 
@@ -3221,7 +3221,7 @@ Run（服务器）: `pm2 restart youshop-api youshop-worker`
 
 Expected: 站点可访问；worker 为 `online`；端到端手测预留单超时释放成立。
 
-- [ ] **Step 3: 最终提交**
+- [x] **Step 3: 最终提交**
 
 前端仓（cwd=`d:\zhao\vshop`）：
 
@@ -3388,3 +3388,23 @@ git commit -m "docs: gap4 ops runbook (resident worker) + plan deviation notes"
 2. **Inline Execution** —— 在本会话内按 `executing-plans` 批量执行，到批次边界设检查点。
 
 **选哪种？**
+
+## 执行结论（2026-09-28 回填）
+
+**结论：gap4 批 1–4 全部落地并上线；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 批 1 | `3ed52b2` / `499ad89` |
+| 批 2 | `d2cc8d7` / `4e40709` / `f8b7f86` |
+| 批 3 | `3b579fb` / `2a96272` / `1adee1f` |
+| 批 4 | `c6536bf` / `e893223` / `343fa6b` / `5773e03` / `d5c3ab6` + 后端 `d1d59f6b3` / `c205de228` / `39fe602fd` / `41cdd1f8b` |
+| 产物 | `web-admin/src/utils/config-path.ts`、`src/constants/config-schema.ts` |
+| 手册 | `webadmin-bugfix-manual.html` ch17–20（L1538 / 1624 / 1702 / 1788） |
+| 偏差表 | 本计划 D1–D55（L3241–3295，含 D1/D6/D18/D38/D40/D54/D55） |
+
+**本次回填动作**：勾选本计划全部 126 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：本文件 D1–D55 偏差表与批 1–4 执行结论、`webadmin-bugfix-manual.html` ch17–20、`git -C d:\zhao\vshop log` 与 `git -C d:\zhao\vendure log`。
+
+---

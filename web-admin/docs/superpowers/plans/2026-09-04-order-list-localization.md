@@ -39,7 +39,7 @@
 **Files:**
 - Modify: `src/apis/order.ts`
 
-- [ ] **Step 1: 扩展 `OrderRow` 接口**（第 14-27 行 `interface OrderRow` 原位替换）
+- [x] **Step 1: 扩展 `OrderRow` 接口**（第 14-27 行 `interface OrderRow` 原位替换）
 
 ```ts
 export interface OrderRow {
@@ -63,7 +63,7 @@ export interface OrderRow {
 }
 ```
 
-- [ ] **Step 2: 用一个共享常量承载列表可选字段，并让 `fetchOrders` 引用它**
+- [x] **Step 2: 用一个共享常量承载列表可选字段，并让 `fetchOrders` 引用它**
 
   将第 29-34 行的 `const ORDER_FIELDS`（原为 `customFields { deliveryType }` 的简版，实际未在 `fetchOrders` 中使用）替换为：
 
@@ -79,7 +79,7 @@ const ORDER_FIELDS = `
 `;
 ```
 
-- [ ] **Step 3: `fetchOrders` 的 GraphQL 内联字段改用该常量**（第 91-96 行的 `items { ... }` 块）
+- [x] **Step 3: `fetchOrders` 的 GraphQL 内联字段改用该常量**（第 91-96 行的 `items { ... }` 块）
 
 ```ts
     `query Orders($take: Int, $skip: Int) {
@@ -90,11 +90,11 @@ const ORDER_FIELDS = `
     }`,
 ```
 
-- [ ] **Step 4: 构建验证**
+- [x] **Step 4: 构建验证**
   Run: `cd d:\zhao\vshop\web-admin; npm run build:h5`
   Expected: 构建成功退出码 0，无 TS 类型报错。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 cd d:\zhao\vshop; git add web-admin/src/apis/order.ts; git commit -m "feat(web-admin): extend order list query fields for phone/payment/lines"
@@ -107,7 +107,7 @@ cd d:\zhao\vshop; git add web-admin/src/apis/order.ts; git commit -m "feat(web-a
 **Files:**
 - Create: `src/utils/orderFormat.ts`
 
-- [ ] **Step 1: 新建文件，粘贴完整实现**
+- [x] **Step 1: 新建文件，粘贴完整实现**
 
 ```ts
 // 订单列表·中国本地化 展示层工具与视图模型（纯函数，SSR/H5 友好）
@@ -230,11 +230,11 @@ export function isGhostView(v: OrderView): boolean {
 }
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
   Run: `cd d:\zhao\vshop\web-admin; npm run build:h5`
   Expected: 构建成功退出码 0（本 Task 仅新增文件，不引包进页面也不会报错）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 cd d:\zhao\vshop; git add web-admin/src/utils/orderFormat.ts; git commit -m "feat(web-admin): add order list view model and format utils"
@@ -247,7 +247,7 @@ cd d:\zhao\vshop; git add web-admin/src/utils/orderFormat.ts; git commit -m "fea
 **Files:**
 - Modify: `src/pages/order/list/index.vue`（整文件替换）
 
-- [ ] **Step 1: 用下面的完整文件覆盖 `src/pages/order/list/index.vue`**
+- [x] **Step 1: 用下面的完整文件覆盖 `src/pages/order/list/index.vue`**
 
 ```vue
 <template>
@@ -678,11 +678,11 @@ onReachBottom(loadMore);
 </style>
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
   Run: `cd d:\zhao\vshop\web-admin; npm run build:h5`
   Expected: 构建成功退出码 0、无 TS 报错。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 cd d:\zhao\vshop; git add web-admin/src/pages/order/list/index.vue; git commit -m "feat(web-admin): rebuild order list with stats, pickup redeem entry, responsive card/table"
@@ -695,7 +695,7 @@ cd d:\zhao\vshop; git add web-admin/src/pages/order/list/index.vue; git commit -
 **Files:**
 - Create: `_e2e/order_list_localization.py`
 
-- [ ] **Step 1: 新建脚本**（沿用 `_e2e/verify_fix.py` 的登录 + console/error 捕获模式）
+- [x] **Step 1: 新建脚本**（沿用 `_e2e/verify_fix.py` 的登录 + console/error 捕获模式）
 
 ```python
 # -*- coding: utf-8 -*-
@@ -742,17 +742,17 @@ run({'width': 390, 'height': 844}, 'mobile')
 run({'width': 1440, 'height': 900}, 'desk')
 ```
 
-- [ ] **Step 2: 确认 dev server 已启动**（`npm run dev:h5` 托管于 5280），否则先后台启动
+- [x] **Step 2: 确认 dev server 已启动**（`npm run dev:h5` 托管于 5280），否则先后台启动
   Run: `cd d:\zhao\vshop\web-admin; npm run dev:h5`
 
-- [ ] **Step 3: 运行脚本**
+- [x] **Step 3: 运行脚本**
   Run: `python d:/zhao/vshop/web-admin/_e2e/order_list_localization.py`
   Expected 输出含：`HAS_STATS=True`、`HAS_CARD_AND_ACTIONS=True`（其内 `'去核销'` 提供于数组内 3 个 action 文本中，专业判定在后）；`PAGEERRORS=(none)`。
   > 若线上/本地当前确实无"待核销"自提单，`去核销` 按钮自然不出现属正常（属数据空，非缺陷）；此时用已有的一张自提单订单手工核对，或接受"有则显示、无则隐藏"的判定。校验目标是：**手机视口出现卡片、桌面视口表格结构与统计条、手机卡片与桌面表格同一份 `views` 渲染、无 pageerror**。
 
-- [ ] **Step 4: 用 Read 查看两张截图** `order_local_mobile_390.png`、`order_local_desk_1440.png`，肉眼确认：手机卡片含状态/顾客+脱敏手机号/商品/时间/实付；桌面表格八列齐全、表头吸顶、无横向破版。截图合格后将它们补充进 `docs/webadmin-bugfix-manual/`（或新开的订单页操作手册节）。
+- [x] **Step 4: 用 Read 查看两张截图** `order_local_mobile_390.png`、`order_local_desk_1440.png`，肉眼确认：手机卡片含状态/顾客+脱敏手机号/商品/时间/实付；桌面表格八列齐全、表头吸顶、无横向破版。截图合格后将它们补充进 `docs/webadmin-bugfix-manual/`（或新开的订单页操作手册节）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 cd d:\zhao\vshop; git add web-admin/_e2e/order_list_localization.py; git commit -m "test(web-admin): e2e verify china-localized order list (mobile card + desktop table)"
@@ -765,13 +765,13 @@ cd d:\zhao\vshop; git add web-admin/_e2e/order_list_localization.py; git commit 
 **Files:**
 - Modify: `web-admin/docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html`（追加订单页章节）
 
-- [ ] **Step 1: 在手册 HTML 中新增「订单列表（中国本地化）」章节**：插入统计条、顶部核销入口、「本店渠道单/本店商品单」切换、手机卡片/桌面表格双形态说明；嵌入 Task 4 的两张截图（移动+桌面）与一句话验收标准（统计数与列表一致、自提未核销单出「去核销」→ 跳核销页）。
+- [x] **Step 1: 在手册 HTML 中新增「订单列表（中国本地化）」章节**：插入统计条、顶部核销入口、「本店渠道单/本店商品单」切换、手机卡片/桌面表格双形态说明；嵌入 Task 4 的两张截图（移动+桌面）与一句话验收标准（统计数与列表一致、自提未核销单出「去核销」→ 跳核销页）。
 
-- [ ] **Step 2: 最终构建**
+- [x] **Step 2: 最终构建**
   Run: `cd d:\zhao\vshop\web-admin; npm run build:h5`
   Expected: 退出码 0。产物在 `dist/build/h5`，留待按既有 `scripts/deploy.mjs` 上线流程部署（本次不含部署）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 cd d:\zhao\vshop; git add web-admin/docs web-admin/_e2e; git commit -m "docs(web-admin): add china-localized order list section + screenshots"
@@ -787,3 +787,17 @@ cd d:\zhao\vshop; git add web-admin/docs web-admin/_e2e; git commit -m "docs(web
 4. **接口/引用完整**：`maskPhone/fmtMoney/OrderView/channelToView/shopToView/isGhostView/computeStats` 均在 Task2 定义；`fetchOrders/fetchShopOrders/ShopOrderRow/OrderRow` 已在 `apis/order.ts`；`fetchPickupOrders` 已在 `apis/pickup.ts`；`ORDER_STATES/stateLabel` 已在 `constants/orderState.ts`。
 
 方向正确的落地边界：本计划只改前端（页面+一个工具文件+数据层查询字段），零后端改动；部署沿用 deploy.mjs，不在本计划范围。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：订单列表中国本地化改造已落地并经手册验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 提交 | `025a14b`（Task 1）、`1e643a2`（Task 2）、`3e138e3`（Task 3）、`92bdb87`（Task 4）、`d0e373c`（Task 5） |
+| 产物 | `src/utils/orderFormat.ts` 全套视图模型：`:12 OrderView`、`:107 channelToView`、`:130 shopToView` 等 |
+| 手册 | `webadmin-bugfix-manual.html:312` 第 8 章「订单列表·中国本地化改造」（统计条 / 核销 / 双形态）；`:344-349` callout 记录统计 + 商品单打通验收 |
+
+**本次回填动作**：勾选本计划全部 19 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 第 8 章、vshop git log 与产物文件。

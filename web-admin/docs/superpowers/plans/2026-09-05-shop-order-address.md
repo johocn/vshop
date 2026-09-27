@@ -19,7 +19,7 @@
 **Files:**
 - Modify: `d:\zhao\vendure\packages\shop-plugin\src\shop.service.ts`
 
-- [ ] **Step 1: 扩展 `aggregateMerchantOrders` 的 relations**
+- [x] **Step 1: 扩展 `aggregateMerchantOrders` 的 relations**
 
 在 `d:\zhao\vendure\packages\shop-plugin\src\shop.service.ts` 的 `aggregateMerchantOrders(ctx, shop)`（约 758-842 行）中，把 relations 数组：
 ```ts
@@ -51,7 +51,7 @@
         });
 ```
 
-- [ ] **Step 2: 构造 `MerchantOrder` 时映射地址/配送方式**
+- [x] **Step 2: 构造 `MerchantOrder` 时映射地址/配送方式**
 
 在该函数里 `orderMap.set(orderId, { ... })`（约 816-839 行）创建新订单条目时，在 `placedAt: order.orderPlacedAt ?? null,` 后追加两行：
 ```ts
@@ -73,12 +73,12 @@
 ```
 不要改 `existing` 分支（已存在的订单只 push items，地址/方式是订单级、首次 set 时写入即可）。
 
-- [ ] **Step 3: 本地编译校验**
+- [x] **Step 3: 本地编译校验**
 
 Run（cwd: `d:\zhao\vendure\packages\shop-plugin`）: `npm run build`
 Expected: `rimraf lib && tsc -p ./tsconfig.json` 成功，`lib/` 重新生成，无 TS 类型错误（若 `order.shippingAddress` 类型缺字段，确认 Vendure `Order` 实体的 `shippingAddress`/`shippingLines`/`shippingMethod` 关系名可用；TypeORM 关系校验报错则同步修正）。
 
-- [ ] **Step 4: Commit（仓 d:\zhao\vendure）**
+- [x] **Step 4: Commit（仓 d:\zhao\vendure）**
 
 ```bash
 git add packages/shop-plugin/src/shop.service.ts
@@ -92,7 +92,7 @@ git commit -m "feat(shop-plugin): myShopOrders 返回收货地址与配送方式
 **Files:**
 - Modify: `d:\zhao\vendure\packages\shop-plugin\src\types.ts`
 
-- [ ] **Step 1: 新增地址/配送行接口**
+- [x] **Step 1: 新增地址/配送行接口**
 
 在 `MerchantOrder` 接口（约 102-111 行）之前新增：
 ```ts
@@ -112,7 +112,7 @@ export interface MerchantShippingLine {
 }
 ```
 
-- [ ] **Step 2: 扩展 `MerchantOrder` 接口**
+- [x] **Step 2: 扩展 `MerchantOrder` 接口**
 
 把：
 ```ts
@@ -143,12 +143,12 @@ export interface MerchantOrder {
 }
 ```
 
-- [ ] **Step 3: 本地编译校验**
+- [x] **Step 3: 本地编译校验**
 
 Run（cwd: `d:\zhao\vendure\packages\shop-plugin`）: `npm run build`
 Expected: 编译成功（若 lib 已含新类型，`main: lib/index.js` 指向即可生效）。
 
-- [ ] **Step 4: Commit（仓 d:\zhao\vendure）**
+- [x] **Step 4: Commit（仓 d:\zhao\vendure）**
 
 ```bash
 git add packages/shop-plugin/src/types.ts
@@ -162,7 +162,7 @@ git commit -m "feat(shop-plugin): MerchantOrder 补 shippingAddress/shippingLine
 **Files:**
 - Modify: `d:\zhao\vendure\packages\shop-plugin\src\plugin.ts`
 
-- [ ] **Step 1: 新增 schema 类型**
+- [x] **Step 1: 新增 schema 类型**
 
 在 `type MerchantOrder {` 定义（约 128-137 行）之前，新增：
 ```graphql
@@ -182,7 +182,7 @@ git commit -m "feat(shop-plugin): MerchantOrder 补 shippingAddress/shippingLine
     }
 ```
 
-- [ ] **Step 2: 扩展 `MerchantOrder`**
+- [x] **Step 2: 扩展 `MerchantOrder`**
 
 把：
 ```graphql
@@ -213,12 +213,12 @@ git commit -m "feat(shop-plugin): MerchantOrder 补 shippingAddress/shippingLine
     }
 ```
 
-- [ ] **Step 3: 本地编译 + schema 无冲突校验**
+- [x] **Step 3: 本地编译 + schema 无冲突校验**
 
 Run（cwd: `d:\zhao\vendure\packages\shop-plugin`）: `npm run build`
 Expected: 编译成功。schema 为此插件 admin API extensions 定义，字段内存内部自洽。
 
-- [ ] **Step 4: Commit（仓 d:\zhao\vendure）**
+- [x] **Step 4: Commit（仓 d:\zhao\vendure）**
 
 ```bash
 git add packages/shop-plugin/src/plugin.ts
@@ -232,7 +232,7 @@ git commit -m "feat(shop-plugin): MerchantOrder schema 暴露收货地址与配�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\apis\order.ts`
 
-- [ ] **Step 1: 扩展 `ShopOrderRow`**
+- [x] **Step 1: 扩展 `ShopOrderRow`**
 
 在 `d:\zhao\vshop\web-admin\src\apis\order.ts` 的 `ShopOrderRow` 里 `placedAt?` 之后新增：
 ```ts
@@ -247,7 +247,7 @@ git commit -m "feat(shop-plugin): MerchantOrder schema 暴露收货地址与配�
   shippingLines?: Array<{ shippingMethod?: { code?: string | null; name?: string | null } | null }>;
 ```
 
-- [ ] **Step 2: 扩展 `fetchShopOrders` 查询字段**
+- [x] **Step 2: 扩展 `fetchShopOrders` 查询字段**
 
 把：
 ```ts
@@ -266,12 +266,12 @@ git commit -m "feat(shop-plugin): MerchantOrder schema 暴露收货地址与配�
       }
 ```
 
-- [ ] **Step 3: 本地构建校验**
+- [x] **Step 3: 本地构建校验**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `npm run build:h5`
 Expected: 构建通过，无 TS 错误。
 
-- [ ] **Step 4: Commit（仓 d:\zhao\vshop\web-admin）**
+- [x] **Step 4: Commit（仓 d:\zhao\vshop\web-admin）**
 
 ```bash
 git add src/apis/order.ts
@@ -285,7 +285,7 @@ git commit -m "feat(orders): ShopOrderRow 补收货地址/配送方式查询"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\utils\orderFormat.ts`
 
-- [ ] **Step 1: 扩展 `shopToView`**
+- [x] **Step 1: 扩展 `shopToView`**
 
 在 `d:\zhao\vshop\web-admin\src\utils\orderFormat.ts` 的 `shopToView` 中，把：
 ```ts
@@ -304,12 +304,12 @@ git commit -m "feat(orders): ShopOrderRow 补收货地址/配送方式查询"
 ```
 保持不动（address 新增在 delivery 之后即可；`formatAddress` 是本文件已有纯函数）。
 
-- [ ] **Step 2: 本地构建校验**
+- [x] **Step 2: 本地构建校验**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `npm run build:h5`
 Expected: 构建通过。
 
-- [ ] **Step 3: Commit（仓 d:\zhao\vshop\web-admin）**
+- [x] **Step 3: Commit（仓 d:\zhao\vshop\web-admin）**
 
 ```bash
 git add src/utils/orderFormat.ts
@@ -323,12 +323,12 @@ git commit -m "feat(order-format): shopToView 填收货地址与配送方式名"
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\_e2e\verify_order_actions.py`
 
-- [ ] **Step 1: 本地构建**
+- [x] **Step 1: 本地构建**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `npm run build:h5`
 Expected: 构建通过。
 
-- [ ] **Step 2: E2E 增加商品单地址断言**
+- [x] **Step 2: E2E 增加商品单地址断言**
 
 在 `run()` 里（现有 `THUMB_IMG`/`REMIND` 采样后）追加：
 ```python
@@ -339,12 +339,12 @@ print('SHOP_DELIV=', shop_deliv, 'ADDR_SHOP_NODES=', addr_shop)
 ```
 > 说明：该断言仅在**后端已部署**后才有真实地址数据；后端未部署前，商品单 `o.address` 仍为空，`addr_shop` 可能为 0。本 Task 只保证脚本不报错、元素选择器正确；真实数据核对放在 Task 7 后端部署后的线上回归。
 
-- [ ] **Step 3: 双视口跑通（当前后端可能未含地址→允许 ADDR 为 0 但脚本不崩）**
+- [x] **Step 3: 双视口跑通（当前后端可能未含地址→允许 ADDR 为 0 但脚本不崩）**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `python _e2e/verify_order_actions.py`
 Expected: 双视口脚本正常结束、原有 `ALL_OK` 不变，无 `PAGEERROR`，新增 `SHOP_DELIV`/`ADDR_SHOP_NODES` 行打印。
 
-- [ ] **Step 4: Commit（仓 d:\zhao\vshop\web-admin）**
+- [x] **Step 4: Commit（仓 d:\zhao\vshop\web-admin）**
 
 ```bash
 git add _e2e/verify_order_actions.py
@@ -360,7 +360,7 @@ git commit -m "test(e2e): 新增商品单地址/配送断言"
 - Run（仓 `d:\zhao\vshop\web-admin`）: 前端部署 + E2E
 - Modify: `d:\zhao\vshop\web-admin\docs\webadmin-bugfix-manual\webadmin-bugfix-manual.html`
 
-- [ ] **Step 1: 后端本地 build 出 lib 并推仓**
+- [x] **Step 1: 后端本地 build 出 lib 并推仓**
 
 在 `d:\zhao\vendure\packages\shop-plugin` 确认 lib 已由 Task 1-3 的 `npm run build` 刷新；若 lib 未被 git 跟踪，需确认生产服务器如何消费该插件（可能是 `git pull` 后由服务端构建或直接读 lib）——**遵循仓库铁律：绝不在服务器构建**。若 lib 需随 src 提交，则：
 ```bash
@@ -369,7 +369,7 @@ git commit -m "build(shop-plugin): 刷新 lib 产物(含收货地址字段)"
 git push
 ```
 
-- [ ] **Step 2: 后端线上** `git pull + pm2 restart`
+- [x] **Step 2: 后端线上** `git pull + pm2 restart`
 
 在服务器（`qing`）对应 vendure 仓库目录：
 ```bash
@@ -378,18 +378,18 @@ pm2 restart <vendure-app-name>
 ```
 Expected: 服务重启成功，`myShopOrders` 新字段可查。
 
-- [ ] **Step 3: 前端部署**
+- [x] **Step 3: 前端部署**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `node scripts/deploy.mjs`
 Expected: 部署完成，线上 `https://e.joho.cn/guanli/` 生效。
 
-- [ ] **Step 4: 线上 E2E 回归 + 截图**
+- [x] **Step 4: 线上 E2E 回归 + 截图**
 
 Run（cwd: `d:\zhao\vshop\web-admin`）: `python _e2e/verify_order_actions.py`
 Expected: 双视口 `ALL_OK` True、无 `PAGEERROR`；本次后端已升级，商品单 scope 下 `.card .addr`（手机）或 `.c-addr`（桌面）应有真实地址节点（`ADDR_SHOP_NODES>0`）。若仍为 0，校验后端返回的 `myShopOrders.shippingAddress` 是否真有值（部分订单可能本无收货地址）。
 截图落在 `_e2e/order_actions_mobile_390.png` 与 `order_actions_desk_1440.png`。
 
-- [ ] **Step 5: 更新操作手册**
+- [x] **Step 5: 更新操作手册**
 
 在 `webadmin-bugfix-manual.html` 追加子小节（顺势接 8.4.x），说明：
 - 「本店商品单」现返回收货地址与配送方式名（后端 myShopOrders 扩展）；
@@ -397,7 +397,7 @@ Expected: 双视口 `ALL_OK` True、无 `PAGEERROR`；本次后端已升级，�
 - 无地址订单显示占位（手机不渲染地址行、桌面显示 `—`）。
 并把 Task 6/4 的双视口验收截图插入（figure/figcaption 沿用既有写法）。
 
-- [ ] **Step 6: Commit（仓 d:\zhao\vshop\web-admin）**
+- [x] **Step 6: Commit（仓 d:\zhao\vshop\web-admin）**
 
 ```bash
 git add docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html docs/webadmin-bugfix-manual/assets
@@ -415,3 +415,17 @@ git commit -m "docs(manual): 本店商品单补地址(收货地址/配送方式)
 **类型一致性：** 后端 `MerchantShippingAddress`/`MerchantShippingLine`（types.ts，Task2）与 schema 字段（plugin.ts，Task3）和 service 映射（Task1）同构；前端 `ShopOrderRow.shippingAddress/shippingLines`（order.ts，Task4）与 `shopToView` 读取的 `s.shippingAddress`/`s.shippingLines`（Task5）一致；`formatAddress`（已有）复用于 Task5。
 
 **风险提示（实现时核对）：** ① 后端 `Order` 实体的 `shippingAddress/shippingLines/shippingMethod` 关系名需 TypeORM 校验通过；② 生产服务器如何消费 shop-plugin（读 lib 或需提交 lib），需按仓库部署惯例核实，绝不服务器构建；③ 部分商品单订单可能本无收货地址 → 地址为空属正常，检查时以接口返回为准。
+
+## 执行结论（2026-09-28 回填）
+
+**结论：店铺订单地址（后端扩展 + 前端视图模型）已落地并经线上验收；本次收尾 = 复选框回填 + 收尾结论。**
+
+| 项 | 产物 / 依据 |
+|---|---|
+| 后端（vendure） | `89539e173`（shop-plugin service / types / schema 扩展）、`575d79361`（lib）；`packages/shop-plugin/src/types.ts:102,111,125,126`、`plugin.ts:128,137,151,152`、`shop.service.ts:762,829,839` |
+| 前台（web-admin） | `9f5d272`（`order.ts` + `shopToView`）、`0ede320`（E2E）、`b13e073`（手册）；`src/apis/order.ts:87-88`、`orderFormat.ts:136,139` |
+| 手册 | `webadmin-bugfix-manual.html` 8.4.5 线上验收结论 ✅（`ADDR_MOBILE=7` / `ADDR_SHOP_NODES=25` / `OK_ADDR=True`） |
+
+**本次回填动作**：勾选本计划全部 29 个 `- [ ] **Step` 复选框 + 追加本节；未改动计划正文。
+
+**依据出处**：`webadmin-bugfix-manual.html` 8.4.5、前后端 git log 与产物文件。
