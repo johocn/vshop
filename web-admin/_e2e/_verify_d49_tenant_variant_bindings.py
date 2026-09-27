@@ -36,11 +36,19 @@
     ⑥ 收尾：API 解绑回读为空（脚本自清理，供 baseline 态复跑）
   baseline（已解绑）
     ① 租户级读 = 空数组；② UI 重开弹层 0 条勾选（解绑已落库，非仅前端态）
+  prod-after（**生产只读复验**，D49 上线后补 evidence）
+    ① 核心 setVariantBindings 对租户令牌仍授权失败（上线后**未**放宽核心 @Allow）
+    ② 租户令牌读 tenantVariantBindings 成功（字段存在 + 读权限通 = 后端已上线）
+    ②b 归属过滤生效：返回绑定全部属本店仓
+    ③ UI：线上前端卡片出现「绑定」动作 + 弹层列出本店物理仓（= 前端已上线）
+    ③c 弹层勾选数 = API 绑定数，随后**取消关闭**（绝不点保存）
+    ⚠ 本态**全程零写入**（不调用 setTenantVariantBindings）：生产改绑定会连带影响
+      虚拟仓镜像口径，属禁写范围；写入链路的验证由本地 after 态承担。
 
 环境变量：WA_D49_BASE（默认 https://e.joho.cn/guanli/）、WA_API_ADMIN、
   WA_SMOKE_USER / WA_SMOKE_PWD（租户）、WA_D49_ADMIN_USER / WA_D49_ADMIN_PWD（超管）、
   WA_D49_UI_CHANNEL（默认空 = 自动挑选「有物理仓且有库存行」的渠道）、
-  WA_D49_STATE（before|after|baseline，默认 after）、WA_D49_TAG（截图文件名后缀）
+  WA_D49_STATE（before|after|baseline|prod-after，默认 after）、WA_D49_TAG（截图文件名后缀）
 退出码：0 = 全部通过；1 = 断言失败；2 = 环境不可用
 """
 import json
@@ -287,8 +295,8 @@ def shot(pg, name, full=False):
 
 
 def main():
-    if STATE not in ('before', 'after', 'baseline'):
-        env_fail('WA_D49_STATE 必须是 before / after / baseline，当前 %r' % STATE)
+    if STATE not in ('before', 'after', 'baseline', 'prod-after'):
+        env_fail('WA_D49_STATE 必须是 before / after / baseline / prod-after，当前 %r' % STATE)
 
     # ---- 租户会话：权限结论（不受 UI 渠道选择影响）----
     ttok, tchans = login_api(USER, PWD)
@@ -318,6 +326,17 @@ def main():
         wval, werr0 = write_bindings(ttok, tch['token'], tvid, [])
         check('②b 旧后端下 setTenantVariantBindings 不存在',
               wval is None and werr0 is not None, '实际 %r / %s' % (wval, werr0))
+    elif STATE == 'prod-after':
+        # 生产只读复验：只证明「新入口已上线 + 租户权限通 + 归属过滤生效」，
+        # 全程不调用 setTenantVariantBindings（生产改绑定会连带影响虚拟仓镜像口径）。
+        if terr2:
+            env_fail('生产 tenantVariantBindings 不可用（后端未部署 D49？）%s' % terr2)
+        check('② 生产已上线 D49 后端：租户令牌读 tenantVariantBindings 成功（字段存在 + 读权限通）',
+              isinstance(tval, list), '实际 %r / %s' % (tval, terr2))
+        own = {str(l['id']) for l in (tov.get('locations') or [])}
+        leaked = [b for b in (tval or []) if str(b.get('locationId')) not in own]
+        check('②b 归属过滤生效：返回 %d 条绑定全部属本店仓（越权行 0 条）' % len(tval or []),
+              not leaked, '越权 %s' % json.dumps(leaked, ensure_ascii=False))
     else:
         if terr2:
             env_fail('tenantVariantBindings 不可用（后端未部署？）%s' % terr2)
@@ -381,6 +400,8 @@ def main():
             shot(pg, '%scard-no-bind' % TAG, full=False)
         else:
             check('③ 新前端卡片出现「绑定」动作', any('绑定' in a for a in acts), '实际 %s' % acts)
+            if STATE == 'prod-after':
+                shot(pg, '%scard-with-bind' % TAG, full=False)
             open_bind_sheet(pg)
             n_rows, n_checked, has_def, empty = bind_state(pg)
             info('弹层：物理仓行 %d / 已勾选 %d / 有默认仓 %s / 空态 %s'
@@ -391,6 +412,14 @@ def main():
                 check('② baseline：弹层 0 条勾选（解绑已落库，非仅前端态）', n_checked == 0,
                       '实际 %d 条勾选' % n_checked)
                 shot(pg, '%ssheet-unbound' % TAG, full=False)
+            elif STATE == 'prod-after':
+                # 生产只读：截图后「取消」关闭，绝不点保存
+                n_bound = len(read_bindings(atok, ctoken, uvk)[0] or [])
+                check('③c 生产只读：弹层勾选数 = API 绑定数（%d），未做任何写入' % n_bound,
+                      n_checked == n_bound, '弹层 %d / API %d' % (n_checked, n_bound))
+                shot(pg, '%ssheet-locations' % TAG, full=False)
+                pg.locator('.sheet .sbtns .sbtn').first.click()
+                pg.locator('.sheet').wait_for(state='hidden', timeout=15000)
             else:
                 pg.locator('.sheet .blist .brow').first.click()
                 time.sleep(0.5)
