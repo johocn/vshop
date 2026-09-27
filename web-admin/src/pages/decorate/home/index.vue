@@ -1,6 +1,20 @@
 <template>
   <view class="page">
-    <view v-if="sections.length === 0" class="muted empty">{{ $t('decorateHome.empty') }}</view>
+    <!-- 骨架槽位（只读）：展示最终渲染顺序与每个槽位的状态；兜底槽位可「移除 / 恢复」 -->
+    <view class="slots">
+      <view class="slots-head">{{ $t('decorateHome.slotOrderTitle') }}</view>
+      <view class="slot" v-for="s in SLOTS" :key="s.key">
+        <text class="slot-name">{{ $t(`decorateHome.${s.labelKey}`) }}</text>
+        <text class="slot-tag">{{ s.fallback ? $t('decorateHome.slotFallback') : $t('decorateHome.slotOptional') }}</text>
+        <text class="slot-state">{{ $t(`decorateHome.${slotStateKey(s)}`) }}</text>
+        <text v-if="s.fallback" class="slot-toggle" @tap="toggleSlot(s)">
+          {{ hiddenSlots.includes(s.key) ? $t('decorateHome.slotRestore') : $t('decorateHome.slotRemove') }}
+        </text>
+      </view>
+      <view class="muted hint">{{ $t('decorateHome.slotHint') }}</view>
+    </view>
+
+    <view v-if="sections.length === 0 && hiddenSlots.length === 0" class="muted empty">{{ $t('decorateHome.empty') }}</view>
 
     <view class="block" v-for="(sec, si) in sections" :key="si">
       <view class="block-head">
@@ -166,6 +180,58 @@
         </view>
       </template>
 
+      <!-- brandFloor：品牌闪购 -->
+      <view v-else-if="sec.type === 'brandFloor'" class="field">
+        <text class="lbl">{{ $t('decorateHome.title') }}</text>
+        <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        <view class="muted hint">{{ $t('decorateHome.brandFloorHint') }}</view>
+      </view>
+
+      <!-- plaza：品质专区 -->
+      <view v-else-if="sec.type === 'plaza'" class="field">
+        <text class="lbl">{{ $t('decorateHome.title') }}</text>
+        <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        <view class="muted hint">{{ $t('decorateHome.plazaHint') }}</view>
+      </view>
+
+      <!-- coupon：领券楼层 -->
+      <template v-else-if="sec.type === 'coupon'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.couponLimit') }}</text>
+          <input type="number" v-model.number="sec.limit" />
+        </view>
+        <view class="muted hint">{{ $t('decorateHome.couponHint') }}</view>
+      </template>
+
+      <!-- latest：最新商品 -->
+      <template v-else-if="sec.type === 'latest'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.newCollection') }}</text>
+          <input v-model="sec.collectionId" :placeholder="$t('decorateHome.collectionIdPlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limit') }}</text>
+          <input type="number" v-model.number="sec.limit" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.cardLayout') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'compact' }" @tap="sec.layout = 'compact'">{{ $t('decorateHome.layoutCompact') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'masonry' }" @tap="sec.layout = 'masonry'">{{ $t('decorateHome.layoutMasonry') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'single' }" @tap="sec.layout = 'single'">{{ $t('decorateHome.layoutSingle') }}</text>
+          </view>
+        </view>
+        <view class="muted hint">{{ $t('decorateHome.latestHint') }}</view>
+      </template>
+
       <!-- richText：富文本 -->
       <view v-else-if="sec.type === 'richText'" class="field">
         <text class="lbl">{{ $t('decorateHome.richText') }}</text>
@@ -180,6 +246,10 @@
       <button class="mini" @tap="addGoods">{{ $t('decorateHome.addGoods') }}</button>
       <button class="mini" @tap="addHot">{{ $t('decorateHome.addHot') }}</button>
       <button class="mini" @tap="addRecommend">{{ $t('decorateHome.addRecommend') }}</button>
+      <button class="mini" @tap="addBrandFloor">{{ $t('decorateHome.addBrandFloor') }}</button>
+      <button class="mini" @tap="addPlaza">{{ $t('decorateHome.addPlaza') }}</button>
+      <button class="mini" @tap="addCoupon">{{ $t('decorateHome.addCoupon') }}</button>
+      <button class="mini" @tap="addLatest">{{ $t('decorateHome.addLatest') }}</button>
       <button class="mini" @tap="addRichText">{{ $t('decorateHome.addRichText') }}</button>
     </view>
 
@@ -214,6 +284,39 @@ interface SectionVM {
 
 const locale = useLocaleStore();
 const sections = ref<SectionVM[]>([]);
+
+/** 骨架槽位表（与前台 utils/home-skeleton.ts 的 HOME_SKELETON 一一对应，顺序即最终渲染顺序） */
+const SLOTS: { key: string; match: string; labelKey: string; fallback: boolean }[] = [
+  { key: 'banner', match: 'banner', labelKey: 'slotBanner', fallback: true },
+  { key: 'notice', match: 'notice', labelKey: 'slotNotice', fallback: false },
+  { key: 'functionGrid', match: 'nav', labelKey: 'slotFunctionGrid', fallback: true },
+  { key: 'coupon', match: 'coupon', labelKey: 'slotCoupon', fallback: false },
+  { key: 'brandFloor', match: 'brandFloor', labelKey: 'slotBrandFloor', fallback: true },
+  { key: 'plaza', match: 'plaza', labelKey: 'slotPlaza', fallback: true },
+  { key: 'goods', match: 'goods', labelKey: 'slotGoods', fallback: false },
+  { key: 'hot', match: 'hot', labelKey: 'slotHot', fallback: true },
+  { key: 'recommend', match: 'recommend', labelKey: 'slotRecommend', fallback: true },
+  { key: 'latest', match: 'latest', labelKey: 'slotLatest', fallback: false },
+];
+
+/** 已显式移除的兜底槽位 key（写回 shopContent.hiddenSlots） */
+const hiddenSlots = ref<string[]>([]);
+
+/** 槽位状态：removed（已移除）> covered（已被同类型区块覆盖）> auto（自动兜底）> unset（可选未配置） */
+function slotStateKey(slot: { key: string; match: string; fallback: boolean }): string {
+  if (hiddenSlots.value.includes(slot.key)) return 'slotRemoved';
+  if (sections.value.some((s) => s.type === slot.match)) return 'slotCovered';
+  return slot.fallback ? 'slotAuto' : 'slotUnset';
+}
+
+/** 兜底槽位「移除 / 恢复」开关；可选槽位无兜底，不可移除 */
+function toggleSlot(slot: { key: string; fallback: boolean }) {
+  if (!slot.fallback) return;
+  const i = hiddenSlots.value.indexOf(slot.key);
+  if (i >= 0) hiddenSlots.value.splice(i, 1);
+  else hiddenSlots.value.push(slot.key);
+}
+
 const channelId = ref('');
 const saving = ref(false);
 
@@ -224,6 +327,10 @@ onMounted(async () => {
     const raw = (ch.customFields as any)?.shopContent;
     const parsed = parseShopContent(raw);
     sections.value = parsed ? (parsed.sections as unknown as SectionVM[]).map(toViewModel) : [];
+    hiddenSlots.value =
+      parsed && Array.isArray((parsed as any).hiddenSlots)
+        ? ((parsed as any).hiddenSlots as unknown[]).filter((k): k is string => typeof k === 'string')
+        : [];
   } catch {
     // 读取失败置空，用户仍可通过保存重新写入
     sections.value = [];
@@ -238,6 +345,10 @@ function typeLabel(t: string): string {
     case 'goods': return locale.t('decorateHome.typeGoods');
     case 'hot': return locale.t('decorateHome.typeHot');
     case 'recommend': return locale.t('decorateHome.typeRecommend');
+    case 'brandFloor': return locale.t('decorateHome.typeBrandFloor');
+    case 'plaza': return locale.t('decorateHome.typePlaza');
+    case 'coupon': return locale.t('decorateHome.typeCoupon');
+    case 'latest': return locale.t('decorateHome.typeLatest');
     case 'richText': return locale.t('decorateHome.typeRichText');
     default: return t;
   }
@@ -250,6 +361,10 @@ function addNav() { sections.value.push({ type: 'nav', items: [{ label: '' }], s
 function addGoods() { sections.value.push({ type: 'goods', collectionId: '', layout: 'compact' }); }
 function addHot() { sections.value.push({ type: 'hot', source: 'auto', limit: 10, layout: 'compact' }); }
 function addRecommend() { sections.value.push({ type: 'recommend', source: 'auto', limit: 10, layout: 'compact', dedupe: true }); }
+function addBrandFloor() { sections.value.push({ type: 'brandFloor', title: '' }); }
+function addPlaza() { sections.value.push({ type: 'plaza', title: '' }); }
+function addCoupon() { sections.value.push({ type: 'coupon', title: '', limit: 6 }); }
+function addLatest() { sections.value.push({ type: 'latest', title: '', collectionId: '', limit: 10, layout: 'compact' }); }
 function addRichText() { sections.value.push({ type: 'richText', html: '' }); }
 
 // 落库 JSON → 编辑态（slugs 数组转为多行文本，便于 textarea 编辑）
@@ -261,7 +376,22 @@ function toViewModel(sec: any): SectionVM {
 
 // 编辑态 → 落库 JSON：空字符串字段不写入，缺失项由前台按默认值兜底
 function toSection(vm: SectionVM): any {
-  if (vm.type !== 'hot' && vm.type !== 'recommend') return vm;
+  if (vm.type === 'hot' || vm.type === 'recommend') return toCuratedSection(vm);
+  const sec: any = { ...vm };
+  delete sec.slugsText;
+  if (typeof sec.title === 'string' && !sec.title.trim()) delete sec.title;
+  if (sec.type === 'latest' && typeof sec.collectionId === 'string' && !sec.collectionId.trim()) delete sec.collectionId;
+  if (sec.type === 'latest' || sec.type === 'coupon') {
+    if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
+      sec.limit = Math.min(30, Math.max(1, Math.round(sec.limit)));
+    } else {
+      delete sec.limit;
+    }
+  }
+  return sec;
+}
+
+function toCuratedSection(vm: SectionVM): any {
   const sec: any = { type: vm.type };
   const title = (vm.title ?? '').trim();
   if (title) sec.title = title;
@@ -294,7 +424,8 @@ function addNavItem(sec: SectionVM) { sec.items?.push({ label: '' }); }
 function removeNavItem(sec: SectionVM, i: number) { sec.items?.splice(i, 1); }
 
 async function save() {
-  if (sections.value.length === 0) {
+  // 允许「全部走兜底、但移除某个楼层」的表达：只有既无区块又无 hiddenSlots 才拒绝
+  if (sections.value.length === 0 && hiddenSlots.value.length === 0) {
     uni.showToast({ title: locale.t('decorateHome.needSection'), icon: 'none' });
     return;
   }
@@ -321,18 +452,30 @@ async function save() {
   }
 }
 
-// 组装顶层 JSON并经 schema 校验；非法返回 null
+// 组装顶层 JSON 并经 schema 校验；非法返回 null
 function buildContent(): ShopContent | null {
   const content: ShopContent = {
     version: 1,
     sections: sections.value.map(toSection) as unknown as ShopSection[],
   };
+  const hidden = hiddenSlots.value.filter((k) => typeof k === 'string' && k.trim().length > 0);
+  if (hidden.length) content.hiddenSlots = hidden;
   return isValidShopContent(content) ? content : null;
 }
 </script>
 
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx 32rpx 160rpx;
+  .slots { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 32rpx; margin-bottom: 24rpx;
+    .slots-head { font-size: 28rpx; color: $wa-ink; font-weight: 600; margin-bottom: 16rpx; }
+    .slot { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0; border-bottom: 1rpx solid $wa-rule;
+      &:last-of-type { border-bottom: 0; }
+      .slot-name { flex: 1; font-size: 26rpx; color: $wa-ink; }
+      .slot-tag { font-size: 22rpx; color: $wa-muted; }
+      .slot-state { font-size: 22rpx; color: $wa-accent; }
+      .slot-toggle { font-size: 22rpx; color: $wa-danger; }
+    }
+  }
   .empty { text-align: center; padding: 80rpx 0 40rpx; }
   .block { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 24rpx;
     .block-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx;
