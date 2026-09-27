@@ -743,10 +743,17 @@ var CHAPTERS = [
 <p>入口：后台 → 库存 → <mark class="mark">手动出库</mark>，用于报损、领用等一般性出库。字段：<mark class="mark">源仓库 *</mark>、<mark class="mark">变体 ID *</mark>、<mark class="mark">出库数量 *</mark>，<mark class="mark">原因</mark>（选填，如 报损/领用），点「出库」提交。</p>
 <h3>6. 库存流水（movements）</h3>
 <p>入口：后台 → 库存 → <mark class="mark">库存流水</mark>。这里是上述单据与订单销售共同汇总的<mark class="mark">库存变动台账</mark>：每一条记录标注变体、仓库、变动方向与数量来源（采购/移库/盘库/出库/销售扣仓等），是核对库存与追溯记录的一站式视图。当前无变动时显示<mark class="mark">「暂无流水」</mark>空态。</p>
+<p>页面提供<mark class="mark">五组筛选</mark>：方向（全部 / 入库 / 出库）、业务类型（采购 / 移库 / 盘库 / 出库 / 销售 / 镜像同步…）、仓库（含「全部仓」）、<mark class="mark">日期区间</mark>与商品变体 ID。筛选提交后<mark class="mark">顶部汇总条随条件重算</mark>（入库合计 / 出库合计 / 条数），每条流水行显示<mark class="mark">「结存变化 前 → 后」</mark>，可直接看出这笔变动把该仓库存从多少改到多少。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op23_movements_filter.png" alt="库存流水-方向筛选"><div class="imgcap">图 I3b · 库存流水按方向「出库」筛选（汇总随条件重算）</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op23_movements_delta.png" alt="库存流水-结存变化"><div class="imgcap">图 I3c · 每行「结存变化 前 → 后」</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op23_movements_page2.png" alt="库存流水-上滑加载第二页"><div class="imgcap">图 I3d · 上滑加载更多（累计条数随滚动变多，到底显示「没有更多了」）</div></div>
 <img class="img" src="shots/inv_movements.png" alt="库存流水-台账">
 <div class="imgcap">图 I3 · 库存流水页（空态：「暂无流水」）</div>
 <div class="warn"><b>口径说明：</b>库存单据均针对<mark class="mark">物理仓</mark><code>onHand</code>增减；虚拟仓的可售库存由系统按绑定物理仓镜像或由平台商品端维护。新建仓库与物理仓性质在「网点管理」（op-22）中定义。</div>
-<h3>7. 库存预警（低库存 / 缺货 + 批量生成采购入库单）</h3>
+<h3>7. 单据中心（筛选 / 进度 / 重试）</h3>
+<p>入口：后台 → 库存 → <mark class="mark">单据中心</mark>。汇总全渠道的采购入库 / 移库 / 盘库 / 出库单据，顶部<mark class="mark">四项筛选</mark>：类型（页签）、仓库、日期区间、操作人；列表顶部显示<mark class="mark">进度条与「已显示 N / M」</mark>，上滑加载更多，到底提示「没有更多了」。请求失败时给出<mark class="mark">错误态 + 「重试」</mark>按钮，不会静默留下空白页。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op23_stockdoc_filter.png" alt="单据中心-筛选与进度"><div class="imgcap">图 I6 · 单据中心（类型 + 仓库 + 日期筛选 + 进度「已显示 N / M」）</div></div>
+<h3>8. 库存预警（低库存 / 缺货 + 批量生成采购入库单）</h3>
 <p>入口：后台 → 库存 → <mark class="mark">库存预警</mark>。系统按阈值扫描各仓库库存，自动标记<mark class="mark">低库存（橙徽，≤ 阈值）</mark>与<mark class="mark">缺货（红徽，0 件）</mark>，并展示每个 SKU 的<mark class="mark">当前库存 / 阈值 / 缺货量</mark>。可按<mark class="mark">仓库</mark>与<mark class="mark">预警阈值</mark>筛选，低库存行带红色描边便于扫视。</p>
 <img class="img" src="shots/inv_alert.png" alt="库存预警-低库存与缺货徽标">
 <div class="imgcap">图 I4 · 库存预警（低库存橙徽 / 缺货红徽 / 阈值 / 缺货量 / 红色描边）</div>
@@ -761,7 +768,12 @@ var CHAPTERS = [
 <p>预留单存在时，发货页中每个订单行按仓库分组（出现仓库选择器），可分配到多个仓库，提交后逐仓生成独立发货单；各仓 SALE 后预留明细自动核销。当前示例为<mark class="mark">无预留单/单仓视图</mark>：订单行直接显示可发数量与「＋/−」控件，不出现仓库选择器。</p>
 <img class="img" src="shots/r15_reservation_ship.png" alt="发货页-单仓视图">
 <div class="imgcap">图 R15 · 发货页（无预留单的单仓视图：可发数量/± 控件 + 快递公司 + 确认发货；预留单存在时此处按仓库分组出现仓库选择器）</div>
-<h3>3. 对账</h3>
+<h3>3. 预留单独立页（倒计时 / 手工释放）</h3>
+<p>入口：库存 → 「<mark class="mark">预留单</mark>」宫格。默认列出<mark class="mark">待备货</mark>的预留单，每条显示<mark class="mark">剩余有效期倒计时（mm:ss，每秒递减）</mark>；顶部按状态分 5 个页签（待备货 / 已配货 / 已发货 / 已释放 / 全部）。</p>
+<p>点每条右侧「<mark class="mark">释放</mark>」可<mark class="mark">手工释放</mark>（把「待备货」置为「已释放」并归还账面占用）；已释放等<mark class="mark">终态单不再显示「释放」按钮</mark>。自动释放由常驻 worker 执行，见 op-40。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op24_resv_page.png" alt="预留单独立页-倒计时"><div class="imgcap">图 R16 · 预留单独立页（mm:ss 倒计时 + 手工释放 + 状态页签）</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op24_resv_entry.png" alt="库存页预留单入口"><div class="imgcap">图 R17 · 库存页「预留单」宫格入口</div></div>
+<h3>4. 对账</h3>
 <p>预留单对账校验 Σ物理 − 虚拟 == Σ待发，偏差行会在预留单对账视图列出。</p>`},
 {book:'op', id:'op-25', title:'订单列表多版式', html:`
 <p class="lead">订单列表提供<mark class="mark">三套版式</mark>：经典 / 状态优先 / 按状态分组，顶部「版式」按钮可随时切换，选择会被记住（下次进入保持）。</p>
@@ -821,6 +833,11 @@ var CHAPTERS = [
 <p>双线折线图展示所选时间段的<mark class="mark">销售额（元，左轴）与订单数（单，右轴）</mark>。下方「销量 Top 榜」按品类排行，每行展示<mark class="mark">排名、品类、单数、销量（件数）与 GMV</mark>，销量列辅助备货判断。</p>
 <h3>4. 库存健康卡</h3>
 <p>底部「库存健康」卡片展示<mark class="mark">低库存数 / 缺货数 / 总 SKU 数</mark>三格。缺货与总 SKU 取自默认仓库的库存快照；<mark class="mark">当仓库无库存记录时显示「−」</mark>，属正常口径（前端不伪造 0），可结合「库存预警」（op-23）补齐数据后回看。</p>
+<h3>5. 作业分析（拣货 / 盘库 / 差异率 / 发货件数）</h3>
+<p>看板底部「作业分析」按所选时间窗（近 7 / 近 30）汇总四项 KPI：<mark class="mark">拣货单数</mark>、<mark class="mark">盘库次数</mark>、<mark class="mark">盘点差异率</mark>（Σ|差异| ÷ Σ应盘）与<mark class="mark">发货件数</mark>。差异率下方给出与上期对比的升降箭头。</p>
+<p>其下是<mark class="mark">近 7 日盘点差异趋势</mark>（按天条状，0 差异日不画条）与<mark class="mark">作业员明细</mark>（每人：单据数 / 件数）。右上角「导出 CSV」按当前时间窗导出（含 UTF-8 BOM，文件名形如 <code>ops-report-7d-20260926.csv</code>），与页面同源同值。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op29_ops.png" alt="数据看板-作业分析"><div class="imgcap">图 K2 · 作业分析视图（近 7 天）：4 项 KPI（拣货单数 / 发货件数 / 盘库次数 / 盘点差异率）+ 近 7 日盘点差异趋势（条状，0 差异日不画条）+ 作业员明细与「导出 CSV」（本页同屏可见）</div></div>
+<div class="note"><b>口径说明：</b>「作业员」列显示 <mark class="mark">库存单据上的操作人原值</mark>（本地环境可能是数字 ID）；「发货件数」按<mark class="mark">订单创建时间</mark>归期，非发货时间。</div>
 <div class="note"><b>权限：</b>数据看板需要 ViewDashboard 权限；若提示权限不足，请在「成员管理 → 角色」为当前角色勾选该权限。</div>
 <div class="shot-box"><img class="img" src="shots/ops5_dashboard.png" alt="数据看板-完整版"><div class="imgcap">图 K1 · 数据看板（近 7/近 30 切换 + 趋势双线 + TOP 榜含销量列 + 库存健康卡）</div></div>`},
 {book:'op', id:'op-30', title:'POS 门店收银（收银员）', html:`
@@ -846,6 +863,9 @@ var CHAPTERS = [
 <p class="lead">买家发起的退款 / 退货 / 换货申请统一在「<mark class="mark">售后处理</mark>」集中处理。</p>
 <h3>入口与筛选</h3>
 <p>在「订单 → 售后处理」页查看全部售后工单，顶部标签可按 <mark class="mark">全部 / 待处理 / 已退款 / 已拒绝</mark> 筛选。每个工单展示订单号、售后类型（仅退款 / 退货退款 / 换货）、退款金额、原因与状态。</p>
+<p>状态标签旁还有<mark class="mark">售后类型筛选</mark>：全部 / 仅退款 / 退货退款 / 换货，可与状态标签叠加使用；列表<mark class="mark">分页加载</mark>，上滑到底自动加载下一页并累积显示，末尾提示「没有更多了」。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op31_aftersale_type_filter.png" alt="售后处理-类型筛选"><div class="imgcap">图 S1b · 售后类型筛选（仅退款/退货退款/换货）</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op31_aftersale_loadmore.png" alt="售后处理-上滑加载更多"><div class="imgcap">图 S1c · 上滑加载更多（累计条数增加，到底提示「没有更多了」）</div></div>
 <div class="shot-box"><img class="img" src="shots/b3_aftersale_list.png" alt="售后处理-列表与状态筛选"><div class="imgcap">图 S1 · 售后处理列表（类型 / 金额 / 原因 / 状态）</div></div>
 <h3>处理售后</h3>
 <p>点击工单进入「售后详情」，查看类型、状态、退款金额、原因与时间。根据工单状态可执行对应操作：<mark class="mark">同意</mark>、<mark class="mark">拒绝</mark>（需填原因）、<mark class="mark">确认收货退款</mark>、<mark class="mark">执行退款</mark> 或 <mark class="mark">重试退款</mark>。</p>
@@ -882,11 +902,26 @@ var CHAPTERS = [
 {book:'op', id:'op-35', title:'商品分类管理', html:`
 <p class="lead">归类先于上架。<mark class="mark">分类</mark>是首页「分类导航」与「商品楼层」的数据来源，做好分类树再批量铺货。</p>
 <p>「商品 → 分类管理」列出现有分类，支持 <mark class="mark">新建分类 / 重命名 / 删除</mark>，以及「<mark class="mark">归位映射</mark>」把分类重新对齐到系统标准映射。</p>
+<h3>层级树与排序</h3>
+<p>分类列表按<mark class="mark">父子层级缩进</mark>展示，可<mark class="mark">逐级折叠</mark>；同级可用「上移 / 下移」调整顺序（顺序即前台展示顺序），也支持<mark class="mark">层级移动</mark>——把某分类挂到另一个父分类下。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op35_categories_tree.png" alt="分类管理-层级树"><div class="imgcap">图 C2 · 分类层级树（父子缩进 + 折叠）与同级排序</div></div>
+<h3>分类图标与批量操作</h3>
+<p>每个分类可设置<mark class="mark">图标</mark>（前台分类导航直接取用）。勾选多个分类后底部出现<mark class="mark">批量操作条</mark>；删除时若该分类下仍有<mark class="mark">在售商品或子分类</mark>会被拦下并说明原因。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op35_categories_bulk.png" alt="分类管理-批量操作"><div class="imgcap">图 C3 · 勾选多个分类 → 底部批量操作条</div></div>
 <div class="shot-box"><img class="img" src="shots/b3_categories.png" alt="分类管理-列表"><div class="imgcap">图 C1 · 分类管理（新建 / 重命名 / 归位 / 删除）</div></div>
 <div class="warn"><b>提示：</b>删除分类前请确认其下已无在售商品，避免商品失去归类入口。</div>`},
 {book:'op', id:'op-36', title:'店铺全局配置', html:`
 <p class="lead">平台视角的底层兜底配置（<mark class="mark">L1 底层</mark>）：当模板或店铺级配置未覆盖时的默认值，对所有店铺生效。</p>
 <p>在「全局配置」（平台）中，可切换 <mark class="mark">nshop 商城 / youshop 商城</mark> 两条线，编辑主题令牌（<mark class="mark">主色 primaryColor / 辅色 accentColor / 圆角 radius</mark>）与「各页默认配置」<code>defaults</code> JSON，完成后点「<mark class="mark">保存</mark>」。</p>
+<h3>1. 结构化表单（推荐）</h3>
+<p>主题令牌（<mark class="mark">主色 / 辅色 / 圆角</mark>）与「商品详情默认配置」（版式 <code>layout</code> 与 7 个功能块开关）都用<mark class="mark">结构化表单</mark>填写：版式用胶囊单选，开关用 switch。<mark class="mark">保存前逐项校验，出错项当场标红</mark>（颜色格式 / 数值范围 / 必填），不会「报错后全部重填」。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op36_config_form.png" alt="全局配置-结构化表单"><div class="imgcap">图 G2 · 结构化表单（令牌 + 版式胶囊 + 块开关 + 行内标红）</div></div>
+<h3>2. 合并预览（改前可见）</h3>
+<p>点「立即预览」用<mark class="mark">当前未保存的编辑态</mark>生成 L0→L3 逐级合并后的最终配置；点「显示来源」可逐键看到该值来自 <mark class="mark">L1 全局 / L2 模板 / L3 店铺覆盖</mark>哪一层。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op36_config_preview.png" alt="全局配置-合并预览"><div class="imgcap">图 G3 · 合并预览（逐键标注 L1/L2/L3 来源）</div></div>
+<h3>3. JSON 高级编辑（兜底）</h3>
+<p>下方「JSON 高级编辑」是<mark class="mark">完整编辑态</mark>的逃生口：内容形如 <code>{ "themeTokens": {...}, "defaults": {...} }</code>，<mark class="mark">与上方结构化表单双向同步</mark>——改表单会立即反映到 JSON，改 JSON 失焦后也会并回表单。其它页面的默认配置（首页 / 分类 / 购物车 / 我的）只能在 JSON 里维护。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op36_config_json.png" alt="全局配置-JSON双根"><div class="imgcap">图 G4 · JSON 高级编辑（themeTokens + defaults 两个根，与表单双向同步）</div></div>
 <div class="shot-box"><img class="img" src="shots/b3_global_config.png" alt="全局配置-L1底层"><div class="imgcap">图 G1 · 全局配置（L1 底层回退值）</div></div>`},
 {book:'op', id:'op-37', title:'装修子页详解', html:`
 <p class="lead">除首页外，多个子页面也有独立的装修入口，可单独配置版式与视觉。</p>
@@ -1152,6 +1187,18 @@ var CHAPTERS = [
 <details><summary>渠道被删除或改名后，那些预留单还会释放吗</summary><p>会。<mark class="mark">释放只认预留单自己记录的渠道编号</mark>，不依赖该渠道是否还在——渠道被删或改了名，到期的「待备货」单照样会被 worker 释放，不会一直占着库存。只是这类单<mark class="mark">无法写库存流水</mark>（归属渠道已不存在），日志里会出现一条 <code>warn</code>「渠道 "xxx" 已不存在」，属正常提示，不影响释放结果。</p></details>
 <details><summary>手工释放和自动释放有区别吗</summary><p>结果一样，都是把「待备货」置为「已释放」。区别只在触发者：手工是在预留单页面点「释放」，自动是 worker 到点执行。</p></details>
 `},
+{book:'op', id:'op-41', title:'拣货批次：打印 / 交接 / 复核 / 异常件', html:`
+<p class="lead">多仓或多拣货员的店铺，把「一次拣货作业」做成<mark class="mark">批次</mark>来管：批次沿状态机推进，中途可<mark class="mark">交接</mark>给下一环、出现破损或缺货时登记<mark class="mark">异常件</mark>，最后<mark class="mark">复核</mark>归档只读。</p>
+<h3>1. 状态机</h3>
+<div class="card">批次状态按顺序推进，不可跳级、不可回退：<br/><b>已打印 PRINTED</b> → <b>已发货 SHIPPED</b> → <b>已交接 HANDOVER</b> → <b>异常 EXCEPTION</b> → <b>已复核 REVIEWED</b>。<br/>其中「异常」是分支态：登记异常件后批次进入异常，处理完再回到交接 / 复核链路。</div>
+<h3>2. 交接与异常件</h3>
+<p>入口：订单 → <mark class="mark">配货台 → 批次详情</mark>。点「<mark class="mark">交接</mark>」在弹出的交接单里填<mark class="mark">交接对象</mark>与备注并提交；「未交接前不显示交接对象与交接时间」。点「<mark class="mark">登记异常件</mark>」填异常类型与数量，批次随即置为异常态。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op41_handover_sheet.png" alt="批次交接单"><div class="imgcap">图 P1 · 批次交接单（交接对象 + 备注）</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op41_exception.png" alt="批次异常件登记"><div class="imgcap">图 P2 · 异常件登记（类型 + 数量，批次转异常态）</div></div>
+<h3>3. 复核后只读</h3>
+<p>点「<mark class="mark">复核</mark>」后整页转为<mark class="mark">只读</mark>（所有操作按钮消失），批次进入「已完成」列表；配货台列表按「进行中 / 已完成」分 Tab。</p>
+<div class="shot-box"><img class="img" src="shots/gap4_op41_handover_detail.png" alt="批次详情-已交接"><div class="imgcap">图 P3 · 已交接的批次详情（交接对象 / 交接时间已写入）</div></div>
+<div class="shot-box"><img class="img" src="shots/gap4_op41_reviewed.png" alt="批次详情-已复核只读"><div class="imgcap">图 P4 · 复核后整页只读（已完成 Tab）</div></div>`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
