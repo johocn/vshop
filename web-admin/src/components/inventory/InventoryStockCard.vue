@@ -31,6 +31,7 @@
     <view class="acts">
       <text class="act ghost" @tap="emit('open-movements')">{{ $t('inventoryStock.card.movements') }}</text>
       <text class="act ghost" @tap="emit('adjust')">{{ $t('inventoryStock.card.adjust') }}</text>
+      <text class="act ghost" @tap="emit('bind')">{{ $t('inventoryStock.card.bind') }}</text>
       <text class="act" @tap="emit('replenish')">{{ $t('inventoryStock.card.replenish') }}</text>
     </view>
   </view>
@@ -48,6 +49,7 @@ const emit = defineEmits<{
   (e: 'open-movements'): void;
   (e: 'replenish'): void;
   (e: 'adjust'): void;
+  (e: 'bind'): void;
 }>();
 
 const locale = useLocaleStore();

@@ -287,3 +287,59 @@ export async function saveInventoryAlertRules(
     throw new Error(graphQlErrorMsg(e, '保存预警规则失败'));
   }
 }
+
+// ---- 租户级「变体 × 物理仓」绑定（D49）----
+// 为什么不走核心 setVariantBindings：其 @Allow(InventoryPermissions.ViewStock) 是 inventory-plugin 的
+//   超管语义全局库存权限，不在租户角色白名单内 → 租户账号调用恒 403（与 D41/D42 同病根）。
+//   故改用 cjk-plugin 租户级入口（@Allow(UpdateStockLocation)，tenant-admin 白名单内）；
+//   归属校验仍沿用服务端原逻辑：仓必须 kind='physical' 且 code 属于当前租户（含 `{code}-` 前缀）。
+export interface VariantLocationBinding {
+  id: string;
+  variantId: string;
+  locationId: string;
+  isDefault: boolean;
+}
+
+export interface VariantBindingInput {
+  locationId: string;
+  isDefault: boolean;
+}
+
+const BINDING_SELECTION = `id variantId locationId isDefault`;
+
+/** 读取某变体在本店的物理仓绑定（弹层初始勾选态；只回本租户仓） */
+export async function fetchTenantVariantBindings(variantId: string): Promise<VariantLocationBinding[]> {
+  try {
+    const { tenantVariantBindings } = await getAdminClient().request<{
+      tenantVariantBindings: VariantLocationBinding[];
+    }>(
+      `query TenantVariantBindings($variantId: ID!) {
+        tenantVariantBindings(variantId: $variantId) { ${BINDING_SELECTION} }
+      }`,
+      { variantId },
+    );
+    return tenantVariantBindings;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载物理仓绑定失败'));
+  }
+}
+
+/** 替换式写入：传空数组 = 解绑全部（服务端会同步虚拟仓镜像） */
+export async function setTenantVariantBindings(
+  variantId: string,
+  bindings: VariantBindingInput[],
+): Promise<VariantLocationBinding[]> {
+  try {
+    const { setTenantVariantBindings } = await getAdminClient().request<{
+      setTenantVariantBindings: VariantLocationBinding[];
+    }>(
+      `mutation SetTenantVariantBindings($variantId: ID!, $bindings: [VariantBindingInput!]!) {
+        setTenantVariantBindings(variantId: $variantId, bindings: $bindings) { ${BINDING_SELECTION} }
+      }`,
+      { variantId, bindings },
+    );
+    return setTenantVariantBindings;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '保存物理仓绑定失败'));
+  }
+}

@@ -48,6 +48,7 @@
         @open-movements="onOpenMovements(r)"
         @replenish="onReplenish(r)"
         @adjust="onAdjust(r)"
+        @bind="onBind(r)"
       />
     </view>
 
@@ -98,6 +99,43 @@
       </view>
     </view>
 
+    <!-- 绑定物理仓弹层（D49）：平台侧 setVariantBindings 走 ViewStock（超管语义、租户恒 403），
+         本店改走 cjk-plugin 租户级入口 tenantVariantBindings / setTenantVariantBindings -->
+    <view v-if="bindRow" class="mask" @tap="closeBind">
+      <view class="sheet" @tap.stop>
+        <text class="stitle">{{ $t('inventoryStock.bind.title') }}</text>
+        <text class="sname">{{ bindRow.variantName || bindRow.sku }}</text>
+        <text class="shint">{{ $t('inventoryStock.bind.hint') }}</text>
+
+        <view v-if="bindLoading" class="bhint">{{ $t('inventoryStock.loadingMore') }}</view>
+        <view v-else-if="!physicalLocations.length" class="bhint">{{ $t('inventoryStock.bind.none') }}</view>
+        <view v-else class="blist">
+          <view v-for="l in physicalLocations" :key="l.id" class="brow" @tap="onToggleBind(l.id)">
+            <view class="bcheck" :class="{ on: !!bindSel[l.id] }"><text v-if="bindSel[l.id]">✓</text></view>
+            <view class="bmid">
+              <text class="bnm">{{ l.name }}</text>
+              <text class="bcode">{{ l.code }}</text>
+            </view>
+            <text
+              v-if="bindSel[l.id]"
+              class="bdef"
+              :class="{ on: bindDefaultId === l.id }"
+              @tap.stop="onPickBindDefault(l.id)"
+            >{{ bindDefaultId === l.id ? $t('inventoryStock.bind.default') : $t('inventoryStock.bind.setDefault') }}</text>
+          </view>
+        </view>
+
+        <view class="sbtns">
+          <text class="sbtn ghost" @tap="closeBind">{{ $t('inventoryStock.sheetCancel') }}</text>
+          <text
+            class="sbtn"
+            :class="{ dis: bindSaving || bindLoading || !physicalLocations.length }"
+            @tap="onConfirmBind"
+          >{{ $t('inventoryStock.bind.confirm') }}</text>
+        </view>
+      </view>
+    </view>
+
     <view style="height: 200rpx" />
   </view>
 </template>
@@ -112,7 +150,9 @@ import { useLocaleStore } from '../../../stores/localeStore';
 import {
   fetchInventoryStockPage,
   fetchTenantInventoryOverview,
+  fetchTenantVariantBindings,
   saveInventoryAlertRules,
+  setTenantVariantBindings,
   type InventoryStockRow,
   type InventoryStockSummary,
   type TenantStockLocation,
@@ -185,6 +225,14 @@ const adjustRow = ref<InventoryStockRow | null>(null);
 const adjustQty = ref('');
 const safetyVisible = ref(false);
 const safetyValue = ref('');
+const bindRow = ref<InventoryStockRow | null>(null);
+const bindLoading = ref(false);
+const bindSaving = ref(false);
+const bindSel = ref<Record<string, boolean>>({});
+const bindDefaultId = ref('');
+
+// 只有物理仓可被绑定：服务端归属校验要求 kind='physical' 且 code 属当前租户（含 `{code}-` 前缀）
+const physicalLocations = computed(() => locations.value.filter((l) => l.kind === 'physical'));
 
 // ---- 请求编排 ----
 async function load(reset = true): Promise<void> {
@@ -297,6 +345,74 @@ function closeAdjust(): void {
 }
 function closeSafety(): void {
   safetyVisible.value = false;
+}
+
+// ---- 绑定物理仓（D49：租户级入口，替代恒 403 的核心 setVariantBindings）----
+async function onBind(row: InventoryStockRow): Promise<void> {
+  bindRow.value = row;
+  bindSel.value = {};
+  bindDefaultId.value = '';
+  bindLoading.value = true;
+  try {
+    const list = await fetchTenantVariantBindings(row.variantId);
+    const sel: Record<string, boolean> = {};
+    for (const b of list) sel[b.locationId] = true;
+    bindSel.value = sel;
+    // 服务端保证最多一个 isDefault；取不到时留空，保存时自动落到首个已勾选仓
+    bindDefaultId.value = list.find((b) => b.isDefault)?.locationId ?? '';
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('inventoryStock.bind.failed'), icon: 'none' });
+  } finally {
+    bindLoading.value = false;
+  }
+}
+function onToggleBind(locationId: string): void {
+  const next = { ...bindSel.value };
+  if (next[locationId]) delete next[locationId];
+  else next[locationId] = true;
+  bindSel.value = next;
+  // 默认仓被取消勾选（或尚未指定）→ 自动落到首个已勾选仓，避免「有绑定但无默认仓」
+  if (!next[bindDefaultId.value]) bindDefaultId.value = Object.keys(next)[0] ?? '';
+}
+function onPickBindDefault(locationId: string): void {
+  bindDefaultId.value = locationId;
+}
+function closeBind(): void {
+  bindRow.value = null;
+}
+function onConfirmBind(): void {
+  if (bindRow.value && !Object.keys(bindSel.value).length) {
+    // 解绑是破坏性动作（虚拟仓可售量将归零），需二次确认（与安全库存置 0 同款）
+    uni.showModal({
+      title: locale.t('inventoryStock.bind.title'),
+      content: locale.t('inventoryStock.bind.clearHint'),
+      success: (r) => {
+        if (r.confirm) void submitBind([]);
+      },
+    });
+    return;
+  }
+  void submitBind(Object.keys(bindSel.value));
+}
+async function submitBind(locationIds: string[]): Promise<void> {
+  const row = bindRow.value;
+  if (!row || bindSaving.value) return;
+  bindSaving.value = true;
+  try {
+    // 替换式写入：isDefault 最多一个，以当前选中默认仓为准（非法时回落首个）
+    const def = locationIds.includes(bindDefaultId.value) ? bindDefaultId.value : locationIds[0] ?? '';
+    await setTenantVariantBindings(
+      row.variantId,
+      locationIds.map((locationId) => ({ locationId, isDefault: locationId === def })),
+    );
+    bindRow.value = null;
+    uni.showToast({ title: locale.t('inventoryStock.bind.done'), icon: 'success' });
+    await load(true);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('inventoryStock.bind.failed'), icon: 'none' });
+  } finally {
+    bindSaving.value = false;
+  }
 }
 
 // ---- 批量生成采购入库单 ----
@@ -545,6 +661,52 @@ onReachBottom(loadMore);
 
     .stitle { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; }
     .sname { display: block; font-size: 24rpx; color: $wa-muted; margin-top: 8rpx; }
+    .shint { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 12rpx; line-height: 1.5; }
+    .bhint { font-size: 24rpx; color: $wa-muted; padding: 40rpx 0; text-align: center; }
+
+    /* 绑定物理仓：多仓时可滚动（最多 6 行高度） */
+    .blist {
+      margin-top: 24rpx;
+      max-height: 640rpx;
+      overflow-y: auto;
+
+      .brow {
+        display: flex;
+        align-items: center;
+        gap: 20rpx;
+        padding: 22rpx 0;
+        border-bottom: 1rpx solid $wa-rule;
+
+        .bcheck {
+          width: 36rpx;
+          height: 36rpx;
+          border-radius: 8rpx;
+          border: 2rpx solid $wa-rule;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 24rpx;
+
+          &.on { background: $wa-accent; border-color: $wa-accent; }
+        }
+
+        .bmid { flex: 1; min-width: 0; display: flex; flex-direction: column;
+          .bnm { font-size: 26rpx; color: $wa-ink; }
+          .bcode { font-size: 20rpx; color: $wa-muted; margin-top: 4rpx; }
+        }
+
+        .bdef {
+          font-size: 20rpx;
+          color: $wa-muted;
+          border: 1rpx solid $wa-rule;
+          border-radius: 6rpx;
+          padding: 6rpx 14rpx;
+
+          &.on { color: #fff; background: $wa-success; border-color: $wa-success; }
+        }
+      }
+    }
     .frow {
       display: flex;
       align-items: center;

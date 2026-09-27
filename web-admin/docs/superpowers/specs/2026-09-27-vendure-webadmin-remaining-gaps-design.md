@@ -1,7 +1,7 @@
 # 遗留缺口核查与修复方案（vendure + web-admin）
 
 - 日期：2026-09-27
-- 状态：**仅核查与评估落档，本轮未改任何代码**（用户明确选择「只出方案文档，暂不改码」）
+- 状态：核查与评估落档已完成；**G1~G5 全部收口**（D47 = G1+G2、D48 = G3、**D49 = G4**、**D50 = G5**），证据见修复手册 20.16 / **20.17**
 - 适用仓库：`d:\zhao\vendure`（后端 `packages/cjk-plugin`）、`d:\zhao\vshop\web-admin`（前端）
 - 承接批次：D41 ~ D46（均已修复并部署，证据见修复手册 20.10 ~ 20.15）
 
@@ -23,8 +23,8 @@
 | G1 | 同型键错位 → 首登强改密 / 停用灰态失效 | `cjk-plugin/src/tenant/my-access.resolver.ts:52` | 高 | 可用性缺陷（潜在锁死） |
 | G2 | 同型键错位 → 拣货批次「创建人」恒为空 | `cjk-plugin/src/picking/pick-batch.admin.resolver.ts:133-146` | 中 | 数据留痕缺失 |
 | G3 | 同类 pageSize 硬顶 100 → KPI 静默低估（3 处） | `dashboard/index.vue:201,226` + `pick-batch.service.ts:74,500` + `stocktake.service.ts:144` | 中 | 容量天花板型静默缺陷 |
-| G4 | `setVariantBindings` 仅 `ViewStock` → 租户 403 同类 | `cjk-plugin/src/inventory/inventory-admin.resolver.ts:18` | 低 | 潜在同型（前端暂未调用） |
-| G5 | 邀请码只落库不生效（奖励发放 / 有效性校验未实现） | `cjk-plugin/src/auth/invite-code.service.ts:17,33` | 低 | 未完成功能（需求待定） |
+| G4 | `setVariantBindings` 仅 `ViewStock` → 租户 403 同类 | `cjk-plugin/src/inventory/inventory-admin.resolver.ts:18` | 低 | 潜在同型（前端暂未调用） → **已修 · D49** |
+| G5 | 邀请码只落库不生效（奖励发放 / 有效性校验未实现） | `cjk-plugin/src/auth/invite-code.service.ts:17,33` | 低 | 未完成功能（需求待定） → **已落档澄清 · D50**（权威在 Strapi/zhao-sso） |
 
 ## 3. 逐项详情
 
@@ -130,25 +130,31 @@
 
 - 扩展 `_e2e/_verify_d46_ops_counter_window.py` 为「作业分析三 KPI」通用脚本：向 t2 造 > 100 条可逆 fixture（批次 / 盘点任务），断言修复前 KPI 被截断、修复后等于全量；含手机视口截图与 fixture 清理。
 
-### G4 · 租户 403 同类：`setVariantBindings` 仅 `ViewStock`（低）
+### G4 · 租户 403 同类：`setVariantBindings` 仅 `ViewStock`（低）→ **已修 · D49**
 
 - `inventory-admin.resolver.ts:17-18`：`@Allow(InventoryPermissions.ViewStock as Permission)`。
 - 与 D41（`stockLevels`）/ D42（`setVariantStock`）同类：`ViewStock` 是 inventory-plugin 的**超管语义全局库存权限**，不在 `tenant-member.service.ts` 的租户白名单内 → 租户账号调用必 403。
 - 现状：前端 `src/apis/` 内**未见直接调用**（仅线上手册 `src/static/manual/index.html:616` 提及该 mutation），故当前无用户可见故障。
-- 建议：**暂不处理**；若后续要开放「变体 × 物理仓绑定」给租户，须同 D42 一样改走租户级 mutation，而非放宽 `@Allow`。
 
-### G5 · 邀请码只落库不生效（低，需求待定）
+**已实施（D49，用户选定「补租户级绑定能力」+ 版式「A · 现页弹层」）**
 
-- `invite-code.service.ts:17`：`/** 本次仅框架:存 inviteCode 到 Customer.customFields,记日志。奖励发放 TODO */`
-- `invite-code.service.ts:33`：`// TODO: 后续对接 Strapi 校验邀请码有效性`
-- 即：邀请码**不校验有效性**（任意码可通过）、**不发奖励**。属未完成功能，需产品需求确认后再做，本次仅留档。
+- 后端：`VirtualPhysicalStockService` 新增 `getTenantVariantBindings(ctx, variantId)` / `setTenantVariantBindings(ctx, variantId, bindings)`，两者先过 `assertVariantInChannel`（canonical 属渠道校验，越权变体抛 `UserInputError`），读侧再用 `getTenantInventoryOverview` 的 `locations` 过滤，**只回本租户仓的绑定行**；写侧直接委托既有 `setVariantBindings`。
+- 后端：`inventory-admin.resolver.ts` 新增租户级 `@Query @Allow(Permission.ReadCatalog, Permission.ReadStockLocation) tenantVariantBindings` 与 `@Mutation @Allow(Permission.UpdateStockLocation) setTenantVariantBindings`；`plugin.ts` admin SDL 在 `TenantInventoryOverview` 段扩展对应两条。**核心 `setVariantBindings` / `@Allow(ViewStock)` 原样保留，不放宽。**
+- 前端：`src/apis/inventory.ts` 新增 `fetchTenantVariantBindings` / `setTenantVariantBindings`；「库存明细」卡片动作区新增「绑定」，打开底部弹层（本租户物理仓列表 + 勾选绑定 + 单选默认仓 + 「全部取消 = 解绑」二次确认），保存后回读刷新；i18n 两语言包同步。
+- 验收：`_e2e/_verify_d49_tenant_variant_bindings.py` 三态（生产 before / 本地 after / 本地 baseline），详见修复手册 **20.17**。
+
+### G5 · 邀请码只落库不生效（低，需求待定）→ **已落档澄清 · D50**
+
+- 原文 `invite-code.service.ts:17,33` 的两处 TODO 已**删除**（属误导性注释，让人以为 Vendure 侧应补校验与发奖），并在类级注释中固定权威口径。
+- **权威结论**：邀请码的**有效性校验、分发关系建立、usage 计数、奖励发放**全部由 **Strapi / zhao-sso** 闭环（`sso_invite_codes.use_count`、`sso_invite_usages`、`sso_referral_relations`、`buildReferralRelation`）；**Vendure 侧不校验、不发奖**，`InviteCodeService.bindIfPresent` 只做「首次登录带邀请码时把码落成 `Customer.customFields` 快照」，用于对账，已存在则不覆盖。
+- 即：本项**不是缺陷**，而是**职责边界**——Vendure 侧正确行为就是「只落快照」。
 
 ## 4. 已核实无缺口（正向结论）
 
 | 项 | 结论 | 证据 |
 | --- | --- | --- |
-| i18n 键一致性 | `zh-Hans.json` 与 `en.json` 各 **2422** 键，**无单侧缺失、无空值** | 扁平化键集合比对脚本，`zh-only 0 / en-only 0 / zh empty 0 / en empty 0` |
-| TODO 残留 | 两仓库源码仅邀请码 2 处 TODO（即 G5）；`inventory-plugin` 无 | Grep `TODO\|FIXME\|HACK\|XXX`（排除 `lib/`） |
+| i18n 键一致性 | `zh-Hans.json` 与 `en.json` 各 **2433** 键（D49 新增 11 键后），**无单侧缺失、无空值** | 扁平化键集合比对脚本，`zh-only 0 / en-only 0 / zh empty 0 / en empty 0` |
+| TODO 残留 | 两仓库源码 **0 处**（G5 的 2 处误导性 TODO 已由 D50 删除）；`inventory-plugin` 无 | Grep `TODO\|FIXME\|HACK\|XXX`（排除 `lib/`） |
 | D41~D46 回归守护 | 每项均有对应 `_e2e/_verify_d*.py` 两态/三态脚本 | `_e2e/` 目录 Glob |
 | 单据中心分页 | 走 `page/skip` 正常分页，非「取最近 N 条」语义 | `src/apis/stock-doc.ts` + `pages/inventory/stock-doc/index.vue` |
 
@@ -158,7 +164,8 @@
 | --- | --- | --- | --- |
 | **D47**（推荐先做） | G1 + G2：抽共享 helper 收敛全部「User.id → Administrator.id → TenantMember」换键（含 D45 已改的守卫） | 可用性风险最高（潜在锁死 + 数据留痕缺失），且三处是**同一个** helper，一次收敛杜绝再分叉 | 后端 build → push → 服务器 `git pull --ff-only` + `pm2 restart vendure`；前端仅加 e2e |
 | **D48** | G3：作业分析三 KPI 的时间区间下推 + 服务端聚合 | 数据准确性问题，口径与 D46 同源，可复用 D46 的验收脚本骨架 | 后端 build/push/restart + 前端 `build:h5` → `scripts/deploy.mjs` |
-| 暂不做 | G4（前端未调用）、G5（需求待定） | 无用户可见影响 | — |
+| **D49** | G4：新增租户级 `tenantVariantBindings` / `setTenantVariantBindings`（**不放宽核心 `@Allow`**）+ 前端库存页「绑定物理仓」弹层 | 用户选定「补租户级绑定能力」：让租户真正能维护「变体 × 物理仓」绑定（虚拟仓库存镜像的前提能力） | 后端 build/push/restart + 前端 `build:h5` → `scripts/deploy.mjs` |
+| **D50** | G5：删误导性 TODO + 落档「校验/发奖权威在 Strapi/zhao-sso」 | 用户选定「仅落档澄清权威在 SSO」：本项是职责边界而非缺陷，Vendure 侧只落对账快照 | 仅后端注释 + 文档（无行为变更） |
 
 **共同硬规范**：本地构建（服务器只 pull + restart，绝不在服务器构建）；每项必须有手机视口（390×844 @dpr2）截图与 e2e 回归；落档到修复手册（按 D41~D46 体例新增章节并列两态证据）。
 
