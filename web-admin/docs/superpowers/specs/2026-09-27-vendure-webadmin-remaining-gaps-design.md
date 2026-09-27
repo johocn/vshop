@@ -141,7 +141,8 @@
 - 后端：`VirtualPhysicalStockService` 新增 `getTenantVariantBindings(ctx, variantId)` / `setTenantVariantBindings(ctx, variantId, bindings)`，两者先过 `assertVariantInChannel`（canonical 属渠道校验，越权变体抛 `UserInputError`），读侧再用 `getTenantInventoryOverview` 的 `locations` 过滤，**只回本租户仓的绑定行**；写侧直接委托既有 `setVariantBindings`。
 - 后端：`inventory-admin.resolver.ts` 新增租户级 `@Query @Allow(Permission.ReadCatalog, Permission.ReadStockLocation) tenantVariantBindings` 与 `@Mutation @Allow(Permission.UpdateStockLocation) setTenantVariantBindings`；`plugin.ts` admin SDL 在 `TenantInventoryOverview` 段扩展对应两条。**核心 `setVariantBindings` / `@Allow(ViewStock)` 原样保留，不放宽。**
 - 前端：`src/apis/inventory.ts` 新增 `fetchTenantVariantBindings` / `setTenantVariantBindings`；「库存明细」卡片动作区新增「绑定」，打开底部弹层（本租户物理仓列表 + 勾选绑定 + 单选默认仓 + 「全部取消 = 解绑」二次确认），保存后回读刷新；i18n 两语言包同步。
-- 验收：`_e2e/_verify_d49_tenant_variant_bindings.py` 三态（生产 before / 本地 after / 本地 baseline），详见修复手册 **20.17**。
+- 验收：`_e2e/_verify_d49_tenant_variant_bindings.py` 四态（生产 before / 本地 after / 本地 baseline / **生产 prod-after 只读复验**，`WA_D49_STATE` 切换），详见修复手册 **20.17**。
+  - `prod-after`（2026-09-27 补）：D49 当时的 `after` 只跑在**本地**，生产仅有 `before`；上线后补一次**只读**复验（**零写入**，不调 `setTenantVariantBindings`）——生产上核心 `setVariantBindings` 对租户令牌**仍授权失败**（未放宽核心 `@Allow`）、租户令牌读 `tenantVariantBindings` **成功**（后端已上线）、线上前端卡片动作含「绑定」且弹层行数 `= API` 物理仓数、勾选数 `= API` 绑定数。**证据边界**：`prod-after` 在 t2 的归属过滤断言是「0 条绑定全属本店仓」的**空集真**（t2 为纯虚拟库存店），非空归属断言仍由本地 `after` 态承担。
 
 ### G5 · 邀请码只落库不生效（低，需求待定）→ **已落档澄清 · D50**
 
