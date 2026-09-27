@@ -1147,7 +1147,8 @@
       "value": "Value",
       "movements": "Ledger",
       "replenish": "Restock",
-      "adjust": "Adjust"
+      "adjust": "Adjust",
+      "bind": "Bind"
     },
     "num": {
       "onHand": "On hand",
@@ -1195,6 +1196,18 @@
       "confirm": "Save",
       "done": "Safety stock updated",
       "failed": "Failed to save safety stock"
+    },
+    "bind": {
+      "title": "Bind warehouses",
+      "hint": "Select the warehouses that physically hold this SKU; the virtual location mirrors the sum of bound warehouses. Uncheck all to unbind.",
+      "default": "Default",
+      "setDefault": "Set default",
+      "defaultHint": "Fulfilment / reservation deducts from here first",
+      "none": "No physical warehouse in this shop; create one in Warehouses first",
+      "clearHint": "No warehouse selected. Saving will unbind all warehouses from this SKU. Continue?",
+      "confirm": "Save",
+      "done": "Warehouse bindings updated",
+      "failed": "Failed to save warehouse bindings"
     },
     "empty": {
       "noData": "No stock data",
