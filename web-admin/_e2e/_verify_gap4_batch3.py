@@ -12,13 +12,14 @@
 若不覆盖，脚本会在开头的「渠道数据自检」直接 ENV-FAIL，避免产出「空态截图当证据」。
 
 已知 SKIP（显式声明，非静默放过）：
-- 「上滑加载更多（第二页）」：本地 shop-a 只有 4 张单据 / 20 条流水（= 单页 take:20），
-  无法产生第二页。改用**同名 API 的分页契约对账**证明「翻页不重复不丢项」
-  （page = floor(skip/take)+1 ⇒ page1+page2 拼接 == 全量、无交集、page3 为空）。
+- 「上滑加载更多（第二页）」UI 证据：本脚本不造数、不驱动上滑（避免验收脚本依赖本地造数），
+  仍以**同名 API 的分页契约对账 C1–C5** 证明「翻页不重复不丢项」；**真实第二页 UI 证据另由
+  `_e2e/_verify_d55_movements_page2.py` 收口**（本地造 >20 条流水 → 驱动上滑 → 取证图，见 D55-②）。
 
 uni-app H5 交互踩坑（本脚本已封装）：
 - `<picker mode="selector">` → 容器 `div.uni-picker-container.uni-selector-select`，选项 `div.uni-picker-item`（列表会渲染两份），确认键 `.uni-picker-action-confirm`（文案「完成」）。
-- `<picker mode="date">` → 容器 `div.uni-picker-container.uni-date-select`，选项文案带单位（`2026年` / `9月` / `24日`，月份无前导零），点击即选中。
+- `<picker mode="date">` → 容器 `div.uni-picker-container.uni-date-select`，**滚轮列**：`.uni-picker-view-content` 用 `translateY` 表示选中项（项高 34px、高亮带居中），选项文案带单位（`2026年` / `09月` / `24日`）。
+  **不能用元素点击**：目标项偏离高亮带较远时（如默认 `28日` → 目标 `24日` 差 4 行），Playwright 点击前的 scrollIntoView 会把该项滚到列顶而被 `.uni-picker-header` 遮住（`intercepts pointer events` 超时）；改用 `pick_date` 内的 `wheel` 事件驱动（对齐 uni-app 源码 `handleWheel`）。
 - 页面可能同时存在多个 picker 容器（全部 display:none）；必须用 `:visible` 取当前打开的那个。
 
 退出码：0 = 通过（含显式 SKIP）；1 = 断言失败；2 = 环境不可用
@@ -260,18 +261,46 @@ def pick_selector(pg, pill_selector, option_text, settle=3.5):
     return True
 
 
+SPIN_WHEEL_JS = """([colIdx, want, itemH]) => {
+  const root = [...document.querySelectorAll('.uni-picker-container.uni-date-select')]
+      .find(e => getComputedStyle(e).display !== 'none');
+  if (!root) return 'NOROOT';
+  const col = root.querySelectorAll('uni-picker-view-column')[colIdx];
+  if (!col) return 'NOCOL';
+  const items = [...col.querySelectorAll('.uni-picker-item')].map(e => e.textContent);
+  const ct = col.querySelector('.uni-picker-view-content');
+  const group = col.querySelector('.uni-picker-view-group');
+  const ty = new DOMMatrixReadOnly(getComputedStyle(ct).transform).m42;
+  const cur = Math.round(-ty / itemH);
+  const target = items.findIndex(t => parseInt(t, 10) === want);   // '09月' / '2026年' / '24日' 都能取到数
+  if (target < 0) return 'NOTFOUND:' + want;
+  const dist = target - cur;
+  for (let k = 0; k < Math.abs(dist); k++) {
+    group.dispatchEvent(new WheelEvent('wheel',
+      {deltaY: dist < 0 ? -itemH : itemH, bubbles: true, cancelable: true}));
+  }
+  return 'OK:' + cur + '->' + target;
+}"""
+
+
 def pick_date(pg, idx, y, m, d, settle=3.5):
-    """`<picker mode="date">`：点第 idx 个日期 picker → 点 年/月/日 → 点「完成」。"""
+    """`<picker mode="date">`：点第 idx 个日期 picker → 滚轮定位 年/月/日 → 点「完成」。
+
+    踩坑（务必保留 wheel 驱动，勿退回元素点击）：日期是**滚轮列**——`.uni-picker-view-content`
+    用 `translateY` 表示选中项（项高 34px、高亮带居中）。目标项若偏离高亮带较远（如默认居中
+    `28日`、目标 `24日` 差 4 行），Playwright 点击前的 scrollIntoView 会把它滚到列顶，正好被
+    `.uni-picker-header` 遮住 → `intercepts pointer events` 点击超时。
+    故按 uni-app 源码 `handleWheel` 的语义，向列派发 `wheel` 事件步进索引（`|deltaY|>10` 一次一步），
+    不改几何、可被组件正常提交（`state2.current` → 值）。
+    """
     pg.locator('.ranges uni-picker').nth(idx).click()
     time.sleep(1.5)
-    vis = pg.locator('.uni-picker-container.uni-date-select:visible').first
-    for txt in ('%d年' % y, '%d月' % m, '%d日' % d):
-        item = vis.locator('.uni-picker-item', has_text=txt).first
-        if not item.count():
+    for col, want in ((0, y), (1, m), (2, d)):
+        got = pg.evaluate(SPIN_WHEEL_JS, [col, want, 34])
+        if not str(got).startswith('OK'):
             return False
-        item.click()
-        time.sleep(0.7)
-    vis.locator('.uni-picker-action-confirm').first.click()
+        time.sleep(0.5)
+    pg.locator('.uni-picker-container.uni-date-select:visible .uni-picker-action-confirm').first.click()
     time.sleep(settle)
     return True
 
@@ -427,24 +456,40 @@ def main():
               'body=%r' % pg.inner_text('body')[:140].replace('\n', '|'))
 
         # --- B3 仓库 + 日期（叠加一个有数据的类型，避免退化成空态截图） ---
+        # 仓库/日期一律从「该渠道确实存在的盘库单」反查（不沿用流水样本仓）：
+        # 本地多仓数据下，流水样本仓与盘库单所在仓可能不是同一个，原写法会「驱 UI 选 A 仓、却拿 B 仓对账」。
+        locs = {str(L['id']): L['name']
+                for L in apiq._q('query{stockLocations{items{id name}}}', {})['stockLocations']['items']}
+        b_loc_id, b_loc_name, b_day = None, None, None
+        for _lid in locs:
+            got = apiq.docs({'type': 'STOCKTAKE', 'locationId': _lid})
+            if got['totalItems']:
+                b_loc_id, b_loc_name = _lid, locs[_lid]
+                b_day = got['items'][0]['createdAt'][:10]
+                break
+        if not b_loc_id:
+            print('ENV-FAIL: 渠道 %s 无任何盘库单，B3 叠加筛选无从取证' % CHANNEL_CODE)
+            raise SystemExit(2)
+        by, bm, bd = (int(x) for x in b_day.split('-'))
+        info('B3 叠加样本：仓库 id=%s（%s）· 日期=%s' % (b_loc_id, b_loc_name, b_day))
         pg.locator('.tab', has_text='盘库').first.click()
         time.sleep(3)
-        pick_selector(pg, '.locpill', 'Default Stock Location')
-        ok_s1 = pick_date(pg, 0, y, m, d)
-        ok_s2 = pick_date(pg, 1, y, m, d)
+        pick_selector(pg, '.locpill', b_loc_name)
+        ok_s1 = pick_date(pg, 0, by, bm, bd)
+        ok_s2 = pick_date(pg, 1, by, bm, bd)
         body_s = pg.inner_text('body')
-        check('B3 日期 picker 选中 %s（开始/结束都落到页面上）' % day,
-              ok_s1 and ok_s2 and body_s.count(day) >= 2,
-              'd1=%s d2=%s 次数=%d' % (ok_s1, ok_s2, body_s.count(day)))
-        want_s = apiq.docs({'type': 'STOCKTAKE', 'locationId': loc_id,
-                            'from': iso_day(y, m, d), 'to': iso_day(y, m, d, end=True)})
+        check('B3 日期 picker 选中 %s（开始/结束都落到页面上）' % b_day,
+              ok_s1 and ok_s2 and body_s.count(b_day) >= 2,
+              'd1=%s d2=%s 次数=%d' % (ok_s1, ok_s2, body_s.count(b_day)))
+        want_s = apiq.docs({'type': 'STOCKTAKE', 'locationId': b_loc_id,
+                            'from': iso_day(by, bm, bd), 'to': iso_day(by, bm, bd, end=True)})
         t_s = wait_total(pg, want_s['totalItems'])
         check('B3 类型+仓库+日期叠加：页面条数 == API 同条件 totalItems（%d）'
               % want_s['totalItems'], t_s == want_s['totalItems'],
               'UI=%r API=%d' % (t_s, want_s['totalItems']))
         check('B3 叠加后仍有命中（证据不为空态）', want_s['totalItems'] > 0, 'API=%d' % want_s['totalItems'])
         check('B3 无 JS 异常', not errs_of(bag), str(errs_of(bag)[:2]))
-        shot(pg, 'stockdoc-location-date', '单据中心 类型(盘库) + 仓库 + 日期区间：胶囊显示已选仓库、开始/结束日期为 %s，条数与同条件 API 一致' % day)
+        shot(pg, 'stockdoc-location-date', '单据中心 类型(盘库) + 仓库(%s) + 日期区间：胶囊显示已选仓库、开始/结束日期为 %s，条数与同条件 API 一致' % (b_loc_name, b_day))
 
         # --- B4 操作人筛选 + 底部到底态 ---
         click_clear(pg, 'stockDocCenter.filterClear')
@@ -470,9 +515,12 @@ def main():
         b.close()
 
     # ============ C. 分页契约对账（替代无法生成的第二页 UI 证据） ============
-    skip('「上滑加载更多」第二页 UI 证据',
-         '本地 %s 渠道仅 %d 张单据 / %d 条流水（= 单页 take:%d），无第二页可加载；改由 API 分页契约对账证明「不重复不丢项」'
-         % (CHANNEL_CODE, doc0['totalItems'], led0['totalItems'], TAKE))
+    skip('「上滑加载更多」第二页 UI 证据（本脚本内）',
+         '本脚本不驱动「上滑加载更多」：第二页 UI 证据依赖本地先造 >%d 条流水，放进来会让本脚本依赖造数、'
+         '且与验收口径（筛选/方向/结存对账）混在一起。本脚本仍以 API 分页契约对账 C1–C5 证明「不重复不丢项」'
+         '（当前渠道 %d 张单据 / %d 条流水）；**真实第二页 UI 证据已由 `_e2e/_verify_d55_movements_page2.py` 收口**'
+         '（造数 → 驱动上滑 → 取证图 docs/verify/gap4-batch3-movements-page2-390.png，见 D55-②）'
+         % (TAKE, doc0['totalItems'], led0['totalItems']))
 
     page_size = 2
     p1 = apiq.docs(page=1, page_size=page_size)
@@ -483,21 +531,27 @@ def main():
     ids2 = [x['id'] for x in p2['items']]
     ids3 = [x['id'] for x in p3['items']]
     full_ids = [x['id'] for x in full['items']]
-    check('C1 单据分页契约（page = floor(skip/take)+1）：page1(2条)+page2(2条) 拼接 == 全量顺序（不丢项）',
-          ids1 + ids2 == full_ids, 'p1=%r p2=%r full=%r' % (ids1, ids2, full_ids))
-    check('C2 单据分页无重复：page1 ∩ page2 == ∅，且 page3 为空',
-          not (set(ids1) & set(ids2)) and ids3 == [], 'p1=%r p2=%r p3=%r' % (ids1, ids2, ids3))
+    walked = ids1 + ids2 + ids3
+    check('C1 单据分页契约（page = floor(skip/take)+1）：page1+page2+page3 拼接 == 全量顺序前缀（不丢项、保序）',
+          walked == full_ids[:len(walked)], 'walked=%r full=%r' % (walked, full_ids))
+    check('C2 单据分页无重复：三页 id 无交集（去重后长度不变）',
+          len(set(walked)) == len(walked), 'walked=%r' % (walked,))
     check('C3 单据分页 totalItems 跨页稳定 == %d' % doc0['totalItems'],
           p1['totalItems'] == p2['totalItems'] == doc0['totalItems'],
           '%d/%d/%d' % (p1['totalItems'], p2['totalItems'], doc0['totalItems']))
 
     l1 = apiq.ledger(page=1, page_size=TAKE)
     l2 = apiq.ledger(page=2, page_size=TAKE)
-    check('C4 流水分页契约：第 1 页满 %d 条、第 2 页为空（不重复不丢项），totalItems 稳定 == %d'
-          % (TAKE, led0['totalItems']),
-          len(l1['items']) == min(TAKE, led0['totalItems']) and l2['items'] == []
+    lfull = apiq.ledger(page=1, page_size=100)
+    lids1 = [x['id'] for x in l1['items']]
+    lids2 = [x['id'] for x in l2['items']]
+    lfull_ids = [x['id'] for x in lfull['items']]
+    check('C4 流水分页契约：page1(min(take,total)) + page2(余量) 拼接 == 全量顺序（不重复不丢项），totalItems 稳定 == %d'
+          % led0['totalItems'],
+          lids1 + lids2 == lfull_ids
+          and len(lids1) == min(TAKE, led0['totalItems'])
           and l2['totalItems'] == led0['totalItems'],
-          'p1=%d p2=%d total=%d' % (len(l1['items']), len(l2['items']), l2['totalItems']))
+          'p1=%d p2=%d total=%d full=%d' % (len(lids1), len(lids2), l2['totalItems'], len(lfull_ids)))
     check('C5 流水汇总口径不随分页变化（summary 与全量一致）',
           l1['summary'] == led0['summary'] and l2['summary'] == led0['summary'],
           'p1=%r all=%r' % (l1['summary'], led0['summary']))
