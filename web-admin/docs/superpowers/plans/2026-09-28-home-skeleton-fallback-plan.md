@@ -57,7 +57,7 @@
 - Modify: `d:\zhao\nshop\layers\base\app\utils\shop-content.ts`
 - Test: `d:\zhao\nshop\layers\base\app\utils\__tests__\shop-content.spec.ts`（新）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `d:\zhao\nshop\layers\base\app\utils\__tests__\shop-content.spec.ts`：
 
@@ -84,12 +84,12 @@ describe('sanitizeHiddenSlots 容错（后台/历史脏数据）', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 Run（cwd = `d:\zhao\nshop`）：`npx vitest run layers/base/app/utils/__tests__/shop-content.spec.ts`
 Expected: FAIL — `sanitizeHiddenSlots is not a function`（或导入报错）
 
-- [ ] **Step 3: 实现类型与函数**
+- [x] **Step 3: 实现类型与函数**
 
 在 [shop-content.ts](file:///d:/zhao/nshop/layers/base/app/utils/shop-content.ts) 中：
 
@@ -167,17 +167,17 @@ export function sanitizeHiddenSlots(raw: unknown): string[] {
 }
 ```
 
-- [ ] **Step 4: 运行测试，确认通过**
+- [x] **Step 4: 运行测试，确认通过**
 
 Run（cwd = `d:\zhao\nshop`）：`npx vitest run layers/base/app/utils/__tests__/shop-content.spec.ts`
 Expected: PASS（3 passed）
 
-- [ ] **Step 5: 全量单测回归**
+- [x] **Step 5: 全量单测回归**
 
 Run（cwd = `d:\zhao\nshop`）：`npm test`
 Expected: 全部 PASS，无新增失败
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/utils/shop-content.ts layers/base/app/utils/__tests__/shop-content.spec.ts
@@ -192,7 +192,7 @@ git -C d:/zhao/nshop commit -m "feat(home): shopContent 新增品牌闪购/品�
 - Create: `d:\zhao\nshop\layers\base\app\utils\home-skeleton.ts`
 - Test: `d:\zhao\nshop\layers\base\app\utils\__tests__\home-skeleton.spec.ts`
 
-- [ ] **Step 1: 写失败测试（设计 §5.1 全量用例）**
+- [x] **Step 1: 写失败测试（设计 §5.1 全量用例）**
 
 创建 `d:\zhao\nshop\layers\base\app\utils\__tests__\home-skeleton.spec.ts`：
 
@@ -333,12 +333,12 @@ describe('HOME_SKELETON 常量', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 Run（cwd = `d:\zhao\nshop`）：`npx vitest run layers/base/app/utils/__tests__/home-skeleton.spec.ts`
 Expected: FAIL — 模块 `../home-skeleton` 不存在
 
-- [ ] **Step 3: 实现 `home-skeleton.ts`**
+- [x] **Step 3: 实现 `home-skeleton.ts`**
 
 创建 `d:\zhao\nshop\layers\base\app\utils\home-skeleton.ts`：
 
@@ -445,19 +445,19 @@ export function resolveHomeSections(content: ShopContent | null | undefined): Re
 }
 ```
 
-- [ ] **Step 4: 运行测试，确认通过**
+- [x] **Step 4: 运行测试，确认通过**
 
 Run（cwd = `d:\zhao\nshop`）：`npx vitest run layers/base/app/utils/__tests__/home-skeleton.spec.ts`
 Expected: PASS（16 passed）
 
 > 仓库开启了 `noUncheckedIndexedAccess`：测试中 `extra[0].section` 这类下标访问需写成 `extra[0]!.section`。
 
-- [ ] **Step 5: 类型检查**
+- [x] **Step 5: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/utils/home-skeleton.ts layers/base/app/utils/__tests__/home-skeleton.spec.ts
@@ -471,7 +471,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 新增骨架槽位与 resolveHomeSec
 **Files:**
 - Modify: `d:\zhao\nshop\layers\base\app\composables\useShopContent.ts`
 
-- [ ] **Step 1: 改写 composable**
+- [x] **Step 1: 改写 composable**
 
 把 [useShopContent.ts](file:///d:/zhao/nshop/layers/base/app/composables/useShopContent.ts) 全文替换为：
 
@@ -502,12 +502,12 @@ export function useShopContent() {
 }
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error（此时 `app/pages/index.vue` 仍用 `sections`，返回值未删，兼容）
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/composables/useShopContent.ts
@@ -524,7 +524,7 @@ git -C d:/zhao/nshop commit -m "feat(home): useShopContent 暴露 hiddenSlots �
 
 > 视觉零改动：仅把写死的标题变成「可选 prop 优先、缺省回退原 i18n 文案」。
 
-- [ ] **Step 1: `JdBrandFloor` 加可选 title prop**
+- [x] **Step 1: `JdBrandFloor` 加可选 title prop**
 
 在 [JdBrandFloor.vue](file:///d:/zhao/nshop/layers/base/app/components/home/jd/JdBrandFloor.vue) 的 `<script setup>` 中，把 `const cats = computed(...)` 之后加入：
 
@@ -536,7 +536,7 @@ const heading = computed(() => props.title?.trim() || t('messages.nav.brandFlash
 
 并把模板中的 `{{ t('messages.nav.brandFlash') }}` 改为 `{{ heading }}`。
 
-- [ ] **Step 2: `JdPlazaGrid` 加可选 title prop**
+- [x] **Step 2: `JdPlazaGrid` 加可选 title prop**
 
 把 [JdPlazaGrid.vue](file:///d:/zhao/nshop/layers/base/app/components/home/jd/JdPlazaGrid.vue) 的 props 声明改为：
 
@@ -558,12 +558,12 @@ const heading = computed(() => props.title?.trim() || t('messages.nav.qualityZon
 
 并把模板中的 `{{ t('messages.nav.qualityZone') }}` 改为 `{{ heading }}`。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error（`app/pages/index.vue` 现有调用未传 title，走默认）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/jd/JdBrandFloor.vue layers/base/app/components/home/jd/JdPlazaGrid.vue
@@ -579,7 +579,7 @@ git -C d:/zhao/nshop commit -m "feat(home): JdBrandFloor/JdPlazaGrid 支持自�
 
 > 供「最新商品」楼层（复用 `GoodsFloor`）表达「显示条数」。
 
-- [ ] **Step 1: 改造 take 与 useAsyncData key**
+- [x] **Step 1: 改造 take 与 useAsyncData key**
 
 在 [GoodsFloor.vue](file:///d:/zhao/nshop/layers/base/app/components/home/blocks/GoodsFloor.vue) 中，把
 
@@ -610,12 +610,12 @@ const key = `goods-block-${props.section.collectionId ?? "auto"}`;
 const key = `goods-block-${props.section.collectionId ?? "auto"}${props.section.limit ? `-${take.value}` : ""}`;
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/blocks/GoodsFloor.vue
@@ -630,7 +630,7 @@ git -C d:/zhao/nshop commit -m "feat(home): GoodsFloor 支持 section.limit 显�
 - Create: `d:\zhao\nshop\layers/base\app\components\home\blocks\BrandFloorBlock.vue`
 - Create: `d:\zhao\nshop\layers/base\app\components\home\blocks\PlazaBlock.vue`
 
-- [ ] **Step 1: 创建 `BrandFloorBlock.vue`**
+- [x] **Step 1: 创建 `BrandFloorBlock.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -651,7 +651,7 @@ const title = computed(() => localizeText(props.section?.title, locale.value) ||
 </template>
 ```
 
-- [ ] **Step 2: 创建 `PlazaBlock.vue`**
+- [x] **Step 2: 创建 `PlazaBlock.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -676,12 +676,12 @@ const title = computed(() => localizeText(props.section?.title, locale.value) ||
 </template>
 ```
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error（组件暂未被引用，Nuxt 自动注册会扫描到）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/blocks/BrandFloorBlock.vue layers/base/app/components/home/blocks/PlazaBlock.vue
@@ -695,7 +695,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 新增品牌闪购/品质专区积�
 **Files:**
 - Create: `d:\zhao\nshop\layers/base\app\components\home\blocks\LatestGoodsBlock.vue`
 
-- [ ] **Step 1: 创建组件**
+- [x] **Step 1: 创建组件**
 
 ```vue
 <script setup lang="ts">
@@ -725,12 +725,12 @@ const goodsSection = computed<GoodsSection | null>(() => {
 </template>
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/blocks/LatestGoodsBlock.vue
@@ -749,7 +749,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 新增最新商品积木块（新品
 > 过滤口径：仅 `claimable === true` 且未过期（`endsAt` 为空或晚于当前）且未抢完（`claimedCount < totalCount`）；
 > 无券 / 请求失败 → 整层隐藏。
 
-- [ ] **Step 1: 创建组件**
+- [x] **Step 1: 创建组件**
 
 ```vue
 <script setup lang="ts">
@@ -888,7 +888,7 @@ await load();
 </style>
 ```
 
-- [ ] **Step 2: 校验引用的 i18n key 均存在**
+- [x] **Step 2: 校验引用的 i18n key 均存在**
 
 Run（cwd = `d:\zhao\nshop`）：
 
@@ -898,7 +898,7 @@ grep -n "claiming\|claimSuccess\|claimFailed\|unitYuan\|typeFixed\|typePercent\|
 
 Expected: 上面每个 key 都能在 zh-CN 的 `messages.coupon` 段命中（`claiming` 若缺失见 Step 3）
 
-- [ ] **Step 3: 若 `messages.coupon.claiming` 缺失，补中文词条**
+- [x] **Step 3: 若 `messages.coupon.claiming` 缺失，补中文词条**
 
 在 [zh-CN.ts](file:///d:/zhao/nshop/layers/base/i18n/locales/zh-CN.ts) 的 `messages.coupon` 段、`claim` 词条旁新增：
 
@@ -908,12 +908,12 @@ Expected: 上面每个 key 都能在 zh-CN 的 `messages.coupon` 段命中（`cl
 
 若要避免「领取中…」硬塞进 12 语言包的工作量，也可把模板里的 `t('messages.coupon.claiming')` 改回 `t('messages.coupon.claim')`（二选一，实施时以 zh-CN 实际存在的 key 为准）。
 
-- [ ] **Step 4: 类型检查**
+- [x] **Step 4: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/blocks/CouponFloorBlock.vue
@@ -927,7 +927,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 新增领券楼层积木块（复用
 **Files:**
 - Modify: `d:\zhao\nshop\layers\base\app\components\home\blocks\BannerBlock.vue`
 
-- [ ] **Step 1: 全文替换组件**
+- [x] **Step 1: 全文替换组件**
 
 把 [BannerBlock.vue](file:///d:/zhao/nshop/layers/base/app/components/home/blocks/BannerBlock.vue) 替换为：
 
@@ -965,12 +965,12 @@ const slides = computed(() => {
 </template>
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/blocks/BannerBlock.vue
@@ -984,7 +984,7 @@ git -C d:/zhao/nshop commit -m "feat(home): BannerBlock 空配置回退首页运
 **Files:**
 - Modify: `d:\zhao\nshop\layers\base\app\components\home\HomeBlockRenderer.vue`
 
-- [ ] **Step 1: 全文替换渲染器**
+- [x] **Step 1: 全文替换渲染器**
 
 ```vue
 <script setup lang="ts">
@@ -1061,12 +1061,12 @@ function autoTitle(r: ResolvedSection): string {
 </template>
 ```
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: `app/pages/index.vue` 处报 1 个「`ShopSection[]` 不能赋给 `ResolvedSection[]`」——由 Task 11 修掉（若报错即符合预期，继续）
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/app/components/home/HomeBlockRenderer.vue
@@ -1080,7 +1080,7 @@ git -C d:/zhao/nshop commit -m "feat(home): HomeBlockRenderer 消费骨架合并
 **Files:**
 - Modify: `d:\zhao\nshop\app\pages\index.vue`
 
-- [ ] **Step 1: 改造 script（第 22-24 行 import 与第 49-51 行配置消费）**
+- [x] **Step 1: 改造 script（第 22-24 行 import 与第 49-51 行配置消费）**
 
 删除不再使用的两行 import：
 
@@ -1109,7 +1109,7 @@ const needFallbackGoods = computed(() =>
 );
 ```
 
-- [ ] **Step 2: 改造兜底搜索的短路条件**
+- [x] **Step 2: 改造兜底搜索的短路条件**
 
 把 [index.vue](file:///d:/zhao/nshop/app/pages/index.vue) 中
 
@@ -1133,7 +1133,7 @@ const moreProducts = computed(() => fallbackSearch.value?.more ?? []);
 const autoGoods = computed(() => ({ hot: hotProducts.value, more: moreProducts.value }));
 ```
 
-- [ ] **Step 3: 改造移动端模板（第 262-288 行整段）**
+- [x] **Step 3: 改造移动端模板（第 262-288 行整段）**
 
 把移动端 `<main data-layout="mobile">` 整段替换为：
 
@@ -1146,12 +1146,12 @@ const autoGoods = computed(() => ({ hot: hotProducts.value, more: moreProducts.v
   </main>
 ```
 
-- [ ] **Step 4: 类型检查 + 全量单测**
+- [x] **Step 4: 类型检查 + 全量单测**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck && npm test`
 Expected: typecheck 无 error；单测全部 PASS
 
-- [ ] **Step 5: 本地起服务做冒烟（`shopContent = null` 无回归）**
+- [x] **Step 5: 本地起服务做冒烟（`shopContent = null` 无回归）**
 
 Run（cwd = `d:\zhao\nshop`，后台运行）：`npm run dev`
 然后在另一个终端：
@@ -1163,7 +1163,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/
 Expected: `200`；页面 HTML 中同时出现「分类导航」「品牌闪购」「品质专区」三个楼层标题（即 6 兜底槽位 + 分类导航常驻均已渲染）。
 完成后停掉 dev server。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git -C d:/zhao/nshop add app/pages/index.vue
@@ -1177,7 +1177,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 首页移动端统一走骨架渲染
 **Files:**
 - Modify: `d:\zhao\nshop\layers\base\i18n\locales\zh-CN.ts`、`en-US.ts`、`bg-BG.ts`、`ru-RU.ts`、`fa-IR.ts`、`de-DE.ts`、`es-ES.ts`、`fr-FR.ts`、`it-IT.ts`、`pt-BR.ts`、`ja-JP.ts`、`ko-KR.ts`
 
-- [ ] **Step 1: 每个语言包在 `messages.home` 段补两个 key**
+- [x] **Step 1: 每个语言包在 `messages.home` 段补两个 key**
 
 在**每个** locale 文件的 `messages.home` 段内（紧随 `hotGoods` / `recommendGoods` 之后）加两行，取值按下表：
 
@@ -1205,7 +1205,7 @@ git -C d:/zhao/nshop commit -m "feat(home): 首页移动端统一走骨架渲染
       latestGoods: '新品首发',
 ```
 
-- [ ] **Step 2: 校验 12 个语言包均已补齐**
+- [x] **Step 2: 校验 12 个语言包均已补齐**
 
 Run（cwd = `d:\zhao\nshop`）：
 
@@ -1215,12 +1215,12 @@ grep -c "couponFloor" layers/base/i18n/locales/*.ts
 
 Expected: 12 个文件各输出 `1`
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run typecheck`
 Expected: 无新增 error
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git -C d:/zhao/nshop add layers/base/i18n/locales
@@ -1234,7 +1234,7 @@ git -C d:/zhao/nshop commit -m "i18n(home): 12 语言包补齐领券/最新商�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\templates\shared\schema.ts`
 
-- [ ] **Step 1: 新增类型与常量**
+- [x] **Step 1: 新增类型与常量**
 
 在 [schema.ts](file:///d:/zhao/vshop/web-admin/src/templates/shared/schema.ts) 中，把 `ShopSection` 联合体与 `ShopContent` 替换为：
 
@@ -1261,7 +1261,7 @@ export interface ShopContent {
 const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest'];
 ```
 
-- [ ] **Step 2: 扩展校验**
+- [x] **Step 2: 扩展校验**
 
 在 `isValidShopContent` 的 `for (const sec of data.sections)` 循环内、`if (sec.type === 'hot' || sec.type === 'recommend') { ... }` 之后追加：
 
@@ -1292,12 +1292,12 @@ const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'rec
   }
 ```
 
-- [ ] **Step 3: 类型检查（构建）**
+- [x] **Step 3: 类型检查（构建）**
 
 Run（cwd = `d:\zhao\vshop\web-admin`）：`npm run build:h5`
 Expected: 构建成功（无 TS error）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git -C d:/zhao/vshop add web-admin/src/templates/shared/schema.ts
@@ -1311,7 +1311,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): shopContent schema 支持品牌�
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\src\pages\decorate\home\index.vue`
 
-- [ ] **Step 1: 模板 —— 顶部新增「骨架槽位」只读区**
+- [x] **Step 1: 模板 —— 顶部新增「骨架槽位」只读区**
 
 在 [index.vue](file:///d:/zhao/vshop/web-admin/src/pages/decorate/home/index.vue) 模板的 `<view class="page">` 内、`<view v-if="sections.length === 0" ...>` 之前插入：
 
@@ -1337,7 +1337,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): shopContent schema 支持品牌�
     <view v-if="sections.length === 0 && hiddenSlots.length === 0" class="muted empty">{{ $t('decorateHome.empty') }}</view>
 ```
 
-- [ ] **Step 2: 模板 —— 4 个新配置面板（插在 `recommend` 面板之后、`richText` 面板之前）**
+- [x] **Step 2: 模板 —— 4 个新配置面板（插在 `recommend` 面板之后、`richText` 面板之前）**
 
 ```html
       <!-- brandFloor：品牌闪购 -->
@@ -1393,7 +1393,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): shopContent schema 支持品牌�
       </template>
 ```
 
-- [ ] **Step 3: 模板 —— `addbar` 增 4 个按钮**
+- [x] **Step 3: 模板 —— `addbar` 增 4 个按钮**
 
 在 `<view class="addbar">` 的 `addRichText` 按钮之前插入：
 
@@ -1404,7 +1404,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): shopContent schema 支持品牌�
       <button class="mini" @tap="addLatest">{{ $t('decorateHome.addLatest') }}</button>
 ```
 
-- [ ] **Step 4: script —— 常量、状态与槽位工具**
+- [x] **Step 4: script —— 常量、状态与槽位工具**
 
 在 `const sections = ref<SectionVM[]>([]);` 之后加入：
 
@@ -1442,7 +1442,7 @@ function toggleSlot(slot: { key: string; fallback: boolean }) {
 }
 ```
 
-- [ ] **Step 5: script —— 读取 hiddenSlots**
+- [x] **Step 5: script —— 读取 hiddenSlots**
 
 把 `onMounted` 中
 
@@ -1462,7 +1462,7 @@ function toggleSlot(slot: { key: string; fallback: boolean }) {
         : [];
 ```
 
-- [ ] **Step 6: script —— `typeLabel` 补 4 个分支**
+- [x] **Step 6: script —— `typeLabel` 补 4 个分支**
 
 在 `typeLabel` 的 `switch` 中，`case 'recommend'` 之后插入：
 
@@ -1473,7 +1473,7 @@ function toggleSlot(slot: { key: string; fallback: boolean }) {
     case 'latest': return locale.t('decorateHome.typeLatest');
 ```
 
-- [ ] **Step 7: script —— 4 个新增函数**
+- [x] **Step 7: script —— 4 个新增函数**
 
 在 `addRecommend` 之后插入：
 
@@ -1484,7 +1484,7 @@ function addCoupon() { sections.value.push({ type: 'coupon', title: '', limit: 6
 function addLatest() { sections.value.push({ type: 'latest', title: '', collectionId: '', limit: 10, layout: 'compact' }); }
 ```
 
-- [ ] **Step 8: script —— `toSection` 修正空字段与 latest/coupon**
+- [x] **Step 8: script —— `toSection` 修正空字段与 latest/coupon**
 
 把现有 `toSection` 替换为下面两段（先抽出 curated 分支，再统一处理空值）：
 
@@ -1529,7 +1529,7 @@ function toCuratedSection(vm: SectionVM): any {
 }
 ```
 
-- [ ] **Step 9: script —— `save()` 放宽 + `buildContent()` 输出 hiddenSlots**
+- [x] **Step 9: script —— `save()` 放宽 + `buildContent()` 输出 hiddenSlots**
 
 把 `save()` 开头
 
@@ -1565,7 +1565,7 @@ function buildContent(): ShopContent | null {
 }
 ```
 
-- [ ] **Step 10: 样式 —— 骨架槽位区**
+- [x] **Step 10: 样式 —— 骨架槽位区**
 
 在 `<style lang="scss" scoped>` 的 `.page { ... }` 内追加（与既有 `$wa-*` 变量一致）：
 
@@ -1582,12 +1582,12 @@ function buildContent(): ShopContent | null {
   }
 ```
 
-- [ ] **Step 11: 构建验证**
+- [x] **Step 11: 构建验证**
 
 Run（cwd = `d:\zhao\vshop\web-admin`）：`npm run build:h5`
 Expected: 构建成功
 
-- [ ] **Step 12: 提交**
+- [x] **Step 12: 提交**
 
 ```bash
 git -C d:/zhao/vshop add web-admin/src/pages/decorate/home/index.vue
@@ -1602,7 +1602,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): 首页装修新增 4 类楼层�
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\en.json`
 
-- [ ] **Step 1: 在 `decorateHome` 段补中文词条**
+- [x] **Step 1: 在 `decorateHome` 段补中文词条**
 
 在 [zh-Hans.json](file:///d:/zhao/vshop/web-admin/src/locale/zh-Hans.json) 的 `"decorateHome"` 段、`"saveFailed"` 之后（注意补逗号）追加：
 
@@ -1645,7 +1645,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): 首页装修新增 4 类楼层�
 
 并把 `"needSection"` 的值改为 `"请至少添加一个区块或移除一个兜底楼层"`。
 
-- [ ] **Step 2: 在 `en.json` 的 `decorateHome` 段补英文词条**
+- [x] **Step 2: 在 `en.json` 的 `decorateHome` 段补英文词条**
 
 ```json
     "addBrandFloor": "+ Brand Flash",
@@ -1686,7 +1686,7 @@ git -C d:/zhao/vshop commit -m "feat(decorate): 首页装修新增 4 类楼层�
 
 并把英文的 `needSection` 改为 `"Please add at least one block or remove a fallback floor"`。
 
-- [ ] **Step 3: 词条一致性校验**
+- [x] **Step 3: 词条一致性校验**
 
 Run（cwd = `d:\zhao\vshop\web-admin`）：
 
@@ -1696,7 +1696,7 @@ python scripts/i18n_verify.py
 
 Expected: 无缺失 key 报告（若脚本要求指定语言目录，按其 `--help` 提示传参）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git -C d:/zhao/vshop add web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -1712,22 +1712,22 @@ git -C d:/zhao/vshop commit -m "i18n(decorate): 补充骨架槽位与 4 类新�
 
 > 部署铁律：**本地构建**，服务器只解压 / 重启。nshop 走 `node scripts/deploy.mjs`；web-admin 走 `node scripts/deploy.mjs`（在 `d:\zhao\vshop\web-admin`）。
 
-- [ ] **Step 1: nshop 本地构建**
+- [x] **Step 1: nshop 本地构建**
 
 Run（cwd = `d:\zhao\nshop`）：`npm run build`
 Expected: 构建成功，产物在 `.output/`
 
-- [ ] **Step 2: web-admin 本地构建**
+- [x] **Step 2: web-admin 本地构建**
 
 Run（cwd = `d:\zhao\vshop\web-admin`）：`npm run build:h5`
 Expected: 构建成功，产物在 `dist/build/h5/`
 
-- [ ] **Step 3: 部署两个前端**
+- [x] **Step 3: 部署两个前端**
 
 Run：`node scripts/deploy.mjs`（cwd = `d:\zhao\nshop`），再 `node scripts/deploy.mjs`（cwd = `d:\zhao\vshop\web-admin`）
 Expected: 两次均输出上传 + 服务器解压成功；nshop 侧按脚本提示重启进程
 
-- [ ] **Step 4: 线上回归（设计 §5.2 全 7 条）**
+- [x] **Step 4: 线上回归（设计 §5.2 全 7 条）**
 
 ```bash
 for p in / /t1/ /t2/ /t2/category/all /t2/product/; do
@@ -1747,7 +1747,7 @@ done
 | 6 | `shopContent = null` 时网络面板中 `home-fallback-search` 请求数与改动前一致（仍是 1 次商品搜索） |
 | 7 | 五个路径全 200，控制台无 `[nuxt] instance unavailable` |
 
-- [ ] **Step 5: 手机浏览视图截图（390×844 / dpr=2）**
+- [x] **Step 5: 手机浏览视图截图（390×844 / dpr=2）**
 
 在 `d:\zhao\nshop\_e2e\` 新建 `shot_home_skeleton.py`（与仓库既有 Playwright 脚本同风格）：
 
@@ -1784,7 +1784,7 @@ asyncio.run(main())
 Run（cwd = `d:\zhao\nshop`）：`python _e2e/shot_home_skeleton.py`
 Expected: `_e2e/shots/01..05-*.png` 生成，尺寸宽 780px（= 390×2）
 
-- [ ] **Step 6: 更新操作手册**
+- [x] **Step 6: 更新操作手册**
 
 更新 [README.md](file:///d:/zhao/nshop/docs/superpowers/manual/t2-visibility/README.md)：
 
@@ -1796,7 +1796,7 @@ Expected: `_e2e/shots/01..05-*.png` 生成，尺寸宽 780px（= 390×2）
    - 「如何移除某个兜底楼层（hiddenSlots）」+ 后台「骨架楼层」区截图
 3. 插入 Step 5 的 5 张手机截图，逐张标注对应断言编号。
 
-- [ ] **Step 7: 提交 + 推送 + 部署**
+- [x] **Step 7: 提交 + 推送 + 部署**
 
 ```bash
 git -C d:/zhao/nshop add _e2e/shot_home_skeleton.py docs/superpowers/manual/t2-visibility/README.md
@@ -1849,3 +1849,25 @@ git -C d:/zhao/vshop push
 - 后台 `hiddenSlots` 写入的 key 与前台 `sanitizeHiddenSlots` + `slot.key` 比对口径一致（纯字符串 key，非 type 名）。
 - `HomeBlockRenderer` 的 `autoGoods: { hot, more }` 与 Task 11 的 `autoGoods` computed 结构一致。
 - 后台 `ShopContent.version: number` 与前台 `version: 1` 均通过 `version !== 1` 校验（后台 `isValidShopContent` 要求 `=== 1`）。
+
+---
+
+## 执行结论（2026-09-28 收尾）
+
+**结论：Task 1–16 全部完成；本次收尾 = 部署 + 线上回归复验 + 复选框回填。**
+
+| 项 | 产物 / 证据 |
+|---|---|
+| 前台（nshop） | `layers/base/app/utils/home-skeleton.ts` + `shop-content.ts`（含 `sanitizeHiddenSlots`）、4 个新块 `BrandFloorBlock` / `PlazaBlock` / `LatestGoodsBlock` / `CouponFloorBlock`、`HomeBlockRenderer`、`app/pages/index.vue` 统一渲染；单测 **19 passed**（`home-skeleton` 16 + `shop-content` 3） |
+| i18n | 12 个语言包（`layers/base/i18n/locales/*.ts`）均含 `messages.home.couponFloor` / `latestGoods` |
+| 后台（web-admin） | `src/templates/shared/schema.ts`（4 新类型 + `hiddenSlots`）、`src/pages/decorate/home/index.vue`（4 个新增按钮 + 骨架槽位只读区 + 移除开关）、双语言包 `decorateHome.*` |
+| 手册与截图 | `nshop/docs/superpowers/manual/t2-visibility/README.md` §7.1–7.5（骨架槽位表 / 公告锚定 / 领券与最新商品 / `hiddenSlots`）+ 5 张手机视图截图（`_e2e/shots/01..05-*.png`，780×1688）逐张对应断言编号；7 条断言证据表见 README §7.5 |
+| 本次部署 | nshop：`node scripts/deploy.mjs`（cwd `d:\zhao\nshop`）→ 产物上传 + `pm2 restart nshop` 成功（EXIT=0）；web-admin：`node scripts/deploy.mjs`（cwd `d:\zhao\vshop\web-admin`）→ `产物校验通过 50808 KB` + nginx 重载成功（EXIT=0） |
+| 本次线上复验 | `/`、`/t1/`、`/t2/`、`/t2/category/all` 全 **200**；`/t2/`、`/t1/` SSR HTML 含 品牌闪购 / 品质专区 / 热门 / 推荐 四兜底楼层；客户端 POST 仅 6 次（全为 ssoProviders / activeOrder / pickupLocations / activeCustomer / mapSdkConfig）**无重复商品搜索**（搜索由 SSR 承担）；`[nuxt] instance unavailable` **0 条**、`pageerror` **0 条** |
+
+**两处口径订正（不影响结论）**
+
+1. **Task 16 Step 4 的路径清单**：`/t2/product/` 是**缺 slug 的非法路径**（`/t1/product/` 同样 404），并非本次回归失败；正确写法是带 slug，如 `/t2/product/温泉门票`（README §7.5 断言 7 即用该写法）。**按 README 的口径判通过。**
+2. **`Hydration completed but contains mismatches.`**：线上 `/t2/`、`/t1/` **与本次改动无关的 `/t2/category/all`** 均出现同一条，判定为**全站既有现象**，非本计划引入（本计划只动首页 `app/pages/index.vue` 与首页块组件，分类页不涉）。
+
+**副作用**：线上 t2 的 `shopContent` 已由一次性回归脚本 `restore` 还原为 `null`（复核 `还原完成，校验=OK → null`），当前线上即断言 1 的默认兜底态。
