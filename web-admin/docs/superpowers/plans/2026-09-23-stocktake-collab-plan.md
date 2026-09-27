@@ -94,7 +94,7 @@
 **Files:**
 - 只读检查：`d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`
 
-- [ ] **Step 1: 确认本地依赖无双实例**
+- [x] **Step 1: 确认本地依赖无双实例**
 
 ```powershell
 Test-Path d:\zhao\vendure\packages\common\node_modules
@@ -105,7 +105,7 @@ Test-Path d:\zhao\vendure\node_modules\@vendure\core
 预期：前两条为 `False`（或已改名为 `node_modules.pnpm-bak`），第三条为 `True`。
 若前两条为 `True`，先按 `project_memory` 记录的「vendure 本地依赖双实例」修法隔离（`common` / `coupon-plugin` 整目录改名 `node_modules.pnpm-bak`；`core` 用 Node 安全遍历删除），否则后面所有排查都会被 `Entity metadata for X#channels was not found` 污染。
 
-- [ ] **Step 2: 确认 cjk-plugin 基线单测为绿**
+- [x] **Step 2: 确认 cjk-plugin 基线单测为绿**
 
 ```powershell
 npm run test
@@ -115,7 +115,7 @@ npm run test
 
 预期：记录基线用例数（既有已知失败项若仍存在，一并记录，后续只允许新增用例、不允许新增失败）。
 
-- [ ] **Step 3: 记录插件注册点行号（文件很大，行号会漂）**
+- [x] **Step 3: 记录插件注册点行号（文件很大，行号会漂）**
 
 ```powershell
 Select-String -Path src\plugin.ts -Pattern 'entities: \[|providers: \[|adminApiExtensions|shopApiExtensions|resolvers: \[|customPermissions'
@@ -123,7 +123,7 @@ Select-String -Path src\plugin.ts -Pattern 'entities: \[|providers: \[|adminApiE
 
 预期：能定位到 `entities` 数组、`providers` 数组、`adminApiExtensions`（含库位 SDL 块与 `resolvers` 数组）、`shopApiExtensions`、以及 `config.authOptions.customPermissions` 的既有注入点。**把行号记在纸上**，Task 6 要用。
 
-- [ ] **Step 4: 记录既有约定（照抄，不另创风格）**
+- [x] **Step 4: 记录既有约定（照抄，不另创风格）**
 
 ```powershell
 Select-String -Path src\picking\pick-batch.entity.ts -Pattern 'tenantChannelId|timestamp|@Unique|@Index'
@@ -134,7 +134,7 @@ Select-String -Path src\storage\storage-bin.service.ts -Pattern 'tenantOf|binBin
 - `pick-batch.entity.ts` 里 `tenantChannelId` 的**声明类型**（varchar / int）—— 本计划三表**照抄**该类型，保证同源语义。
 - `binBindCounts(ctx, stockLocationId): Map<number, number>` 存在且按渠道 + 仓库收口 —— Task 3 的 `binOccupancy` 直接复用，不重写聚合。
 
-- [ ] **Step 5: 确认本地 postgres 连接方式（Task 1 要查新表）**
+- [x] **Step 5: 确认本地 postgres 连接方式（Task 1 要查新表）**
 
 ```powershell
 Select-String -Path packages\dev-server\.env -Pattern 'DB_|DATABASE|POSTGRES' | Select-Object -First 20
@@ -155,7 +155,7 @@ Select-String -Path packages\dev-server\.env -Pattern 'DB_|DATABASE|POSTGRES' | 
 - Test: `d:\zhao\vendure\packages\cjk-plugin\src\stocktake\entities.spec.ts`
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`（`entities` 数组末尾追加 3 项）
 
-- [ ] **Step 1: 写失败的实体约束单测**
+- [x] **Step 1: 写失败的实体约束单测**
 
 ```ts
 // src/stocktake/entities.spec.ts
@@ -233,7 +233,7 @@ describe('盘库三表实体约束', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```powershell
 npx vitest run src/stocktake/entities.spec.ts
@@ -241,7 +241,7 @@ npx vitest run src/stocktake/entities.spec.ts
 
 预期：FAIL，报 `Cannot find module './stocktake-task.entity'`。
 
-- [ ] **Step 3: 写三个实体**
+- [x] **Step 3: 写三个实体**
 
 ```ts
 // src/stocktake/stocktake-task.entity.ts
@@ -458,7 +458,7 @@ export class StocktakeLine extends VendureEntity {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```powershell
 npx vitest run src/stocktake/entities.spec.ts
@@ -466,7 +466,7 @@ npx vitest run src/stocktake/entities.spec.ts
 
 预期：PASS，4 个用例全绿。
 
-- [ ] **Step 5: 注册实体到插件**
+- [x] **Step 5: 注册实体到插件**
 
 修改 `src/plugin.ts` 的 `entities: [...]` 数组，在末尾（既有 `PickBatch, PickBatchOrder, StorageZone, StorageBin, VariantStorageBin` 之后）追加：
 
@@ -484,7 +484,7 @@ import { StocktakeWave } from './stocktake/stocktake-wave.entity';
 import { StocktakeLine } from './stocktake/stocktake-line.entity';
 ```
 
-- [ ] **Step 6: 编译 + 起服确认三表自动建**
+- [x] **Step 6: 编译 + 起服确认三表自动建**
 
 ```powershell
 npm run build
@@ -512,7 +512,7 @@ node -e "const {Client}=require('pg');const c=new Client({connectionString:proce
 预期输出：`stocktake_line,stocktake_task,stocktake_wave`。
 若 `.env` 用的是拆分变量（`DB_HOST` 等），改用 `psql -h <host> -p <port> -U <user> -d <db> -c "select tablename from pg_tables where tablename like 'stocktake_%' order by 1"`。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add packages/cjk-plugin/src/stocktake packages/cjk-plugin/src/plugin.ts packages/cjk-plugin/lib
@@ -531,7 +531,7 @@ git commit -m "feat(stocktake): 新增盘库三表（任务/盘次/应盘行）"
 
 本 Task 是整个盘库**正确性的中枢**：规格 §6.1（清单生成）、§6.2（差异汇总，R11）、§6.3（过账计划）、§8.3（扫码优先级）全部落在这一层，且全部可无 DB 单测。
 
-- [ ] **Step 1: 写失败的状态机与任务号单测**
+- [x] **Step 1: 写失败的状态机与任务号单测**
 
 ```ts
 // src/stocktake/stocktake-math.spec.ts
@@ -580,7 +580,7 @@ describe('任务/盘次状态机', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```powershell
 npx vitest run src/stocktake/stocktake-math.spec.ts
@@ -590,7 +590,7 @@ npx vitest run src/stocktake/stocktake-math.spec.ts
 
 预期：FAIL，`Cannot find module './stocktake-math'`。
 
-- [ ] **Step 3: 写失败的核心算法单测**
+- [x] **Step 3: 写失败的核心算法单测**
 
 追加到同一个 spec 文件：
 
@@ -832,7 +832,7 @@ describe('扫码解析（规格 §8.3 优先级）', () => {
 });
 ```
 
-- [ ] **Step 4: 跑测试确认失败**
+- [x] **Step 4: 跑测试确认失败**
 
 ```powershell
 npx vitest run src/stocktake/stocktake-math.spec.ts
@@ -840,7 +840,7 @@ npx vitest run src/stocktake/stocktake-math.spec.ts
 
 预期：FAIL（同一模块尚不存在）。
 
-- [ ] **Step 5: 写实现**
+- [x] **Step 5: 写实现**
 
 ```ts
 // src/stocktake/stocktake-math.ts
@@ -1261,7 +1261,7 @@ export function resolveScanCode(raw: string, ctx: { bins: ScanBin[]; lines: Scan
 
 **注意**：`resolveScanCode` 的 `extra` 分支里 `name: variant.name` 在测试中标注为 `name: undefined`（测试的 ctx 未给 name）—— 若实现返回 `{variantId,sku,name:undefined}`，`toEqual({kind:'extra',variantId:99,sku:'SKU-X',name:undefined})` 在 vitest 下通过（`toEqual` 忽略 undefined 属性）。若想严格，把该断言改为 `toMatchObject({kind:'extra',variantId:99,sku:'SKU-X'})`；**实施时按后者写，更稳**。
 
-- [ ] **Step 6: 跑测试确认通过**
+- [x] **Step 6: 跑测试确认通过**
 
 ```powershell
 npx vitest run src/stocktake/stocktake-math.spec.ts
@@ -1269,7 +1269,7 @@ npx vitest run src/stocktake/stocktake-math.spec.ts
 
 预期：PASS（16 个用例全绿）。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add packages/cjk-plugin/src/stocktake
@@ -1292,7 +1292,7 @@ git commit -m "feat(stocktake): 盘库纯函数（状态机/任务号/应盘清�
 **实现口径（重要，先看）**：明细查询走「**一次 SQL 取本仓全部绑定行 + 一次 `In(variantIds)` 补商品字段 → JS 侧过滤/排序/分页**」。
 理由有三：① 建任务本身就要全量读绑定（规格 §6.1 步骤 2），量级天然有界；② 与库位管理页、配货台的既有做法（仓储查询 + JS 聚合，方言无关）一致，sqlite/postgres 行为相同；③ 让过滤/排序/分页全部落在**可无 DB 单测的纯函数**里（总数的正确性不靠 SQL 方言）。`binOccupancy` **复用既有 `binBindCounts()`**，聚合逻辑零新增。
 
-- [ ] **Step 1: 写失败的纯函数单测**
+- [x] **Step 1: 写失败的纯函数单测**
 
 ```ts
 // src/storage/bin-query.math.spec.ts
@@ -1379,7 +1379,7 @@ describe('库位占用概览', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```powershell
 npx vitest run src/storage/bin-query.math.spec.ts
@@ -1389,7 +1389,7 @@ npx vitest run src/storage/bin-query.math.spec.ts
 
 预期：FAIL，`Cannot find module './bin-query.math'`。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 ```ts
 // src/storage/bin-query.math.ts
@@ -1514,7 +1514,7 @@ export function buildOccupancyRows(bins: BinRowInput[], counts: Map<number, numb
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```powershell
 npx vitest run src/storage/bin-query.math.spec.ts
@@ -1522,7 +1522,7 @@ npx vitest run src/storage/bin-query.math.spec.ts
 
 预期：PASS（8 个用例全绿）。
 
-- [ ] **Step 5: service 增加 4 个方法**
+- [x] **Step 5: service 增加 4 个方法**
 
 在 `src/storage/storage-bin.service.ts` 末尾追加（**先读该文件既有的 `tenantOf` / `resolveMode` / `bins()` / `binBindCounts()` 实现，照其风格与字段命名**）：
 
@@ -1636,7 +1636,7 @@ npx vitest run src/storage/bin-query.math.spec.ts
 - `variant.customFields.barcode / internalCode` 的读取方式：先跑一次 `npx vitest run` 通过后再起服，用 Step 7 的探针实测 `barcode` 是否非空；若为空，改用 `this.connection.getMetadata(ProductVariant)` 动态取自定义列名（照 Vendure 的 `customFields*` 列命名），并把结论写进代码注释。
 - 若 `binBindCounts` 的签名是 `(ctx, stockLocationId: ID)` 且内部已 `Number()` 转换，直接传原值即可。
 
-- [ ] **Step 6: resolver 暴露两个只读查询**
+- [x] **Step 6: resolver 暴露两个只读查询**
 
 在 `src/storage/storage-bin.admin.resolver.ts` 追加（照该文件既有 `@Query() @Allow(Permission.ReadCatalog)` 风格）：
 
@@ -1690,7 +1690,7 @@ npx vitest run src/storage/bin-query.math.spec.ts
             }
 ```
 
-- [ ] **Step 7: 编译 + 起服 + 实测两个查询**
+- [x] **Step 7: 编译 + 起服 + 实测两个查询**
 
 ```powershell
 npm run build
@@ -1709,7 +1709,7 @@ query {
 
 预期：`binOccupancy` 返回默认仓 **18 个格子**（含 `skuCount = 0` 的空格）；`variantBinsByLocation` 的 `totalItems` 与库位管理页绑定数一致；`barcode`/`internalCode` 能取到值（取不到就按 Step 5 的注意项修读法）。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add packages/cjk-plugin/src/storage packages/cjk-plugin/src/plugin.ts packages/cjk-plugin/lib
@@ -1728,7 +1728,7 @@ git commit -m "feat(storage): 新增库位→SKU 反向查询（variantBinsByLoc
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\stocktake\stocktake-math.spec.ts`（追加用例）
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`（`providers` 追加 `StocktakeService`）
 
-- [ ] **Step 1: 写失败的「状态派生 + 独占锁」单测**
+- [x] **Step 1: 写失败的「状态派生 + 独占锁」单测**
 
 追加到 `src/stocktake/stocktake-math.spec.ts`：
 
@@ -1757,7 +1757,7 @@ describe('状态派生与独占锁（规格 §5/§3.6）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```powershell
 npx vitest run src/stocktake/stocktake-math.spec.ts
@@ -1767,7 +1767,7 @@ npx vitest run src/stocktake/stocktake-math.spec.ts
 
 预期：FAIL，`resolveWaveStateAfterCount is not a function`。
 
-- [ ] **Step 3: 追加 3 个纯函数**
+- [x] **Step 3: 追加 3 个纯函数**
 
 追加到 `src/stocktake/stocktake-math.ts`：
 
@@ -1803,7 +1803,7 @@ export function waveOwnerError(
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 ```powershell
 npx vitest run src/stocktake/stocktake-math.spec.ts
@@ -1811,7 +1811,7 @@ npx vitest run src/stocktake/stocktake-math.spec.ts
 
 预期：PASS（19 个用例全绿）。
 
-- [ ] **Step 5: 写 `StocktakeService` 骨架 + 建任务事务**
+- [x] **Step 5: 写 `StocktakeService` 骨架 + 建任务事务**
 
 ```ts
 // src/stocktake/stocktake.service.ts
@@ -1959,7 +1959,7 @@ export class StocktakeService {
 
 **`providers` 注册（改 `plugin.ts`）**：在既有 `providers: [...]` 数组末尾追加 `StocktakeService,`，并 import。
 
-- [ ] **Step 6: 实现建任务（清单固化，一个事务）**
+- [x] **Step 6: 实现建任务（清单固化，一个事务）**
 
 追加到 `stocktake.service.ts`：
 
@@ -2088,7 +2088,7 @@ export class StocktakeService {
 
 **验收（Task 4 内不含真实数据盘点）**：本 Task 结束时用 Step 9 的探针只跑「建任务」，断言 **`waves` 数 = 该仓启用的库区数 + 1（未归位桶）**、`expectedCount` 之和 = 明细行数，然后 **`cancelStocktakeTask` 清掉测试任务**。
 
-- [ ] **Step 7: 实现盘次动作（指派 / 认领 / 释放 / 取消）+ 补盘次**
+- [x] **Step 7: 实现盘次动作（指派 / 认领 / 释放 / 取消）+ 补盘次**
 
 追加：
 
@@ -2191,7 +2191,7 @@ export class StocktakeService {
 
 **关于 `addStocktakeWave`**：规格 §7 列了这个接口，但「手工补盘次」必须重算该范围的行集合（与 `buildExpected` 同源），否则会出现「盘次存在但无行」。本计划**明确最小实现**：接口保留在 SDL 里但返回明确的「暂不支持」原因（**不静默失败**），自动拆分已覆盖需求（§6.1 步骤 5）。这条要写进手册的「残留缺口」。若实施时想直接做全，照 `createTask` 的清单生成逻辑抽一个私有方法重用即可。
 
-- [ ] **Step 8: 实现批量录入（`saveStocktakeCounts`）**
+- [x] **Step 8: 实现批量录入（`saveStocktakeCounts`）**
 
 追加：
 
@@ -2276,7 +2276,7 @@ export class StocktakeService {
     }
 ```
 
-- [ ] **Step 9: 编译 + 单测 + 建任务实测（含清理）**
+- [x] **Step 9: 编译 + 单测 + 建任务实测（含清理）**
 
 ```powershell
 npx vitest run src/stocktake
@@ -2302,7 +2302,7 @@ mutation { cancelStocktakeTask(taskId: "<上一步的 id>") { id state } }
 
 预期 `state = CANCELLED`（**测试任务必须清理**，不留残渣）。
 
-- [ ] **Step 10: 提交**
+- [x] **Step 10: 提交**
 
 ```bash
 git add packages/cjk-plugin/src/stocktake packages/cjk-plugin/src/plugin.ts packages/cjk-plugin/lib
@@ -2318,7 +2318,7 @@ git commit -m "feat(stocktake): 盘库 service（建任务固化清单/盘次独
 
 **为什么过账不写新机制**：`stock-doc.service.ts` 的 `STOCKTAKE` 分支已实现 `realQty` 覆盖式（`adjust.setPhysicalStock`）并在传 `zoneId`/`binId` 时经 `applyBinBinding()` 归位 —— 本 Task 只负责「算准 items」和「幂等 + 状态推进」，绝不新增库存写入路径。
 
-- [ ] **Step 1: 实现差异查询 `diffOf`**
+- [x] **Step 1: 实现差异查询 `diffOf`**
 
 追加到 `stocktake.service.ts`：
 
@@ -2376,7 +2376,7 @@ git commit -m "feat(stocktake): 盘库 service（建任务固化清单/盘次独
     }
 ```
 
-- [ ] **Step 2: 实现过账事务 `post`**
+- [x] **Step 2: 实现过账事务 `post`**
 
 追加：
 
@@ -2434,7 +2434,7 @@ git commit -m "feat(stocktake): 盘库 service（建任务固化清单/盘次独
 
 **说明（实施时按 `stock-doc.service.ts` 的 `StockDocItemInput` 实际字段对齐）**：`qty` 在 STOCKTAKE 分支里不参与（`target = item.realQty ?? item.qty`），故 `qty` 传 `realQty` 即可；**若 `StockDocItemInput` 里 `qty` 是必填，就传 `realQty`；若 `realQty` 是可选且必须显式给**，按实际签名调整，不要为了凑字段编造语义。`zoneId` / `binId` 为 null 时**不要传 `undefined` 之外的假值**（不传即不动归位，符合规格 §10「盘盈行找不到库位允许为空」）。
 
-- [ ] **Step 3: 幂等与终态保护自测（本地最小链路）**
+- [x] **Step 3: 幂等与终态保护自测（本地最小链路）**
 
 起服后，在 Playground 按顺序跑一遍：
 
@@ -2465,7 +2465,7 @@ mutation { setVariantStock(productVariantId: "<v>", stockLocationId: "1", stockO
 
 并把该 `stockDocId` 与复位动作记入手册「测试数据与复位」小节。
 
-- [ ] **Step 4: 编译 + 单测 + 提交**
+- [x] **Step 4: 编译 + 单测 + 提交**
 
 ```powershell
 npx vitest run src/stocktake
@@ -2490,7 +2490,7 @@ git commit -m "feat(stocktake): 差异查询与过账（复用 ST 单据，幂�
 - Modify: `d:\zhao\vendure\packages\cjk-plugin\src\plugin.ts`（盘库 SDL 块 + `resolvers` 数组 + `customPermissions` 注入）
 - Create: `d:\zhao\vshop\web-admin\scripts\_probe_stocktake_local.py`
 
-- [ ] **Step 1: 写两个权限点**
+- [x] **Step 1: 写两个权限点**
 
 ```ts
 // src/stocktake/stocktake-permissions.ts
@@ -2513,7 +2513,7 @@ export const stocktakePermissionDefinitions = [StocktakeCountPermission, Stockta
 
 **先读** `src/tenant/tenant-permissions.ts` 确认 `new PermissionDefinition({...})` 的构造签名与命名风格（该文件是本插件既有 4 处先例），不一致就以实际为准。
 
-- [ ] **Step 2: 角色模板补权限点**
+- [x] **Step 2: 角色模板补权限点**
 
 在 `src/tenant/role-templates.ts` 的 `OFFICIAL_ROLE_TEMPLATES` 里：
 
@@ -2527,7 +2527,7 @@ permissions: [ 'ReadCatalog', 'ReadProduct', 'UpdateProduct', 'ReadOrder', 'Stoc
 
 `sales` / `cashier` 都不加。**注意**：既有租户的角色是**已落库的 `Role.permissions` 数组**，改模板**不会**自动给老角色补权限 —— 这条要写进手册「升级须知」：需要管理员在「角色管理」里重新套用模板或手工勾选新权限点（本地与生产各确认一次）。
 
-- [ ] **Step 3: 写 Resolver（6 查询 + 10 变更）**
+- [x] **Step 3: 写 Resolver（6 查询 + 10 变更）**
 
 ```ts
 // src/stocktake/stocktake.admin.resolver.ts
@@ -2739,7 +2739,7 @@ export class StocktakeAdminResolver {
 
 **注意**：`resolveCode` 的「清单外反查」若嫌 `take: 5000` 粗暴，改为按 `sku` 精确查 + 两个自定义字段精确查的三次查询（推荐，别拉全表）。**实施时按后者写**，并把这一取舍写进代码注释。
 
-- [ ] **Step 4: 注册 SDL（**只进 `adminApiExtensions`**）**
+- [x] **Step 4: 注册 SDL（**只进 `adminApiExtensions`**）**
 
 在 `src/plugin.ts` 的 `adminApiExtensions.schema()` 模板串内（**盘库 SDL 块**，紧邻既有库位块之后）追加：
 
@@ -2886,7 +2886,7 @@ export class StocktakeAdminResolver {
         ];
 ```
 
-- [ ] **Step 5: build + 起服 + 只读探针（新建脚本）**
+- [x] **Step 5: build + 起服 + 只读探针（新建脚本）**
 
 ```powershell
 npm run build
@@ -3012,7 +3012,7 @@ if __name__ == '__main__':
     main()
 ```
 
-- [ ] **Step 6: 跑只读探针**
+- [x] **Step 6: 跑只读探针**
 
 ```powershell
 python scripts\_probe_stocktake_local.py
@@ -3022,7 +3022,7 @@ python scripts\_probe_stocktake_local.py
 
 预期：**0 fail** —— 8 个 Query / 10 个 Mutation 已注册；`binOccupancy` 有空格；`shop-api` 不含盘库查询；`stocktakeTasks` 无 errors。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 # 后端
@@ -3045,7 +3045,7 @@ git commit -m "test(stocktake): 盘库只读探针脚本"
 
 **目的**：过账会真实改库存，**只在本地 dev-server 验证**；生产库在 Task 8 只做只读 + 建任务/取消（**绝不过账**）。
 
-- [ ] **Step 1: 扩展 `--post` 链路（在 `write_checks` 之后追加）**
+- [x] **Step 1: 扩展 `--post` 链路（在 `write_checks` 之后追加）**
 
 在探针脚本里新增 `post_checks(cookie, task_id)`，并在 `--write` 分支末尾调用；内容为：先把该任务的**全部盘次**认领/录入/提交，再走差异与过账、断言库存变化、然后复位。关键断言（实施时按此写）：
 
@@ -3098,7 +3098,7 @@ def post_checks(cookie, task_id):
 
 `write_checks` 里建任务后**不要立刻取消**，改为把 `task['id']` 返回给 `post_checks` 使用；只在 `--write` 且**不带** `--post` 时走「建完即取消」的清理路径。
 
-- [ ] **Step 2: 跑写链路自检**
+- [x] **Step 2: 跑写链路自检**
 
 ```powershell
 python scripts\_probe_stocktake_local.py --write --post
@@ -3108,12 +3108,12 @@ python scripts\_probe_stocktake_local.py --write --post
 
 预期：**0 fail**。重点关注 7 条：未认领录入被拒 / 认领成功 / 录入进 COUNTING / 提交成功 / 有未盘项过账被拒 / confirm 过账成功且有 stockDocId / 重复过账被拒 / 库存更新与复位。
 
-- [ ] **Step 3: 记录测试数据与复位动作**
+- [x] **Step 3: 记录测试数据与复位动作**
 
 把下列内容记到手册第 16 章的「测试数据与复位」小节（Task 15 落笔时用）：
 - 本地过账自检生成的任务 `code`、其 `postedStockDocId`、被改动的 `variantId` 与「已复位为盘点前账面 N」的事实。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add scripts/_probe_stocktake_local.py
@@ -3131,7 +3131,7 @@ git commit -m "test(stocktake): 探针扩展本地过账链路自检（含库存
 
 **关于 R7（部署序）**：本轮**所有新增 SDL 都在 admin-api**，`shop-api` 一行未改 → **不需要**刷新 `nshop` 的 `graphql.schema.json` 快照。这一点**必须在生产用只读探针显式验证**（`shop-api` 不含盘库字段），而不是口头假设。
 
-- [ ] **Step 1: 本地构建产物已随提交入库**
+- [x] **Step 1: 本地构建产物已随提交入库**
 
 ```powershell
 git status --short
@@ -3140,7 +3140,7 @@ git log --oneline -3
 
 （cwd: `d:\zhao\vendure`）预期：`packages/cjk-plugin/lib` 无未提交改动（前几个 Task 都已 build 并提交）。
 
-- [ ] **Step 2: 推送 + 服务器拉取重启**
+- [x] **Step 2: 推送 + 服务器拉取重启**
 
 ```powershell
 git push origin HEAD
@@ -3154,7 +3154,7 @@ cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure && pm2 status
 
 预期：`pm2 status` 显示 `vendure` 为 `online`；启动日志无 `Entity metadata ... was not found`。
 
-- [ ] **Step 3: 生产只读回归**
+- [x] **Step 3: 生产只读回归**
 
 ```powershell
 $env:WA_SMOKE_BASE='https://www.youshop.cn'
@@ -3168,7 +3168,7 @@ python scripts\_probe_stocktake_local.py
 2. `shop-api` **不含**盘库查询（有意单侧注册 + 无需刷快照的依据）；
 3. `binOccupancy` 在生产返回格子且含空格。
 
-- [ ] **Step 4: 生产渠道收口必测（规格 §12 列为必测）**
+- [x] **Step 4: 生产渠道收口必测（规格 §12 列为必测）**
 
 生产上 t2 渠道（配货台已验证 `activeChannel=t2`）执行：
 
@@ -3184,7 +3184,7 @@ mutation { cancelStocktakeTask(taskId: "<上一步 id>") { id state } }
 
 预期：② 在另一渠道下 `totalItems = 0`；③ 返回 `CANCELLED`。**结论写进手册**（渠道收口是前车之鉴，必须有显式断言）。
 
-- [ ] **Step 5: 记录部署证据**
+- [x] **Step 5: 记录部署证据**
 
 把「push 的 commit 范围、服务器重启时间、探针 0 fail 的输出、渠道收口结论、t2 测试任务的 code 与其 CANCELLED 状态」记入手册第 16 章的「回归证据」小节（Task 15 落笔）。
 
@@ -3200,7 +3200,7 @@ mutation { cancelStocktakeTask(taskId: "<上一步 id>") { id state } }
 
 **前置**：Task 8 已把后端部署到生产（或本地 dev-server 已起），SDL 字段名以 Task 6 的 admin SDL 块为唯一契约。
 
-- [ ] **Step 1: 5 个版式 mockup 内联可视化预览（R13 硬性前置）**
+- [x] **Step 1: 5 个版式 mockup 内联可视化预览（R13 硬性前置）**
 
 用 `dynamic-ui` 技能，以 `PureShowWidget` **内联渲染** 下列手机版式（390×844 比例的静态 mockup，不写真机、不建文件）：
 
@@ -3216,7 +3216,7 @@ mutation { cancelStocktakeTask(taskId: "<上一步 id>") { id state } }
 
 **用户确认版式前不要开始 Task 10 的页面代码**（R13）。
 
-- [ ] **Step 2: 写失败的纯函数单测**
+- [x] **Step 2: 写失败的纯函数单测**
 
 ```ts
 // src/utils/stocktake-grid.spec.ts
@@ -3354,7 +3354,7 @@ describe('单件专注（版式 C）的下一件', () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 ```powershell
 node --test src\utils\stocktake-grid.spec.ts
@@ -3364,7 +3364,7 @@ node --test src\utils\stocktake-grid.spec.ts
 
 预期：FAIL，报 `Cannot find module './stocktake-grid.ts'`。
 
-- [ ] **Step 4: 实现 `stocktake-grid.ts`**
+- [x] **Step 4: 实现 `stocktake-grid.ts`**
 
 ```ts
 // 盘库页面纯函数层（无 uni / 无网络 / 无 store 依赖，可被 node --test 直接跑）
@@ -3630,7 +3630,7 @@ export function nextUncountedLine(lines: StocktakeLineRow[], currentId?: string 
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过**
+- [x] **Step 5: 跑测试确认通过**
 
 ```powershell
 node --test src\utils\stocktake-grid.spec.ts
@@ -3638,7 +3638,7 @@ node --test src\utils\stocktake-grid.spec.ts
 
 预期：PASS，13 个用例全绿（`pass 13 / fail 0`）。
 
-- [ ] **Step 6: 写 `apis/stocktake.ts`（6 查询 + 10 变更）**
+- [x] **Step 6: 写 `apis/stocktake.ts`（6 查询 + 10 变更）**
 
 照 `apis/storage-bin.ts` 的风格：`getAdminClient()` + `graphQlErrorMsg(e, '…失败')`，字段名逐字对齐 Task 6 的 SDL。
 
@@ -4015,7 +4015,7 @@ export async function cancelStocktakeWave(waveId: string): Promise<StocktakeWave
 }
 ```
 
-- [ ] **Step 7: 在 `apis/storage-bin.ts` 末尾追加占用概览查询**
+- [x] **Step 7: 在 `apis/storage-bin.ts` 末尾追加占用概览查询**
 
 `binOccupancy` 属于库位域，不放 stocktake（避免域混装）：
 
@@ -4044,7 +4044,7 @@ export async function fetchBinOccupancy(stockLocationId: string, zoneId?: string
 import type { BinOccupancyRow } from '../utils/stocktake-grid';
 ```
 
-- [ ] **Step 8: 类型检查**
+- [x] **Step 8: 类型检查**
 
 ```powershell
 npx vue-tsc --noEmit -p tsconfig.json
@@ -4054,7 +4054,7 @@ npx vue-tsc --noEmit -p tsconfig.json
 
 预期：exit 0，无新增类型错误。
 
-- [ ] **Step 9: 提交**
+- [x] **Step 9: 提交**
 
 ```bash
 git add src/utils/stocktake-grid.ts src/utils/stocktake-grid.spec.ts src/apis/stocktake.ts src/apis/storage-bin.ts
@@ -4075,7 +4075,7 @@ git commit -m "feat(stocktake): 前端盘库 API 层与纯函数层（含单测�
 
 **版式**：以 Task 9 Step 1 用户确认的 M1 为准。
 
-- [ ] **Step 1: 注册页面（`pages.json`）**
+- [x] **Step 1: 注册页面（`pages.json`）**
 
 在 `pages/inventory/bins/index` 那一行之后插入：
 
@@ -4083,7 +4083,7 @@ git commit -m "feat(stocktake): 前端盘库 API 层与纯函数层（含单测�
     { "path": "pages/inventory/stocktake/index", "style": { "navigationBarTitleText": "协同盘库", "enablePullDownRefresh": true } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（中英同步，R9）**
+- [x] **Step 2: 补 i18n 词条（中英同步，R9）**
 
 `src/locale/zh-Hans.json`（与既有 `inventoryBin` 同级，插在其后）：
 
@@ -4209,7 +4209,7 @@ node -e "JSON.parse(require('fs').readFileSync('src/locale/zh-Hans.json','utf8')
 
 （cwd: `d:\zhao\vshop\web-admin`）预期 `ok`。
 
-- [ ] **Step 3: 写 `components/stocktake/TaskCard.vue`**
+- [x] **Step 3: 写 `components/stocktake/TaskCard.vue`**
 
 ```vue
 <template>
@@ -4285,7 +4285,7 @@ const stateClass = computed(() => {
 </style>
 ```
 
-- [ ] **Step 4: 写看板页 `pages/inventory/stocktake/index.vue`**
+- [x] **Step 4: 写看板页 `pages/inventory/stocktake/index.vue`**
 
 ```vue
 <template>
@@ -4644,7 +4644,7 @@ export { scopeBadges, parseScopeJson };
 
 **注意**：`export { scopeBadges, parseScopeJson }` 在 `<script setup>` 里不合法（`<script setup>` 不允许 `export`）→ **实施时删掉这一行**，改为在卡片上真正使用：在 `TaskCard.vue` 的 `.foot` 加一行 `scope` 文本（`scopeBadges(parseScopeJson(task.scopeJson)).join(' ')`）。**TaskCard 的最终稿以本句为准**。
 
-- [ ] **Step 5: 手机视口自测（390×844）**
+- [x] **Step 5: 手机视口自测（390×844）**
 
 ```powershell
 npm run dev:h5
@@ -4658,7 +4658,7 @@ npm run dev:h5
 3. 新建任务 → 填仓库 + 名称 → 创建成功 toast 带 `TK…` 任务号与盘次数，列表出现新卡片；
 4. `binMode=off` 时表单不出现库区/自动拆盘次，只提示整仓单盘次。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/pages.json src/locale/zh-Hans.json src/locale/en.json src/components/stocktake/TaskCard.vue src/pages/inventory/stocktake/index.vue
@@ -4679,13 +4679,13 @@ git commit -m "feat(stocktake): 任务看板页与任务卡片（按活动码分
 
 **版式**：以 Task 9 Step 1 用户确认的 M2 为准。
 
-- [ ] **Step 1: 注册页面**
+- [x] **Step 1: 注册页面**
 
 ```json
     { "path": "pages/inventory/stocktake/task", "style": { "navigationBarTitleText": "盘点任务" } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（追加到 Task 10 的 `stocktake` 对象内，中英同步）**
+- [x] **Step 2: 补 i18n 词条（追加到 Task 10 的 `stocktake` 对象内，中英同步）**
 
 zh-Hans（加在 `"board": { ... },` 之后）：
 
@@ -4761,7 +4761,7 @@ en（同位置）：
     },
 ```
 
-- [ ] **Step 3: 写 `components/stocktake/WaveCard.vue`**
+- [x] **Step 3: 写 `components/stocktake/WaveCard.vue`**
 
 ```vue
 <template>
@@ -4882,7 +4882,7 @@ const props = defineProps<{
 }>();
 ```
 
-- [ ] **Step 4: 写详情页 `pages/inventory/stocktake/task.vue`**
+- [x] **Step 4: 写详情页 `pages/inventory/stocktake/task.vue`**
 
 ```vue
 <template>
@@ -5083,14 +5083,14 @@ onShow(async () => {
    （规格 §3.6 的完整指派需要成员选择器，属本轮范围外）。若 `web-admin` 已有成员列表 API，则补一个简单的
    `uni.showActionSheet` 选择负责人；否则保留「仅改为待认领」并在手册「残留缺口」记录。
 
-- [ ] **Step 5: 手机视口自测（390×844）**
+- [x] **Step 5: 手机视口自测（390×844）**
 
 1. 看板点任务卡 → 详情页显示任务号 / 仓 / 活动码 / 进度 / 创建人；
 2. 盘次卡片：`OPEN` 显示「认领」；认领后显示「进入录入 / 释放」；
 3. 全部盘次提交后，「查看差异并过账」由灰变亮；未提交时提示「还有 N 个盘次未提交」；
 4. 「取消盘次」后该盘次变灰、任务进度随之变化。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/pages.json src/locale/zh-Hans.json src/locale/en.json src/components/stocktake/WaveCard.vue src/pages/inventory/stocktake/task.vue
@@ -5113,13 +5113,13 @@ git commit -m "feat(stocktake): 任务详情页与盘次卡片（认领/释放/�
 
 **版式**：以 Task 9 Step 1 用户确认的 M3 为准。
 
-- [ ] **Step 1: 注册页面**
+- [x] **Step 1: 注册页面**
 
 ```json
     { "path": "pages/inventory/stocktake/count", "style": { "navigationBarTitleText": "盘点录入" } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（中英同步）**
+- [x] **Step 2: 补 i18n 词条（中英同步）**
 
 zh-Hans（加在 `"task": { ... },` 之后）：
 
@@ -5193,7 +5193,7 @@ en：
     },
 ```
 
-- [ ] **Step 3: 写共享 composable `composables/useStocktakeScope.ts`**
+- [x] **Step 3: 写共享 composable `composables/useStocktakeScope.ts`**
 
 ```ts
 // 盘次上下文（录入页版式 B / 扫码快盘版式 C 共用）：任务 + 当前盘次 + 应盘行 + 草稿 + 进度
@@ -5345,7 +5345,7 @@ export function useStocktakeScope() {
 }
 ```
 
-- [ ] **Step 4: 写 `components/stocktake/BinGrid.vue`**
+- [x] **Step 4: 写 `components/stocktake/BinGrid.vue`**
 
 ```vue
 <template>
@@ -5421,7 +5421,7 @@ const active = computed(() =>
 </style>
 ```
 
-- [ ] **Step 5: 写 `components/stocktake/CountLineRow.vue`**
+- [x] **Step 5: 写 `components/stocktake/CountLineRow.vue`**
 
 ```vue
 <template>
@@ -5481,7 +5481,7 @@ const counted = computed(() => isCounted(props.line));
 </style>
 ```
 
-- [ ] **Step 6: 写录入页 `pages/inventory/stocktake/count.vue`**
+- [x] **Step 6: 写录入页 `pages/inventory/stocktake/count.vue`**
 
 ```vue
 <template>
@@ -5725,7 +5725,7 @@ void isCounted;
 2. 删掉 `void isCounted;` 与对应 import（若无实际使用）——**不要留未使用 import**。
 3. `StorageBin` 类型若未使用，一并从 import 里删掉。
 
-- [ ] **Step 7: 手机视口自测（390×844）**
+- [x] **Step 7: 手机视口自测（390×844）**
 
 1. 从任务详情点「进入录入」→ 顶部显示盘次与进度；默认筛选「未盘」；
 2. `binMode=bin` 时：库区 Tab 可切换；格子有 SKU 角标，空格子可见且不可点出内容；点格子后行列表只剩该格子的行，再点一次回到全部；
@@ -5734,7 +5734,7 @@ void isCounted;
 5. 「提交盘次」二次确认后成功返回，盘次卡状态变「已提交」；
 6. 未认领盘次直接进来 → 顶部红字提示「请先认领」。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add src/pages.json src/locale/zh-Hans.json src/locale/en.json src/composables/useStocktakeScope.ts src/components/stocktake/BinGrid.vue src/components/stocktake/CountLineRow.vue src/pages/inventory/stocktake/count.vue
@@ -5757,7 +5757,7 @@ git commit -m "feat(stocktake): 手机录入页（版式 B：库区→格子宫�
 
 **本 Task 不重写扫码**：一律走既有 `src/utils/scanner.ts` 的 `scanCode()`，失败按 `ScannerError.code` 分流（`MANUAL` → 展开页内手动输入条；`CANCEL` → 静默；`FAILED` → toast 提示开权限）。微信内置浏览器恒定 `MANUAL`（`scanner.ts` 已处理），所以手动输入条是**必须**的，不是可选优化。
 
-- [ ] **Step 1: 注册页面（`pages.json`）**
+- [x] **Step 1: 注册页面（`pages.json`）**
 
 在 Task 12 插入的 `pages/inventory/stocktake/count` 那一行之后插入：
 
@@ -5765,7 +5765,7 @@ git commit -m "feat(stocktake): 手机录入页（版式 B：库区→格子宫�
     { "path": "pages/inventory/stocktake/scan", "style": { "navigationBarTitleText": "扫码快盘" } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（中英同步，R9）**
+- [x] **Step 2: 补 i18n 词条（中英同步，R9）**
 
 `src/locale/zh-Hans.json`（加在 Task 12 的 `"count": { ... },` 之后）：
 
@@ -5831,7 +5831,7 @@ git commit -m "feat(stocktake): 手机录入页（版式 B：库区→格子宫�
     },
 ```
 
-- [ ] **Step 3: 写扫码快盘页 `pages/inventory/stocktake/scan.vue`**
+- [x] **Step 3: 写扫码快盘页 `pages/inventory/stocktake/scan.vue`**
 
 ```vue
 <template>
@@ -6107,7 +6107,7 @@ onLoad(async (q: any) => {
 1. `watch(current, ...)` 里会写 `currentId.value`，而 `current` 依赖 `currentId`。当写入值与当前相同时（`current` 由 fallback 算出、`currentId` 为空）会再触发一次 watch，但因为 `current` 计算出的**对象引用不变**，watch 不会二次触发，不会死循环。若实施时用了 `{ deep: true }` 会打破这个前提 —— **不要加 `deep`**。
 2. `saveLine` 已在 composable 内就地更新该行的 `countedQty`，所以 `nextUncountedLine(lines.value, ...)` 能立刻跳过刚盘完的件。**不要再额外调一次 `loadLines()`**（会清空本地草稿并多打一次网络）。
 
-- [ ] **Step 4: 手机视口自测（390×844）**
+- [x] **Step 4: 手机视口自测（390×844）**
 
 1. 从录入页点「扫码快盘」进入 → 顶部进度与录入页一致；当前件为大号 SKU + 商品名 + 账面数 + 库位码；
 2. 点「+1」→ 数字递增；点「确认并下一件」→ toast「已保存 SKU-A」且**自动跳到下一件未盘**；
@@ -6118,7 +6118,7 @@ onLoad(async (q: any) => {
 7. 输入不存在的码 → 弹窗提示「该码未匹配到商品，无法登记盘盈」，**不报错不白屏**；
 8. 未认领盘次进入 → 顶部红字「请先在任务详情页认领该盘次」，且输入框与按钮不可用。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/pages.json src/locale/zh-Hans.json src/locale/en.json src/pages/inventory/stocktake/scan.vue
@@ -6141,7 +6141,7 @@ git commit -m "feat(stocktake): 扫码快盘（版式 C：单件专注 + 扫码�
 
 **这是「过账前唯一决策点」**（规格 §3.5）：一条错误路径都不能省 —— 未盘项须**显式勾选**才能过账；账面变动须**二次确认**（服务端返回 `recheck` → 弹窗 → 带 `confirm=true` 重发）。**不要**在这一页做「一键盲过」。
 
-- [ ] **Step 1: 注册页面（`pages.json`）**
+- [x] **Step 1: 注册页面（`pages.json`）**
 
 在 Task 13 插入的 `pages/inventory/stocktake/scan` 那一行之后插入：
 
@@ -6149,7 +6149,7 @@ git commit -m "feat(stocktake): 扫码快盘（版式 C：单件专注 + 扫码�
     { "path": "pages/inventory/stocktake/diff", "style": { "navigationBarTitleText": "盘点差异" } },
 ```
 
-- [ ] **Step 2: 补 i18n 词条（中英同步，R9）**
+- [x] **Step 2: 补 i18n 词条（中英同步，R9）**
 
 `src/locale/zh-Hans.json`（加在 Task 13 的 `"scan": { ... },` 之后）：
 
@@ -6223,7 +6223,7 @@ git commit -m "feat(stocktake): 扫码快盘（版式 C：单件专注 + 扫码�
     },
 ```
 
-- [ ] **Step 3: 写差异页 `pages/inventory/stocktake/diff.vue`**
+- [x] **Step 3: 写差异页 `pages/inventory/stocktake/diff.vue`**
 
 ```vue
 <template>
@@ -6461,7 +6461,7 @@ onLoad(async (q: any) => {
 
 **实施时按此修的一点**：`locale.t('stocktake.count.noPermission')` 复用了 Task 12 的 `count` 块 —— 若 Task 12 的词条里**没有** `noPermission`（该块只列了 `requireClaim` 等），请在本 Task 的 `stocktake.diff` 块内补一条 `"noPermission": "无过账权限"` / `"noPermission": "No permission to post"`，并把上面这行改成 `locale.t('stocktake.diff.noPermission')`。**不要**留一个取不到的词条 key（`t()` 会原样返回 key 字符串）。
 
-- [ ] **Step 4: 手机视口自测（390×844）**
+- [x] **Step 4: 手机视口自测（390×844）**
 
 1. 任务详情点「查看差异并过账」→ 进入差异页，四宫格数字与应盘行统计一致；
 2. 有未盘项时：过账按钮**置灰**，点不动；展开未盘清单 → 勾选「确认跳过 N 项未盘」后按钮才可点；
@@ -6471,7 +6471,7 @@ onLoad(async (q: any) => {
 6. 无 `StocktakePost` 权限的账号（用「库存」角色账号）→ 按钮置灰且提示「无过账权限」；
 7. **本机验证完成后把被改动的变体库存复位**（`adjustStock` 改回原值），并把复位前后的值记入手册。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/pages.json src/locale/zh-Hans.json src/locale/en.json src/pages/inventory/stocktake/diff.vue
@@ -6493,7 +6493,7 @@ git commit -m "feat(stocktake): 差异页与过账（未盘显式跳过 + 账面
 
 **为什么菜单要新增权限门控而不是只靠 `binOnly`**：规格 §9 要求「菜单可见 + 录入与提交按钮」按 `StocktakeCount` 收口。既有的 `visibleMenus(auth, showBins)` 只支持 `binOnly`（库位档位）一种过滤，没有权限维；所以这里给 `MenuItem` 加一个**可选** `perm` 字段，保持既有 6 个域与 `buildPlatformGroup` 的门控写法不变。
 
-- [ ] **Step 1: `MenuItem` 增 `perm` 字段**
+- [x] **Step 1: `MenuItem` 增 `perm` 字段**
 
 `src/constants/menus.ts`，替换 `MenuItem` 接口：
 
@@ -6510,7 +6510,7 @@ export interface MenuItem {
 }
 ```
 
-- [ ] **Step 2: 库存域增「协同盘库」入口**
+- [x] **Step 2: 库存域增「协同盘库」入口**
 
 `src/constants/menus.ts` 的 `menu.domain.product` 组（库存相关菜单都挂在这里），把原有 `menu.stocktake` 那一行**改名为「快捷盘点」并降为 tier 2，前面插入新入口**：
 
@@ -6521,7 +6521,7 @@ export interface MenuItem {
 
 （即：新任务体系为库存域 tier 1 主入口；既有「快捷盘点」页保留、tier 2，**不删、不改行为**。）
 
-- [ ] **Step 3: `visibleMenus` 增权限过滤**
+- [x] **Step 3: `visibleMenus` 增权限过滤**
 
 `src/constants/menus.ts`，替换 `visibleMenus` 实现：
 
@@ -6542,7 +6542,7 @@ export function visibleMenus(auth: MenuAuthLite, showBins = false): MenuGroup[] 
 }
 ```
 
-- [ ] **Step 4: 补菜单词条（中英同步，R9）**
+- [x] **Step 4: 补菜单词条（中英同步，R9）**
 
 `src/locale/zh-Hans.json` 的 `menu` 块（L47 附近，与既有 `"stocktake": "盘库"` 同处）：
 
@@ -6570,7 +6570,7 @@ export function visibleMenus(auth: MenuAuthLite, showBins = false): MenuGroup[] 
 
 **注意**：L1090 与 L1119 各有一处嵌套的 `"stocktake": "盘库"`（工作台/其它分组的副本），**保持不动** —— 它们对应的是别的结构的 key，不在本次改动范围。改完用第 5 步的命令核对只有预期的那一行变了。
 
-- [ ] **Step 5: 类型检查 + 词条核对**
+- [x] **Step 5: 类型检查 + 词条核对**
 
 ```powershell
 npx vue-tsc --noEmit -p tsconfig.json
@@ -6586,14 +6586,14 @@ node -e "const z=require('./src/locale/zh-Hans.json'),e=require('./src/locale/en
 
 若报 `Cannot find module './src/locale/zh-Hans.json'`，说明当前 shell 的 cwd 不是 `web-admin`（JSON 用 `require` 需要相对 cwd 的路径），按计划头部的 cwd 约定重跑即可。
 
-- [ ] **Step 6: 手机视口自测（390×844）**
+- [x] **Step 6: 手机视口自测（390×844）**
 
 1. 用**超管**账号登录 → 「库存」域第一项为「协同盘库」，点进去到任务看板；
 2. 用**没有** `StocktakeCount` 权限的角色账号登录（如「销售」）→ 「库存」域**看不到**「协同盘库」，且直接输 URL 进页面时后端接口返回权限错误（前端 toast 出后端原文，不白屏）；
 3. 「快捷盘点」入口仍在（tier 2，文案已改名），点进去是既有页面，行为与改造前一致；
 4. 超管之外、持有 `StocktakeCount` 的账号（如「库存」角色，Task 6 已加）→ 能看到「协同盘库」。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add src/constants/menus.ts src/locale/zh-Hans.json src/locale/en.json
@@ -6616,7 +6616,7 @@ git commit -m "feat(stocktake): 菜单权限门控（MenuItem.perm）与「协�
 
 **前置**：Task 8 后端已部署；Task 9~15 前端已全部提交。**构建与部署一律本地执行**，服务器只解压 + `pm2 restart`。
 
-- [ ] **Step 1: 写只读冒烟探针 `scripts/_smoke_stocktake_live.py`**
+- [x] **Step 1: 写只读冒烟探针 `scripts/_smoke_stocktake_live.py`**
 
 照 `scripts/_smoke_picking_live.py` 的范式（同登录、同渠道注入、同 `check()` 计数），**全程只读**：
 
@@ -6820,7 +6820,7 @@ raise SystemExit(1 if FAILS else 0)
 
 **实施时按此修的一点**：上面渠道收口一段里 `set_channel(pg, ... or other)` 这一行是为了**还原**渠道 token 而写的绕路（`window.__otherToken` 在 `localStorage.clear()` 后失效）。实施时改为**开头就把 t2 的 token 保存到局部变量**（`T2_TOKEN = pg.evaluate('() => localStorage.getItem("wa_channel_token")')`），收口校验结束后 `set_channel(pg, T2_TOKEN)` 还原。**不要**留着现在这种自赋值的写法。
 
-- [ ] **Step 2: 本地跑探针（先起本地 dev server + worker）**
+- [x] **Step 2: 本地跑探针（先起本地 dev server + worker）**
 
 两个终端（R7）：
 
@@ -6844,7 +6844,7 @@ $env:WA_SMOKE_BASE="http://localhost:5280/guanli/"; python scripts\_smoke_stockt
 
 若失败项集中在 `[5] 前端页面`，先确认 dev server 已就绪且页面路径与 Task 10~14 的 `pages.json` 注册一致；若失败项在 `[1]`，先去 `Task 6 Step 5` 的 build 产物（`packages/cjk-plugin/lib/`）确认 SDL 已编译进 `lib`（R4：后端消费 `lib/`，不消费 `src/`）。
 
-- [ ] **Step 3: 写手机截图脚本 `_e2e/_shot_stocktake.py`**
+- [x] **Step 3: 写手机截图脚本 `_e2e/_shot_stocktake.py`**
 
 照 `_e2e/_shot_picking_console.py` 的范式（同登录/渠道/冷加载/隐藏 dev 悬浮钮）。**全程可逆**：建的任务全部 `cancelStocktakeTask` 收尾，**绝不过账**（不过账即不改库存）。
 
@@ -7134,7 +7134,7 @@ print('done')
 1. 脚本里的 `pg.go_back()` 在 uni-app H5 hash 路由下可能回不到预期页 —— 若扫码页截图后返回异常，改为 `goto(pg, 'pages/inventory/stocktake/count?...')` 重新进入录入页。
 2. 选择器（`.fab` / `.ztabs .zt` / `.bg` / `.lrow` / `.scan` / `.sbtn.ghost` / `.trow` / `.skip` / `.wcard`）必须与 Task 10~14 **实际写出的 class 名逐一核对**；本脚本是照计划正文的 class 写的，若实施时改了 class，**以实际为准同步脚本**（截图脚本用错选择器 = 白跑一轮）。
 
-- [ ] **Step 4: 本地跑截图脚本并肉眼核对**
+- [x] **Step 4: 本地跑截图脚本并肉眼核对**
 
 ```powershell
 python _e2e\_shot_stocktake.py
@@ -7165,7 +7165,7 @@ python _e2e\_shot_stocktake.py
 
 任何一张与预期不符 → 回到对应 Task 修代码，**不要**靠改脚本掩盖。
 
-- [ ] **Step 5: 追加操作手册第 16 章**
+- [x] **Step 5: 追加操作手册第 16 章**
 
 在 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 的第 15 章末尾（`<h3>15.7 验收截图（共 27 张）</h3>` 那一节结束、`<footer>` 之前）插入：
 
@@ -7243,7 +7243,7 @@ python _e2e\_shot_stocktake.py
       <li>16 多人协同盘库 · 任务 / 盘次 / 差异过账（2026-09-23）</li>
 ```
 
-- [ ] **Step 6: 本地构建 + 部署（绝不在服务器构建）**
+- [x] **Step 6: 本地构建 + 部署（绝不在服务器构建）**
 
 ```powershell
 node scripts\deploy.mjs
@@ -7255,7 +7255,7 @@ node scripts\deploy.mjs
 
 记录：产物大小、执行时间、脚本最后一行输出。
 
-- [ ] **Step 7: 线上复验**
+- [x] **Step 7: 线上复验**
 
 ```powershell
 $env:WA_SMOKE_BASE="https://e.joho.cn/guanli/"; python scripts\_smoke_stocktake_live.py
@@ -7273,7 +7273,7 @@ python _e2e\_shot_stocktake.py
 
 （若脚本内 `BASE` 仍指向 `localhost:5280`，执行时临时改为 `https://e.joho.cn/guanli/`；**线上仍绝不调 `postStocktake`**。）
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add scripts/_smoke_stocktake_live.py _e2e/_shot_stocktake.py docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html docs/webadmin-bugfix-manual/assets src/static/manual/shots
@@ -7375,7 +7375,7 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 58 | op-38 的渲染级验证手段（计划 Task 16 只给「手机截图 + 手册」，验证脚本为一次性脚本） | 一次性脚本 `_e2e/_verify_manual_op38.py`（`local\|live` 两模式），与 `_verify_manual_op20.py` 同构；不在 `package.json` 里 | **并入统一渲染门禁** `_e2e/_verify_manual_render.py`（旧脚本**删除**，避免两份真相），一条 `npm run verify:manual:render` 同时覆盖 op-38 + op-39：`openChapter('op-38')` 渲染成功 + **精确**图数 `= 11` + `h3 = 9` + FAQ `<details> = 6` + 每图 `complete && naturalWidth>0` + 每图 **780×1688** + L2 线上每张 PNG **响应码 200** + 线上 `shots/` 与本地**逐张字节一致** + 0 `pageerror`/`console.error`；失败打印汇总行并 `exit 1`；取证图统一落 `docs/webadmin-bugfix-manual/assets/manual-render-online-op38.png`（**非**发布目录 `shots/`） | 用户 2026-09-25 裁决（并入统一门禁 / 精确图数 + 结构计数 / 修复手册 O 小节 + 本表 / 做负向验证）。原脚本四处「假通过」缺口：①**退出码恒 0**（断言失败也返回 0，CI 不可用）；②图数用 `>= 11` 放宽；③无响应码 / 像素尺寸 / 双落点字节断言；④取证图写进**发布目录** `shots/`（16.9.7 已记「现 404」，复跑会再污染线上静态目录）。**负向验证实测**：把 `shots/t14_diff_summary.png` 改成不存在的 `shots/t14_diff_summary_X.png` + 删 1 条 FAQ → `FAIL（失败 7）` / exit **1**（FAQ 5≠6、真解码 FAIL、尺寸 0x0、`ERR_FILE_NOT_FOUND`、响应码 n=10、旁路「本地缺失」；**图数仍 11** 说明破图必须靠真解码捕获）；复原后复跑 `PASS（失败 0）`。**如实登记不判 FAIL**：双落点核对为 INFO——11 张均存在且 780×1688，其中 3 张 `assets/` 同名副本字节一致、7 张无副本、1 张 `t40_task_waves_on_390.png` `assets 100659 ≠ shots 100385`（110 px / bbox `rows 1569–1574, cols 725–755`，右下状态栏时钟区，重渲染噪声），无承诺被破坏故不放宽容差也不写 FAIL。另：线上手册空闲时会预加载**全册**图片（实测 166 个 `shots/` 响应），op-38 响应码断言按「本章 11 个文件名」过滤而非按命中数，强度不变 |
 
 **后续偏差去向（2026-09-26 起）**：本表停在 **#58**（2026-09-25 · op-38 渲染门禁）。此后本域（协同盘库 / 库存单据 / 租户与邀请码）的偏差统一改用 **D 编号**，集中登记在
-[`2026-09-25-web-admin-gap4-plan.md`](./2026-09-25-web-admin-gap4-plan.md) 的偏差说明区（表头 `| # | 批次 | 偏差 | 原因 | 处置 |`，现 **D1–D53**）——**同一批偏差只在一处维护**，本表不再逐条续写、只留去向。与本计划（协同盘库）直接相关的：
+[`2026-09-25-web-admin-gap4-plan.md`](./2026-09-25-web-admin-gap4-plan.md) 的偏差说明区（表头 `| # | 批次 | 偏差 | 原因 | 处置 |`，现 **D1–D55**）——**同一批偏差只在一处维护**，本表不再逐条续写、只留去向。与本计划（协同盘库）直接相关的：
 
 | D 编号 | 主题 | 手册节 |
 |---|---|---|
@@ -7388,6 +7388,8 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | D51 | 盘点仓「库存模式」校验 + 物理仓写入补虚拟镜像 | 20.18 |
 | D52 | 库存单据 `STOCKTAKE` 补盘库仓性质守卫（守卫单点化，与协同盘库任务共用同一份口径） | 20.19 |
 | **D53** | **任务级进度分母排除已取消盘次**（`expectedTotal` / `countedTotal` / `waveCount` / `submittedWaveCount` 四项同口径，收口 D51 §4 ⓑ 项） | 20.20 |
+| D54 | 移库两段写入「合并补镜像」+ 物理仓写入补镜像的端到端证明（D51 库存模式的收尾证明） | 20.21 |
+| **D55** | **gap4 计划剩余项收口**（发布手册 op-31/35/36/23/24/29 同步 + 新增 op-41 拣货批次；库存流水上滑加载第二页 UI 取证；全局配置「JSON 高级编辑」并入 `themeTokens` 双向同步） | 20.22 |
 
 设计稿：`docs/superpowers/specs/2026-09-27-stocktake-location-gate-and-mirror-sync-design.md`（D51 / D52）、`docs/superpowers/specs/2026-09-27-vendure-webadmin-remaining-gaps-design.md`（G1–G5 / D47–D50）。
 
@@ -7513,3 +7515,19 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 - **执行方式：方案 1（Subagent-Driven）** —— 每个 Task 派全新 subagent 实现，Task 之间由主会话评审。
 - **推进节奏：连续执行到底**（Task 0 → Task 16 不停），但 **Task 9 的 4 页 mockup 预览仍是硬性停点**：必须等用户挑定版式后才继续 Task 10。
 - **启动时机：暂缓** —— 等另一份方案（「方案 2」）完成编写后，两份方案一并执行。**在用户明确示意开始前，本计划不进入实施。**
+
+---
+
+## 执行结论（2026-09-28 回填）
+
+**结论：Task 0–16 全部完成。** 依据 = 修复手册第 16 章 16.9.x 的「验收结论」：本地探针 `OK=35 / FAIL=0`、线上探针 0 项失败、**25 张手机视图截图逐图核对**、手册 16.1–16.8 齐备、部署 `deploy done`（见 `docs/webadmin-bugfix-manual/webadmin-bugfix-manual.html` 第 881 行起）。
+
+| 层 | 落地物 |
+|---|---|
+| 后端（vendure · cjk-plugin） | `src/stocktake/stocktake-{task,wave,line}.entity.ts`（三表 + `tenantChannelId` 渠道收口）、`stocktake.service.ts`（建任务事务 / 盘次指派认领释放 / 批量录入 / 差异查询 / 过账事务）、`stocktake.admin.resolver.ts`（6 查询 + 10 变更，仅注册 `adminApiExtensions`）、`stocktake-math.ts` + `stocktake-ops.spec.ts`（纯函数单测）、`stocktake-permissions.ts`（`StocktakeCount` / `StocktakePost`）、`src/migrations/migrate-stocktake-posted-doc-index.ts` |
+| 前台（web-admin） | `pages/inventory/stocktake/{index,task,count,scan,diff}.vue`、`components/stocktake/{TaskCard,WaveCard,BinGrid,CountLineRow,TaskFormSheet}.vue`、`apis/stocktake.ts`、`MenuItem.perm` 菜单门控 |
+| 文档 | 修复手册第 16 章（16.1–16.9，含线上发布手册 `op-38` 同步）|
+
+**本次回填（2026-09-28）**：
+1. 111 个 Step 复选框由 `- [ ]` 勾选为 `- [x]`（此前代码与手册已收口，仅待办清单未勾）。
+2. 「后续偏差去向」表补 **D54**（移库合并补镜像端到端证明 → 20.21）与 **D55**（gap4 计划剩余项收口 → 20.22）两行，保持「同一批偏差只在一处维护（D 表在 gap4 计划内）」的口径。
