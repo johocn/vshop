@@ -1,0 +1,25 @@
+# 审查发现 — vshop
+
+## 概览
+本次对 uni-app(Vue3) C 端商城前端做只读全域扫描，覆盖 `src/**/*.{vue,ts,js,json}` 约 120 个源文件，外加 `src/pages.json`、`manifest.json`、`vite.config.ts`、`src/i18n/locales/*`；已跳过 `web-admin`。共记录 16 条发现（高 2 / 中 8 / 低 6）。各维度结论：**鉴权与会话**有发现（守卫路径不全、拦截器只挂 navigateTo、redirect 未校验、token 明文存储）；**越权与多租户**有发现（C 端内置特权管理页，无前端权限校验），但请求头命名正确（统一发送 `vendure-token`，未见 `vendure-channel-token` 别名问题），且未发现任何 `admin-api`/`/admin/` 接口调用（管理操作经 shop-api 自定义 resolver，由后端 `@Allow(SuperAdmin)` 门控）；**XSS**有发现（mp-html / rich-text 渲染未净化富文本）；**硬编码与泄露**未发现硬编码密钥与硬编码业务域名，仅有 console 残留；**交易入口**有发现（充值/提现金额由前端换算提交；微信支付 openid 恒缺失）；**文件与上传**有发现（上传功能未实现，占位本地路径）；**功能缺陷**中 i18n 有明显缺陷、分页有边界缺陷，**多城市**未发现硬编码城市/仓储字面量绕过城市服务，**死链**未发现指向未注册页面的导航目标（`/pages/sso/login` 属外部 SSO 站点页面）。
+
+## 发现清单
+
+| 编号 | 位置(文件:行号) | 级别 | 维度 | 证据(代码摘录) | 建议修法 | 验证状态 |
+|---|---|---|---|---|---|---|
+| F-VS-01 | src/pkg-product/pages/detail.vue:27 | 高 | XSS | `<MpHtml v-if="descHtml" :content="descHtml" class="rich__mp" />`；`descHtml = pickTranslation(product.value?.translations...)`（第75行，来源为后台商品描述富文本，未净化） | 后端/前端对商品 description 做白名单净化后再交给 mp-html，或改用受限渲染组件 | 确认 |
+| F-VS-02 | src/templates/shared/sections/RichTextSection.vue:3 | 低 | XSS | `<rich-text :nodes="section.html" />`；`section.html` 来自店铺装修 `shopContent` 富文本楼层，渲染前无净化 | uni-app `rich-text` 为受限渲染（不执行 script/on* 事件），实测无可利用注入点，降级为低；仍建议对装修富文本做标签白名单净化 | 确认(降级低) |
+| F-VS-03 | src/pages/admin/distribution-settle.vue:150 | 高 | 越权与多租户 | `function doSettleNow() { run('结算', () => settleCommissionsNowAdmin()); }`；同页还有审批分销员/冻结/提现批准打款（142-149行），页面在 src/pages.json 注册，无前端鉴权 | 已复核：页面确实可在 C 端包内直接打开，`onShow` 即拉取全量分销/提现数据；写操作经 shop-api 自定义 resolver 提交，后端 `@Allow(SuperAdmin)` 兜底。前端风险=管理界面暴露+无本地鉴权，须移出 C 端包或进入即强校验管理员身份 | 确认 |
+| F-VS-04 | src/pages/admin/platform-approve.vue:14 | 中 | 越权与多租户 | `<button ... @click="doApprove(p.id)">通过</button>`；同页 `doReject` 及 src/pages/admin/merchant-submit.vue 的提交上架，均在 C 端且无前端权限校验 | 同上：管理类页面不入 C 端，或进入即校验角色 | 确认 |
+| F-VS-05 | src/composables/useAuthGuard.ts:4 | 中 | 鉴权与会话 | `const AUTH_REQUIRED_PATHS = ['/pkg-order/pages/checkout',...]`（缺 member-center/points-mall/points-history/payment/pay-result/invoices/invoice-titles/全部 admin 页）；且 `setupRouteGuard` 仅覆写 `uni.navigateTo`（第44行），未拦 redirectTo/switchTab/reLaunch | 补齐受保护路径白名单，并同时挂载 redirectTo/switchTab 拦截或改用统一路由守卫 | 确认 |
+| F-VS-06 | src/pkg-user/pages/recharge.vue:75 | 中 | 交易入口 | `const amount = parsedAmount.value * 100; // 元 → 分` … `createRechargeOrder(amount, 'online')`（第78行），金额由前端计算后随 mutation 提交 | 仅提交面额选项 id，由后端按字典确定金额并校验 | 确认 |
+| F-VS-07 | src/pkg-user/pages/distribution.vue:249 | 中 | 交易入口 | `const amount = parseFloat(withdrawAmount.value);` … `await requestWithdrawal(amount, ...)`（第255行），分/元换算在前端完成后提交 | 提交原始元并交由后端换算与余额校验，或统一传分且后端强校验 | 确认 |
+| F-VS-08 | src/pkg-order/pages/checkout.vue:1109 | 中 | 功能缺陷 | `const openid = uni.getStorageSync('auth_openid');`；同文件 1234 行及 recharge.vue:82 同样读取，但全仓库无任何 `setStorageSync('auth_openid')` 写入点 | 在微信登录回调后持久化 openid，或改由后端会话推导 openid | 确认 |
+| F-VS-09 | src/components/ImageUpload.vue:62 | 低 | 文件与上传 | `// const res = await uni.uploadFile({ url: 'YOUR_UPLOAD_API', filePath, name: 'file' });` … `images.value.push(filePath);`（第66行，占位本地临时路径当 URL 入库） | 接入真实上传端点并返回 CDN/OSS 地址，避免可预测本地路径入库 | 确认 |
+| F-VS-10 | src/pages/webview/index.vue:12 | 中 | 功能缺陷 | `url.value = decodeURIComponent(query?.url || '');` → 模板 `<web-view :src="url">`（第2行），直接加载任意传入地址 | 对 url 做域名白名单校验，仅允许支付/受信域 | 确认 |
+| F-VS-11 | src/pages/login/index.vue:92 | 低 | 鉴权与会话 | `if (query?.redirect) redirectUrl.value = decodeURIComponent(query.redirect);` → `uni.redirectTo({ url: redirectUrl.value })`（第156行） | 对 redirect 做内部路径白名单（前缀校验），拒绝指向管理页/外部 | 确认 |
+| F-VS-12 | src/App.vue:31 | 低 | 硬编码与泄露 | `console.log('App Launch');`；全库 console.* 共 54 处/29 文件（如 checkout.vue 13 处） | 生产构建移除 debug 日志或接入统一日志级别 | 确认 |
+| F-VS-13 | src/i18n/locales/en.json:1 | 低 | 功能缺陷 | en.json 缺 `category/product/payment/afterSale/user/recharge/address` 整节及 `order.*` 多键；ja.json/ko.json 仅有 `checkout`；`zh-TW.json` 未被 src/i18n/index.ts:10 引入（死词包） | 对齐各语言 key 集合，或补充 fallback 链并接入 zh-TW | 确认 |
+| F-VS-14 | src/pages/login/index.vue:15 | 中 | 功能缺陷 | `<button class="login-page__submit" ... @click="loginWithPhone">登录</button>`；同页及 checkout/orders 等大量中文文案未走 `$t`/`t()` | 模板文案统一改走 i18n 键，补全各语言词条 | 确认 |
+| F-VS-15 | src/composables/usePagination.ts:32 | 低 | 功能缺陷 | `skip += newItems.length; hasMore.value = items.value.length < totalItems.value;`（第31-32行），若后端返回空页而 totalItems>0，skip 不前进将反复重试 | 以服务端返回的 totalItems/skip 判定 hasMore，并对空页置 hasMore=false | 确认 |
+| F-VS-16 | src/stores/auth.ts:18 | 低 | 鉴权与会话 | `uni.setStorageSync('auth_token', newToken); uni.setStorageSync('auth_userId', newUserId);`，token 与用户标识明文落本地存储 | 使用加密存储/短时效令牌，退出时彻底清理并考虑 token 绑定 | 确认 |
