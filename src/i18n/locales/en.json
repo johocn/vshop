@@ -1,4 +1,11 @@
 {
+    "flash": {
+        "title": "Flash Picks",
+        "endsIn": "Ends in",
+        "more": "More",
+        "badge": "Flash price",
+        "fallbackName": "Flash deal"
+    },
     "common": {
         "confirm": "Confirm",
         "cancel": "Cancel",

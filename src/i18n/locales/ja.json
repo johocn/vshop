@@ -1,4 +1,11 @@
 {
+    "flash": {
+        "title": "タイムセール",
+        "endsIn": "終了まで",
+        "more": "もっと見る",
+        "badge": "セール価格",
+        "fallbackName": "限定商品"
+    },
     "checkout": {
         "title": "注文確認",
         "address": "配送先住所",
