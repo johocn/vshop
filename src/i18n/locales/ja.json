@@ -198,5 +198,12 @@
         "detail": "詳細住所",
         "default": "デフォルト住所",
         "setDefault": "デフォルトに設定"
+    },
+    "sku": {
+        "picked": "選択済み",
+        "pieces": "点",
+        "quantity": "数量",
+        "pleasePick": "オプションを選択してください",
+        "outOfStock": "在庫切れ"
     }
 }
