@@ -2,7 +2,7 @@ import { getGraphQLClient } from '../client';
 import { PRODUCT_CARD_FRAGMENT, PRODUCT_DETAIL_FRAGMENT } from '../fragments';
 
 export async function searchProducts(input: {
-    term?: string; facetValueIds?: string[]; collectionSlug?: string;
+    term?: string; facetValueFilters?: Array<{ or: string[] }>; collectionSlug?: string;
     take?: number; skip?: number; sort?: string; groupByProduct?: boolean;
 }) {
     const client = getGraphQLClient();
