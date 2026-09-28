@@ -10,8 +10,29 @@
         <text class="header-more">查看更多 ›</text>
       </view>
     </view>
-    <component
-      :is="layoutComponent"
+    <SingleScroll
+      v-if="layout === 'single_scroll'"
+      :items="validItems"
+      :item-config="floor.customFields?.floorItemConfig || []"
+      @click-item="goDetail"
+      @add-cart="$emit('add-cart', $event)"
+    />
+    <TripleGrid
+      v-else-if="layout === 'triple_grid'"
+      :items="validItems"
+      :item-config="floor.customFields?.floorItemConfig || []"
+      @click-item="goDetail"
+      @add-cart="$emit('add-cart', $event)"
+    />
+    <HeroWithList
+      v-else-if="layout === 'hero_with_list'"
+      :items="validItems"
+      :item-config="floor.customFields?.floorItemConfig || []"
+      @click-item="goDetail"
+      @add-cart="$emit('add-cart', $event)"
+    />
+    <DoubleGrid
+      v-else
       :items="validItems"
       :item-config="floor.customFields?.floorItemConfig || []"
       @click-item="goDetail"
@@ -32,17 +53,8 @@ const props = defineProps<{ floor: FloorCollection }>();
 
 defineEmits<{ 'add-cart': [item: any] }>();
 
-const layoutMap: Record<string, any> = {
-    single_scroll: SingleScroll,
-    double_grid: DoubleGrid,
-    triple_grid: TripleGrid,
-    hero_with_list: HeroWithList,
-};
-
-const layoutComponent = computed(() => {
-    const layout = props.floor.customFields?.floorLayout || 'double_grid';
-    return layoutMap[layout] || DoubleGrid;
-});
+/** 版式驱动：mp-weixin 不支持 <component :is>，用等价的 v-if 分支（默认 double_grid） */
+const layout = computed(() => props.floor.customFields?.floorLayout || 'double_grid');
 
 const theme = computed(() => props.floor.customFields?.floorTheme || { primaryColor: '#ff6600', backgroundColor: '#fff', titleIcon: '' });
 

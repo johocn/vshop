@@ -1,11 +1,13 @@
 <template>
   <view class="dynamic-home">
-    <component
-      v-for="(sec, i) in sections"
-      :key="i"
-      :is="componentFor(sec.type)"
-      :section="sec"
-    />
+    <template v-for="(sec, i) in sections" :key="i">
+      <BannerSection v-if="sec.type === 'banner'" :section="sec" />
+      <NoticeSection v-else-if="sec.type === 'notice'" :section="sec" />
+      <NavSection v-else-if="sec.type === 'nav'" :section="sec" />
+      <GoodsSection v-else-if="sec.type === 'goods'" :section="sec" />
+      <RichTextSection v-else-if="sec.type === 'richText'" :section="sec" />
+      <FlashSection v-else-if="sec.type === 'flash'" :section="sec" />
+    </template>
   </view>
 </template>
 
@@ -21,19 +23,6 @@ import FlashSection from './sections/FlashSection.vue';
 
 const tenantStore = useTenantStore();
 const sections = computed(() => tenantStore.mergedShopContent?.sections || tenantStore.shopContent?.sections || []);
-
-const componentMap: Record<string, any> = {
-  banner: BannerSection,
-  notice: NoticeSection,
-  nav: NavSection,
-  goods: GoodsSection,
-  richText: RichTextSection,
-  flash: FlashSection,
-};
-
-function componentFor(type: string): any {
-  return componentMap[type] || null;
-}
 </script>
 
 <style lang="scss" scoped>

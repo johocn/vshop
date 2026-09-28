@@ -2,7 +2,9 @@
   <view class="home-page" @scroll="broadcastScroll">
     <TenantBar />
     <DynamicHome v-if="hasShopContent" />
-    <component v-else :is="currentHome" />
+    <FreshHome v-else-if="templateCode === 'fresh'" />
+    <MarketplaceHome v-else-if="templateCode === 'marketplace'" />
+    <DefaultHome v-else />
     <BackTop />
   </view>
 </template>
@@ -26,9 +28,6 @@ const { templateCode } = tenantStore;
 const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
 const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
-const templateMap: Record<string, any> = { default: DefaultHome, fresh: FreshHome, marketplace: MarketplaceHome };
-const currentHome = computed(() => templateMap[templateCode] || DefaultHome);
-
 useShare({
     title: `${channelName.value} - 精选好物`,
     path: inviteCode.value ? `/?ref=${inviteCode.value}` : '/',
