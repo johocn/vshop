@@ -158,5 +158,12 @@
         "detail": "详细地址",
         "default": "默认地址",
         "setDefault": "设为默认"
+    },
+    "sku": {
+        "picked": "已選",
+        "pieces": "件",
+        "quantity": "數量",
+        "pleasePick": "請選擇規格",
+        "outOfStock": "暫時缺貨"
     }
 }

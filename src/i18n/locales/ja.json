@@ -6,6 +6,69 @@
         "badge": "セール価格",
         "fallbackName": "限定商品"
     },
+    "common": {
+        "confirm": "確認",
+        "cancel": "キャンセル",
+        "loading": "読み込み中...",
+        "noMore": "これ以上ありません",
+        "retry": "再試行",
+        "submit": "送信",
+        "save": "保存",
+        "delete": "削除",
+        "edit": "編集",
+        "back": "戻る",
+        "search": "検索",
+        "share": "共有"
+    },
+    "home": {
+        "title": "ホーム",
+        "flashSale": "タイムセール",
+        "groupBuy": "共同購入",
+        "coupons": "クーポン",
+        "recharge": "チャージ",
+        "recommend": "おすすめ商品",
+        "newArrival": "新着商品"
+    },
+    "category": {
+        "title": "カテゴリー",
+        "all": "すべて"
+    },
+    "cart": {
+        "title": "カート",
+        "empty": "カートは空です",
+        "goShopping": "買い物へ",
+        "selectAll": "すべて選択",
+        "total": "合計",
+        "checkout": "レジへ進む",
+        "quantity": "数量"
+    },
+    "product": {
+        "addToCart": "カートに追加",
+        "buyNow": "今すぐ購入",
+        "spec": "仕様",
+        "detail": "詳細",
+        "reviews": "レビュー",
+        "sold": "販売済み",
+        "stock": "在庫"
+    },
+    "order": {
+        "title": "マイオーダー",
+        "empty": "注文はありません",
+        "all": "すべて",
+        "pending": "未払い",
+        "paid": "発送待ち",
+        "shipped": "受取待ち",
+        "completed": "完了",
+        "cancelled": "キャンセル済み",
+        "orderNo": "注文番号",
+        "totalAmount": "注文金額",
+        "createTime": "注文日時",
+        "payNow": "今すぐ支払う",
+        "cancelOrder": "注文をキャンセル",
+        "confirmReceive": "受取を確認",
+        "applyAfterSale": "アフターサービスを申請",
+        "viewLogistics": "配送状況を確認"
+    },
     "checkout": {
         "title": "注文確認",
         "address": "配送先住所",
@@ -30,5 +93,110 @@
             "businessHours": "営業時間"
         },
         "addressRequired": "配送先住所を入力してください"
+    },
+    "payment": {
+        "wechatpay": "WeChat Pay",
+        "alipay": "Alipay",
+        "cod": "代金引換",
+        "balancePay": "残高支払い",
+        "balance": "残高",
+        "paySuccess": "支払い成功",
+        "payPending": "支払い確認待ち",
+        "payFailed": "支払い失敗"
+    },
+    "afterSale": {
+        "title": "アフターサービス",
+        "apply": "アフターサービスを申請",
+        "list": "アフターサービス履歴",
+        "reason": "申請理由",
+        "description": "問題の説明",
+        "evidence": "証拠画像",
+        "refundAmount": "返金額",
+        "returnShipping": "返品物流",
+        "trackingNo": "追跡番号",
+        "carrier": "配送業者",
+        "status": {
+            "pending": "処理待ち",
+            "approved": "承認済み",
+            "rejected": "却下",
+            "returning": "返品中",
+            "received": "受領済み",
+            "refunded": "返金済み",
+            "closed": "クローズ"
+        }
+    },
+    "promotion": {
+        "flashSale": "タイムセール",
+        "groupBuy": "共同購入",
+        "coupons": "クーポン",
+        "countdown": "終了まで",
+        "groupPrice": "グループ価格",
+        "originalPrice": "元の価格",
+        "joinGroup": "グループに参加",
+        "startGroup": "グループを開始",
+        "peopleJoined": "人が参加",
+        "claimCoupon": "受け取る",
+        "useCoupon": "使用する",
+        "freeShipping": "送料無料",
+        "couponScopeMismatch": "このクーポンはこの店舗の注文にのみ使用できます"
+    },
+    "user": {
+        "profile": "マイページ",
+        "addresses": "住所管理",
+        "recharge": "チャージカード",
+        "balanceHistory": "残高履歴",
+        "distribution": "ディストリビューション",
+        "logistics": "配送追跡",
+        "logout": "ログアウト",
+        "myOrders": "マイオーダー"
+    },
+    "auth": {
+        "login": "ログイン",
+        "phoneLogin": "電話番号ログイン",
+        "accountLogin": "アカウントログイン",
+        "wechatLogin": "WeChat ログイン",
+        "wechatQuickLogin": "WeChat ワンタップログイン",
+        "alipayLogin": "Alipay ログイン",
+        "douyinLogin": "Douyin ログイン",
+        "ssoProviderLogin": "{name} ログイン",
+        "phonePlaceholder": "電話番号を入力してください",
+        "codePlaceholder": "認証コード",
+        "sendCode": "認証コードを送信",
+        "resendCode": "{n}秒後に再送信",
+        "usernamePlaceholder": "ユーザー名を入力してください",
+        "passwordPlaceholder": "パスワードを入力してください",
+        "register": "アカウントをお持ちでない方は新規登録",
+        "agreementPrefix": "ログインすると以下に同意したものとみなされます",
+        "agreementAnd": "および",
+        "userAgreement": "利用規約",
+        "privacyPolicy": "プライバシーポリシー",
+        "codeSent": "認証コードを送信しました",
+        "loginSuccess": "ログインに成功しました",
+        "loginFailed": "ログインに失敗しました",
+        "wechatLoginFailed": "WeChat ログインに失敗しました",
+        "wechatLoginFailedRetry": "WeChat ログインに失敗しました。もう一度お試しください",
+        "wechatNotConfigured": "WeChat ログインが設定されていません",
+        "alipayLoginFailed": "Alipay ログインに失敗しました",
+        "alipayNotConfigured": "Alipay ログインが設定されていません",
+        "douyinLoginFailed": "Douyin ログインに失敗しました",
+        "douyinNotConfigured": "Douyin ログインが設定されていません",
+        "ssoLoginFailed": "SSO ログインに失敗しました"
+    },
+    "recharge": {
+        "title": "チャージカード",
+        "cardCode": "カード番号",
+        "cardPin": "暗証番号",
+        "redeem": "チャージ",
+        "currentBalance": "現在の残高",
+        "redeemSuccess": "チャージに成功しました"
+    },
+    "address": {
+        "add": "住所を追加",
+        "name": "受取人",
+        "phone": "電話番号",
+        "region": "地域",
+        "detail": "詳細住所",
+        "default": "デフォルト住所",
+        "setDefault": "デフォルトに設定"
     }
 }
