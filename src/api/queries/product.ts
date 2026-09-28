@@ -42,3 +42,26 @@ export async function getCollections(options?: { take?: number }) {
     `;
     return client.request(query, { options: { take: 50, ...options } });
 }
+
+/**
+ * 秒杀/拼团只拿到 productId，需补拉商品名与图（shop-api 的活动类型不暴露商品详情）
+ * @returns Product[]，查不到的 id 不会出现在结果里（调用方按 id 映射，缺失即跳过该条）
+ */
+export async function getProductsByIds(ids: string[]) {
+    const list = (ids || []).filter(Boolean);
+    if (list.length === 0) return [];
+    const client = getGraphQLClient();
+    const query = `
+        query GetProductsByIds($ids: [ID!]!) {
+            products(options: { filter: { id: { in: $ids } }, take: 50 }) {
+                items {
+                    id name slug
+                    featuredAsset { preview }
+                    variants { id priceWithTax }
+                }
+            }
+        }
+    `;
+    const res: any = await client.request(query, { ids: list });
+    return res.products?.items || [];
+}
