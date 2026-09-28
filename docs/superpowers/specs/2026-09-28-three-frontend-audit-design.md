@@ -85,15 +85,17 @@
 
 其中 web-admin 路由守卫（F-WA-02，新增 `src/utils/routeGuard.ts` + `App.vue` 挂载）在本轮一并提交。
 
-**待后端支持（5 条，前端不绕权限）**
+**第二阶段已修复（5 条，原「待后端支持」，2026-09-29 扩范围到 vendure 后端实现）**
 
-| 编号 | 项目 | 内容 |
-|---|---|---|
-| F-VS-06 | vshop | 充值面额由前端元→分换算提交；需后端按面额字典定价并按面额 id 校验 |
-| F-VS-07 | vshop | 提现金额元/分换算在前端；需后端负责换算与余额校验 |
-| F-VS-08 | vshop | 微信支付 openid 全库无写入点；应由后端会话推导下发 |
-| F-VS-09 | vshop | `ImageUpload` 仍为占位实现；需真实上传端点返回 CDN 地址 |
-| F-WA-08 | web-admin | 订单改价上下限与权限校验须服务端实现，前端仅作提示 |
+| 编号 | 项目 | 内容 | 后端实现 | 状态 |
+|---|---|---|---|---|
+| F-VS-06 | vshop | 充值面额 | `recharge-card-plugin`：`Channel.rechargeMinAmount/MaxAmount` 渠道字段 + `createRechargeOrder` 服务端上下限强校验 | 已修复 |
+| F-VS-07 | vshop | 提现金额与余额 | `distribution-plugin`：`withdrawal.service.request` 原子条件扣减（`availableBalance >= amt` 作为 UPDATE 条件，`affected=0` 抛错）；审批侧 `approve/reject/markPaid` 补状态机守卫（防重复 reject 二次回补余额） | 已修复 |
+| F-VS-08 | vshop | 微信支付 openid | `wechatpay-plugin`：导出 `resolveCustomerOpenid()` 由客户档案推导，handler 三级回落（`metadata.openid → 客户档案 → devBypass`） | 已修复（模块接线实测；真实 profile→openid 受本地 devBypass 早退未跑通） |
+| F-VS-09 | vshop | 售后凭证上传 | `cjk-plugin`：shop-api `uploadCustomerAsset(file: Upload!): Asset!`；`ImageUpload.vue` 接 GraphQL multipart 真实上传 | 已修复 |
+| F-WA-08 | web-admin | 后台改价校验 | `cjk-plugin`：admin-api `adjustOrderPrice`（渠道上限 + 订单状态校验，三态统一 `addSurchargeToOrder`） | 已修复 |
+
+明细证据与偏差见 `docs/superpowers/plans/2026-09-28-three-frontend-audit.md`「第二阶段」章节；端到端回归脚本 `vendure/packages/dev-server/verify-audit-fixes.cjs`（24/24 PASS，含提现审核状态机 4 条断言）。
 
 **不修（3 条，附理由）**
 

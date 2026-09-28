@@ -32,14 +32,13 @@ const customFetch: typeof fetch = (input, init) => {
 let clientInstance: GraphQLClient | null = null;
 const inFlight = new Map<string, Promise<any>>();
 
-export function getGraphQLClient(): GraphQLClient {
-    if (!clientInstance) {
-        clientInstance = new GraphQLClient(API_URL, {
-            fetch: customFetch as any,
-            headers: {},
-        });
-    }
-    // Update headers on each access
+/** Shop API 端点（上传等非 graphql-request 通道复用，避免各处重复拼接） */
+export function getShopApiUrl(): string {
+    return API_URL;
+}
+
+/** 当前租户 + 会话的请求头（graphql-request 与 uni.uploadFile 共用） */
+export function getShopApiHeaders(): Record<string, string> {
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
     const headers: Record<string, string> = {
@@ -53,7 +52,17 @@ export function getGraphQLClient(): GraphQLClient {
             headers['Authorization'] = 'Bearer ' + sessionToken;
         }
     }
-    clientInstance.setHeaders(headers);
+    return headers;
+}
+
+export function getGraphQLClient(): GraphQLClient {
+    if (!clientInstance) {
+        clientInstance = new GraphQLClient(API_URL, {
+            fetch: customFetch as any,
+            headers: {},
+        });
+    }
+    clientInstance.setHeaders(getShopApiHeaders());
     return clientInstance;
 }
 

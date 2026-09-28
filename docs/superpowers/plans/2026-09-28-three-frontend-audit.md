@@ -225,3 +225,104 @@ git push
 - vshop H5：`dist/build/h5` → tar → scp `joho:/tmp` → 解压到 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（备份 + `rm -rf assets` + reload）
 
 **待用户关注**：「待后端支持」5 条（前端不绕权限，需后端配合），须后端排期。
+
+---
+
+# 第二阶段：5 项「待后端支持」缺陷修复（用户批准扩范围到 vendure 后端）
+
+**范围**：`d:\zhao\vendure`（后端，源码 `src/` + 编译产物 `lib/` 均已入库）+ `d:\zhao\vshop`（C 端）+ `d:\zhao\vshop\web-admin`（管理端）。
+**部署铁律**：一律本地构建，服务器只解压/`pm2 restart`。
+
+## 调研结论（现状事实，均带行号）
+
+| 编号 | 调研事实（修正/补充审查结论） |
+|---|---|
+| F-VS-06 | 单位**一致**：前端 `recharge.vue:75` 元×100→分，后端 `recharge-card.service.ts:157-175` 以分落库，余额展示 `recharge.vue:5` `/100`。真实缺口：`createRechargeOrder` 只校验 `amt > 0`，**无上下限/面额约束**，金额完全由客户端决定。 |
+| F-VS-07 | 审查结论需修正：前端**确已**换算（`src/api/queries/distribution.ts:106` `Math.round(amountYuan*100)`），后端 `withdrawal.service.ts:60` 也按分比较。真实缺口：`request()` 先读 `availableBalance` 再 `save()`，**读改写非原子**——并发两笔提现可各自通过校验并生成两条提现单，余额只扣一次（商户双倍出款）。 |
+| F-VS-08 | 后端**已存** openid：`wechat-auth-plugin/src/customer-custom-fields.ts:6-16`（`Customer.customFields.wechatOpenid` / `wechatMiniOpenid`），由 `wechat-auth-strategy.ts:96-123` 登录时写入。而 `wechatpay-handler.ts:84` 只读 `metadata.openid`（前端永远为空）→ 真实缺口：**创建支付时未回落客户档案推导 openid**。 |
+| F-VS-09 | 后端**只有 admin 上传**：`core/src/api/resolvers/admin/asset.resolver.ts:48-63` 的 `createAssets` 要求 `Permission.CreateCatalog/CreateAsset`，shop-api 无任何 `Upload` 端点（全库仅 core 用到 `Upload` 标量）。可用能力：`assetService.create(ctx, {file})`（内部做 MIME 白名单、落 `AssetServerPlugin` 存储）。 |
+| F-WA-08 | 风险比审查更重：web-admin `apis/order.ts:322` 传 `surcharges:[{description, priceDelta}]`，而 `SurchargeInput`（`core/.../order.api.graphql:218-225`）**没有 `priceDelta` 字段**（那是 `modifications[].priceChange` 输出）→ 改价请求本身即 GraphQL 校验失败；且 `order-modifier.ts:390-392` 要求订单处于 `Modifying` 态。后端**无任何可挂载的改价校验钩子**（本版本无 `OrderModificationProcessor`，`orderInterceptors` 仅覆盖加/改/删行）。可用能力：`orderService.addSurchargeToOrder()`（`order.service.ts:1008`，无状态限制，适合草稿单）。 |
+
+## 修复方案（逐项）
+
+### F-VS-06 充值面额服务端校验
+- 新增 `vendure/packages/recharge-card-plugin/src/channel-custom-fields.ts`：`Channel.rechargeMinAmount`（分，默认 100）、`Channel.rechargeMaxAmount`（分，默认 5000000）；`plugin.ts` configuration 去重注册（沿用 cjk-plugin 的 `existingChannelNames` 去重写法）。
+- `recharge-card.service.ts#createRechargeOrder`：`Number.isInteger(amount)` + `min <= amount <= max` 校验，越界抛 `UserInputError`。
+- 前端不改（已按分提交）。
+
+### F-VS-07 提现原子扣减 + 强校验
+- `distribution-plugin/src/withdrawal.service.ts#request`：
+  - 校验 `Number.isInteger(amount) && amount >= minAmount`，错误改抛 `UserInputError`（客户端可见友好文案）。
+  - 余额扣减改**条件更新**：`startTransaction` → `UPDATE distributor SET availableBalance = availableBalance - :amt, frozenBalance = frozenBalance + :amt WHERE id = :id AND availableBalance >= :amt`，`affected === 0` 即余额不足抛错；提现单创建与扣减同事务，失败回滚。
+- 前端不改。
+
+### F-VS-08 后端从客户档案推导 openid
+- `wechatpay-plugin/src/wechatpay.service.ts`：新增 `resolveCustomerOpenid(ctx, customerId, { preferMini })`（`TransactionalConnection` 读 `Customer.customFields`；仅存一个则用之，两个都有时 `preferMini` 决定优先 `wechatMiniOpenid`）。
+- `wechatpay-plugin/src/plugin.ts`：`onApplicationBootstrap` 中（devBypass 早退**之前**）注册服务引用，导出模块级 `resolveCustomerOpenid(ctx, customerId, opts)` 供支付 handler 与充值插件复用（沿用本项目既有 `setWechatpayGateway`/`getPaymentOverride` 注册模式）。
+- `wechatpay-plugin/src/wechatpay-handler.ts#createPayment`：`metadata.openid → resolveCustomerOpenid(ctx, order.customerId, { preferMini: tradeType === 'JSAPI' }) → devBypassOpenid` 三级回落。
+- `recharge-card-plugin/src/recharge-card.service.ts#createWechatRechargePayment`：`openid || await resolveCustomerOpenid(ctx, order.customerId, { preferMini: tradeType === 'JSAPI' })`。
+- 前端不改（`auth_openid` 取不到即为空，后端接管）。
+
+### F-VS-09 C 端上传端点 + 前端接入
+- 后端新增 `cjk-plugin/src/asset/customer-asset.resolver.ts` + shop-api SDL：
+  `extend type Mutation { uploadCustomerAsset(file: Upload!): CustomerUploadResult! }`，`CustomerUploadResult { id: ID!, preview: String!, source: String! }`；
+  `@Transaction() @Allow(Permission.Authenticated)`，内部 `assetService.create(ctx, { file, tags: ['customer-upload'] })`，`MimeTypeError` 直接抛错。
+- 前端 `vshop/src/components/ImageUpload.vue`：`uni.uploadFile` 走 GraphQL multipart（`name: '0'` + `operations`/`map`），携带 Bearer + `vendure-token`，成功后 push 后端返回的 `preview`（CDN/存储地址），失败 toast 并保留本地图。
+- 兜底：H5 下若 uni 的 FormData 字段顺序不符合 multipart 规范，则 H5 分支手写 `FormData`（`operations` → `map` → `0`）。
+
+### F-WA-08 改价服务端校验 + 修正非法入参
+- 后端新增 cjk-plugin **admin-api** mutation：
+  `input AdjustOrderPriceInput { orderId: ID!, targetTotalWithTax: Int!, note: String }`
+  `extend type Mutation { adjustOrderPrice(input: AdjustOrderPriceInput!): Order! }`，
+  `@Transaction() @Allow(Permission.UpdateOrder)`，逻辑：
+  1. 载单；`target >= 0` 且 `delta = target - order.totalWithTax !== 0`，否则 `UserInputError`；
+  2. 渠道上限：新增 `Channel.orderAdjustMaxRateBp`（万分比，默认 3000）+ `Channel.orderAdjustMaxAmount`（分，默认 100000），实际上限取 `min(总额×比例, 绝对额)`，越界抛 `UserInputError`；
+  3. 落价路由：`Modifying` → `orderService.modifyOrder`（合法 `SurchargeInput`：`price: delta, priceIncludesTax: true`）；`AddingItems`/`ArrangingPayment` → `orderService.addSurchargeToOrder`；其他状态 → `UserInputError('当前订单状态不支持改价')`。
+- 前端 web-admin：`src/apis/order.ts` 改调 `adjustOrderPrice`（去掉非法 `priceDelta`）；`pages/order/detail/index.vue` 提交目标金额（分），服务端错误原样 toast。
+
+## 验收
+- 后端：改动插件 `npm run build`（`lib/` 同步提交）；`packages/cjk-plugin` / `recharge-card-plugin` / `distribution-plugin` 相关单测（若有）通过。
+- 端到端：本地起 dev-server（`npm run dev:server` + `npm run dev:worker`）后用脚本实测 5 条：
+  1. 充值 `amount=1`（低于下限）被拒；
+  2. 并发两笔提现 → 仅 1 笔成功、余额不出现负数；
+  3. 客户档案写 `wechatMiniOpenid` 后 `createWechatRechargePayment` 不再要求前端传 openid（devBypass 下可断言入参）；
+  4. `uploadCustomerAsset` 上传 PNG 返回可直接访问的 `preview`；非图片 MIME 被拒；
+  5. 草稿单/`Modifying` 单改价成功，超上限被拒，非法状态被拒。
+- 前端：web-admin `npm run build:h5`、vshop `pnpm build:h5` 通过；**手机视口截图（390×844, dpr=2）** 补入操作手册。
+- 收尾：`src` + `lib` + 前端改动提交推送；后端按仓库既有方式部署（本地构建产物），前端按 `deploy.mjs` / tar 静态目录部署；线上核验。
+
+## 执行结论（2026-09-29）
+
+**后端改动（`d:\zhao\vendure`，4 个包 `npm run build` 通过，`lib/` 已同步提交）**
+
+| 包 | 文件 | 内容 |
+|---|---|---|
+| recharge-card-plugin | `src/channel-custom-fields.ts`(新)、`src/plugin.ts`、`src/recharge-card.service.ts` | `Channel.rechargeMinAmount`(默认100)/`rechargeMaxAmount`(默认5000000)，渠道字段去重注册；`createRechargeOrder` 强校验 + openid 回落 |
+| distribution-plugin | `src/withdrawal.service.ts` | `request()` 原子条件扣减（列名必须双引号，TypeORM 建的是 camelCase 列）；`approve/reject/markPaid` 状态机守卫（见下方「附带修复」） |
+| wechatpay-plugin | `src/wechatpay.service.ts`、`src/plugin.ts`、`src/wechatpay-handler.ts` | 模块级 `setWechatpayServiceRef` + 导出 `resolveCustomerOpenid(ctx, customerId, {preferMini})`；`onApplicationBootstrap` 内 devBypass 早退**之前**注册；handler 三级回落 |
+| cjk-plugin | `src/asset/customer-asset-shop.resolver.ts`(新)、`src/order/order-price-admin.resolver.ts`(新)、`src/order/order-price-custom-fields.ts`(新)、`src/plugin.ts` | shop-api `uploadCustomerAsset`；admin-api `adjustOrderPrice`；渠道改价上限字段 |
+
+**与初版方案的偏差（重要）**
+
+1. **F-VS-09 返回类型**：未用自定义 `CustomerUploadResult`，改返回核心 `Asset`——`AssetInterceptorPlugin.isAssetType` 白名单只认 `Asset`，自定义类型不会被转绝对 URL（前端拿到相对路径会 404）。
+2. **F-WA-08 入参**：用 `amount`（分差额）而非 `targetTotalWithTax`；三态（`Modifying`/`AddingItems`/`ArrangingPayment`）**统一走 `addSurchargeToOrder`**——`modifyOrder` 在草稿单降价会抛 `RefundPaymentIdMissingError`，且 `priceDelta` 不是 `SurchargeInput` 字段。上限默认 **2000 bp / 500000 分**。
+3. **F-VS-08 验证深度**：本地 dev-server 未启用 WechatpayPlugin（无 `WECHATPAY_NOTIFY_URL`/`DEV_BYPASS_WECHATPAY`），且 handler 的 devBypass 分支在回落逻辑**之前**提前 return，故只实测到「模块接线三层断言 + 客户档案 openid 字段存在」，真实 `profile → openid` 取值链路未跑通。
+4. **前端补充修复**：`modifyOrderPrice` 的 catch 原为 `e.message`，会把整段响应 JSON 抛到 toast，改为 `graphQlErrorMsg(e)` 取 `errors[0].message`；`upload.ts` 把后端返回的 `source` 反斜杠归一为正斜杠（Windows 开发环境下 `path.join` 产物在 CSS `url()` 中被当转义符，缩略图取不到图）。
+5. `ImageUpload` 推入的是 `asset.source`（绝对 URL）。
+
+**端到端回归**：`vendure/packages/dev-server/verify-audit-fixes.cjs`（本地 dev-server + postgres）**24/24 PASS**。关键证据：4 组新渠道 customFields 列已建；上传 PNG 返回绝对 URL、`text/plain` 被拒（MIME_TYPE_ERROR）；充值 50/99999999 被拒、10000 成功；提现 amount 0/5000 被拒；**并发 5 笔 10000 分、余额 20000 → 成功 2 笔、余额 0、冻结 20000**；**提现审核首次 reject 回补一次（余额 0→10000、冻结 20000→10000），再连续 reject 3 次 + 第 4 次仍报错且余额纹丝不动，已驳回单据无法再 approve/markPaid**；改价 0 被拒、超限被拒、+100 分生效（18967→19067）、-100 分回退；openid 接线三段断言通过。
+
+**前端构建与截图取证（390×844，dpr=2）**
+
+- vshop：`pnpm build:h5` 通过。`e2e-shots/_shot_audit_stage2_vshop.py` 驱动真实链路（H5 dev 8091 → `uni.uploadFile` → 本地 shop-api 3000），售后申请页凭证图上传播截图 `e2e-shots/audit-vshop-after-sale-upload-{before,after}.png`，缩略图 src 为 `http://localhost:3000/assets/source/...`（后端返回的绝对 URL）。
+- web-admin：`npm run build:h5` 通过。`docs/verify/_shot_audit_stage2_admin.py`（H5 dev 5280，base `/guanli/`）截图 4 张：`audit-webadmin-order-detail-adjust.png`（详情页含「改价」）、`...-adjust-sheet.png`、`...-adjust-overlimit.png`（服务端拒绝 toast：「改价幅度超出上限（最多 37.93 元）」）、`...-adjust-success.png`（「改价成功」）。
+
+**附带修复（修复期发现，经用户确认一并处理）**
+
+- `distribution-plugin/src/withdrawal.service.ts#approve/reject/markPaid` 原**无审核状态守卫**：对同一提现单重复 `reject` 会按 `frozenBalance -= amount / availableBalance += amount` **二次回补余额**（可用余额虚增、冻结余额可变负），已驳回/已打款单据还可被再次流转。
+  修法：抽 `private transition(ctx, id, from, patch)`，用「带原状态条件的原子更新」完成流转（`pending → approved → paid`，`pending/approved → rejected`），`affected === 0` 抛 `UserInputError`；余额变更只在该流转成功的那一次执行。resolver 侧已有 `@Transaction()`，状态与余额同事务。
+  回归：`verify-audit-fixes.cjs` 新增 4 条断言（提交 `548873112`）。
+
+**已知未纳入本次修复（需后续处理）**
+
+- F-VS-08 真实 openid 取值链路未实测（见偏差 3）。

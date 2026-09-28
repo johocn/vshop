@@ -308,25 +308,20 @@ export async function addOrderNote(orderId: string, note: string): Promise<void>
   }
 }
 
-// 后台改价：仅可修改状态（AddingItems / ArrangingPayment）下使用；负 priceDelta = 降价
+// 后台改价：调 cjk-plugin 的 adjustOrderPrice（服务端按渠道上限 + 订单状态 + 总额非负强校验）
+// priceDelta 单位为「分」，正数加价、负数降价
 export async function modifyOrderPrice(orderId: string, priceDelta: number, note?: string): Promise<void> {
   try {
-    const res = await getAdminClient().request<{ modifyOrder?: { id?: string } | { errorCode?: string; message?: string } }>(
-      `mutation ModifyOrder($input: ModifyOrderInput!) {
-        modifyOrder(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } }
+    const res = await getAdminClient().request<{ adjustOrderPrice?: { id?: string } }>(
+      `mutation AdjustOrderPrice($input: AdjustOrderPriceInput!) {
+        adjustOrderPrice(input: $input) { id }
       }`,
-      {
-        input: {
-          dryRun: false,
-          orderId,
-          surcharges: [{ description: '后台改价', priceDelta }],
-          note: note || '后台改价',
-        },
-      },
+      { input: { orderId, amount: priceDelta, note: note || '后台改价' } },
     );
-    const r = res.modifyOrder as any;
-    if (!r || !r.id) throw new Error((r && r.message) || '改价失败');
+    if (!res.adjustOrderPrice?.id) throw new Error('改价失败');
   } catch (e: any) {
-    throw new Error(e?.message || graphQlErrorMsg(e, '改价失败'));
+    // 用 graphQlErrorMsg 取后端 errors[0].message，避免把整段响应 JSON 直接抛到 toast
+    if (e?.message === '改价失败') throw e;
+    throw new Error(graphQlErrorMsg(e, '改价失败'));
   }
 }
