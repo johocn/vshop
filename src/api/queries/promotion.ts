@@ -7,5 +7,5 @@ export async function getActiveFlashSaleActivities() {
 
 export async function getActiveGroupBuyActivities() {
     const client = getGraphQLClient();
-    return client.request(`query { activeGroupBuyActivities { id name description targetCount currentCount maxCount groupPrice leaderDiscount leaderRewardType status startAt endAt } }`);
+    return client.request(`query { activeGroupBuyActivities { id name description targetCount currentCount maxCount groupPrice leaderDiscount leaderRewardType status startAt endAt productId variantId } }`);
 }
