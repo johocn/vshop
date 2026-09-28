@@ -23,7 +23,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthed: (s) => !!s.token,
-    isSuperAdmin: (s) => !!s.access?.isSuperAdmin || s.username === 'superadmin',
+    isSuperAdmin: (s) => !!s.access?.isSuperAdmin,
     permissions: (s) => s.access?.permissions ?? ([] as string[]),
     // 首登强改密：为 true 时必须先完成改密才能进入后台
     mustChangePassword: (s) => !!s.access?.mustChangePassword,

@@ -16,7 +16,11 @@ const items = [
   { key: 'order', icon: '单', label: 'menu.order', url: '/pages/order/list/index' },
   { key: 'mine', icon: '我', label: 'menu.mine', url: '/pages/dashboard/index?mine=1' },
 ];
-function go(it: any) { if (it.key !== props.current) uni.switchTab ? uni.navigateTo({ url: it.url, fail: () => ({}) }) : uni.navigateTo({ url: it.url }); }
+// tabBar 页用 switchTab（非 tabBar 页会 fail，回退 navigateTo），普通页直接 navigateTo
+function go(it: any) {
+  if (it.key === props.current) return;
+  uni.switchTab({ url: it.url, fail: () => uni.navigateTo({ url: it.url, fail: () => ({}) }) });
+}
 </script>
 <style lang="scss" scoped>
 .bar { position: fixed; left: 0; right: 0; bottom: 0; height: 100rpx; background: #fff; border-top: 1rpx solid $wa-rule; display: flex; z-index: 10;

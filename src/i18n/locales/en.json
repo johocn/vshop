@@ -1,4 +1,7 @@
 {
+    "webview": {
+        "invalidUrl": "Invalid link"
+    },
     "flash": {
         "title": "Flash Picks",
         "endsIn": "Ends in",

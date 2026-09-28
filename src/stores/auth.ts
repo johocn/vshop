@@ -36,8 +36,11 @@ export const useAuthStore = defineStore('auth', () => {
         token.value = '';
         userId.value = '';
         userInfo.value = null;
+        inviteCode.value = '';
         uni.removeStorageSync('auth_token');
         uni.removeStorageSync('auth_userId');
+        uni.removeStorageSync('auth_inviteCode');
+        uni.removeStorageSync('auth_openid');
         uni.$emit(LOGOUT_EVENT);
     }
 

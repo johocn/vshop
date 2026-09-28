@@ -1,4 +1,7 @@
 {
+    "webview": {
+        "invalidUrl": "无效的链接"
+    },
     "flash": {
         "title": "限时精选",
         "endsIn": "距结束",

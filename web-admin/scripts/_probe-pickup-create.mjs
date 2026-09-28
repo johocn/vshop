@@ -1,5 +1,8 @@
 // 冒烟：自提点新增 + 电话/经纬度字段全长
-const ADMIN = 'https://e.joho.cn/admin-api';
+const ADMIN = process.env.ADMIN_API;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：ADMIN_API / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(ADMIN, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
@@ -7,7 +10,7 @@ async function gql(q, vars = {}, headers = {}) {
   });
   return { body: await res.json(), token: res.headers.get('vendure-auth-token') };
 }
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") { ... on CurrentUser { id identifier } } }`);
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") { ... on CurrentUser { id identifier } } }`);
 const auth = { Authorization: `Bearer ${login.token}` };
 console.log('login token?', !!login.token);
 

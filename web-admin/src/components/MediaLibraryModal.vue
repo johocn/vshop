@@ -42,7 +42,7 @@
             class="mlm__chip"
             :class="{ on: activeTag === t.name }"
             @tap="selectTag(t.name)"
-          >{{ t.name }}<text class="mlm__chip-count">{{ t.count }}</text></view>
+          >{{ tagLabel(t.name) }}<text class="mlm__chip-count">{{ t.count }}</text></view>
         </view>
       </view>
 
@@ -83,7 +83,7 @@
               <view class="mlm__cell-meta">
                 <text class="mlm__cell-name">{{ it.name }}</text>
                 <view v-if="(it.assetTags || []).length" class="mlm__cell-tags">
-                  <text v-for="tg in it.assetTags" :key="tg" class="mlm__cell-tag">{{ tg }}</text>
+                  <text v-for="tg in it.assetTags" :key="tg" class="mlm__cell-tag">{{ tagLabel(tg) }}</text>
                 </view>
               </view>
             </view>
@@ -123,7 +123,7 @@
                 class="mlm__panel-chip"
                 :class="{ on: selectedTags.includes(t.name) }"
                 @tap="toggleTagOnSelected(t.name)"
-              >{{ t.name }}<text v-if="hasTagOnSelected(t.name)" class="mlm__panel-chip-exists">{{ $t('mediaLibraryModal.tagExists') }}</text></view>
+              >{{ tagLabel(t.name) }}<text v-if="hasTagOnSelected(t.name)" class="mlm__panel-chip-exists">{{ $t('mediaLibraryModal.tagExists') }}</text></view>
             </view>
           </view>
           <view class="mlm__panel-add">
@@ -154,6 +154,13 @@ import {
 import { useLocaleStore } from '../stores/localeStore';
 
 const locale = useLocaleStore();
+
+// 预设标签码为持久化数据（写库/筛选口径），仅对展示做本地化，不回写翻译后的值
+function tagLabel(name: string): string {
+  const k = 'mediaLibraryModal.tags.' + name;
+  const v = locale.t(k);
+  return v === k ? name : v;
+}
 
 /** 分组成员常量（覆盖 PRESET_ASSET_TAGS 全部预设） */
 const TAG_GROUPS = [
@@ -311,7 +318,7 @@ const tagGroups = computed(() => {
 
 // 空态文案：按当前筛选层级选择对应空态提示
 const emptyMsg = computed(() => {
-  if (activeTag.value) return locale.t('mediaLibraryModal.emptyTag').replace('{tag}', activeTag.value);
+  if (activeTag.value) return locale.t('mediaLibraryModal.emptyTag').replace('{tag}', tagLabel(activeTag.value));
   if (activeGroup.value) return locale.t('mediaLibraryModal.emptyGroup');
   return locale.t('mediaLibraryModal.emptyAll');
 });

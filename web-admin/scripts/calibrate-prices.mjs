@@ -22,9 +22,13 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(__dirname, '.price-calibration.json');
 
-const API = process.env.ADMIN_API || 'https://e.joho.cn/admin-api';
-const USER = process.env.ADMIN_USER || 'superadmin';
-const PASS = process.env.ADMIN_PASS || 'z123123';
+const API = process.env.ADMIN_API;
+const USER = process.env.ADMIN_USER;
+const PASS = process.env.ADMIN_PASS;
+if (!API || !USER || !PASS) {
+  console.error('缺少环境变量：ADMIN_API / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）');
+  process.exit(1);
+}
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');

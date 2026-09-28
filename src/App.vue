@@ -28,7 +28,6 @@ function applyThemeTokens(tokens: Record<string, any>) {
 }
 
 onLaunch(async (options: any) => {
-    console.log('App Launch');
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
     const cartStore = useCartStore();

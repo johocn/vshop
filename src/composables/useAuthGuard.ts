@@ -5,6 +5,10 @@ const AUTH_REQUIRED_PATHS = [
     '/pkg-order/pages/checkout',
     '/pkg-order/pages/orders',
     '/pkg-order/pages/order-detail',
+    '/pkg-order/pages/payment',
+    '/pkg-order/pages/pay-result',
+    '/pkg-order/pages/invoices',
+    '/pkg-order/pages/invoice-apply',
     '/pkg-after-sale/pages/apply',
     '/pkg-after-sale/pages/list',
     '/pkg-user/pages/profile',
@@ -12,6 +16,13 @@ const AUTH_REQUIRED_PATHS = [
     '/pkg-user/pages/recharge',
     '/pkg-user/pages/balance-history',
     '/pkg-user/pages/distribution',
+    '/pkg-user/pages/member-center',
+    '/pkg-user/pages/points-history',
+    '/pkg-user/pages/points-mall',
+    '/pkg-user/pages/invoice-titles',
+    '/pages/admin/merchant-submit',
+    '/pages/admin/platform-approve',
+    '/pages/admin/distribution-settle',
 ];
 
 /**
@@ -38,19 +49,29 @@ function getCurrentPageRoute(): string {
 
 /**
  * Global route interceptor - call once in App.vue onLaunch.
- * Intercepts uni.navigateTo/redirectTo/switchTab.
+ * Intercepts uni.navigateTo/redirectTo/switchTab/reLaunch.
  */
 export function setupRouteGuard() {
     const originalNavigateTo = uni.navigateTo;
-    uni.navigateTo = function (options: any) {
-        const url = options.url?.split('?')[0] || '';
+    const originalRedirectTo = uni.redirectTo;
+    const originalSwitchTab = uni.switchTab;
+    const originalReLaunch = uni.reLaunch;
+
+    function guardUrl(originalFn: any, options: any) {
+        const url = options?.url?.split('?')[0] || '';
         if (AUTH_REQUIRED_PATHS.some(p => url.startsWith(p))) {
             const authStore = useAuthStore();
             if (!authStore.token) {
-                uni.navigateTo({ url: '/pages/login/index?redirect=' + encodeURIComponent(options.url) });
+                // 用原始 navigateTo 跳登录，避免拦截器递归
+                originalNavigateTo.call(uni, { url: '/pages/login/index?redirect=' + encodeURIComponent(options.url) });
                 return;
             }
         }
-        return originalNavigateTo.call(uni, options);
-    } as any;
+        return originalFn.call(uni, options);
+    }
+
+    uni.navigateTo = function (options: any) { return guardUrl(originalNavigateTo, options); } as any;
+    uni.redirectTo = function (options: any) { return guardUrl(originalRedirectTo, options); } as any;
+    uni.switchTab = function (options: any) { return guardUrl(originalSwitchTab, options); } as any;
+    uni.reLaunch = function (options: any) { return guardUrl(originalReLaunch, options); } as any;
 }

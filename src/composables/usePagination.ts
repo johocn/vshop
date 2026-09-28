@@ -29,7 +29,7 @@ export function usePagination<T = any>(options: PaginationOptions<T>) {
             items.value = [...items.value, ...newItems];
             totalItems.value = result.totalItems || 0;
             skip += newItems.length;
-            hasMore.value = items.value.length < totalItems.value;
+            hasMore.value = newItems.length > 0 && items.value.length < totalItems.value;
         } catch (e) {
             console.error('Pagination load error:', e);
         }

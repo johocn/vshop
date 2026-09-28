@@ -3,7 +3,10 @@
 //      / fetchProductFull 回读 / updateProduct&updateProductVariants / fetchProductList(enabled 筛选)
 //      / 配送/支付建档(真实 method) / 分类 create+rename+delete。测试数据全部删除。
 // 用法: node scripts/probe-closure.mjs
-const ADMIN = process.env.WA_ADMIN_URL || 'https://e.joho.cn/admin-api';
+const ADMIN = process.env.WA_ADMIN_URL;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：WA_ADMIN_URL / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 const gql = async (q, v = {}, h = {}) => {
   const r = await fetch(ADMIN, { method: 'POST', headers: { 'Content-Type': 'application/json', ...h }, body: JSON.stringify({ query: q, variables: v }) });
   return { body: await r.json(), token: r.headers.get('vendure-auth-token') };
@@ -12,7 +15,7 @@ const ok = (label, cond, extra = '') => console.log(`${cond ? 'PASS' : 'FAIL'}  
 const stamp = () => 'smoke-' + Date.now().toString(36);
 
 // login
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") { ... on CurrentUser { id } } }`);
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") { ... on CurrentUser { id } } }`);
 const auth = { Authorization: `Bearer ${login.token}` };
 ok('login', !!login.token);
 
