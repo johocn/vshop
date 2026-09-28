@@ -17,6 +17,7 @@ import NoticeSection from './sections/NoticeSection.vue';
 import NavSection from './sections/NavSection.vue';
 import GoodsSection from './sections/GoodsSection.vue';
 import RichTextSection from './sections/RichTextSection.vue';
+import FlashSection from './sections/FlashSection.vue';
 
 const tenantStore = useTenantStore();
 const sections = computed(() => tenantStore.mergedShopContent?.sections || tenantStore.shopContent?.sections || []);
@@ -27,6 +28,7 @@ const componentMap: Record<string, any> = {
   nav: NavSection,
   goods: GoodsSection,
   richText: RichTextSection,
+  flash: FlashSection,
 };
 
 function componentFor(type: string): any {
