@@ -1,4 +1,11 @@
 {
+    "flash": {
+        "title": "限時精選",
+        "endsIn": "距結束",
+        "more": "更多",
+        "badge": "秒殺價",
+        "fallbackName": "限時好物"
+    },
     "common": {
         "confirm": "确认",
         "cancel": "取消",

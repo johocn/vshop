@@ -1,4 +1,11 @@
 {
+    "flash": {
+        "title": "한정 특가",
+        "endsIn": "종료까지",
+        "more": "더보기",
+        "badge": "특가",
+        "fallbackName": "한정 상품"
+    },
     "checkout": {
         "title": "주문 확인",
         "address": "배송 주소",

@@ -1,4 +1,11 @@
 {
+    "flash": {
+        "title": "限时精选",
+        "endsIn": "距结束",
+        "more": "更多",
+        "badge": "秒杀价",
+        "fallbackName": "限时好物"
+    },
     "common": {
         "confirm": "确认",
         "cancel": "取消",
