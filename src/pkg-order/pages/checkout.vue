@@ -266,18 +266,6 @@
       </view>
     </view>
 
-    <!-- 订单备注 -->
-    <view class="section remark-block">
-      <text class="remark-block__label">订单备注</text>
-      <textarea
-        v-model="orderRemark"
-        class="remark-block__input"
-        placeholder="选填，如对配送时间的要求"
-        maxlength="200"
-        auto-height
-      />
-    </view>
-
     <view v-if="paymentGroupCount > 1" class="split-notice">
       <text>购物车商品分属 {{ paymentGroupCount }} 种支付方式，将拆分为 {{ paymentGroupCount }} 笔订单分别支付</text>
     </view>
@@ -362,8 +350,7 @@ const addressForm = ref({ fullName: '', phoneNumber: '', streetLine1: '', street
 const showRegionPicker = ref(false);
 const regionTarget = ref<'inline' | 'modal'>('inline');
 
-// 发票入口提示 + 订单备注（前端暂存，随支付 metadata 透传）
-const orderRemark = ref('');
+// 发票入口提示
 const invoiceHint = ref('如需发票请点击申请');
 function goInvoice() {
     uni.navigateTo({ url: '/pkg-order/pages/invoice-apply' });
@@ -1138,10 +1125,6 @@ async function prepareOrderAddressAndShipping(): Promise<boolean> {
 async function payCurrentOrder(method: string): Promise<string> {
     // Build payment metadata (wechatpay JSAPI requires openid)
     const paymentMetadata: Record<string, any> = {};
-    // 订单备注：随 PaymentInput.metadata 透传（Vendure 原生字段，无需后端改动）
-    if (orderRemark.value) {
-        paymentMetadata.remark = orderRemark.value;
-    }
     if (method === 'wechatpay') {
         const openid = uni.getStorageSync('auth_openid');
         if (openid) paymentMetadata.openid = openid;
@@ -1462,10 +1445,6 @@ async function submitOrder() {
     &__count { font-size: 26rpx; color: $brand-color; }
     &__none { font-size: 26rpx; color: #999; }
     &__arrow { font-size: 24rpx; color: #ccc; }
-}
-.remark-block { display: flex; flex-direction: column; gap: 12rpx;
-    &__label { font-size: 26rpx; color: $text-color; }
-    &__input { width: 100%; box-sizing: border-box; background: #fff; border-radius: $radius-md; padding: 16rpx 20rpx; font-size: 26rpx; min-height: 96rpx; }
 }
 .member-benefit {
     &__head { display: flex; align-items: center; justify-content: space-between; }
