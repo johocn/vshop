@@ -1,6 +1,10 @@
 <template>
   <view class="cart-page">
-    <view v-if="cartLines.length > 0" class="cart-list">
+    <view v-if="!auth.isLoggedIn" class="cart-guest">
+      <text class="cart-guest__text">当前未授权，登录后查看购物车</text>
+      <button class="cart-guest__btn" @click="goLogin">去登录</button>
+    </view>
+    <view v-if="auth.isLoggedIn && cartLines.length > 0" class="cart-list">
       <view v-for="group in cartGroups" :key="group.key" class="cart-group">
         <view class="cart-group__header">
           <text class="cart-group__name">{{ group.name }}</text>
@@ -31,9 +35,20 @@
         </view>
       </view>
     </view>
-    <EmptyState v-else-if="!loading" text="购物车是空的" />
+    <EmptyState v-else-if="auth.isLoggedIn && !loading" text="购物车是空的" />
 
-    <view class="cart-footer" v-if="cartLines.length > 0">
+    <view class="cart-reco" v-if="auth.isLoggedIn && reco.length > 0">
+      <text class="cart-reco__title">为你推荐</text>
+      <view class="cart-reco__grid">
+        <view v-for="p in reco" :key="p.productId" class="reco-card" @click="goDetail(p.slug)">
+          <VImage :src="p.productAsset?.preview || ''" width="100%" height="260rpx" />
+          <text class="reco-card__name">{{ p.productName }}</text>
+          <PriceTag :price="getMinPrice(p.priceWithTax)" />
+        </view>
+      </view>
+    </view>
+
+    <view class="cart-footer" v-if="auth.isLoggedIn && cartLines.length > 0">
       <view class="cart-footer__left" @click="toggleAll">
         <text class="check-icon">{{ allSelected ? '☑' : '☐' }}</text>
         <text>全选</text>
@@ -58,11 +73,15 @@ import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import { cartLineState, lowStockText } from '../../utils/flash-normalize';
+import { useAuthStore } from '../../stores/auth';
+import { searchProducts } from '../../api/queries/product';
 
 const cart = useCartStore();
 const ui = useUIStore();
+const auth = useAuthStore();
 const loading = ref(true);
 const selectedIds = ref<Set<string>>(new Set());
+const reco = ref<any[]>([]);
 
 const cartLines = computed(() => cart.lines);
 const cartGroups = computed(() => cart.groupedLines);
@@ -80,7 +99,24 @@ const totalYuan = computed(() => {
 onShow(async () => {
     await loadCart();
     await restorePending();
+    void loadReco();
 });
+
+async function loadReco() {
+    if (!auth.isLoggedIn) { reco.value = []; return; }
+    try {
+        const res: any = await searchProducts({ take: 8 });
+        reco.value = (res.search?.items || []).slice(0, 4);
+    } catch (e) {
+        reco.value = [];
+    }
+}
+
+function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
+function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/detail?slug=' + slug }); }
+function goLogin() {
+    uni.navigateTo({ url: '/pages/login/index' });
+}
 
 /** 幂等回填：成功一行即从暂存放移除一行，失败的行留在暂存里等下次再试 */
 async function restorePending() {
@@ -218,6 +254,14 @@ async function goCheckout() {
     &--warn { color: #fff; background: $price-color; }
 }
 .check-icon { font-size: 36rpx; color: $brand-color; }
+.cart-guest { display: flex; flex-direction: column; align-items: center; gap: 30rpx; padding: 160rpx 40rpx;
+    &__text { font-size: 28rpx; color: $text-color-secondary; }
+    &__btn { background: $brand-color; color: #fff; font-size: 28rpx; border-radius: 40rpx; padding: 0 60rpx; height: 72rpx; line-height: 72rpx; }
+}
+.cart-reco { padding: 20rpx; &__title { font-size: 30rpx; font-weight: bold; display: block; margin-bottom: 16rpx; } &__grid { display: flex; flex-wrap: wrap; justify-content: space-between; } }
+.reco-card { width: 48%; background: #fff; border-radius: $radius-md; overflow: hidden; margin-bottom: 20rpx;
+    &__name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 24rpx; padding: 10rpx 12rpx 6rpx; height: 64rpx; }
+}
 .qty-control { display: flex; align-items: center; gap: 0; border: 1rpx solid $border-color; border-radius: $radius-sm; }
 .qty-btn { width: 56rpx; height: 48rpx; text-align: center; line-height: 48rpx; font-size: 28rpx; background: #f5f5f5; }
 .qty-num { width: 64rpx; height: 48rpx; text-align: center; line-height: 48rpx; font-size: 26rpx; border-left: 1rpx solid $border-color; border-right: 1rpx solid $border-color; }
