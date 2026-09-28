@@ -323,6 +323,16 @@ git push
   修法：抽 `private transition(ctx, id, from, patch)`，用「带原状态条件的原子更新」完成流转（`pending → approved → paid`，`pending/approved → rejected`），`affected === 0` 抛 `UserInputError`；余额变更只在该流转成功的那一次执行。resolver 侧已有 `@Transaction()`，状态与余额同事务。
   回归：`verify-audit-fixes.cjs` 新增 4 条断言（提交 `548873112`）。
 
+**部署与线上核验（2026-09-29）**
+
+| 目标 | 方式 | 核验结果 |
+|---|---|---|
+| vendure 后端 | 服务器 `/www/apps/vendure` → `git pull`（fast-forward 至 `548873112`）→ `pm2 restart vendure --update-env` + `pm2 restart vendure-worker --update-env`。服务器只拉产物不构建（`packages/dev-server/dist`、各插件 `lib/` 均已入库） | 只读冒烟 **6/6**：`/health` 200；`channel` 表新增 4 个 customFields 列已建（生产 `DB=postgres` 走 `getDbConfig()` 的 `synchronize: true`，自动建列）；shop-api `uploadCustomerAsset` 已注册；admin-api `adjustOrderPrice` + `AdjustOrderPriceInput{orderId, amount, note}` 已注册 |
+| vshop C 端 H5 | 本地 `dist/build/h5`（已确认含 `uploadCustomerAsset` 与反斜杠归一）→ tar → scp `joho:/tmp` → 解压至 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（备份轮转 + 替换 `assets`，静态目录即时生效、无需 reload） | `https://e.joho.cn/` 200；新 chunk `.../assets/pkg-after-sale-pages-apply.a0lavy4B.js` 200 |
+| web-admin | `node scripts/deploy.mjs`（本地 `npm run build:h5` 产物 50.8 MB → 校验 → tar → scp → 解压至 `.../e.joho.cn/guanli` → 备份轮转 + openresty reload） | `https://e.joho.cn/guanli/` 200；新 chunk `.../assets/order.DoG4RdAc.js` 200 |
+
+> 生产环境只读冒烟脚本为一次性工具（`tmp-smoke-prod.cjs`，仅查列/查 schema/查健康，不做任何写操作），用后即从服务器删除、未入库。
+
 **已知未纳入本次修复（需后续处理）**
 
 - F-VS-08 真实 openid 取值链路未实测（见偏差 3）。
