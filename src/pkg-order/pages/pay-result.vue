@@ -23,8 +23,26 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import { ref } from 'vue';
+import { useCartStore } from '../../stores/cart';
+import { addItemToOrder } from '../../api/mutations/cart';
+
+const cart = useCartStore();
+
+onShow(async () => {
+    const pending = [...cart.pendingLines];
+    if (pending.length === 0) return;
+    // 进入本页代表本次结算已结束：未勾选行（未购买）必须回填，不能丢弃
+    for (const p of pending) {
+        try {
+            await addItemToOrder(p.variantId, p.quantity);
+        } catch (e) {
+            console.warn('[pay-result] restore pending line failed', p, e);
+        }
+    }
+    cart.clearPendingLines();
+});
 
 const status = ref('pending');
 const orderCodes = ref<string[]>([]);

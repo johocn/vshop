@@ -2,10 +2,32 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 const CART_TAB_INDEX = 2;
+const PENDING_KEY = 'cart_pending_lines';
 
 export const useCartStore = defineStore('cart', () => {
     const order = ref<any>(null);
     const loading = ref(false);
+
+    /** 未勾选（未购买）行的暂存：{ variantId, quantity }[] */
+    const pendingLines = ref<Array<{ variantId: string; quantity: number }>>(
+        (() => {
+            try {
+                return JSON.parse(uni.getStorageSync(PENDING_KEY) || '[]') || [];
+            } catch {
+                return [];
+            }
+        })(),
+    );
+
+    function setPendingLines(lines: Array<{ variantId: string; quantity: number }>) {
+        pendingLines.value = lines || [];
+        uni.setStorageSync(PENDING_KEY, JSON.stringify(pendingLines.value));
+    }
+
+    function clearPendingLines() {
+        pendingLines.value = [];
+        uni.removeStorageSync(PENDING_KEY);
+    }
 
     const totalQuantity = computed(() => order.value?.totalQuantity || 0);
     const totalPrice = computed(() => order.value?.totalWithTax || 0);
@@ -55,5 +77,5 @@ export const useCartStore = defineStore('cart', () => {
         return (cents / 100).toFixed(2);
     }
 
-    return { order, loading, totalQuantity, totalPrice, lines, groupedLines, isEmpty, setOrder, clearCart, formatPrice, updateBadge };
+    return { order, loading, totalQuantity, totalPrice, lines, groupedLines, isEmpty, setOrder, clearCart, formatPrice, updateBadge, pendingLines, setPendingLines, clearPendingLines };
 });
