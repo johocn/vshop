@@ -29,6 +29,10 @@
         "recommend": "Recommended",
         "newArrival": "New Arrivals"
     },
+    "category": {
+        "title": "Categories",
+        "all": "All"
+    },
     "cart": {
         "title": "Cart",
         "empty": "Cart is empty",
@@ -38,15 +42,32 @@
         "checkout": "Checkout",
         "quantity": "Qty"
     },
+    "product": {
+        "addToCart": "Add to Cart",
+        "buyNow": "Buy Now",
+        "spec": "Specifications",
+        "detail": "Details",
+        "reviews": "Reviews",
+        "sold": "Sold",
+        "stock": "Stock"
+    },
     "order": {
         "title": "My Orders",
         "empty": "No orders",
         "all": "All",
-        "pending": "Pending",
-        "paid": "Paid",
-        "shipped": "Shipped",
+        "pending": "Unpaid",
+        "paid": "To Ship",
+        "shipped": "To Receive",
         "completed": "Completed",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "orderNo": "Order No.",
+        "totalAmount": "Order Amount",
+        "createTime": "Order Time",
+        "payNow": "Pay Now",
+        "cancelOrder": "Cancel Order",
+        "confirmReceive": "Confirm Receipt",
+        "applyAfterSale": "Apply for After-Sale",
+        "viewLogistics": "Track Logistics"
     },
     "checkout": {
         "title": "Checkout",
@@ -73,13 +94,109 @@
         },
         "addressRequired": "Please fill in shipping address"
     },
+    "payment": {
+        "wechatpay": "WeChat Pay",
+        "alipay": "Alipay",
+        "cod": "Cash on Delivery",
+        "balancePay": "Balance Payment",
+        "balance": "Balance",
+        "paySuccess": "Payment successful",
+        "payPending": "Awaiting payment confirmation",
+        "payFailed": "Payment failed"
+    },
+    "afterSale": {
+        "title": "After-Sale",
+        "apply": "Apply for After-Sale",
+        "list": "After-Sale Records",
+        "reason": "Reason",
+        "description": "Description",
+        "evidence": "Evidence Images",
+        "refundAmount": "Refund Amount",
+        "returnShipping": "Return Shipping",
+        "trackingNo": "Tracking No.",
+        "carrier": "Carrier",
+        "status": {
+            "pending": "Pending",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "returning": "Returning",
+            "received": "Received",
+            "refunded": "Refunded",
+            "closed": "Closed"
+        }
+    },
+    "promotion": {
+        "flashSale": "Flash Sale",
+        "groupBuy": "Group Buy",
+        "coupons": "Coupons",
+        "countdown": "Ends in",
+        "groupPrice": "Group Price",
+        "originalPrice": "Original Price",
+        "joinGroup": "Join Group",
+        "startGroup": "Start Group",
+        "peopleJoined": "people joined",
+        "claimCoupon": "Claim",
+        "useCoupon": "Use",
+        "freeShipping": "Free Shipping",
+        "couponScopeMismatch": "This coupon only applies to orders from this store"
+    },
+    "user": {
+        "profile": "Profile",
+        "addresses": "Addresses",
+        "recharge": "Recharge Cards",
+        "balanceHistory": "Balance History",
+        "distribution": "Distribution",
+        "logistics": "Logistics Tracking",
+        "logout": "Log Out",
+        "myOrders": "My Orders"
+    },
     "auth": {
         "login": "Login",
         "phoneLogin": "Phone Login",
-        "wechatLogin": "WeChat Login"
+        "accountLogin": "Account Login",
+        "wechatLogin": "WeChat Login",
+        "wechatQuickLogin": "One-Tap WeChat Login",
+        "alipayLogin": "Alipay Login",
+        "douyinLogin": "Douyin Login",
+        "ssoProviderLogin": "{name} Login",
+        "phonePlaceholder": "Enter phone number",
+        "codePlaceholder": "Verification code",
+        "sendCode": "Send Code",
+        "resendCode": "Resend in {n}s",
+        "usernamePlaceholder": "Enter username",
+        "passwordPlaceholder": "Enter password",
+        "register": "No account? Sign up",
+        "agreementPrefix": "By logging in you agree to",
+        "agreementAnd": "and",
+        "userAgreement": "Terms of Service",
+        "privacyPolicy": "Privacy Policy",
+        "codeSent": "Verification code sent",
+        "loginSuccess": "Login successful",
+        "loginFailed": "Login failed",
+        "wechatLoginFailed": "WeChat login failed",
+        "wechatLoginFailedRetry": "WeChat login failed, please retry",
+        "wechatNotConfigured": "WeChat login not configured",
+        "alipayLoginFailed": "Alipay login failed",
+        "alipayNotConfigured": "Alipay login not configured",
+        "douyinLoginFailed": "Douyin login failed",
+        "douyinNotConfigured": "Douyin login not configured",
+        "ssoLoginFailed": "SSO login failed"
     },
-    "promotion": {
-        "freeShipping": "Free Shipping",
-        "couponScopeMismatch": "This coupon only applies to orders from this store"
+    "recharge": {
+        "title": "Recharge Cards",
+        "cardCode": "Card No.",
+        "cardPin": "PIN",
+        "redeem": "Recharge",
+        "currentBalance": "Current Balance",
+        "redeemSuccess": "Recharge successful"
+    },
+    "address": {
+        "add": "Add Address",
+        "name": "Recipient",
+        "phone": "Phone",
+        "region": "Region",
+        "detail": "Detailed Address",
+        "default": "Default Address",
+        "setDefault": "Set as Default"
     }
 }

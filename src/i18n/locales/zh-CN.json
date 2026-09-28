@@ -153,11 +153,34 @@
     "auth": {
         "login": "登录",
         "phoneLogin": "手机号登录",
+        "accountLogin": "账号密码登录",
         "wechatLogin": "微信登录",
+        "wechatQuickLogin": "微信一键登录",
+        "alipayLogin": "支付宝登录",
+        "douyinLogin": "抖音登录",
+        "ssoProviderLogin": "{name}登录",
         "phonePlaceholder": "请输入手机号",
         "codePlaceholder": "验证码",
         "sendCode": "发送验证码",
-        "resendCode": "{n}s后重新发送"
+        "resendCode": "{n}s后重新发送",
+        "usernamePlaceholder": "请输入用户名",
+        "passwordPlaceholder": "请输入密码",
+        "register": "没有账号？去注册",
+        "agreementPrefix": "登录即表示同意",
+        "agreementAnd": "和",
+        "userAgreement": "《用户协议》",
+        "privacyPolicy": "《隐私政策》",
+        "codeSent": "验证码已发送",
+        "loginSuccess": "登录成功",
+        "loginFailed": "登录失败",
+        "wechatLoginFailed": "微信登录失败",
+        "wechatLoginFailedRetry": "微信登录失败，请重试",
+        "wechatNotConfigured": "微信登录未配置",
+        "alipayLoginFailed": "支付宝登录失败",
+        "alipayNotConfigured": "支付宝登录未配置",
+        "douyinLoginFailed": "抖音登录失败",
+        "douyinNotConfigured": "抖音登录未配置",
+        "ssoLoginFailed": "SSO 登录失败"
     },
     "recharge": {
         "title": "充值卡",
@@ -175,5 +198,12 @@
         "detail": "详细地址",
         "default": "默认地址",
         "setDefault": "设为默认"
+    },
+    "sku": {
+        "picked": "已选",
+        "pieces": "件",
+        "quantity": "数量",
+        "pleasePick": "请选择规格",
+        "outOfStock": "暂时缺货"
     }
 }
