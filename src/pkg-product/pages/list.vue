@@ -48,7 +48,12 @@ async function loadData() {
     try {
         const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
         const facetValueId = page?.options?.facetValueId;
-        const res: any = await searchProducts({ term: searchTerm.value || undefined, facetValueIds: facetValueId ? [facetValueId] : undefined, take, skip });
+        const res: any = await searchProducts({
+            term: searchTerm.value || undefined,
+            facetValueFilters: facetValueId ? [{ or: [facetValueId] }] : undefined,
+            take,
+            skip,
+        });
         const items = res.search?.items || [];
         products.value = [...products.value, ...items];
         const total = res.search?.totalItems || 0;

@@ -44,11 +44,12 @@ const subCategories = ref<any[]>([]);
 const products = ref<any[]>([]);
 const activeCat = ref<any>(null);
 const loading = ref(true);
+const loadingMore = ref(false);
 
 onMounted(async () => {
     try {
         const client = getGraphQLClient();
-        const res: any = await client.request(`query { collections(options: { topLevelOnly: true }) { items { id name slug children { id name slug } } } }`);
+        const res: any = await client.request(`query { collections(options: { topLevelOnly: true }) { items { id name slug facetValues { id name } children { id name slug facetValues { id name } } } } }`);
         categories.value = res.collections?.items || [];
         if (categories.value.length > 0) selectCategory(categories.value[0]);
     } catch (e) { console.error(e); }
@@ -59,10 +60,37 @@ async function selectCategory(cat: any) {
     activeCat.value = cat;
     subCategories.value = cat.children || [];
     products.value = [];
+    skip.value = 0;
+    hasMore.value = true;
+    await loadProducts(true);
+}
+
+const skip = ref(0);
+const take = 20;
+const hasMore = ref(true);
+
+async function loadProducts(reset = false) {
+    if (!activeCat.value) return;
+    if (loadingMore.value) return;
+    if (!reset && !hasMore.value) return;
+    loadingMore.value = true;
     try {
-        const res: any = await searchProducts({ facetValueIds: cat.facetValueIds || [], take: 10, collectionSlug: cat.slug });
-        products.value = res.search?.items || [];
-    } catch (e) {}
+        const ids = ((activeCat.value.facetValues || []) as any[]).map((f) => f.id);
+        const res: any = await searchProducts({
+            facetValueFilters: ids.length ? [{ or: ids }] : undefined,
+            collectionSlug: activeCat.value.slug,
+            take,
+            skip: reset ? 0 : skip.value,
+        });
+        const items = res.search?.items || [];
+        products.value = reset ? items : [...products.value, ...items];
+        const total = res.search?.totalItems || 0;
+        skip.value = products.value.length;
+        hasMore.value = products.value.length < total;
+    } catch (e) {
+        console.error(e);
+    }
+    loadingMore.value = false;
 }
 
 function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
