@@ -1,4 +1,7 @@
 {
+    "webview": {
+        "invalidUrl": "無効なリンク"
+    },
     "flash": {
         "title": "タイムセール",
         "endsIn": "終了まで",

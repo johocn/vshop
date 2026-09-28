@@ -1,10 +1,76 @@
 {
+    "webview": {
+        "invalidUrl": "유효하지 않은 링크"
+    },
     "flash": {
         "title": "한정 특가",
         "endsIn": "종료까지",
         "more": "더보기",
         "badge": "특가",
         "fallbackName": "한정 상품"
+    },
+    "common": {
+        "confirm": "확인",
+        "cancel": "취소",
+        "loading": "로딩 중...",
+        "noMore": "더 이상 없습니다",
+        "retry": "다시 시도",
+        "submit": "제출",
+        "save": "저장",
+        "delete": "삭제",
+        "edit": "편집",
+        "back": "뒤로",
+        "search": "검색",
+        "share": "공유"
+    },
+    "home": {
+        "title": "홈",
+        "flashSale": "타임 세일",
+        "groupBuy": "공동 구매",
+        "coupons": "쿠폰",
+        "recharge": "충전",
+        "recommend": "추천 상품",
+        "newArrival": "신상품"
+    },
+    "category": {
+        "title": "카테고리",
+        "all": "전체"
+    },
+    "cart": {
+        "title": "장바구니",
+        "empty": "장바구니가 비어 있습니다",
+        "goShopping": "쇼핑하러 가기",
+        "selectAll": "전체 선택",
+        "total": "합계",
+        "checkout": "결제하기",
+        "quantity": "수량"
+    },
+    "product": {
+        "addToCart": "장바구니에 담기",
+        "buyNow": "바로 구매",
+        "spec": "사양",
+        "detail": "상세",
+        "reviews": "리뷰",
+        "sold": "판매됨",
+        "stock": "재고"
+    },
+    "order": {
+        "title": "내 주문",
+        "empty": "주문이 없습니다",
+        "all": "전체",
+        "pending": "미결제",
+        "paid": "배송 대기",
+        "shipped": "수령 대기",
+        "completed": "완료",
+        "cancelled": "취소됨",
+        "orderNo": "주문 번호",
+        "totalAmount": "주문 금액",
+        "createTime": "주문 시간",
+        "payNow": "지금 결제",
+        "cancelOrder": "주문 취소",
+        "confirmReceive": "수령 확인",
+        "applyAfterSale": "A/S 신청",
+        "viewLogistics": "배송 조회"
     },
     "checkout": {
         "title": "주문 확인",
@@ -31,11 +97,116 @@
         },
         "addressRequired": "배송 주소를 입력해주세요"
     },
+    "payment": {
+        "wechatpay": "WeChat Pay",
+        "alipay": "Alipay",
+        "cod": "착불 결제",
+        "balancePay": "잔액 결제",
+        "balance": "잔액",
+        "paySuccess": "결제 성공",
+        "payPending": "결제 확인 대기 중",
+        "payFailed": "결제 실패"
+    },
+    "afterSale": {
+        "title": "A/S",
+        "apply": "A/S 신청",
+        "list": "A/S 내역",
+        "reason": "신청 사유",
+        "description": "문제 설명",
+        "evidence": "증빙 이미지",
+        "refundAmount": "환불 금액",
+        "returnShipping": "반품 배송",
+        "trackingNo": "운송장 번호",
+        "carrier": "택배사",
+        "status": {
+            "pending": "처리 대기",
+            "approved": "승인됨",
+            "rejected": "거절됨",
+            "returning": "반품 중",
+            "received": "수령 완료",
+            "refunded": "환불 완료",
+            "closed": "종료됨"
+        }
+    },
+    "promotion": {
+        "flashSale": "타임 세일",
+        "groupBuy": "공동 구매",
+        "coupons": "쿠폰",
+        "countdown": "종료까지",
+        "groupPrice": "공동 구매가",
+        "originalPrice": "정가",
+        "joinGroup": "공동 구매 참여",
+        "startGroup": "공동 구매 시작",
+        "peopleJoined": "명 참여",
+        "claimCoupon": "받기",
+        "useCoupon": "사용",
+        "freeShipping": "무료 배송",
+        "couponScopeMismatch": "이 쿠폰은 이 매장 주문에만 사용할 수 있습니다"
+    },
+    "user": {
+        "profile": "마이페이지",
+        "addresses": "주소 관리",
+        "recharge": "충전 카드",
+        "balanceHistory": "잔액 내역",
+        "distribution": "유통 센터",
+        "logistics": "배송 조회",
+        "logout": "로그아웃",
+        "myOrders": "내 주문"
+    },
+    "auth": {
+        "login": "로그인",
+        "phoneLogin": "휴대폰 번호 로그인",
+        "accountLogin": "계정 로그인",
+        "wechatLogin": "WeChat 로그인",
+        "wechatQuickLogin": "WeChat 원터치 로그인",
+        "alipayLogin": "Alipay 로그인",
+        "douyinLogin": "Douyin 로그인",
+        "ssoProviderLogin": "{name} 로그인",
+        "phonePlaceholder": "휴대폰 번호를 입력하세요",
+        "codePlaceholder": "인증 코드",
+        "sendCode": "인증 코드 전송",
+        "resendCode": "{n}초 후 재전송",
+        "usernamePlaceholder": "사용자 이름을 입력하세요",
+        "passwordPlaceholder": "비밀번호를 입력하세요",
+        "register": "계정이 없으신가요? 회원가입",
+        "agreementPrefix": "로그인하면 다음에 동의한 것으로 간주됩니다",
+        "agreementAnd": "및",
+        "userAgreement": "이용약관",
+        "privacyPolicy": "개인정보 처리방침",
+        "codeSent": "인증 코드가 전송되었습니다",
+        "loginSuccess": "로그인 성공",
+        "loginFailed": "로그인 실패",
+        "wechatLoginFailed": "WeChat 로그인 실패",
+        "wechatLoginFailedRetry": "WeChat 로그인에 실패했습니다. 다시 시도해주세요",
+        "wechatNotConfigured": "WeChat 로그인이 구성되지 않았습니다",
+        "alipayLoginFailed": "Alipay 로그인 실패",
+        "alipayNotConfigured": "Alipay 로그인이 구성되지 않았습니다",
+        "douyinLoginFailed": "Douyin 로그인 실패",
+        "douyinNotConfigured": "Douyin 로그인이 구성되지 않았습니다",
+        "ssoLoginFailed": "SSO 로그인 실패"
+    },
+    "recharge": {
+        "title": "충전 카드",
+        "cardCode": "카드 번호",
+        "cardPin": "비밀번호",
+        "redeem": "충전",
+        "currentBalance": "현재 잔액",
+        "redeemSuccess": "충전 성공"
+    },
+    "address": {
+        "add": "주소 추가",
+        "name": "수령인",
+        "phone": "휴대폰 번호",
+        "region": "지역",
+        "detail": "상세 주소",
+        "default": "기본 주소",
+        "setDefault": "기본으로 설정"
+    },
     "sku": {
         "picked": "선택됨",
         "pieces": "개",
         "quantity": "수량",
-        "pleasePick": "옵션을 선택하세요",
-        "outOfStock": "품절"
+        "pleasePick": "사양을 선택하세요",
+        "outOfStock": "일시 품절"
     }
 }

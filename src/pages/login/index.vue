@@ -5,32 +5,32 @@
       <text class="login-logo-text">Youshop</text>
     </view>
     <view class="login-page__form" v-if="mode === 'phone'">
-      <input class="login-page__input" v-model="phone" type="number" placeholder="请输入手机号" />
+      <input class="login-page__input" v-model="phone" type="number" :placeholder="t('auth.phonePlaceholder')" />
       <view class="login-page__code-row">
-        <input class="login-page__input" v-model="code" type="number" placeholder="验证码" />
+        <input class="login-page__input" v-model="code" type="number" :placeholder="t('auth.codePlaceholder')" />
         <button class="login-page__code-btn" :disabled="countdown > 0" @click="sendCode">
-          {{ countdown > 0 ? countdown + 's' : '发送验证码' }}
+          {{ countdown > 0 ? countdown + 's' : t('auth.sendCode') }}
         </button>
       </view>
-      <button class="login-page__submit" :disabled="!phone || !code" @click="loginWithPhone">登录</button>
+      <button class="login-page__submit" :disabled="!phone || !code" @click="loginWithPhone">{{ t('auth.login') }}</button>
     </view>
     <view class="login-page__form" v-if="mode === 'local'">
-      <input class="login-page__input" v-model="username" type="text" placeholder="请输入用户名" />
-      <input class="login-page__input" v-model="password" type="password" placeholder="请输入密码" />
-      <button class="login-page__submit" :disabled="!username || !password" @click="loginWithLocal">登录</button>
+      <input class="login-page__input" v-model="username" type="text" :placeholder="t('auth.usernamePlaceholder')" />
+      <input class="login-page__input" v-model="password" type="password" :placeholder="t('auth.passwordPlaceholder')" />
+      <button class="login-page__submit" :disabled="!username || !password" @click="loginWithLocal">{{ t('auth.login') }}</button>
     </view>
     <view class="login-page__actions" v-if="mode === 'select'">
       <!-- #ifdef MP-WEIXIN -->
-      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat')" @click="loginWithWechat">微信一键登录</button>
+      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat')" @click="loginWithWechat">{{ t('auth.wechatQuickLogin') }}</button>
       <!-- #endif -->
       <!-- #ifdef H5 -->
-      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat') && isWechatBrowser && wechatAppId" @click="loginWithWechatH5('snsapi_userinfo')">微信登录</button>
+      <button class="login-btn login-btn--wechat" v-if="authMethods.includes('wechat') && isWechatBrowser && wechatAppId" @click="loginWithWechatH5('snsapi_userinfo')">{{ t('auth.wechatLogin') }}</button>
       <!-- #endif -->
       <!-- #ifdef H5 || MP-ALIPAY -->
-      <button class="login-btn login-btn--alipay" v-if="authMethods.includes('alipay')" @click="loginWithAlipayH5">支付宝登录</button>
+      <button class="login-btn login-btn--alipay" v-if="authMethods.includes('alipay')" @click="loginWithAlipayH5">{{ t('auth.alipayLogin') }}</button>
       <!-- #endif -->
       <!-- #ifdef H5 || MP-TOUTIAO -->
-      <button class="login-btn login-btn--douyin" v-if="authMethods.includes('douyin')" @click="loginWithDouyinH5">抖音登录</button>
+      <button class="login-btn login-btn--douyin" v-if="authMethods.includes('douyin')" @click="loginWithDouyinH5">{{ t('auth.douyinLogin') }}</button>
       <!-- #endif -->
       <!-- #ifdef H5 -->
       <button
@@ -38,22 +38,23 @@
         :key="p.providerKey"
         class="login-btn login-btn--sso"
         @click="loginWithSso(p)"
-      >{{ p.name }}登录</button>
+      >{{ t('auth.ssoProviderLogin', { name: p.name }) }}</button>
       <!-- #endif -->
-      <button class="login-btn login-btn--phone" v-if="authMethods.includes('phone')" @click="mode = 'phone'">手机号登录</button>
-      <button class="login-btn login-btn--local" v-if="authMethods.includes('native')" @click="mode = 'local'">账号密码登录</button>
-      <view class="register-link" @click="goRegister">没有账号？去注册</view>
+      <button class="login-btn login-btn--phone" v-if="authMethods.includes('phone')" @click="mode = 'phone'">{{ t('auth.phoneLogin') }}</button>
+      <button class="login-btn login-btn--local" v-if="authMethods.includes('native')" @click="mode = 'local'">{{ t('auth.accountLogin') }}</button>
+      <view class="register-link" @click="goRegister">{{ t('auth.register') }}</view>
     </view>
     <view class="login-page__agreement">
-      <text class="agreement-text">登录即表示同意</text>
-      <text class="agreement-link">《用户协议》</text>
-      <text class="agreement-text">和</text>
-      <text class="agreement-link">《隐私政策》</text>
+      <text class="agreement-text">{{ t('auth.agreementPrefix') }}</text>
+      <text class="agreement-link">{{ t('auth.userAgreement') }}</text>
+      <text class="agreement-text">{{ t('auth.agreementAnd') }}</text>
+      <text class="agreement-link">{{ t('auth.privacyPolicy') }}</text>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onLoad } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/auth';
 import { useTenantStore } from '../../stores/tenant';
@@ -62,6 +63,7 @@ import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWecha
 import { getGraphQLClient } from '../../api/client';
 import { detectPlatform } from '../../utils/detect-env';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const ui = useUIStore();
@@ -88,8 +90,19 @@ const isWechatBrowser = computed(() => {
     return false;
 });
 
+function isSafeRedirect(path: string): boolean {
+    if (!path.startsWith('/')) return false;
+    if (path.startsWith('//')) return false;
+    if (path.includes('://')) return false;
+    if (path.startsWith('/pages/admin/')) return false;
+    return true;
+}
+
 onLoad((query: any) => {
-    if (query?.redirect) redirectUrl.value = decodeURIComponent(query.redirect);
+    if (query?.redirect) {
+        const redirect = decodeURIComponent(query.redirect);
+        if (isSafeRedirect(redirect)) redirectUrl.value = redirect;
+    }
 });
 
 onMounted(async () => {
@@ -163,7 +176,7 @@ async function sendCode() {
     if (!phone.value) return;
     try {
         await sendPhoneVerificationCode(phone.value);
-        ui.showToast('验证码已发送', 'success');
+        ui.showToast(t('auth.codeSent'), 'success');
         countdown.value = 60;
         const timer = setInterval(() => { countdown.value--; if (countdown.value <= 0) clearInterval(timer); }, 1000);
     } catch (e: any) { ui.showToast(e.message); }
@@ -176,7 +189,7 @@ async function loginWithPhone() {
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
             if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
-            ui.showToast('登录成功', 'success');
+            ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         }
     } catch (e: any) { ui.showToast(e.message); }
@@ -189,7 +202,7 @@ async function loginWithLocal() {
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
             if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
-            ui.showToast('登录成功', 'success');
+            ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         }
     } catch (e: any) { ui.showToast(e.message); }
@@ -208,7 +221,7 @@ async function loginWithWechat() {
                 }
             } catch (e: any) { ui.showToast(e.message); }
         },
-        fail: (err: any) => { ui.showToast('微信登录失败: ' + err.errMsg); }
+        fail: (err: any) => { ui.showToast(t('auth.wechatLoginFailed') + ': ' + err.errMsg); }
     });
     // #endif
 }
@@ -216,7 +229,7 @@ async function loginWithWechat() {
 function loginWithWechatH5(scope: 'snsapi_base' | 'snsapi_userinfo' = 'snsapi_base') {
     // #ifdef H5
     if (!wechatAppId.value) {
-        ui.showToast('微信登录未配置');
+        ui.showToast(t('auth.wechatNotConfigured'));
         return;
     }
     const redirectUri = encodeURIComponent(window.location.href.split('?')[0]);
@@ -239,16 +252,16 @@ async function handleWechatH5Callback(oauthCode: string) {
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
             if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
-            ui.showToast('登录成功', 'success');
+            ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         } else {
             lastWechatAuthFailed.value = true;
-            ui.showToast('微信登录失败，请重试', 'none');
+            ui.showToast(t('auth.wechatLoginFailedRetry'), 'none');
             mode.value = 'select';
         }
     } catch (e: any) {
         lastWechatAuthFailed.value = true;
-        ui.showToast('微信登录失败: ' + e.message);
+        ui.showToast(t('auth.wechatLoginFailed') + ': ' + e.message);
         mode.value = 'select';
     }
     // #endif
@@ -257,7 +270,7 @@ async function handleWechatH5Callback(oauthCode: string) {
 function loginWithAlipayH5() {
     // #ifdef H5
     if (!alipayAppId) {
-        ui.showToast('支付宝登录未配置');
+        ui.showToast(t('auth.alipayNotConfigured'));
         return;
     }
     const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
@@ -275,7 +288,7 @@ function loginWithAlipayH5() {
                 }
             } catch (e: any) { ui.showToast(e.message); }
         },
-        fail: () => { ui.showToast('支付宝登录失败'); }
+        fail: () => { ui.showToast(t('auth.alipayLoginFailed')); }
     });
     // #endif
 }
@@ -283,7 +296,7 @@ function loginWithAlipayH5() {
 function loginWithDouyinH5() {
     // #ifdef H5
     if (!douyinAppId) {
-        ui.showToast('抖音登录未配置');
+        ui.showToast(t('auth.douyinNotConfigured'));
         return;
     }
     const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
@@ -301,7 +314,7 @@ function loginWithDouyinH5() {
                 }
             } catch (e: any) { ui.showToast(e.message); }
         },
-        fail: (err: any) => { ui.showToast('抖音登录失败: ' + err.errMsg); }
+        fail: (err: any) => { ui.showToast(t('auth.douyinLoginFailed') + ': ' + err.errMsg); }
     });
     // #endif
 }
@@ -313,10 +326,10 @@ async function handleAlipayH5Callback(authCode: string) {
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
             if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
-            ui.showToast('登录成功', 'success');
+            ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         } else {
-            ui.showToast('登录失败');
+            ui.showToast(t('auth.loginFailed'));
             mode.value = 'select';
         }
     } catch (e: any) { ui.showToast(e.message); mode.value = 'select'; }
@@ -330,10 +343,10 @@ async function handleDouyinH5Callback(code: string) {
         if (result.userId) {
             authStore.setAuth(result.token, result.userId);
             if (authStore.inviteCode) { tryUpdateReferredBy(authStore.inviteCode); }
-            ui.showToast('登录成功', 'success');
+            ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         } else {
-            ui.showToast('登录失败');
+            ui.showToast(t('auth.loginFailed'));
             mode.value = 'select';
         }
     } catch (e: any) { ui.showToast(e.message); mode.value = 'select'; }
@@ -407,7 +420,7 @@ async function handleSsoCallback(): Promise<boolean> {
                 sessionStorage.removeItem('sso_state');
                 sessionStorage.removeItem('sso_auto_jumped');
                 authStore.setAuth(result.token, result.userId);
-                ui.showToast('登录成功', 'success');
+                ui.showToast(t('auth.loginSuccess'), 'success');
                 window.history.replaceState({}, '', cleanUrl());
                 navigateAfterLogin();
                 return true;
@@ -416,7 +429,7 @@ async function handleSsoCallback(): Promise<boolean> {
             sessionStorage.removeItem('sso_provider');
             sessionStorage.removeItem('sso_state');
             window.history.replaceState({}, '', cleanUrl());
-            ui.showToast('SSO 登录失败: ' + e.message);
+            ui.showToast(t('auth.ssoLoginFailed') + ': ' + e.message);
             mode.value = 'select';
             return true;
         }

@@ -1,6 +1,9 @@
 // Task 3 schema 校准脚本：对 admin-api 实测每个查询/变更的真实字段名
 // 用法: node scripts/schema-check.mjs
 const BASE = process.env.WA_API || 'http://localhost:3000/admin-api';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：ADMIN_USER / ADMIN_PASS'); process.exit(1); }
 
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(BASE, {
@@ -22,7 +25,7 @@ function show(label, body) {
 }
 
 // 1. login
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") {
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") {
   ... on CurrentUser { id identifier }
   ... on InvalidCredentialsError { errorCode message }
 } }`);

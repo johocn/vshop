@@ -1,4 +1,7 @@
-const ADMIN = process.env.WA_ADMIN_URL || 'https://e.joho.cn/admin-api';
+const ADMIN = process.env.WA_ADMIN_URL;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：WA_ADMIN_URL / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(ADMIN, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
@@ -7,7 +10,7 @@ async function gql(q, vars = {}, headers = {}) {
   const body = await res.json();
   return { body, token: res.headers.get('vendure-auth-token') };
 }
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") { ... on CurrentUser { id identifier } } }`);
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") { ... on CurrentUser { id identifier } } }`);
 const auth = { Authorization: `Bearer ${login.token}` };
 
 const s = await gql(`query { shippingMethods { items { id code translations { id languageCode name description } } } }`, {}, auth);

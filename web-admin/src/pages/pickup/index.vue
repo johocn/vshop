@@ -1,13 +1,13 @@
 <template>
   <view class="page">
     <view class="tabs">
-      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">本店自提点</text>
-      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">全局自提点池</text>
+      <text class="tab" :class="{ on: tab === 'mine' }" @tap="switchTab('mine')">{{ $t('pickupPage.tabMine') }}</text>
+      <text class="tab" :class="{ on: tab === 'pool' }" @tap="switchTab('pool')">{{ $t('pickupPage.tabPool') }}</text>
     </view>
 
     <template v-if="tab === 'mine'">
       <view class="toolbar">
-        <button class="add" @tap="onCreate">＋ 新增自提点</button>
+        <button class="add" @tap="onCreate">＋ {{ $t('pickupPage.add') }}</button>
       </view>
       <view class="card" v-for="s in items" :key="s.id">
         <view class="row">
@@ -15,8 +15,8 @@
             <view class="head">
               <text class="name">{{ s.name }}</text>
               <text class="badge" :class="s.type">{{ typeLabel(s.type) }}</text>
-              <text v-if="s.isPublic" class="badge global">全局</text>
-              <text v-if="!s.enabled" class="badge off">停用</text>
+              <text v-if="s.isPublic" class="badge global">{{ $t('pickupPage.badgeGlobal') }}</text>
+              <text v-if="!s.enabled" class="badge off">{{ $t('pickupPage.disabled') }}</text>
             </view>
             <text v-if="s.address" class="addr">{{ s.address }}</text>
             <view class="meta">
@@ -26,37 +26,37 @@
           </view>
         </view>
         <view class="ops">
-          <text v-if="editable(s)" @tap="onEdit(s)">编辑</text>
-          <text v-if="!s.isPublic" class="setdefault" @tap="onToggle(s)">{{ s.enabled ? '停用' : '启用' }}</text>
-          <text v-if="!s.isPublic && auth.isSuperAdmin" class="promote" @tap="onPromote(s)">设为全局</text>
-          <text v-if="s.isPublic" class="del" @tap="onRemove(s)">不用本店点</text>
-          <text v-if="!s.isPublic" class="del" @tap="onDel(s)">删除</text>
+          <text v-if="editable(s)" @tap="onEdit(s)">{{ $t('pickupPage.edit') }}</text>
+          <text v-if="!s.isPublic" class="setdefault" @tap="onToggle(s)">{{ s.enabled ? $t('pickupPage.disabled') : $t('pickupPage.enable') }}</text>
+          <text v-if="!s.isPublic && auth.isSuperAdmin" class="promote" @tap="onPromote(s)">{{ $t('pickupPage.setGlobal') }}</text>
+          <text v-if="s.isPublic" class="del" @tap="onRemove(s)">{{ $t('pickupPage.removeFromStore') }}</text>
+          <text v-if="!s.isPublic" class="del" @tap="onDel(s)">{{ $t('pickupPage.delete') }}</text>
         </view>
       </view>
-      <view v-if="!items.length" class="empty">暂无自提点</view>
+      <view v-if="!items.length" class="empty">{{ $t('pickupPage.emptyMine') }}</view>
     </template>
 
     <template v-else>
-      <view class="hint">全局自提点由超级管理员维护，租户「引用到本店」即引用共享（不克隆副本）。</view>
+      <view class="hint">{{ $t('pickupPage.poolHint') }}</view>
       <view class="card" v-for="g in pool" :key="g.id">
         <view class="row">
           <view class="info">
             <view class="head">
               <text class="name">{{ g.name }}</text>
               <text class="badge" :class="g.type">{{ typeLabel(g.type) }}</text>
-              <text class="badge global">全局</text>
+              <text class="badge global">{{ $t('pickupPage.badgeGlobal') }}</text>
             </view>
             <text v-if="g.address" class="addr">{{ g.address }}</text>
             <view class="meta"><text v-if="g.phoneNumber" class="pm">☎ {{ g.phoneNumber }}</text></view>
           </view>
         </view>
         <view class="ops">
-          <text v-if="auth.isSuperAdmin" @tap="onEdit(g)">编辑</text>
-          <text v-if="!assigned(g.id)" class="copy" @tap="onAssign(g)">引用到本店</text>
-          <text v-else class="assigned">已引用</text>
+          <text v-if="auth.isSuperAdmin" @tap="onEdit(g)">{{ $t('pickupPage.edit') }}</text>
+          <text v-if="!assigned(g.id)" class="copy" @tap="onAssign(g)">{{ $t('pickupPage.assign') }}</text>
+          <text v-else class="assigned">{{ $t('pickupPage.assigned') }}</text>
         </view>
       </view>
-      <view v-if="!pool.length" class="empty">暂无全局自提点</view>
+      <view v-if="!pool.length" class="empty">{{ $t('pickupPage.emptyPool') }}</view>
     </template>
 
     <view style="height: 120rpx" />
@@ -65,15 +65,17 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/authStore';
+import { useLocaleStore } from '../../stores/localeStore';
 import { fetchPickupLocations, updatePickupLocation, deletePickupLocation, assignToChannel, removeFromChannel, promoteToListPublic, PickupLocationItem } from '../../apis/pickup-location';
 
 const tab = ref<'mine' | 'pool'>('mine');
 const items = ref<PickupLocationItem[]>([]);
 const pool = ref<PickupLocationItem[]>([]);
 const auth = useAuthStore();
+const locale = useLocaleStore();
 
-const TYPE_LABEL: Record<string, string> = { store: '门店', point: '自提点', employee: '职工单位' };
-const typeLabel = (t: string) => TYPE_LABEL[t] || t;
+const TYPE_LABEL: Record<string, string> = { store: 'pickupPage.typeStore', point: 'pickupPage.typePoint', employee: 'pickupPage.typeEmployee' };
+const typeLabel = (t: string) => (TYPE_LABEL[t] ? locale.t(TYPE_LABEL[t]) : t);
 const assigned = (id: string) => items.value.some((s) => s.id === id);
 // 全局点租户只读：可编辑的仅自身租户级点，或超管编辑全局点
 const editable = (s: PickupLocationItem) => !s.isPublic || auth.isSuperAdmin;
@@ -91,43 +93,43 @@ function onEdit(s: PickupLocationItem) { uni.navigateTo({ url: `/pages/pickup/ed
 
 async function onToggle(s: PickupLocationItem) {
   try { await updatePickupLocation({ id: s.id, enabled: !s.enabled }); await reload(); }
-  catch (e: any) { uni.showToast({ title: e?.message || '操作失败', icon: 'none' }); }
+  catch (e: any) { uni.showToast({ title: e?.message || locale.t('pickupPage.opFailed'), icon: 'none' }); }
 }
 
 function onPromote(s: PickupLocationItem) {
   uni.showModal({
-    title: '设为全局', content: `确认将「${s.name}」设为全局？全平台租户可选用且仅超管可编辑。`,
+    title: locale.t('pickupPage.setGlobal'), content: locale.t('pickupPage.setGlobalConfirm').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
-      try { await promoteToListPublic(s.id); await reload(); uni.showToast({ title: '已设为全局', icon: 'none' }); }
-      catch (e: any) { uni.showToast({ title: e?.message || '操作失败', icon: 'none' }); }
+      try { await promoteToListPublic(s.id); await reload(); uni.showToast({ title: locale.t('pickupPage.setGlobalDone'), icon: 'none' }); }
+      catch (e: any) { uni.showToast({ title: e?.message || locale.t('pickupPage.opFailed'), icon: 'none' }); }
     },
   });
 }
 
 async function onAssign(g: PickupLocationItem) {
-  try { await assignToChannel([g.id]); await reload(); await switchTab('pool'); uni.showToast({ title: '已引用到本店', icon: 'none' }); }
-  catch (e: any) { uni.showToast({ title: e?.message || '引用失败', icon: 'none' }); }
+  try { await assignToChannel([g.id]); await reload(); await switchTab('pool'); uni.showToast({ title: locale.t('pickupPage.assignDone'), icon: 'none' }); }
+  catch (e: any) { uni.showToast({ title: e?.message || locale.t('pickupPage.assignFailed'), icon: 'none' }); }
 }
 
 function onRemove(s: PickupLocationItem) {
   uni.showModal({
-    title: '不用本店点', content: `确认移除「${s.name}」？本店将不再使用该全局点。`,
+    title: locale.t('pickupPage.removeFromStore'), content: locale.t('pickupPage.removeConfirm').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
-      try { await removeFromChannel([s.id]); await reload(); uni.showToast({ title: '已移除', icon: 'none' }); }
-      catch (e: any) { uni.showToast({ title: e?.message || '移除失败', icon: 'none' }); }
+      try { await removeFromChannel([s.id]); await reload(); uni.showToast({ title: locale.t('pickupPage.removed'), icon: 'none' }); }
+      catch (e: any) { uni.showToast({ title: e?.message || locale.t('pickupPage.removeFailed'), icon: 'none' }); }
     },
   });
 }
 
 function onDel(s: PickupLocationItem) {
   uni.showModal({
-    title: '删除', content: `删除「${s.name}」？`,
+    title: locale.t('pickupPage.delete'), content: locale.t('pickupPage.delConfirm').replace('{name}', s.name),
     success: async (r) => {
       if (!r.confirm) return;
       try { await deletePickupLocation(s.id); await reload(); }
-      catch (e: any) { uni.showToast({ title: e?.message || '删除失败', icon: 'none' }); }
+      catch (e: any) { uni.showToast({ title: e?.message || locale.t('pickupPage.delFailed'), icon: 'none' }); }
     },
   });
 }

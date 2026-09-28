@@ -1,6 +1,9 @@
 // probe-live-schema.mjs: 只读校准线上 admin-api schema（不写任何数据）
-// 用法: node scripts/probe-live-schema.mjs   （默认 https://e.joho.cn/admin-api）
-const ADMIN = process.env.WA_ADMIN_URL || 'https://e.joho.cn/admin-api';
+// 用法: WA_ADMIN_URL=... node scripts/probe-live-schema.mjs   （须显式指定 admin-api 地址）
+const ADMIN = process.env.WA_ADMIN_URL;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：WA_ADMIN_URL / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(ADMIN, {
     method: 'POST',
@@ -12,7 +15,7 @@ async function gql(q, vars = {}, headers = {}) {
 }
 
 // login（只读会话）
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") { ... on CurrentUser { id identifier } ... on InvalidCredentialsError { errorCode } } }`);
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") { ... on CurrentUser { id identifier } ... on InvalidCredentialsError { errorCode } } }`);
 const token = login.token;
 if (!token) { console.log('LOGIN_FAIL', JSON.stringify(login.body)); process.exit(2); }
 const auth = { Authorization: `Bearer ${token}` };

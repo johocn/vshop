@@ -1,5 +1,8 @@
 // Probe: calibrate ShippingProfile / PaymentProfile schema against real admin-api
 const ADMIN = process.env.WA_ADMIN_URL || 'http://localhost:3000/admin-api';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：ADMIN_USER / ADMIN_PASS'); process.exit(1); }
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(ADMIN, {
     method: 'POST',
@@ -11,7 +14,7 @@ async function gql(q, vars = {}, headers = {}) {
 }
 
 // login
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") {
+const login = await gql(`mutation { login(username:"${ADMIN_USER}", password:"${ADMIN_PASS}") {
   ... on CurrentUser { id identifier } ... on InvalidCredentialsError { errorCode } } }`);
 const token = login.token;
 if (!token) throw new Error('no token');

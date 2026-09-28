@@ -2,11 +2,13 @@
 import { onLaunch } from '@dcloudio/uni-app';
 import { getChannelToken } from './apis/session';
 import { enableH5Nav } from './utils/h5Nav';
+import { installRouteGuard } from './utils/routeGuard';
 import { useLocaleStore } from './stores/localeStore';
 import { useAuthStore } from './stores/authStore';
 
 onLaunch(() => {
   useLocaleStore().ensure();
+  installRouteGuard();
   // 硬刷新/深链进入内页时 Pinia 会重建，权限上下文随之丢失（权限门控会被误判为「无权限」），
   // 故按已恢复的会话令牌补拉一次；失败静默（令牌失效由后续请求统一处理）
   const auth = useAuthStore();

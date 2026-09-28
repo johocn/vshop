@@ -1,6 +1,9 @@
-const ADMIN = 'https://e.joho.cn/admin-api';
+const ADMIN = process.env.ADMIN_API;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：ADMIN_API / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 const gql = async (q, v = {}, h = {}) => { const r = await fetch(ADMIN, { method: 'POST', headers: { 'Content-Type': 'application/json', ...h }, body: JSON.stringify({ query: q, variables: v }) }); return { b: await r.json(), t: r.headers.get('vendure-auth-token') }; };
-const L = await gql(`mutation{login(username:"superadmin",password:"superadmin"){...on CurrentUser{id}}}`);
+const L = await gql(`mutation{login(username:"${ADMIN_USER}",password:"${ADMIN_PASS}"){...on CurrentUser{id}}}`);
 const H = { Authorization: 'Bearer ' + L.t };
 const q = await gql(`query{ __schema{ mutationType{ fields{ name args{ name type{ kind name ofType{ name kind ofType{ kind name } } } } } } } }`, {}, H);
 const fields = q.b?.data?.__schema?.mutationType?.fields || [];
