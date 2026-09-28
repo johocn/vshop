@@ -138,4 +138,7 @@ function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/deta
 .section-title { font-size: 28rpx; font-weight: bold; margin-bottom: 16rpx; display: block; }
 .product-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .product-mini { width: calc(50% - 6rpx); background: #fff; border-radius: $radius-md; overflow: hidden; &__name { font-size: 24rpx; padding: 8rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 64rpx; } }
+.fab-group { position: fixed; right: 24rpx; bottom: 200rpx; display: flex; flex-direction: column; gap: 20rpx; }
+.fab { width: 84rpx; height: 84rpx; border-radius: 50%; background: rgba(0,0,0,0.45); color: #fff; font-size: 36rpx; display: flex; align-items: center; justify-content: center; }
+.list-footer { display: block; width: 100%; text-align: center; font-size: 24rpx; color: #999; padding: 24rpx 0; }
 </style>
