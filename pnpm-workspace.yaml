@@ -1,0 +1,8 @@
+# pnpm 工程配置（pnpm 10+ 的工程级配置统一在此文件）
+#
+# 采用 npm 式扁平链接（hoisted）：uni-app 生态的传递依赖层次复杂，
+# isolated 布局会把「每个包名仅一个版本」提升到 node_modules/.pnpm/node_modules，
+# 与各消费者声明的版本错配（@intlify/*、@vue/devtools-* 等），
+# 导致 Rollup 报「xxx is not exported / failed to resolve import」而构建失败。
+# 扁平链接按 npm 式就近嵌套规则解析依赖，构建稳定可复现。
+nodeLinker: hoisted

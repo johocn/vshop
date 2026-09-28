@@ -30,6 +30,7 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { getMyMerchantProducts, submitForMarketplace } from '../../api/queries/marketplace-admin';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+import { requireAuth } from '../../composables/useAdminGuard';
 
 const products = ref<any[]>([]);
 const loading = ref(false);
@@ -40,7 +41,11 @@ const statusMap: Record<string, string> = {
     rejected: '已驳回',
 };
 
-onShow(() => { loadData(); });
+// 商家自助页：只需登录（商品归属与提交权限由后端按店铺校验）
+onShow(() => {
+    if (!requireAuth()) return;
+    loadData();
+});
 
 async function loadData() {
     loading.value = true;

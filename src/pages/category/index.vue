@@ -10,24 +10,33 @@
       </scroll-view>
     </view>
     <view class="category-page__right">
-      <scroll-view scroll-y class="category-page__content">
-        <view v-if="subCategories.length" class="sub-grid">
-          <view v-for="sub in subCategories" :key="sub.id" class="sub-item" @click="goList(sub.id)">
-            <text class="sub-item__name">{{ sub.name }}</text>
-          </view>
-        </view>
-        <view class="product-section" v-if="products.length">
-          <text class="section-title">{{ activeCat?.name || '' }} 商品</text>
-          <view class="product-grid">
-            <view v-for="p in products" :key="p.productId" class="product-mini" @click="goDetail(p.slug)">
-              <VImage :src="p.productAsset?.preview || ''" width="100%" height="200rpx" />
-              <text class="product-mini__name">{{ p.productName }}</text>
-              <PriceTag :price="getMinPrice(p.priceWithTax)" />
+      <scroll-view scroll-y class="category-page__content" @scrolltolower="onReachBottom">
+        <!-- mode=1：二级分类格 -->
+        <view v-if="mode === 1">
+          <view v-if="subCategories.length" class="sub-grid">
+            <view v-for="sub in subCategories" :key="sub.id" class="sub-item" @click="goList(sub.id)">
+              <text class="sub-item__name">{{ sub.name }}</text>
             </view>
           </view>
+          <EmptyState v-if="!subCategories.length" text="暂无子分类" />
         </view>
-        <EmptyState v-if="!loading && products.length === 0 && subCategories.length === 0" text="暂无内容" />
+
+        <!-- mode=2：商品列表 -->
+        <view v-else class="product-grid">
+          <view v-for="p in products" :key="p.productId" class="product-mini" @click="goDetail(p.slug)">
+            <VImage :src="p.productAsset?.preview || ''" width="100%" height="240rpx" />
+            <text class="product-mini__name">{{ p.productName }}</text>
+            <PriceTag :price="getMinPrice(p.priceWithTax)" />
+          </view>
+          <text v-if="!hasMore && products.length > 0" class="list-footer">没有更多了</text>
+          <EmptyState v-if="!loadingMore && products.length === 0" text="暂无商品" />
+        </view>
       </scroll-view>
+
+      <view class="fab-group">
+        <view class="fab" @click="toggleMode">⇄</view>
+        <view class="fab" @click="toTop">↑</view>
+      </view>
     </view>
   </view>
 </template>
@@ -45,6 +54,7 @@ const products = ref<any[]>([]);
 const activeCat = ref<any>(null);
 const loading = ref(true);
 const loadingMore = ref(false);
+const mode = ref(1);
 
 onMounted(async () => {
     try {
@@ -91,6 +101,22 @@ async function loadProducts(reset = false) {
         console.error(e);
     }
     loadingMore.value = false;
+}
+
+function toggleMode() {
+    mode.value = mode.value === 1 ? 2 : 1;
+    if (mode.value === 2) {
+        // 进入商品列表时按需首次加载
+        if (products.value.length === 0) void loadProducts(true);
+    }
+}
+
+function onReachBottom() {
+    if (mode.value === 2) void loadProducts(false);
+}
+
+function toTop() {
+    uni.pageScrollTo({ scrollTop: 0, duration: 200 });
 }
 
 function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
