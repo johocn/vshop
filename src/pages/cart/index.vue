@@ -53,7 +53,7 @@ import { onShow } from '@dcloudio/uni-app';
 import { useCartStore } from '../../stores/cart';
 import { useUIStore } from '../../stores/ui';
 import { getActiveOrder } from '../../api/queries/order';
-import { adjustOrderLine, removeOrderLine } from '../../api/mutations/cart';
+import { adjustOrderLine, addItemToOrder, removeOrderLine } from '../../api/mutations/cart';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
@@ -77,7 +77,27 @@ const totalYuan = computed(() => {
     return (total / 100).toFixed(2);
 });
 
-onShow(() => loadCart());
+onShow(async () => {
+    await loadCart();
+    await restorePending();
+});
+
+/** 幂等回填：成功一行即从暂存放移除一行，失败的行留在暂存里等下次再试 */
+async function restorePending() {
+    const pending = [...cart.pendingLines];
+    if (pending.length === 0) return;
+    const failed: Array<{ variantId: string; quantity: number }> = [];
+    for (const p of pending) {
+        try {
+            await addItemToOrder(p.variantId, p.quantity);
+        } catch (e) {
+            failed.push(p);
+        }
+    }
+    cart.setPendingLines(failed);
+    if (failed.length > 0) ui.showToast(`${failed.length} 件商品库存不足，未能恢复`);
+    await loadCart();
+}
 
 async function loadCart() {
     loading.value = true;
@@ -150,8 +170,26 @@ async function removeLine(id: string) {
     });
 }
 
-function goCheckout() {
+async function goCheckout() {
     if (selectedCount.value === 0) return;
+    const unselected = cartLines.value.filter((l: any) => !selectedIds.value.has(l.id));
+    // 失效行不可勾选，也不进暂存（无法再下单），但仍需从订单移出
+    const stash = unselected
+        .filter((l: any) => cartLineState(l) !== 'invalid')
+        .map((l: any) => ({ variantId: l.productVariant?.id, quantity: l.quantity }))
+        .filter((x: any) => !!x.variantId);
+
+    try {
+        for (const l of unselected) {
+            await removeOrderLine(l.id);
+        }
+    } catch (e: any) {
+        ui.showToast(e.message);
+        await loadCart();
+        return;
+    }
+
+    cart.setPendingLines(stash);
     uni.navigateTo({ url: '/pkg-order/pages/checkout' });
 }
 </script>
