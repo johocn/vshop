@@ -81,3 +81,21 @@ export function soldPercent(item: FlashItem): number {
     const p = Math.round((item.soldCount / item.totalStock) * 100);
     return Math.min(100, Math.max(0, p));
 }
+
+/** 购物车行状态判定：失效（已下架/变体缺失）优先于库存预警 */
+export type CartLineState = 'invalid' | 'lowStock' | 'normal';
+
+export function cartLineState(line: any): CartLineState {
+    const v = line?.productVariant;
+    if (!v || v.enabled === false) return 'invalid';
+    const stock = Number(v.stockLevel);
+    if (Number.isFinite(stock) && stock >= 0 && stock < Number(line?.quantity ?? 0)) return 'lowStock';
+    return 'normal';
+}
+
+/** 库存预警文案：仅 lowStock 时返回，如「仅剩 2 件」 */
+export function lowStockText(line: any): string {
+    const stock = Number(line?.productVariant?.stockLevel);
+    if (!Number.isFinite(stock) || stock < 0) return '';
+    return `仅剩 ${stock} 件`;
+}
