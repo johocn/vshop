@@ -106,6 +106,32 @@
         <view class="muted hint">{{ $t('decorateHome.goodsHint') }}</view>
       </template>
 
+      <!-- flash：限时精选（秒杀） -->
+      <template v-else-if="sec.type === 'flash'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.flashTitlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.flashSource') }}</text>
+          <view class="btns">
+            <text class="btn active">{{ $t('decorateHome.flashSourceFlashSale') }}</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.flashLayout') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.layout || sec.layout === 'row' }" @tap="sec.layout = 'row'">{{ $t('decorateHome.flashLayoutRow') }}</text>
+            <text class="btn" :class="{ active: sec.layout === 'grid2' }" @tap="sec.layout = 'grid2'">{{ $t('decorateHome.flashLayoutGrid2') }}</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.flashLimit') }}</text>
+          <input v-model.number="sec.limit" type="number" :placeholder="$t('decorateHome.flashLimitPlaceholder')" />
+        </view>
+        <view class="muted hint">{{ $t('decorateHome.flashHint') }}</view>
+      </template>
+
       <!-- hot：热门商品 -->
       <template v-else-if="sec.type === 'hot'">
         <view class="field">
@@ -244,6 +270,7 @@
       <button class="mini" @tap="addNotice">{{ $t('decorateHome.addNotice') }}</button>
       <button class="mini" @tap="addNav">{{ $t('decorateHome.addNav') }}</button>
       <button class="mini" @tap="addGoods">{{ $t('decorateHome.addGoods') }}</button>
+      <button class="mini" @tap="addFlash">{{ $t('decorateHome.addFlash') }}</button>
       <button class="mini" @tap="addHot">{{ $t('decorateHome.addHot') }}</button>
       <button class="mini" @tap="addRecommend">{{ $t('decorateHome.addRecommend') }}</button>
       <button class="mini" @tap="addBrandFloor">{{ $t('decorateHome.addBrandFloor') }}</button>
@@ -343,6 +370,7 @@ function typeLabel(t: string): string {
     case 'notice': return locale.t('decorateHome.typeNotice');
     case 'nav': return locale.t('decorateHome.typeNav');
     case 'goods': return locale.t('decorateHome.typeGoods');
+    case 'flash': return locale.t('decorateHome.typeFlash');
     case 'hot': return locale.t('decorateHome.typeHot');
     case 'recommend': return locale.t('decorateHome.typeRecommend');
     case 'brandFloor': return locale.t('decorateHome.typeBrandFloor');
@@ -359,6 +387,7 @@ function addBanner() { sections.value.push({ type: 'banner', images: [{ image: '
 function addNotice() { sections.value.push({ type: 'notice', text: '' }); }
 function addNav() { sections.value.push({ type: 'nav', items: [{ label: '' }], shape: 'square', layout: 'grid5x2' }); }
 function addGoods() { sections.value.push({ type: 'goods', collectionId: '', layout: 'compact' }); }
+function addFlash() { sections.value.push({ type: 'flash', source: 'flashSale', layout: 'row', limit: 4 }); }
 function addHot() { sections.value.push({ type: 'hot', source: 'auto', limit: 10, layout: 'compact' }); }
 function addRecommend() { sections.value.push({ type: 'recommend', source: 'auto', limit: 10, layout: 'compact', dedupe: true }); }
 function addBrandFloor() { sections.value.push({ type: 'brandFloor', title: '' }); }
