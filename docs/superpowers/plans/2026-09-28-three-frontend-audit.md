@@ -215,7 +215,7 @@ git push
 - nshop `palette-presets` 既有漂移（测试断言 8 套 / 实现 9 套）在 Task 5.1 一并修正，测试全绿。
 - vshop `dist/build/h5` 产物由并行工作流构建，本任务**不提交 dist**（交由并行工作流），也不纳入本次代码提交范围。
 
-**回归**：nshop `npm test` 20 文件/155 用例 PASS、`npm run build` Build complete（28.3 MB）；web-admin `npm run build:h5` 成功；vshop `pnpm build:h5` 成功。
+**回归**：nshop `npm test` 20 文件/155 用例 PASS、`npm run build` Build complete（28.3 MB）；web-admin `npm run build:h5` 成功 + `npm run verify:manual` 文档门禁 **PASS（失败 0）**；vshop `pnpm build:h5` 成功。
 
 **截图取证**：nshop 4 张（首页/分类页/排序切换/筛选抽屉）存 `nshop/docs/superpowers/manual/audit-20260928/assets/`；web-admin 1 张（守卫重定向登录）、vshop 1 张（管理页 toast）存 `vshop/e2e-shots/`。均为 390×844、dpr=2。
 
