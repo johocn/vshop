@@ -33,6 +33,7 @@ import '@wangeditor/editor/dist/css/style.css';
 import { useLocaleStore } from '../stores/localeStore';
 import MediaLibraryModal from './MediaLibraryModal.vue';
 import type { AssetItem } from '../apis/asset';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 type IDomEditorInstance = ReturnType<typeof createEditor>;
 
@@ -78,7 +79,7 @@ const menus = () => (compact.value ? MENUS_COMPACT : MENUS_FULL);
 
 // 切到 HTML 前，先同步一次 wangEditor 当前内容到 props（防止 Promise 异步未同步）
 function syncCurrentHtml() {
-  if (editorRef.value) emit('update:modelValue', editorRef.value.getHtml());
+  if (editorRef.value) emit('update:modelValue', sanitizeHtml(editorRef.value.getHtml()));
 }
 
 function openLibrary(_t?: 'image' | 'video' | 'mixed') {
@@ -129,7 +130,7 @@ function initEditor(html = props.modelValue || '') {
     config: { toolbarKeys: menus() },
     mode: 'default',
   });
-  editor.on('change', () => emit('update:modelValue', editor.getHtml()));
+  editor.on('change', () => emit('update:modelValue', sanitizeHtml(editor.getHtml())));
   editorRef.value = editor;
 }
 
@@ -140,9 +141,11 @@ function destroyEditor() {
   }
 }
 
-// HTML 源码失焦：把源码写回可可视化重建的初始值
+// HTML 源码模式失焦：净化后回写 modelValue（原实现为空操作，源码编辑不会保存）
 function onSrcBlur() {
-  props.modelValue;
+  const clean = sanitizeHtml(srcHtml.value);
+  srcHtml.value = clean;
+  emit('update:modelValue', clean);
 }
 
 watch(
@@ -151,7 +154,7 @@ watch(
     if (m === 'visual') {
       await nextTick();
       destroyEditor();
-      initEditor(srcHtml.value);
+      initEditor(sanitizeHtml(srcHtml.value));
       srcHtml.value = props.modelValue || '';
     } else {
       syncCurrentHtml();

@@ -31,11 +31,16 @@ import {
     rejectMarketplaceProduct,
 } from '../../api/queries/marketplace-admin';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+import { requireAdmin } from '../../composables/useAdminGuard';
 
 const products = ref<any[]>([]);
 const loading = ref(false);
 
-onShow(() => { loadData(); });
+// 管理页守卫：非管理员直接退回首页（后端 @Allow(SuperAdmin) 为最终判定）
+onShow(async () => {
+    if (!(await requireAdmin())) return;
+    loadData();
+});
 
 async function loadData() {
     loading.value = true;

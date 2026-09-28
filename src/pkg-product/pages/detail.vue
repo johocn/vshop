@@ -49,7 +49,7 @@ import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import ProductPoster from '../../components/product-poster/product-poster.vue';
 import { pickTranslation } from '../../utils/locale';
-import { stripHtmlToText, buildShareMeta } from '../../utils/html';
+import { stripHtmlToText, buildShareMeta, sanitizeRichHtml } from '../../utils/html';
 import MpHtml from 'mp-html/dist/uni-app/components/mp-html/mp-html.vue';
 
 const product = ref<any>(null);
@@ -72,7 +72,8 @@ const selectedVariant = computed(() => {
 });
 
 const sellingPoint = computed(() => (product.value?.customFields?.sellingPoint as string) ?? '');
-const descHtml = computed(() => pickTranslation(product.value?.translations || []));
+// 商品描述来自后台富文本：渲染前白名单净化，防存储型 XSS（mp-html H5 走 innerHTML）
+const descHtml = computed(() => sanitizeRichHtml(pickTranslation(product.value?.translations || [])));
 const mainVideo = computed(() => {
     const vid = product.value?.customFields?.videoAssetId;
     if (!vid) return null;

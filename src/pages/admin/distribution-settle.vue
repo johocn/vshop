@@ -83,6 +83,7 @@ import {
     formatYuan,
 } from '../../api/queries/distribution';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+import { requireAdmin } from '../../composables/useAdminGuard';
 
 const tabs = [
     { key: 'distributors', label: '分销员' },
@@ -95,7 +96,11 @@ const commissions = ref<any[]>([]);
 const withdrawals = ref<any[]>([]);
 const loading = ref(false);
 
-onShow(() => { loadAll(); });
+// 管理页守卫：非管理员直接退回首页（后端 @Allow(SuperAdmin) 为最终判定）
+onShow(async () => {
+    if (!(await requireAdmin())) return;
+    loadAll();
+});
 
 function switchTab(key: string) {
     active.value = key;

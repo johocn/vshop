@@ -1,6 +1,8 @@
 // H5 端体验增强：全局「返回首页」按钮 + 顶层页（首页/选店）退出确认
 // 仅适用于 uni-app H5（UNI_PLATFORM === 'h5'），原生/小程序不启用。
 import { useLocaleStore } from '../stores/localeStore';
+import { useAuthStore } from '../stores/authStore';
+import { useTenantStore } from '../stores/tenantStore';
 
 const HOME = 'pages/dashboard/index';
 const HOME_URL = '/pages/dashboard/index';
@@ -48,6 +50,14 @@ export function confirmExit() {
     confirmColor: '#e64340',
     success(res) {
       if (res.confirm) {
+        // 退出登录：先彻底清理会话（token/用户/店铺），再回登录页，
+        // 否则残留 token 会让「未登录」状态被判定为已登录（可绕过登录直接进后台）。
+        try {
+          useAuthStore().logout();
+          useTenantStore().clear();
+        } catch (e) {
+          console.warn('[h5Nav] logout cleanup failed', e);
+        }
         uni.reLaunch({ url: '/pages/login/index' });
       }
     },
