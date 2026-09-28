@@ -9,6 +9,9 @@ export type NavLayout = 'grid5x2' | 'grid4x2' | 'row';
 export interface NavSection { type: 'nav'; items: NavItem[]; shape?: NavShape; layout?: NavLayout; }
 export type GoodsLayout = 'compact' | 'masonry' | 'single';
 export interface GoodsSection { type: 'goods'; title?: string; collectionId?: string; layout?: GoodsLayout; }
+export type FlashSource = 'flashSale';
+export type FlashLayout = 'row' | 'grid2';
+export interface FlashSection { type: 'flash'; title?: string | Record<string, string>; source: FlashSource; layout?: FlashLayout; limit?: number; }
 export interface RichTextSection { type: 'richText'; html: string; }
 // 热门 / 推荐商品积木（与前台 shop-content schema 对齐；本工程无 LocalizedText，标题用 string）
 export type GoodsCardLayout = 'compact' | 'sliding' | 'hero';
@@ -37,7 +40,7 @@ export interface CouponSection { type: 'coupon'; title?: string; limit?: number;
 export interface LatestSection { type: 'latest'; title?: string; collectionId?: string; limit?: number; layout?: GoodsLayout; }
 
 export type ShopSection =
-  | BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection
+  | BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection
   | HotGoodsSection | RecommendGoodsSection
   | BrandFloorSection | PlazaSection | CouponSection | LatestSection;
 
@@ -49,7 +52,7 @@ export interface ShopContent {
   hiddenSlots?: string[];
 }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest', 'flash'];
 const GOODS_SOURCES = {
   hot: ['auto', 'collection'],
   recommend: ['auto', 'collection', 'slugs'],
@@ -77,6 +80,12 @@ export function isValidShopContent(data: any): data is ShopContent {
     if (sec.type === 'nav' && (!Array.isArray(sec.items) || sec.items.length === 0)) return false;
     if (sec.type === 'goods' && sec.collectionId != null && typeof sec.collectionId !== 'string') return false;
     if (sec.type === 'richText' && typeof sec.html !== 'string') return false;
+    if (sec.type === 'flash') {
+      if (sec.source !== 'flashSale') return false;
+      if (sec.layout != null && sec.layout !== 'row' && sec.layout !== 'grid2') return false;
+      if (sec.limit != null && typeof sec.limit !== 'number') return false;
+      if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+    }
     if (sec.type === 'hot' || sec.type === 'recommend') {
       // limit：正整数且 ≤ 30
       if (sec.limit != null && (!Number.isInteger(sec.limit) || sec.limit < 1 || sec.limit > 30)) return false;
