@@ -198,5 +198,12 @@
         "detail": "Detailed Address",
         "default": "Default Address",
         "setDefault": "Set as Default"
+    },
+    "sku": {
+        "picked": "Selected",
+        "pieces": "pcs",
+        "quantity": "Quantity",
+        "pleasePick": "Please choose options",
+        "outOfStock": "Out of stock"
     }
 }
