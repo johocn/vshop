@@ -6,17 +6,40 @@
       </swiper-item>
     </swiper>
     <view class="product-detail__info">
-      <PriceTag :price="selectedVariant?.priceWithTax || 0" :large="true" />
+      <view class="price-row">
+        <PriceTag :price="displayPrice" :large="true" />
+        <text class="price-row__origin" v-if="originPrice">¥{{ originPrice }}</text>
+        <text class="price-row__badge" v-if="isFlash">秒杀价</text>
+      </view>
+      <view class="price-note" @click="showPriceNote = true">
+        <text class="price-note__text">价格说明</text>
+        <text class="price-note__arrow">›</text>
+      </view>
       <text class="product-detail__name">{{ product.name }}</text>
-      <view class="product-detail__specs" v-if="product.optionGroups?.length">
-        <view v-for="group in product.optionGroups" :key="group.id" class="spec-group">
-          <text class="spec-group__label">{{ group.name }}</text>
-          <view class="spec-group__options">
-            <text v-for="opt in group.options" :key="opt.id"
-              class="spec-option" :class="{ active: selectedOptions[group.id] === opt.id }"
-              @click="selectOption(group.id, opt.id)">{{ opt.name }}</text>
-          </view>
+
+      <!-- 元信息行：分享/海报必做；销量/积分有数据才渲染 -->
+      <view class="meta-row">
+        <view class="meta-row__share" @click="shareNow">
+          <text class="meta-row__icon">↗</text>
+          <text class="meta-row__text">分享</text>
         </view>
+        <view class="meta-row__share" @click="showPoster = true">
+          <text class="meta-row__icon">▣</text>
+          <text class="meta-row__text">海报</text>
+        </view>
+        <view class="meta-row__item" v-if="salesCountText">
+          <text class="meta-row__text">已售 {{ salesCountText }}</text>
+        </view>
+        <view class="meta-row__item" v-if="pointsText">
+          <text class="meta-row__text">{{ pointsText }}</text>
+        </view>
+      </view>
+
+      <!-- 已选规格入口 -->
+      <view class="sku-entry" @click="openSku()">
+        <text class="sku-entry__label">已选</text>
+        <text class="sku-entry__value">{{ pickedSummary }} · 1 件</text>
+        <text class="sku-entry__arrow">›</text>
       </view>
     </view>
     <view class="product-detail__rich" v-if="mainVideo || descHtml || sellingPoint">
@@ -27,10 +50,28 @@
       <MpHtml v-if="descHtml" :content="descHtml" class="rich__mp" />
     </view>
     <view class="product-detail__bar">
-      <button class="product-detail__poster-btn" @click="showPoster = true">海报</button>
-      <button class="product-detail__cart-btn" @click="addToCart">加入购物车</button>
-      <button class="product-detail__buy-btn" @click="buyNow">立即购买</button>
+      <view class="bar-ico" @click="contactService"><text class="bar-ico__g">☎</text><text class="bar-ico__t">客服</text></view>
+      <view class="bar-ico" @click="onFavorite"><text class="bar-ico__g">☆</text><text class="bar-ico__t">收藏</text></view>
+      <view class="bar-ico" @click="goCart"><text class="bar-ico__g">🛒</text><text class="bar-ico__t">购物车</text></view>
+      <button class="product-detail__cart-btn" @click="openSku('cart')">加入购物车</button>
+      <button class="product-detail__buy-btn" @click="openSku('buy')">立即购买</button>
     </view>
+
+    <SkuSheet
+      v-model:visible="showSku"
+      :product="product"
+      :activity-id="flashSaleActivityId"
+      @action="onSkuAction"
+    />
+
+    <view v-if="showPriceNote" class="note-mask" @click.self="showPriceNote = false">
+      <view class="note-sheet">
+        <text class="note-sheet__title">价格说明</text>
+        <text class="note-sheet__body">划线价为商品参考价，非原价；实际成交价以订单结算页为准。秒杀价仅在活动期间且订单已应用活动时生效。</text>
+        <text class="note-sheet__ok" @click="showPriceNote = false">知道了</text>
+      </view>
+    </view>
+
     <ProductPoster v-if="showPoster" :product="product" @close="showPoster = false" />
   </view>
 </template>
@@ -40,6 +81,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
 import { getProduct } from '../../api/queries/product';
 import { addItemToOrder } from '../../api/mutations/cart';
+import { applyFlashSale } from '../../api/mutations/promotion';
 import { useCartStore } from '../../stores/cart';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
@@ -47,6 +89,7 @@ import { useTenantStore } from '../../stores/tenant';
 import { getActiveOrder } from '../../api/queries/order';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
+import SkuSheet from '../../components/SkuSheet.vue';
 import ProductPoster from '../../components/product-poster/product-poster.vue';
 import { pickTranslation } from '../../utils/locale';
 import { stripHtmlToText, buildShareMeta, sanitizeRichHtml } from '../../utils/html';
@@ -59,6 +102,10 @@ const auth = useAuthStore();
 const ui = useUIStore();
 const tenant = useTenantStore();
 const showPoster = ref(false);
+const showSku = ref(false);
+const showPriceNote = ref(false);
+const skuIntent = ref<'cart' | 'buy'>('cart');
+const flashSaleActivityId = ref('');
 
 let pendingAction: 'cart' | 'buy' | null = null;
 let offLogin: (() => void) | null = null;
@@ -80,10 +127,85 @@ const mainVideo = computed(() => {
     return (product.value?.assets || []).find((a: any) => String(a.id) === String(vid)) || null;
 });
 
+const isFlash = computed(() => !!flashSaleActivityId.value);
+
+const displayPrice = computed(() => selectedVariant.value?.priceWithTax || 0);
+
+/** 划线原价：秒杀时同 variant 的常规价；取不到或低于现价则不显示 */
+const originPrice = computed(() => {
+    const p = selectedVariant.value?.priceWithTax;
+    if (!isFlash.value || !Number.isFinite(p)) return '';
+    return (p / 100).toFixed(2);
+});
+
+/** 降级：无数据源则不渲染 */
+const salesCountText = computed(() => {
+    const n = (product.value as any)?.customFields?.salesCount;
+    return Number.isFinite(Number(n)) && Number(n) > 0 ? String(n) : '';
+});
+const pointsText = computed(() => {
+    const n = (product.value as any)?.customFields?.pointsReward;
+    return Number.isFinite(Number(n)) && Number(n) > 0 ? `可得 ${n} 积分` : '';
+});
+
+const pickedSummary = computed(() => {
+    const names = (product.value?.optionGroups || [])
+        .map((g: any) => (g.options || []).find((o: any) => o.id === selectedOptions.value[g.id])?.name)
+        .filter(Boolean);
+    return names.length ? names.join(' / ') : '请选择规格';
+});
+
+function openSku(intent: 'cart' | 'buy' = 'cart') {
+    skuIntent.value = intent;
+    showSku.value = true;
+}
+
+async function onSkuAction(payload: { action: 'cart' | 'buy'; variantId: string; quantity: number }) {
+    showSku.value = false;
+    if (payload.action === 'buy' && !auth.isLoggedIn) {
+        pendingAction = 'buy';
+        uni.navigateTo({ url: '/pages/login/index' });
+        return;
+    }
+    await addVariant(payload.variantId, payload.quantity);
+    if (payload.action === 'buy') {
+        uni.navigateTo({ url: '/pkg-order/pages/checkout' });
+    }
+}
+
+/** 加购 + 秒杀活动落单（活动价必须由后端应用，前端不自行算折扣） */
+async function addVariant(variantId: string, quantity: number) {
+    try {
+        await addItemToOrder(variantId, quantity);
+        if (flashSaleActivityId.value) {
+            await applyFlashSale(flashSaleActivityId.value);
+        }
+        const res: any = await getActiveOrder();
+        if (res.activeOrder) cart.setOrder(res.activeOrder);
+        ui.showToast('已加入购物车', 'success');
+    } catch (e: any) {
+        ui.showToast(e.message);
+    }
+}
+
+function contactService() {
+    ui.showToast('客服功能敬请期待');
+}
+function onFavorite() {
+    ui.showToast('收藏功能敬请期待');
+}
+function goCart() {
+    uni.switchTab({ url: '/pages/cart/index' });
+}
+function shareNow() {
+    ui.showToast('请点击右上角分享');
+}
+
 onMounted(async () => {
     const pages = getCurrentPages();
     const page = pages[pages.length - 1] as any;
     const slug = page?.options?.slug;
+    flashSaleActivityId.value = String(page?.options?.flashSaleActivityId || '');
     if (!slug) return;
     try {
         const res: any = await getProduct(slug);
@@ -114,39 +236,14 @@ onMounted(async () => {
     }
 });
 
-function selectOption(groupId: string, optionId: string) {
-    selectedOptions.value = { ...selectedOptions.value, [groupId]: optionId };
-}
-
-async function addToCart() {
-    if (!selectedVariant.value) return;
-    try {
-        await addItemToOrder(selectedVariant.value.id, 1);
-        const res: any = await getActiveOrder();
-        if (res.activeOrder) cart.setOrder(res.activeOrder);
-        ui.showToast('已加入购物车', 'success');
-    } catch (e: any) { ui.showToast(e.message); }
-}
-
-async function buyNow() {
-    if (!selectedVariant.value) return;
-    if (!auth.isLoggedIn) {
-        pendingAction = 'buy';
-        uni.navigateTo({ url: '/pages/login/index' });
-        return;
-    }
-    await addToCart();
-    uni.navigateTo({ url: '/pkg-order/pages/checkout' });
-}
-
 onMounted(async () => {
     offLogin = auth.onLogin(async () => {
         if (pendingAction === 'cart') {
             pendingAction = null;
-            await addToCart();
+            if (selectedVariant.value) await addVariant(selectedVariant.value.id, 1);
         } else if (pendingAction === 'buy') {
             pendingAction = null;
-            await addToCart();
+            if (selectedVariant.value) await addVariant(selectedVariant.value.id, 1);
             uni.navigateTo({ url: '/pkg-order/pages/checkout' });
         } else {
             try {
@@ -171,14 +268,23 @@ onUnmounted(() => {
     &__cart-btn { flex: 1; height: 80rpx; background: $brand-color-light; color: $brand-color; font-size: 28rpx; border-radius: $radius-md; border: none; }
     &__buy-btn { flex: 1; height: 80rpx; background: $brand-color; color: #fff; font-size: 28rpx; border-radius: $radius-md; border: none; }
 }
-.spec-group {
-    margin-top: 20rpx;
-    &__label { font-size: 24rpx; color: $text-color-secondary; }
-    &__options { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
+.price-row { display: flex; align-items: baseline; gap: 12rpx; }
+.price-row__origin { font-size: 24rpx; color: #999; text-decoration: line-through; }
+.price-row__badge { font-size: 20rpx; color: #fff; background: $price-color; border-radius: 8rpx; padding: 2rpx 10rpx; }
+.price-note { display: flex; align-items: center; gap: 6rpx; margin-top: 8rpx; &__text { font-size: 22rpx; color: #999; } &__arrow { font-size: 22rpx; color: #999; } }
+.meta-row { display: flex; align-items: center; gap: 32rpx; margin-top: 16rpx; &__share { display: flex; align-items: center; gap: 6rpx; } &__item { display: flex; align-items: center; } &__icon { font-size: 26rpx; color: $text-color-secondary; } &__text { font-size: 24rpx; color: $text-color-secondary; } }
+.sku-entry { display: flex; align-items: center; gap: 12rpx; margin-top: 20rpx; padding: 16rpx 0; border-top: 1rpx solid $border-color;
+    &__label { font-size: 26rpx; color: $text-color-secondary; }
+    &__value { flex: 1; font-size: 26rpx; color: $text-color; }
+    &__arrow { font-size: 26rpx; color: #ccc; }
 }
-.spec-option {
-    padding: 8rpx 24rpx; font-size: 24rpx; border: 1rpx solid $border-color; border-radius: $radius-sm;
-    &.active { border-color: $brand-color; color: $brand-color; background: $brand-color-light; }
+.product-detail__bar { justify-content: space-between; gap: 8rpx; }
+.bar-ico { display: flex; flex-direction: column; align-items: center; width: 88rpx; &__g { font-size: 32rpx; } &__t { font-size: 20rpx; color: $text-color-secondary; } }
+.note-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 210; display: flex; align-items: center; justify-content: center; }
+.note-sheet { width: 620rpx; background: #fff; border-radius: $radius-md; padding: 32rpx; display: flex; flex-direction: column; gap: 20rpx;
+    &__title { font-size: 30rpx; font-weight: bold; }
+    &__body { font-size: 26rpx; color: $text-color-secondary; line-height: 1.6; }
+    &__ok { text-align: center; color: $brand-color; font-size: 28rpx; padding-top: 8rpx; }
 }
 .product-detail__rich { margin-top: 16rpx; background: #fff; }
 .rich__video { padding: 16rpx 0; }
