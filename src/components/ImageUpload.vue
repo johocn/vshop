@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { uploadCustomerAsset } from '../api/mutations/upload';
 
 const props = defineProps<{
     modelValue?: string[];
@@ -54,19 +55,13 @@ function chooseImage() {
 }
 
 async function uploadImage(filePath: string) {
-    // TODO: Replace with real upload endpoint (OSS/CDN)
-    // For now, use local temp path as placeholder
     uni.showLoading({ title: '上传中...' });
     try {
-        // In production: upload to OSS/S3 and get URL
-        // const res = await uni.uploadFile({ url: 'YOUR_UPLOAD_API', filePath, name: 'file' });
-        // images.value.push(res.data.url);
-
-        // Placeholder: use local file path
-        images.value.push(filePath);
+        const asset = await uploadCustomerAsset(filePath);
+        images.value.push(asset.source);
         emit('update:modelValue', images.value);
-    } catch (e) {
-        uni.showToast({ title: '上传失败', icon: 'none' });
+    } catch (e: any) {
+        uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
     }
     uni.hideLoading();
 }
