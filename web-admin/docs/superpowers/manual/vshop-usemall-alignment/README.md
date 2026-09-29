@@ -555,7 +555,7 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | 按渠道拆分销量 | 明确不做（现为全渠道聚合） |
 | 商品列表页 / 首页楼层展示销量、列表按销量排序 | 明确不做（本轮只做详情页元信息行） |
 | 积分随会员档位 / 活动变化 | 明确不做（固定比例派生 + 单品覆盖） |
-| `operations-plugin` 既有 tsc 报错 | 历史遗留：`src/marketing/coupon.service.ts` 11 条 `Property 'getCoupons' does not exist`（wrapper 写于 2026-07-29，调用 coupon-plugin 2026-09-19 重构前的旧 API）。**非本轮引入**，未修；因 root tsconfig 无 `noEmitOnError`，`npm run build` 退出码为 2 但 dist 正常产出 |
+| `operations-plugin` 既有 tsc 报错 | **已修**（2026-09-30，vendure `f9e53a996`）：`src/marketing/coupon.service.ts` 的 `CouponMarketingService` 仍在调用 coupon-plugin 2026-09-19 重构前的旧 API（`getCoupons`/`createCoupon`/…，11 条 tsc 报错）。经全仓库核查**无任何消费者**（web-admin 直接用 coupon-plugin 自带的 `couponTemplates*`），故整体删除该死集成层（`coupon.service.ts` + resolver 7 个 `marketing*Coupon*` 方法 + schema 4 类型/7 字段 + provider 注册）。现 `npx tsc --noEmit` 退出码 **0**、`npm run build` 退出码 **0**、e2e `8 passed` |
 
 ---
 
@@ -636,6 +636,68 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | 商品 79 / 76 价格为 0 | 用户裁定「暂不处理，仅记录」 |
 | `GoodsSection.title` 只支持**字符串**，不支持 `LocalizedText` | 与「后台可编辑文案走 `LocalizedText` 逐级回退」的模板规范有张力；本轮楼层标题（温泉度假等）即分类名，未改类型 |
 | default 渠道仍有 4 个私有空壳分类 | `electronics`/`home`/`personal-care`/`food`（id 2–5，§5.8 已设 `isPrivate`），shop-api 不返回 |
+
+---
+
+### 5.13 v1.8 补丁：operations-plugin 券营销死集成清理（tsc 报错归零 + 券统计静默缺陷）
+
+**起因**：`packages/operations-plugin` 长期有 11 条 tsc 报错（`src/marketing/coupon.service.ts` 的 `Property 'getCoupons' does not exist` 等）。根因是 **coupon-plugin 于 2026-09-19 重构**（旧 `Coupon` 实体 → `CouponTemplate` + `CustomerCoupon` + `ProductCouponBinding`），而 operations-plugin 里 2026-07-29 写的 wrapper 仍指向旧 API。
+
+#### 5.13.1 取证：确认是死代码
+
+| 核查项 | 结论 |
+|---|---|
+| 旧 API 是否存在 | `getCoupons`/`getCoupon`/`createCoupon`/`updateCoupon`/`deleteCoupon`/`enableCouponForChannel`/`disableCouponForChannel` 在 `coupon-plugin` 已**全部不存在** |
+| 谁在调用 `marketingCoupons*` | 全仓库（vendure 前后端 + vshop）grep **无任何消费者**；web-admin 的 `src/apis/coupon.ts` 直接用 coupon-plugin 自带的 `couponTemplates/couponTemplate/createCouponTemplate/...` |
+| 处理方式 | 整体删除该死集成层（而非改写为新 API —— 无需求方，改写即凭空造功能） |
+
+#### 5.13.2 同源静默缺陷：券数量恒为 `0/0/0`
+
+`marketing-overview.service.ts` 的 `countCouponByStatus` 旧实现用 `getRepository(ctx, 'Coupon' as any)`；`Coupon` 实体已不存在 → 抛 `No metadata for "Coupon" was found` → 被外层 `try/catch` **静默吞掉** → `marketingOverview.coupon` 永远是 `0/0/0`。现改用 `CouponTemplate`（`enabled` / `startsAt` / `endsAt`，两者均可为空 = 长期有效，故查询含 `IS NULL` 分支），并去掉该分支的静默 catch。
+
+生产实测对照（2026-09-30 重启后查生产库）：
+
+```sql
+select count(*) as total,
+       count(*) filter (where enabled and ("startsAt" is null or "startsAt" <= now()) and ("endsAt" is null or "endsAt" >= now())) as active,
+       count(*) filter (where "startsAt" > now()) as upcoming,
+       count(*) filter (where "endsAt" < now()) as ended
+from coupon_template;
+-- coupon_template|42|28|0|5
+```
+
+即修复后 `coupon` 应为 `active=28 / upcoming=0 / ended=5`；修复前**恒为** `0/0/0`。
+
+#### 5.13.3 变更清单（vendure `f9e53a996`）
+
+| 文件 | 变更 |
+|---|---|
+| `src/marketing/coupon.service.ts` | **删除**（+ `dist/marketing/coupon.service.{js,d.ts}` 残留一并删除） |
+| `src/marketing/marketing-admin.resolver.ts` | 移除 `CouponMarketingService` 的 import/构造器参数与 7 个 `marketing*Coupon*` 方法 |
+| `src/operations.plugin.ts` | 移除 provider 注册 + schema 中 `MarketingCoupon`/`MarketingCouponList`/`MarketingCreateCouponInput`/`MarketingUpdateCouponInput` 4 个类型与 Query/Mutation 中 7 个字段；`CouponPlugin` **保留**在 `imports`（`MarketingOverviewService` 仍依赖其 `CouponTemplate` 实体） |
+| `src/marketing/marketing-overview.service.ts` | `countCouponByStatus` 改用 `CouponTemplate` + 补 import |
+| `src/operations-admin.resolver.ts` | `recomputeProductStats` 的 `@Args` 类型由 `() => [ID]` 改为 `() => [String]`（`ID` 在 Vendure 是 `type ID = string \| number` **类型别名**，非运行时值，不能出现在装饰器里） |
+
+#### 5.13.4 部署与验证（同级铁律：本地构建 → push → 服务器 `git pull` + `pm2 restart`）
+
+| 环节 | 命令 / 证据 |
+|---|---|
+| 类型检查 | `cd packages/operations-plugin && npx tsc --noEmit` → **退出码 0**（修复前 11 条 error） |
+| 构建 | `npm run build` → **退出码 0**（修复前退出码 2，因 root tsconfig 无 `noEmitOnError` 故 dist 仍产出） |
+| e2e | `npm run e2e` → **`8 passed`**（`content-template` 2 + `product-stats` 6） |
+| 部署 | `ssh joho "cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure vendure-worker"` → 两进程 `online`，无启动报错 |
+| 产物核对 | 服务器上 `dist/marketing/` 已无 `coupon.service.*`；`marketing-overview.service.js` 引用 `coupon_plugin_1.CouponTemplate`；`operations.plugin.js` 中 `marketingCoupons` 出现 **0** 次 |
+| 接口存活 | 生产 `shop-api` 正常返回 `customFields.salesCount/pointsReward`（§5.11 数据未受影响，如商品 59 = `127 / 16800`）；`admin-api` 登录接口正常返回 GraphQL 响应（证明插件注册成功、schema 无冲突） |
+
+> 注：生产 `admin-api` 的 `marketingOverview.coupon` 因缺生产管理员凭据未能直接调用核对，改以「生产库实算值 + 修复后查询逻辑逐条比对」佐证（见 §5.13.2）。
+
+#### 5.13.5 遗留项
+
+| 项 | 状态 |
+|---|---|
+| `vendure/test-marketing-flow.js`（根目录临时脚本，**tracked**）仍调用 `marketingCreateCoupon`/`marketingCoupon`/`marketingUpdateCoupon` | 已失效，但**在本次删除之前就已失效**（其调用的旧 API 早在 coupon-plugin 重构时便不存在）；判定为临时调试脚本，未清理，仅记录 |
+| `operations-plugin/src/constants.ts` 的 `ManageCoupon` 常量 | 删除 service 后成为未使用导出，**保留**（导出的权限常量可能被角色配置引用） |
+| 生产库遗留 `coupon` 表 | 仍在（`information_schema` 可查到），实体已不存在，无人读写；未做删表（destructive，需单独提需求） |
 
 ---
 
