@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.7（2026-09-29，第二轮 S2：评价体系四页 + 「我的订单」取数修复；同日修订：订单页 3 缺陷修复 + 截图 7 张，见 §4 / §5.10） |
+| 版本 | v1.9（2026-09-29；v1.8 商品销量/积分见 §5.11；v1.9 分类页商品为空的数据修复 + 首页商品楼层，见 §5.12） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；第二轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-usemall-alignment-round2-design.md`（本轮） |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；第二轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-usemall-alignment-round2-plan.md`（本轮） |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
@@ -22,6 +22,7 @@
 > **v1.6 相对 v1.5 的增量**：第二轮 S1 —— 详情页 SKU 弹层规格组标题带 `(N)` 计数、单规格商品降级（详情页规格区整段不渲染 / 弹层无规格组标题），见 §4。
 > **v1.7 相对 v1.6 的增量**：第二轮 S2 —— 评价体系四页（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页），并顺带修复「我的订单」列表恒空（后端 shop SDL 补 `myOrders`），见 §5.10。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
 > **v1.7 修订（同日）**：v1.7 首版只靠 API 探针判定「我的订单已修好」，采图后暴露 **3 个缺陷**并全部修复重验：① `myOrders` 关系漏 join `surcharges`（页面仍空）、② 改为 `@Relations(Order)` 按选择集推导关系 + 补同形分片 e2e 用例 ⑤、③ 列表卡片横向溢出 21px 导致右侧被切（`box-sizing`）。截图由 5 张增至 **7 张**（新增 `orders-list.png` / `orders-list-review-entry.png`），详见 §5.10.2。
+> **v1.9 相对 v1.8 的增量**：「分类页商品为空」根因属**渠道数据 + 首页装修数据**，不是取数 bug —— ① 首页 `shopContent` 只有 `banner` + `flash`，**没有商品楼层**，故首页除秒杀 1 件外无商品；② 分类页默认落在「二级分类格」模式，首屏看不到商品；③ 商品 57 `slug` 为空导致详情页打不开。已修：default 渠道补 `shopName`、`shopContent` 追加 4 个 `goods` 商品楼层；分类页默认模式改为商品列表；商品 57 补 `slug=guoxin-nanshan-ticket`。另修楼层**价格 100 倍**与**同商品重复出卡**两个渲染缺陷，见 §5.12。本轮**只动 H5 + 生产数据**，无需重启后端。
 
 ---
 
@@ -97,9 +98,13 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | 文件 | 覆盖点 | 截图内实测内容 |
 |---|---|---|
 | `home-flash-floor.png` | 首页楼层（含秒杀楼层）+ 返回顶部 | ✅ 轮播 3 图 + 「限时精选」标题 + 倒计时（快照 `21:42:00`，随剩余时间变化）+ 「更多 ›」+ 秒杀价 `¥99.00`（原价 `¥168.00` 划线）+ 库存进度 `0%` + tabbar 角标 `2` |
-| `category-modes.png` | 分类页默认模式（二级分类格） | ✅ 左栏 4 个一级分类（温泉度假/汽车服务/黄金珠宝/生鲜食品）；右侧二级分类格「温泉门票 / 温泉住宿」+ 右侧 `⇄` / `↑` 双悬浮按钮（v1.4 重建数据后重采，见 §5.8） |
-| `category-sub-list.png` | 点二级分类 → 商品列表页 | ✅ 点「温泉门票」→ `/#/pkg-product/pages/list?collectionSlug=hot-spring-tickets`，「商品列表」页 3 条：国信南山温泉门票 ¥168.00 / 国信南山温泉工作日门票 ¥168.00 / 国信南山节假日门票 ¥198.00 + 「没有更多了」（v1.4 新增，证明二级分类跳转真的按分类筛出商品） |
-| `category-mode-list.png` | 分类页另一模式（商品列表） | ✅ 点 `⇄` 后切到商品列表模式，展示「温泉度假」的 6 个商品（国信南山温泉门票 ¥168.00 / 工作日门票 ¥168.00 / 节假日房间 ¥880.00 / 工作日房间 ¥688.00 / 节假日门票 ¥198.00 / 酒店测试-豪华套房 ¥888.00）+ 「没有更多了」（v1.4 重建数据后重采） |
+| `home-goods-floor.png` | 首页商品楼层（v1.9 新增，首屏） | ✅ 头部店名 `优商铺 ▼`（此前回退显示渠道 code `__default_channel__`）+ 轮播 3 图 +「限时精选」秒杀楼层；下方「温泉度假」商品楼层已出现，卡片价格 `¥168.00` / `¥688.00`（**非** 100 倍裸值） |
+| `home-goods-floor-full.png` | 首页全页（v1.9，`fullPage`） | ✅ 4 个商品楼层全出：温泉度假 6 件 / 汽车服务 3 件（洗车 ¥20.00、倒胎 ¥150.00、更换换机油 ¥0.00）/ 黄金珠宝 1 件 / 生鲜食品 4 件（现杀黑猪肉 ¥45.00、鲜活小龙虾 ¥38.00、仙居杨梅 ¥68.00、他老婶铁锅炖 ¥0.08）；`documentElement.scrollWidth = 390` |
+| `category-default-list.png` | 分类页**默认**模式（v1.9 改为商品列表） | ✅ 左栏 4 个一级分类（温泉度假/汽车服务/黄金珠宝/生鲜食品）；右侧商品网格 6 件（国信南山温泉门票 ¥168.00 / 工作日门票 ¥168.00 / 节假日房间 ¥880.00 / 工作日房间 ¥688.00 / 节假日门票 ¥198.00 / 酒店测试-豪华套房 ¥888.00）+ 「没有更多了」+ `⇄` / `↑` 双悬浮按钮；`scrollWidth = 390`（`box-sizing` 修复后无横向溢出） |
+| `category-default-list-cat4.png` | 分类页切一级分类（v1.9） | ✅ 点第 4 个一级分类「生鲜食品」→ 右侧刷新为该类 4 件（现杀黑猪肉 ¥45.00 / 鲜活小龙虾 ¥38.00 / 仙居杨梅 ¥68.00 / 他老婶铁锅炖 ¥0.08），证明默认模式按所选一级分类取数 |
+| `category-sub-grid.png` | 分类页 `⇄` 切到二级分类格（v1.9，原默认模式） | ✅ 左栏同 4 个一级；右侧变为二级分类格「温泉门票 / 温泉住宿」（模式切换仍可用） |
+| `category-sub-list.png` | 点二级分类 → 商品列表页（v1.9 重采） | ✅ 点「温泉门票」→ `/#/pkg-product/pages/list?collectionSlug=hot-spring-tickets`，「商品列表」页 3 条：国信南山温泉门票 ¥168.00 / 国信南山温泉工作日门票 ¥168.00 / 国信南山节假日门票 ¥198.00 + 「没有更多了」 |
+| `product-57-slug-fixed.png` | 商品 57 详情页（v1.9，slug 修复取证） | ✅ `?slug=guoxin-nanshan-ticket` 正常打开：价格 `¥168.00`、标题「国信南山温泉门票」、「天然好温泉 / 工作日可用，天然温泉，7.8折优惠」、底部 5 键；此前 `slug` 为空时该页取不到商品 |
 | `detail-sku-sheet.png` | 详情页 + SKU 弹层 | ✅ 页面价 `¥168.00` + 底部 5 键（客服/收藏/购物车/加入购物车/立即购买）；弹层含价格、已选、数量步进、加入购物车、立即购买 |
 | `cart-select-real.png` | 购物车勾选真生效 | ✅ 自营 1 件，行项 `☑`、数量 3、`¥168.00`；「为你推荐」4 条；全选 `☑`；合计 `¥504.00`；`结算(1)`；tabbar 角标 3 |
 | `cart-select-partial.png` | 同上，取消勾选后 | ✅ 行项 `☐`、全选 `☐`、合计 `¥0.00`、`结算(0)` 置灰禁用 —— **证明勾选参与结算金额与按钮可用性** |
@@ -343,6 +348,8 @@ v1.2 §5.3 把「购物车『已下架』行内标签」记为**未交付项**�
   -> category-mode-list.png
 ```
 
+> v1.9 起分类页默认模式改为**商品列表**，故本节两个截图文件名已废弃：`category-modes.png`（原「默认=二级分类格」）与 `category-mode-list.png`（原「`⇄` 切到商品列表」）已删除，改为 `category-default-list.png` / `category-sub-grid.png`，见 §5.12.4。
+
 ---
 
 ### 5.9 v1.5 新增：拼团页「我的开团 / 我的参团」（含后端改动）
@@ -549,6 +556,86 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | 商品列表页 / 首页楼层展示销量、列表按销量排序 | 明确不做（本轮只做详情页元信息行） |
 | 积分随会员档位 / 活动变化 | 明确不做（固定比例派生 + 单品覆盖） |
 | `operations-plugin` 既有 tsc 报错 | 历史遗留：`src/marketing/coupon.service.ts` 11 条 `Property 'getCoupons' does not exist`（wrapper 写于 2026-07-29，调用 coupon-plugin 2026-09-19 重构前的旧 API）。**非本轮引入**，未修；因 root tsconfig 无 `noEmitOnError`，`npm run build` 退出码为 2 但 dist 正常产出 |
+
+---
+
+### 5.12 v1.9 新增：「分类页商品为空」的排查与修复（渠道数据 + 首页装修数据 + 2 个渲染缺陷）
+
+**现象**：`https://e.joho.cn` 首页与分类页几乎看不到商品（首页只有秒杀 1 件），而 `https://www.youshop.cn` 同一批数据却能看到商品。
+
+#### 5.12.1 先排除「取数 bug」：这是两套前端，不是一个站
+
+| 站点 | 产物 | 前端 | 首页由什么决定 |
+|---|---|---|---|
+| `e.joho.cn` | `index.html` **548 字节**，title `youshop` | **本仓库 uni-app H5**（hash 路由 `#/pages/...`） | 渠道 `customFields.shopContent` 装修 JSON（`DynamicHome` + sections） |
+| `www.youshop.cn` | SSR HTML **87,827 字节**，title `优商铺`，含 `Nuxt Level Headless E-commerce` | **nuxtless / nshop（Nuxt SSR）另一套前端** | 该前端自带的首页模板（品牌闪购 / 热门商品 / 品质专区 / 分类楼层），**不读** `shopContent` |
+
+两站读的是**同一个默认渠道**的同一份商品数据（同为 4 个一级分类：温泉度假/汽车服务/黄金珠宝/生鲜食品）。所以「youshop 能看见」只说明数据在，不代表 e.joho.cn 前端有取数缺陷 —— 实测 `search` 全量 **14 件商品全部可见**，商品数据本身没丢。
+
+> 附带发现：`resolveChannelByDomain(host)` 对 `www.youshop.cn` 与 `youshop.cn` 都返回 `undefined`（未绑定渠道），即该站也落在默认渠道。
+
+#### 5.12.2 三条真实根因
+
+| # | 根因 | 证据 |
+|---|---|---|
+| ① | 首页 `shopContent` **只有 `banner` + `flash`，没有 `goods` 商品楼层** | 修复前实测：`{"version":1,"sections":[{"type":"banner",...},{"type":"flash","title":{"zh-CN":"限时精选",...},"source":"flashSale","limit":4}]}` → 首页除秒杀 1 件外**无任何商品** |
+| ② | 分类页默认落在 `mode=1`「二级分类格」，首屏只有分类名 | `/#/pages/category/index` 首屏 `¥` 出现 **0** 次；商品需点 `⇄` 或点二级分类才可见 |
+| ③ | 商品 57「国信南山温泉门票」`slug` 为**空字符串** | 它在「温泉门票」列表排第一位，点进去 `detail?slug=` → 详情页取不到商品；**它同时是 t3 渠道唯一的商品** |
+
+另有两个数据缺陷（记录、本轮**不处理**，已与用户确认）：`79 更换换机油` / `76 老凤祥黄金珠宝` 价格为 0（`75 老凤祥黄金珠宝` 为其重复副本且已下架）；`80 鲜活小龙虾` / `81 仙居杨梅` / `82 现杀黑猪肉` 商品级与变体级都无图。
+
+#### 5.12.3 修复内容
+
+**数据侧**（走 admin-api，**无需重启后端**；改动前已备份原值到 `C:/Users/lenovo/AppData/Local/Temp/vshop-default-channel-backup.json`）：
+
+| 层 | 动作 | 实测结果 |
+|---|---|---|
+| 商品 | `updateProduct(id:"57", translations:[{languageCode:"zh_Hans", slug:"guoxin-nanshan-ticket"}])` —— Vendure 的 `slug` **不在 `UpdateProductInput` 顶层**，而是挂在 translation 上 | 复核 `slug = "guoxin-nanshan-ticket"` |
+| 渠道 | `updateChannel(id:"1", customFields:{ shopName:"优商铺" })` | 复核 `shopName = "优商铺"`，首页头部由 `__default_channel__` 变为 `优商铺` |
+| 渠道 | `updateChannel(id:"1", customFields:{ shopContent })`：保留原 `banner` + `flash`，追加 4 个 `goods` 楼层（温泉度假 19 / 汽车服务 22 / 黄金珠宝 26 / 生鲜食品 28） | 复核 sections = `banner → flash → goods(温泉度假) → goods(汽车服务) → goods(黄金珠宝) → goods(生鲜食品)` |
+
+> `updateChannel` 返回的是 union `UpdateChannelResult`（`Channel | LanguageNotAvailableError`），查询字段必须写 inline fragment，否则报 `Cannot query field "id" on type "UpdateChannelResult"`。
+
+**代码侧**（纯前端）：
+
+| 文件 | 改动 | 原因 |
+|---|---|---|
+| `src/pages/category/index.vue` | `mode` 由 `ref(1)` 改 `ref(2)`；`.category-page__content` 补 `box-sizing: border-box` | 默认进入「左侧一级分类 + 右侧商品网格」，首屏即可见商品；补 `box-sizing` 前该 `scroll-view` 实测宽 **411px > 390px**（与 §5.10.2 缺陷③ 同类横向溢出） |
+| `src/templates/shared/sections/GoodsSection.vue` | 价格改用既有组件 `PriceTag`（内部 `/100`）；按 `product.id` **去重** | 原写法 `¥{{ p.price }}` 直接渲染 `priceWithTax` 的分值 → 首页楼层显示 `¥16800`（**100 倍**）；且逐个 variant 出卡，多规格商品（如「鲜活小龙虾」2 个变体）在同一楼层**重复出卡** |
+
+> 已知代价：每个 `goods` 楼层各自调用一次 `getEnabledFloors()`，4 个楼层即 4 次同形重查询（未做请求级缓存/去重），后续如需优化可在 `getEnabledFloors` 加模块级 promise 记忆。
+
+#### 5.12.4 截图断言（390×844 / dpr=2）
+
+| 截图 | 场景 | 断言 |
+|---|---|---|
+| `home-goods-floor.png` | 首页首屏 | 店名 `优商铺`；「温泉度假」商品楼层出现，卡片价 `¥168.00` / `¥688.00` |
+| `home-goods-floor-full.png` | 首页全页 | 4 个楼层全出，实测条目：温泉度假 6 / 汽车服务 3（含 ¥0.00 的「更换换机油」）/ 黄金珠宝 1 / 生鲜食品 4（去重后由 5 条降为 4 条）；`scrollWidth = 390` |
+| `category-default-list.png` | 分类页默认 | 右侧商品网格 6 件（`¥` 出现 6 次），`scrollWidth = 390` |
+| `category-default-list-cat4.png` | 切一级分类 | 点「生鲜食品」→ 右侧刷新为 4 件 |
+| `category-sub-grid.png` | `⇄` 另一模式 | 二级分类格「温泉门票 / 温泉住宿」仍可用 |
+| `category-sub-list.png` | 二级分类 → 列表页 | 「温泉门票」列表 3 件 |
+| `product-57-slug-fixed.png` | 商品 57 详情 | `?slug=guoxin-nanshan-ticket` 正常打开（价格/标题/描述/底部 5 键齐全） |
+
+#### 5.12.5 部署与产物核对
+
+只动 H5 + 生产数据，**未重启后端**（`pm2` 无操作）。前端按 §6.1：本地 `npm run build:h5` → `tar -czf vshop-h5.tgz -C dist/build/h5 .` → `scp joho:/tmp/` → 服务器备份并解压到 `.../sites/e.joho.cn/index`。
+
+| 项 | 值 |
+|---|---|
+| 线上入口 | `assets/index-CYgHLybA.js`（首次构建部署为 `index-ZTbDtKG-.js`，价格/去重两处渲染缺陷修复后重构建） |
+| 文件数 | 本地 132 = 服务器 132（`docker exec 1Panel-openresty-3I6S find ... -type f \| wc -l`） |
+| 数据复核 | `channel(id:"1")` 的 `shopName = 优商铺`、sections 6 段；`product(id:"57").slug = guoxin-nanshan-ticket` |
+
+#### 5.12.6 遗留项
+
+| 项 | 状态 |
+|---|---|
+| 城市/分店店铺（t1/t3/t24）在生产**无法通过 URL 访问** | 26 个渠道里**只有 default 绑定了域名 `e.joho.cn`**（其余 `customFields.customDomains` 全为 `null`）；子路径 `e.joho.cn/t1/`、`/t3/`、`/t24/` 被 nginx SPA fallback 打回同一份 index.html，`activeChannel` 恒为 `__default_channel__`；`?tenant=t1` 也因 `initTenant()` **先按域名解析并直接 return** 而不生效 |
+| t1 / t3 / t24 的分类成员为空 | 这三个渠道的 collection filter 是 `product-id-filter(productIds=[])`（空数组）→ 在 Vendure 3 里 collection 成员**按 filter 动态计算**（无 `collection_product` 表），空数组必然命中 0；t1/t24 渠道商品数本就是 0，t3 只有商品 57 |
+| 商品 79 / 76 价格为 0 | 用户裁定「暂不处理，仅记录」 |
+| `GoodsSection.title` 只支持**字符串**，不支持 `LocalizedText` | 与「后台可编辑文案走 `LocalizedText` 逐级回退」的模板规范有张力；本轮楼层标题（温泉度假等）即分类名，未改类型 |
+| default 渠道仍有 4 个私有空壳分类 | `electronics`/`home`/`personal-care`/`food`（id 2–5，§5.8 已设 `isPrivate`），shop-api 不返回 |
 
 ---
 

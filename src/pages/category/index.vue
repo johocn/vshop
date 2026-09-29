@@ -54,7 +54,8 @@ const products = ref<any[]>([]);
 const activeCat = ref<any>(null);
 const loading = ref(true);
 const loadingMore = ref(false);
-const mode = ref(1);
+// 默认进入商品列表（mode=2）：左侧一级分类 + 右侧商品网格，首屏即可见商品
+const mode = ref(2);
 
 onMounted(async () => {
     try {
@@ -126,7 +127,7 @@ function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/deta
     &__left { width: 180rpx; background: #fff; flex-shrink: 0; }
     &__nav { height: 100vh; }
     &__right { flex: 1; }
-    &__content { height: 100vh; padding: 20rpx; }
+    &__content { height: 100vh; padding: 20rpx; box-sizing: border-box; }
 }
 .nav-item { padding: 30rpx 20rpx; font-size: 26rpx; text-align: center; border-left: 4rpx solid transparent;
     &.active { background: #f5f5f5; color: $brand-color; border-left-color: $brand-color; font-weight: bold; }
