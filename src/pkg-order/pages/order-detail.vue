@@ -52,17 +52,25 @@
       <button v-if="canAfterSale" class="action-btn" @click="applyAfterSale">申请售后</button>
       <button v-if="canInvoice" class="action-btn" @click="applyInvoice">开发票</button>
       <button v-if="canCancel" class="action-btn action-btn--ghost" @click="cancelOrder">取消订单</button>
+      <button v-if="canReview" class="action-btn" @click="goEvaluate">{{ t('review.myOrderReviewBtn') }}</button>
+      <text v-else-if="isFullyReviewed" class="action-btn action-btn--ghost">{{ t('review.reviewed') }}</text>
     </view>
   </view>
   <LoadingSkeleton v-else type="card" :count="2" />
 </template>
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getOrderByCode } from '../../api/queries/order';
+import { getMyReviews } from '../../api/queries/review';
 import { getGraphQLClient } from '../../api/client';
+import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 const order = ref<any>(null);
+const { t } = useI18n();
+const auth = useAuthStore();
+const reviewedLineIds = ref<Set<string>>(new Set());
 const trackingNo = ref('');
 const statusMap: Record<string, string> = { Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', PartiallyDelivered:'待收货', Shipped:'待收货', Cancelled:'已取消', Modified:'已修改' };
 const statusHintMap: Record<string, string> = { Created:'请尽快完成支付', PaymentAuthorized:'商家正在处理', PaymentSettled:'商家正在处理', Delivered:'请确认收货', Shipped:'商品正在配送中' };
@@ -74,6 +82,17 @@ const canReceive = computed(() => ['Delivered','PartiallyDelivered','Shipped'].i
 const canAfterSale = computed(() => ['Delivered','PaymentSettled','PaymentAuthorized'].includes(order.value?.state));
 const canInvoice = computed(() => ['Delivered','Completed','PartiallyDelivered'].includes(order.value?.state));
 const canCancel = computed(() => ['Created','AddingItems','ArrangingPayment'].includes(order.value?.state));
+const canReview = computed(() => {
+    if (!auth.isLoggedIn) return false;
+    if (!['Delivered', 'Completed'].includes(order.value?.state)) return false;
+    return (order.value?.lines || []).some((l: any) => !reviewedLineIds.value.has(String(l.id)));
+});
+const isFullyReviewed = computed(() => {
+    if (!auth.isLoggedIn) return false;
+    if (!['Delivered', 'Completed'].includes(order.value?.state)) return false;
+    const lines = order.value?.lines || [];
+    return lines.length > 0 && lines.every((l: any) => reviewedLineIds.value.has(String(l.id)));
+});
 onMounted(async () => {
     const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
     const code = page?.options?.code; if (!code) return;
@@ -83,6 +102,7 @@ onMounted(async () => {
         const tRes: any = await client.request(`query { afterSalesRequest(id: "${order.value?.id}") { returnTrackingNo } }`);
         if (tRes?.afterSalesRequest?.returnTrackingNo) trackingNo.value = tRes.afterSalesRequest.returnTrackingNo;
     } catch (e) {}
+    await loadReviewedLines();
 });
 function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
 function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: '已复制', icon: 'success' }); }
@@ -91,6 +111,22 @@ function confirmReceive() { uni.showModal({ title: '确认收货', content: '确
 function applyAfterSale() { uni.navigateTo({ url: '/pkg-after-sale/pages/apply?orderId=' + order.value.id }); }
 function applyInvoice() { uni.navigateTo({ url: '/pkg-order/pages/invoice-apply?orderIds=' + order.value.id }); }
 function cancelOrder() { uni.showModal({ title: '取消订单', content: '确定取消该订单?', success: async (r: any) => { if (r.confirm) { try { const client = getGraphQLClient(); await client.request(`mutation { cancelOrder(orderId: "${order.value.id}") { ... on Order { id state } ... on ErrorResult { errorCode message } } }`); uni.showToast({ title: '已取消' }); order.value.state = 'Cancelled'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
+async function loadReviewedLines() {
+    if (!auth.isLoggedIn) return;
+    try {
+        const res: any = await getMyReviews();
+        const set = new Set<string>();
+        for (const r of res.myReviews || []) {
+            if (r.orderLineId && r.status !== 'deleted') set.add(String(r.orderLineId));
+        }
+        reviewedLineIds.value = set;
+    } catch (e) {
+        console.error(e);
+    }
+}
+function goEvaluate() {
+    uni.navigateTo({ url: '/pkg-order/pages/order-evaluate?code=' + order.value.code });
+}
 </script>
 <style lang="scss" scoped>
 .order-detail { padding-bottom: 40rpx; }
