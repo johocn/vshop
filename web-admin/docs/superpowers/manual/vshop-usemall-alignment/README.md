@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.5（2026-09-29，拼团页新增「我的开团 / 我的参团」两会话 tab，见 §5.9） |
+| 版本 | v1.6（2026-09-29，第二轮 S1：详情页 SKU 弹层规格组计数、单规格降级、缩略图，见 §4） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；本轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-group-buy-my-tabs-design.md` |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；本轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-group-buy-my-tabs-plan.md` |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
@@ -102,8 +102,14 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `group-buy-mine-join.png` | 拼团页 · 我的参团 tab（登录态） | ✅ 与「我的开团」同版式，数据源为 `isLeader=false` 的拼团记录（v1.5 新增） |
 | `group-buy-mine-guest.png` | 拼团页 · 未登录态 | ✅ 切到「我的开团」时显示引导「登录后查看我的拼团」+「去登录」按钮；不渲染任何团卡片（v1.5 新增） |
 | `detail-page.png` | 详情页主体 | ✅ 主图、价格、标题、分享/海报、「已选」行、服务区、底部 5 键 |
+| 单规格商品详情 | `detail-single-spec.png` | 规格区整段不渲染，已选行显示变体名 |
+| 单规格商品 SKU 弹层 | `detail-sku-sheet-single.png` | 无规格组标题；已选行为变体名；头部缩略图为真实图片（非灰底） |
 
 > 采集前置：C 端测试客户已登录（`cart-select-*`）；跑脚本时详情页弹层会再加购 1 件，因此购物车数量就是「跑脚本前的存量 + 1」。本版截图是在存量 2 件时采集的，故呈现「1 行 / 数量 3 / 合计 ¥504.00 / 角标 3」。
+
+### 多规格商品的 SKU 弹层缩略图仍是灰底？
+
+属**数据缺失**，非代码问题。库内仅有的 2 个多规格商品（`鲜活小龙虾` / `仙居杨梅`）商品级与变体级都没有图片（`featuredAsset` 为 null）。缩略图回退链 `currentVariant.featuredAsset?.preview || product.featuredAsset?.preview` 在这两个商品上都取不到值。给商品补图后即正常。
 
 ---
 
