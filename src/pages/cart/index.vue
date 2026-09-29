@@ -62,10 +62,11 @@
   </view>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useCartStore } from '../../stores/cart';
 import { useUIStore } from '../../stores/ui';
+import { useTenantStore } from '../../stores/tenant';
 import { getActiveOrder } from '../../api/queries/order';
 import { adjustOrderLine, addItemToOrder, removeOrderLine } from '../../api/mutations/cart';
 import VImage from '../../components/VImage.vue';
@@ -78,6 +79,7 @@ import { searchProducts } from '../../api/queries/product';
 const cart = useCartStore();
 const ui = useUIStore();
 const auth = useAuthStore();
+const tenant = useTenantStore();
 const loading = ref(true);
 const selectedIds = ref<Set<string>>(new Set());
 const reco = ref<any[]>([]);
@@ -95,10 +97,34 @@ const totalYuan = computed(() => {
 });
 
 onShow(async () => {
+    // 冷启动（刷新/直接打开 /pages/cart/index）时 onShow 早于 App.onLaunch 的
+    // initTenant + restoreSession 完成，此时请求既无渠道 token 也无登录 token，
+    // activeOrder 恒为 null，页面会误报「购物车是空的」。等就绪后再拉一次。
+    await waitTenantReady();
     await loadCart();
     await restorePending();
     void loadReco();
 });
+
+/** 等待 App.onLaunch 初始化完成（tenantReady）；异常时最多等 8s，避免永久骨架屏 */
+function waitTenantReady(): Promise<void> {
+    if (tenant.tenantReady) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+        const stop = watch(
+            () => tenant.tenantReady,
+            (ready) => {
+                if (ready) {
+                    stop();
+                    resolve();
+                }
+            },
+        );
+        setTimeout(() => {
+            stop();
+            resolve();
+        }, 8000);
+    });
+}
 
 async function loadReco() {
     if (!auth.isLoggedIn) { reco.value = []; return; }
