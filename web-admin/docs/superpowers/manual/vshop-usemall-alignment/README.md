@@ -4,13 +4,13 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.6（2026-09-29，第二轮 S1：详情页 SKU 弹层规格组计数、单规格降级、缩略图，见 §4） |
-| 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；本轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-group-buy-my-tabs-design.md` |
-| 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；本轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-group-buy-my-tabs-plan.md` |
+| 版本 | v1.7（2026-09-29，第二轮 S2：评价体系四页 + 「我的订单」取数修复，见 §4 / §5.10） |
+| 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；第二轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-usemall-alignment-round2-design.md`（本轮） |
+| 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；第二轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-usemall-alignment-round2-plan.md`（本轮） |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
 | 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图，含拼团三 tab）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图） |
 | 线上环境 | C 端 H5 + shop-api：`https://e.joho.cn`；后台：`https://e.joho.cn/guanli` |
-| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式（**v1.5 起拼团页含「我的开团 / 我的参团」两 tab**）、结算页发票入口行 |
+| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式（**v1.5 起拼团页含「我的开团 / 我的参团」两 tab**）、结算页发票入口行；**v1.6 起**详情页 SKU 弹层规格组计数与单规格降级；**v1.7 起**评价体系（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页）+「我的订单」列表取数修复 |
 | 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `z123123` |
 
 > **本文中「备注行」的最终状态是「已回退不做」**，原因见 §5.2。
@@ -19,6 +19,8 @@
 > **v1.3 相对 v1.2 的增量**：v1.2 里被记为「未交付」的购物车失效行（§5.3）已补交付 —— 后端 cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`，前端恢复失效行判定与「已下架」标签，见 §5.7；同时首次产生**后端代码改动**并部署，见 §5.4。
 > **v1.4 相对 v1.3 的增量**：default 渠道分类体系重建（4 个一级 + 8 个二级，`product-id-filter` 挂真实商品），旧的 4 个空壳分类设为私有；并修复「分类页点二级分类进去商品列表为空」的参数错配，见 §5.8。本轮**只动 H5**，无需重启后端。
 > **v1.5 相对 v1.4 的增量**：拼团页从「仅拼团列表」变为 **三 tab**（拼团列表 / 我的开团 / 我的参团），后端新增 shop SDL `myGroupBuyOrders(isLeader)`（**无数据库迁移**），见 §5.9。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
+> **v1.6 相对 v1.5 的增量**：第二轮 S1 —— 详情页 SKU 弹层规格组标题带 `(N)` 计数、单规格商品降级（详情页规格区整段不渲染 / 弹层无规格组标题），见 §4。
+> **v1.7 相对 v1.6 的增量**：第二轮 S2 —— 评价体系四页（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页），并顺带修复「我的订单」列表恒空（后端 shop SDL 补 `myOrders`），见 §5.10。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
 
 ---
 
@@ -35,8 +37,12 @@ H5 为 hash 路由，`#` 后为页面路径。
 | 结算页（发票入口行） | `/#/pkg-order/pages/checkout` | 购物车勾选后点「结算」 |
 | 秒杀页 | `/#/pkg-promotion/pages/flash-sale` | 首页秒杀楼层右上「更多 ›」；或直接访问 |
 | 拼团页（三 tab：拼团列表 / 我的开团 / 我的参团） | `/#/pkg-promotion/pages/group-buy` | 直接访问（首页 sections 内暂无拼团入口；`flash` 楼层的 `source=groupBuy` 枚举已预留但后台不暴露） |
+| 商品评价页（v1.7） | `/#/pkg-product/pages/evaluate?slug=<slug>` | 详情页评价区右上「查看全部 ›」；或直接访问 |
+| 订单评价页（v1.7） | `/#/pkg-order/pages/order-evaluate?code=<订单号>` | 「我的订单」卡片上「我要评价」；或订单详情页 |
+| 我的评价页（v1.7） | `/#/pkg-user/pages/my-reviews` | 个人中心「我的评价」 |
+| 我的订单（v1.7 修复取数） | `/#/pkg-order/pages/orders` | 个人中心「我的订单」 |
 
-购物车/结算页需登录；未登录时购物车显示引导态（「当前未授权，登录后查看购物车」+「去登录」），这本身是本轮交付项之一。
+购物车/结算页需登录；未登录时购物车显示引导态（「当前未授权，登录后查看购物车」+「去登录」），这本身是本轮交付项之一。订单评价页 / 我的评价页 / 我的订单同样需登录。
 
 ---
 
@@ -77,6 +83,8 @@ node web-admin/scripts/_vshop_usemall_shots.mjs
 node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa123456'
 # 只重采分类页三张（不碰购物车存量）
 node web-admin/scripts/_vshop_usemall_shots.mjs --only category
+# 只重采评价体系 5 张（v1.7；登录态，快跑，不碰购物车存量）
+node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user qa-vshop-manual@local.dev --pwd 'Qa123456'
 # 购物车「已下架」失效行（自带前后对照 + 后台下架/复原，见 §5.7）
 node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 ```
@@ -104,12 +112,25 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `detail-page.png` | 详情页主体 | ✅ 主图、价格、标题、分享/海报、「已选」行、服务区、底部 5 键 |
 | 单规格商品详情 | `detail-single-spec.png` | 规格区整段不渲染，已选行显示变体名 |
 | 单规格商品 SKU 弹层 | `detail-sku-sheet-single.png` | 无规格组标题；已选行为变体名；头部缩略图为真实图片（非灰底） |
+| `detail-review-block.png` | 详情页评价区（v1.7） | ✅ 评价区位于详情富文本**之前**；`用户评价（6）` 计数 + `3.3 分` + `好评率 50%`；2 条评价齐全（第 1 条带图 `product-0__preview.jpg` + `商家回复` + `展开`；第 2 条为 5 星文本） |
+| `review-list-all.png` | 商品评价页「全部」（v1.7） | ✅ 4 个 chip 计数自洽：`全部（6）` = `好评（3）` + `中评（1）` + `差评（2）`；头部分数 `3.3 分` / `好评率 50%` 与详情页一致 |
+| `review-list-bad.png` | 商品评价页「差评」（v1.7） | ✅ 点「差评」后列表只剩 2 条（`★★☆☆☆` + `★☆☆☆☆`），与 chip 计数一致；第 2 条显示 `匿` + `匿名用户`（`isAnonymous` 生效） |
+| `order-evaluate.png` | 订单评价页一单多商品（v1.7） | ✅ `商品 1 500g 装 ¥38.00 x1` + `商品 2 2 斤礼盒 ¥68.00 x1` 两块独立评分区；每块含星级、`请输入评价内容`、`上传图片（最多 6 张）` + 加号、`公开显示您的头像、昵称` 匿名开关；底部 `提交评价` |
+| `my-reviews.png` | 我的评价页三种状态（v1.7） | ✅ tab 计数 `全部（8）待审核（1）已通过（6）已驳回（1）`；三种状态标签各自配色：**已驳回=红**、**待审核=橙**、**已通过=绿**；条目含商品名、星级、日期、内容摘要 |
 
 > 采集前置：C 端测试客户已登录（`cart-select-*`）；跑脚本时详情页弹层会再加购 1 件，因此购物车数量就是「跑脚本前的存量 + 1」。本版截图是在存量 2 件时采集的，故呈现「1 行 / 数量 3 / 合计 ¥504.00 / 角标 3」。
 
 ### 多规格商品的 SKU 弹层缩略图仍是灰底？
 
 属**数据缺失**，非代码问题。库内仅有的 2 个多规格商品（`鲜活小龙虾` / `仙居杨梅`）商品级与变体级都没有图片（`featuredAsset` 为 null）。缩略图回退链 `currentVariant.featuredAsset?.preview || product.featuredAsset?.preview` 在这两个商品上都取不到值。给商品补图后即正常。
+
+### 提交评价后，商品页 / 评价页看不到自己刚写的评价？
+
+**属预期**。评价插件是 `autoApprove = false`（后审模式）：`createReview` 落库时 `status = pending`，只有 `approved` 才计入商品评分聚合、才出现在 C 端商品页与商品评价页。要在 C 端看到，需管理员在后台审核通过（`approveReview`）；被 `rejectReview` 驳回的则永远不露出。**「我的评价」页能看到全部状态**（待审核 / 已通过 / 已驳回），可用它确认提交确实成功了。
+
+### 「我的订单」里订单状态显示「待收货」，但这个订单其实已经送达？
+
+这是 v1.7 观测到的**文案语义偏差**：订单列表标签映射把 `Delivered` 归到「待收货」（`{ Delivered: '待收货' }`），而 Vendure 里 `Delivered` 已经是终态「已送达」。它不影响功能（「我要评价」入口按 `state ∈ {Delivered, Completed}` 判定，与标签文案无关），但纯语义上 `Delivered` 显示成「待收货」容易误解 —— 记在 §5.3 未交付项，本轮不改文案。
 
 ---
 
@@ -162,7 +183,9 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | 分类页商品为空 | ~~未交付~~ → **v1.4 已修复**（数据 + 代码，见 §5.8）。v1.1 时只是把非法查询改好，商品仍为 0：default 渠道的 4 个一级分类（`electronics`/`home`/`personal-care`/`food`）用的是 `facet-value-filter`（`facetValueIds=["1".."4"]`，来自 `品类` facet），而该渠道**无任何一个在售商品打过 facetValue**，因此分类命中数恒为 0；且这 4 个分类的语义（数码电子/家居生活）与现存商品（温泉门票/汽修/生鲜）完全不匹配 |
 | 详情页 SKU 弹层无规格分组、缩略图为灰底占位 | 触发弹层的商品（国信南山温泉工作日门票）只有 1 个变体、`optionGroups` 为空，弹层仍按通用样式显示「已选：请选择规格」且左上缩略图取不到图。属**既有 UX 小瑕疵**，本轮不改 `SkuSheet.vue`，记录为已知偏差 |
 | 拼团页「我的开团 / 我的参团」 | ~~需按当前用户筛团的后端查询，本轮不做（spec §1.2）~~ → **v1.5 已交付**（后端 `myGroupBuyOrders` + 前端三 tab，见 §5.9）。注：该项在本轮之前被列为「不做」的依据是 **usemall 参照物本身也未实现**（其 `group.vue` 的 navList 被 `v-if="false"` 隐藏），v1.5 按用户追加需求单独交付 |
-| 详情页用户评价区、销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
+| 详情页用户评价区 | ~~无数据源，采用「有则显示」降级~~ → **v1.7 已交付**：后端 review-plugin 早有完整评价能力（shop SDL `productReviews` / `reviewStats`），前端本轮补评价区与三个评价页面，见 §5.10 |
+| 销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
+| 订单列表状态文案 `Delivered` 显示「待收货」 | v1.7 观测到的**语义偏差**（`Delivered` 在 Vendure 已是终态「已送达」）。不影响功能（「我要评价」按 `state` 判定，与文案无关），本轮不改文案，见 §4 常见问题 |
 
 ### 5.4 线上产物核对（v1.5 重新构建部署后复核）
 
@@ -378,6 +401,67 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 > **为什么之前「设了 width 也撑不满」**：`.gb-card__foot` 原本嵌套在右文列 `gb-card__main` 内（左图右侧那一列），按钮的 100% 只能撑满文字列而非整卡；且外层 `.gb-card` 是横向 flex。修正的关键不是加宽度，而是**把主按钮提升为卡片直接子节点**，并让卡片纵向堆叠（`.gb-card--stack`）——这也正是「我的团」卡片（版式 A）本来的结构。
 
 复验：重建部署后线上入口 `assets/index-vgvT9n4-.js`，`group-buy-page.png` 中「去拼团」左右均贴卡片内边距，与「我的团」的「查看订单」版式一致。
+
+---
+
+### 5.10 v1.7 新增：评价体系四页 + 「我的订单」取数修复（含后端改动）
+
+#### 5.10.1 交付范围
+
+| 页面/能力 | 实现 | 说明 |
+|---|---|---|
+| 详情页评价区 | `src/pkg-product/pages/detail.vue` | 位置在详情富文本**之前**；标题计数 + 平均分 + 好评率 + 前 2 条；`reviewTotal === 0` 时整块不渲染 |
+| 公共评价条目 | `src/components/ReviewItem.vue` | 详情页与商品评价页共用；含图片九宫格、`商家回复` 折叠、`匿` 标记 |
+| 商品评价页 | `src/pkg-product/pages/evaluate.vue` | 4 分档 chip（全部/好评/中评/差评）+ 分页 + 商家回复展开 |
+| 订单评价页 | `src/pkg-order/pages/order-evaluate.vue` | 一单多商品分块；每块星级 + 内容 + 图片上传 + 匿名开关 |
+| 我的评价页 | `src/pkg-user/pages/my-reviews.vue` | 全部/待审核/已通过/已驳回 四 tab，三种状态标签分色 |
+| 评价 API 封装 | `src/api/queries/review.ts` | `productReviews`（支持 `ratingMin/ratingMax`）/`reviewStats`/`myReviews`/`createReview` |
+| 入口 | `orders.vue`、`order-detail.vue`、`profile.vue` | 「我的订单」卡片与订单详情页的「我要评价」；个人中心「我的评价」 |
+| 订单列表页签映射 | `src/pkg-order/pages/orders.vue` | 本轮修正：`待付款` = `ArrangingPayment`（原 `Created`）、`待发货` 含 `PaymentAuthorized, PaymentSettled` |
+
+#### 5.10.2 「我的订单」列表恒空 —— 本轮顺带修复的后端缺陷
+
+- **现象**：`/#/pkg-order/pages/orders` 在生产恒显示「暂无订单」，导致本轮新增的「我要评价」入口不可达。
+- **根因**：前端 `getOrders()` 一直查 `myOrders`，但 **shop schema 从未注册该字段**（自前端初始化提交 `4fbbc8f` 起就存在）。生产实测报 `Cannot query field "myOrders" on type "Query"`；vendure 全仓 grep 无该字段定义。
+- **修复**：vendure `packages/cjk-plugin` 新增 `MyOrdersShopResolver`（`src/order/my-orders-shop.resolver.ts`），在 shop SDL 扩展 `myOrders(options: OrderListOptions): OrderList!`（**复用 core 已生成的 `OrderList` / `OrderListOptions`，不重复定义**）；按 `ctx.activeUserId` 反查顾客，`ListQueryBuilder` 查询并追加两条 `andWhere`：`order.customer.id = :customerId` 与 `order.state NOT IN ('Draft','AddingItems')`；拿不到顾客返回空列表（防跨顾客串号）。**无数据库迁移**。
+- **e2e**：`packages/cjk-plugins-e2e/e2e/my-orders.e2e-spec.ts` 4 用例（传 options / 不传 options / 排除购物车单 / 防串号），先红后绿；需用 Postgres 跑（`$env:DB='postgres'`）。
+- **lib 产物收窄（重要运维注记）**：`tsc` 会把编译范围内**所有**文件 emit 出来（即使未被 import），因此重建会把 6 周前已提交 `src`、但**从未部署**的「租户设置」模块一并产出。若照此部署，生产 admin-api 会凭空新增 `tenantSettings` / `updateTenantBasic` 等未上线接口（已实测生产此前没有）。故**逐项收窄 lib**，只保留 `myOrders` 相关产物：`lib/src/plugin.js` 重新 emit（临时摘掉 `src/plugin.ts` 里的 tenant 注册后跑 tsc，再恢复 `src`，**src 本身未改动**），`lib/src/admin/tenant-config-admin.resolver.*` 与 `lib/src/tenant/tenant-channel-custom-fields.*` 回退到前一提交，删除 `lib/src/tenant/{basic,multi-language,service-notify}-config.service.*` 与 `tenant-config.types.*`。收窄后工作树相对修复前提交只剩 8 个 `myOrders` 文件。**部署后实测生产 admin-api 仍无 `tenantSettings`，收窄有效。**
+
+#### 5.10.3 生产验收前置数据（一次性运维动作，不落库脚本）
+
+| 项 | 值 |
+|---|---|
+| 被评商品 P | `鲜活小龙虾`（productId `80` / slug `fresh-crayfish` / 2 变体） |
+| A 组订单（多行，供评价） | id `165` / code `R4KA52ZC9M3TJWV9` / state `Delivered` / 6 行（lineId 208–213，productId 均为 80） |
+| B 组订单（供「一单多商品」取证） | id `160` / code `32BJMF714X2165SU` / state `Delivered` / 2 行（line 215=product 80、line 216=product 81）——**保持未评价** |
+| 6 条已审核评价 | reviewId 1–6 对应 lineId 208–213，rating `5/5/4/3/2/1`，全部 `approved`；id 1 带图且被 `replyReview` 回复；id 6 `isAnonymous=true` |
+| 交叉验证 | `reviewStats(productId:"80")` = `totalCount 6 / goodRate 50 / averageRating 3.3 / 分布 1×1,2×1,3×1,4×1,5×2`；`productReviews.totalItems` = 6 ✅ |
+| 后补样本（v1.7 采图当天） | reviewId 7 = `pending`（C5 正常路径用例）；reviewId 8 = `rejected`（经后台 `rejectReview`，用于「我的评价」三色取证） |
+
+> 生产建单/收款/送达的既有手法：`checkFulfillmentStates: false` 的订单流程下 `addFulfillmentToOrder` 恒报 `invalid input syntax for type integer: "undefined"`，改用 `transitionOrderToState(state:"Delivered")`；生产无 ≥6 变体商品，用 admin 草稿单逐行写不同 `customFields.note`（`qa-A-1..6`）避免同 variant 合并，实现「1 单 6 行」。
+
+#### 5.10.4 API 回归 7 用例（**7/7 通过**）
+
+| 用例 | 结果 |
+|---|---|
+| `productReviews(productId:"80", {ratingMin:4, ratingMax:5})` | ✅ 3 条，rating 全为 `5/5/4`，全部 `approved` 且 `parentId=null` |
+| `productReviews(productId:"80", {ratingMin:3, ratingMax:3})` | ✅ 1 条，rating 全为 `3` |
+| `productReviews(productId:"80")`（不传分档） | ✅ `totalItems=6` **=== `reviewStats.totalCount=6`**（既有行为未被破坏的关键交叉验证） |
+| `productReviews(productId:"80", {ratingMin:9})` | ✅ 忽略越界参数，退化为不筛选（`totalItems=6`，无 error） |
+| `createReview` 正常路径 | ✅ 返回 `status = pending`（`autoApprove=false` 生效） |
+| `createReview` 重复同一 `orderLineId` | ✅ `UserInputError('You have already reviewed this order line')` |
+| `createReview` 订单未送达 | ✅ `UserInputError('Order must be delivered before reviewing')`（用临时加购行构造 `AddingItems` line，验完即 `removeOrderLine` 复原） |
+
+#### 5.10.5 截图断言
+
+5 张图的逐项断言已并入 §4 表末（`detail-review-block.png` / `review-list-all.png` / `review-list-bad.png` / `order-evaluate.png` / `my-reviews.png`），并在采图后**逐张目视核对通过**。
+
+#### 5.10.6 部署顺序与产物核对
+
+1. **后端先上线**（否则前端传 `ratingMin/ratingMax` 会被 GraphQL 校验拒绝，且 `myOrders` 取不到数）：`ssh joho "cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure vendure-worker"`（生产路径是 `/www/apps/vendure`，**不是** `/opt/vendure`）。
+2. 上线后只读核对：shop-api `myOrders` 字段存在；用 QA 账号 `myOrders` 返回 6 单（含/不含 `options`、`filter.state.eq` 均正常，**无** `AddingItems`/`Draft`）；admin-api **仍无** `tenantSettings`。
+3. **前端再上线**：本地 `npm run build:h5`（0 error）→ `tar -czf dist-h5.tar.gz -C dist/build/h5 .` → `scp` 到 `/tmp` → 站点目录 `tar -xzf`。
+   - 站点目录为 `drwxrwxrwx`，**无需 sudo**；解压时 `assets/`、`static/` 属 root 会报 `Cannot utime / Cannot change mode`，那只是**目录元数据**操作失败，文件本体已正常落盘 —— 复核方式是比对 `index.html` 的 sha256，并核对「本地 122 个 assets 文件名在服务器上缺失数 = 0」。
 
 ---
 
