@@ -125,7 +125,7 @@ function switchTab(val: string) { activeTab.value = val; skip = 0; hasMore.value
 function goDetail(code: string) { uni.navigateTo({ url: '/pkg-order/pages/order-detail?code=' + code }); }
 </script>
 <style lang="scss" scoped>
-.orders-page { display: flex; flex-direction: column; height: 100vh; &__scroll { flex: 1; padding: 0 20rpx; } &__footer { padding: 30rpx; text-align: center; } }
+.orders-page { display: flex; flex-direction: column; height: 100vh; &__scroll { flex: 1; box-sizing: border-box; padding: 0 20rpx; } &__footer { padding: 30rpx; text-align: center; } }
 .orders-tabs { display: flex; background: #fff; border-bottom: 1rpx solid $border-color; }
 .orders-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 26rpx; position: relative; &.active { color: $brand-color; &::after { content: ''; position: absolute; bottom: 0; left: 30%; right: 30%; height: 4rpx; background: $brand-color; border-radius: 4rpx; } } }
 .order-card { background: #fff; border-radius: $radius-md; padding: 20rpx; margin-top: 20rpx; &__header { display: flex; justify-content: space-between; margin-bottom: 16rpx; font-size: 24rpx; color: $text-color-secondary; } &__state { color: $brand-color; } &__line { display: flex; align-items: center; gap: 16rpx; padding: 8rpx 0; } &__name { flex: 1; font-size: 26rpx; } &__qty { font-size: 24rpx; color: #999; } &__footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid $border-color; } }
