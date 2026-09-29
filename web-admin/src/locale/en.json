@@ -762,6 +762,20 @@
       "shown": "{n} of {m} shown",
       "loadMore": "Scroll up to load more",
       "noMore": "No more items",
+      "afterSalePrefix": "After-sale #",
+      "tabToReturn": "To Return",
+      "tabToReceive": "To Receive",
+      "tabToRefund": "To Refund",
+      "tabRefundFailed": "Refund Failed",
+      "tabClosed": "Closed",
+      "waitingDays": "Waiting {d}d {h}h",
+      "waitingHours": "Waiting {h}h",
+      "waitingMinutes": "Waiting {m}m",
+      "createdAtLabel": "Applied ",
+      "emptyPending": "No pending tickets",
+      "detailBtn": "Detail",
+      "filterHide": "Hide",
+      "opFailed": "Operation failed",
       "retry": "Retry"
     },
     "detail": {
@@ -807,7 +821,27 @@
       "refundInitiated": "Refund initiated",
       "retryTitle": "Retry Refund",
       "retryContent": "Confirm to retry the refund?",
-      "retryInitiated": "Retry initiated"
+      "retryInitiated": "Retry initiated",
+      "viewOrder": "View Order",
+      "customerTitle": "Customer",
+      "callCustomer": "Call",
+      "productTitle": "Product",
+      "skuLabel": "SKU: ",
+      "typeLabel": "Type: {type}",
+      "progressTitle": "Progress",
+      "evidenceTitle": "Customer Evidence",
+      "restockTitle": "Stock Restock",
+      "stockLocation": "Location ",
+      "statusFailed": "Refund Failed",
+      "statusRejected": "Rejected",
+      "statusClosed": "Closed"
+    },
+    "timeline": {
+      "stepPending": "Applied",
+      "stepApproved": "Approved",
+      "stepReturning": "Returning",
+      "stepReceived": "Received",
+      "stepRefunded": "Refunded"
     }
   },
   "pos": {

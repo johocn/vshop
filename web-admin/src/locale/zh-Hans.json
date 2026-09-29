@@ -762,6 +762,20 @@
       "shown": "已显示 {n} / {m}",
       "loadMore": "上滑加载更多",
       "noMore": "没有更多了",
+      "afterSalePrefix": "售后 #",
+      "tabToReturn": "待寄回",
+      "tabToReceive": "待收货",
+      "tabToRefund": "待退款",
+      "tabRefundFailed": "退款异常",
+      "tabClosed": "已取消",
+      "waitingDays": "已等待 {d} 天 {h} 小时",
+      "waitingHours": "已等待 {h} 小时",
+      "waitingMinutes": "已等待 {m} 分钟",
+      "createdAtLabel": "申请于 ",
+      "emptyPending": "暂无待处理工单",
+      "detailBtn": "详情",
+      "filterHide": "收起",
+      "opFailed": "操作失败",
       "retry": "重试"
     },
     "detail": {
@@ -807,7 +821,27 @@
       "refundInitiated": "退款已发起",
       "retryTitle": "重试退款",
       "retryContent": "确认重试退款吗？",
-      "retryInitiated": "重试已发起"
+      "retryInitiated": "重试已发起",
+      "viewOrder": "查看订单",
+      "customerTitle": "顾客",
+      "callCustomer": "拨打电话",
+      "productTitle": "商品",
+      "skuLabel": "规格：",
+      "typeLabel": "售后类型：{type}",
+      "progressTitle": "处理进度",
+      "evidenceTitle": "顾客凭证",
+      "restockTitle": "库存回补",
+      "stockLocation": "库存点 ",
+      "statusFailed": "退款失败",
+      "statusRejected": "已拒绝",
+      "statusClosed": "已关闭"
+    },
+    "timeline": {
+      "stepPending": "已申请",
+      "stepApproved": "商家已同意",
+      "stepReturning": "退回中",
+      "stepReceived": "商家已收货",
+      "stepRefunded": "退款完成"
     }
   },
   "pos": {
