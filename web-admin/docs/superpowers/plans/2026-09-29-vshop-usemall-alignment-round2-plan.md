@@ -291,12 +291,22 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
     console.log('  多规格商品未找到触发 SKU 弹层的按钮');
   }
 
-  // S1 验收：单规格商品——规格区整段消失、已选行显示变体名
+  // S1 验收：单规格商品——详情页已选行显示变体名（Task 3）
   await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(SINGLE_SLUG)}`, 1500);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(6000);
   console.log('  单规格页文本 =', await text());
   await shot('detail-single-spec.png');
+  // S1 验收：单规格弹层——规格区整段不渲染 + `pickedText` 取变体名 + 头部缩略图非灰底（Task 1/2 取证）
+  // 单规格商品点加购同样会打开弹层；弹层里的「已选：…」就是 pickedText
+  const hitSingle = await clickAny(['加入购物车', '立即购买', '选规格', '选择规格', '购买']);
+  if (hitSingle) {
+    await page.waitForTimeout(2500);
+    await shot('detail-sku-sheet-single.png');
+    console.log('  单规格弹层文本 =', await text());
+  } else {
+    console.log('  单规格商品未找到触发 SKU 弹层的按钮');
+  }
 ```
 
 - [ ] **Step 2: 查一个多规格 slug 与一个单规格 slug**
@@ -393,9 +403,12 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 | 文件 | 断言 |
 |---|---|
-| `assets/detail-sku-sheet.png` | 多规格商品弹层：规格组标题形如「颜色 (3)」；且弹层头部缩略图为真实图片（**非灰底**，这就是断言 3 的取证图 —— 弹层只在这张图里出现） |
-| `assets/detail-single-spec.png` | 单规格商品：**没有**规格组标题、**没有**「请选择规格」；已选行显示变体名 |
-| `assets/detail-page.png` | 多规格商品详情页（弹层未打开），主图区正常显示 |
+| `assets/detail-sku-sheet.png` | **多规格**商品弹层：规格组标题形如「颜色 (3)」（断言 1） |
+| `assets/detail-sku-sheet-single.png` | **单规格**商品弹层：**没有**规格组标题（规格区整段不渲染，断言 2）；`已选：` 行为变体名、不出现「请选择规格」；弹层头部缩略图为**真实图片、非灰底**（断言 3 取证图） |
+| `assets/detail-single-spec.png` | 单规格**详情页**（弹层未打开）：「已选规格」入口行显示变体名，不出现「请选择规格」（断言 2 的页面侧） |
+| `assets/detail-page.png` | 多规格商品详情页（弹层未打开），主图区正常 |
+
+**断言 3 的取证对象说明**（2026-09-29 用户裁定，**不改生产数据**）：全站仅 2 个多规格商品（`fresh-crayfish` / `xianju-bayberry`），两者商品级与变体级 `featuredAsset` **均为 null、`assets` 为 0** —— 它们的弹层灰底是**数据缺失**，不是 Task 1 要修的查询缺字段问题，故**不作为断言**。改用**有图**的单规格商品（如 `温泉门票`，`imgs=2`）取证：它走的是 `currentVariant.featuredAsset?.preview || product.featuredAsset?.preview` 的**第二级**回退，正是 Task 1 修好的那一级（修前该级在数据层恒为 `undefined` → 必然灰底）。
 
 三张图在 390×844、dpr=2 下采集。逐张目视核对断言；任一不满足则回到 Task 1/2/3 修，**不要**先改断言。
 
@@ -405,6 +418,15 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 ```markdown
 | 单规格商品详情 | `detail-single-spec.png` | 规格区整段不渲染，已选行显示变体名 |
+| 单规格商品 SKU 弹层 | `detail-sku-sheet-single.png` | 无规格组标题；已选行为变体名；头部缩略图为真实图片（非灰底） |
+```
+
+**同时补一条「常见问题」**，避免后人把数据问题误判为代码回归：
+
+```markdown
+### 多规格商品的 SKU 弹层缩略图仍是灰底？
+
+属**数据缺失**，非代码问题。库内仅有的 2 个多规格商品（`鲜活小龙虾` / `仙居杨梅`）商品级与变体级都没有图片（`featuredAsset` 为 null）。缩略图回退链 `currentVariant.featuredAsset?.preview || product.featuredAsset?.preview` 在这两个商品上都取不到值。给商品补图后即正常。
 ```
 
 同时把手册顶部版本号升到 **v1.6**（与第二轮一起记，见 Task 13）。
@@ -414,18 +436,20 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 截图产物落在 `assets/` 子目录（`_vshop_usemall_shots.mjs:52`），路径不要漏 `assets/`：
 
 ```powershell
-git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-single-spec.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-sku-sheet.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-page.png
+git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-single-spec.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-sku-sheet-single.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-sku-sheet.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-page.png
 git commit -F .git/COMMIT_MSG_TMP.txt
 ```
 
 `.git/COMMIT_MSG_TMP.txt`：
 
 ```
-test(sku): V1 验收——SKU 弹层规格计数/单规格降级/缩略图三断言手机截图
+test(sku): V1 验收——SKU 弹层规格计数/单规格降级/缩略图手机截图
 
-- 新增 detail-single-spec.png（单规格：无规格组、无「请选择规格」）
-- 重采 detail-sku-sheet.png（规格组标题带计数）与 detail-page.png（弹层缩略图非灰底）
-- 截图脚本补单规格商品探针；手册补对应行
+- 新增 detail-sku-sheet-single.png（单规格弹层：无规格组、已选取变体名、缩略图非灰底）
+- 新增 detail-single-spec.png（单规格详情页：已选行显示变体名）
+- 重采 detail-sku-sheet.png（多规格：规格组标题带计数）与 detail-page.png
+- 断言 3 改用有图的单规格商品取证：多规格商品无图属数据缺失，手册补常见问题说明
+- 截图脚本探针钉死 slug 并补 page.reload（同 hash 路由不重载）
 
 涉及：web-admin/scripts/_vshop_usemall_shots.mjs、web-admin/docs/superpowers/manual/vshop-usemall-alignment/
 ```
@@ -2310,8 +2334,9 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 | 文件 | 断言 |
 |---|---|
-| `detail-sku-sheet.png` | 规格组标题带 `(N)` 计数；弹层头部缩略图为真实图片（非灰底） |
-| `detail-single-spec.png` | 规格区整段消失；已选行显示变体名，无「请选择规格」 |
+| `detail-sku-sheet.png` | 规格组标题带 `(N)` 计数（多规格商品无图 → 灰底属数据缺失，不作为断言） |
+| `detail-sku-sheet-single.png` | 单规格弹层：无规格组标题、已选行为变体名、头部缩略图非灰底 |
+| `detail-single-spec.png` | 单规格详情页：规格区整段消失；已选行显示变体名，无「请选择规格」 |
 | `detail-review-block.png` | 评价区在详情富文本**之前**；标题计数、平均分、好评率、2 条评价齐全 |
 | `review-list-all.png` | 4 个 chip 计数正确（好评+中评+差评 = 全部） |
 | `review-list-bad.png` | 列表随档变化，计数与列表条数自洽 |
