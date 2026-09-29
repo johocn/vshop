@@ -12,25 +12,27 @@
 
     <!-- 拼团列表 -->
     <template v-if="activeTab === 'activities'">
-      <view v-for="item in activities" :key="item.id" class="gb-card">
-        <VImage :src="productMap[item.productId]?.featuredAsset?.preview || ''" width="200rpx" height="200rpx" class="gb-card__img" />
-        <view class="gb-card__main">
-          <text class="gb-card__name">{{ productMap[item.productId]?.name || item.name }}</text>
-          <view class="gb-card__prices">
-            <text class="gb-card__group">¥{{ (item.groupPrice / 100).toFixed(2) }}</text>
-            <text class="gb-card__origin" v-if="origPrice(item)">¥{{ origPrice(item) }}</text>
-          </view>
-          <view class="gb-card__progress">
-            <view class="gb-card__dots">
-              <text class="gb-card__dot" v-for="n in Math.min(item.currentCount, 5)" :key="n"></text>
+      <view v-for="item in activities" :key="item.id" class="gb-card gb-card--stack">
+        <view class="gb-card__row">
+          <VImage :src="productMap[item.productId]?.featuredAsset?.preview || ''" width="200rpx" height="200rpx" class="gb-card__img" />
+          <view class="gb-card__main">
+            <text class="gb-card__name">{{ productMap[item.productId]?.name || item.name }}</text>
+            <view class="gb-card__prices">
+              <text class="gb-card__group">¥{{ (item.groupPrice / 100).toFixed(2) }}</text>
+              <text class="gb-card__origin" v-if="origPrice(item)">¥{{ origPrice(item) }}</text>
             </view>
-            <text class="gb-card__lack">{{ t('promotion.lackPeople', { n: Math.max(0, item.targetCount - item.currentCount) }) }}</text>
-          </view>
-          <view class="gb-card__foot">
-            <text class="gb-card__tag">{{ t('promotion.groupUnit', { n: item.targetCount }) }} · {{ t('promotion.remainPrefix') }} {{ countdownOf(item) }}</text>
-            <button class="gb-card__btn" @click="joinGroup(item, false)">{{ t('promotion.goGroupBuy') }}</button>
+            <view class="gb-card__progress">
+              <view class="gb-card__dots">
+                <text class="gb-card__dot" v-for="n in Math.min(item.currentCount, 5)" :key="n"></text>
+              </view>
+              <text class="gb-card__lack">{{ t('promotion.lackPeople', { n: Math.max(0, item.targetCount - item.currentCount) }) }}</text>
+            </view>
           </view>
         </view>
+        <view class="gb-card__foot">
+          <text class="gb-card__tag">{{ t('promotion.groupUnit', { n: item.targetCount }) }} · {{ t('promotion.remainPrefix') }} {{ countdownOf(item) }}</text>
+        </view>
+        <button class="gb-card__action" @click="joinGroup(item, false)">{{ t('promotion.goGroupBuy') }}</button>
       </view>
       <EmptyState v-if="activities.length === 0" :text="t('promotion.emptyActivities')" />
     </template>
@@ -42,7 +44,7 @@
         <button class="gb-gate__btn" @click="goLogin">{{ t('promotion.goLogin') }}</button>
       </view>
       <template v-else>
-        <view v-for="order in myOrders" :key="order.id" class="gb-card gb-card--mine">
+        <view v-for="order in myOrders" :key="order.id" class="gb-card gb-card--stack">
           <view class="gb-card__head">
             <text class="gb-card__state" :class="'is-' + order.status">{{ mineStateText(order) }}</text>
             <text class="gb-card__tag">{{ mineTagText(order) }}</text>
@@ -263,7 +265,7 @@ async function joinGroup(activity: any, isLeader: boolean) {
     &.active { color: $brand-color; font-weight: bold; &::after { content: ''; position: absolute; bottom: 0; left: 35%; right: 35%; height: 4rpx; background: $brand-color; border-radius: 4rpx; } }
 }
 .gb-card { display: flex; gap: 16rpx; background: #fff; border-radius: $radius-md; padding: 20rpx; margin-bottom: 16rpx;
-    &--mine { flex-direction: column; }
+    &--stack { flex-direction: column; }
     &__head { display: flex; align-items: center; justify-content: space-between; }
     &__row { display: flex; gap: 16rpx; }
     &__state { font-size: 24rpx; font-weight: bold;
@@ -281,9 +283,8 @@ async function joinGroup(activity: any, isLeader: boolean) {
     &__dots { display: flex; gap: 6rpx; }
     &__dot { width: 28rpx; height: 28rpx; border-radius: 50%; background: $brand-color-light; }
     &__lack { font-size: 22rpx; color: $text-color-secondary; }
-    &__foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6rpx; }
+    &__foot { display: flex; flex-direction: column; align-items: flex-start; margin-top: 12rpx; }
     &__tag { font-size: 22rpx; color: #fff; background: $price-color; border-radius: 8rpx; padding: 2rpx 10rpx; }
-    &__btn { background: $brand-color; color: #fff; border-radius: $radius-md; border: none; height: 64rpx; line-height: 64rpx; font-size: 26rpx; padding: 0 32rpx; }
     &__action { width: 100%; margin-top: 16rpx; background: $brand-color; color: #fff; border-radius: $radius-md; border: none; height: 72rpx; line-height: 72rpx; font-size: 28rpx; }
 }
 .gb-gate { display: flex; flex-direction: column; align-items: center; gap: 24rpx; background: #fff; border-radius: $radius-md; padding: 80rpx 20rpx;

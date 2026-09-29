@@ -97,8 +97,8 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `cart-invalid-toast.png` | 点失效行勾选框 | ✅ toast「该商品已下架，请删除」 |
 | `cart-guest-and-reco.png` | 购物车未登录引导态 | ✅ 「当前未授权，登录后查看购物车」+「去登录」；未登录时**不渲染**「为你推荐」（推荐区需登录，见 `cart-select-real.png`） |
 | `flash-sale-page.png` | 秒杀页 | ✅ 倒计时头 + 活动卡片（秒杀价 `¥99.00` / 原价 `¥168.00` 划线 / 进度 `0%`） |
-| `group-buy-page.png` | 拼团页 · 拼团列表 tab | ✅ 顶部三 tab（**拼团列表** / 我的开团 / 我的参团，列表态下划线激活）+ usemall 版式卡片：`¥128.00` / 原价 `¥168.00` 划线 / 进度点 2/3 + 「还差 1 人成团」/ 「3 人团 · 剩 155:55:42」（快照值，随剩余时间变化）/ 「去拼团」（v1.5 重采） |
-| `group-buy-mine-leader.png` | 拼团页 · 我的开团 tab（登录态） | ✅ 头行状态「拼团中」+ 「3 人团 · 剩 155:56:45」（快照值）；左图右文卡片（商品名 + 拼团价 `¥128.00` + 进度点 2/3 + 「还差 1 人成团」）；**整宽**「查看订单」按钮（v1.5 新增，见 §5.9） |
+| `group-buy-page.png` | 拼团页 · 拼团列表 tab | ✅ 顶部三 tab（**拼团列表** / 我的开团 / 我的参团，列表态下划线激活）+ 卡片三段式：① 左图右文（商品名 / `¥128.00` / 原价 `¥168.00` 划线 / 进度点 2/3 + 「还差 1 人成团」）② 独立一行规格标签「3 人团 · 剩 154:50:58」（快照值，随剩余时间变化）③ **整宽**「去拼团」按钮（v1.5 修正，见 §5.9） |
+| `group-buy-mine-leader.png` | 拼团页 · 我的开团 tab（登录态） | ✅ 头行状态「拼团中」+ 「3 人团 · 剩 154:50:55」（快照值）；左图右文卡片（商品名 + 拼团价 `¥128.00` + 进度点 2/3 + 「还差 1 人成团」）；**整宽**「查看订单」按钮（v1.5 新增，见 §5.9） |
 | `group-buy-mine-join.png` | 拼团页 · 我的参团 tab（登录态） | ✅ 与「我的开团」同版式，数据源为 `isLeader=false` 的拼团记录（v1.5 新增） |
 | `group-buy-mine-guest.png` | 拼团页 · 未登录态 | ✅ 切到「我的开团」时显示引导「登录后查看我的拼团」+「去登录」按钮；不渲染任何团卡片（v1.5 新增） |
 | `detail-page.png` | 详情页主体 | ✅ 主图、价格、标题、分享/海报、「已选」行、服务区、底部 5 键 |
@@ -162,7 +162,7 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 
 | 产物 | 部署方式 | 线上入口 | 核对 |
 |---|---|---|---|
-| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | v1.5 重新构建部署后入口为 `assets/index--umdIy5c.js`（已实测 200）；线上 121 个文件，与本地一致 |
+| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | v1.5 重新构建部署后入口为 `assets/index-vgvT9n4-.js`（首个 v1.5 版本为 `index--umdIy5c.js`，是「列表卡按钮整宽」修正前的构建，见 §5.9）；线上 121 个文件，与本地一致 |
 | web-admin | `web-admin/scripts/deploy.mjs`（本地构建 → scp → 解压 `/guanli` + nginx reload） | `https://e.joho.cn/guanli/` | 线上 533 个文件；入口 `assets/index-DFicyhQq.js`（该产物已含装修页 `flash` 楼层编辑块：`pages-decorate-home-index.CwPZYhlD.js` 内含 `flashSale`）。**v1.5 未改动 web-admin，未重新部署** |
 | vendure 后端 | `git pull --ff-only` + `pm2 restart vendure vendure-worker` | `/shop-api` | v1.5 改动：group-buy-plugin 的 shop SDL 新增 `MyGroupBuyOrder` 类型与 `myGroupBuyOrders(isLeader: Boolean!)` 查询 —— 提交 `cd454ab26`（新增）+ `6ee4a3add`（修复 Postgres `int = varchar` 报错）。重启后实测：未登录返回 `[]`、登录后 `isLeader=true/false` 各返回 1 条含 `orderCode` 的记录 |
 
@@ -362,7 +362,16 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 >
 > PowerShell 引号坑（本轮踩到多次）：给 `ssh` 的远程脚本要用**外层单引号**，否则 `$` 变量会被 PS 插值（`cp: missing destination file operand`）；`$(date +%s)` 会被 PS 当 `Get-Date` 解析；`curl.exe -d '{"query":"..."}'` 的内层双引号会被 PS 剥离导致 JSON 解析错 → 改用 `Invoke-RestMethod` + `ConvertTo-Json`。
 
-**截图与版式缺陷**：首张截图发现「我的团」主按钮**非整宽**（`.gb-card__action` 未设宽度），补 `width: 100%;` 后重建重部署，复核确认为整宽。
+**卡片主按钮整宽（两处，同一类缺陷）**：
+
+| # | 位置 | 原状 | 修正 |
+|---|---|---|---|
+| 1 | 「我的团」卡片的「查看订单」 | `.gb-card__action` 未设宽度，按钮按内容自适应宽 | 补 `width: 100%` |
+| 2 | **「拼团列表」卡片的「去拼团」** | 卡片底栏右对齐的小按钮（`gb-card__btn`，`height 64rpx` / 窄），与「我的团」卡片的主操作不是同一种视觉 | 两张卡片统一为同一套堆叠版式：`.gb-card--mine` → 重命名 `.gb-card--stack`（纵向堆叠，两卡共用）；列表卡片改为「左图右文 → 独立一行规格标签 → **整宽**主按钮（复用 `gb-card__action`）」；删除不再使用的 `gb-card__btn` |
+
+> **为什么之前「设了 width 也撑不满」**：`.gb-card__foot` 原本嵌套在右文列 `gb-card__main` 内（左图右侧那一列），按钮的 100% 只能撑满文字列而非整卡；且外层 `.gb-card` 是横向 flex。修正的关键不是加宽度，而是**把主按钮提升为卡片直接子节点**，并让卡片纵向堆叠（`.gb-card--stack`）——这也正是「我的团」卡片（版式 A）本来的结构。
+
+复验：重建部署后线上入口 `assets/index-vgvT9n4-.js`，`group-buy-page.png` 中「去拼团」左右均贴卡片内边距，与「我的团」的「查看订单」版式一致。
 
 ---
 
