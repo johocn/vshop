@@ -163,7 +163,7 @@ node scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa
 | 渠道 `shopContent` | default 渠道装修 JSON：`banner`（3 图）+ `flash` 楼层（`title={zh-CN:限时精选,en-US:Flash Picks}`、`source=flashSale`、`layout=row`、`limit=4`） |
 | C 端测试客户 | `qa-vshop-manual@local.dev` / `Qa123456`（customer id=139，生产 `requireVerification=false`，注册后可立即登录） |
 
-> 后两项与「清空购物车复原为 1 行 1 件」的操作过程记录在 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/` 之外，属一次性运维动作；生产 `shopContent` 若后续由后台装修覆盖，秒杀楼层按 §3.1 的字段约定继续生效。
+> 上述造数都是一次性运维动作（走 admin-api，脚本为临时文件、未入库），这里只记录**最终值**以便核对与复原。生产 `shopContent` 若后续由后台装修覆盖，秒杀楼层按 §3.1 的字段约定继续生效；活动过期后需重新建一条进行中的活动，秒杀/拼团楼层才会再次出现。
 
 ---
 
