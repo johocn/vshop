@@ -83,6 +83,16 @@
 
 > 另：2026-06/07 批次的历史计划经产物级核查**全部已交付**（见 §2），不构成待办。
 
+### 1.6 vendure — 券模块低优先遗留（2026-09-30）
+
+来源：usemall 对齐手册 [§5.13](file:///d:/zhao/vshop/web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md)（operations-plugin 券营销死集成清理，vendure `f9e53a996`）
+
+| 项 | 口径 |
+|---|---|
+| 生产库遗留 `coupon` 表 | coupon-plugin 2026-09-19 重构后 `Coupon` 实体已不存在，表仍在但无人读写。删表属 destructive，**未做**，需单独提需求 |
+| `vendure/test-marketing-flow.js`（根目录 tracked 调试脚本） | 仍调用 `marketingCreateCoupon`/`marketingCoupon`/`marketingUpdateCoupon`，**在本次删除前就已失效**（其调用的旧 API 早在 coupon-plugin 重构时便不存在）；未清理，仅登记 |
+| `operations-plugin/src/constants.ts` 的 `ManageCoupon` | 删除 service 后成为未使用导出，**保留**（导出权限常量可能被角色配置引用） |
+
 ---
 
 ## 2. 已核实「已交付但未勾选」的历史计划（2026-09-29 回填）

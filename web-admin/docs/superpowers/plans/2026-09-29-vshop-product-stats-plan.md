@@ -1572,7 +1572,7 @@ Expected: 两个仓库工作区干净（无未提交的本任务文件）。
 | 手段 | 结果 |
 |---|---|
 | e2e（vitest + sqljs，端口 3251） | `6 passed (6)` —— 用例 1–5 + 用例 6（订阅即时生效）+ 用例 7（软删除） |
-| 编译门禁 | marketplace-plugin `npm run build` 退出码 0；operations-plugin 退出码 2（既有 tsc 报错，见下）但 dist 正常 emit |
+| 编译门禁 | marketplace-plugin `npm run build` 退出码 0；operations-plugin 当期退出码 2（既有 tsc 报错，**已于 2026-09-30 修为 0**，见下「收尾补丁」）但 dist 正常 emit |
 | 生产回填 | 第 1 次更新 14 个商品、第 2 次返回 0（幂等） |
 | 生产探针 | shop-api 取到真实聚合值（`id=59 sales=7 pts=16800` 等）；设 `bonusSales=120` 后 `salesCount=127` |
 | 手机视口截图 | 3 张（390×844 / dpr=2）：有数据 / 无数据降级 / 切 en，逐张目视核对通过 |
@@ -1586,7 +1586,22 @@ Expected: 两个仓库工作区干净（无未提交的本任务文件）。
 
 | 项 | 状态 |
 |---|---|
-| `operations-plugin` 既有 tsc 报错（`src/marketing/coupon.service.ts` 11 条 `getCoupons` 不存在） | **历史遗留，未修**（wrapper 写于 2026-07-29，调用 coupon-plugin 2026-09-19 重构前旧 API）；root tsconfig 无 `noEmitOnError`，不影响 dist 产出。建议单独立项修 |
+| `operations-plugin` 既有 tsc 报错（`src/marketing/coupon.service.ts` 11 条 `getCoupons` 不存在） | **已修**（2026-09-30，vendure `f9e53a996`，见下「收尾补丁」）。修复前 root tsconfig 无 `noEmitOnError`，不影响 dist 产出 |
 | Task 10 Step 3 的偏差 | 计划原写「`products(options:{take:1})`」直接改首个商品，但首个商品 `slug` 为空会取不到详情页；实际改用真实商品 `id=59 温泉门票`（`slug` 有效）设 `bonusSales=120` |
 | Task 10 Step 5 的实现 | 计划给的 `--lang` 分支未采用；实际在 `_vshop_usemall_shots.mjs` 新增 `--only stats` 分支，切语言通过 `#app.__vue_app__` → `provides` 中 vue-i18n 实例改 `global.locale` |
+| `dist/build/h5` 未入库 | 计划 Step 5 原写「仓库跟踪则一并 add」，但实测该目录虽被跟踪，**最近一次提交是 v1.5 期的 `c98715e`，v1.7 提交也未含 dist** —— 沿用既有约定**不提交构建产物**（线上以本地构建 + scp 部署为准，仓库 dist 保持 v1.5 快照）。另：本轮收口时工作区存在**并行会话**对 `src/pages/category/index.vue`、`src/templates/shared/sections/GoodsSection.vue` 的改动与其截图，按「只加本任务文件」规则未纳入本次提交 |
 | 按渠道拆分销量 / 列表页与首页楼层展示 / 列表销量排序 / 积分随会员档位变化 | 明确不做（见 spec §10、手册 §5.11.5） |
+
+---
+
+### 收尾补丁（2026-09-30）：operations-plugin 券营销死集成清理
+
+本计划收尾时遗留的 `operations-plugin` 11 条 tsc 报错，已单独收口修复（vendure `f9e53a996`）。**与 product-stats 功能无耦合**，仅同属该插件的编译门禁问题。
+
+- **根因**：coupon-plugin 2026-09-19 重构为 `CouponTemplate` + `CustomerCoupon` + `ProductCouponBinding` 后，`src/marketing/coupon.service.ts`（2026-07-29 写的 wrapper）仍调用旧 API `getCoupons`/`getCoupon`/`createCoupon`/`updateCoupon`/`deleteCoupon`/`enableCouponForChannel`/`disableCouponForChannel`（均已不存在）。
+- **取证**：全仓库 grep 无任何消费者调用 `marketingCoupons*`；web-admin 的 `src/apis/coupon.ts` 直接用 coupon-plugin 自带的 `couponTemplates/couponTemplate/createCouponTemplate/...` ⇒ **死代码**，整体删除而非改写。
+- **顺带修同源静默缺陷**：`marketing-overview.service.ts` 的 `countCouponByStatus` 旧实现 `getRepository(ctx, 'Coupon' as any)` 因实体不存在抛错、被外层 `try/catch` 吞掉 ⇒ `marketingOverview.coupon` 恒为 `0/0/0`；改用 `CouponTemplate`（`enabled`/`startsAt`/`endsAt`，含 `IS NULL` 分支）。生产库实算 `42 模板 / active 28 / upcoming 0 / ended 5`，佐证修复后不再恒 0。
+- **附带修正**：`operations-admin.resolver.ts` 的 `recomputeProductStats` 的 `@Args` 由 `() => [ID]` 改为 `() => [String]`（`ID` 在 Vendure 是 `type ID = string | number` 类型别名，非运行时值，不能用于装饰器）。
+- **门禁**（全绿）：`npx tsc --noEmit` 退出码 **0**；`npm run build` 退出码 **0**；`npm run e2e` **`8 passed`**（含本计划 6 个 product-stats 用例）。
+- **部署**：服务器 `git pull --ff-only` + `pm2 restart vendure vendure-worker` → 两进程 `online`、无启动报错；产物核对 `dist/marketing/` 已无 `coupon.service.*`、`operations.plugin.js` 中 `marketingCoupons` 出现 0 次；生产 `shop-api` 的 `customFields.salesCount/pointsReward` 未受影响。
+- **详情**见手册 [§5.13](file:///d:/zhao/vshop/web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md)；遗留项已登记 [BACKLOG §1.6](file:///d:/zhao/vshop/web-admin/docs/superpowers/BACKLOG.md)。
