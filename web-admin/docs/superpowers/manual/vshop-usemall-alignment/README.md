@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.7（2026-09-29，第二轮 S2：评价体系四页 + 「我的订单」取数修复，见 §4 / §5.10） |
+| 版本 | v1.7（2026-09-29，第二轮 S2：评价体系四页 + 「我的订单」取数修复；同日修订：订单页 3 缺陷修复 + 截图 7 张，见 §4 / §5.10） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；第二轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-usemall-alignment-round2-design.md`（本轮） |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；第二轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-usemall-alignment-round2-plan.md`（本轮） |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
@@ -21,6 +21,7 @@
 > **v1.5 相对 v1.4 的增量**：拼团页从「仅拼团列表」变为 **三 tab**（拼团列表 / 我的开团 / 我的参团），后端新增 shop SDL `myGroupBuyOrders(isLeader)`（**无数据库迁移**），见 §5.9。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
 > **v1.6 相对 v1.5 的增量**：第二轮 S1 —— 详情页 SKU 弹层规格组标题带 `(N)` 计数、单规格商品降级（详情页规格区整段不渲染 / 弹层无规格组标题），见 §4。
 > **v1.7 相对 v1.6 的增量**：第二轮 S2 —— 评价体系四页（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页），并顺带修复「我的订单」列表恒空（后端 shop SDL 补 `myOrders`），见 §5.10。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
+> **v1.7 修订（同日）**：v1.7 首版只靠 API 探针判定「我的订单已修好」，采图后暴露 **3 个缺陷**并全部修复重验：① `myOrders` 关系漏 join `surcharges`（页面仍空）、② 改为 `@Relations(Order)` 按选择集推导关系 + 补同形分片 e2e 用例 ⑤、③ 列表卡片横向溢出 21px 导致右侧被切（`box-sizing`）。截图由 5 张增至 **7 张**（新增 `orders-list.png` / `orders-list-review-entry.png`），详见 §5.10.2。
 
 ---
 
@@ -83,7 +84,7 @@ node web-admin/scripts/_vshop_usemall_shots.mjs
 node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa123456'
 # 只重采分类页三张（不碰购物车存量）
 node web-admin/scripts/_vshop_usemall_shots.mjs --only category
-# 只重采评价体系 5 张（v1.7；登录态，快跑，不碰购物车存量）
+# 只重采评价体系 7 张（v1.7；登录态，快跑，不碰购物车存量）
 node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user qa-vshop-manual@local.dev --pwd 'Qa123456'
 # 购物车「已下架」失效行（自带前后对照 + 后台下架/复原，见 §5.7）
 node web-admin/scripts/_vshop_cart_invalid_shots.mjs
@@ -115,6 +116,8 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `detail-review-block.png` | 详情页评价区（v1.7） | ✅ 评价区位于详情富文本**之前**；`用户评价（6）` 计数 + `3.3 分` + `好评率 50%`；2 条评价齐全（第 1 条带图 `product-0__preview.jpg` + `商家回复` + `展开`；第 2 条为 5 星文本） |
 | `review-list-all.png` | 商品评价页「全部」（v1.7） | ✅ 4 个 chip 计数自洽：`全部（6）` = `好评（3）` + `中评（1）` + `差评（2）`；头部分数 `3.3 分` / `好评率 50%` 与详情页一致 |
 | `review-list-bad.png` | 商品评价页「差评」（v1.7） | ✅ 点「差评」后列表只剩 2 条（`★★☆☆☆` + `★☆☆☆☆`），与 chip 计数一致；第 2 条显示 `匿` + `匿名用户`（`isAnonymous` 生效） |
+| `orders-list.png` | 我的订单列表（v1.7，后端 `myOrders` 修复 + 版式修复后重采） | ✅ 顶部 5 页签（全部/待付款/待发货/待收货/已取消）；列表渲染出 **6 单**（此前恒为「暂无订单」）：`A92GRNC6MGFX73RJ 待收货 豪华套房(测试) x1 共1件 ¥898.00 已评价`、`DSPQ9DKTXPWS9RDP ¥48.00`、`R4KA52ZC9M3TJWV9 共6件 ¥340.00`、`32BJMF714X2165SU`…；右侧状态标签与金额**完整显示在 390px 视口内**（修复见 §5.10.2 缺陷②） |
+| `orders-list-review-entry.png` | 我的订单「我要评价」入口（v1.7） | ✅ 滚入视口后可见 **3 张卡片带橙色描边「我要评价」按钮**（未评行所在单）：`32BJMF714X2165SU`（2 行 = 500g 装 + 2 斤礼盒 / 共2件 / ¥116.00）、`22LP6JDATC6TWFPS`（国信南山温泉工作日门票 x1 / ¥168.00）、`QLKGJTNMDTQH19Q9`（同商品 x4 / ¥672.00）；另 3 单已全评，显示灰字「已评价」 |
 | `order-evaluate.png` | 订单评价页一单多商品（v1.7） | ✅ `商品 1 500g 装 ¥38.00 x1` + `商品 2 2 斤礼盒 ¥68.00 x1` 两块独立评分区；每块含星级、`请输入评价内容`、`上传图片（最多 6 张）` + 加号、`公开显示您的头像、昵称` 匿名开关；底部 `提交评价` |
 | `my-reviews.png` | 我的评价页三种状态（v1.7） | ✅ tab 计数 `全部（8）待审核（1）已通过（6）已驳回（1）`；三种状态标签各自配色：**已驳回=红**、**待审核=橙**、**已通过=绿**；条目含商品名、星级、日期、内容摘要 |
 
@@ -131,6 +134,10 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 ### 「我的订单」里订单状态显示「待收货」，但这个订单其实已经送达？
 
 这是 v1.7 观测到的**文案语义偏差**：订单列表标签映射把 `Delivered` 归到「待收货」（`{ Delivered: '待收货' }`），而 Vendure 里 `Delivered` 已经是终态「已送达」。它不影响功能（「我要评价」入口按 `state ∈ {Delivered, Completed}` 判定，与标签文案无关），但纯语义上 `Delivered` 显示成「待收货」容易误解 —— 记在 §5.3 未交付项，本轮不改文案。
+
+### 「我的订单」里有的卡片是「我要评价」、有的是「已评价」，怎么判定？
+
+两者互斥，由「该单是否还有未评 line」决定：`orders.vue#canReview()` 要求 `state ∈ {Delivered, Completed}` **且**存在 `orderLineId` 不在「我的评价」集合里的 line（集合来自 `myReviews`）。本轮 6 单实测：`32BJMF714X2165SU`（215/216）、`22LP6JDATC6TWFPS`（200）、`QLKGJTNMDTQH19Q9`（199）**未评 → 显示「我要评价」**；`R4KA52ZC9M3TJWV9`（6 行）、`DSPQ9DKTXPWS9RDP`、`A92GRNC6MGFX73RJ` 已全评 → 显示「已评价」。首屏只能看到前 3 单的「已评价」，未评行那 3 单在折叠线以下，故追加了滚入视口的取证图 `orders-list-review-entry.png`。
 
 ---
 
@@ -419,13 +426,32 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | 入口 | `orders.vue`、`order-detail.vue`、`profile.vue` | 「我的订单」卡片与订单详情页的「我要评价」；个人中心「我的评价」 |
 | 订单列表页签映射 | `src/pkg-order/pages/orders.vue` | 本轮修正：`待付款` = `ArrangingPayment`（原 `Created`）、`待发货` 含 `PaymentAuthorized, PaymentSettled` |
 
-#### 5.10.2 「我的订单」列表恒空 —— 本轮顺带修复的后端缺陷
+#### 5.10.2 「我的订单」列表 —— 本轮顺带修复的 3 个缺陷
+
+**缺陷①：`myOrders` 字段在 shop schema 从未注册（页面恒空）**
 
 - **现象**：`/#/pkg-order/pages/orders` 在生产恒显示「暂无订单」，导致本轮新增的「我要评价」入口不可达。
 - **根因**：前端 `getOrders()` 一直查 `myOrders`，但 **shop schema 从未注册该字段**（自前端初始化提交 `4fbbc8f` 起就存在）。生产实测报 `Cannot query field "myOrders" on type "Query"`；vendure 全仓 grep 无该字段定义。
 - **修复**：vendure `packages/cjk-plugin` 新增 `MyOrdersShopResolver`（`src/order/my-orders-shop.resolver.ts`），在 shop SDL 扩展 `myOrders(options: OrderListOptions): OrderList!`（**复用 core 已生成的 `OrderList` / `OrderListOptions`，不重复定义**）；按 `ctx.activeUserId` 反查顾客，`ListQueryBuilder` 查询并追加两条 `andWhere`：`order.customer.id = :customerId` 与 `order.state NOT IN ('Draft','AddingItems')`；拿不到顾客返回空列表（防跨顾客串号）。**无数据库迁移**。
 - **e2e**：`packages/cjk-plugins-e2e/e2e/my-orders.e2e-spec.ts` 4 用例（传 options / 不传 options / 排除购物车单 / 防串号），先红后绿；需用 Postgres 跑（`$env:DB='postgres'`）。
-- **lib 产物收窄（重要运维注记）**：`tsc` 会把编译范围内**所有**文件 emit 出来（即使未被 import），因此重建会把 6 周前已提交 `src`、但**从未部署**的「租户设置」模块一并产出。若照此部署，生产 admin-api 会凭空新增 `tenantSettings` / `updateTenantBasic` 等未上线接口（已实测生产此前没有）。故**逐项收窄 lib**，只保留 `myOrders` 相关产物：`lib/src/plugin.js` 重新 emit（临时摘掉 `src/plugin.ts` 里的 tenant 注册后跑 tsc，再恢复 `src`，**src 本身未改动**），`lib/src/admin/tenant-config-admin.resolver.*` 与 `lib/src/tenant/tenant-channel-custom-fields.*` 回退到前一提交，删除 `lib/src/tenant/{basic,multi-language,service-notify}-config.service.*` 与 `tenant-config.types.*`。收窄后工作树相对修复前提交只剩 8 个 `myOrders` 文件。**部署后实测生产 admin-api 仍无 `tenantSettings`，收窄有效。**
+
+**缺陷②：`myOrders` 漏 join `surcharges`，真机上页面依旧空（缺陷①修完才暴露）**
+
+- **现象**：缺陷① 上线并按 API 只读探针「返回 6 单」判定通过后，**真机截图仍显示「暂无订单」**（`orders-list.png` 第一版）。
+- **根因**：`Order.taxSummary` 是 `@Calculated` getter，硬依赖 `Order.surcharges` 关系；前端 `ORDER_FRAGMENT` 恰好选了 `taxSummary`。原先 `myOrders` 手写关系表，漏了 `surcharges`，整条查询报 `The property "taxSummary" on the Order entity requires the Order.surcharges relation to be joined`，shop-api 返回 `INTERNAL_SERVER_ERROR`，前端吞掉错误只显示空态。此前 API 级回归只查 `id/state` 等标量字段，**覆盖不到这个坑**。
+- **修复**：改为 core 的 `@Relations(Order)` 装饰器按本次 GraphQL 查询的**选择集**推导关系（并自动带上 `@Calculated()` 声明的依赖：`taxSummary → lines/surcharges/shippingLines`、`discounts → lines/shippingLines`、`totalQuantity → lines`），不再手写关系表。
+- **e2e 补例**：新增用例 ⑤，用与 vshop `ORDER_FRAGMENT` **同形**的字段查询（`taxSummary` / `discounts` / `shippingLines.shippingMethod` / `lines.productVariant.options` / `payments`），5/5 通过。
+- **只读复核**：生产 shop-api 用同形分片 + QA 账号实跑 → 无 error，`totalItems = 6`，每单 `taxSummary` 2 项、`shippingMethod = courier-delivery / store-pickup`、`options` 正常。
+
+**缺陷③：订单卡片右侧被切边（横向溢出 21px）**
+
+- **现象**：缺陷② 修完后列表能渲染，但 `orders-list.png` 里状态标签「待收货」与金额 `¥898.00` 被右边缘切掉。
+- **根因**：`.orders-page__scroll`（`scroll-view`）由 flex 拉伸到 390px，再叠加 `padding: 0 20rpx`，而该元素默认 `box-sizing: content-box` → 实际宽 **411px**，`documentElement.scrollWidth = 411 > 390`，右侧 21px 被推出视口。
+- **修复**：`src/pkg-order/pages/orders.vue` 的 `&__scroll` 加 `box-sizing: border-box`。复核：重采后 `scrollWidth = 390`，状态标签与金额完整可见。**此前页面恒空，所以这个版式问题一直没被看见。**
+
+**lib 产物收窄（重要运维注记，缺陷①②两次后端部署都适用）**
+
+`tsc` 会把编译范围内**所有**文件 emit 出来（即使未被 import），因此重建会把 6 周前已提交 `src`、但**从未部署**的「租户设置」模块一并产出。若照此部署，生产 admin-api 会凭空新增 `tenantSettings` / `updateTenantBasic` 等未上线接口（已实测生产此前没有）。故每次只重建必要文件后**逐项收窄 lib**：本次 `lib/src/order/my-orders-shop.resolver.*` 3 个产物保留，`lib/src/plugin.js` 回退到前一提交（缺陷②不改 plugin）、`lib/src/admin/tenant-config-admin.resolver.*`、`lib/src/tenant/tenant-channel-custom-fields.*` 回退，并删除 `lib/src/tenant/{basic,multi-language,service-notify}-config.service.*` 与 `tenant-config.types.*` 12 个新产物。**两次部署后均实测生产 admin-api 无 `tenantSettings`，收窄有效。**
 
 #### 5.10.3 生产验收前置数据（一次性运维动作，不落库脚本）
 
@@ -454,12 +480,15 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 
 #### 5.10.5 截图断言
 
-5 张图的逐项断言已并入 §4 表末（`detail-review-block.png` / `review-list-all.png` / `review-list-bad.png` / `order-evaluate.png` / `my-reviews.png`），并在采图后**逐张目视核对通过**。
+7 张图的逐项断言已并入 §4 表（`detail-review-block.png` / `review-list-all.png` / `review-list-bad.png` / `orders-list.png` / `orders-list-review-entry.png` / `order-evaluate.png` / `my-reviews.png`），并在采图后**逐张目视核对通过**。
+
+> 采图过程本身即验收手段：缺陷②（`surcharges` 漏 join）与缺陷③（卡片切边）**都是截图才发现、API 探针发现不了的**，这也是「功能交付必须带手机视口截图」的价值所在。
 
 #### 5.10.6 部署顺序与产物核对
 
 1. **后端先上线**（否则前端传 `ratingMin/ratingMax` 会被 GraphQL 校验拒绝，且 `myOrders` 取不到数）：`ssh joho "cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure vendure-worker"`（生产路径是 `/www/apps/vendure`，**不是** `/opt/vendure`）。
 2. 上线后只读核对：shop-api `myOrders` 字段存在；用 QA 账号 `myOrders` 返回 6 单（含/不含 `options`、`filter.state.eq` 均正常，**无** `AddingItems`/`Draft`）；admin-api **仍无** `tenantSettings`。
+   - **必须用前端同形分片再跑一次**（缺陷② 的教训）：只查 `id/state` 会漏掉关系 join 问题。核对项：无 `errors`、`items.length = 6`、每单 `taxSummary` 非空数组、`shippingLines[0].shippingMethod.code` 有值、`lines[0].productVariant.options` 可解析。
 3. **前端再上线**：本地 `npm run build:h5`（0 error）→ `tar -czf dist-h5.tar.gz -C dist/build/h5 .` → `scp` 到 `/tmp` → 站点目录 `tar -xzf`。
    - 站点目录为 `drwxrwxrwx`，**无需 sudo**；解压时 `assets/`、`static/` 属 root 会报 `Cannot utime / Cannot change mode`，那只是**目录元数据**操作失败，文件本体已正常落盘 —— 复核方式是比对 `index.html` 的 sha256，并核对「本地 122 个 assets 文件名在服务器上缺失数 = 0」。
 

@@ -3,7 +3,7 @@
 // 用法（脚本目录即 web-admin/scripts/）：
 //   node web-admin/scripts/_vshop_usemall_shots.mjs                     # 游客态（首页/分类/购物车游客态/秒杀/拼团）
 //   node web-admin/scripts/_vshop_usemall_shots.mjs --user U --pwd P    # 追加登录态（详情 SKU 弹层 / 购物车勾选真生效）
-//   node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user U --pwd P   # 只跑评价体系 5 张
+//   node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user U --pwd P   # 只跑评价体系 7 张
 //
 // 环境变量：SITE_URL（默认 https://e.joho.cn）
 // 注意：登录态会经详情页 SKU 弹层向生产购物车加购 1 件，用于复现「勾选真生效」的金额/按钮态。
@@ -239,17 +239,37 @@ async function shopApi(query, variables) {
     await shot('review-list-bad.png');
 
     if (LOGGED) {
-      // S4 订单评价页（需登录）
+      // S4 我的订单列表——证明后端 myOrders 修复生效（本轮顺带修的缺陷，此前页面恒为「暂无订单」）
+      await go('/pkg-order/pages/orders', 7000);
+      console.log('  我的订单页文本 =', await text());
+      await shot('orders-list.png');
+
+      // S4b 「我要评价」入口取证：未评行所在的卡片在首屏折叠线以下，需滚入视口
+      try {
+        const btn = page.locator('text=我要评价').first();
+        if (await btn.count()) {
+          await btn.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(1200);
+          console.log('  我要评价入口可见 =', await btn.isVisible(), '| 文本 =', await text());
+          await shot('orders-list-review-entry.png');
+        } else {
+          console.log('  未找到「我要评价」入口（可能所有订单都已评价）');
+        }
+      } catch (e) {
+        console.log('  我要评价入口取证 err', String(e.message).slice(0, 120));
+      }
+
+      // S5 订单评价页（需登录）
       await go(`/pkg-order/pages/order-evaluate?code=${ORDER_CODE}`, 7000);
       console.log('  订单评价页文本 =', await text());
       await shot('order-evaluate.png');
 
-      // S5 我的评价页（需登录）
+      // S6 我的评价页（需登录）
       await go('/pkg-user/pages/my-reviews', 7000);
       console.log('  我的评价页文本 =', await text());
       await shot('my-reviews.png');
     } else {
-      console.log('  未登录，跳过 order-evaluate.png / my-reviews.png（改用 --user/--pwd 重跑）');
+      console.log('  未登录，跳过 orders-list.png / order-evaluate.png / my-reviews.png（改用 --user/--pwd 重跑）');
     }
   }
 
