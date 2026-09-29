@@ -43,7 +43,9 @@ function selectTenant(code: string) {
     if (ok) {
         resetClient();
         showPopup.value = false;
-        // 刷新页面以重新加载所有数据
+        // 刷新页面以重新加载所有数据。
+        // 带 ?tenant= 跳转：initTenant 优先级为 ?tenant= > localStorage > 域名 > 默认，
+        // 因此 e.joho.cn（域名绑定默认店）也能切到分店（原实现域名优先会把 ?tenant= 吃掉）。
         setTimeout(() => {
             // #ifdef H5
             const url = new URL(window.location.href);

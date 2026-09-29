@@ -631,11 +631,64 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 
 | 项 | 状态 |
 |---|---|
-| 城市/分店店铺（t1/t3/t24）在生产**无法通过 URL 访问** | 26 个渠道里**只有 default 绑定了域名 `e.joho.cn`**（其余 `customFields.customDomains` 全为 `null`）；子路径 `e.joho.cn/t1/`、`/t3/`、`/t24/` 被 nginx SPA fallback 打回同一份 index.html，`activeChannel` 恒为 `__default_channel__`；`?tenant=t1` 也因 `initTenant()` **先按域名解析并直接 return** 而不生效 |
+| 城市/分店店铺（t1/t3/t24）在生产**无法通过 URL 访问** | **已于 2026-09-30 修复，见 §5.12.7**。原结论需分侧看待：vshop（e.joho.cn，hash 路由）侧成立，真因是 `initTenant()` 把域名解析排在 `?tenant=` 之前（`e.joho.cn` 只命中 default 渠道 → 提前 return，`?tenant=` 成死代码）；nshop（www.youshop.cn）侧 `/<code>` **本就是 200**，只有白名单外的首段与 `enabled=false` 的 t24 为 404 |
 | t1 / t3 / t24 的分类成员为空 | 这三个渠道的 collection filter 是 `product-id-filter(productIds=[])`（空数组）→ 在 Vendure 3 里 collection 成员**按 filter 动态计算**（无 `collection_product` 表），空数组必然命中 0；t1/t24 渠道商品数本就是 0，t3 只有商品 57 |
 | 商品 79 / 76 价格为 0 | 用户裁定「暂不处理，仅记录」 |
 | `GoodsSection.title` 只支持**字符串**，不支持 `LocalizedText` | 与「后台可编辑文案走 `LocalizedText` 逐级回退」的模板规范有张力；本轮楼层标题（温泉度假等）即分类名，未改类型 |
 | default 渠道仍有 4 个私有空壳分类 | `electronics`/`home`/`personal-care`/`food`（id 2–5，§5.8 已设 `isPrivate`），shop-api 不返回 |
+
+#### 5.12.7 渠道 URL 可达性修复：「t1/t3/t24 无法访问」的根因与改造（2026-09-30）
+
+> §5.12.6 首行「分店在生产无法通过 URL 访问」经复核**需分侧看待**（vshop 成立、nshop 不成立），本轮按「两侧都做」一次性根治，目标是**新增/启用渠道后无需重跑脚本、无需重新构建部署前端即可访问**。
+
+**三条真实根因**
+
+| # | 侧 | 根因 |
+|---|---|---|
+| ① | nshop | `layers/base/nuxt.config.ts` 的 `pages:extend` 在**构建期**读 `layers/base/data/tenant-channels.json`，把 24 个 code 拼成正则 `:tenantCode(official-01\|…\|t1\|t2\|t3\|test-marketplace-shop)?` 注入每条路由 → 白名单外首段 404。该 JSON 由 `scripts/generate-tenant-map.mjs` 手工生成、**不在 `deploy.mjs` 内**，新增渠道必须「重跑脚本 → 重新构建 → 重新部署」。附带缺陷：`/en/t1` 返回 200 却落到默认店（i18n 前缀吃掉租户段） |
+| ② | vshop | `src/stores/tenant.ts` 的 `initTenant()` 顺序为「域名 → `?tenant=` → localStorage → 默认」且域名命中即 `return`。`e.joho.cn` 的 `customDomains` 只命中 default 渠道 → 提前 return → **`?tenant=` 成死代码**，分店永远退回默认店（与设计文档 `docs/superpowers/specs/2026-08-23-tenant-sharing-c-end-design.md` 的「`?tenant=code` 优先」不符） |
+| ③ | Vendure | 只有 `resolveChannelByCode(code)`（单条），**没有「列出全部可用渠道」的公开查询** → 前端只能把渠道清单烘焙进产物，店铺切换器也拿不到真实列表 |
+
+**改造后机制**
+
+| 环节 | 实现 |
+|---|---|
+| 数据源 | Vendure 新增公开查询 `shopChannels`（`cjk-plugin`，2026-09-30 已部署）：`emptyCtx` 跨渠道 `findAll`，**排除** `customFields.enabled === false`（t24），包含默认渠道并标记 `isDefault`，default 优先 + 其余按 code 升序 |
+| nshop 路由 | 租户段由「构建期白名单正则」改为**免费可选段** `:tenantCode?`，真伪判定从构建期下移到运行时 |
+| nshop 运行时 | `server/utils/tenant-registry.ts` SWR 缓存 `shopChannels`（TTL 60s，含负向缓存）；`server/middleware/tenant.ts` 只做**正向命中**（命中才写 `event.context.tenant`，**绝不判 404**，避免误伤 `/favicon.ico`、`/_nuxt/**` 与 `/en/product/foo` 这类静态首段）；404 由 `layers/base/app/middleware/tenant.global.ts` 依 `to.params.tenantCode` **独占判定** |
+| nshop 首帧 | `layers/base/app/plugins/tenant-channel.ts` 在 `app.vue` setup **之前**同步读 `event.context.tenant` 写好渠道 token（`app.vue` 顶层 `await loadTheme()` 是 SSR 第一发 GQL，插件 await 完成早于根组件创建） |
+| 降级链 | 运行时拉取 → 上一次成功结果 → 构建期种子 `tenant-channels.json`（Vendure 不可用时已知渠道仍可服务）；`generate-tenant-map.mjs` 降级为「可选快照工具」，不再是上线必经步骤 |
+| vshop 优先级 | `?tenant=` > `localStorage.tenant_code` > `resolveChannelByDomain(host)` > 默认（用户 2026-09-30 确认）。店铺切换器数据源改为 `shopChannels` 真实列表；`?tenant=` 未命中时回退默认店（`loadTenantDetails` 失败分支不再写占位 token `'default-token'` —— 未知 token 会让 Vendure 报 ChannelNotFound，使后续请求全部失败、无法回退） |
+
+**验收证据（2026-09-30 生产实测）**
+
+| 请求 | 结果 |
+|---|---|
+| `www.youshop.cn/t1` `/t2` `/t3` `/official-01` | 200，title 分别「新生」「二月兰会员」「陈记烘焙馆·手机版」「官方自营01」 |
+| `www.youshop.cn/en/t1` | **200 且 title「新生」**（§5.12.6 遗留的 i18n 缺陷已修） |
+| `www.youshop.cn/t3/product/guoxin-nanshan-ticket` | 200，title「国信南山温泉门票」，请求头 `vendure-token` = t3 渠道 token |
+| `www.youshop.cn/t24` / `/nonexistent-xyz` / `/zh/t1` | 404（t24 为 `enabled=false`，设计内） |
+| admin-api 置 t24 `enabled=true` → **不重建、不重部署** | 6s 后 `/t24` → **200**；复位 `false` → 58s 后 → 404（均在 SWR TTL 内收敛） |
+| `e.joho.cn/?tenant=t1` | 店名「新生」，全部 `shop-api` 请求头 `vendure-token` = t1 渠道 token（`a6fn474hhiqasmyiyrfl`） |
+| `e.joho.cn/?tenant=nope` | 回退默认店（优商铺），不白屏 |
+| `e.joho.cn` 首页 TenantBar 下拉 | **25** 项真实店铺（26 个渠道 − 已停用 t24） |
+
+**移动端截图（390×844 / dpr=2）**
+
+| 截图 | 场景 | 断言 |
+|---|---|---|
+| `nshop-t1-home.png` | `www.youshop.cn/t1` | 头部店名「新生」，分类与商品楼层均为 t1 渠道数据 |
+| `nshop-en-t1-home.png` | `www.youshop.cn/en/t1` | 英文界面下店名仍为「新生」（locale 缺陷已修） |
+| `nshop-t3-product.png` | `www.youshop.cn/t3/product/guoxin-nanshan-ticket` | 详情页 200，标题「国信南山温泉门票」 |
+| `nshop-unknown-tenant-404.png` | `www.youshop.cn/nonexistent-xyz` | HTTP 404，错误页文案「店铺不存在」 |
+| `nshop-default-home.png` | `www.youshop.cn/` | 对照：默认店「优商铺」 |
+| `vshop-t1-home.png` | `e.joho.cn/?tenant=t1` | 店名「新生」，内容为 t1 渠道装修 |
+| `vshop-tenant-switcher.png` | `e.joho.cn` 首页 TenantBar 展开 | 25 项真实店铺列表，当前项「优商铺 ✓」 |
+| `vshop-unknown-tenant-fallback.png` | `e.joho.cn/?tenant=nope` | 回退「优商铺」，不白屏 |
+| `vshop-default-home.png` | `e.joho.cn/` | 对照：默认店「优商铺」 |
+
+> 截图采集脚本 `web-admin/scripts/_tenant_reach_shots.mjs`（Playwright，390×844 dpr=2），运行时会同时打印每个页面的 HTTP 状态、`<title>` 与 `shop-api` 实际携带的 `vendure-token`，可直接作为断言日志留档。
+> 部署：vendure（`git pull` + `pm2 restart vendure`）→ nshop（`node scripts/deploy.mjs`）→ vshop（`npm run build:h5` → tar → scp → 解压到 `…/sites/e.joho.cn/index`）。**顺序不可颠倒**：`:tenantCode?` 必须与 Vue 全局中间件同批上线，否则会出现「未知首段渲染成默认店」的窗口期。
 
 ---
 
