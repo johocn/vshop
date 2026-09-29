@@ -168,9 +168,14 @@ extend type Mutation {
 1. `src/api/fragments.ts` L22（1 行）：
    `customFields { videoAssetId sellingPoint }` → `customFields { videoAssetId sellingPoint salesCount pointsReward }`
 2. `src/pkg-product/pages/detail.vue`：**展示逻辑零改动**（`salesCountText` / `pointsText` 与 `v-if` 降级均已就绪）。
-3. `src/pkg-product/pages/detail.vue` 元信息行两处**硬编码中文**改走 i18n 字典（`已售` / `可得 … 积分`），并同步补齐全部 5 个语言包：`zh-CN.json`、`en.json`、`zh-TW.json`、`ja.json`、`ko.json`。
-   - 依据：前端固定文案必须走 i18n 字典（项目硬规范）。
-   - 该改动只动模板文案与语言包，不改计算逻辑。
+3. `src/pkg-product/pages/detail.vue` 元信息行**仅本次要碰的两处**改走 i18n 字典（2026-09-29 用户确认的最小范围）：
+   - `已售 {{ salesCountText }}`（第 31 行）→ `{{ t('product.sold') }} {{ salesCountText }}`。**复用已存在的 key**：`product.sold` 在 5 个语言包中均已定义且代码中从未被引用，**零新增 key**。
+   - 「可得 X 积分」：目前由 `pointsText` computed（第 172-175 行）拼出中文字符串 → 改为新增 key `product.pointsReward`（值 `可得 {n} 积分`），在 computed 内用 `t('product.pointsReward', { n })` 生成。
+   - 新增 key 需同步补齐全部 5 个语言包：`zh-CN.json`、`en.json`、`zh-TW.json`、`ja.json`、`ko.json`。
+   - `detail.vue` 已具备 `const { t } = useI18n()`（第 121 行），无需新增引入。
+   - 该改动只动模板文案、computed 的字符串来源与语言包，不改计算逻辑与 `v-if` 降级。
+
+   明确不在本次范围：该文件其余硬编码文案（分享 / 海报 / 价格说明 / 秒杀价 / 已选 / 已加入购物车 / 客服功能敬请期待 / 请点击右上角分享 等）仍留在 `BACKLOG.md` §1.3「全站 i18n 化」那一轮统一处理；其中「收藏功能敬请期待」「客服功能敬请期待」属其它待办，避免跨任务互相覆盖。
 
 ---
 
@@ -194,7 +199,7 @@ extend type Mutation {
 ### 7.3 手机视口截图
 
 - 视口 390×844、dpr = 2（780×1688）。
-- 需产出至少两张：**有数据**（显示「已售 N」「可得 X 积分」）与**无数据**（整行不占位）。
+- 需产出至少三张：**有数据**（显示「已售 N」「可得 X 积分」）、**无数据**（整行不占位）、**切换语言后**（验证 `product.sold` / `product.pointsReward` 两个 key 即时生效）。
 - 截图补进操作手册对应章节。
 
 ### 7.4 文档
