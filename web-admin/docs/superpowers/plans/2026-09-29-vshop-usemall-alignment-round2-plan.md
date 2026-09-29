@@ -35,6 +35,8 @@
     - `src/pkg-order/pages/order-detail.vue`：`order-detail__actions` 在 49-55 行
     - `src/pkg-user/pages/profile.vue`：菜单项在 8-20 行；`navTo` 在 37 行
     - `src/pages.json`：`pkg-product` 72-90、`pkg-order` 92-139、`pkg-user` 200-265
+13. **截图脚本打的是生产站**：`web-admin/scripts/_vshop_usemall_shots.mjs:51` 为 `const URL = process.env.SITE_URL || 'https://e.joho.cn'`，图片落盘到 `:52` 的 `.../manual/vshop-usemall-alignment/assets/`（**注意有 `assets/` 子目录，git add 别漏**）。因此**任何截图验收都必须在代码上线之后做**（Task 4 / Task 13 各部署一次前端）。
+14. **前端部署无现成脚本**：`web-admin/scripts/deploy.mjs` 只部署后台（站点 `.../e.joho.cn/guanli`）；C 端 vshop H5 走手动 `npm run build:h5` → `tar` → `scp` → 服务器 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index` 解压（见 Task 4 Step 3 / Task 13 Step 7）。
 
 **验证三件套**
 
@@ -255,64 +257,111 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
 
 ---
 
-## Task 4: V1 验收（手机截图 ×2 + 手册行）
+## Task 4: V1 验收（部署 → 手机截图 ×3 + 手册行）
 
 **Files:**
 - Modify: `d:\zhao\vshop\web-admin\scripts\_vshop_usemall_shots.mjs`（详情页块 229-233 行）
 - Modify: `d:\zhao\vshop\web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md`
+- Create: `d:\zhao\vshop\web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\detail-single-spec.png`（截图脚本落盘）
+- 部署：`dist/build/h5` → 线上 `https://e.joho.cn`（Step 3；截图打生产站，必须先上线）
 
-- [ ] **Step 1: 截图脚本补「单规格商品」一张**
+- [ ] **Step 1: 截图脚本补两个钉死 slug 的探针（多规格 + 单规格）**
 
-读 `web-admin\scripts\_vshop_usemall_shots.mjs` 的 205-235 行（详情页块），在 233 行 `await shot('detail-sku-sheet.png');` 之后、该块闭合之前追加一个单规格商品的探针块。追加内容（`SINGLE_SLUG` 用 Step 2 查到的真实 slug 替换，不要留占位）：
+现有详情块（219-255 行）用 `search` 自动挑「第一个带 slug 的商品」，采到的 `detail-sku-sheet.png` **未必带规格组**，断言不可复现。因此在详情块结束（255 行的 `}`）之后、`// ---------- 4 购物车` 之前，追加两个**钉死 slug** 的探针，让三条断言确定可复现。
+
+**注意脚本现状**：**没有 `BASE` 变量**，站点根是 `URL`（`_vshop_usemall_shots.mjs:51`）；且已有 `go(path, waitMs)` 帮助函数（用法见 227 行）。按文件现状用 `go()`，**不要**写 `` `${BASE}/#/...` ``。
+
+追加内容（`MULTI_SLUG` / `SINGLE_SLUG` 用 Step 2 查到的真实 slug 替换，不要留占位）：
 
 ```js
-  // S1 验收：单规格商品——规格区整段消失、已选行显示变体名
-  await page.goto(`${BASE}/#/pkg-product/pages/detail?slug=${SINGLE_SLUG}`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
-  await shot('detail-single-spec.png');
-```
-
-变量名沿用该文件既有风格（`page` / `BASE` / `shot`）；若文件用的是别的名字，按文件现状对齐后再追加。
-
-- [ ] **Step 2: 查一个真实单规格商品的 slug**
-
-Run（在 `d:\zhao\vshop`，用仓库既有的 shop-api 探针方式；`getProductsByIds` 的查询可直接复用来确认 `optionGroups` 为空）：
-
-```powershell
-python web-admin/scripts/_smoke_usemall_align.py
-```
-
-把该脚本里已有的 GraphQL 查询改成：
-
-```graphql
-query {
-  products(options: { take: 50 }) {
-    items { id name slug optionGroups { id name } variants { id name } }
+  // S1 验收：多规格商品——规格组标题带 (N) 计数（重采，覆盖自动挑 slug 的不确定结果）
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(MULTI_SLUG)}`, 6000);
+  await shot('detail-page.png');
+  const hitMulti = await clickAny(['加入购物车', '立即购买', '选规格', '选择规格', '购买']);
+  if (hitMulti) {
+    await page.waitForTimeout(2500);
+    await shot('detail-sku-sheet.png');
+    console.log('  多规格弹层文本 =', await text());
+  } else {
+    console.log('  多规格商品未找到触发 SKU 弹层的按钮');
   }
+
+  // S1 验收：单规格商品——规格区整段消失、已选行显示变体名
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(SINGLE_SLUG)}`, 6000);
+  await shot('detail-single-spec.png');
+  console.log('  单规格页文本 =', await text());
+```
+
+- [ ] **Step 2: 查一个多规格 slug 与一个单规格 slug**
+
+**不要改仓库里已跟踪的 `web-admin/scripts/_smoke_usemall_align.py`**（Step 6 的 `git add` 不含它，改了会把工作树弄脏）。改为在**仓库外**建一个临时探针文件跑完即删：
+
+`$env:TEMP\probe_vshop_slugs.mjs`：
+
+```js
+const URL = process.env.SITE_URL || 'https://e.joho.cn';
+const q = `query { products(options: { take: 100 }) {
+  items { name slug optionGroups { id name } }
+} }`;
+const r = await fetch(`${URL}/shop-api`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', 'vendure-token': process.env.VENDURE_TOKEN || '' },
+  body: JSON.stringify({ query: q }),
+});
+const j = await r.json();
+if (j.errors) { console.error(JSON.stringify(j.errors)); process.exit(1); }
+for (const p of j.data.products.items) {
+  const n = (p.optionGroups || []).length;
+  console.log(n === 0 ? 'SINGLE' : 'MULTI ', `groups=${n}`, 'slug=' + JSON.stringify(p.slug), p.name);
 }
 ```
-
-Expected：找到至少 1 个 `optionGroups` 长度 = 0 的商品，记下它的 `slug` 作为 `SINGLE_SLUG`。若全部商品都有规格组，则**先在后台建一个无规格变体选项的单规格商品**（用 `vshop` 既有商品创建流程），再继续；不要跳过本 Task。
-
-- [ ] **Step 3: 跑脚本取图**
 
 Run（在 `d:\zhao\vshop`）：
 
 ```powershell
-node web-admin/scripts/_vshop_usemall_shots.mjs
+node "$env:TEMP\probe_vshop_slugs.mjs"
 ```
 
-Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\` 下新增/更新：
+Expected：输出里既有 `MULTI` 行也有 `SINGLE` 行。取一个 `MULTI groups>=1` 且 slug 非空的作为 `MULTI_SLUG`，一个 `SINGLE groups=0` 且 slug 非空的作为 `SINGLE_SLUG`（**两个都必须是 `slug` 非空且非 `""`**）。跑完 `Remove-Item "$env:TEMP\probe_vshop_slugs.mjs"`。
+
+若没有 `SINGLE` 行（全部商品都有规格组），则**先在后台建一个无规格变体选项的单规格商品**（沿用 vshop 既有商品创建流程），再重新跑探针；不要跳过本 Task。
+
+- [ ] **Step 3: 先把 V1 上线（截图打的是生产站，不上线采不到新行为）**
+
+截图脚本默认 `SITE_URL=https://e.joho.cn`（`_vshop_usemall_shots.mjs:51`），所以**必须先部署 V1 前端**，否则 Step 4 的三条断言全部会看到旧行为。V1 零后端，只部署前端。
+
+Run（在 `d:\zhao\vshop`，本地构建，服务器只解压）：
+
+```powershell
+npm run build:h5
+tar -czf dist-h5.tar.gz -C dist/build/h5 .
+scp dist-h5.tar.gz joho:/tmp/
+ssh joho "cd /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index && tar -xzf /tmp/dist-h5.tar.gz && rm -f /tmp/dist-h5.tar.gz"
+```
+
+Expected：解压无报错。**不在服务器执行任何构建命令**（服务器内存不足）。完成后 `Remove-Item dist-h5.tar.gz`。
+
+- [ ] **Step 4: 跑脚本取图**
+
+用 `--only detail` 限定只跑详情页块：避免重采首页/购物车/秒杀/拼团的既有截图、产生一堆与 V1 无关的产物改动（那些图不在 Step 6 的 `git add` 里，会把工作树弄脏）。
+
+Run（在 `d:\zhao\vshop`）：
+
+```powershell
+node web-admin/scripts/_vshop_usemall_shots.mjs --only detail
+```
+
+Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` 下新增/更新：
 
 | 文件 | 断言 |
 |---|---|
-| `detail-sku-sheet.png` | 多规格商品弹层，规格组标题形如「颜色 (3)」 |
-| `detail-single-spec.png` | 单规格商品，**没有**规格组标题、**没有**「请选择规格」；已选行显示变体名 |
-| `detail-page.png` | SKU 弹层头部缩略图**不再**是灰底占位 |
+| `assets/detail-sku-sheet.png` | 多规格商品弹层，规格组标题形如「颜色 (3)」 |
+| `assets/detail-single-spec.png` | 单规格商品，**没有**规格组标题、**没有**「请选择规格」；已选行显示变体名 |
+| `assets/detail-page.png` | SKU 弹层头部缩略图**不再**是灰底占位 |
 
 三张图在 390×844、dpr=2 下采集。逐张目视核对断言；任一不满足则回到 Task 1/2/3 修，**不要**先改断言。
 
-- [ ] **Step 4: 手册补 V1 截图行**
+- [ ] **Step 5: 手册补 V1 截图行**
 
 在 `web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md` 里，找到既有「详情页 / SKU 弹层」相关小节，在其截图表格末尾追加一行（表格列名与上文一致）：
 
@@ -322,10 +371,12 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\` 下新�
 
 同时把手册顶部版本号升到 **v1.6**（与第二轮一起记，见 Task 13）。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 6: 提交**
+
+截图产物落在 `assets/` 子目录（`_vshop_usemall_shots.mjs:52`），路径不要漏 `assets/`：
 
 ```powershell
-git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md web-admin/docs/superpowers/manual/vshop-usemall-alignment/detail-single-spec.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/detail-sku-sheet.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/detail-page.png
+git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-single-spec.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-sku-sheet.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/detail-page.png
 git commit -F .git/COMMIT_MSG_TMP.txt
 ```
 
@@ -341,7 +392,13 @@ test(sku): V1 验收——SKU 弹层规格计数/单规格降级/缩略图三断
 涉及：web-admin/scripts/_vshop_usemall_shots.mjs、web-admin/docs/superpowers/manual/vshop-usemall-alignment/
 ```
 
-**V1 到此结束，可独立验收。**
+- [ ] **Step 7: 推送**
+
+```powershell
+git push origin master
+```
+
+**V1 到此结束，可独立验收（代码已上线、截图已归档、文档已提交推送）。**
 
 ---
 
@@ -2211,7 +2268,7 @@ node web-admin/scripts/_vshop_usemall_shots.mjs
 node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa123456'
 ```
 
-Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\` 下按 spec §7.1 断言表逐张核对：
+Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` 下按 spec §7.1 断言表逐张核对：
 
 | 文件 | 断言 |
 |---|---|
@@ -2233,8 +2290,10 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\` 下按 s
 
 - [ ] **Step 6: 提交**
 
+截图产物落在 `assets/` 子目录（`_vshop_usemall_shots.mjs:52`），路径不要漏 `assets/`：
+
 ```powershell
-git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/
+git add web-admin/scripts/_vshop_usemall_shots.mjs web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/
 git commit -F .git/COMMIT_MSG_TMP.txt
 ```
 
@@ -2295,10 +2354,11 @@ git push origin master
 ## 附：Task 依赖与执行顺序
 
 ```
-V1: Task 1 → 2 → 3 → 4                      （零后端，可随时做）
-V2: Task 5 → 6 →（部署后端）→ 7 → 8 → 9 → 10 → 11 → 12 → 13
+V1: Task 1 → 2 → 3 → 4                      （零后端；Task 4 Step 3 会单独部署一次前端）
+V2: Task 5 → 6 →（部署后端）→ 7 → 8 → 9 → 10 → 11 → 12 → 13（再部署一次前端）
 ```
 
+- **V1 与 V2 各部署一次前端**：截图脚本打的生产站（`SITE_URL` 默认 `https://e.joho.cn`），验收必须在代码上线之后做；Task 4 Step 3 部署 V1，Task 13 Step 7 部署含 V2 的最终版。
 - Task 6 完成即可部署后端（Task 13 Step 7 的后半段），前端可随后上线，避免前端先上线取不到分档。
 - Task 8（ReviewItem）是 Task 9 / 10 的前置。
 - Task 7 的 `review.ts` 是 Task 9 / 11 / 12 的前置。
