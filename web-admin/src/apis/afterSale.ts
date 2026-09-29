@@ -36,6 +36,29 @@ export interface AfterSaleRow {
   refundedAt?: string | null;
   refundError?: string | null;
   createdAt?: string | null;
+  order?: {
+    id: string;
+    code: string;
+  } | null;
+  orderLine?: {
+    id: string;
+    quantity: number;
+    sku?: string | null;
+    featuredAsset?: { id: string; preview: string } | null;
+    productVariant?: {
+      id: string;
+      name: string;
+      sku: string;
+      featuredAsset?: { id: string; preview: string } | null;
+    } | null;
+  } | null;
+  customer?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phoneNumber?: string | null;
+    emailAddress?: string | null;
+  } | null;
   updatedAt?: string | null;
 }
 
@@ -44,6 +67,9 @@ const AFTER_SALE_FIELDS = `
   evidenceImages refundAmount returnTrackingNo returnCarrier rejectReason
   receivedQuantity restockJson refundTransactionId actualRefundAmount
   refundedAt refundError createdAt updatedAt
+  order { id code }
+  orderLine { id quantity sku featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } } }
+  customer { id firstName lastName phoneNumber emailAddress }
 `;
 
 /** 售后工单列表（支持按 state 过滤），返回 items */
