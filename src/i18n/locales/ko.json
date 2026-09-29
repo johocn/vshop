@@ -52,7 +52,8 @@
         "detail": "상세",
         "reviews": "리뷰",
         "sold": "판매됨",
-        "stock": "재고"
+        "stock": "재고",
+        "pointsReward": "{n} 포인트 적립"
     },
     "order": {
         "title": "내 주문",

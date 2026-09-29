@@ -52,7 +52,8 @@
         "detail": "詳細",
         "reviews": "レビュー",
         "sold": "販売済み",
-        "stock": "在庫"
+        "stock": "在庫",
+        "pointsReward": "獲得 {n} ポイント"
     },
     "order": {
         "title": "マイオーダー",

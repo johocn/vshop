@@ -19,7 +19,7 @@ export const PRODUCT_DETAIL_FRAGMENT = `
     fragment ProductDetail on Product {
         id name slug description
         featuredAsset { preview }
-        customFields { videoAssetId sellingPoint }
+        customFields { videoAssetId sellingPoint salesCount pointsReward }
         translations { languageCode description }
         assets { id preview source }
         variants {

@@ -28,7 +28,7 @@
           <text class="meta-row__text">海报</text>
         </view>
         <view class="meta-row__item" v-if="salesCountText">
-          <text class="meta-row__text">已售 {{ salesCountText }}</text>
+          <text class="meta-row__text">{{ t('product.sold') }} {{ salesCountText }}</text>
         </view>
         <view class="meta-row__item" v-if="pointsText">
           <text class="meta-row__text">{{ pointsText }}</text>
@@ -171,7 +171,7 @@ const salesCountText = computed(() => {
 });
 const pointsText = computed(() => {
     const n = (product.value as any)?.customFields?.pointsReward;
-    return Number.isFinite(Number(n)) && Number(n) > 0 ? `可得 ${n} 积分` : '';
+    return Number.isFinite(Number(n)) && Number(n) > 0 ? t('product.pointsReward', { n }) : '';
 });
 
 const pickedSummary = computed(() => {

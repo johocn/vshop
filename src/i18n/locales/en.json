@@ -52,7 +52,8 @@
         "detail": "Details",
         "reviews": "Reviews",
         "sold": "Sold",
-        "stock": "Stock"
+        "stock": "Stock",
+        "pointsReward": "Earn {n} points"
     },
     "order": {
         "title": "My Orders",
