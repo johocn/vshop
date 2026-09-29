@@ -79,9 +79,11 @@ realSalesCount(product) = Σ orderLine.quantity
 ### 4.2 可得积分派生
 
 ```
-basePriceCents(product) = MIN(productVariant.price)          // 不含税，单位「分」
+basePriceCents(product) = MIN(ProductVariantPrice.price)     // 不含税，单位「分」；**全渠道最低价**
 pointsReward = pointsRewardOverride ?? floor(basePriceCents × 1)
 ```
+
+> 实施澄清（2026-09-29）：`ProductVariant.price` 是 `@Calculated` getter（DB 无该列），价格真身在 `product_variant_price` 表（每渠道一行）；实现取**全渠道**最低价而非当前 ctx 渠道，使重算结果与执行上下文无关（定时任务 / 事件订阅 / 手动重算三条路径的 ctx 渠道可能不同），保证幂等。
 
 口径对齐依据（`member-level-plugin/src/plugin.ts` L297-310）：
 

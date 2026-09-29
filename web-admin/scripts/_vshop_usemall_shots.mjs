@@ -273,6 +273,107 @@ async function shopApi(query, variables) {
     }
   }
 
+  // ---------- 2.6 商品销量/积分元信息（产品统计交付验收；`--only stats` 可单独快跑） ----------
+  //   有数据 = salesCount > 0 且 pointsReward > 0（两处 v-if 都渲染）
+  //   无数据 = salesCount = 0 且 pointsReward 空（两处 v-if 都不渲染，元信息行只剩「分享 / 海报」）
+  //   切语言 = 详情页用 `__vue_app__.config.globalProperties.$i18n.locale` 直改全局 locale（H5 构建无语言切换 UI）
+  if (want('stats')) {
+    console.log('[2.6] 商品销量/积分元信息');
+    const res = await shopApi(
+      'query { products(options: { take: 100 }) { items { id name slug customFields { salesCount pointsReward } } } }'
+    );
+    const all = (res?.data?.products?.items || []).filter((x) => x?.slug && String(x.slug).trim());
+    console.log('  带 slug 商品数 =', all.length);
+    for (const x of all) {
+      console.log(
+        `    id=${x.id} slug=${x.slug} sales=${x.customFields?.salesCount} pts=${x.customFields?.pointsReward}`
+      );
+    }
+    const withStd = all.find((x) => Number(x.customFields?.salesCount) > 0 && Number(x.customFields?.pointsReward) > 0);
+    const noStd = all.find(
+      (x) => !(Number(x.customFields?.salesCount) > 0) && !(Number(x.customFields?.pointsReward) > 0)
+    );
+    console.log('  有数据目标 =', withStd ? `${withStd.slug} (sales=${withStd.customFields.salesCount} pts=${withStd.customFields.pointsReward})` : '(未找到)');
+    console.log('  无数据目标 =', noStd ? `${noStd.slug} (sales=${noStd.customFields?.salesCount} pts=${noStd.customFields?.pointsReward})` : '(未找到)');
+
+    const openDetail = async (slug) => {
+      await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(slug)}`, 1500);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(6000);
+      try {
+        const mr = page.locator('.meta-row').first();
+        if (await mr.isVisible()) await mr.scrollIntoViewIfNeeded();
+      } catch (e) {}
+      await page.waitForTimeout(1200);
+    };
+    const metaText = async () => {
+      try {
+        return (await page.locator('.meta-row').first().innerText()).replace(/\s+/g, ' ');
+      } catch (e) {
+        return '(未取到 .meta-row)';
+      }
+    };
+    // H5 无语言切换 UI：从 #app 上的 Vue app 实例取 vue-i18n 全局实例改 locale（legacy 模式下 locale 是 ref）
+    const setLocale = async (lng) => {
+      return page.evaluate((v) => {
+        // uni-app H5 的 mount 容器不一定是 #app；app 实例挂在某个元素的 `__vue_app__` 上。
+        let app = null;
+        for (const el of document.querySelectorAll('*')) {
+          if (el.__vue_app__) {
+            app = el.__vue_app__;
+            break;
+          }
+        }
+        if (!app) return 'NO_APP';
+        // uni-app H5 无语言切换 UI。vue-i18n 的实例（`createI18n` 返回值，特征：有 mode/global）
+        // 通过 symbol 挂在 app 的 provides 上；`$i18n` 未进 globalProperties，app 上的
+        // `__VUE_I18N_SYMBOL__` 只是那个 symbol 本身。取到实例后改 `global.locale`（Composer 的 ref）。
+        const pools = [app._context?.provides, app._instance?.provides];
+        let inst = null;
+        for (const pool of pools) {
+          let cur = pool;
+          while (cur && !inst) {
+            for (const s of Object.getOwnPropertySymbols(cur)) {
+              const val = cur[s];
+              if (val && typeof val === 'object' && typeof val.mode === 'string' && val.global) {
+                inst = val;
+                break;
+              }
+            }
+            cur = Object.getPrototypeOf(cur);
+          }
+          if (inst) break;
+        }
+        if (!inst) return 'NO_I18N_INST';
+        const scope = inst.global;
+        const cur = scope.locale;
+        if (cur && typeof cur === 'object' && 'value' in cur) cur.value = v;
+        else scope.locale = v;
+        return `OK -> ${String(scope.locale?.value ?? scope.locale)}`;
+      }, lng);
+    };
+
+    if (withStd) {
+      await openDetail(withStd.slug);
+      console.log('  有数据元信息行 =', await metaText());
+      await shot('product-detail-stats.png');
+      const after = await setLocale('en');
+      await page.waitForTimeout(1500);
+      console.log('  切语言结果 =', after, '| 元信息行 =', await metaText());
+      await shot('product-detail-stats-en.png');
+    } else {
+      console.log('  ！未找到「有数据」商品，跳过 product-detail-stats*.png');
+    }
+
+    if (noStd) {
+      await openDetail(noStd.slug);
+      console.log('  无数据元信息行 =', await metaText());
+      await shot('product-detail-nostats.png');
+    } else {
+      console.log('  ！未找到「无数据」商品，跳过 product-detail-nostats.png');
+    }
+  }
+
   // 只跑分类页时到此结束（详情/购物车/秒杀/拼团都未请求）
   if (ONLY && !['detail', 'cart', 'flash', 'groupbuy'].some(want)) {
     await browser.close();

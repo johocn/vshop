@@ -709,7 +709,7 @@ Run:
 ```powershell
 cd d:\zhao\vendure\packages\operations-plugin; npm run e2e -- product-stats
 ```
-Expected: PASS（4 passed）。用例 1 的 `recompute` 返回 `1`、用例 2/5 的第二次调用返回 `0` 均为确定性断言（订单创建不触发 ProductEvent，且改动后已 `settle()`）。
+Expected: PASS（**实测修正**：本步为 4 passed；Task 5 补用例 6 后 5 passed；Task 7 补用例 7 后 6 passed）。用例 1 的 `recompute` 返回 `1`、用例 2/5 的第二次调用返回 `0` 均为确定性断言（订单创建不触发 ProductEvent，且改动后已 `settle()`）。**附加修正**：用例 2/3 的断言依赖「写回公式」本身，为使其在 Task 4（事件订阅尚未上线）就能真绿，两处 `await settle();` 之后各插一行不具名返回值的 `await recompute([productId]);` —— Task 4 阶段真执行重算，Task 5 订阅上线后退化为 no-op（返回 0，不断言其返回值）；「订阅即时生效」由用例 6 单独守护。
 
 - [ ] **Step 8: 提交**
 
@@ -1160,7 +1160,7 @@ Run:
 ```powershell
 cd d:\zhao\vendure\packages\operations-plugin; npm run build
 ```
-Expected: 退出码 0；`dist\product-stats.service.js`、`dist\product-stats.task.js`、`dist\product-stats.subscriber.js` 出现。
+Expected: `dist\product-stats.service.js`、`dist\product-stats.task.js`、`dist\product-stats.subscriber.js` 出现。**实测修正：退出码不是 0，而是 2** —— `operations-plugin` 有**既有** tsc 报错（`src/marketing/coupon.service.ts` 11 条 `error TS2339: Property 'getCoupons' does not exist on type 'CouponService'`，该 wrapper 写于 2026-07-29、调用的是 coupon-plugin 2026-09-19 重构前的旧 API），**非本轮引入、不修**；因 root `tsconfig.json` 无 `noEmitOnError`，tsc 仍正常 emit JS ⇒ 构建目标达成（实测 dist 三文件齐全，提交文件数 = 11，无大面积重写）。
 
 - [ ] **Step 2: 确认新文件在 dist**
 
@@ -1550,3 +1550,43 @@ Expected: 两个仓库工作区干净（无未提交的本任务文件）。
 
 - 「返回更新数」的断言只放在**不受事件订阅干扰**的场景（用例 1 首次重算 = 1；用例 2/3/5 收敛后 = 0）。原因是后台 `updateProduct` 会触发订阅者异步重算，非零返回值存在竞态，硬断言会 flaky。
 - 用例 5（全量重算）以「多商品收敛 + 收敛后返回 0」覆盖，不再硬断言首次调用的非零更新数（同上原因）。
+
+---
+
+## 执行结论（2026-09-29）
+
+**轮次**：单轮 T1–T11 全量执行（subagent 驱动模式），中途发现并修复 1 个生产缺陷后复部署。
+
+**提交号**
+
+| 仓库 | 提交 | 内容 |
+|---|---|---|
+| vendure | `19589cd98` | `Product` 5 个自定义字段（src + dist） |
+| vendure | `0b2e33f3c` | 插件接口文档 + README 索引 |
+| vendure | `6a6a11182` | 重建 dist 以收录商品展示值重算 |
+| vendure | `004194882` | **修生产缺陷**：全量重算跳过软删除商品 |
+| vshop | `4095dda` | 详情页接入销量/积分展示并走 i18n |
+
+**验证手段**
+
+| 手段 | 结果 |
+|---|---|
+| e2e（vitest + sqljs，端口 3251） | `6 passed (6)` —— 用例 1–5 + 用例 6（订阅即时生效）+ 用例 7（软删除） |
+| 编译门禁 | marketplace-plugin `npm run build` 退出码 0；operations-plugin 退出码 2（既有 tsc 报错，见下）但 dist 正常 emit |
+| 生产回填 | 第 1 次更新 14 个商品、第 2 次返回 0（幂等） |
+| 生产探针 | shop-api 取到真实聚合值（`id=59 sales=7 pts=16800` 等）；设 `bonusSales=120` 后 `salesCount=127` |
+| 手机视口截图 | 3 张（390×844 / dpr=2）：有数据 / 无数据降级 / 切 en，逐张目视核对通过 |
+
+**执行中发现的缺陷（已修）**
+
+1. **软删除商品导致全量重算抛错**（生产实测触发）：`Product.deletedAt` 是普通 `@Column`（非 `@DeleteDateColumn`），TypeORM `find()` 不过滤软删除行，而 `ProductService.update` 内部过滤 ⇒ 把软删除商品交给它即抛 `EntityNotFoundError`（`No Product with the id "1" could be found`）。修法：新增 `findAliveProducts()` 用显式 `where('product.deletedAt IS NULL')` 的 QueryBuilder，替换 `recomputeAll` 分页与 `recomputeForProducts` 按 id 两处 `find()`（提交 `004194882`）。红验证：`git stash` 掉修法后用例 7 复现同源报错。
+2. **计划 TDD 顺序缺陷**：用例 2/3 断言依赖 Task 5 才上线的事件订阅，导致 Task 4 无法真绿。修法见 Task 4 Step 7「附加修正」。
+
+**遗留项**
+
+| 项 | 状态 |
+|---|---|
+| `operations-plugin` 既有 tsc 报错（`src/marketing/coupon.service.ts` 11 条 `getCoupons` 不存在） | **历史遗留，未修**（wrapper 写于 2026-07-29，调用 coupon-plugin 2026-09-19 重构前旧 API）；root tsconfig 无 `noEmitOnError`，不影响 dist 产出。建议单独立项修 |
+| Task 10 Step 3 的偏差 | 计划原写「`products(options:{take:1})`」直接改首个商品，但首个商品 `slug` 为空会取不到详情页；实际改用真实商品 `id=59 温泉门票`（`slug` 有效）设 `bonusSales=120` |
+| Task 10 Step 5 的实现 | 计划给的 `--lang` 分支未采用；实际在 `_vshop_usemall_shots.mjs` 新增 `--only stats` 分支，切语言通过 `#app.__vue_app__` → `provides` 中 vue-i18n 实例改 `global.locale` |
+| 按渠道拆分销量 / 列表页与首页楼层展示 / 列表销量排序 / 积分随会员档位变化 | 明确不做（见 spec §10、手册 §5.11.5） |
