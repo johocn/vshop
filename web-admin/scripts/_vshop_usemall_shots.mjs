@@ -254,6 +254,46 @@ async function shopApi(query, variables) {
     console.log('  search 未返回带 slug 的商品');
   }
 
+  // S1 验收：钉死 slug 的两个探针（Step 2 实测 / 2026-09-29 用户裁定）
+  //   MULTI  = fresh-crayfish  鲜活小龙虾（规格组「规格」×2；数据层无图 → 弹层灰底不作为断言）
+  //   SINGLE = 温泉门票        国信南山温泉工作日门票（无规格组、imgs=2 → 断言 3 缩略图非灰底由它取证）
+  const MULTI_SLUG = 'fresh-crayfish';
+  const SINGLE_SLUG = '温泉门票';
+
+  // S1 验收：多规格商品——规格组标题带 (N) 计数
+  // 【必须 reload】同 hash 路由二次 page.goto 不会重载：SPA 复用同一详情组件，onMounted 不再执行，
+  // 页面仍是上一个商品（手册 §5.7 已记录此坑）。先 goto 再 page.reload 才会真正取新 slug 的数据。
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(MULTI_SLUG)}`, 1500);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(6000);
+  console.log('  多规格页文本 =', await text());
+  await shot('detail-page.png');
+  const hitMulti = await clickAny(['加入购物车', '立即购买', '选规格', '选择规格', '购买']);
+  if (hitMulti) {
+    await page.waitForTimeout(2500);
+    await shot('detail-sku-sheet.png');
+    console.log('  多规格弹层文本 =', await text());
+  } else {
+    console.log('  多规格商品未找到触发 SKU 弹层的按钮');
+  }
+
+  // S1 验收：单规格商品——详情页已选行显示变体名（Task 3）
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(SINGLE_SLUG)}`, 1500);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(6000);
+  console.log('  单规格页文本 =', await text());
+  await shot('detail-single-spec.png');
+  // S1 验收：单规格弹层——规格区整段不渲染 + `pickedText` 取变体名 + 头部缩略图非灰底（Task 1/2 取证）
+  // 单规格商品点加购同样会打开弹层；弹层里的「已选：…」就是 pickedText
+  const hitSingle = await clickAny(['加入购物车', '立即购买', '选规格', '选择规格', '购买']);
+  if (hitSingle) {
+    await page.waitForTimeout(2500);
+    await shot('detail-sku-sheet-single.png');
+    console.log('  单规格弹层文本 =', await text());
+  } else {
+    console.log('  单规格商品未找到触发 SKU 弹层的按钮');
+  }
+
   // ---------- 4 购物车 ----------
   console.log('[4] 购物车');
   await go('/pages/cart/index', 5000);
