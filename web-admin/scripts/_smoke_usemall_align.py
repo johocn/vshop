@@ -90,8 +90,9 @@ def check_facet_filter() -> None:
 
 
 def check_cart_selection() -> None:
-    # 注意：shop-api 的 ProductVariant **无 enabled 字段**（仅 admin-api 有），C 端只能做库存预警
-    data = shop_api("{ activeOrder { id lines { id quantity productVariant { id stockLevel } } } }")
+    # shop-api 的 ProductVariant.enabled 由 cjk-plugin 的 shopApiExtensions 扩展暴露
+    # （Vendure 默认只在 admin-api 暴露该字段），C 端据此判定购物车「已下架」失效行。
+    data = shop_api("{ activeOrder { id lines { id quantity productVariant { id enabled stockLevel } } } }")
     order = data.get("activeOrder")
     if not order:
         print("[cart] 无 activeOrder，跳过（需登录且有购物车）")
@@ -100,7 +101,8 @@ def check_cart_selection() -> None:
     for line in order["lines"]:
         v = line.get("productVariant")
         assert v and "stockLevel" in v, f"行 {line['id']} 的 productVariant 缺 stockLevel"
-    print("[cart] ORDER_FRAGMENT 的 stockLevel 断言通过")
+        assert isinstance(v.get("enabled"), bool), f"行 {line['id']} 的 productVariant.enabled 未暴露（应为 Boolean）"
+    print("[cart] ORDER_FRAGMENT 的 enabled / stockLevel 断言通过")
 
 
 if __name__ == "__main__":

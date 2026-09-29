@@ -4,18 +4,19 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.2（2026-09-29，二次线上复验：修复购物车冷启动误报空车，见 §5.6） |
+| 版本 | v1.3（2026-09-29，补交付购物车「已下架」失效行：后端补暴露 `ProductVariant.enabled` + 前端恢复失效行判定，见 §5.7） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md` |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md` |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
-| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs` |
+| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图） |
 | 线上环境 | C 端 H5 + shop-api：`https://e.joho.cn`；后台：`https://e.joho.cn/guanli` |
-| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐、秒杀页与拼团页版式、结算页发票入口行 |
+| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式、结算页发票入口行 |
 | 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `z123123` |
 
 > **本文中「备注行」的最终状态是「已回退不做」**，原因见 §5.2。
 > **v1.1 相对 v1 的增量**：三类线上阻塞缺陷修复（分类页、秒杀补拉、pm2 内存）+ 演示数据 + 全部截图重采，见 §5.5。
 > **v1.2 相对 v1.1 的增量**：二次线上复验发现「购物车冷启动/刷新一律误报空车」，已修复并重新构建部署、复验通过，见 §5.6；线上产物入口哈希随之更新，见 §5.4。
+> **v1.3 相对 v1.2 的增量**：v1.2 里被记为「未交付」的购物车失效行（§5.3）已补交付 —— 后端 cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`，前端恢复失效行判定与「已下架」标签，见 §5.7；同时首次产生**后端代码改动**并部署，见 §5.4。
 
 ---
 
@@ -28,7 +29,7 @@ H5 为 hash 路由，`#` 后为页面路径。
 | 首页（秒杀楼层 + 返回顶部） | `/#/pages/home/index` | 直接访问站点根，或底部「首页」 |
 | 分类页（双模式 + 双悬浮按钮） | `/#/pages/category/index` | 底部「分类」 |
 | 商品详情（SKU 弹层 + 底部 5 键） | `/#/pkg-product/pages/detail?slug=<slug>` | 首页/分类页点商品 |
-| 购物车（勾选真生效 / 未登录态 / 为你推荐） | `/#/pages/cart/index` | 底部「购物车」 |
+| 购物车（勾选真生效 / 未登录态 / 为你推荐 / 失效行「已下架」） | `/#/pages/cart/index` | 底部「购物车」 |
 | 结算页（发票入口行） | `/#/pkg-order/pages/checkout` | 购物车勾选后点「结算」 |
 | 秒杀页 | `/#/pkg-promotion/pages/flash-sale` | 首页秒杀楼层右上「更多 ›」；或直接访问 |
 | 拼团页 | `/#/pkg-promotion/pages/group-buy` | 直接访问（首页 sections 内暂无拼团入口；`flash` 楼层的 `source=groupBuy` 枚举已预留但后台不暴露） |
@@ -72,6 +73,8 @@ H5 为 hash 路由，`#` 后为页面路径。
 node web-admin/scripts/_vshop_usemall_shots.mjs
 # 登录态（详情 SKU 弹层 / 购物车勾选真生效）——登录走 shop-api 原生登录 + 注入 localStorage
 node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa123456'
+# 购物车「已下架」失效行（自带前后对照 + 后台下架/复原，见 §5.7）
+node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 ```
 
 脚本用 `SITE_URL` 指定站点（默认 `https://e.joho.cn`）；Playwright 依赖按 `PW_ROOT` → 本机 vendure 依赖 → 就近 `node_modules` 顺序解析，并自动挑一个已存在的 chromium，无需先跑 `npx playwright install`。
@@ -84,6 +87,9 @@ node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev
 | `detail-sku-sheet.png` | 详情页 + SKU 弹层 | ✅ 页面价 `¥168.00` + 底部 5 键（客服/收藏/购物车/加入购物车/立即购买）；弹层含价格、已选、数量步进、加入购物车、立即购买 |
 | `cart-select-real.png` | 购物车勾选真生效 | ✅ 自营 1 件，行项 `☑`、数量 3、`¥168.00`；「为你推荐」4 条；全选 `☑`；合计 `¥504.00`；`结算(1)`；tabbar 角标 3 |
 | `cart-select-partial.png` | 同上，取消勾选后 | ✅ 行项 `☐`、全选 `☐`、合计 `¥0.00`、`结算(0)` 置灰禁用 —— **证明勾选参与结算金额与按钮可用性** |
+| `cart-invalid-before.png` | 失效行**对照图**（变体在售） | ✅ 行正常色、勾选框 `☑`、全选 `☑`、合计 `¥504.00`、`结算(1)` 橙色可点 |
+| `cart-invalid-line.png` | 失效行「已下架」（后台把该变体 `enabled=false`） | ✅ 行灰显（`opacity .55`）+ 灰色「已下架」标签 + 勾选框 `☐`；全选 `☐`、合计 `¥0.00`、`结算(0)` 置灰禁用 —— **证明失效行不参与勾选与结算** |
+| `cart-invalid-toast.png` | 点失效行勾选框 | ✅ toast「该商品已下架，请删除」 |
 | `cart-guest-and-reco.png` | 购物车未登录引导态 | ✅ 「当前未授权，登录后查看购物车」+「去登录」；未登录时**不渲染**「为你推荐」（推荐区需登录，见 `cart-select-real.png`） |
 | `flash-sale-page.png` | 秒杀页 | ✅ 倒计时头 + 活动卡片（秒杀价 `¥99.00` / 原价 `¥168.00` 划线 / 进度 `0%`） |
 | `group-buy-page.png` | 拼团页 | ✅ usemall 版式卡片：`¥128.00` / 原价 `¥168.00` 划线 / 「还差 3 人成团」/ 「3 人团 · 剩 165:53:03」（快照值）/ 「去拼团」 |
@@ -104,9 +110,12 @@ node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev
 [group-buy] 活动数=1
 [group-buy] productId/variantId 断言通过
 [facet] 该分类无 facet，跳过过滤断言
-[cart] 无 activeOrder，跳过（需登录且有购物车）
+[cart] activeOrder 行数=1（人工核对：勾选 N 行结算时应为 N）
+[cart] ORDER_FRAGMENT 的 enabled / stockLevel 断言通过
 == 全部断言通过 ==
 ```
+
+> v1.3 起探针的 `[cart]` 段已带上 `AUTH_TOKEN`（C 端测试客户）实跑，不再走「无 activeOrder，跳过」分支；新增断言要求 shop-api 的 `ProductVariant.enabled` 是 `Boolean`（这是 §5.7 失效行判定的服务端前提）。
 
 关键点：**`activeGroupBuyActivities` 已能返回 `productId` / `variantId`**（Task 1 的后端 SDL 扩展已上线并生效），这是拼团页「去拼团」能落单的前提。v1.1 中秒杀与拼团均已各有 1 条进行中活动，因此 `[flash]` 补拉断言与 `[group-buy]` 断言都真正跑到了断言体（v1 时因活动数为 0 被跳过）。
 
@@ -132,21 +141,25 @@ node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev
 | 项 | 说明 |
 |---|---|
 | 结算页订单备注 | 规格原为「前端暂存 + metadata 尽力透传」，实测链路不成立，按设计兜底**退回不做**（§5.2） |
-| 购物车「已下架」行内标签 | 原计划补 `ProductVariant.enabled` 判定失效行；实测 **shop-api 的 `ProductVariant` 不暴露 `enabled`**（仅 admin-api 有），`OrderLine.productVariant` 又是 `NON_NULL`，C 端无法判定「已下架」。已回退 `enabled` 字段与 `invalid` 状态，**只保留库存预警**（「仅剩 N 件」）。这是**未交付项**，若需此能力须先在后端 shop SDL 暴露该字段 |
+| 购物车「已下架」行内标签 | ~~未交付~~ → **v1.3 已交付**：原计划补 `ProductVariant.enabled` 判定失效行，v1.2 时因 **shop-api 的 `ProductVariant` 不暴露 `enabled`**（仅 admin-api 有）而回退。v1.3 已在后端 cjk-plugin 的 shop SDL 扩展该字段，前端恢复 `invalid` 状态与「已下架」标签，见 §5.7 |
 | 分类页商品为空 | **代码已修好**（见 §5.5），但生产默认渠道的 4 个一级分类（`electronics`/`home`/`personal-care`/`food`）用的是 `facet-value-filter`（`facetValueIds=["1".."4"]`，来自 `品类` facet），而**该渠道 18 个商品无一打任何 facetValue**，因此这些分类的 `children` 与商品命中数均为 0 —— 属**数据前置缺失，非本次改动**。另外这 4 个分类在语义上也不匹配现有商品（温泉门票/汽修/生鲜），因此未擅自给商品打 facet |
 | 详情页 SKU 弹层无规格分组、缩略图为灰底占位 | 触发弹层的商品（国信南山温泉工作日门票）只有 1 个变体、`optionGroups` 为空，弹层仍按通用样式显示「已选：请选择规格」且左上缩略图取不到图。属**既有 UX 小瑕疵**，本轮不改 `SkuSheet.vue`，记录为已知偏差 |
 | 拼团页「我的开团 / 我的参团」 | 需按当前用户筛团的后端查询，本轮不做（spec §1.2） |
 | 详情页用户评价区、销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
 
-### 5.4 线上产物核对（v1.2 重新构建部署后复核）
+### 5.4 线上产物核对（v1.3 重新构建部署后复核）
 
 | 产物 | 部署方式 | 线上入口 | 核对 |
 |---|---|---|---|
-| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | 本地构建的 **121 个文件在线上逐文件核验全部 200**（非 200 共 0 个）；`index.html` 指向 `assets/index-Bwz4jGda.js` |
+| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | 本地构建的 **121 个文件在线上逐文件 SHA-256 核验全部一致（121/121）**；`index.html` 指向 `assets/index-0DlrE3ZT.js` |
 | web-admin | `web-admin/scripts/deploy.mjs`（本地构建 → scp → 解压 `/guanli` + nginx reload） | `https://e.joho.cn/guanli/` | 线上 533 个文件；入口 `assets/index-DFicyhQq.js`（该产物已含装修页 `flash` 楼层编辑块：`pages-decorate-home-index.CwPZYhlD.js` 内含 `flashSale`） |
-| vendure 后端 | 本轮无后端代码改动，未重新部署 | `/shop-api` | 探针 `== 全部断言通过 ==`；`activeGroupBuyActivities` 已返回 `productId`/`variantId` |
+| vendure 后端 | `git pull --ff-only` + `pm2 restart vendure vendure-worker` | `/shop-api` | v1.3 唯一改动：cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`（提交 `718c4f11d`）。重启后 `restarts=1`（非崩溃循环）；探针 `== 全部断言通过 ==`；`activeGroupBuyActivities` 已返回 `productId`/`variantId`；实测 `activeOrder.lines[].productVariant.enabled` 返回 `Boolean` |
 
 > v1.1 曾把 web-admin 入口记为 `assets/index-D5PSCjyp.js`，那是更早一次构建的哈希；线上实际入口是 `assets/index-DFicyhQq.js`（后台产物不入库，`web-admin/dist` 被 gitignore，故以线上实测值为准）。
+>
+> v1.3 只动 `src/pages/cart/index.vue`、`src/utils/flash-normalize.ts`、`src/api/fragments.ts`（三处均与失效行相关），因此 H5 入口哈希由 v1.2 的 `index-Bwz4jGda.js` 变为 `index-0DlrE3ZT.js`；web-admin 本轮无改动，未重新部署。
+>
+> **部署顺序**：后端必须先上线。新的 `ORDER_FRAGMENT` 会带 `enabled`，若 shop SDL 还没这个字段，`activeOrder` 查询会被 GraphQL 校验直接拒绝（`Cannot query field "enabled"`），购物车整体报错。本次即按「先后端 → 再 H5」执行。
 >
 > v1.2 重新构建部署的原因是 §5.6 的购物车冷启动修复；修复只动 `src/pages/cart/index.vue`，因此 H5 入口哈希由 `index-C_Q5FXhL.js` 变为 `index-Bwz4jGda.js`。
 >
@@ -190,6 +203,38 @@ node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev
 
 > 说明：v1.1 §5.5 缺陷 #3 曾把「购物车莫名显示空」归因于 vendure OOM；OOM 确有其事且已修，但购物车空车的**可复现根因是本节这个客户端时序问题**，OOM 只会让现象更频繁。两处均已修复。
 
+### 5.7 v1.3 新增：购物车失效行「已下架」（补交付，含后端改动）
+
+v1.2 §5.3 把「购物车『已下架』行内标签」记为**未交付项**，卡在服务端：Vendure 默认只在 `admin-api` 的 `ProductVariant` 上暴露 `enabled`，`shop-api` 的 `ProductVariant` 没有该字段，C 端拿到 `activeOrder` 后无法判定哪一行已下架。v1.3 补上这个缺口。
+
+| 层 | 改动 | 说明 |
+|---|---|---|
+| 后端 | `packages/cjk-plugin`：`shopApiExtensions` 里新增 `extend type ProductVariant { enabled: Boolean! }` | 直读实体列 `ProductVariant.enabled`，走 GraphQL 默认 fieldResolver，**无需自定义 resolver**（Vendure 未配 `fieldResolver`，只配了 `fieldResolverEnhancers: ['guards']`）。编译产物 `lib/src/plugin.js` 同步做**外科式单点插入**，未整体重编译（`lib` 与 `src` 存在既有漂移，整体重编译会引入缺失模块并启动崩溃） |
+| 前端 | `src/api/fragments.ts`：`ORDER_FRAGMENT` 的 `productVariant` 补 `enabled` | 一并补 `stockLevel`，购物车据两者判定行状态 |
+| 前端 | `src/utils/flash-normalize.ts`：恢复 `'invalid'` 状态 | `cartLineState(line)` 顺序 = 失效（`!variant \|\| enabled===false`）→ 库存预警（`stockLevel < quantity`）→ 正常 |
+| 前端 | `src/pages/cart/index.vue` | 失效行加 `.cart-item--invalid`（灰显 `opacity .55`）与灰色「已下架」标签；`selectableCount` / `allSelected` / `toggleAll` / `loadCart` 自动勾选一律排除失效行；点失效行勾选框 toast「该商品已下架，请删除」；`goCheckout` 暂存未勾选行时**排除失效行**（脏数据不进暂存，但仍从订单移出） |
+
+**为什么必须在 `activeOrder` 上看**：`packages/core/src/api/resolvers/shop/shop-products.resolver.ts` 有 `enabled: { eq: true }` 过滤，已下架变体在 `products` / `search` 里查不到，只能在购物车的 `activeOrder.lines[].productVariant` 上观察到 —— 这正是购物车的真实场景。
+
+线上回归证据（`_vshop_cart_invalid_shots.mjs`，Playwright 390×844 / dpr=2；同一账号，真实链路「加购 → 后台 `updateProductVariants` 置 `enabled=false` → 刷新购物车」）：
+
+```
+[1] activeOrder QLKGJTNMDTQH19Q9 行数 = 1
+    行 199 国信南山温泉工作日门票 enabled=true stock=IN_STOCK
+[2] 后台可见该变体（下架前）enabled = true
+[3] 下架前：☑ 国信南山温泉工作日门票 ¥168.00 - 3 + × … ☑ 全选 合计: ¥504.00 结算(1)      → cart-invalid-before.png
+[4] admin updateProductVariants enabled=false → ok
+    [debug] shop-api 行变体 enabled = 57:false
+[5] 下架后：☐ 国信南山温泉工作日门票 已下架 ¥168.00 - 3 + × … ☐ 全选 合计: ¥0.00 结算(0)   → cart-invalid-line.png
+    断言：页面含「已下架」标签 ✓
+[6] 点失效行勾选框 → toast「该商品已下架，请删除」✓                                    → cart-invalid-toast.png
+[7] 复原变体为在售 → shop-api enabled = true
+```
+
+结论：失效行①灰显、②带「已下架」标签、③不被自动勾选、④全选不计入、⑤合计与 `结算(N)` 都排除该行、⑥点击提示删除；脚本 `finally` 里把变体复原为在售，**不污染生产数据**（复原后 shop-api `enabled=true` 已实测）。
+
+> **脚本踩坑**：同一 hash URL 的第二次 `page.goto` 会被浏览器当成 same-document 导航、**不重载页面**，页面停在旧数据上（现象酷似「下架没生效」）。脚本里所有页面跳转都带 `?_t=<时间戳>` nonce 强制冷加载；这与 §5.6 的冷启动修复配套。
+
 ---
 
 ## 6. 部署与回滚
@@ -213,6 +258,12 @@ sudo chmod -R a+rX $S
 ```
 
 > 注意：站点父目录 `sites/e.joho.cn/` 不归 `admin` 所有，`cp`/`rm -rf` **必须 sudo**，否则会「Permission denied」但 tar 仍部分解压成功，留下半新半旧的目录。
+>
+> **宿主路径与容器路径是同一个目录**：openresty 容器 `1Panel-openresty-3I6S` 里 `e.joho.cn.conf` 的 `root` 写的是 `/www/sites/e.joho.cn/index`，该 `/www/sites` 是宿主 `/opt/1panel/apps/openresty/openresty/www/sites` 的 bind mount。因此「宿主 `sudo tar -C $S`」与「宿主机解压到 `/tmp` 再 `docker cp ... <容器>:/www/sites/e.joho.cn/index/`」两种写法等价；v1.3 用的是后者（`rm -rf <容器目录> && mkdir -p` 后 `docker cp /tmp/h5-staging/. <容器>:<目录>/`，再 `chmod -R 777`）。静态目录替换即时生效，**无需 reload nginx**。
+>
+> 用 PowerShell 走 `ssh` 时注意引号层级：外层用 PowerShell **双引号**、内层用**单引号**；反过来（外层单引号内套双引号）会被 PS 吃掉引号，出现 `rm: missing operand` 这类假报错。能不嵌套就不嵌套（如 `docker exec <c> rm -rf <path>` 单条命令无需 `sh -c`）。
+>
+> 部署后核对：`docker exec <c> find <目录> -type f | wc -l` 应等于本地构建文件数；更严的做法是把两端「`sha256sum` 清单」拉平比对（v1.3 实测 121/121 全等）。
 
 ### 6.2 web-admin（站点目录 `.../sites/e.joho.cn/guanli`）
 
