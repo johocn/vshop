@@ -3,6 +3,7 @@
 // 用法（脚本目录即 web-admin/scripts/）：
 //   node web-admin/scripts/_vshop_usemall_shots.mjs                     # 游客态（首页/分类/购物车游客态/秒杀/拼团）
 //   node web-admin/scripts/_vshop_usemall_shots.mjs --user U --pwd P    # 追加登录态（详情 SKU 弹层 / 购物车勾选真生效）
+//   node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user U --pwd P   # 只跑评价体系 5 张
 //
 // 环境变量：SITE_URL（默认 https://e.joho.cn）
 // 注意：登录态会经详情页 SKU 弹层向生产购物车加购 1 件，用于复现「勾选真生效」的金额/按钮态。
@@ -206,6 +207,49 @@ async function shopApi(query, variables) {
       }
     } catch (e) {
       console.log('  toggle err', e.message.slice(0, 100));
+    }
+  }
+
+  // ---------- 2.5 评价体系（Task 13 验收；`--only review` 可单独快跑） ----------
+  //   EVAL_SLUG  = fresh-crayfish 鲜活小龙虾：6 条已审核评价覆盖 1-5 星（含带图/回复/匿名各 1）
+  //   ORDER_CODE = 32BJMF714X2165SU：Delivered 且含 2 个 line，用于「一单多商品分块」取证
+  const EVAL_SLUG = 'fresh-crayfish';
+  const ORDER_CODE = '32BJMF714X2165SU';
+  if (want('review')) {
+    console.log('[2.5] 评价体系');
+    // S2 详情页评价区——必须在「未打开 SKU 弹层」时截（弹层打开会遮挡评价区）
+    await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(EVAL_SLUG)}`, 1500);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(6000);
+    try {
+      const rb = page.locator('.review-block').first();
+      if (await rb.isVisible()) await rb.scrollIntoViewIfNeeded();
+    } catch (e) {}
+    await page.waitForTimeout(1500);
+    console.log('  详情页评价区文本 =', await text());
+    await shot('detail-review-block.png');
+
+    // S3 商品评价页 · 全部 / 差评
+    await go(`/pkg-product/pages/evaluate?slug=${encodeURIComponent(EVAL_SLUG)}`, 6000);
+    console.log('  评价页(全部)文本 =', await text());
+    await shot('review-list-all.png');
+    const hitBad = await clickAny(['差评']);
+    await page.waitForTimeout(2000);
+    console.log('  点击 =', hitBad || '(未找到差评 chip)', '| 文本 =', await text());
+    await shot('review-list-bad.png');
+
+    if (LOGGED) {
+      // S4 订单评价页（需登录）
+      await go(`/pkg-order/pages/order-evaluate?code=${ORDER_CODE}`, 7000);
+      console.log('  订单评价页文本 =', await text());
+      await shot('order-evaluate.png');
+
+      // S5 我的评价页（需登录）
+      await go('/pkg-user/pages/my-reviews', 7000);
+      console.log('  我的评价页文本 =', await text());
+      await shot('my-reviews.png');
+    } else {
+      console.log('  未登录，跳过 order-evaluate.png / my-reviews.png（改用 --user/--pwd 重跑）');
     }
   }
 
