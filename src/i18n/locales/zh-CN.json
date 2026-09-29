@@ -52,7 +52,8 @@
         "detail": "详情",
         "reviews": "评价",
         "sold": "已售",
-        "stock": "库存"
+        "stock": "库存",
+        "pointsReward": "可得 {n} 积分"
     },
     "order": {
         "title": "我的订单",

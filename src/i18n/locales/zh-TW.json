@@ -52,7 +52,8 @@
         "detail": "詳情",
         "reviews": "評價",
         "sold": "已售",
-        "stock": "庫存"
+        "stock": "庫存",
+        "pointsReward": "可得 {n} 積分"
     },
     "order": {
         "title": "我的訂單",
