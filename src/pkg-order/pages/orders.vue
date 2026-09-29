@@ -51,11 +51,11 @@ const hasMore = ref(true);
 const refreshing = ref(false);
 const activeTab = ref('');
 const tabs = [
-    { value: '', label: '全部' }, { value: 'Created', label: '待付款' },
-    { value: 'PaymentSettled', label: '待发货' }, { value: 'Delivered', label: '待收货' },
+    { value: '', label: '全部' }, { value: 'ArrangingPayment', label: '待付款' },
+    { value: 'PaymentAuthorized,PaymentSettled', label: '待发货' }, { value: 'Delivered', label: '待收货' },
     { value: 'Cancelled', label: '已取消' },
 ];
-const statusMap: Record<string, string> = { Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', Shipped:'待收货', Cancelled:'已取消' };
+const statusMap: Record<string, string> = { ArrangingPayment:'待付款', Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', Shipped:'待收货', Cancelled:'已取消' };
 let skip = 0;
 const take = 10;
 onShow(() => {
@@ -105,7 +105,10 @@ async function loadData() {
     loading.value = true;
     try {
         const filter: any = { take, skip, sort: { createdAt: 'DESC' as const } };
-        if (activeTab.value) filter.filter = { state: { eq: activeTab.value } };
+        if (activeTab.value) {
+            const states = activeTab.value.split(',').filter(Boolean);
+            filter.filter = { state: states.length > 1 ? { in: states } : { eq: states[0] } };
+        }
         const res: any = await getOrders(filter);
         const items = res.myOrders?.items || [];
         orders.value = [...orders.value, ...items];
