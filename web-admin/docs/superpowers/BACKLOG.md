@@ -33,6 +33,8 @@
 | S1–S6（SKU 弹层收口 + 评价体系） | **未完成** | [2026-09-29-vshop-usemall-alignment-round2-plan.md](plans/2026-09-29-vshop-usemall-alignment-round2-plan.md)，13 个 Task / 71 个真实未勾 Step；Task 1 代码已提交（`447b103`）但未勾选 |
 
 > ⚠️ 2026-09-29 20:40 前后观测到 `vshop` 工作区有**另一个会话正在执行该计划**（`dist/build/h5` 被重新构建为 `assets/index-C22kxUJ6.js`，且出现非本地提交 `b885820` / `7c3f9b6` / `447b103`）。**接手前必须先确认该会话已停止**，否则 `fragments.ts` / `SkuSheet.vue` / `detail.vue` 会互相覆盖。
+>
+> ⚠️ 2026-09-29 21:38 补充：该会话**同时在改 `vendure` 仓库**（`packages/review-plugin/e2e/review.e2e-spec.ts` 被写入 `ratingMin/ratingMax` 分档筛选用例，且 21:38:43 时 e2e 端口 3250 被其占用导致本侧 e2e 无法并行）。**vendure 侧也不要与其争抢 `review-plugin` 相关文件与 e2e 端口。**
 
 ### 1.2 vshop — 拼团页遗留限制（非缺陷，已知取舍）
 
