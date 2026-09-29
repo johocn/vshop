@@ -273,6 +273,12 @@
                     "style": {
                         "navigationBarTitleText": "发票抬头管理"
                     }
+                },
+                {
+                    "path": "pages/my-reviews",
+                    "style": {
+                        "navigationBarTitleText": "我的评价"
+                    }
                 }
             ]
         }
