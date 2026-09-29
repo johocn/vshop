@@ -152,7 +152,10 @@ const pickedSummary = computed(() => {
     const names = (product.value?.optionGroups || [])
         .map((g: any) => (g.options || []).find((o: any) => o.id === selectedOptions.value[g.id])?.name)
         .filter(Boolean);
-    return names.length ? names.join(' / ') : '请选择规格';
+    if (names.length) return names.join(' / ');
+    // 单规格商品（无规格组）没有「未选」状态：与 SkuSheet.pickedText 同口径，取当前变体名
+    if (!(product.value?.optionGroups || []).length) return selectedVariant.value?.name || '请选择规格';
+    return '请选择规格';
 });
 
 function openSku(intent: 'cart' | 'buy' = 'cart') {
