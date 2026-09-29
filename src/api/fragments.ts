@@ -18,11 +18,13 @@ export const PRODUCT_CARD_FRAGMENT = `
 export const PRODUCT_DETAIL_FRAGMENT = `
     fragment ProductDetail on Product {
         id name slug description
+        featuredAsset { preview }
         customFields { videoAssetId sellingPoint }
         translations { languageCode description }
         assets { id preview source }
         variants {
             id name priceWithTax currencyCode stockLevel
+            featuredAsset { preview }
             options { id name code }
         }
         optionGroups { id name code options { id name code } }
