@@ -64,7 +64,7 @@
 **Files:**
 - Modify: `d:\zhao\vshop\src\api\fragments.ts`（`PRODUCT_DETAIL_FRAGMENT`，18-32 行）
 
-- [ ] **Step 1: 商品级与 variants 级各补 `featuredAsset { preview }`**
+- [x] **Step 1: 商品级与 variants 级各补 `featuredAsset { preview }`**
 
 把 `src\api\fragments.ts` 的 `PRODUCT_DETAIL_FRAGMENT` 整体替换为：
 
@@ -90,7 +90,7 @@ export const PRODUCT_DETAIL_FRAGMENT = `
 
 改动只有两行新增：`featuredAsset { preview }`（商品级，紧跟 `description`）与 `featuredAsset { preview }`（`variants` 内，紧跟 `stockLevel`）。
 
-- [ ] **Step 2: 确认没有别处重复定义同名字段导致 GraphQL 冲突**
+- [x] **Step 2: 确认没有别处重复定义同名字段导致 GraphQL 冲突**
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -100,7 +100,7 @@ Select-String -Path src\**\*.ts,src\**\*.vue -Pattern "featuredAsset" | Select-O
 
 Expected：命中的是 `fragments.ts`、`product.ts`（`getProductsByIds` 里 `featuredAsset { preview }`）、各页面模板里的读取处。**不应**出现第二个 `ProductDetail` fragment 定义。若出现，说明有重复 fragment，需先合并。
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -110,7 +110,7 @@ npm run build:h5
 
 Expected：编译成功，0 error。`npm run build` 会在 `dist/build/h5` 生成产物；**本 Task 不提交 dist**。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add src/api/fragments.ts
@@ -137,7 +137,7 @@ undefined。顺带修好详情页分享图 product.featuredAsset?.preview 恒空
 **Files:**
 - Modify: `d:\zhao\vshop\src\components\SkuSheet.vue`（模板 15-26 行；`pickedText` 87-95 行）
 
-- [ ] **Step 1: 规格组标题加计数**
+- [x] **Step 1: 规格组标题加计数**
 
 把 15-16 行：
 
@@ -153,7 +153,7 @@ undefined。顺带修好详情页分享图 product.featuredAsset?.preview 恒空
           <text class="sku-group__label">{{ group.name }} ({{ group.options.length }})</text>
 ```
 
-- [ ] **Step 2: 修正 `pickedText`，消除单规格商品的「请选择规格」**
+- [x] **Step 2: 修正 `pickedText`，消除单规格商品的「请选择规格」**
 
 把 87-95 行的 `pickedText` 整体替换为：
 
@@ -172,7 +172,7 @@ const pickedText = computed(() => {
 });
 ```
 
-- [ ] **Step 3: 确认规格区在单规格下不渲染（只读核对，不改代码）**
+- [x] **Step 3: 确认规格区在单规格下不渲染（只读核对，不改代码）**
 
 `optionGroups` 为空时，15 行的 `v-for` 天然不产生任何 DOM 节点，不存在「空容器」问题。**不要**为此新增 `v-if` 包裹层（多余的嵌套会改动既有 scss 的相邻选择器语义）。
 
@@ -184,12 +184,12 @@ Select-String -Path src\components\SkuSheet.vue -Pattern "v-for=\"group in optio
 
 Expected：命中 1 行，即 15 行，确认仍是 `v-for` 直接挂在 `.sku-group` 上。
 
-- [ ] **Step 4: 编译门禁**
+- [x] **Step 4: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add src/components/SkuSheet.vue
@@ -214,7 +214,7 @@ style(sku): 弹层规格组补计数 (N)、单规格商品不再显示「请选�
 **Files:**
 - Modify: `d:\zhao\vshop\src\pkg-product\pages\detail.vue`（`pickedSummary`，151-156 行）
 
-- [ ] **Step 1: 替换 `pickedSummary`**
+- [x] **Step 1: 替换 `pickedSummary`**
 
 把 151-156 行整体替换为：
 
@@ -232,12 +232,12 @@ const pickedSummary = computed(() => {
 
 依赖说明：`selectedVariant`（113-119 行）已在上方定义，且无选中时回退 `variants[0]`，因此单规格商品必能取到 `name`。
 
-- [ ] **Step 2: 编译门禁**
+- [x] **Step 2: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/pkg-product/pages/detail.vue
@@ -265,7 +265,7 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
 - Create: `d:\zhao\vshop\web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\detail-single-spec.png`（截图脚本落盘）
 - 部署：`dist/build/h5` → 线上 `https://e.joho.cn`（Step 3；截图打生产站，必须先上线）
 
-- [ ] **Step 1: 截图脚本补两个钉死 slug 的探针（多规格 + 单规格）**
+- [x] **Step 1: 截图脚本补两个钉死 slug 的探针（多规格 + 单规格）**
 
 现有详情块（219-255 行）用 `search` 自动挑「第一个带 slug 的商品」，采到的 `detail-sku-sheet.png` **未必带规格组**，断言不可复现。因此在详情块结束（255 行的 `}`）之后、`// ---------- 4 购物车` 之前，追加两个**钉死 slug** 的探针，让三条断言确定可复现。
 
@@ -309,7 +309,7 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
   }
 ```
 
-- [ ] **Step 2: 查一个多规格 slug 与一个单规格 slug**
+- [x] **Step 2: 查一个多规格 slug 与一个单规格 slug**
 
 **不要改仓库里已跟踪的 `web-admin/scripts/_smoke_usemall_align.py`**（Step 6 的 `git add` 不含它，改了会把工作树弄脏）。改为在**仓库外**建一个临时探针文件跑完即删：
 
@@ -352,7 +352,7 @@ Expected：输出里既有 `MULTI` 行也有 `SINGLE` 行，且每行带 `imgs=`
 
 若没有满足 `MULTI 且 imgs>=1` 的候选，**停下报告并把清单贴出来**（往生产后台建/改商品属于需人工确认的动作，不要自作主张）；若没有 `SINGLE` 行，同样停下报告。
 
-- [ ] **Step 3: 先把 V1 上线（截图打的是生产站，不上线采不到新行为）**
+- [x] **Step 3: 先把 V1 上线（截图打的是生产站，不上线采不到新行为）**
 
 截图脚本默认 `SITE_URL=https://e.joho.cn`（`_vshop_usemall_shots.mjs:51`），所以**必须先部署 V1 前端**，否则 Step 4 的三条断言全部会看到旧行为。V1 零后端，只部署前端。
 
@@ -382,7 +382,7 @@ ssh joho "sudo sha256sum /opt/1panel/apps/openresty/openresty/www/sites/e.joho.c
 
 完成后 `Remove-Item dist-h5.tar.gz`。
 
-- [ ] **Step 4: 跑脚本取图**
+- [x] **Step 4: 跑脚本取图**
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -412,7 +412,7 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 三张图在 390×844、dpr=2 下采集。逐张目视核对断言；任一不满足则回到 Task 1/2/3 修，**不要**先改断言。
 
-- [ ] **Step 5: 手册补 V1 截图行**
+- [x] **Step 5: 手册补 V1 截图行**
 
 在 `web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md` 里，找到既有「详情页 / SKU 弹层」相关小节，在其截图表格末尾追加一行（表格列名与上文一致）：
 
@@ -431,7 +431,7 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 同时把手册顶部版本号升到 **v1.6**（与第二轮一起记，见 Task 13）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 截图产物落在 `assets/` 子目录（`_vshop_usemall_shots.mjs:52`），路径不要漏 `assets/`：
 
@@ -454,7 +454,7 @@ test(sku): V1 验收——SKU 弹层规格计数/单规格降级/缩略图手机
 涉及：web-admin/scripts/_vshop_usemall_shots.mjs、web-admin/docs/superpowers/manual/vshop-usemall-alignment/
 ```
 
-- [ ] **Step 7: 推送**
+- [x] **Step 7: 推送**
 
 ```powershell
 git push origin master
@@ -471,7 +471,7 @@ git push origin master
 **Files:**
 - Modify: `d:\zhao\vendure\packages\review-plugin\e2e\review.e2e-spec.ts`（在最后一个 `it`（346-359 行）之后、`});`（360 行）之前插入）
 
-- [ ] **Step 1: 追加分档筛选用例**
+- [x] **Step 1: 追加分档筛选用例**
 
 在 `e2e\review.e2e-spec.ts` 第 359 行 `});` 与第 360 行 `});` 之间插入（注意缩进与既有 `it` 同级，均为 4 空格）：
 
@@ -534,7 +534,7 @@ git push origin master
 
 用例设计说明（照此实现，不要改判据）：用 `all`（不筛选）当基线，逐档断言「条数 = 基线的同区间条数」，这样**不依赖前面 `it` 的执行顺序与残留数据**；同时对刚造的 5/3/1 三条做 id 级别的 in/out 断言，保证筛选真的生效而不是恒空。
 
-- [ ] **Step 2: 跑用例，确认失败**
+- [x] **Step 2: 跑用例，确认失败**
 
 Run（在 `d:\zhao\vendure\packages\review-plugin`）：
 
@@ -544,7 +544,7 @@ npm run e2e
 
 Expected：**FAIL**。失败信息形如 `GraphQL Error: Cannot query field "ratingMin" on input "ReviewListOptions"`（SDL 还没有这两个字段）。若用例反而通过，说明上一轮已实现，请停下来核对 §0 事实 7 后再决定是否跳过 Task 6。
 
-- [ ] **Step 3: 提交（红）**
+- [x] **Step 3: 提交（红）**
 
 ```powershell
 git add packages/review-plugin/e2e/review.e2e-spec.ts
@@ -572,7 +572,7 @@ test(review): 先写分档筛选失败用例（ratingMin/ratingMax）
 - Modify: `d:\zhao\vendure\packages\review-plugin\src\review.service.ts`（import 21 行；新增模块级 helper；`getProductReviews` 269-291 行）
 - 产物（改完必须重建）：`d:\zhao\vendure\packages\review-plugin\lib\**`
 
-- [ ] **Step 1: `types.ts` 加两个可选字段**
+- [x] **Step 1: `types.ts` 加两个可选字段**
 
 把 43-46 行：
 
@@ -596,7 +596,7 @@ export interface ReviewListOptions extends ListQueryOptions<Review> {
 }
 ```
 
-- [ ] **Step 2: shop SDL 加两个 input 字段（admin 版不动）**
+- [x] **Step 2: shop SDL 加两个 input 字段（admin 版不动）**
 
 把 `plugin.ts` 的 **`shopSchema`** 里（**不是** `adminSchema`）125-128 行：
 
@@ -618,7 +618,7 @@ export interface ReviewListOptions extends ListQueryOptions<Review> {
     }
 ```
 
-- [ ] **Step 3: `review.service.ts` 改 import**
+- [x] **Step 3: `review.service.ts` 改 import**
 
 把 21 行：
 
@@ -632,7 +632,7 @@ import { IsNull } from 'typeorm';
 import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 ```
 
-- [ ] **Step 4: 加模块级 helper**
+- [x] **Step 4: 加模块级 helper**
 
 在 `review.service.ts`（`DELETED_STATUS` 那组常量之后、`@Injectable()` 类定义之前）插入：
 
@@ -652,7 +652,7 @@ function buildRatingFilter(min?: number, max?: number): FindOperator<number> | u
 }
 ```
 
-- [ ] **Step 5: `getProductReviews` 叠加 rating 条件**
+- [x] **Step 5: `getProductReviews` 叠加 rating 条件**
 
 把 269-291 行的 `getProductReviews` 整体替换为：
 
@@ -687,7 +687,7 @@ function buildRatingFilter(min?: number, max?: number): FindOperator<number> | u
 
 **不要**改 `getReviews`（admin 版，249-266 行）。
 
-- [ ] **Step 6: 跑 e2e，确认转绿**
+- [x] **Step 6: 跑 e2e，确认转绿**
 
 Run（在 `d:\zhao\vendure\packages\review-plugin`）：
 
@@ -697,7 +697,7 @@ npm run e2e
 
 Expected：**PASS**，含新用例与其余 7 个既有用例全绿。
 
-- [ ] **Step 7: 外科式重建 `lib`（不 rimraf）**
+- [x] **Step 7: 外科式重建 `lib`（不 rimraf）**
 
 Run（在 `d:\zhao\vendure`）：
 
@@ -713,7 +713,7 @@ git status --short packages/review-plugin/lib
 
 Expected：仅 `lib/src/plugin.js`、`lib/src/plugin.d.ts`、`lib/src/review.service.js`、`lib/src/review.service.d.ts`、`lib/src/types.js`、`lib/src/types.d.ts`（以及对应 `.js.map`）为 modified。**若出现大量无关文件的删除/新增**，说明触碰了既有漂移，立即 `git checkout -- packages/review-plugin/lib` 回滚并改为手工只补对应 `.js` 产物。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```powershell
 git add packages/review-plugin/src/types.ts packages/review-plugin/src/plugin.ts packages/review-plugin/src/review.service.ts packages/review-plugin/lib
@@ -744,7 +744,7 @@ feat(review): shop SDL 支持按星级档筛选商品评价（ratingMin/ratingMa
 - Create: `d:\zhao\vshop\src\api\queries\review.ts`
 - Modify: `d:\zhao\vshop\src\i18n\locales\{zh-CN,zh-TW,en,ja,ko}.json`（在 `sku` 块（225-231 行）之后追加）
 
-- [ ] **Step 1: 新建 `review.ts`**
+- [x] **Step 1: 新建 `review.ts`**
 
 创建 `src\api\queries\review.ts`：
 
@@ -826,7 +826,7 @@ export async function createReview(input: {
 
 注意：`options` 里显式给 `take: 10` 默认值，且**不要**把 `undefined` 键传下去（`{...options}` 中值为 `undefined` 的键会被 graphql-request 序列化成 `null`，服务端 `inRange(null)` 返回 false → 退化为不筛选，行为可接受，但为稳妥起见 Task 9/10 调用时只在需要时展开）。
 
-- [ ] **Step 2: `zh-CN.json` 追加 `review` 命名空间**
+- [x] **Step 2: `zh-CN.json` 追加 `review` 命名空间**
 
 把 `src\i18n\locales\zh-CN.json` 的 231-232 行：
 
@@ -873,7 +873,7 @@ export async function createReview(input: {
 }
 ```
 
-- [ ] **Step 3: `zh-TW.json` 追加同名命名空间**
+- [x] **Step 3: `zh-TW.json` 追加同名命名空间**
 
 把 `src\i18n\locales\zh-TW.json` 的 231-232 行改为：
 
@@ -913,7 +913,7 @@ export async function createReview(input: {
 }
 ```
 
-- [ ] **Step 4: `en.json` 追加同名命名空间**
+- [x] **Step 4: `en.json` 追加同名命名空间**
 
 把 `src\i18n\locales\en.json` 的 231-232 行改为：
 
@@ -953,7 +953,7 @@ export async function createReview(input: {
 }
 ```
 
-- [ ] **Step 5: `ja.json` 追加同名命名空间**
+- [x] **Step 5: `ja.json` 追加同名命名空间**
 
 把 `src\i18n\locales\ja.json` 的 231-232 行改为：
 
@@ -993,7 +993,7 @@ export async function createReview(input: {
 }
 ```
 
-- [ ] **Step 6: `ko.json` 追加同名命名空间**
+- [x] **Step 6: `ko.json` 追加同名命名空间**
 
 把 `src\i18n\locales\ko.json` 的 231-232 行改为：
 
@@ -1033,7 +1033,7 @@ export async function createReview(input: {
 }
 ```
 
-- [ ] **Step 7: 5 个文件都必须是合法 JSON 且键集完全一致**
+- [x] **Step 7: 5 个文件都必须是合法 JSON 且键集完全一致**
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -1043,7 +1043,7 @@ node -e "for (const l of ['zh-CN','zh-TW','en','ja','ko']) { const m = require('
 
 Expected：5 行，每行都是 `29`，且键名序列完全一致（29 = spec §4.9 的词条数）。若某行不是 29，逐字比对上面的 JSON 块补齐。
 
-- [ ] **Step 8: 编译门禁 + 提交**
+- [x] **Step 8: 编译门禁 + 提交**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5` → Expected：0 error。
 
@@ -1072,7 +1072,7 @@ feat(review): 评价 GraphQL 封装 + review.* i18n 词条（5 语言包同步�
 **Files:**
 - Create: `d:\zhao\vshop\src\components\ReviewItem.vue`
 
-- [ ] **Step 1: 新建组件**
+- [x] **Step 1: 新建组件**
 
 创建 `src\components\ReviewItem.vue`：
 
@@ -1174,12 +1174,12 @@ function preview(index: number) {
 </style>
 ```
 
-- [ ] **Step 2: 编译门禁**
+- [x] **Step 2: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。组件此时尚未被引用，编译通过即说明 SFC 语法与 scss 变量（`$brand-color` / `$brand-color-light` / `$price-color` / `$radius-sm` / `$border-color` / `$text-color` / `$text-color-secondary`）均可用——这些变量在 `detail.vue`、`orders.vue` 中已被同样引用。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/components/ReviewItem.vue
@@ -1204,7 +1204,7 @@ feat(review): 抽公共评价条目组件 ReviewItem（详情页与评价页共�
 **Files:**
 - Modify: `d:\zhao\vshop\src\pkg-product\pages\detail.vue`（模板：44-45 行之间插入；script：import 与状态）
 
-- [ ] **Step 1: 在 `product-detail__info` 之后、`product-detail__rich` 之前插入评价区**
+- [x] **Step 1: 在 `product-detail__info` 之后、`product-detail__rich` 之前插入评价区**
 
 第 44 行 `</view>`（`product-detail__info` 闭合）与第 45 行 `<view class="product-detail__rich" ...>` 之间插入：
 
@@ -1230,7 +1230,7 @@ feat(review): 抽公共评价条目组件 ReviewItem（详情页与评价页共�
     </view>
 ```
 
-- [ ] **Step 2: script 补 import 与状态**
+- [x] **Step 2: script 补 import 与状态**
 
 在 `detail.vue` 的 import 区（90-96 行）追加两行：
 
@@ -1292,7 +1292,7 @@ import 区追加 `getProductReviews, getReviewStats`：
 import { getProductReviews, getReviewStats } from '../../api/queries/review';
 ```
 
-- [ ] **Step 3: 在商品加载成功后调用 `loadReviews()`**
+- [x] **Step 3: 在商品加载成功后调用 `loadReviews()`**
 
 把 219 行的 `} catch (e) { console.error(e); }`（第一个 `onMounted` 内商品请求的 catch）保持不动，在其**之后的下一行**插入：
 
@@ -1318,7 +1318,7 @@ import { getProductReviews, getReviewStats } from '../../api/queries/review';
 
 注意 `await loadReviews()` 必须在 `try/catch` **之外**，且要在微信分享的 `buildShareMeta(...)` 之前——分享图现在真的能取到 `product.featuredAsset.preview` 了（Task 1）。
 
-- [ ] **Step 4: scss 追加评价区样式**
+- [x] **Step 4: scss 追加评价区样式**
 
 在 `detail.vue` 的 `<style>` 末尾（294 行 `</style>` 之前）插入：
 
@@ -1334,12 +1334,12 @@ import { getProductReviews, getReviewStats } from '../../api/queries/review';
 }
 ```
 
-- [ ] **Step 5: 编译门禁**
+- [x] **Step 5: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git add src/pkg-product/pages/detail.vue
@@ -1367,7 +1367,7 @@ feat(review): 详情页新增用户评价区（标题计数 + 平均分 + 好评
 - Create: `d:\zhao\vshop\src\pkg-product\pages\evaluate.vue`
 - Modify: `d:\zhao\vshop\src\pages.json`（`pkg-product` 的 `pages`，84-88 行之后）
 
-- [ ] **Step 1: 新建商品评价页**
+- [x] **Step 1: 新建商品评价页**
 
 创建 `src\pkg-product\pages\evaluate.vue`：
 
@@ -1534,7 +1534,7 @@ function switchTab(key: TabKey) {
 </style>
 ```
 
-- [ ] **Step 2: `pages.json` 注册新页面**
+- [x] **Step 2: `pages.json` 注册新页面**
 
 把 `src\pages.json` 的 `pkg-product` 块（75-89 行）改为：
 
@@ -1563,12 +1563,12 @@ function switchTab(key: TabKey) {
             ]
 ```
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。若报「未注册页面」，说明 `pages.json` 改漏。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add src/pkg-product/pages/evaluate.vue src/pages.json
@@ -1602,7 +1602,7 @@ feat(review): 新增商品评价页（4 分档 + 分页 + 商家回复展开）
 - Modify: `d:\zhao\vshop\src\pkg-order\pages\order-detail.vue`（模板 49-55 行；script）
 - Modify: `d:\zhao\vshop\src\pages.json`（`pkg-order` 的 `pages`，131-137 行之后）
 
-- [ ] **Step 1: `ORDER_FRAGMENT` 的 `productVariant` 补 `productId`**
+- [x] **Step 1: `ORDER_FRAGMENT` 的 `productVariant` 补 `productId`**
 
 把 `src\api\fragments.ts` 第 43 行：
 
@@ -1618,7 +1618,7 @@ feat(review): 新增商品评价页（4 分档 + 分页 + 商家回复展开）
 
 `productId` 是 `createReview` 的必传项（spec §2.4 第 4 行）。
 
-- [ ] **Step 2: 新建订单评价提交页**
+- [x] **Step 2: 新建订单评价提交页**
 
 创建 `src\pkg-order\pages\order-evaluate.vue`：
 
@@ -1856,7 +1856,7 @@ async function onSubmit() {
 </style>
 ```
 
-- [ ] **Step 3: `pages.json` 注册订单评价页**
+- [x] **Step 3: `pages.json` 注册订单评价页**
 
 在 `src\pages.json` 的 `pkg-order` 块里，`pages/invoices`（131-137 行）之后追加：
 
@@ -1872,7 +1872,7 @@ async function onSubmit() {
 
 （`pkg-order` 的 `pages` 数组末尾原为 `pages/invoices` 项，注意补好逗号。）
 
-- [ ] **Step 4: `orders.vue` 加「我要评价」入口**
+- [x] **Step 4: `orders.vue` 加「我要评价」入口**
 
 在 `orders.vue` 模板的 `order-card__footer`（17-20 行）之后、`</view>`（21 行，`order-card` 闭合）之前插入：
 
@@ -1957,7 +1957,7 @@ function goEvaluate(code: string) {
 .order-card__reviewed { font-size: 24rpx; color: #999; }
 ```
 
-- [ ] **Step 5: `order-detail.vue` 加同一入口**
+- [x] **Step 5: `order-detail.vue` 加同一入口**
 
 在 `order-detail.vue` 的操作区（49-55 行）的最后一个按钮之后追加：
 
@@ -2025,12 +2025,12 @@ function goEvaluate() {
 }
 ```
 
-- [ ] **Step 6: 编译门禁**
+- [x] **Step 6: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git add src/api/fragments.ts src/pkg-order/pages/order-evaluate.vue src/pkg-order/pages/orders.vue src/pkg-order/pages/order-detail.vue src/pages.json
@@ -2061,7 +2061,7 @@ feat(review): 新增订单评价提交页 + 两处「我要评价」入口
 - Modify: `d:\zhao\vshop\src\pkg-user\pages\profile.vue`（菜单 11 行之后；`navTo` 37 行）
 - Modify: `d:\zhao\vshop\src\pages.json`（`pkg-user` 的 `pages`，258-263 行之后）
 
-- [ ] **Step 1: 新建我的评价页**
+- [x] **Step 1: 新建我的评价页**
 
 创建 `src\pkg-user\pages\my-reviews.vue`：
 
@@ -2195,7 +2195,7 @@ onMounted(async () => {
 </style>
 ```
 
-- [ ] **Step 2: `profile.vue` 菜单插入「我的评价」**
+- [x] **Step 2: `profile.vue` 菜单插入「我的评价」**
 
 在 `profile.vue` 第 11 行（`<view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>`）之后插入：
 
@@ -2203,7 +2203,7 @@ onMounted(async () => {
       <view class="menu-item" @click="navTo('/pkg-user/pages/my-reviews')"><text>我的评价</text><text>></text></view>
 ```
 
-- [ ] **Step 3: `pages.json` 注册我的评价页**
+- [x] **Step 3: `pages.json` 注册我的评价页**
 
 在 `src\pages.json` 的 `pkg-user` 块里，`pages/invoice-titles` 项（258-263 行）之后追加：
 
@@ -2217,12 +2217,12 @@ onMounted(async () => {
                 }
 ```
 
-- [ ] **Step 4: 编译门禁**
+- [x] **Step 4: 编译门禁**
 
 Run（在 `d:\zhao\vshop`）：`npm run build:h5`
 Expected：0 error。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add src/pkg-user/pages/my-reviews.vue src/pkg-user/pages/profile.vue src/pages.json
@@ -2251,7 +2251,7 @@ feat(review): 新增「我的评价」页 + 个人中心入口
 - Modify: `d:\zhao\vshop\web-admin\scripts\_vshop_usemall_shots.mjs`
 - Modify: `d:\zhao\vshop\web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md`
 
-- [ ] **Step 1: 截图脚本补评价体系 5 张图**
+- [x] **Step 1: 截图脚本补评价体系 5 张图**
 
 在任务 4 已加的单规格块之后，追加评价体系探针。用 Step 2 查到的真实 `slug` / `code` / 账号替换 `EVAL_SLUG` 与 `ORDER_CODE`，不要留占位：
 
@@ -2281,7 +2281,7 @@ feat(review): 新增「我的评价」页 + 个人中心入口
 
 `detail-review-block.png` 必须在**未打开 SKU 弹层**的状态下截（弹层打开时评价区被遮挡）。若 `detail-page.png` 的截图时机已打开弹层，把评价区这张放在进入详情页后、点击规格入口之前。
 
-- [ ] **Step 2: 备齐验收前置数据（一次性运维动作，不落库脚本）**
+- [x] **Step 2: 备齐验收前置数据（一次性运维动作，不落库脚本）**
 
 1. **评价数据**：至少 6 条已审核评价覆盖 5/4/3/2/1 星。用 QA 账号走 shop-api：下单 → 管理员发货/送达 → `createReview` → `approveReview`。至少 1 条带 `images`，至少 1 条带 `reply`（管理员回复），至少 1 条 `isAnonymous: true`。
 2. **可评价订单**：一个 `state = Delivered` 且含 ≥2 个 line 的订单（验证一单多商品分块），取其 `code` 作为 `ORDER_CODE`。
@@ -2305,7 +2305,7 @@ query {
 
 再用返回的 `productId` 跑 `reviewStats(productId: "<id>") { totalCount goodRate averageRating ratingDistribution { rating count } }`，Expected：`totalCount >= 6` 且 `ratingDistribution` 中 1–5 星计数均 > 0。
 
-- [ ] **Step 3: API 回归（spec §7.2 的 7 个用例）**
+- [x] **Step 3: API 回归（spec §7.2 的 7 个用例）**
 
 在 `d:\zhao\vshop` 用同一个探针脚本，或直接 curl 生产 shop-api，逐条核对：
 
@@ -2321,7 +2321,7 @@ query {
 
 Expected：7/7 通过。**`productReviews(productId)` 的条数必须与 `reviewStats.totalCount` 相等**——这是「既有行为未被破坏」的关键交叉验证。
 
-- [ ] **Step 4: 采图并逐张核对断言**
+- [x] **Step 4: 采图并逐张核对断言**
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -2345,13 +2345,13 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 任一断言不满足 → 回到对应 Task 修，**不要**先改断言或改文档。
 
-- [ ] **Step 5: 手册升 v1.6**
+- [x] **Step 5: 手册升 v1.6**
 
 在 `web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md` 里：
 1. 顶部版本号升到 **v1.6**，补一行变更摘要「第二轮：SKU 弹层收口 + 评价体系（详情页评价区/商品评价页/订单评价页/我的评价页）」。
 2. 新增一节「评价体系」，把 7 张截图按 spec §7.1 的断言表落成表格，并写明：`autoApprove=false` → 新评价为 `pending`，**提交后 C 端商品页看不到属预期**，需管理员在后台审核通过（写进「常见问题」）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 截图产物落在 `assets/` 子目录（`_vshop_usemall_shots.mjs:52`），路径不要漏 `assets/`：
 
@@ -2372,7 +2372,7 @@ test(review): 第二轮端到端验收——SKU 收口 + 评价体系 7 张手�
 涉及：web-admin/scripts/_vshop_usemall_shots.mjs、web-admin/docs/superpowers/manual/vshop-usemall-alignment/
 ```
 
-- [ ] **Step 7: 部署（先后端，后前端）**
+- [x] **Step 7: 部署（先后端，后前端）**
 
 **后端 vendure（必须先上线，否则前端传 `ratingMin` 会被 GraphQL 校验拒绝）**：
 
@@ -2404,7 +2404,7 @@ ssh joho "cd /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index && t
 
 Expected：线上 `https://e.joho.cn` 详情页出现评价区；**不在服务器上执行任何构建命令**。
 
-- [ ] **Step 8: 收尾推送**
+- [x] **Step 8: 收尾推送**
 
 ```powershell
 git push origin master
@@ -2425,3 +2425,23 @@ V2: Task 5 → 6 →（部署后端）→ 7 → 8 → 9 → 10 → 11 → 12 →
 - Task 6 完成即可部署后端（Task 13 Step 7 的后半段），前端可随后上线，避免前端先上线取不到分档。
 - Task 8（ReviewItem）是 Task 9 / 10 的前置。
 - Task 7 的 `review.ts` 是 Task 9 / 11 / 12 的前置。
+
+---
+
+## 执行结论（2026-09-30 收口）
+
+- **轮次**：第二轮 usemall 对齐（S1 SKU 弹层收口 + S2–S6 评价体系），13 个 Task 全部完成。
+- **提交（vshop）**：T1 `447b103`、T2 `a69304e`、T3 `84bb90b`、T4 `f2fc0b7`、T7 `9256f77`、T8 `8caa93c`、T9 `f979ff7`、T10 `e1146cf`、T11 `3e547ff`、T12 `b5d79a9`、T13 `b333888`。
+- **提交（vendure）**：T5 `a3bcd91a6`（先写失败用例，红）、T6 `37a485a04`（实现 `ratingMin/ratingMax` 分档筛选 + 重建 `lib`，绿）。
+- **验证手段**：
+  - 编译门禁：vshop `npm run build:h5` 退出码 0（2026-09-30 复跑）。
+  - 后端 e2e：`packages/review-plugin` `npm run e2e` → **9 passed**（含新增用例「分档筛选：ratingMin/ratingMax 单边与区间生效；越界与倒挂忽略」）。
+  - 只读探针：`python web-admin/scripts/_smoke_usemall_align.py` → 全部断言通过。
+  - 手机视口截图（390×844 / dpr=2，打生产站 `https://e.joho.cn`）：Task 4 四张（`detail-page` / `detail-sku-sheet` / `detail-single-spec` / `detail-sku-sheet-single`）+ Task 13 七张（`detail-review-block` / `review-list-all` / `review-list-bad` / `orders-list` / `orders-list-review-entry` / `order-evaluate` / `my-reviews`），断言表见手册 §4。
+- **部署**：本轮含后端改动，顺序为「先后端 vendure → 再 H5」。线上站点 assets 已含 `ReviewItem.*.js` / `review.*.js` / `pkg-product-pages-evaluate.*.js` / `pkg-order-pages-order-evaluate.*.js` / `pkg-user-pages-my-reviews.*.js`，即第二轮产物已上线（本结论为文档回填，未再产生源码改动，故无需重新部署）。
+- **遗留项**（同步登记于 `docs/superpowers/BACKLOG.md`）：
+  - 多规格商品（`fresh-crayfish` / `xianju-bayberry`）SKU 弹层缩略图灰底属**数据缺失**（商品级与变体级 `featuredAsset` 均为 null），补图后即正常，非代码问题；断言 3 改用有图的单规格商品（温泉门票）取证。
+  - 评价「有图 / 标签」筛选需扩 shop SDL，延后。
+  - 评价追评 / 有用计数 / 修改删除 / 视频，明确不做（参照物 usemall 评价页无这些元素）。
+  - 后端 `autoApprove=false` → 新评价为 `pending`，提交后 C 端商品页看不到属**预期**，需管理员后台审核通过。
+- **计划复选框**：71 个 `- [ ] **Step` 于 2026-09-30 一次性回勾 —— 实现与验收均已由上述提交交付，此前仅遗漏勾选动作。
