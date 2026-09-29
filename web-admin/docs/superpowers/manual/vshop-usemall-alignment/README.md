@@ -113,13 +113,16 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 [flash] productId 断言通过（1 个全部可补拉）
 [group-buy] 活动数=1
 [group-buy] productId/variantId 断言通过
-[facet] 该分类无 facet，跳过过滤断言
+[facet] 分类=hot-spring 不带过滤=6 单分面(8)过滤=2 该分面count=2
+[facet] 服务端过滤生效断言通过
 [cart] activeOrder 行数=1（人工核对：勾选 N 行结算时应为 N）
 [cart] ORDER_FRAGMENT 的 enabled / stockLevel 断言通过
 == 全部断言通过 ==
 ```
 
 > v1.3 起探针的 `[cart]` 段已带上 `AUTH_TOKEN`（C 端测试客户）实跑，不再走「无 activeOrder，跳过」分支；新增断言要求 shop-api 的 `ProductVariant.enabled` 是 `Boolean`（这是 §5.7 失效行判定的服务端前提）。
+>
+> **2026-09-29 追加修正（`[facet]` 段）**：原断言用「该分类**全部**分面值的或集」过滤再要求 `totalItems` 变化 —— 该或集必然覆盖分类内全部商品，是恒等式 no-op。v1.3 及更早之所以没暴露，是因为 `collections[0]` 一直是**无商品的空壳分类**（`ids` 为空 → 走「该分类无 facet，跳过」分支）；v1.4 新建 `hot-spring`（6 商品）成为首个顶级分类后，断言首次真正执行并**恒定失败**，还会中断后续 `[cart]` 段。现改为：自动跳过「无商品/无分面」的分类，改用**单个**分面值过滤，断言 `过滤结果 == 该分面 count`（本例 `6 → 2`，与分面「支持邮寄」count=2 吻合），才真正验证服务端过滤生效。
 
 关键点：**`activeGroupBuyActivities` 已能返回 `productId` / `variantId`**（Task 1 的后端 SDL 扩展已上线并生效），这是拼团页「去拼团」能落单的前提。v1.1 中秒杀与拼团均已各有 1 条进行中活动，因此 `[flash]` 补拉断言与 `[group-buy]` 断言都真正跑到了断言体（v1 时因活动数为 0 被跳过）。
 

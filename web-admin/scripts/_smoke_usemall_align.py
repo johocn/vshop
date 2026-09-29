@@ -73,19 +73,33 @@ def check_facet_filter() -> None:
     if not collections:
         print("[facet] 无顶级分类，跳过")
         return
-    slug = collections[0]["slug"]
-    plain = shop_api("query($slug:String!){ search(input:{groupByProduct:true,collectionSlug:$slug,take:1}){ totalItems } }", {"slug": slug})["search"]["totalItems"]
-    facets = shop_api("query($slug:String!){ search(input:{groupByProduct:true,collectionSlug:$slug,take:1}){ facetValues { facetValue { id } } } }", {"slug": slug})["search"]["facetValues"]
-    ids = [f["facetValue"]["id"] for f in facets if f.get("facetValue")]
-    if not ids:
-        print("[facet] 该分类无 facet，跳过过滤断言")
+    # 找一个「有商品且有 facet」的顶级分类做断言。
+    # 注意：不能用「该分类全部分面值的或集」去过滤 —— 或集必然覆盖该分类全部商品，
+    # 是恒等式 no-op（v1.4 新建分类后曾因此恒失败）。改为用**单个**分面值过滤，
+    # 断言过滤结果与该分面自身的 count 一致，才是真正在验证服务端过滤生效。
+    target = None
+    for col in collections:
+        slug = col["slug"]
+        res = shop_api(
+            "query($slug:String!){ search(input:{groupByProduct:true,collectionSlug:$slug,take:1}){ totalItems facetValues { count facetValue { id } } } }",
+            {"slug": slug},
+        )["search"]
+        items = [(f["facetValue"]["id"], f["count"]) for f in res["facetValues"] if f.get("facetValue")]
+        if res["totalItems"] and items:
+            target = (slug, res["totalItems"], items)
+            break
+    if not target:
+        print("[facet] 无「有商品且有 facet」的顶级分类，跳过过滤断言")
         return
+
+    slug, plain, items = target
+    fid, expected = items[0]
     filtered = shop_api(
         "query($slug:String!,$ids:[ID!]!){ search(input:{groupByProduct:true,collectionSlug:$slug,take:1,facetValueFilters:[{or:$ids}]}){ totalItems } }",
-        {"slug": slug, "ids": ids},
+        {"slug": slug, "ids": [fid]},
     )["search"]["totalItems"]
-    print(f"[facet] 不带过滤={plain} 带过滤={filtered}")
-    assert filtered != plain, "带 facetValueFilters 后 totalItems 未变化，服务端过滤可能未生效"
+    print(f"[facet] 分类={slug} 不带过滤={plain} 单分面({fid})过滤={filtered} 该分面count={expected}")
+    assert filtered == expected, f"单分面过滤得 {filtered}，与分面 count {expected} 不一致，服务端过滤可能未生效"
     print("[facet] 服务端过滤生效断言通过")
 
 
