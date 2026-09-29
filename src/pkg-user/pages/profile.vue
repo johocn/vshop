@@ -9,6 +9,7 @@
       <view class="menu-item" @click="navTo('/pkg-user/pages/points-mall')"><text>积分兑换</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/points-history')"><text>积分明细</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/my-reviews')"><text>我的评价</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-order/pages/invoices')"><text>我的发票</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/invoice-titles')"><text>发票抬头管理</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>地址管理</text><text>></text></view>
