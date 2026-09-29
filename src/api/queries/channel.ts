@@ -63,6 +63,20 @@ export async function resolveChannelByCode(code: string) {
     }`, { code });
 }
 
+/** 全部「可用店铺」（已停用渠道不返回）：店铺切换器的公开数据源 */
+export async function listShopChannels() {
+    const client = getGraphQLClient();
+    return client.request(`query {
+        shopChannels {
+            code
+            token
+            name
+            isOfficial
+            isDefault
+        }
+    }`);
+}
+
 export async function getShopTemplate(app: string) {
     const client = getGraphQLClient();
     return client.request(`query GetShopTemplate($app: String!) {
