@@ -61,7 +61,10 @@ const USER = arg('user');
 const PWD = arg('pwd');
 const PHONE = arg('phone');
 const CODE = arg('code');
+const ONLY = arg('only');
 const LOGGED = Boolean((USER && PWD) || (PHONE && CODE));
+// --only category 只跑分类页（避免重跑时影响购物车存量），多个用逗号分隔
+const want = (k) => !ONLY || ONLY.split(',').includes(k);
 
 const MOBILE = { width: 390, height: 844, deviceScaleFactor: 2 };
 
@@ -161,28 +164,56 @@ async function shopApi(query, variables) {
   }
 
   // ---------- 1 首页 ----------
-  console.log('[1] 首页');
-  await go('/pages/home/index', 6000);
-  console.log('  text =', await text());
-  await shot('home-flash-floor.png');
+  if (want('home')) {
+    console.log('[1] 首页');
+    await go('/pages/home/index', 6000);
+    console.log('  text =', await text());
+    await shot('home-flash-floor.png');
+  }
 
   // ---------- 2 分类页 ----------
-  console.log('[2] 分类页');
-  await go('/pages/category/index', 4500);
-  console.log('  text =', await text());
-  await shot('category-modes.png');
-  try {
-    const toggles = page.locator('text=⇄');
-    if (await toggles.first().isVisible()) {
-      await toggles.first().click();
-      await page.waitForTimeout(2500);
-      await shot('category-mode-list.png');
-      console.log('  已切到另一模式（category-mode-list.png）');
-    } else {
-      console.log('  ⇄ 悬浮按钮不可见');
+  if (want('category')) {
+    console.log('[2] 分类页');
+    await go('/pages/category/index', 4500);
+    console.log('  text =', await text());
+    await shot('category-modes.png');
+    try {
+      const sub = page.locator('.sub-item').first();
+      if (await sub.isVisible()) {
+        const subName = (await sub.innerText()).trim();
+        await sub.click();
+        await page.waitForTimeout(3000);
+        console.log(`  点二级分类「${subName}」-> ${page.url()}`);
+        console.log('  text =', await text());
+        await shot('category-sub-list.png');
+        await page.goBack();
+        await page.waitForTimeout(2500);
+      } else {
+        console.log('  二级分类格不可见');
+      }
+    } catch (e) {
+      console.log('  二级分类点击 err', String(e.message).slice(0, 120));
     }
-  } catch (e) {
-    console.log('  toggle err', e.message.slice(0, 100));
+    try {
+      const toggles = page.locator('text=⇄');
+      if (await toggles.first().isVisible()) {
+        await toggles.first().click();
+        await page.waitForTimeout(2500);
+        await shot('category-mode-list.png');
+        console.log('  已切到另一模式（category-mode-list.png）');
+      } else {
+        console.log('  ⇄ 悬浮按钮不可见');
+      }
+    } catch (e) {
+      console.log('  toggle err', e.message.slice(0, 100));
+    }
+  }
+
+  // 只跑分类页时到此结束（详情/购物车/秒杀/拼团都未请求）
+  if (ONLY && !['detail', 'cart', 'flash', 'groupbuy'].some(want)) {
+    await browser.close();
+    console.log('screenshots done ->', SHOTS);
+    return;
   }
 
   // ---------- 3 详情页 + SKU 弹层 ----------

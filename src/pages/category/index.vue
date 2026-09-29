@@ -14,7 +14,7 @@
         <!-- mode=1：二级分类格 -->
         <view v-if="mode === 1">
           <view v-if="subCategories.length" class="sub-grid">
-            <view v-for="sub in subCategories" :key="sub.id" class="sub-item" @click="goList(sub.id)">
+            <view v-for="sub in subCategories" :key="sub.id" class="sub-item" @click="goList(sub.slug)">
               <text class="sub-item__name">{{ sub.name }}</text>
             </view>
           </view>
@@ -118,7 +118,7 @@ function toTop() {
 }
 
 function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
-function goList(facetId: string) { uni.navigateTo({ url: '/pkg-product/pages/list?facetValueId=' + facetId }); }
+function goList(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/list?collectionSlug=' + slug }); }
 function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/detail?slug=' + slug }); }
 </script>
 <style lang="scss" scoped>
