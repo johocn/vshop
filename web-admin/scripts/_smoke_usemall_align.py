@@ -49,7 +49,8 @@ def check_flash() -> None:
         print("[flash] 当前无进行中活动，跳过补拉断言（不算失败）")
         return
     ids = [a["productId"] for a in acts if a.get("productId")]
-    q = "query($ids:[ID!]!){ products(options:{filter:{id:{in:$ids}},take:50}){ items { id name } } }"
+    # 注意：Vendure 的 ProductFilter.id.in 是 [String!]，写成 [ID!] 会被 GraphQL 校验拒绝
+    q = "query($ids:[String!]!){ products(options:{filter:{id:{in:$ids}},take:50}){ items { id name } } }"
     products = shop_api(q, {"ids": ids})["products"]["items"]
     got = {str(p["id"]) for p in products}
     missing = [i for i in ids if str(i) not in got]

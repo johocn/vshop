@@ -59,7 +59,7 @@ const mode = ref(1);
 onMounted(async () => {
     try {
         const client = getGraphQLClient();
-        const res: any = await client.request(`query { collections(options: { topLevelOnly: true }) { items { id name slug facetValues { id name } children { id name slug facetValues { id name } } } } }`);
+        const res: any = await client.request(`query { collections(options: { topLevelOnly: true }) { items { id name slug children { id name slug } } } }`);
         categories.value = res.collections?.items || [];
         if (categories.value.length > 0) selectCategory(categories.value[0]);
     } catch (e) { console.error(e); }
@@ -85,9 +85,7 @@ async function loadProducts(reset = false) {
     if (!reset && !hasMore.value) return;
     loadingMore.value = true;
     try {
-        const ids = ((activeCat.value.facetValues || []) as any[]).map((f) => f.id);
         const res: any = await searchProducts({
-            facetValueFilters: ids.length ? [{ or: ids }] : undefined,
             collectionSlug: activeCat.value.slug,
             take,
             skip: reset ? 0 : skip.value,

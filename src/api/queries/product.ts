@@ -52,7 +52,7 @@ export async function getProductsByIds(ids: string[]) {
     if (list.length === 0) return [];
     const client = getGraphQLClient();
     const query = `
-        query GetProductsByIds($ids: [ID!]!) {
+        query GetProductsByIds($ids: [String!]!) {
             products(options: { filter: { id: { in: $ids } }, take: 50 }) {
                 items {
                     id name slug
