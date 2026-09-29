@@ -48,8 +48,10 @@ async function loadData() {
     try {
         const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
         const facetValueId = page?.options?.facetValueId;
+        const collectionSlug = page?.options?.collectionSlug;
         const res: any = await searchProducts({
             term: searchTerm.value || undefined,
+            collectionSlug: collectionSlug || undefined,
             facetValueFilters: facetValueId ? [{ or: [facetValueId] }] : undefined,
             take,
             skip,

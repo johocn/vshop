@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.3（2026-09-29，补交付购物车「已下架」失效行：后端补暴露 `ProductVariant.enabled` + 前端恢复失效行判定，见 §5.7） |
+| 版本 | v1.4（2026-09-29，重建 default 渠道分类体系 + 修复二级分类跳转，见 §5.8） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md` |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md` |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
@@ -17,6 +17,7 @@
 > **v1.1 相对 v1 的增量**：三类线上阻塞缺陷修复（分类页、秒杀补拉、pm2 内存）+ 演示数据 + 全部截图重采，见 §5.5。
 > **v1.2 相对 v1.1 的增量**：二次线上复验发现「购物车冷启动/刷新一律误报空车」，已修复并重新构建部署、复验通过，见 §5.6；线上产物入口哈希随之更新，见 §5.4。
 > **v1.3 相对 v1.2 的增量**：v1.2 里被记为「未交付」的购物车失效行（§5.3）已补交付 —— 后端 cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`，前端恢复失效行判定与「已下架」标签，见 §5.7；同时首次产生**后端代码改动**并部署，见 §5.4。
+> **v1.4 相对 v1.3 的增量**：default 渠道分类体系重建（4 个一级 + 8 个二级，`product-id-filter` 挂真实商品），旧的 4 个空壳分类设为私有；并修复「分类页点二级分类进去商品列表为空」的参数错配，见 §5.8。本轮**只动 H5**，无需重启后端。
 
 ---
 
@@ -73,6 +74,8 @@ H5 为 hash 路由，`#` 后为页面路径。
 node web-admin/scripts/_vshop_usemall_shots.mjs
 # 登录态（详情 SKU 弹层 / 购物车勾选真生效）——登录走 shop-api 原生登录 + 注入 localStorage
 node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev --pwd 'Qa123456'
+# 只重采分类页三张（不碰购物车存量）
+node web-admin/scripts/_vshop_usemall_shots.mjs --only category
 # 购物车「已下架」失效行（自带前后对照 + 后台下架/复原，见 §5.7）
 node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 ```
@@ -82,8 +85,9 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | 文件 | 覆盖点 | 截图内实测内容 |
 |---|---|---|
 | `home-flash-floor.png` | 首页楼层（含秒杀楼层）+ 返回顶部 | ✅ 轮播 3 图 + 「限时精选」标题 + 倒计时（快照 `21:42:00`，随剩余时间变化）+ 「更多 ›」+ 秒杀价 `¥99.00`（原价 `¥168.00` 划线）+ 库存进度 `0%` + tabbar 角标 `2` |
-| `category-modes.png` | 分类页默认模式（二级分类格） | ✅ 左栏 4 个一级分类（数码电子/家居生活/个人护理/食品饮品）；右侧 `📦 暂无子分类`（数据原因见 §5.3）+ 右侧 `⇄` / `↑` 双悬浮按钮 |
-| `category-mode-list.png` | 分类页另一模式（商品列表） | ✅ 点 `⇄` 后切到商品列表模式，右侧「暂无商品」空态（数据原因见 §5.3） |
+| `category-modes.png` | 分类页默认模式（二级分类格） | ✅ 左栏 4 个一级分类（温泉度假/汽车服务/黄金珠宝/生鲜食品）；右侧二级分类格「温泉门票 / 温泉住宿」+ 右侧 `⇄` / `↑` 双悬浮按钮（v1.4 重建数据后重采，见 §5.8） |
+| `category-sub-list.png` | 点二级分类 → 商品列表页 | ✅ 点「温泉门票」→ `/#/pkg-product/pages/list?collectionSlug=hot-spring-tickets`，「商品列表」页 3 条：国信南山温泉门票 ¥168.00 / 国信南山温泉工作日门票 ¥168.00 / 国信南山节假日门票 ¥198.00 + 「没有更多了」（v1.4 新增，证明二级分类跳转真的按分类筛出商品） |
+| `category-mode-list.png` | 分类页另一模式（商品列表） | ✅ 点 `⇄` 后切到商品列表模式，展示「温泉度假」的 6 个商品（国信南山温泉门票 ¥168.00 / 工作日门票 ¥168.00 / 节假日房间 ¥880.00 / 工作日房间 ¥688.00 / 节假日门票 ¥198.00 / 酒店测试-豪华套房 ¥888.00）+ 「没有更多了」（v1.4 重建数据后重采） |
 | `detail-sku-sheet.png` | 详情页 + SKU 弹层 | ✅ 页面价 `¥168.00` + 底部 5 键（客服/收藏/购物车/加入购物车/立即购买）；弹层含价格、已选、数量步进、加入购物车、立即购买 |
 | `cart-select-real.png` | 购物车勾选真生效 | ✅ 自营 1 件，行项 `☑`、数量 3、`¥168.00`；「为你推荐」4 条；全选 `☑`；合计 `¥504.00`；`结算(1)`；tabbar 角标 3 |
 | `cart-select-partial.png` | 同上，取消勾选后 | ✅ 行项 `☐`、全选 `☐`、合计 `¥0.00`、`结算(0)` 置灰禁用 —— **证明勾选参与结算金额与按钮可用性** |
@@ -142,22 +146,24 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 |---|---|
 | 结算页订单备注 | 规格原为「前端暂存 + metadata 尽力透传」，实测链路不成立，按设计兜底**退回不做**（§5.2） |
 | 购物车「已下架」行内标签 | ~~未交付~~ → **v1.3 已交付**：原计划补 `ProductVariant.enabled` 判定失效行，v1.2 时因 **shop-api 的 `ProductVariant` 不暴露 `enabled`**（仅 admin-api 有）而回退。v1.3 已在后端 cjk-plugin 的 shop SDL 扩展该字段，前端恢复 `invalid` 状态与「已下架」标签，见 §5.7 |
-| 分类页商品为空 | **代码已修好**（见 §5.5），但生产默认渠道的 4 个一级分类（`electronics`/`home`/`personal-care`/`food`）用的是 `facet-value-filter`（`facetValueIds=["1".."4"]`，来自 `品类` facet），而**该渠道 18 个商品无一打任何 facetValue**，因此这些分类的 `children` 与商品命中数均为 0 —— 属**数据前置缺失，非本次改动**。另外这 4 个分类在语义上也不匹配现有商品（温泉门票/汽修/生鲜），因此未擅自给商品打 facet |
+| 分类页商品为空 | ~~未交付~~ → **v1.4 已修复**（数据 + 代码，见 §5.8）。v1.1 时只是把非法查询改好，商品仍为 0：default 渠道的 4 个一级分类（`electronics`/`home`/`personal-care`/`food`）用的是 `facet-value-filter`（`facetValueIds=["1".."4"]`，来自 `品类` facet），而该渠道**无任何一个在售商品打过 facetValue**，因此分类命中数恒为 0；且这 4 个分类的语义（数码电子/家居生活）与现存商品（温泉门票/汽修/生鲜）完全不匹配 |
 | 详情页 SKU 弹层无规格分组、缩略图为灰底占位 | 触发弹层的商品（国信南山温泉工作日门票）只有 1 个变体、`optionGroups` 为空，弹层仍按通用样式显示「已选：请选择规格」且左上缩略图取不到图。属**既有 UX 小瑕疵**，本轮不改 `SkuSheet.vue`，记录为已知偏差 |
 | 拼团页「我的开团 / 我的参团」 | 需按当前用户筛团的后端查询，本轮不做（spec §1.2） |
 | 详情页用户评价区、销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
 
-### 5.4 线上产物核对（v1.3 重新构建部署后复核）
+### 5.4 线上产物核对（v1.4 重新构建部署后复核）
 
 | 产物 | 部署方式 | 线上入口 | 核对 |
 |---|---|---|---|
-| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | 本地构建的 **121 个文件在线上逐文件 SHA-256 核验全部一致（121/121）**；`index.html` 指向 `assets/index-0DlrE3ZT.js` |
+| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | v1.4 重新构建部署后入口为 `assets/index-Dgd4xEQw.js`（已实测 200） |
 | web-admin | `web-admin/scripts/deploy.mjs`（本地构建 → scp → 解压 `/guanli` + nginx reload） | `https://e.joho.cn/guanli/` | 线上 533 个文件；入口 `assets/index-DFicyhQq.js`（该产物已含装修页 `flash` 楼层编辑块：`pages-decorate-home-index.CwPZYhlD.js` 内含 `flashSale`） |
 | vendure 后端 | `git pull --ff-only` + `pm2 restart vendure vendure-worker` | `/shop-api` | v1.3 唯一改动：cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`（提交 `718c4f11d`）。重启后 `restarts=1`（非崩溃循环）；探针 `== 全部断言通过 ==`；`activeGroupBuyActivities` 已返回 `productId`/`variantId`；实测 `activeOrder.lines[].productVariant.enabled` 返回 `Boolean` |
 
 > v1.1 曾把 web-admin 入口记为 `assets/index-D5PSCjyp.js`，那是更早一次构建的哈希；线上实际入口是 `assets/index-DFicyhQq.js`（后台产物不入库，`web-admin/dist` 被 gitignore，故以线上实测值为准）。
 >
 > v1.3 只动 `src/pages/cart/index.vue`、`src/utils/flash-normalize.ts`、`src/api/fragments.ts`（三处均与失效行相关），因此 H5 入口哈希由 v1.2 的 `index-Bwz4jGda.js` 变为 `index-0DlrE3ZT.js`；web-admin 本轮无改动，未重新部署。
+>
+> v1.4 只动 `src/pages/category/index.vue`、`src/pkg-product/pages/list.vue`（纯前端），H5 入口哈希变为 `index-Dgd4xEQw.js`；**后端与 web-admin 均无改动，未重启、未重新部署**。数据侧改动（建分类/停旧分类/启用 3 个生鲜商品）走 admin-api，无需重启进程。
 >
 > **部署顺序**：后端必须先上线。新的 `ORDER_FRAGMENT` 会带 `enabled`，若 shop SDL 还没这个字段，`activeOrder` 查询会被 GraphQL 校验直接拒绝（`Cannot query field "enabled"`），购物车整体报错。本次即按「先后端 → 再 H5」执行。
 >
@@ -234,6 +240,54 @@ v1.2 §5.3 把「购物车『已下架』行内标签」记为**未交付项**�
 结论：失效行①灰显、②带「已下架」标签、③不被自动勾选、④全选不计入、⑤合计与 `结算(N)` 都排除该行、⑥点击提示删除；脚本 `finally` 里把变体复原为在售，**不污染生产数据**（复原后 shop-api `enabled=true` 已实测）。
 
 > **脚本踩坑**：同一 hash URL 的第二次 `page.goto` 会被浏览器当成 same-document 导航、**不重载页面**，页面停在旧数据上（现象酷似「下架没生效」）。脚本里所有页面跳转都带 `?_t=<时间戳>` nonce 强制冷加载；这与 §5.6 的冷启动修复配套。
+
+### 5.8 v1.4 新增：分类页商品为空的排查与修复（数据 + 代码）
+
+**现象**：`/#/pages/category/index` 二级分类格恒「暂无子分类」，切到商品模式恒「暂无商品」。
+
+**只读排查（三份证据链，全部走 SQL + shop-api，不改数据）**：
+
+| 证据 | 结论 |
+|---|---|
+| 4 个一级分类的 filter | 全是 `facet-value-filter`，`facetValueIds=["1".."4"]`（`品类` facet 的值） |
+| 唯一持有这些 facetValue 的 10 个商品 | id 1–10（初始 seed 演示数据，如 `EP-PRO-01` / `NUTS-30PK`），**已在 2026-09-05 18:19 被一次性软删**（该分钟共软删 31 个商品） |
+| default 渠道存活商品 vs 带 facet | `alive_products = 18` / `with_facet = 0` → filter 命中 0 |
+| 旁证 | `collection_product_variants_product_variant` 是**陈旧缓存**（分类 2/3/4/5 缓存 5/4/3/4 个变体，存活变体 0 个）；collection 成员在 Vendure 3 是**按 filter 动态计算**的，无 `collection_product` 表 |
+| 澄清误读 | 「休闲娱乐/养车/美食」等分类属 **t2 渠道**（id 14/16/17/18，`product-id-filter` 手工挂商品）；default 渠道只有 collection 1–5，1 是 `isRoot` 根 |
+
+**处理**：
+
+| 层 | 动作 |
+|---|---|
+| 数据：新建 | 4 个一级分类（`parentId=1`，`inheritFilters=false`，`product-id-filter`）+ 8 个二级，见下表；名称走 `zh_Hans` 翻译（default 渠道 `availableLanguageCodes` 只有 `zh_Hans`，故未写 en） |
+| 数据：停用旧分类 | `electronics`/`home`/`personal-care`/`food`（id 2–5）`isPrivate=true` —— shop-api 不再返回，**可逆**（不硬删）；实测这 4 个只属于 `__default_channel__`，不影响 t1/t2/t3 |
+| 数据：启用商品 | 「鲜活小龙虾 / 仙居杨梅 / 现杀黑猪肉」三个生鲜商品商品级与变体级均为 `enabled=false`，shop-api 因此不返回（core 的 shop 商品 resolver 有 `enabled: { eq: true }` 过滤）→ 按用户确认全部启用 |
+| 代码：分类页 | `src/pages/category/index.vue` 的 `goList(sub.id)` 把 **collection id 当 `facetValueId`** 传给了列表页（语义错配，点进去必空）→ 改为 `goList(sub.slug)` 并跳 `?collectionSlug=<slug>` |
+| 代码：列表页 | `src/pkg-product/pages/list.vue` 只读 `facetValueId`、**完全忽略 `collectionSlug`**（`FloorSection` 的「查看更多」也因此一直在看全量商品）→ 改为两者都读，`collectionSlug` 透传给 `search` |
+| 备份 | 改动前 `pg_dump -t collection -t collection_translation -t collection_channels_channel -t collection_product_variants_product_variant -t facet_value_translation --column-inserts` 到服务器 `/home/admin/_backup_collection_1790651200.sql`（30,848 字节 / 74 条 INSERT） |
+
+重建后的分类与 shop-api 实测命中（`search(input:{ groupByProduct:true, collectionSlug })`）：
+
+| 一级分类（id） | 二级分类（id） | 命中数 |
+|---|---|---|
+| 温泉度假 `hot-spring`(19) | 温泉门票(20) / 温泉住宿(21) | 6 / 3 / 3 |
+| 汽车服务 `car-service`(22) | 洗车美容(23) / 轮胎服务(24) / 保养维修(25) | 3 / 1 / 1 / 1 |
+| 黄金珠宝 `jewelry`(26) | 黄金首饰(27) | 1 / 1 |
+| 生鲜食品 `fresh-food`(28) | 水产海鲜(29) / 时令水果(30) / 肉禽蛋品(31) | 4 / 1 / 1 / 2 |
+
+**未纳入分类存活商品**：`78 优惠券测试商品`（在售，供优惠券测试用）、`72 ok` / `65 pso-15362`（均 `enabled=false`，`65` 无变体），以及 `75 老凤祥黄金珠宝`（`76` 的重复副本，商品级已下架）。
+
+**回归证据**（`_vshop_usemall_shots.mjs --only category`，Playwright 390×844 / dpr=2）：
+
+```
+[2] 分类页
+  text = 分类 温泉度假 汽车服务 黄金珠宝 生鲜食品 温泉门票 温泉住宿 ⇄ ↑ 首页 分类 购物车 我的
+  -> category-modes.png
+  点二级分类「温泉门票」-> https://e.joho.cn/#/pkg-product/pages/list?collectionSlug=hot-spring-tickets
+  text = 商品列表 🔍 搜索商品 国信南山温泉门票 ¥ 168.00 国信南山温泉工作日门票 ¥ 168.00 国信南山节假日门票 ¥ 198.00 没有更多了
+  -> category-sub-list.png
+  -> category-mode-list.png
+```
 
 ---
 
