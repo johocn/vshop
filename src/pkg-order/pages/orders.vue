@@ -18,6 +18,10 @@
           <text>共{{ order.totalQuantity }}件</text>
           <PriceTag :price="order.totalWithTax" />
         </view>
+        <view class="order-card__actions" v-if="canReview(order) || isFullyReviewed(order)">
+          <button v-if="canReview(order)" class="order-card__review-btn" @click.stop="goEvaluate(order.code)">{{ t('review.myOrderReviewBtn') }}</button>
+          <text v-else class="order-card__reviewed">{{ t('review.reviewed') }}</text>
+        </view>
       </view>
       <view class="orders-page__footer">
         <LoadingSkeleton v-if="loading" type="list" :count="3" />
@@ -30,12 +34,18 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { getOrders } from '../../api/queries/order';
+import { getMyReviews } from '../../api/queries/review';
+import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+const { t } = useI18n();
+const auth = useAuthStore();
 const orders = ref<any[]>([]);
+const reviewedLineIds = ref<Set<string>>(new Set());
 const loading = ref(false);
 const hasMore = ref(true);
 const refreshing = ref(false);
@@ -48,7 +58,46 @@ const tabs = [
 const statusMap: Record<string, string> = { Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', Shipped:'待收货', Cancelled:'已取消' };
 let skip = 0;
 const take = 10;
-onShow(() => { if (orders.value.length === 0) loadData(); });
+onShow(() => {
+    if (orders.value.length === 0) loadData();
+    loadReviewedLines();
+});
+
+/** 拉一次我的评价，用 orderLineId 建 Set，供入口按钮判定未评/已评 */
+async function loadReviewedLines() {
+    if (!auth.isLoggedIn) {
+        reviewedLineIds.value = new Set();
+        return;
+    }
+    try {
+        const res: any = await getMyReviews();
+        const set = new Set<string>();
+        for (const r of res.myReviews || []) {
+            if (r.orderLineId && r.status !== 'deleted') set.add(String(r.orderLineId));
+        }
+        reviewedLineIds.value = set;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+/** 可评价：订单已送达/已完成，且存在未评 line */
+function canReview(order: any): boolean {
+    if (!auth.isLoggedIn) return false;
+    if (!['Delivered', 'Completed'].includes(order?.state)) return false;
+    return (order?.lines || []).some((l: any) => !reviewedLineIds.value.has(String(l.id)));
+}
+
+/** 全部已评：状态到位但没有未评 line */
+function isFullyReviewed(order: any): boolean {
+    if (!auth.isLoggedIn) return false;
+    if (!['Delivered', 'Completed'].includes(order?.state)) return false;
+    return (order?.lines || []).length > 0 && (order?.lines || []).every((l: any) => reviewedLineIds.value.has(String(l.id)));
+}
+
+function goEvaluate(code: string) {
+    uni.navigateTo({ url: '/pkg-order/pages/order-evaluate?code=' + code });
+}
 onReachBottom(() => loadMore());
 onPullDownRefresh(async () => { await refreshData(); uni.stopPullDownRefresh(); });
 async function loadData() {
@@ -78,4 +127,7 @@ function goDetail(code: string) { uni.navigateTo({ url: '/pkg-order/pages/order-
 .orders-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 26rpx; position: relative; &.active { color: $brand-color; &::after { content: ''; position: absolute; bottom: 0; left: 30%; right: 30%; height: 4rpx; background: $brand-color; border-radius: 4rpx; } } }
 .order-card { background: #fff; border-radius: $radius-md; padding: 20rpx; margin-top: 20rpx; &__header { display: flex; justify-content: space-between; margin-bottom: 16rpx; font-size: 24rpx; color: $text-color-secondary; } &__state { color: $brand-color; } &__line { display: flex; align-items: center; gap: 16rpx; padding: 8rpx 0; } &__name { flex: 1; font-size: 26rpx; } &__qty { font-size: 24rpx; color: #999; } &__footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid $border-color; } }
 .footer-text { font-size: 24rpx; color: #999; }
+.order-card__actions { display: flex; justify-content: flex-end; align-items: center; margin-top: 16rpx; }
+.order-card__review-btn { height: 64rpx; line-height: 64rpx; padding: 0 32rpx; font-size: 26rpx; border-radius: 32rpx; border: 1rpx solid $brand-color; background: #fff; color: $brand-color; }
+.order-card__reviewed { font-size: 24rpx; color: #999; }
 </style>
