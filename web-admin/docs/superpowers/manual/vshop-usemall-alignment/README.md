@@ -86,6 +86,8 @@ node web-admin/scripts/_vshop_usemall_shots.mjs --user qa-vshop-manual@local.dev
 node web-admin/scripts/_vshop_usemall_shots.mjs --only category
 # 只重采评价体系 7 张（v1.7；登录态，快跑，不碰购物车存量）
 node web-admin/scripts/_vshop_usemall_shots.mjs --only review --user qa-vshop-manual@local.dev --pwd 'Qa123456'
+# 只重采详情页销量/积分 3 张（v1.8；含切语言，不碰购物车存量）
+node web-admin/scripts/_vshop_usemall_shots.mjs --only stats
 # 购物车「已下架」失效行（自带前后对照 + 后台下架/复原，见 §5.7）
 node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 ```
@@ -120,6 +122,9 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `orders-list-review-entry.png` | 我的订单「我要评价」入口（v1.7） | ✅ 滚入视口后可见 **3 张卡片带橙色描边「我要评价」按钮**（未评行所在单）：`32BJMF714X2165SU`（2 行 = 500g 装 + 2 斤礼盒 / 共2件 / ¥116.00）、`22LP6JDATC6TWFPS`（国信南山温泉工作日门票 x1 / ¥168.00）、`QLKGJTNMDTQH19Q9`（同商品 x4 / ¥672.00）；另 3 单已全评，显示灰字「已评价」 |
 | `order-evaluate.png` | 订单评价页一单多商品（v1.7） | ✅ `商品 1 500g 装 ¥38.00 x1` + `商品 2 2 斤礼盒 ¥68.00 x1` 两块独立评分区；每块含星级、`请输入评价内容`、`上传图片（最多 6 张）` + 加号、`公开显示您的头像、昵称` 匿名开关；底部 `提交评价` |
 | `my-reviews.png` | 我的评价页三种状态（v1.7） | ✅ tab 计数 `全部（8）待审核（1）已通过（6）已驳回（1）`；三种状态标签各自配色：**已驳回=红**、**待审核=橙**、**已通过=绿**；条目含商品名、星级、日期、内容摘要 |
+| `product-detail-stats.png` | 详情页元信息行·有数据（v1.8） | ✅ `温泉门票`（`salesCount=127` / `pointsReward=16800`）元信息行显示「分享 海报 已售 127 可得 16800 积分」 |
+| `product-detail-nostats.png` | 详情页元信息行·无数据降级（v1.8） | ✅ `机油`（`salesCount=0` / `pointsReward=null`）两处 `v-if` 均不渲染，元信息行只剩「分享 海报」，**不占位、不留空行** |
+| `product-detail-stats-en.png` | 详情页元信息行·切语言 en（v1.8） | ✅ 同商品切 `locale=en` 后显示「Sold 127」「Earn 16800 points」，证明 `product.sold` / `product.pointsReward` 两个 key 即时生效 |
 
 > 采集前置：C 端测试客户已登录（`cart-select-*`）；跑脚本时详情页弹层会再加购 1 件，因此购物车数量就是「跑脚本前的存量 + 1」。本版截图是在存量 2 件时采集的，故呈现「1 行 / 数量 3 / 合计 ¥504.00 / 角标 3」。
 
@@ -191,7 +196,7 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | 详情页 SKU 弹层无规格分组、缩略图为灰底占位 | 触发弹层的商品（国信南山温泉工作日门票）只有 1 个变体、`optionGroups` 为空，弹层仍按通用样式显示「已选：请选择规格」且左上缩略图取不到图。属**既有 UX 小瑕疵**，本轮不改 `SkuSheet.vue`，记录为已知偏差 |
 | 拼团页「我的开团 / 我的参团」 | ~~需按当前用户筛团的后端查询，本轮不做（spec §1.2）~~ → **v1.5 已交付**（后端 `myGroupBuyOrders` + 前端三 tab，见 §5.9）。注：该项在本轮之前被列为「不做」的依据是 **usemall 参照物本身也未实现**（其 `group.vue` 的 navList 被 `v-if="false"` 隐藏），v1.5 按用户追加需求单独交付 |
 | 详情页用户评价区 | ~~无数据源，采用「有则显示」降级~~ → **v1.7 已交付**：后端 review-plugin 早有完整评价能力（shop SDL `productReviews` / `reviewStats`），前端本轮补评价区与三个评价页面，见 §5.10 |
-| 销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
+| 销量/积分元信息 | ~~无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7）~~ → **v1.8 已交付**：后端补 `Product.salesCount` / `pointsReward` 等 5 个自定义字段 + 每日重算任务 + 事件即时生效 + `recomputeProductStats` 回填接口（vendure `004194882`，含建字段 `19589cd98`、重建 dist `6a6a11182`），前端补 fragment 字段并让两处文案走 i18n（vshop `4095dda`），见 §5.11。口径：销量 = 已支付及之后状态订单聚合（全渠道）+ 后台展示基数；积分 = 最低变体不含税价派生（×1 下界），可单品覆盖 |
 | 订单列表状态文案 `Delivered` 显示「待收货」 | v1.7 观测到的**语义偏差**（`Delivered` 在 Vendure 已是终态「已送达」）。不影响功能（「我要评价」按 `state` 判定，与文案无关），本轮不改文案，见 §4 常见问题 |
 
 ### 5.4 线上产物核对（v1.5 重新构建部署后复核）
@@ -491,6 +496,59 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
    - **必须用前端同形分片再跑一次**（缺陷② 的教训）：只查 `id/state` 会漏掉关系 join 问题。核对项：无 `errors`、`items.length = 6`、每单 `taxSummary` 非空数组、`shippingLines[0].shippingMethod.code` 有值、`lines[0].productVariant.options` 可解析。
 3. **前端再上线**：本地 `npm run build:h5`（0 error）→ `tar -czf dist-h5.tar.gz -C dist/build/h5 .` → `scp` 到 `/tmp` → 站点目录 `tar -xzf`。
    - 站点目录为 `drwxrwxrwx`，**无需 sudo**；解压时 `assets/`、`static/` 属 root 会报 `Cannot utime / Cannot change mode`，那只是**目录元数据**操作失败，文件本体已正常落盘 —— 复核方式是比对 `index.html` 的 sha256，并核对「本地 122 个 assets 文件名在服务器上缺失数 = 0」。
+
+### 5.11 v1.8 新增：商品详情页销量 / 积分（补后端数据源，含截图）
+
+#### 5.11.1 口径
+
+| 字段 | 类型 | 含义 | 口径 |
+|---|---|---|---|
+| `salesCount` | int（public） | C 端展示销量 | `realSalesCount + bonusSales`，由重算任务写入 |
+| `realSalesCount` | int（只读） | 真实销量 | 已支付及之后状态订单（`PaymentSettled`/`PartiallyShipped`/`Shipped`/`PartiallyDelivered`/`Delivered`）的 `OrderLine.quantity` 求和，**全渠道** |
+| `bonusSales` | int | 后台展示基数 | 后台手填，用于抬高展示值；重算**不改**此字段 |
+| `pointsReward` | int（public，nullable） | C 端展示「可得积分」 | 有 `pointsRewardOverride` 用覆盖值，否则 = 最低变体不含税价（分）× 1；无变体 → `null` |
+| `pointsRewardOverride` | int（nullable） | 单品积分覆盖值 | 后台手填，优先于派生值 |
+
+- 派生基数用**全渠道最低价**（读 `product_variant_price` 表，`ProductVariant.price` 是 `@Calculated` getter，DB 无该列），使结果与执行上下文的渠道无关 → 定时任务 / 事件订阅 / 手动重算三条路径幂等。
+- 重算写入前先比对三项（`salesCount`/`realSalesCount`/`pointsReward`）是否全等，全等则跳过，故重复执行返回 0（幂等）。
+- 三条触发路径：每日定时任务 `operations-product-stats`（`5 3 * * *`，仅 worker 进程跑）／`ProductEvent`+`ProductVariantEvent` 订阅即时生效／admin-api `recomputeProductStats(productIds)` 手动回填。
+
+#### 5.11.2 生产验证（2026-09-29）
+
+| 用例 | 结果 |
+|---|---|
+| 全量回填第 1 次 | ✅ 更新 **14** 个商品 |
+| 全量回填第 2 次（幂等） | ✅ 返回 **0**，无写入 |
+| C 端探针 | ✅ `id=59/60/61/71/73` 等真实聚合值可见（如 `sales=7`、`pts=16800`） |
+| 后台展示基数 | ✅ 商品 59「国信南山温泉工作日门票」设 `bonusSales=120` 后重算 → `salesCount=127`（`real=7 + bonus=120`）、`realSalesCount` 仍为 7 |
+| 软删除商品 | ⚠️ 首次全量回填报 `No Product with the id "1" could be found`。根因：`Product.deletedAt` 是普通 `@Column`（非 `@DeleteDateColumn`），TypeORM `find()` **不过滤**软删除行，而 `ProductService.update` 内部会过滤 → 把软删除商品交给它即抛错（生产 `product` 表 83 行仅 18 行存活）。已修：重算改用显式 `where('product.deletedAt IS NULL')` 的 QueryBuilder（vendure `004194882`），并补 e2e 用例 7 守护 |
+
+#### 5.11.3 截图断言
+
+| 截图 | 场景 | 断言 |
+|---|---|---|
+| ![有数据](assets/product-detail-stats.png) | `温泉门票`（`salesCount=127`、`pointsReward=16800`） | 元信息行显示「已售 127」「可得 16800 积分」 |
+| ![无数据](assets/product-detail-nostats.png) | `机油`（`salesCount=0`、`pointsReward=null`） | 两处 `v-if` 均不渲染，元信息行只剩「分享 / 海报」，**不占位** |
+| ![切语言](assets/product-detail-stats-en.png) | 同商品切 `locale=en` | 显示「Sold 127」「Earn 16800 points」，验证 `product.sold` 与 `product.pointsReward` 即时生效 |
+
+- 视口 390×844、dpr=2（780×1688），采集脚本：`web-admin/scripts/_vshop_usemall_shots.mjs --only stats`（本轮新增 `stats` 分支）。
+- 数据来源：shop-api `Product.customFields.{salesCount,pointsReward}`（`public: true`，C 端只读展示值）。
+- H5 构建无语言切换 UI，采图脚本通过 `#app.__vue_app__` → `provides` 里的 vue-i18n 实例改 `global.locale` 实现切语言（脚本内 `setLocale`）。
+
+#### 5.11.4 部署顺序与产物核对
+
+1. **后端先上线**（否则 H5 查询 `customFields.salesCount/pointsReward` 会被 GraphQL 校验拒绝）：`ssh joho "cd /www/apps/vendure && git pull --ff-only && pm2 restart vendure vendure-worker"`。5 个新列由 `synchronize=true` 重启时自动建好。
+2. 只读核对：admin-api `recomputeProductStats` 可调；shop-api 能取到 `customFields.salesCount` / `pointsReward`。
+3. **前端再上线**：本地 `npm run build:h5` → `tar -czf dist-h5.tar.gz -C dist/build/h5 .` → `scp` 到 `/tmp` → 站点目录 `tar -xzf`（同 §5.10.6）。
+
+#### 5.11.5 遗留项
+
+| 项 | 状态 |
+|---|---|
+| 按渠道拆分销量 | 明确不做（现为全渠道聚合） |
+| 商品列表页 / 首页楼层展示销量、列表按销量排序 | 明确不做（本轮只做详情页元信息行） |
+| 积分随会员档位 / 活动变化 | 明确不做（固定比例派生 + 单品覆盖） |
+| `operations-plugin` 既有 tsc 报错 | 历史遗留：`src/marketing/coupon.service.ts` 11 条 `Property 'getCoupons' does not exist`（wrapper 写于 2026-07-29，调用 coupon-plugin 2026-09-19 重构前的旧 API）。**非本轮引入**，未修；因 root tsconfig 无 `noEmitOnError`，`npm run build` 退出码为 2 但 dist 正常产出 |
 
 ---
 
