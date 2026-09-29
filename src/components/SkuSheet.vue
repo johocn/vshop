@@ -13,7 +13,7 @@
 
       <scroll-view scroll-y class="sku-sheet__body">
         <view v-for="group in optionGroups" :key="group.id" class="sku-group">
-          <text class="sku-group__label">{{ group.name }}</text>
+          <text class="sku-group__label">{{ group.name }} ({{ group.options.length }})</text>
           <view class="sku-group__options">
             <text
               v-for="opt in group.options"
@@ -91,7 +91,10 @@ const pickedText = computed(() => {
         const opt = (g.options || []).find((o: any) => o.id === id);
         if (opt) names.push(opt.name);
     }
-    return names.length ? names.join(' / ') : t('sku.pleasePick');
+    if (names.length) return names.join(' / ');
+    // 单规格商品（无规格组）没有「未选」状态：直接显示当前变体名，不出现「请选择规格」
+    if (!optionGroups.value.length) return currentVariant.value?.name || t('sku.pleasePick');
+    return t('sku.pleasePick');
 });
 
 /** 某选项是否可点：把它代入当前已选后，必须能命中一个存在的变体（库存为 0 也算命中但置灰不可选） */
