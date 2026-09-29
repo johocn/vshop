@@ -42,6 +42,25 @@
         <text class="sku-entry__arrow">›</text>
       </view>
     </view>
+    <!-- 用户评价区：必须在详情富文本之前（对齐 usemall 05 → 06 顺序） -->
+    <view v-if="reviewTotal > 0" class="review-block" @click="goReviewList">
+      <view class="review-block__head">
+        <text class="review-block__title">{{ t('review.title') }}（{{ reviewTotal }}）</text>
+        <text class="review-block__more">{{ t('review.viewAll') }} ›</text>
+      </view>
+      <view class="review-block__summary">
+        <text class="review-block__score">{{ reviewStats?.averageRating ?? 0 }} {{ t('review.scoreUnit') }}</text>
+        <text class="review-block__sep">|</text>
+        <text class="review-block__rate">{{ t('review.goodRate') }} {{ reviewStats?.goodRate ?? 0 }}%</text>
+      </view>
+      <ReviewItem
+        v-for="r in previewReviews"
+        :key="r.id"
+        :review="r"
+        :variant-map="variantTextMap"
+        :max-images="3"
+      />
+    </view>
     <view class="product-detail__rich" v-if="mainVideo || descHtml || sellingPoint">
       <view v-if="mainVideo" class="rich__video">
         <video :src="mainVideo.source" controls class="rich__video-tag"></video>
@@ -94,8 +113,15 @@ import ProductPoster from '../../components/product-poster/product-poster.vue';
 import { pickTranslation } from '../../utils/locale';
 import { stripHtmlToText, buildShareMeta, sanitizeRichHtml } from '../../utils/html';
 import MpHtml from 'mp-html/dist/uni-app/components/mp-html/mp-html.vue';
+import ReviewItem from '../../components/ReviewItem.vue';
+import { useI18n } from 'vue-i18n';
+import { getProductReviews, getReviewStats } from '../../api/queries/review';
 
 const product = ref<any>(null);
+const { t } = useI18n();
+const previewReviews = ref<any[]>([]);
+const reviewTotal = ref(0);
+const reviewStats = ref<any>(null);
 const selectedOptions = ref<Record<string, string>>({});
 const cart = useCartStore();
 const auth = useAuthStore();
@@ -156,6 +182,15 @@ const pickedSummary = computed(() => {
     // 单规格商品（无规格组）没有「未选」状态：与 SkuSheet.pickedText 同口径，取当前变体名
     if (!(product.value?.optionGroups || []).length) return selectedVariant.value?.name || '请选择规格';
     return '请选择规格';
+});
+
+/** variantId → 规格文案（如「红色 / L」），供 ReviewItem 展示规格行 */
+const variantTextMap = computed<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const v of product.value?.variants || []) {
+        map[String(v.id)] = (v.options || []).map((o: any) => o.name).join(' / ');
+    }
+    return map;
 });
 
 function openSku(intent: 'cart' | 'buy' = 'cart') {
@@ -220,6 +255,7 @@ onMounted(async () => {
             });
         }
     } catch (e) { console.error(e); }
+    await loadReviews();
     // WeChat share
     if (product.value) {
       const meta = buildShareMeta({
@@ -256,6 +292,27 @@ onMounted(async () => {
         }
     });
 });
+
+/** 评价区：两个查询并行；任一失败或 totalItems === 0 → 整块不渲染，不阻塞商品主内容 */
+async function loadReviews() {
+    const pid = product.value?.id;
+    if (!pid) return;
+    const [listRes, statsRes] = await Promise.allSettled([
+        getProductReviews(String(pid), { take: 2 }),
+        getReviewStats(String(pid)),
+    ]);
+    if (listRes.status !== 'fulfilled') return;
+    const list: any = listRes.value;
+    reviewTotal.value = list.productReviews?.totalItems || 0;
+    previewReviews.value = list.productReviews?.items || [];
+    if (reviewTotal.value === 0) return;
+    if (statsRes.status === 'fulfilled') reviewStats.value = (statsRes.value as any).reviewStats;
+}
+
+function goReviewList() {
+    if (!product.value?.slug) return;
+    uni.navigateTo({ url: '/pkg-product/pages/evaluate?slug=' + product.value.slug });
+}
 
 onUnmounted(() => {
     if (offLogin) offLogin();
@@ -294,4 +351,13 @@ onUnmounted(() => {
 .rich__video-tag { width: 100%; height: 380rpx; display: block; }
 .rich__sp { display: block; padding: 0 20rpx 8rpx; font-size: 26rpx; color: $text-color-secondary; }
 .rich__mp { padding: 0 20rpx 20rpx; }
+.review-block { margin-top: 16rpx; background: #fff; padding: 20rpx;
+    &__head { display: flex; align-items: center; justify-content: space-between; }
+    &__title { font-size: 28rpx; font-weight: bold; color: $text-color; }
+    &__more { font-size: 24rpx; color: $text-color-secondary; }
+    &__summary { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx; padding-bottom: 8rpx; }
+    &__score { font-size: 26rpx; color: $price-color; font-weight: bold; }
+    &__sep { font-size: 22rpx; color: #ddd; }
+    &__rate { font-size: 24rpx; color: $text-color-secondary; }
+}
 </style>
