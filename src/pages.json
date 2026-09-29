@@ -85,6 +85,13 @@
                     "style": {
                         "navigationBarTitleText": "商品详情"
                     }
+                },
+                {
+                    "path": "pages/evaluate",
+                    "style": {
+                        "navigationBarTitleText": "商品评价",
+                        "enablePullDownRefresh": false
+                    }
                 }
             ]
         },
