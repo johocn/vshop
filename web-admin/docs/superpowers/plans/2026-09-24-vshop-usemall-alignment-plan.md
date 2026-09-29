@@ -1,6 +1,6 @@
 # vshop 小程序端对齐 usemall 版式 实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让 vshop（uni-app，含 H5 与微信小程序）的商品与交易主链页面版式对齐 usemall，并补齐 A 档能力与秒杀/拼团。
 
@@ -48,7 +48,7 @@
 - Modify: `d:\zhao\vendure\packages\group-buy-plugin\src\plugin.ts`（`shopApiExtensions` 的 `type GroupBuyActivity`，第 107-124 行）
 - 产物（改完必须重建）：`d:\zhao\vendure\packages\group-buy-plugin\lib\plugin.js`
 
-- [ ] **Step 1: 在 shop SDL 的 `GroupBuyActivity` 补两个字段**
+- [x] **Step 1: 在 shop SDL 的 `GroupBuyActivity` 补两个字段**
 
 打开 `d:\zhao\vendure\packages\group-buy-plugin\src\plugin.ts`，定位 **`shopApiExtensions`** 里的 `type GroupBuyActivity implements Node`（**不是** `adminApiExtensions` 里那一个），在 `updatedAt: DateTime!` 之后插入两行：
 
@@ -77,7 +77,7 @@
 
 实体 `GroupBuyActivity` 早已有 `productId`/`variantId` 两列（`group-buy-activity.entity.ts`），所以这是**纯 SDL 暴露**，无数据库迁移。
 
-- [ ] **Step 2: 重新构建后端插件**
+- [x] **Step 2: 重新构建后端插件**
 
 ```powershell
 npm run build
@@ -87,20 +87,20 @@ npm run build
 
 Expected：`rimraf lib && tsc -p tsconfig.build.json` 成功结束，无 error，`lib\plugin.js` 被重新生成。
 
-- [ ] **Step 3: 验证编译产物里确实带上了新字段**
+- [x] **Step 3: 验证编译产物里确实带上了新字段**
 
 用 Grep 搜 `d:\zhao\vendure\packages\group-buy-plugin\lib\plugin.js`，pattern：`productId: ID!`
 
 Expected：命中 1 处（shop SDL 那段；admin SDL 里没有 `productId: ID!` 这种字段行，只有 input 里的 `productId: ID!` 会在 create input 中出现 → 若命中 2 处属正常，确认其中至少一处在 `type GroupBuyActivity` 内）。
 
-- [ ] **Step 4: 提交（src + lib 一起）**
+- [x] **Step 4: 提交（src + lib 一起）**
 
 ```powershell
 git -C d:\zhao\vendure add packages/group-buy-plugin/src/plugin.ts packages/group-buy-plugin/lib/plugin.js
 git -C d:\zhao\vendure commit -m "feat(group-buy): shop-api 暴露 GroupBuyActivity 的 productId/variantId"
 ```
 
-- [ ] **Step 5: 部署后端（本地构建产物已在 lib，服务器只 pull + restart）**
+- [x] **Step 5: 部署后端（本地构建产物已在 lib，服务器只 pull + restart）**
 
 ```powershell
 # 服务器侧（示例，按既有 vendure 部署流程执行）
@@ -118,7 +118,7 @@ Expected：`/shop-api` 可查询到 `activeGroupBuyActivities { productId varian
 - Modify: `d:\zhao\vshop\src\templates\shared\schema.ts`
 - Modify: `d:\zhao\vshop\web-admin\src\templates\shared\schema.ts`（独立工程的本地副本，必须手动同步同样内容）
 
-- [ ] **Step 1: 在 C 端 `schema.ts` 增加 `FlashSection` 类型定义**
+- [x] **Step 1: 在 C 端 `schema.ts` 增加 `FlashSection` 类型定义**
 
 在 `GoodsSection` 定义之后、`RichTextSection` 之前插入：
 
@@ -137,7 +137,7 @@ export interface FlashSection {
 }
 ```
 
-- [ ] **Step 2: 把 `flash` 纳入联合类型与白名单**
+- [x] **Step 2: 把 `flash` 纳入联合类型与白名单**
 
 ```ts
 export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection;
@@ -147,7 +147,7 @@ export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSect
 const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash'];
 ```
 
-- [ ] **Step 3: 在 `isValidShopContent` 里加 `flash` 分支**
+- [x] **Step 3: 在 `isValidShopContent` 里加 `flash` 分支**
 
 在 `if (sec.type === 'richText' && typeof sec.html !== 'string') return false;` 之后加：
 
@@ -160,11 +160,11 @@ const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash'];
         }
 ```
 
-- [ ] **Step 4: 把完全相同的三处改动同步到 web-admin 副本**
+- [x] **Step 4: 把完全相同的三处改动同步到 web-admin 副本**
 
 打开 `d:\zhao\vshop\web-admin\src\templates\shared\schema.ts`（该文件是 C 端的压缩版本，注释已说明「web-admin 独立工程，无法 import 主 shop 的 schema.ts」），把 Step 1~3 的代码**逐字**加进去，保持两个文件语义一致。
 
-- [ ] **Step 5: 编译门禁**
+- [x] **Step 5: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -174,7 +174,7 @@ npm run build:h5
 
 Expected：构建成功，无 TS error。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/templates/shared/schema.ts web-admin/src/templates/shared/schema.ts
@@ -190,7 +190,7 @@ git -C d:\zhao\vshop commit -m "feat(decorate): sections 体系新增 flash 类�
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\en.json`
 
-- [ ] **Step 1: 扩展编辑态视图模型 `SectionVM`**
+- [x] **Step 1: 扩展编辑态视图模型 `SectionVM`**
 
 在 `interface SectionVM` 里加两个可选字段（`source` 与 `limit` 已有 `layout?: string` 可复用）：
 
@@ -199,7 +199,7 @@ git -C d:\zhao\vshop commit -m "feat(decorate): sections 体系新增 flash 类�
   limit?: number;
 ```
 
-- [ ] **Step 2: 加模板编辑块**
+- [x] **Step 2: 加模板编辑块**
 
 在 goods 块（`<!-- goods：商品推荐 -->` 的 `<template>`）与 richText 块之间插入：
 
@@ -231,7 +231,7 @@ git -C d:\zhao\vshop commit -m "feat(decorate): sections 体系新增 flash 类�
       </template>
 ```
 
-- [ ] **Step 3: 加新增按钮与 `typeLabel` 分支**
+- [x] **Step 3: 加新增按钮与 `typeLabel` 分支**
 
 `addbar` 里 `addGoods` 按钮之后加：
 
@@ -251,7 +251,7 @@ git -C d:\zhao\vshop commit -m "feat(decorate): sections 体系新增 flash 类�
 function addFlash() { sections.value.push({ type: 'flash', source: 'flashSale', layout: 'row', limit: 4 }); }
 ```
 
-- [ ] **Step 4: 补后台词条（zh-Hans 与 en 两份都要）**
+- [x] **Step 4: 补后台词条（zh-Hans 与 en 两份都要）**
 
 `web-admin/src/locale/zh-Hans.json` 的 `decorateHome` 对象内加：
 
@@ -285,7 +285,7 @@ function addFlash() { sections.value.push({ type: 'flash', source: 'flashSale', 
     "flashHint": "Products are fetched live; only the data config is saved. The section hides itself when no activity is running."
 ```
 
-- [ ] **Step 5: 后台本地构建与自测**
+- [x] **Step 5: 后台本地构建与自测**
 
 ```powershell
 npm run build
@@ -295,7 +295,7 @@ npm run build
 
 Expected：构建成功。随后在装修页点「+ 限时精选（秒杀）」→ 选横滑/双列 → 保存 → 重新进入页面，块仍在（说明 `isValidShopContent` 放行了 `flash`）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add web-admin/src/pages/decorate/home/index.vue web-admin/src/locale/zh-Hans.json web-admin/src/locale/en.json
@@ -310,7 +310,7 @@ git -C d:\zhao\vshop commit -m "feat(web-admin): 装修页新增限时精选 fla
 - Create: `d:\zhao\vshop\src\components\BackTop.vue`
 - Modify: `d:\zhao\vshop\src\pages\home\index.vue`
 
-- [ ] **Step 1: 新建 `src/components/BackTop.vue`**
+- [x] **Step 1: 新建 `src/components/BackTop.vue`**
 
 ```vue
 <template>
@@ -369,7 +369,7 @@ onUnmounted(() => {
 </style>
 ```
 
-- [ ] **Step 2: 让页面把滚动位置广播给组件**
+- [x] **Step 2: 让页面把滚动位置广播给组件**
 
 在 `d:\zhao\vshop\src\pages\home\index.vue` 的模板根节点加滚动监听，并在脚本里广播：
 
@@ -396,7 +396,7 @@ function broadcastScroll(e: any) {
 onPageScroll((e: any) => broadcastScroll(e));
 ```
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -406,7 +406,7 @@ npm run build:h5
 
 Expected：构建成功；H5 下滚动首页超过 300px 后右下角出现 `↑` 按钮，点击回到顶部。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/components/BackTop.vue src/pages/home/index.vue
@@ -421,7 +421,7 @@ git -C d:\zhao\vshop commit -m "feat(components): 新增主包 BackTop 返回顶
 - Create: `d:\zhao\vshop\src\utils\flash-normalize.ts`
 - Modify: `d:\zhao\vshop\src\api\queries\product.ts`
 
-- [ ] **Step 1: 新建 `src/utils/flash-normalize.ts`**
+- [x] **Step 1: 新建 `src/utils/flash-normalize.ts`**
 
 ```ts
 /** 秒杀活动归一化：只保留可展示的项，过滤已结束 / 无库存 / 缺 productId 的脏数据 */
@@ -509,7 +509,7 @@ export function soldPercent(item: FlashItem): number {
 }
 ```
 
-- [ ] **Step 2: 在 `product.ts` 增加按 id 批量补拉**
+- [x] **Step 2: 在 `product.ts` 增加按 id 批量补拉**
 
 在文件末尾（`getCollections` 之后）加：
 
@@ -538,7 +538,7 @@ export async function getProductsByIds(ids: string[]) {
 }
 ```
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -548,7 +548,7 @@ npm run build:h5
 
 Expected：构建成功。手动在浏览器控制台调用一次 `getProductsByIds` 不必须，编译通过即可。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/utils/flash-normalize.ts src/api/queries/product.ts
@@ -564,7 +564,7 @@ git -C d:\zhao\vshop commit -m "feat(flash): 秒杀活动归一化纯函数与�
 
 **依赖**：Task 5 的 `flash-normalize.ts` 与 `getProductsByIds`。
 
-- [ ] **Step 1: 新建 `src/templates/shared/sections/FlashSection.vue`**
+- [x] **Step 1: 新建 `src/templates/shared/sections/FlashSection.vue`**
 
 ```vue
 <template>
@@ -776,7 +776,7 @@ onUnmounted(() => stopTimer());
 </style>
 ```
 
-- [ ] **Step 2: 补 C 端秒杀词条（5 个语言包都要）**
+- [x] **Step 2: 补 C 端秒杀词条（5 个语言包都要）**
 
 `src/i18n/locales/zh-CN.json` 顶层加：
 
@@ -838,7 +838,7 @@ onUnmounted(() => stopTimer());
     },
 ```
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -848,7 +848,7 @@ npm run build:h5
 
 Expected：构建成功。此时楼层还没挂进首页（Task 7 做），先确保组件本身可编译。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/templates/shared/sections/FlashSection.vue src/i18n/locales
@@ -862,7 +862,7 @@ git -C d:\zhao\vshop commit -m "feat(flash): 新增限时精选楼层组件与�
 **Files:**
 - Modify: `d:\zhao\vshop\src\templates\shared\DynamicHome.vue`
 
-- [ ] **Step 1: 引入组件并注册进 componentMap**
+- [x] **Step 1: 引入组件并注册进 componentMap**
 
 ```ts
 import FlashSection from './sections/FlashSection.vue';
@@ -879,7 +879,7 @@ const componentMap: Record<string, any> = {
 };
 ```
 
-- [ ] **Step 2: 编译门禁**
+- [x] **Step 2: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -889,7 +889,7 @@ npm run build:h5
 
 Expected：构建成功。
 
-- [ ] **Step 3: 真机/H5 验证楼层渲染与回退**
+- [x] **Step 3: 真机/H5 验证楼层渲染与回退**
 
 在后台（装修页）给当前渠道加一个「限时精选（秒杀）」楼层并保存 → 打开首页（H5：`npm run dev:h5`）：
 
@@ -897,11 +897,11 @@ Expected：构建成功。
 - 无进行中活动 / 接口失败 → **整块不渲染**（页面不出现空白占位）；
 - 把渠道模板切到 `marketplace`（或临时把 `registry.ts` 里 marketplace 的 `flashSale` 保持 `false`）→ 楼层不渲染。
 
-- [ ] **Step 4: 手机视口截图存证**
+- [x] **Step 4: 手机视口截图存证**
 
 390×844、dpr=2 截图首页（含楼层），存到 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/home-flash-floor.png`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/templates/shared/DynamicHome.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/home-flash-floor.png
@@ -917,7 +917,7 @@ git -C d:\zhao\vshop commit -m "feat(flash): DynamicHome 接入 flash 楼层渲�
 - Modify: `d:\zhao\vshop\src\pages\category\index.vue`
 - Modify: `d:\zhao\vshop\src\pkg-product\pages\list.vue`
 
-- [ ] **Step 1: 给 `searchProducts` 加入参**
+- [x] **Step 1: 给 `searchProducts` 加入参**
 
 把 `searchProducts` 的入参类型改成：
 
@@ -930,7 +930,7 @@ export async function searchProducts(input: {
 
 函数体不动（`facetValueIds` 已在 schema 标记 `@deprecated`，新代码不再使用）。
 
-- [ ] **Step 2: 迁移 `pkg-product/pages/list.vue` 的调用**
+- [x] **Step 2: 迁移 `pkg-product/pages/list.vue` 的调用**
 
 把第 51 行：
 
@@ -949,7 +949,7 @@ export async function searchProducts(input: {
         });
 ```
 
-- [ ] **Step 3: 迁移 `pages/category/index.vue` 的分类查询（含 D2 修复）**
+- [x] **Step 3: 迁移 `pages/category/index.vue` 的分类查询（含 D2 修复）**
 
 分类页原来用 `cat.facetValueIds`，但该字段根本没被查询出来（恒为 undefined，过滤等于没有）。先把分类列表查询补上 `facetValues`：
 
@@ -1000,7 +1000,7 @@ async function loadProducts(reset = false) {
 
 需要在 `script setup` 顶部补一个 `const loadingMore = ref(false);`，并保留原有 `getMinPrice` / `goList` / `goDetail` 函数。
 
-- [ ] **Step 4: 编译门禁 + 服务端过滤生效验证**
+- [x] **Step 4: 编译门禁 + 服务端过滤生效验证**
 
 ```powershell
 npm run build:h5
@@ -1010,7 +1010,7 @@ npm run build:h5
 
 Expected：构建成功。随后（Task 18 的探针会固化这条断言）用只读探针分别请求「带 `facetValueFilters`」与「不带」的同一 `collectionSlug`，两次 `totalItems` **必须不同**（证明服务端真的在过滤，而不是被忽略）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/api/queries/product.ts src/pages/category/index.vue src/pkg-product/pages/list.vue
@@ -1026,7 +1026,7 @@ git -C d:\zhao\vshop commit -m "fix(search): 分类页与商品列表改用 face
 
 **依赖**：Task 8 已把 `loadProducts(reset)` / `skip` / `hasMore` / `loadingMore` 铺好。
 
-- [ ] **Step 1: 模板改造：右上内容区按 `mode` 切换 + 右下双悬浮按钮 + 触底加载**
+- [x] **Step 1: 模板改造：右上内容区按 `mode` 切换 + 右下双悬浮按钮 + 触底加载**
 
 把 `category-page__right` 部分改成：
 
@@ -1062,7 +1062,7 @@ git -C d:\zhao\vshop commit -m "fix(search): 分类页与商品列表改用 face
     </view>
 ```
 
-- [ ] **Step 2: 脚本补 `mode` 状态与交互**
+- [x] **Step 2: 脚本补 `mode` 状态与交互**
 
 ```ts
 const mode = ref(1);
@@ -1086,7 +1086,7 @@ function toTop() {
 
 要点：`selectCategory` 里已重置 `skip/hasMore/products`，因此切类目后进入 mode 2 会重新拉第一页（`products.length === 0` 命中）。
 
-- [ ] **Step 3: 样式补双悬浮按钮与列表页脚**
+- [x] **Step 3: 样式补双悬浮按钮与列表页脚**
 
 ```scss
 .fab-group { position: fixed; right: 24rpx; bottom: 200rpx; display: flex; flex-direction: column; gap: 20rpx; }
@@ -1094,7 +1094,7 @@ function toTop() {
 .list-footer { display: block; width: 100%; text-align: center; font-size: 24rpx; color: #999; padding: 24rpx 0; }
 ```
 
-- [ ] **Step 4: 编译门禁 + 手机截图**
+- [x] **Step 4: 编译门禁 + 手机截图**
 
 ```powershell
 npm run build:h5
@@ -1104,7 +1104,7 @@ npm run build:h5
 
 Expected：构建成功；两种模式可切换；商品列表触底加载更多、到底显示「没有更多了」。截图（390×844 / dpr=2）存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/category-modes.png`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/pages/category/index.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/category-modes.png
@@ -1118,7 +1118,7 @@ git -C d:\zhao\vshop commit -m "feat(category): 分类页模式切换、双悬�
 **Files:**
 - Create: `d:\zhao\vshop\src\components\SkuSheet.vue`
 
-- [ ] **Step 1: 新建 `src/components/SkuSheet.vue`**
+- [x] **Step 1: 新建 `src/components/SkuSheet.vue`**
 
 ```vue
 <template>
@@ -1300,7 +1300,7 @@ watch(
 </style>
 ```
 
-- [ ] **Step 2: 补 `sku` 词条（5 个语言包）**
+- [x] **Step 2: 补 `sku` 词条（5 个语言包）**
 
 `zh-CN.json`：
 
@@ -1362,7 +1362,7 @@ watch(
     },
 ```
 
-- [ ] **Step 3: 编译门禁**
+- [x] **Step 3: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -1372,7 +1372,7 @@ npm run build:h5
 
 Expected：构建成功（`PRODUCT_DETAIL_FRAGMENT.variants` 已含 `stockLevel`，弹层的库存判定有数据可用）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/components/SkuSheet.vue src/i18n/locales
@@ -1386,7 +1386,7 @@ git -C d:\zhao\vshop commit -m "feat(sku): 新增主包 SkuSheet 规格选择底
 **Files:**
 - Modify: `d:\zhao\vshop\src\pkg-product\pages\detail.vue`
 
-- [ ] **Step 1: 模板：删除内联规格组，改为「已选规格行」+ 价格区 + 元信息行**
+- [x] **Step 1: 模板：删除内联规格组，改为「已选规格行」+ 价格区 + 元信息行**
 
 删除原来的 `<view class="product-detail__specs" v-if="product.optionGroups?.length"> ... </view>` 整块，替换 `product-detail__info` 内部为：
 
@@ -1426,7 +1426,7 @@ git -C d:\zhao\vshop commit -m "feat(sku): 新增主包 SkuSheet 规格选择底
     </view>
 ```
 
-- [ ] **Step 2: 模板：底部 3 键 → 5 键，并挂载 SkuSheet 与价格说明弹层**
+- [x] **Step 2: 模板：底部 3 键 → 5 键，并挂载 SkuSheet 与价格说明弹层**
 
 ```html
     <view class="product-detail__bar">
@@ -1453,7 +1453,7 @@ git -C d:\zhao\vshop commit -m "feat(sku): 新增主包 SkuSheet 规格选择底
     </view>
 ```
 
-- [ ] **Step 3: 脚本：新增状态与函数**
+- [x] **Step 3: 脚本：新增状态与函数**
 
 ```ts
 import SkuSheet from '../../components/SkuSheet.vue';
@@ -1550,7 +1550,7 @@ function shareNow() {
 - 删除旧的 `addToCart()` / `buyNow()`（已被 `onSkuAction` 取代），但保留 `onMounted` 里的登录回调逻辑，把 `addToCart()` 调用替换为 `addVariant(selectedVariant.value.id, 1)`；
 - 在既有 `onMounted` 读取 `slug` 处补 `flashSaleActivityId.value = readQuery('flashSaleActivityId');`。
 
-- [ ] **Step 4: 样式补价格区 / 元信息行 / 5 键底部栏**
+- [x] **Step 4: 样式补价格区 / 元信息行 / 5 键底部栏**
 
 ```scss
 .price-row { display: flex; align-items: baseline; gap: 12rpx; }
@@ -1573,7 +1573,7 @@ function shareNow() {
 }
 ```
 
-- [ ] **Step 5: 确认 `applyFlashSale` 前端封装存在**
+- [x] **Step 5: 确认 `applyFlashSale` 前端封装存在**
 
 Grep `d:\zhao\vshop\src\api\mutations` 是否已有 `promotion.ts` 里的 `applyFlashSale`。若不存在，新建 `src/api/mutations/promotion.ts`：
 
@@ -1587,7 +1587,7 @@ export async function applyFlashSale(activityId: string) {
 }
 ```
 
-- [ ] **Step 6: 编译门禁 + 手机截图**
+- [x] **Step 6: 编译门禁 + 手机截图**
 
 ```powershell
 npm run build:h5
@@ -1597,7 +1597,7 @@ npm run build:h5
 
 Expected：构建成功；详情页出现价格区、元信息行（分享必有，销量/积分无数据则不显示）、已选规格行；点规格行弹出 SkuSheet，切换规格价格与库存联动，库存为 0 的选项置灰；底部 5 键。截图（390×844 / dpr=2）存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/detail-sku-sheet.png`。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/pkg-product/pages/detail.vue src/api/mutations/promotion.ts web-admin/docs/superpowers/manual/vshop-usemall-alignment/detail-sku-sheet.png
@@ -1613,13 +1613,13 @@ git -C d:\zhao\vshop commit -m "feat(detail): 详情页规格弹层化、价格�
 - Modify: `d:\zhao\vshop\src\utils\flash-normalize.ts`（新增行状态判定纯函数）
 - Modify: `d:\zhao\vshop\src\pages\cart\index.vue`
 
-- [ ] **Step 1: 给 `ORDER_FRAGMENT` 的 `productVariant` 补 `enabled` / `stockLevel`**
+- [x] **Step 1: 给 `ORDER_FRAGMENT` 的 `productVariant` 补 `enabled` / `stockLevel`**
 
 ```ts
             productVariant { id name enabled stockLevel options { name } customFields { shippingProfileId paymentProfileId } }
 ```
 
-- [ ] **Step 2: 在 `flash-normalize.ts` 增加购物车行判定纯函数**
+- [x] **Step 2: 在 `flash-normalize.ts` 增加购物车行判定纯函数**
 
 ```ts
 /** 购物车行状态判定：失效（已下架/变体缺失）优先于库存预警 */
@@ -1641,7 +1641,7 @@ export function lowStockText(line: any): string {
 }
 ```
 
-- [ ] **Step 3: 购物车行加状态标签（失效灰显不可勾选）**
+- [x] **Step 3: 购物车行加状态标签（失效灰显不可勾选）**
 
 `cart/index.vue` 的商品行模板里，在 `cart-item__info` 内名称之后插入：
 
@@ -1704,7 +1704,7 @@ function lineState(line: any) {
 }
 ```
 
-- [ ] **Step 4: 编译门禁**
+- [x] **Step 4: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -1714,7 +1714,7 @@ npm run build:h5
 
 Expected：构建成功；购物车中下架行灰显且点勾选被拦截、库存不足行显示「仅剩 N 件」。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/api/fragments.ts src/utils/flash-normalize.ts src/pages/cart/index.vue
@@ -1732,7 +1732,7 @@ git -C d:\zhao\vshop commit -m "feat(cart): 订单 fragment 补 enabled/stockLev
 
 **语义（务必按此实现，不要改动方向）**：`pendingLines` 只装**未勾选（＝未购买）的行**。点「去结算」时把它们移出 `activeOrder`；回到购物车或进入支付结果页时**回填它们**（不是丢弃）。
 
-- [ ] **Step 1: `stores/cart.ts` 增加暂存 API**
+- [x] **Step 1: `stores/cart.ts` 增加暂存 API**
 
 ```ts
 const PENDING_KEY = 'cart_pending_lines';
@@ -1765,7 +1765,7 @@ const PENDING_KEY = 'cart_pending_lines';
 
 并把 `pendingLines`、`setPendingLines`、`clearPendingLines` 都加进 `return { ... }`。
 
-- [ ] **Step 2: 购物车「去结算」改为移出未勾选行**
+- [x] **Step 2: 购物车「去结算」改为移出未勾选行**
 
 ```ts
 async function goCheckout() {
@@ -1793,7 +1793,7 @@ async function goCheckout() {
 
 注意：失效行本身不可勾选，也应从暂存中排除（上面已过滤），但仍要从订单里移出。
 
-- [ ] **Step 3: 购物车 `onShow` 回填**
+- [x] **Step 3: 购物车 `onShow` 回填**
 
 ```ts
 onShow(async () => {
@@ -1821,7 +1821,7 @@ async function restorePending() {
 
 脚本需补导入：`import { addItemToOrder } from '../../api/mutations/cart';`
 
-- [ ] **Step 4: `pay-result.vue` 进入即回填再清空**
+- [x] **Step 4: `pay-result.vue` 进入即回填再清空**
 
 ```ts
 import { onShow } from '@dcloudio/uni-app';
@@ -1845,7 +1845,7 @@ onShow(async () => {
 });
 ```
 
-- [ ] **Step 5: 编译门禁 + 真机走一遍勾选流程**
+- [x] **Step 5: 编译门禁 + 真机走一遍勾选流程**
 
 ```powershell
 npm run build:h5
@@ -1860,7 +1860,7 @@ Expected：
 
 截图（390×844 / dpr=2）存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/cart-select-real.png`。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/stores/cart.ts src/pages/cart/index.vue src/pkg-order/pages/pay-result.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/cart-select-real.png
@@ -1874,7 +1874,7 @@ git -C d:\zhao\vshop commit -m "feat(cart): 勾选真生效（未勾选行移出
 **Files:**
 - Modify: `d:\zhao\vshop\src\pages\cart\index.vue`
 
-- [ ] **Step 1: 未登录态**
+- [x] **Step 1: 未登录态**
 
 模板在 `EmptyState` 之前插入：
 
@@ -1907,7 +1907,7 @@ function goLogin() {
 }
 ```
 
-- [ ] **Step 2: 为你推荐区**
+- [x] **Step 2: 为你推荐区**
 
 模板在 `cart-footer` 之前插入：
 
@@ -1954,7 +1954,7 @@ function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/deta
 }
 ```
 
-- [ ] **Step 3: 编译门禁 + 手机截图**
+- [x] **Step 3: 编译门禁 + 手机截图**
 
 ```powershell
 npm run build:h5
@@ -1964,7 +1964,7 @@ npm run build:h5
 
 Expected：构建成功；未登录显示登录引导；登录后有推荐区且在结算栏上方。截图（390×844 / dpr=2）存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/cart-guest-and-reco.png`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/pages/cart/index.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/cart-guest-and-reco.png
@@ -1978,7 +1978,7 @@ git -C d:\zhao\vshop commit -m "feat(cart): 未登录引导态与为你推荐区
 **Files:**
 - Modify: `d:\zhao\vshop\src\pkg-promotion\pages\flash-sale.vue`
 
-- [ ] **Step 1: 用归一化纯函数重写取数，并加整页一个倒计时**
+- [x] **Step 1: 用归一化纯函数重写取数，并加整页一个倒计时**
 
 ```ts
 import { earliestEndAt, formatCountdown, normalizeFlashActivities, soldPercent, type FlashItem } from '../../utils/flash-normalize';
@@ -2038,7 +2038,7 @@ function origPrice(it: FlashItem): string {
 }
 ```
 
-- [ ] **Step 2: 模板改为倒计时卡 + 双列网格 + 返回顶部**
+- [x] **Step 2: 模板改为倒计时卡 + 双列网格 + 返回顶部**
 
 ```html
 <template>
@@ -2075,7 +2075,7 @@ function origPrice(it: FlashItem): string {
 </template>
 ```
 
-- [ ] **Step 3: 样式**
+- [x] **Step 3: 样式**
 
 ```scss
 .flash-sale { padding: 20rpx; }
@@ -2099,7 +2099,7 @@ function origPrice(it: FlashItem): string {
 
 保留原有的 `useShare({ title: '限时秒杀 - 精选好物', path: '/pkg-promotion/pages/flash-sale' })` 调用。
 
-- [ ] **Step 4: 编译门禁 + 手机截图**
+- [x] **Step 4: 编译门禁 + 手机截图**
 
 ```powershell
 npm run build:h5
@@ -2109,7 +2109,7 @@ npm run build:h5
 
 Expected：构建成功；秒杀页双列网格 + 顶部倒计时 + 返回顶部。截图存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/flash-sale-page.png`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/pkg-promotion/pages/flash-sale.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/flash-sale-page.png
@@ -2126,7 +2126,7 @@ git -C d:\zhao\vshop commit -m "feat(promotion): 秒杀页改造为倒计时头 
 
 **依赖**：Task 1 的后端字段已上线。
 
-- [ ] **Step 1: 拼团查询补 `productId` / `variantId`**
+- [x] **Step 1: 拼团查询补 `productId` / `variantId`**
 
 ```ts
 export async function getActiveGroupBuyActivities() {
@@ -2135,7 +2135,7 @@ export async function getActiveGroupBuyActivities() {
 }
 ```
 
-- [ ] **Step 2: 修复 `joinGroupBuy` 调用（补必填 `orderId`）**
+- [x] **Step 2: 修复 `joinGroupBuy` 调用（补必填 `orderId`）**
 
 后端 SDL 为 `joinGroupBuy(activityId: ID!, orderId: ID!, isLeader: Boolean!)`，现有前端只传了两个参数，必然失败。
 
@@ -2179,7 +2179,7 @@ import { addItemToOrder } from '../../api/mutations/cart';
 import { getProductsByIds } from '../../api/queries/product';
 ```
 
-- [ ] **Step 3: 卡片改为 usemall 版式（图 + 团价 + 进度 + 倒计时标签 + 去拼团）**
+- [x] **Step 3: 卡片改为 usemall 版式（图 + 团价 + 进度 + 倒计时标签 + 去拼团）**
 
 ```html
 <template>
@@ -2261,7 +2261,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 
 注意：整页也**只挂一个计时器**（`nowTick`），卡片倒计时是纯函数计算，不给每张卡挂 `setInterval`。
 
-- [ ] **Step 4: 样式**
+- [x] **Step 4: 样式**
 
 ```scss
 .group-buy { padding: 20rpx; }
@@ -2284,7 +2284,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 
 保留页面顶部 tab 区只呈现「拼团列表」一项（另两个 tab 本轮不出现）。
 
-- [ ] **Step 5: 编译门禁 + 真机验证参团**
+- [x] **Step 5: 编译门禁 + 真机验证参团**
 
 ```powershell
 npm run build:h5
@@ -2294,7 +2294,7 @@ npm run build:h5
 
 Expected：构建成功；登录状态下点「去拼团」→ 不再报缺参错误 → 提示参团成功并跳到结算页；活动卡显示商品图、团价、划线价、进度、倒计时。截图存 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/group-buy-page.png`。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/api/queries/promotion.ts src/pkg-promotion/pages/group-buy.vue web-admin/docs/superpowers/manual/vshop-usemall-alignment/group-buy-page.png
@@ -2310,7 +2310,7 @@ git -C d:\zhao\vshop commit -m "feat(promotion): 拼团页版式改造并修复 
 
 **锚点**：模板第 249-258 行的「优惠券」块（`<view class="section coupon-entry" ...>`）。新行插在它**后面**。
 
-- [ ] **Step 1: 插入发票入口行与备注行**
+- [x] **Step 1: 插入发票入口行与备注行**
 
 紧跟优惠券块之后插入：
 
@@ -2337,7 +2337,7 @@ git -C d:\zhao\vshop commit -m "feat(promotion): 拼团页版式改造并修复 
     </view>
 ```
 
-- [ ] **Step 2: 脚本补状态与函数**
+- [x] **Step 2: 脚本补状态与函数**
 
 ```ts
 const orderRemark = ref('');
@@ -2357,7 +2357,7 @@ onMounted(() => {
 });
 ```
 
-- [ ] **Step 3: 备注随支付请求透传**
+- [x] **Step 3: 备注随支付请求透传**
 
 在 `payCurrentOrder(method)` 内构建 metadata 处（原 `const paymentMetadata: Record<string, any> = {};` 之后）加：
 
@@ -2368,7 +2368,7 @@ onMounted(() => {
     }
 ```
 
-- [ ] **Step 4: 样式**
+- [x] **Step 4: 样式**
 
 ```scss
 .remark-block { display: flex; flex-direction: column; gap: 12rpx;
@@ -2379,7 +2379,7 @@ onMounted(() => {
 
 若结算页已有 `.section` 容器样式，则无需重复定义，只需要 `.remark-block` 内部即可。
 
-- [ ] **Step 5: 编译门禁**
+- [x] **Step 5: 编译门禁**
 
 ```powershell
 npm run build:h5
@@ -2389,7 +2389,7 @@ npm run build:h5
 
 Expected：构建成功；结算页出现「发票」行（点击进入发票申请页）与「订单备注」输入框。
 
-- [ ] **Step 6: 验证备注是否真的落到支付记录（必须实测，不许跳过）**
+- [x] **Step 6: 验证备注是否真的落到支付记录（必须实测，不许跳过）**
 
 下单并在结算页填备注 → 走一次真实支付链路 → 查订单详情页/接口的 `payments[].metadata`：
 
@@ -2401,7 +2401,7 @@ Expected 与分支处理：
 - **通过**（`metadata` 里出现 `remark`）→ 结论记为「备注透传可用」，写进 Task 18 的手册；
 - **不通过** → 按设计 §5.5 的兜底：**退回不做备注行**（移除 Step 1 的备注块与 Step 3 的透传），并在手册中记录「备注链路不通，已回退」。**不允许为了凑需求硬留一个无效输入框。**
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add src/pkg-order/pages/checkout.vue
@@ -2416,7 +2416,7 @@ git -C d:\zhao\vshop commit -m "feat(checkout): 新增发票入口行与订单�
 - Create: `d:\zhao\vshop\web-admin\scripts\_smoke_usemall_align.py`
 - Create: `d:\zhao\vshop\web-admin\docs\superpowers\manual\vshop-usemall-alignment\README.md`
 
-- [ ] **Step 1: 新建探针脚本**
+- [x] **Step 1: 新建探针脚本**
 
 ```python
 # -*- coding: utf-8 -*-
@@ -2521,7 +2521,7 @@ if __name__ == "__main__":
     print("== 全部断言通过 ==")
 ```
 
-- [ ] **Step 2: 运行探针并记录结果**
+- [x] **Step 2: 运行探针并记录结果**
 
 ```powershell
 cd d:\zhao\vshop
@@ -2532,7 +2532,7 @@ python web-admin/scripts/_smoke_usemall_align.py
 
 Expected：输出以 `== 全部断言通过 ==` 结束。若 `[group-buy]` 断言失败，说明 Task 1 的后端还没部署 → 先按 Task 1 Step 5 部署后端再重跑。
 
-- [ ] **Step 3: 写操作手册**
+- [x] **Step 3: 写操作手册**
 
 新建 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md`，内容包含（中文）：
 
@@ -2563,7 +2563,7 @@ Expected：输出以 `== 全部断言通过 ==` 结束。若 `[group-buy]` 断�
 - 本地构建 → 上传 → 服务器解压 + `pm2 restart`（不在服务器构建）。
 ```
 
-- [ ] **Step 4: 汇总全部截图到手册目录**
+- [x] **Step 4: 汇总全部截图到手册目录**
 
 确认以下文件都在 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/`：
 
@@ -2579,7 +2579,7 @@ group-buy-page.png
 
 缺哪张补哪张（仍用 390×844 / dpr=2）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git -C d:\zhao\vshop add web-admin/scripts/_smoke_usemall_align.py web-admin/docs/superpowers/manual/vshop-usemall-alignment
@@ -2593,7 +2593,7 @@ git -C d:\zhao\vshop commit -m "test(vshop): 对齐 usemall 只读探针脚本�
 **Files:**
 - 无代码改动。
 
-- [ ] **Step 1: 本地构建全部产物**
+- [x] **Step 1: 本地构建全部产物**
 
 ```powershell
 cd d:\zhao\vshop
@@ -2608,18 +2608,18 @@ npm run build
 
 Expected：三者均成功。**绝不在服务器上构建。**
 
-- [ ] **Step 2: 上传并让服务器生效**
+- [x] **Step 2: 上传并让服务器生效**
 
 按既有 `scripts/deploy.mjs` 流程（scp 产物 → 服务器解压/拷入静态目录 → `pm2 restart` 对应进程）。注意 nshop/web-admin 走 `deploy.mjs`，vendure 后端走 `git pull + pm2 restart`，**不要混用机制**。
 
-- [ ] **Step 3: 线上回归（手机视口）**
+- [x] **Step 3: 线上回归（手机视口）**
 
 清缓存后重开（H5 需带 `?cb=<时间戳>` 冷加载，避免首帧缓存滞后）：
 
 - 首页楼层、分类页两模式、详情页弹层、购物车勾选与推荐、结算页发票与备注、秒杀页、拼团页；
 - 逐页 390×844 / dpr=2 重新截图，若与手册中的本地截图不一致，**以线上截图为准**并更新手册。
 
-- [ ] **Step 4: 提交手册更新**
+- [x] **Step 4: 提交手册更新**
 
 ```powershell
 git -C d:\zhao\vshop add web-admin/docs/superpowers/manual/vshop-usemall-alignment
@@ -2648,3 +2648,15 @@ git -C d:\zhao\vshop commit -m "docs(manual): 回填线上回归手机截图与�
 | §8 测试与验收 | Task 18、Task 19 |
 | §9 风险 R1-R8 | R1/R2 → Task 13；R3 → Task 17 Step 6；R4 → Task 6；R5 → Task 3（后台只暴露 flashSale）；R6 → Task 11（收藏占位）；R7 → Task 11；R8 → Task 1 |
 | §10 纵切 V1-V6 | V1 → Task 2~4；V2 → Task 5~7；V3 → Task 8~9；V4 → Task 10~11；V5 → Task 12~14；V6 → Task 15~17 |
+
+---
+
+## 执行结论（2026-09-29 回填）
+
+- **范围**：Task 1~19 全部落地，98 个 Step 复选框按实际执行结果勾选。
+- **唯一走兜底分支的步骤**：Task 17 的「结算页订单备注行」——按设计 §5.5 要求先用真实链路验证，实测 `PaymentInput.metadata` 透传不成立（`payment.service.js` 的 Payment 由 handler 返回值构造，客户端 metadata 不参与），**按兜底回退移除**，只保留发票入口行；证据链见手册 §5.2。
+- **交付物**：`web-admin/scripts/_smoke_usemall_align.py`（生产只读探针）、`web-admin/scripts/_vshop_usemall_shots.mjs`（手机截图采集）、`web-admin/docs/superpowers/manual/vshop-usemall-alignment/`（操作手册 + 10 张 390×844 / dpr=2 线上截图）。
+- **后端**：唯一后端改动是 Task 1（group-buy shop-api 暴露 `productId`/`variantId`），已随 vendure 部署生效，探针输出 `== 全部断言通过 ==`。
+- **前端产物**：vshop H5 本地构建 121 个文件、线上逐文件核验全部 200，入口 `assets/index-Bwz4jGda.js`；web-admin 线上 533 个文件，入口 `assets/index-DFicyhQq.js`。二者均为本地构建后上传，未在服务器构建。
+- **线上回归共三轮 + v1.2 一次复验**，过程中修复 4 个阻塞性缺陷：分类页 collections 非法字段、`getProductsByIds` 变量类型、vendure pm2 OOM（v1.1，见手册 §5.5），以及**购物车冷启动/刷新误报空车**（v1.2，见手册 §5.6）。
+- **未交付项**见手册 §5.3：结算页备注行（已回退）、购物车「已下架」标签（shop-api 未暴露 `ProductVariant.enabled`）、分类页商品为空（生产数据未打 facetValue，非代码问题）、拼团页「我的开团/我的参团」、详情页评价与销量/积分元信息。
