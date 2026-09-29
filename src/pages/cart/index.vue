@@ -10,7 +10,7 @@
           <text class="cart-group__name">{{ group.name }}</text>
           <text class="cart-group__count">{{ group.lines.length }} 件</text>
         </view>
-        <view v-for="line in group.lines" :key="line.id" class="cart-item">
+        <view v-for="line in group.lines" :key="line.id" class="cart-item" :class="{ 'cart-item--invalid': lineState(line) === 'invalid' }">
           <view class="cart-item__check" @click="toggleSelect(line.id)">
             <text class="check-icon">{{ isSelected(line.id) ? '☑' : '☐' }}</text>
           </view>
@@ -18,8 +18,9 @@
           <view class="cart-item__info">
             <text class="cart-item__name">{{ line.productVariant?.name }}</text>
             <text class="cart-item__spec">{{ line.productVariant?.options?.map((o:any)=>o.name).join(' ') }}</text>
-            <view class="cart-item__tags" v-if="lineState(line) === 'lowStock'">
-              <text class="tag tag--warn">{{ lowStockText(line) }}</text>
+            <view class="cart-item__tags" v-if="lineState(line) !== 'normal'">
+              <text v-if="lineState(line) === 'invalid'" class="tag tag--invalid">已下架</text>
+              <text v-else class="tag tag--warn">{{ lowStockText(line) }}</text>
             </view>
             <view class="cart-item__bottom">
               <PriceTag :price="line.unitPriceWithTax" />
@@ -86,7 +87,8 @@ const reco = ref<any[]>([]);
 
 const cartLines = computed(() => cart.lines);
 const cartGroups = computed(() => cart.groupedLines);
-const allSelected = computed(() => cartLines.value.length > 0 && selectedIds.value.size === cartLines.value.length);
+const selectableCount = computed(() => cartLines.value.filter((l: any) => cartLineState(l) !== 'invalid').length);
+const allSelected = computed(() => selectableCount.value > 0 && selectedIds.value.size === selectableCount.value);
 const selectedCount = computed(() => selectedIds.value.size);
 const totalYuan = computed(() => {
     let total = 0;
@@ -165,9 +167,11 @@ async function loadCart() {
         const res: any = await getActiveOrder();
         if (res.activeOrder) {
             cart.setOrder(res.activeOrder);
-            // Auto-select all
+            // Auto-select all（失效行不可勾选）
             const ids = new Set<string>();
-            (res.activeOrder.lines || []).forEach((l: any) => ids.add(l.id));
+            (res.activeOrder.lines || []).forEach((l: any) => {
+                if (cartLineState(l) !== 'invalid') ids.add(l.id);
+            });
             selectedIds.value = ids;
         }
     } catch (e) {}
@@ -181,6 +185,11 @@ function lineState(line: any) {
 }
 
 function toggleSelect(id: string) {
+    const line = cartLines.value.find((l: any) => l.id === id);
+    if (line && lineState(line) === 'invalid') {
+        ui.showToast('该商品已下架，请删除');
+        return;
+    }
     const s = new Set(selectedIds.value);
     if (s.has(id)) s.delete(id); else s.add(id);
     selectedIds.value = s;
@@ -191,7 +200,9 @@ function toggleAll() {
         selectedIds.value = new Set();
     } else {
         const ids = new Set<string>();
-        cartLines.value.forEach((l: any) => ids.add(l.id));
+        cartLines.value.forEach((l: any) => {
+            if (lineState(l) !== 'invalid') ids.add(l.id);
+        });
         selectedIds.value = ids;
     }
 }
@@ -224,8 +235,9 @@ async function removeLine(id: string) {
 async function goCheckout() {
     if (selectedCount.value === 0) return;
     const unselected = cartLines.value.filter((l: any) => !selectedIds.value.has(l.id));
-    // 未勾选行只暂存「可再次下单」的变体（无变体的脏数据不进暂存，但仍从订单移出）
+    // 未勾选行只暂存「可再次下单」的变体（无变体或已下架的脏数据不进暂存，但仍从订单移出）
     const stash = unselected
+        .filter((l: any) => lineState(l) !== 'invalid')
         .map((l: any) => ({ variantId: l.productVariant?.id, quantity: l.quantity }))
         .filter((x: any) => !!x.variantId);
 
@@ -261,8 +273,10 @@ async function goCheckout() {
     &__bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8rpx; }
     &__del { position: absolute; top: 16rpx; right: 16rpx; font-size: 32rpx; color: #ccc; padding: 8rpx; }
 }
+.cart-item--invalid { opacity: 0.55; }
 .cart-item__tags { display: flex; gap: 8rpx; }
 .tag { font-size: 20rpx; border-radius: 6rpx; padding: 2rpx 10rpx;
+    &--invalid { color: #999; background: #f0f0f0; }
     &--warn { color: #fff; background: $price-color; }
 }
 .check-icon { font-size: 36rpx; color: $brand-color; }

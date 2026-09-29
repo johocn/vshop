@@ -40,7 +40,7 @@ export const ORDER_FRAGMENT = `
         lines {
             id quantity linePriceWithTax unitPriceWithTax
             featuredAsset { preview }
-            productVariant { id name stockLevel options { name } customFields { shippingProfileId paymentProfileId } }
+            productVariant { id name enabled stockLevel options { name } customFields { shippingProfileId paymentProfileId } }
         }
         shippingAddress { fullName streetLine1 streetLine2 city province postalCode country phoneNumber }
         billingAddress { fullName streetLine1 streetLine2 city province postalCode country phoneNumber }

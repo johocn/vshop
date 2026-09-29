@@ -83,15 +83,16 @@ export function soldPercent(item: FlashItem): number {
 }
 
 /**
- * 购物车行状态判定。
- * 注意：shop-api 的 `ProductVariant` **不暴露 `enabled`**（该字段仅 admin-api 有，
- * 生产实测 `Cannot query field "enabled" on type "ProductVariant"`），且 `OrderLine.productVariant`
- * 在 SDL 上是 NON_NULL，因此 C 端**无法判定「已下架」**，只做库存预警。
+ * 购物车行状态判定：失效（已下架 / 变体缺失）优先于库存预警。
+ * `ProductVariant.enabled` 由后端 cjk-plugin 的 shop SDL 扩展暴露
+ * （Vendure 默认 shop SDL 不含该字段，仅 admin-api 有），C 端据此标记「已下架」行。
  */
-export type CartLineState = 'lowStock' | 'normal';
+export type CartLineState = 'invalid' | 'lowStock' | 'normal';
 
 export function cartLineState(line: any): CartLineState {
-    const stock = Number(line?.productVariant?.stockLevel);
+    const v = line?.productVariant;
+    if (!v || v.enabled === false) return 'invalid';
+    const stock = Number(v.stockLevel);
     if (Number.isFinite(stock) && stock >= 0 && stock < Number(line?.quantity ?? 0)) return 'lowStock';
     return 'normal';
 }
