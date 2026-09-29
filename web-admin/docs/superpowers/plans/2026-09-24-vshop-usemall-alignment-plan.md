@@ -1721,6 +1721,8 @@ git -C d:\zhao\vshop add src/api/fragments.ts src/utils/flash-normalize.ts src/p
 git -C d:\zhao\vshop commit -m "feat(cart): 订单 fragment 补 enabled/stockLevel，购物车行内失效与库存预警标签"
 ```
 
+> **执行补记（v1.3，2026-09-29）**：本 Task 的 `enabled` / `invalid` 分支首轮**未能真交付** —— shop-api 的 `ProductVariant` 当时不暴露 `enabled`（仅 admin-api 有），前端拿到的值恒为 `undefined`，`invalid` 分支实际上是死代码，遂临时回退为「仅库存预警」并记为未交付项。v1.3 由 vendure 仓 `718c4f11d` 在 cjk-plugin 的 shop SDL 扩展该字段后**原样恢复**本 Task 的代码并线上回归通过（见本计划「v1.3 追加结论」与手册 §5.7）。因此本 Task 的前置依赖实为「后端先上线」，Step 顺序应为「后端 → 前端 → 构建 → 部署 → 回归」。
+
 ---
 
 ## Task 13（V5）: 购物车「勾选真生效」——暂存与回填
@@ -2655,8 +2657,17 @@ git -C d:\zhao\vshop commit -m "docs(manual): 回填线上回归手机截图与�
 
 - **范围**：Task 1~19 全部落地，98 个 Step 复选框按实际执行结果勾选。
 - **唯一走兜底分支的步骤**：Task 17 的「结算页订单备注行」——按设计 §5.5 要求先用真实链路验证，实测 `PaymentInput.metadata` 透传不成立（`payment.service.js` 的 Payment 由 handler 返回值构造，客户端 metadata 不参与），**按兜底回退移除**，只保留发票入口行；证据链见手册 §5.2。
-- **交付物**：`web-admin/scripts/_smoke_usemall_align.py`（生产只读探针）、`web-admin/scripts/_vshop_usemall_shots.mjs`（手机截图采集）、`web-admin/docs/superpowers/manual/vshop-usemall-alignment/`（操作手册 + 10 张 390×844 / dpr=2 线上截图）。
-- **后端**：唯一后端改动是 Task 1（group-buy shop-api 暴露 `productId`/`variantId`），已随 vendure 部署生效，探针输出 `== 全部断言通过 ==`。
-- **前端产物**：vshop H5 本地构建 121 个文件、线上逐文件核验全部 200，入口 `assets/index-Bwz4jGda.js`；web-admin 线上 533 个文件，入口 `assets/index-DFicyhQq.js`。二者均为本地构建后上传，未在服务器构建。
-- **线上回归共三轮 + v1.2 一次复验**，过程中修复 4 个阻塞性缺陷：分类页 collections 非法字段、`getProductsByIds` 变量类型、vendure pm2 OOM（v1.1，见手册 §5.5），以及**购物车冷启动/刷新误报空车**（v1.2，见手册 §5.6）。
-- **未交付项**见手册 §5.3：结算页备注行（已回退）、购物车「已下架」标签（shop-api 未暴露 `ProductVariant.enabled`）、分类页商品为空（生产数据未打 facetValue，非代码问题）、拼团页「我的开团/我的参团」、详情页评价与销量/积分元信息。
+- **交付物**：`web-admin/scripts/_smoke_usemall_align.py`（生产只读探针）、`web-admin/scripts/_vshop_usemall_shots.mjs`（版式手机截图采集）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（v1.3 新增，购物车失效行回归 + 截图）、`web-admin/docs/superpowers/manual/vshop-usemall-alignment/`（操作手册 + 13 张 390×844 / dpr=2 线上截图）。
+- **后端**：共两处改动——Task 1（group-buy shop-api 暴露 `productId`/`variantId`）与 v1.3（shop-api 暴露 `ProductVariant.enabled`），均已随 vendure 部署生效，探针输出 `== 全部断言通过 ==`。
+- **前端产物**：vshop H5 本地构建 121 个文件、线上逐文件核验全部 200（v1.3 起改为 SHA-256 清单比对，121/121 全等），入口 `assets/index-0DlrE3ZT.js`；web-admin 线上 533 个文件，入口 `assets/index-DFicyhQq.js`。二者均为本地构建后上传，未在服务器构建。
+- **线上回归共三轮 + v1.2 / v1.3 各一次复验**，过程中修复 4 个阻塞性缺陷：分类页 collections 非法字段、`getProductsByIds` 变量类型、vendure pm2 OOM（v1.1，见手册 §5.5），以及**购物车冷启动/刷新误报空车**（v1.2，见手册 §5.6）。
+- **未交付项**见手册 §5.3：结算页备注行（已回退）、分类页商品为空（生产数据未打 facetValue，非代码问题）、拼团页「我的开团/我的参团」、详情页评价与销量/积分元信息。
+
+### v1.3 追加结论（2026-09-29，补交付 Task 12 的失效行分支）
+
+- **背景**：Task 12 原含「购物车行内状态标签」的 `invalid`（已下架）分支，首轮因 shop-api 不暴露 `ProductVariant.enabled` 而回退为「仅库存预警」，被记为未交付项。本轮补交付。
+- **后端**（唯一后端改动，vendure 仓 `718c4f11d`，已 push + 部署）：`cjk-plugin` 的 `shopApiExtensions` 新增 `extend type ProductVariant { enabled: Boolean! }`；编译产物 `lib/src/plugin.js` 做外科式单点插入（该包 `lib` 与 `src` 有既有漂移，整体重编译会引入缺失模块导致启动崩溃）。上线方式 `git pull --ff-only` + `pm2 restart vendure vendure-worker`。
+- **前端**：`ORDER_FRAGMENT` 补 `enabled`；`flash-normalize.ts` 恢复 `'invalid'`（失效优先于库存预警）；`cart/index.vue` 失效行灰显 + 灰「已下架」标签、自动勾选/全选/合计/结算排除失效行、点击提示「该商品已下架，请删除」、结算暂存剔除失效行脏数据。
+- **部署顺序**：先后端 → 再 H5。新 `ORDER_FRAGMENT` 带 `enabled`，若 shop SDL 无此字段会让 `activeOrder` 查询被 GraphQL 校验拒绝、购物车整体报错。
+- **回归**：新增 `web-admin/scripts/_vshop_cart_invalid_shots.mjs`（真实链路「加购 → 后台 `updateProductVariants` 置 `enabled=false` → 刷新购物车 → 截图 → `finally` 自动复原」），6 项断言全过（灰显/标签/不自动勾选/全选不计入/合计与结算排除/点击提示删除）；探针 `[cart]` 段改为带 `AUTH_TOKEN` 实跑并新增 `enabled` 为 `Boolean` 的断言。
+- **产物**：vshop H5 入口由 `index-Bwz4jGda.js` 变为 `index-0DlrE3ZT.js`（121 文件，线上 SHA-256 清单 121/121 全等）；web-admin 本轮无改动未重新部署；手册升级 v1.3（§5.3 未交付项转已交付、新增 §5.7 取证、§5.4 与 §6.1 更新）。
