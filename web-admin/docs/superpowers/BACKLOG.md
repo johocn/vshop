@@ -51,7 +51,7 @@
 
 | 项 | 口径 | 卡点 |
 |---|---|---|
-| 收藏按钮接真实接口 | 延后 | `favorite-plugin` 未注册进 `dev-config.ts`，后端不可用 |
+| 收藏按钮前端接线 | **待做** | 后端已启用（2026-09-29，vendure `74178691d`：注册 `FavoritePlugin` + 重建生产 dist + 补服务器 workspace 软链 + 生产 shop-api 实测全绿）。前端 `detail.vue` 仍是 `ui.showToast('收藏功能敬请期待')` 占位；该文件当时被并行会话占用，接线待其结束后进行 |
 | 销量 / 积分补数据源 | 延后 | 需后端补商品自定义字段并回填；有数据才渲染，无数据不占位 |
 | 全站 i18n 化 | 延后 | 商品/订单页仍有中文硬编码；新增页面已走 i18n |
 | 评价「有图 / 标签」筛选 | 延后 | 需扩 shop SDL（`hasImages` / `tag`） |
@@ -70,14 +70,14 @@
 | mp 手册同步 | 明确不做 |
 | 订单多版式渲染器改造 | 明确不做 |
 
-### 1.5 vendure — 规划中、尚未实现
+### 1.5 vendure — 规划功能复核（2026-09-29 结论：六项均已覆盖，不构成待办）
 
 来源：[2026-06-02-cjk-localization-design.md](file:///d:/zhao/vendure/docs/superpowers/specs/2026-06-02-cjk-localization-design.md) L432-453
 
 | 项 | 口径 |
 |---|---|
-| 发票 / 物流追踪 / 订单超时取消 | 后续（部分已由 `invoice-plugin`、`logistics-plugin`、`order-timeout-plugin` 落地，需逐项复核） |
-| 拼团 / 秒杀 / 分销佣金 | 后续或独立插件（`group-buy-plugin`、`flash-sale-plugin`、`distribution-plugin` 已存在，需复核是否覆盖 spec 设想） |
+| 发票 / 物流追踪 / 订单超时取消 | **已覆盖**（2026-09-29 复核）：`InvoicePlugin` / `LogisticsPlugin` / `OrderTimeoutPlugin` 均在 [dev-config.ts](/d:/zhao/vendure/packages/dev-server/dev-config.ts) 注册，`startup.log` 显示 `*Plugin initialized` 成功；spec L432-437 的「❌ 后续」已过时 |
+| 拼团 / 秒杀 / 分销佣金 | **已覆盖**（2026-09-29 复核）：`GroupBuyPlugin` / `FlashSalePlugin` / `DistributionPlugin` 同样已注册运行（启动时各自生成 `*DynamicShopModule` / `*DynamicAdminModule`），拼团侧已在本项目多轮迭代中实测 |
 
 > 另：2026-06/07 批次的历史计划经产物级核查**全部已交付**（见 §2），不构成待办。
 
@@ -131,10 +131,10 @@
 
 | 项 | 卡点 |
 |---|---|
-| 收藏按钮接真实接口 | 需先确认 `favorite-plugin` 是否要注册进 `dev-config.ts`（涉及后端启用决策，非纯前端） |
+| 收藏按钮前端接线 | **已消解后端卡点**（2026-09-29 启用 `FavoritePlugin`）；剩余纯前端改造，登记于 §1.3 |
 | 销量 / 积分数据源 | 需确认后端是否补商品自定义字段并回填历史数据（涉及数据决策） |
 | 评价「有图 / 标签」筛选 | 需确认是否值得扩 shop SDL（当前 4 档星级筛选已够用） |
-| vendure 规划中的发票/物流/订单超时/秒杀/分销 | 对应插件包均已存在，但**是否覆盖 `cjk-localization-design.md` L432-453 的原始设想未逐项复核** |
+| vendure 规划中的发票/物流/订单超时/秒杀/分销 | **已复核消解**（2026-09-29）：六项均已在 `dev-config.ts` 注册并成功初始化，见 §1.5 |
 
 ---
 
