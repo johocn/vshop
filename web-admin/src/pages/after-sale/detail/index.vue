@@ -1,38 +1,60 @@
 <template>
   <view class="page">
+    <!-- 头部：状态徽章 + 订单号（可跳订单详情） -->
     <view v-if="detail" class="head card">
       <view class="row">
         <text class="code">{{ $t('afterSale.detail.afterSalePrefix') }}{{ detail.id }}</text>
         <text class="st" :style="{ color: stColor }">{{ stLabel }}</text>
       </view>
-      <text class="sub">{{ $t('afterSale.detail.orderPrefix') }}{{ detail.orderId }}</text>
-      <view class="ops" v-if="hasOps">
-        <button v-if="can.approve" class="op main" @tap="onApprove">{{ $t('afterSale.detail.approve') }}</button>
-        <button v-if="can.reject" class="op" @tap="onReject">{{ $t('afterSale.detail.reject') }}</button>
-        <button v-if="can.receive" class="op main" @tap="onReceive">{{ $t('afterSale.detail.receive') }}</button>
-        <button v-if="can.refund" class="op main" @tap="onRefund">{{ $t('afterSale.detail.refund') }}</button>
-        <button v-if="can.retry" class="op" @tap="onRetry">{{ $t('afterSale.detail.retry') }}</button>
+      <text class="sub">{{ $t('afterSale.detail.orderPrefix') }}{{ detail.order?.code || detail.orderId }}</text>
+      <text class="sub link" v-if="detail.order?.code" @tap="goOrder">{{ $t('afterSale.detail.viewOrder') }} ›</text>
+    </view>
+
+    <!-- 顾客卡 -->
+    <view class="card" v-if="detail">
+      <text class="sec-title">{{ $t('afterSale.detail.customerTitle') }}</text>
+      <view class="cust">
+        <view class="cmeta">
+          <text class="cname">{{ customerName || '—' }}</text>
+          <text class="line muted" v-if="detail.customer?.phoneNumber">{{ detail.customer.phoneNumber }}</text>
+          <text class="line muted" v-if="detail.customer?.emailAddress">{{ detail.customer.emailAddress }}</text>
+        </view>
+        <button v-if="detail.customer?.phoneNumber" class="op" @tap="callCustomer">{{ $t('afterSale.detail.callCustomer') }}</button>
       </view>
     </view>
 
+    <!-- 商品卡 -->
+    <view class="card" v-if="detail">
+      <text class="sec-title">{{ $t('afterSale.detail.productTitle') }}</text>
+      <view class="prod">
+        <image v-if="productThumb" class="thumb" :src="productThumb" mode="aspectFill" />
+        <view class="pmeta">
+          <text class="pname">{{ productName || '—' }}</text>
+          <text class="line muted" v-if="productSku">{{ $t('afterSale.detail.skuLabel') }}{{ productSku }}</text>
+          <text class="line muted">{{ $t('afterSale.detail.typeLabel').replace('{type}', AFTER_SALE_TYPES[detail.type] || detail.type) }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 售后信息 -->
     <view class="card" v-if="detail">
       <text class="sec-title">{{ $t('afterSale.detail.infoTitle') }}</text>
-      <view class="cell"><text>{{ $t('afterSale.detail.type') }}</text><text class="val">{{ AFTER_SALE_TYPES[detail.type] || detail.type }}</text></view>
       <view class="cell"><text>{{ $t('afterSale.detail.status') }}</text><text class="val">{{ stLabel }}</text></view>
-      <view class="cell"><text>{{ $t('afterSale.detail.refundAmount') }}</text><text class="val danger">¥ {{ money(detail.refundAmount) }}</text></view>
+      <view class="cell" v-if="!isExchange">
+        <text>{{ $t('afterSale.detail.refundAmount') }}</text>
+        <text class="val danger">¥ {{ money(detail.refundAmount) }}</text>
+      </view>
+      <view class="cell" v-if="detail.actualRefundAmount != null">
+        <text>{{ $t('afterSale.detail.actualRefundAmount') }}</text>
+        <text class="val">¥ {{ money(detail.actualRefundAmount) }}</text>
+      </view>
+      <view class="cell" v-if="detail.refundedAt"><text>{{ $t('afterSale.detail.refundedAt') }}</text><text class="val">{{ fmtTime(detail.refundedAt) }}</text></view>
+      <view class="cell" v-if="detail.receivedQuantity != null"><text>{{ $t('afterSale.detail.receivedQuantity') }}</text><text class="val">{{ detail.receivedQuantity }}</text></view>
       <view class="cell" v-if="detail.reason"><text>{{ $t('afterSale.detail.reason') }}</text><text class="val break">{{ detail.reason }}</text></view>
       <view class="cell" v-if="detail.description"><text>{{ $t('afterSale.detail.description') }}</text><text class="val break">{{ detail.description }}</text></view>
       <view class="cell" v-if="detail.rejectReason"><text>{{ $t('afterSale.detail.rejectReason') }}</text><text class="val break">{{ detail.rejectReason }}</text></view>
-      <view class="cell" v-if="detail.receivedQuantity != null"><text>{{ $t('afterSale.detail.receivedQuantity') }}</text><text class="val">{{ detail.receivedQuantity }}</text></view>
       <view class="cell" v-if="detail.refundError"><text>{{ $t('afterSale.detail.refundError') }}</text><text class="val break refund-err">{{ detail.refundError }}</text></view>
-      <view class="cell" v-if="detail.actualRefundAmount != null"><text>{{ $t('afterSale.detail.actualRefundAmount') }}</text><text class="val">¥ {{ money(detail.actualRefundAmount) }}</text></view>
-      <view class="cell" v-if="detail.refundedAt"><text>{{ $t('afterSale.detail.refundedAt') }}</text><text class="val">{{ fmtTime(detail.refundedAt) }}</text></view>
-    </view>
-
-    <view class="card" v-if="detail">
-      <text class="sec-title">{{ $t('afterSale.detail.orderSection') }}</text>
-      <view class="cell"><text>{{ $t('afterSale.detail.orderNo') }}</text><text class="val break">#{{ detail.orderId }}</text></view>
-      <view class="cell" v-if="detail.returnTrackingNo || detail.returnCarrier">
+      <view class="cell" v-if="detail.returnCarrier || detail.returnTrackingNo">
         <text>{{ $t('afterSale.detail.returnLogistics') }}</text>
         <text class="val break">{{ detail.returnCarrier || $t('afterSale.detail.express') }} {{ detail.returnTrackingNo }}</text>
       </view>
@@ -40,8 +62,51 @@
       <view class="cell" v-if="detail.updatedAt"><text>{{ $t('afterSale.detail.updatedAt') }}</text><text class="val">{{ fmtTime(detail.updatedAt) }}</text></view>
     </view>
 
+    <!-- 处理进度时间线（与 C 端同一套 5 节点划分） -->
+    <view class="card" v-if="detail">
+      <text class="sec-title">{{ $t('afterSale.detail.progressTitle') }}</text>
+      <view class="tl" v-for="(t, i) in timeline" :key="t.key + i" :class="{ on: t.reached, fail: t.failed, cur: t.current }">
+        <view class="dot" />
+        <view class="tmeta">
+          <text class="tlabel">{{ t.label }}</text>
+          <text class="line muted" v-if="t.time">{{ t.time }}</text>
+          <text class="line fail-text" v-if="t.detail">{{ t.detail }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 顾客凭证 -->
+    <view class="card" v-if="detail && detail.evidenceImages && detail.evidenceImages.length">
+      <text class="sec-title">{{ $t('afterSale.detail.evidenceTitle') }}</text>
+      <view class="grid">
+        <image v-for="(u, i) in detail.evidenceImages" :key="i" class="shot" :src="u" mode="aspectFill" @tap="previewEvidence(u)" />
+      </view>
+    </view>
+
+    <!-- 库存回补明细（折叠） -->
+    <view class="card" v-if="detail && restockRows.length">
+      <view class="fold" @tap="restockOpen = !restockOpen">
+        <text class="sec-title no-mb">{{ $t('afterSale.detail.restockTitle') }}</text>
+        <text class="fold-x">{{ restockOpen ? '−' : '+' }}</text>
+      </view>
+      <template v-if="restockOpen">
+        <view class="cell" v-for="(r, i) in restockRows" :key="i">
+          <text>{{ $t('afterSale.detail.stockLocation') }}{{ r.stockLocationId }}</text>
+          <text class="val">× {{ r.quantity }}</text>
+        </view>
+      </template>
+    </view>
+
     <view v-if="loading" class="empty">{{ $t('afterSale.detail.loading') }}</view>
     <view v-else-if="!detail" class="empty">{{ $t('afterSale.detail.notFound') }}</view>
+
+    <view style="height: 200rpx" />
+
+    <!-- 吸底操作区：主操作 + （若同时可拒绝）次操作 -->
+    <view class="footbar" v-if="detail && hasOps">
+      <button v-if="secondaryAction()" class="op" @tap="secondaryAction()!()">{{ $t('afterSale.detail.reject') }}</button>
+      <button class="op main" @tap="onPrimary">{{ primaryLabel }}</button>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -56,7 +121,13 @@ import {
   retryAfterSaleRefund,
   AfterSaleRow,
 } from '../../../apis/afterSale';
-import { AFTER_SALE_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
+import { AFTER_SALE_TYPES } from '../../../constants/orderState';
+import {
+  afterSaleActions,
+  afterSaleProgressIndex,
+  afterSaleStateLabel,
+  hasAfterSaleActions,
+} from '../../../constants/afterSaleActions';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -66,21 +137,81 @@ const loading = ref(false);
 
 const money = (n?: number | null): string => ((n ?? 0) / 100).toFixed(2);
 
-const stLabel = computed(() => stateLabel(AFTER_SALE_STATES, detail.value?.state).label);
-const stColor = computed(() => stateLabel(AFTER_SALE_STATES, detail.value?.state).color);
+const stLabel = computed(() => afterSaleStateLabel(detail.value?.state).label);
+const stColor = computed(() => afterSaleStateLabel(detail.value?.state).color);
 
-const can = computed(() => {
-  const s = detail.value?.state || '';
-  const t = detail.value?.type;
-  return {
-    approve: s === 'Pending',
-    reject: s === 'Pending',
-    receive: s === 'Approved' && t === 'return_refund',
-    refund: ['Approved', 'Received'].includes(s),
-    retry: s === 'RefundFailed',
-  };
+// 动作可用性：唯一来源 constants/afterSaleActions.ts，严格对齐服务端状态机
+const can = computed(() => afterSaleActions(detail.value?.state));
+const hasOps = computed(() => hasAfterSaleActions(detail.value?.state));
+
+// 吸底主按钮文案（主流程动作在任一状态下最多命中一个）
+const primaryLabel = computed(() => {
+  const c = can.value;
+  if (c.approve) return locale.t('afterSale.detail.approve');
+  if (c.receive) return locale.t('afterSale.detail.receive');
+  if (c.refund) return locale.t('afterSale.detail.refund');
+  if (c.retry) return locale.t('afterSale.detail.retry');
+  return '';
 });
-const hasOps = computed(() => can.value.approve || can.value.reject || can.value.receive || can.value.refund || can.value.retry);
+
+// 库存回补明细折叠态
+const restockOpen = ref(false);
+
+const isExchange = computed(() => detail.value?.type === 'exchange');
+const productName = computed(() => detail.value?.orderLine?.productVariant?.name ?? '');
+const productSku = computed(
+  () => detail.value?.orderLine?.sku ?? detail.value?.orderLine?.productVariant?.sku ?? '',
+);
+const productThumb = computed(
+  () =>
+    detail.value?.orderLine?.featuredAsset?.preview ??
+    detail.value?.orderLine?.productVariant?.featuredAsset?.preview ??
+    '',
+);
+const customerName = computed(() => {
+  const c = detail.value?.customer;
+  if (!c) return '';
+  return [c.firstName, c.lastName].filter(Boolean).join(' ');
+});
+
+// 时间线（与 C 端同一套 5 节点划分）
+const TIMELINE_KEYS = ['Pending', 'Approved', 'Returning', 'Received', 'Refunded'];
+const timeline = computed(() => {
+  const r = detail.value;
+  if (!r) return [] as { key: string; label: string; time: string | null; reached: boolean; current: boolean; failed: boolean; detail?: string | null }[];
+  const idx = afterSaleProgressIndex(r.state);
+  const list = TIMELINE_KEYS.map((k, i) => ({
+    key: k,
+    label: locale.t(`afterSale.timeline.step${k}`),
+    time: i === 0 ? fmtTime(r.createdAt) : i === idx ? fmtTime(r.updatedAt) : null,
+    reached: i <= idx,
+    current: i === idx && r.state === k,
+    failed: false,
+    detail: k === 'Returning' && (r.returnCarrier || r.returnTrackingNo)
+      ? `${r.returnCarrier || ''} ${r.returnTrackingNo || ''}`.trim()
+      : null,
+  }));
+  if (r.state === 'RefundFailed') {
+    list.push({ key: 'RefundFailed', label: locale.t('afterSale.detail.statusFailed'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: true, detail: null });
+  } else if (r.state === 'Rejected') {
+    list.push({ key: 'Rejected', label: locale.t('afterSale.detail.statusRejected'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: true, detail: r.rejectReason ?? null });
+  } else if (r.state === 'Closed') {
+    list.push({ key: 'Closed', label: locale.t('afterSale.detail.statusClosed'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: false, detail: null });
+  }
+  return list;
+});
+
+// 库存回补明细（restockJson: [{ stockLocationId, quantity }]）
+const restockRows = computed(() => {
+  const raw = detail.value?.restockJson;
+  if (!raw) return [] as { stockLocationId: string; quantity: number }[];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+});
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
@@ -110,6 +241,7 @@ async function run(action: () => Promise<AfterSaleRow>, okMsg: string) {
     uni.showToast({ title: okMsg, icon: 'success' });
     await refresh();
   } catch (e: any) {
+    // 失败不改本地状态，刷新后以服务端为准
     toast(e?.message || locale.t('afterSale.detail.opFailed'));
   }
 }
@@ -118,7 +250,7 @@ function onApprove() {
   uni.showModal({
     title: locale.t('afterSale.detail.approveTitle'),
     content: locale.t('afterSale.detail.approveContent').replace('{amount}', money(detail.value?.refundAmount)),
-    success: (res) => { if (res.confirm && detail.value) run(() => approveAfterSale(detail.value!.id), locale.t('afterSale.detail.approved')); },
+    success: (res) => { if (res.confirm && detail.value) void run(() => approveAfterSale(detail.value!.id), locale.t('afterSale.detail.approved')); },
   });
 }
 
@@ -131,7 +263,7 @@ function onReject() {
       if (!res.confirm || !detail.value) return;
       const reason = (res.content || '').trim();
       if (!reason) { toast(locale.t('afterSale.detail.rejectReasonRequired')); return; }
-      run(() => rejectAfterSale(detail.value!.id, reason), locale.t('afterSale.detail.rejected'));
+      void run(() => rejectAfterSale(detail.value!.id, reason), locale.t('afterSale.detail.rejected'));
     },
   });
 }
@@ -140,7 +272,7 @@ function onReceive() {
   uni.showModal({
     title: locale.t('afterSale.detail.receiveTitle'),
     content: locale.t('afterSale.detail.receiveContent'),
-    success: (res) => { if (res.confirm && detail.value) run(() => confirmAfterSaleReceived(detail.value!.id), locale.t('afterSale.detail.received')); },
+    success: (res) => { if (res.confirm && detail.value) void run(() => confirmAfterSaleReceived(detail.value!.id), locale.t('afterSale.detail.received')); },
   });
 }
 
@@ -148,7 +280,7 @@ function onRefund() {
   uni.showModal({
     title: locale.t('afterSale.detail.refundTitle'),
     content: locale.t('afterSale.detail.refundContent').replace('{amount}', money(detail.value?.refundAmount)),
-    success: (res) => { if (res.confirm && detail.value) run(() => processAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.refundInitiated')); },
+    success: (res) => { if (res.confirm && detail.value) void run(() => processAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.refundInitiated')); },
   });
 }
 
@@ -156,8 +288,37 @@ function onRetry() {
   uni.showModal({
     title: locale.t('afterSale.detail.retryTitle'),
     content: locale.t('afterSale.detail.retryContent'),
-    success: (res) => { if (res.confirm && detail.value) run(() => retryAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.retryInitiated')); },
+    success: (res) => { if (res.confirm && detail.value) void run(() => retryAfterSaleRefund(detail.value!.id), locale.t('afterSale.detail.retryInitiated')); },
   });
+}
+
+function callCustomer() {
+  const phone = detail.value?.customer?.phoneNumber;
+  if (phone) uni.makePhoneCall({ phoneNumber: phone });
+}
+
+function previewEvidence(url: string) {
+  uni.previewImage({ urls: detail.value?.evidenceImages ?? [], current: url });
+}
+
+function goOrder() {
+  const code = detail.value?.order?.code;
+  if (code) uni.navigateTo({ url: `/pages/order/detail/index?code=${code}` });
+}
+
+function onPrimary() {
+  const c = can.value;
+  if (c.approve) onApprove();
+  else if (c.receive) onReceive();
+  else if (c.refund) onRefund();
+  else if (c.retry) onRetry();
+}
+
+function secondaryAction(): (() => void) | null {
+  const c = can.value;
+  if (c.reject) return onReject;
+  if (c.approve && (c.receive || c.refund || c.retry)) return onReject;
+  return null;
 }
 
 onLoad(async (q) => {
@@ -173,6 +334,44 @@ onLoad(async (q) => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 60rpx;
+  .cust { display: flex; align-items: center; gap: 16rpx;
+    .cmeta { flex: 1; min-width: 0;
+      .cname { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; } }
+    .op { min-width: 144rpx; margin: 0; padding: 0 20rpx; height: 60rpx; line-height: 60rpx;
+      font-size: 26rpx; border-radius: $wa-radius; background: $wa-bg; color: $wa-ink; }
+  }
+  .prod { display: flex; gap: 16rpx; align-items: center;
+    .thumb { width: 112rpx; height: 112rpx; border-radius: $wa-radius; background: $wa-bg; flex-shrink: 0; }
+    .pmeta { flex: 1; min-width: 0;
+      .pname { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; } }
+  }
+  .tl { position: relative; padding-left: 36rpx; padding-bottom: 20rpx;
+    &:last-child { padding-bottom: 0; }
+    &::before { content: ''; position: absolute; left: 9rpx; top: 18rpx; bottom: -4rpx;
+      width: 2rpx; background: $wa-bg; }
+    &:last-child::before { display: none; }
+    .dot { position: absolute; left: 0; top: 8rpx; width: 20rpx; height: 20rpx;
+      border-radius: 50%; background: $wa-bg; }
+    &.on .dot { background: $wa-accent; }
+    &.fail .dot { background: $wa-danger; }
+    .tmeta { display: flex; flex-direction: column; gap: 4rpx;
+      .tlabel { font-size: 28rpx; color: $wa-muted; }
+      .fail-text { color: $wa-danger; } }
+    &.on .tmeta .tlabel { color: $wa-ink; font-weight: 600; }
+  }
+  .grid { display: flex; flex-wrap: wrap; gap: 16rpx;
+    .shot { width: 180rpx; height: 180rpx; border-radius: $wa-radius; background: $wa-bg; } }
+  .fold { display: flex; align-items: center; justify-content: space-between;
+    .no-mb { margin-bottom: 0; }
+    .fold-x { font-size: 34rpx; color: $wa-muted; } }
+  .link { color: $wa-accent; }
+  .footbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: flex; gap: 20rpx; padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+    background: $wa-card; box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+    .op { flex: 1; margin: 0; height: 84rpx; line-height: 84rpx; font-size: 30rpx;
+      border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
+      &.main { background: $wa-accent; color: #fff; } }
+  }
   .card {
     background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .sec-title { display: block; font-size: 26rpx; color: $wa-muted; margin-bottom: 16rpx; }
