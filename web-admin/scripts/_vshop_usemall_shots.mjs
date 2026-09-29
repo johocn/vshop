@@ -274,11 +274,29 @@ async function shopApi(query, variables) {
   console.log('  text =', await text());
   await shot('flash-sale-page.png');
 
-  // ---------- 6 拼团页 ----------
+  // ---------- 6 拼团页（拼团列表 / 我的开团 / 我的参团） ----------
   console.log('[6] 拼团页');
   await go('/pkg-promotion/pages/group-buy', 5000);
   console.log('  text =', await text());
   await shot('group-buy-page.png');
+  const mineTabs = LOGGED
+    ? [['我的开团', 'group-buy-mine-leader.png'], ['我的参团', 'group-buy-mine-join.png']]
+    : [['我的开团', 'group-buy-mine-guest.png']];
+  for (const [label, file] of mineTabs) {
+    try {
+      const tab = page.locator(`.gb-tab:has-text("${label}")`).first();
+      if (await tab.isVisible()) {
+        await tab.click();
+        await page.waitForTimeout(3000);
+        console.log(`  ${label} -> ${await text()}`);
+        await shot(file);
+      } else {
+        console.log(`  ${label} tab 不可见`);
+      }
+    } catch (e) {
+      console.log(`  ${label} err`, String(e.message).slice(0, 120));
+    }
+  }
 
   await browser.close();
   console.log('screenshots done ->', SHOTS);

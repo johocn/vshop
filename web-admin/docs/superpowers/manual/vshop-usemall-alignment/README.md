@@ -4,13 +4,13 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.4（2026-09-29，重建 default 渠道分类体系 + 修复二级分类跳转，见 §5.8） |
-| 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md` |
-| 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md` |
+| 版本 | v1.5（2026-09-29，拼团页新增「我的开团 / 我的参团」两会话 tab，见 §5.9） |
+| 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；本轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-group-buy-my-tabs-design.md` |
+| 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；本轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-group-buy-my-tabs-plan.md` |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
-| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图） |
+| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图，含拼团三 tab）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图） |
 | 线上环境 | C 端 H5 + shop-api：`https://e.joho.cn`；后台：`https://e.joho.cn/guanli` |
-| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式、结算页发票入口行 |
+| 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式（**v1.5 起拼团页含「我的开团 / 我的参团」两 tab**）、结算页发票入口行 |
 | 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `z123123` |
 
 > **本文中「备注行」的最终状态是「已回退不做」**，原因见 §5.2。
@@ -18,6 +18,7 @@
 > **v1.2 相对 v1.1 的增量**：二次线上复验发现「购物车冷启动/刷新一律误报空车」，已修复并重新构建部署、复验通过，见 §5.6；线上产物入口哈希随之更新，见 §5.4。
 > **v1.3 相对 v1.2 的增量**：v1.2 里被记为「未交付」的购物车失效行（§5.3）已补交付 —— 后端 cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`，前端恢复失效行判定与「已下架」标签，见 §5.7；同时首次产生**后端代码改动**并部署，见 §5.4。
 > **v1.4 相对 v1.3 的增量**：default 渠道分类体系重建（4 个一级 + 8 个二级，`product-id-filter` 挂真实商品），旧的 4 个空壳分类设为私有；并修复「分类页点二级分类进去商品列表为空」的参数错配，见 §5.8。本轮**只动 H5**，无需重启后端。
+> **v1.5 相对 v1.4 的增量**：拼团页从「仅拼团列表」变为 **三 tab**（拼团列表 / 我的开团 / 我的参团），后端新增 shop SDL `myGroupBuyOrders(isLeader)`（**无数据库迁移**），见 §5.9。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
 
 ---
 
@@ -33,7 +34,7 @@ H5 为 hash 路由，`#` 后为页面路径。
 | 购物车（勾选真生效 / 未登录态 / 为你推荐 / 失效行「已下架」） | `/#/pages/cart/index` | 底部「购物车」 |
 | 结算页（发票入口行） | `/#/pkg-order/pages/checkout` | 购物车勾选后点「结算」 |
 | 秒杀页 | `/#/pkg-promotion/pages/flash-sale` | 首页秒杀楼层右上「更多 ›」；或直接访问 |
-| 拼团页 | `/#/pkg-promotion/pages/group-buy` | 直接访问（首页 sections 内暂无拼团入口；`flash` 楼层的 `source=groupBuy` 枚举已预留但后台不暴露） |
+| 拼团页（三 tab：拼团列表 / 我的开团 / 我的参团） | `/#/pkg-promotion/pages/group-buy` | 直接访问（首页 sections 内暂无拼团入口；`flash` 楼层的 `source=groupBuy` 枚举已预留但后台不暴露） |
 
 购物车/结算页需登录；未登录时购物车显示引导态（「当前未授权，登录后查看购物车」+「去登录」），这本身是本轮交付项之一。
 
@@ -96,7 +97,10 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `cart-invalid-toast.png` | 点失效行勾选框 | ✅ toast「该商品已下架，请删除」 |
 | `cart-guest-and-reco.png` | 购物车未登录引导态 | ✅ 「当前未授权，登录后查看购物车」+「去登录」；未登录时**不渲染**「为你推荐」（推荐区需登录，见 `cart-select-real.png`） |
 | `flash-sale-page.png` | 秒杀页 | ✅ 倒计时头 + 活动卡片（秒杀价 `¥99.00` / 原价 `¥168.00` 划线 / 进度 `0%`） |
-| `group-buy-page.png` | 拼团页 | ✅ usemall 版式卡片：`¥128.00` / 原价 `¥168.00` 划线 / 「还差 3 人成团」/ 「3 人团 · 剩 165:53:03」（快照值）/ 「去拼团」 |
+| `group-buy-page.png` | 拼团页 · 拼团列表 tab | ✅ 顶部三 tab（**拼团列表** / 我的开团 / 我的参团，列表态下划线激活）+ usemall 版式卡片：`¥128.00` / 原价 `¥168.00` 划线 / 「还差 3 人成团」/ 「3 人团 · 剩 165:53:03」（快照值）/ 「去拼团」（v1.5 重采） |
+| `group-buy-mine-leader.png` | 拼团页 · 我的开团 tab（登录态） | ✅ 头行状态「拼团中」+ 「3 人团 · 剩 165:53:03」；左图右文卡片（商品名 + 拼团价 + 进度点 + 「还差 1 人成团」）；**整宽**「查看订单」按钮（v1.5 新增，见 §5.9） |
+| `group-buy-mine-join.png` | 拼团页 · 我的参团 tab（登录态） | ✅ 与「我的开团」同版式，数据源为 `isLeader=false` 的拼团记录（v1.5 新增） |
+| `group-buy-mine-guest.png` | 拼团页 · 未登录态 | ✅ 切到「我的开团」时显示引导「登录后查看我的拼团」+「去登录」按钮；不渲染任何团卡片（v1.5 新增） |
 | `detail-page.png` | 详情页主体 | ✅ 主图、价格、标题、分享/海报、「已选」行、服务区、底部 5 键 |
 
 > 采集前置：C 端测试客户已登录（`cart-select-*`）；跑脚本时详情页弹层会再加购 1 件，因此购物车数量就是「跑脚本前的存量 + 1」。本版截图是在存量 2 件时采集的，故呈现「1 行 / 数量 3 / 合计 ¥504.00 / 角标 3」。
@@ -151,16 +155,16 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | 购物车「已下架」行内标签 | ~~未交付~~ → **v1.3 已交付**：原计划补 `ProductVariant.enabled` 判定失效行，v1.2 时因 **shop-api 的 `ProductVariant` 不暴露 `enabled`**（仅 admin-api 有）而回退。v1.3 已在后端 cjk-plugin 的 shop SDL 扩展该字段，前端恢复 `invalid` 状态与「已下架」标签，见 §5.7 |
 | 分类页商品为空 | ~~未交付~~ → **v1.4 已修复**（数据 + 代码，见 §5.8）。v1.1 时只是把非法查询改好，商品仍为 0：default 渠道的 4 个一级分类（`electronics`/`home`/`personal-care`/`food`）用的是 `facet-value-filter`（`facetValueIds=["1".."4"]`，来自 `品类` facet），而该渠道**无任何一个在售商品打过 facetValue**，因此分类命中数恒为 0；且这 4 个分类的语义（数码电子/家居生活）与现存商品（温泉门票/汽修/生鲜）完全不匹配 |
 | 详情页 SKU 弹层无规格分组、缩略图为灰底占位 | 触发弹层的商品（国信南山温泉工作日门票）只有 1 个变体、`optionGroups` 为空，弹层仍按通用样式显示「已选：请选择规格」且左上缩略图取不到图。属**既有 UX 小瑕疵**，本轮不改 `SkuSheet.vue`，记录为已知偏差 |
-| 拼团页「我的开团 / 我的参团」 | 需按当前用户筛团的后端查询，本轮不做（spec §1.2） |
+| 拼团页「我的开团 / 我的参团」 | ~~需按当前用户筛团的后端查询，本轮不做（spec §1.2）~~ → **v1.5 已交付**（后端 `myGroupBuyOrders` + 前端三 tab，见 §5.9）。注：该项在本轮之前被列为「不做」的依据是 **usemall 参照物本身也未实现**（其 `group.vue` 的 navList 被 `v-if="false"` 隐藏），v1.5 按用户追加需求单独交付 |
 | 详情页用户评价区、销量/积分元信息 | 无数据源，采用「有则显示」降级，本轮不新增后端字段（spec R6/R7） |
 
-### 5.4 线上产物核对（v1.4 重新构建部署后复核）
+### 5.4 线上产物核对（v1.5 重新构建部署后复核）
 
 | 产物 | 部署方式 | 线上入口 | 核对 |
 |---|---|---|---|
-| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | v1.4 重新构建部署后入口为 `assets/index-Dgd4xEQw.js`（已实测 200） |
-| web-admin | `web-admin/scripts/deploy.mjs`（本地构建 → scp → 解压 `/guanli` + nginx reload） | `https://e.joho.cn/guanli/` | 线上 533 个文件；入口 `assets/index-DFicyhQq.js`（该产物已含装修页 `flash` 楼层编辑块：`pages-decorate-home-index.CwPZYhlD.js` 内含 `flashSale`） |
-| vendure 后端 | `git pull --ff-only` + `pm2 restart vendure vendure-worker` | `/shop-api` | v1.3 唯一改动：cjk-plugin 的 shop SDL 扩展 `ProductVariant.enabled`（提交 `718c4f11d`）。重启后 `restarts=1`（非崩溃循环）；探针 `== 全部断言通过 ==`；`activeGroupBuyActivities` 已返回 `productId`/`variantId`；实测 `activeOrder.lines[].productVariant.enabled` 返回 `Boolean` |
+| vshop H5 | 本地构建 → tar → scp → 服务器备份/清空/解压 | `https://e.joho.cn/` | v1.5 重新构建部署后入口为 `assets/index--umdIy5c.js`（已实测 200）；线上 121 个文件，与本地一致 |
+| web-admin | `web-admin/scripts/deploy.mjs`（本地构建 → scp → 解压 `/guanli` + nginx reload） | `https://e.joho.cn/guanli/` | 线上 533 个文件；入口 `assets/index-DFicyhQq.js`（该产物已含装修页 `flash` 楼层编辑块：`pages-decorate-home-index.CwPZYhlD.js` 内含 `flashSale`）。**v1.5 未改动 web-admin，未重新部署** |
+| vendure 后端 | `git pull --ff-only` + `pm2 restart vendure vendure-worker` | `/shop-api` | v1.5 改动：group-buy-plugin 的 shop SDL 新增 `MyGroupBuyOrder` 类型与 `myGroupBuyOrders(isLeader: Boolean!)` 查询 —— 提交 `cd454ab26`（新增）+ `6ee4a3add`（修复 Postgres `int = varchar` 报错）。重启后实测：未登录返回 `[]`、登录后 `isLeader=true/false` 各返回 1 条含 `orderCode` 的记录 |
 
 > v1.1 曾把 web-admin 入口记为 `assets/index-D5PSCjyp.js`，那是更早一次构建的哈希；线上实际入口是 `assets/index-DFicyhQq.js`（后台产物不入库，`web-admin/dist` 被 gitignore，故以线上实测值为准）。
 >
@@ -168,7 +172,13 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 >
 > v1.4 只动 `src/pages/category/index.vue`、`src/pkg-product/pages/list.vue`（纯前端），H5 入口哈希变为 `index-Dgd4xEQw.js`；**后端与 web-admin 均无改动，未重启、未重新部署**。数据侧改动（建分类/停旧分类/启用 3 个生鲜商品）走 admin-api，无需重启进程。
 >
+> v1.5 动 `src/pkg-promotion/pages/group-buy.vue`、`src/api/queries/promotion.ts`、5 个 `src/i18n/locales/*.json`（纯前端）+ vendure `group-buy-plugin`（后端），H5 入口哈希变为 `index--umdIy5c.js`；web-admin 无改动。**本轮后端有改动，必须按「先后端 → 再 H5」顺序**：`myGroupBuyOrders` 若在 shop SDL 上线前被前端调用，会被 GraphQL 校验拒绝（`Cannot query field "myGroupBuyOrders"`），「我的开团/我的参团」两 tab 直接报错。
+>
 > **部署顺序**：后端必须先上线。新的 `ORDER_FRAGMENT` 会带 `enabled`，若 shop SDL 还没这个字段，`activeOrder` 查询会被 GraphQL 校验直接拒绝（`Cannot query field "enabled"`），购物车整体报错。本次即按「先后端 → 再 H5」执行。
+>
+> v1.5 服务器 `git pull` 时被 `product-survey-plugin` 的本地未提交改动阻塞（`git diff origin/master` 显示差异仅 `.d.ts` 的 prettier 多行/单行格式化与 `.ts` 缺尾换行，**`.js` 完全一致 → 运行时无差异**）。处理：先 `cp` 备份到 `/tmp/vendure_bak/`，再 `git checkout -- packages/product-survey-plugin`，`git pull --ff-only` 成功。
+>
+> vendure 重启后 `/shop-api` 会有 30–60 秒冷启动 502 窗口，`Start-Sleep` 后重试即恢复。
 >
 > v1.2 重新构建部署的原因是 §5.6 的购物车冷启动修复；修复只动 `src/pages/cart/index.vue`，因此 H5 入口哈希由 `index-C_Q5FXhL.js` 变为 `index-Bwz4jGda.js`。
 >
@@ -291,6 +301,68 @@ v1.2 §5.3 把「购物车『已下架』行内标签」记为**未交付项**�
   -> category-sub-list.png
   -> category-mode-list.png
 ```
+
+---
+
+### 5.9 v1.5 新增：拼团页「我的开团 / 我的参团」（含后端改动）
+
+**背景**：该项在第一轮/第二轮 spec 中均被记为「不做」，依据是 **usemall 参照物本身也未实现** —— `usemall/sub-marketing/pages/group.vue` 的 `navList` 与 `tabClick` 被 `v-if="false"` 整块隐藏，且 `tabClick` 只改索引不重新取数，属废弃死代码。第二轮 spec §8 把它记为开放项并标注了技术前提（`GroupBuyOrder` 无 `customerId`，需经 `orderId` 关联 `Order.customer`）。v1.5 按用户追加需求独立交付。
+
+| 层 | 文件 | 改动 |
+|---|---|---|
+| 后端 | `packages/group-buy-plugin/src/plugin.ts` | shop SDL 新增 `type MyGroupBuyOrder` 与 `extend type Query { myGroupBuyOrders(isLeader: Boolean!): [MyGroupBuyOrder!]! }` |
+| 后端 | `packages/group-buy-plugin/src/group-buy.service.ts` | 注入 `CustomerService`，新增 `findMyOrders(ctx, isLeader)`：`ctx.activeUserId` → `CustomerService.findOneByUserId` 取 customer 主键 → 两步查询（见下） |
+| 后端 | `packages/group-buy-plugin/src/group-buy-shop.resolver.ts` | 新增 `@Query() myGroupBuyOrders(@Ctx() ctx, @Args('isLeader') isLeader)` |
+| 前端 | `src/api/queries/promotion.ts` | 新增 `getMyGroupBuyOrders(isLeader)` |
+| 前端 | `src/pkg-promotion/pages/group-buy.vue` | 三 tab（拼团列表 / 我的开团 / 我的参团）+ 我的团卡片（版式 A）+ 未登录引导 |
+| 前端 | `src/i18n/locales/{zh-CN,zh-TW,en,ja,ko}.json` | `promotion.*` 新增 20 键，5 个语言包同步 |
+
+**归属判定与三个坑**（`findMyOrders` 为什么是「两步查询」）：
+
+```ts
+// 1) 先查该客户的订单 —— 渠道过滤只在此处（Order 无 channelId 列，必须走 channels M2M 关联）
+const orders = await repo(Order).createQueryBuilder('ord')
+    .innerJoin('ord.channels', 'channel', 'channel.id = :channelId', { channelId: ctx.channelId })
+    .where('ord.customerId = :customerId', { customerId: Number(customer.id) })
+    .select(['ord.id', 'ord.code']).getMany();
+// 2) 再按 orderId 反查拼团记录（GroupBuyOrder.orderId 是 varchar，参数化 IN 传字符串，不做原生 join）
+const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o => String(o.id))), isLeader }, order: { createdAt: 'DESC' } });
+// 3) 批量补活动 → 组装 { id, orderId, orderCode, groupBuyActivityId, isLeader, status, activity }
+```
+
+| # | 坑 | 现象 | 处理 |
+|---|---|---|---|
+| 1 | Postgres `int = varchar` | 首版用 `.innerJoin(Order, 'ord', 'ord.id = gbo.orderId')` → `operator does not exist: integer = character varying` | 改两步查询，JS 侧取 `Order.id` 转字符串喂 `In(...)`（提交 `6ee4a3add`） |
+| 2 | `Order` 无 `channelId` 列 | `.where('ord.channelId = :c')` 报列不存在（`channels` 是 M2M） | `innerJoin('ord.channels', ...)` |
+| 3 | `GroupBuyOrder.channels` 从未写入 | 用它在拼团记录侧过滤恒为空 | 渠道过滤只放在订单侧 |
+| 4 | `ctx.activeUser.id` 是 **User** 主键 | 直接当 customer id 用会查不到 | `CustomerService.findOneByUserId(ctx, ctx.activeUserId)` 桥接 |
+
+**`lib/` 产物**：生产跑 `lib/`，本项目 `lib` 与 `src` 存在既有漂移，整体重编译会引入缺失模块导致启动崩溃 → 只对本包做外科式重编译 `npx tsc -p packages/group-buy-plugin/tsconfig.build.json`（不 rimraf），diff 恰为 11 个预期文件。
+
+**生产造数**（一次性运维动作，未入库；用 QA 客户 `qa-vshop-manual@local.dev` 走完整 shop-api 流程下两单）：
+
+```
+订单 157 QLKGJTNMDTQH19Q9  ← joinGroupBuy(activityId:"1", isLeader:true)   我的开团
+订单 159 22LP6JDATC6TWFPS  ← joinGroupBuy(activityId:"1", isLeader:false)  我的参团
+活动 1「拼团演示-温泉门票」：target 3 / currentCount 2 / active / endAt 2026-10-05
+```
+
+下单链路：`addItemToOrder(variantId,1)` → `setOrderShippingAddress` → `setOrderShippingMethod(1)` → `transitionOrderToState('ArrangingPayment')` → `addPaymentToOrder(cod-payment-template)`。
+
+**API 回归（生产 shop-api 实测）**：
+
+| 用例 | 结果 |
+|---|---|
+| 未登录 `myGroupBuyOrders(isLeader:true/false)` | `[]`（不报错） |
+| 登录 · `isLeader:true` | 1 条：`orderId=157`、`orderCode=QLKGJTNMDTQH19Q9`、`activity.id=1`、`status=pending`、活动进度 2/3 |
+| 登录 · `isLeader:false` | 1 条：`orderId=159`、`orderCode=22LP6JDATC6TWFPS`、同一活动 |
+| 漏传 `isLeader` | GraphQL 校验报错（`isLeader: Boolean!` 必填） |
+
+> 取登录 token 的坑：`CurrentUser` 类型上**没有** `token` 字段，直接查会校验失败 → 必须从响应头 **`vendure-auth-token`** 读取。
+>
+> PowerShell 引号坑（本轮踩到多次）：给 `ssh` 的远程脚本要用**外层单引号**，否则 `$` 变量会被 PS 插值（`cp: missing destination file operand`）；`$(date +%s)` 会被 PS 当 `Get-Date` 解析；`curl.exe -d '{"query":"..."}'` 的内层双引号会被 PS 剥离导致 JSON 解析错 → 改用 `Invoke-RestMethod` + `ConvertTo-Json`。
+
+**截图与版式缺陷**：首张截图发现「我的团」主按钮**非整宽**（`.gb-card__action` 未设宽度），补 `width: 100%;` 后重建重部署，复核确认为整宽。
 
 ---
 
