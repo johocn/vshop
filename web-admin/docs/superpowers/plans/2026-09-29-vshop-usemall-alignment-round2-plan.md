@@ -2437,6 +2437,7 @@ V2: Task 5 → 6 →（部署后端）→ 7 → 8 → 9 → 10 → 11 → 12 →
   - 编译门禁：vshop `npm run build:h5` 退出码 0（2026-09-30 复跑）。
   - 后端 e2e：`packages/review-plugin` `npm run e2e` → **9 passed**（含新增用例「分档筛选：ratingMin/ratingMax 单边与区间生效；越界与倒挂忽略」）。
   - 只读探针：`python web-admin/scripts/_smoke_usemall_align.py` → 全部断言通过。
+  - 生产 shop-api 分档回归（2026-09-30 直连 `https://e.joho.cn/shop-api`，商品 `fresh-crayfish`）：`reviewStats` = `totalCount 6 / goodRate 50 / averageRating 3.3`；`productReviews` 不传分档 `totalItems = 6`，**与 `reviewStats.totalCount` 相等**（既有行为未破坏）；`ratingMin:1, ratingMax:2` → 2 条全为 `approved` 且 `parentId=null`；`ratingMin:4, ratingMax:5` → 3 条。证明线上 SDL 已含 `ratingMin/ratingMax`。
   - 手机视口截图（390×844 / dpr=2，打生产站 `https://e.joho.cn`）：Task 4 四张（`detail-page` / `detail-sku-sheet` / `detail-single-spec` / `detail-sku-sheet-single`）+ Task 13 七张（`detail-review-block` / `review-list-all` / `review-list-bad` / `orders-list` / `orders-list-review-entry` / `order-evaluate` / `my-reviews`），断言表见手册 §4。
 - **部署**：本轮含后端改动，顺序为「先后端 vendure → 再 H5」。线上站点 assets 已含 `ReviewItem.*.js` / `review.*.js` / `pkg-product-pages-evaluate.*.js` / `pkg-order-pages-order-evaluate.*.js` / `pkg-user-pages-my-reviews.*.js`，即第二轮产物已上线（本结论为文档回填，未再产生源码改动，故无需重新部署）。
 - **遗留项**（同步登记于 `docs/superpowers/BACKLOG.md`）：
