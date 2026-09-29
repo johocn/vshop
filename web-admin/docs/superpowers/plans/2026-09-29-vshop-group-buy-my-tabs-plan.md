@@ -81,6 +81,7 @@ git add packages/group-buy-plugin && git commit && git push
 ### 实施记录
 
 - 首张截图发现「我的团」主按钮**非整宽** → `.gb-card__action` 补 `width: 100%;`，重建重部署后确认整宽。
+- **追加修正（2026-09-29）：列表卡的「去拼团」按钮改为整宽** —— 用户复核时指出该「主按钮」仍非整宽。根因是它嵌套在右文列 `gb-card__main` 内，`width: 100%` 也只能撑满文字列。修正：列表卡片改为与「我的团」同款堆叠结构（`.gb-card--mine` 重命名为共用的 `.gb-card--stack`），主按钮提升为卡片直接子节点并复用 `gb-card__action`；`.gb-card__foot` 由「横向两端对齐」改为「纵向左对齐」，仅承载规格/倒计时标签；删除不再使用的 `gb-card__btn`。
 - 文案值（zh-CN）：`tabActivities=拼团列表`、`tabMyLeader=我的开团`、`tabMyJoin=我的参团`、`lackPeople={n}人待成团`、`groupUnit={n}人团`、`formed=已成团`、`notFormed=未成团`、`statusPending=拼团中`、`viewOrder=查看订单`、`retryGroup=再拼一单`。
 
 ---
@@ -111,7 +112,7 @@ scp vshop-h5.tgz joho:/tmp/vshop-h5.tgz
 **验证**：
 
 - 本地与线上文件数一致（实测 121/121）
-- 线上 `index.html` 引用入口为 `assets/index--umdIy5c.js` 且 200
+- 线上 `index.html` 引用的入口哈希与本地构建一致（含「列表卡按钮整宽」修正的最终版本为 `assets/index-vgvT9n4-.js`）
 - 站点目录替换即时生效，无需 nginx reload
 
 ---
