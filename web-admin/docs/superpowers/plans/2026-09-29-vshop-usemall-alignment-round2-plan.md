@@ -274,8 +274,13 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
 追加内容（`MULTI_SLUG` / `SINGLE_SLUG` 用 Step 2 查到的真实 slug 替换，不要留占位）：
 
 ```js
-  // S1 验收：多规格商品——规格组标题带 (N) 计数（重采，覆盖自动挑 slug 的不确定结果）
-  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(MULTI_SLUG)}`, 6000);
+  // S1 验收：多规格商品——规格组标题带 (N) 计数
+  // 【必须 reload】同 hash 路由二次 page.goto 不会重载：SPA 复用同一详情组件，onMounted 不再执行，
+  // 页面仍是上一个商品（手册 §5.7 已记录此坑）。先 goto 再 page.reload 才会真正取新 slug 的数据。
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(MULTI_SLUG)}`, 1500);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(6000);
+  console.log('  多规格页文本 =', await text());
   await shot('detail-page.png');
   const hitMulti = await clickAny(['加入购物车', '立即购买', '选规格', '选择规格', '购买']);
   if (hitMulti) {
@@ -287,9 +292,11 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
   }
 
   // S1 验收：单规格商品——规格区整段消失、已选行显示变体名
-  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(SINGLE_SLUG)}`, 6000);
-  await shot('detail-single-spec.png');
+  await go(`/pkg-product/pages/detail?slug=${encodeURIComponent(SINGLE_SLUG)}`, 1500);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(6000);
   console.log('  单规格页文本 =', await text());
+  await shot('detail-single-spec.png');
 ```
 
 - [ ] **Step 2: 查一个多规格 slug 与一个单规格 slug**
@@ -301,7 +308,8 @@ pickedSummary 原以「是否选中 optionGroups 中的选项」判定，单规�
 ```js
 const URL = process.env.SITE_URL || 'https://e.joho.cn';
 const q = `query { products(options: { take: 100 }) {
-  items { name slug optionGroups { id name } }
+  items { name slug optionGroups { id name } featuredAsset { preview }
+          variants { featuredAsset { preview } } }
 } }`;
 const r = await fetch(`${URL}/shop-api`, {
   method: 'POST',
@@ -312,7 +320,10 @@ const j = await r.json();
 if (j.errors) { console.error(JSON.stringify(j.errors)); process.exit(1); }
 for (const p of j.data.products.items) {
   const n = (p.optionGroups || []).length;
-  console.log(n === 0 ? 'SINGLE' : 'MULTI ', `groups=${n}`, 'slug=' + JSON.stringify(p.slug), p.name);
+  const imgs = [p.featuredAsset?.preview, ...(p.variants || []).map((v) => v.featuredAsset?.preview)]
+    .filter(Boolean).length;
+  console.log(n === 0 ? 'SINGLE' : 'MULTI ', `groups=${n}`, `imgs=${imgs}`,
+    'slug=' + JSON.stringify(p.slug), p.name);
 }
 ```
 
@@ -322,9 +333,14 @@ Run（在 `d:\zhao\vshop`）：
 node "$env:TEMP\probe_vshop_slugs.mjs"
 ```
 
-Expected：输出里既有 `MULTI` 行也有 `SINGLE` 行。取一个 `MULTI groups>=1` 且 slug 非空的作为 `MULTI_SLUG`，一个 `SINGLE groups=0` 且 slug 非空的作为 `SINGLE_SLUG`（**两个都必须是 `slug` 非空且非 `""`**）。跑完 `Remove-Item "$env:TEMP\probe_vshop_slugs.mjs"`。
+Expected：输出里既有 `MULTI` 行也有 `SINGLE` 行，且每行带 `imgs=` 计数。
 
-若没有 `SINGLE` 行（全部商品都有规格组），则**先在后台建一个无规格变体选项的单规格商品**（沿用 vshop 既有商品创建流程），再重新跑探针；不要跳过本 Task。
+- `MULTI_SLUG` = 一行 **`MULTI` 且 `groups>=1` 且 `imgs>=1`** 的商品（**必须 `imgs>=1`**：断言 3 要求弹层缩略图非灰底，无图商品的灰底是**数据缺失**、不是本 Task 要修的东西，选它没法验收）
+- `SINGLE_SLUG` = 一行 **`SINGLE` 且 `groups=0` 且 `imgs>=1`** 的商品
+
+两个都必须是 `slug` 非空且非 `""`（历史数据里有空 slug）。跑完 `Remove-Item "$env:TEMP\probe_vshop_slugs.mjs"`。
+
+若没有满足 `MULTI 且 imgs>=1` 的候选，**停下报告并把清单贴出来**（往生产后台建/改商品属于需人工确认的动作，不要自作主张）；若没有 `SINGLE` 行，同样停下报告。
 
 - [ ] **Step 3: 先把 V1 上线（截图打的是生产站，不上线采不到新行为）**
 
@@ -336,14 +352,27 @@ Run（在 `d:\zhao\vshop`，本地构建，服务器只解压）：
 npm run build:h5
 tar -czf dist-h5.tar.gz -C dist/build/h5 .
 scp dist-h5.tar.gz joho:/tmp/
-ssh joho "cd /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index && tar -xzf /tmp/dist-h5.tar.gz && rm -f /tmp/dist-h5.tar.gz"
+ssh joho "cd /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index && sudo tar -xzf /tmp/dist-h5.tar.gz && rm -f /tmp/dist-h5.tar.gz"
 ```
 
-Expected：解压无报错。**不在服务器执行任何构建命令**（服务器内存不足）。完成后 `Remove-Item dist-h5.tar.gz`。
+Expected：解压无报错。**不在服务器执行任何构建命令**（服务器内存不足）。
+
+**两个已知的良性现象，不要误判为失败**：
+1. 站点目录里有 root 属主的既有子目录 → 若不加 `sudo`，`tar` 会对 `./assets`、`./static`、`.` 报 `Cannot utime: Operation not permitted` 并以 exit 2 结束，**但内容已正确落盘**。所以这里用 `sudo tar`。
+2. 站点目录会残留历史版本的旧 asset 文件（机器人一次次部署累积），与本次无关。
+
+产物正确性以「本地与线上同一文件的 sha256 一致」为准，例如：
+
+```powershell
+git hash-object dist/build/h5/index.html
+ssh joho "sudo sha256sum /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index/index.html"
+```
+
+（`git hash-object` 输出 `sha1`，若要严格比对改用 `Get-FileHash dist/build/h5/index.html -Algorithm SHA256` 与线上 `sudo sha256sum` 对照。）
+
+完成后 `Remove-Item dist-h5.tar.gz`。
 
 - [ ] **Step 4: 跑脚本取图**
-
-用 `--only detail` 限定只跑详情页块：避免重采首页/购物车/秒杀/拼团的既有截图、产生一堆与 V1 无关的产物改动（那些图不在 Step 6 的 `git add` 里，会把工作树弄脏）。
 
 Run（在 `d:\zhao\vshop`）：
 
@@ -351,13 +380,22 @@ Run（在 `d:\zhao\vshop`）：
 node web-admin/scripts/_vshop_usemall_shots.mjs --only detail
 ```
 
+**`--only detail` 只跳过首页/分类页**（`want('home')`/`want('category')` 有门控），**不拦** 后续 `[4] 购物车`、`[5] 秒杀`、`[6] 拼团` 三个块（它们没有 `want()` 门控）。所以跑完必须检查工作树，把「因本次重跑而被改动、但与本 Task 无关」的既有截图**逐个显式还原**：
+
+```powershell
+git status --short web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/
+git checkout -- web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/flash-sale-page.png web-admin/docs/superpowers/manual/vshop-usemall-alignment/assets/group-buy-page.png
+```
+
+（按 `git status` 的**实际输出**逐个列出被改动的无关图；**只还原与本 Task 无关的那些**，`detail-page.png` / `detail-sku-sheet.png` 要保留新采的。**不要**用 `git checkout -- .` 或任何通配整目录的写法。）
+
 Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` 下新增/更新：
 
 | 文件 | 断言 |
 |---|---|
-| `assets/detail-sku-sheet.png` | 多规格商品弹层，规格组标题形如「颜色 (3)」 |
-| `assets/detail-single-spec.png` | 单规格商品，**没有**规格组标题、**没有**「请选择规格」；已选行显示变体名 |
-| `assets/detail-page.png` | SKU 弹层头部缩略图**不再**是灰底占位 |
+| `assets/detail-sku-sheet.png` | 多规格商品弹层：规格组标题形如「颜色 (3)」；且弹层头部缩略图为真实图片（**非灰底**，这就是断言 3 的取证图 —— 弹层只在这张图里出现） |
+| `assets/detail-single-spec.png` | 单规格商品：**没有**规格组标题、**没有**「请选择规格」；已选行显示变体名 |
+| `assets/detail-page.png` | 多规格商品详情页（弹层未打开），主图区正常显示 |
 
 三张图在 390×844、dpr=2 下采集。逐张目视核对断言；任一不满足则回到 Task 1/2/3 修，**不要**先改断言。
 
@@ -2272,7 +2310,7 @@ Expected：`web-admin\docs\superpowers\manual\vshop-usemall-alignment\assets\` �
 
 | 文件 | 断言 |
 |---|---|
-| `detail-sku-sheet.png` | 规格组标题带 `(N)` 计数 |
+| `detail-sku-sheet.png` | 规格组标题带 `(N)` 计数；弹层头部缩略图为真实图片（非灰底） |
 | `detail-single-spec.png` | 规格区整段消失；已选行显示变体名，无「请选择规格」 |
 | `detail-review-block.png` | 评价区在详情富文本**之前**；标题计数、平均分、好评率、2 条评价齐全 |
 | `review-list-all.png` | 4 个 chip 计数正确（好评+中评+差评 = 全部） |
