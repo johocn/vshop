@@ -43,7 +43,6 @@ export interface AfterSaleRow {
   orderLine?: {
     id: string;
     quantity: number;
-    sku?: string | null;
     featuredAsset?: { id: string; preview: string } | null;
     productVariant?: {
       id: string;
@@ -68,7 +67,7 @@ const AFTER_SALE_FIELDS = `
   receivedQuantity restockJson refundTransactionId actualRefundAmount
   refundedAt refundError createdAt updatedAt
   order { id code }
-  orderLine { id quantity sku featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } } }
+  orderLine { id quantity featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } } }
   customer { id firstName lastName phoneNumber emailAddress }
 `;
 
