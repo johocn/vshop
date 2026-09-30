@@ -4,11 +4,11 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.9（2026-09-29；v1.8 商品销量/积分见 §5.11；v1.9 分类页商品为空的数据修复 + 首页商品楼层，见 §5.12） |
+| 版本 | v1.10（2026-09-30；v1.8 商品销量/积分见 §5.11；v1.9 分类页商品为空的数据修复 + 首页商品楼层，见 §5.12；**v1.10 租户商品跨渠道泄漏修复，见 §5.14**） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；第二轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-usemall-alignment-round2-design.md`（本轮） |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；第二轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-usemall-alignment-round2-plan.md`（本轮） |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
-| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图，含拼团三 tab）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图） |
+| 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图，含拼团三 tab）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图）、`web-admin/scripts/_tenant_token_gate_probe.mjs`（租户 token 闸门取证/回归 + 4 张截图，见 §5.14.3） |
 | 线上环境 | C 端 H5 + shop-api：`https://e.joho.cn`；后台：`https://e.joho.cn/guanli` |
 | 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式（**v1.5 起拼团页含「我的开团 / 我的参团」两 tab**）、结算页发票入口行；**v1.6 起**详情页 SKU 弹层规格组计数与单规格降级；**v1.7 起**评价体系（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页）+「我的订单」列表取数修复 |
 | 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `z123123` |
@@ -23,6 +23,7 @@
 > **v1.7 相对 v1.6 的增量**：第二轮 S2 —— 评价体系四页（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页），并顺带修复「我的订单」列表恒空（后端 shop SDL 补 `myOrders`），见 §5.10。本轮**含后端改动**，部署顺序为「先后端 → 再 H5」。
 > **v1.7 修订（同日）**：v1.7 首版只靠 API 探针判定「我的订单已修好」，采图后暴露 **3 个缺陷**并全部修复重验：① `myOrders` 关系漏 join `surcharges`（页面仍空）、② 改为 `@Relations(Order)` 按选择集推导关系 + 补同形分片 e2e 用例 ⑤、③ 列表卡片横向溢出 21px 导致右侧被切（`box-sizing`）。截图由 5 张增至 **7 张**（新增 `orders-list.png` / `orders-list-review-entry.png`），详见 §5.10.2。
 > **v1.9 相对 v1.8 的增量**：「分类页商品为空」根因属**渠道数据 + 首页装修数据**，不是取数 bug —— ① 首页 `shopContent` 只有 `banner` + `flash`，**没有商品楼层**，故首页除秒杀 1 件外无商品；② 分类页默认落在「二级分类格」模式，首屏看不到商品；③ 商品 57 `slug` 为空导致详情页打不开。已修：default 渠道补 `shopName`、`shopContent` 追加 4 个 `goods` 商品楼层；分类页默认模式改为商品列表；商品 57 补 `slug=guoxin-nanshan-ticket`。另修楼层**价格 100 倍**与**同商品重复出卡**两个渲染缺陷，见 §5.12。本轮**只动 H5 + 生产数据**，无需重启后端。
+> **v1.10 相对 v1.9 的增量（2026-09-30）**：修复「**每个租户都能看到默认渠道的全部商品**」的跨渠道泄漏 —— 真因是 `App.onLaunch` 是 async 但 **uni-app 不等其结束就挂载页面**，入口页业务请求以**空 `vendure-token`** 发出、被 Vendure 静默当作默认渠道。改为**客户端单点闸门**（业务请求在渠道 token 就绪前一律不发）+ 引导查询走**独立免闸门 client**，见 §5.14。**只动 H5，无后端改动、无数据库迁移**；同时补正 §5.12.7 里过于乐观的验收结论（它只对引导类请求成立）。
 
 ---
 
@@ -130,6 +131,10 @@ node web-admin/scripts/_vshop_cart_invalid_shots.mjs
 | `product-detail-stats.png` | 详情页元信息行·有数据（v1.8） | ✅ `温泉门票`（`salesCount=127` / `pointsReward=16800`）元信息行显示「分享 海报 已售 127 可得 16800 积分」 |
 | `product-detail-nostats.png` | 详情页元信息行·无数据降级（v1.8） | ✅ `机油`（`salesCount=0` / `pointsReward=null`）两处 `v-if` 均不渲染，元信息行只剩「分享 海报」，**不占位、不留空行** |
 | `product-detail-stats-en.png` | 详情页元信息行·切语言 en（v1.8） | ✅ 同商品切 `locale=en` 后显示「Sold 127」「Earn 16800 points」，证明 `product.sold` / `product.pointsReward` 两个 key 即时生效 |
+| `tenant-gate-default-home.png` | 默认店首页对照（v1.10） | ✅ 店名 `优商铺`，推荐商品 **14 件**（闸门修复后未回归） |
+| `tenant-gate-t1-home.png` | `?tenant=t1` 首页（v1.10，泄漏修复取证） | ✅ 店名 `新生`（t1 渠道），**推荐商品区为空**（t1 渠道 0 商品）；修复前同一地址会显示默认渠道 **14 件**商品 |
+| `tenant-gate-t3-home.png` | `?tenant=t3` 首页（v1.10） | ✅ 店名 `陈记烘焙馆·手机版`（t3 渠道），推荐商品**仅 1 件**（国信南山温泉门票 ¥168.00），与后端 `search.totalItems = 1` 一致 |
+| `tenant-gate-t1-category.png` | `?tenant=t1` 分类页（v1.10） | ✅ 分类页无默认渠道商品 |
 
 > 采集前置：C 端测试客户已登录（`cart-select-*`）；跑脚本时详情页弹层会再加购 1 件，因此购物车数量就是「跑脚本前的存量 + 1」。本版截图是在存量 2 件时采集的，故呈现「1 行 / 数量 3 / 合计 ¥504.00 / 角标 3」。
 
@@ -669,9 +674,11 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | `www.youshop.cn/t3/product/guoxin-nanshan-ticket` | 200，title「国信南山温泉门票」，请求头 `vendure-token` = t3 渠道 token |
 | `www.youshop.cn/t24` / `/nonexistent-xyz` / `/zh/t1` | 404（t24 为 `enabled=false`，设计内） |
 | admin-api 置 t24 `enabled=true` → **不重建、不重部署** | 6s 后 `/t24` → **200**；复位 `false` → 58s 后 → 404（均在 SWR TTL 内收敛） |
-| `e.joho.cn/?tenant=t1` | 店名「新生」，全部 `shop-api` 请求头 `vendure-token` = t1 渠道 token（`a6fn474hhiqasmyiyrfl`） |
+| `e.joho.cn/?tenant=t1` | 店名「新生」，引导类请求（`resolveChannelByCode` / `activeChannel` / `shopChannels` / `shopTemplate`）请求头 `vendure-token` = t1 渠道 token（`a6fn474hhiqasmyiyrfl`） |
 | `e.joho.cn/?tenant=nope` | 回退默认店（优商铺），不白屏 |
 | `e.joho.cn` 首页 TenantBar 下拉 | **25** 项真实店铺（26 个渠道 − 已停用 t24） |
+
+> ⚠️ **本条验收结论当时过于乐观，已于同日补正**：上表「`?tenant=t1` 全部请求带 t1 token」只对**引导类请求**成立。当时采信的是「店名正确 = 渠道已切换」，但业务请求（`SearchProducts` / `GetEnabledFloors` / `collections`）在 `initTenant()` 完成前就以**空 `vendure-token`** 发出 → 静默落默认渠道 → **每个租户都能看到默认渠道的全部商品**。该缺陷独立于 §5.12.7 的 URL 可达性修复，根因与修复见 **§5.14**。
 
 **移动端截图（390×844 / dpr=2）**
 
@@ -751,6 +758,121 @@ from coupon_template;
 | `vendure/test-marketing-flow.js`（根目录临时脚本，**tracked**）仍调用 `marketingCreateCoupon`/`marketingCoupon`/`marketingUpdateCoupon` | 已失效，但**在本次删除之前就已失效**（其调用的旧 API 早在 coupon-plugin 重构时便不存在）；判定为临时调试脚本，未清理，仅记录 |
 | `operations-plugin/src/constants.ts` 的 `ManageCoupon` 常量 | 删除 service 后成为未使用导出，**保留**（导出的权限常量可能被角色配置引用） |
 | 生产库遗留 `coupon` 表 | 仍在（`information_schema` 可查到），实体已不存在，无人读写；未做删表（destructive，需单独提需求） |
+
+---
+
+### 5.14 v1.10 新增：商品跨渠道泄漏（每个租户都能看到默认渠道的全部商品）
+
+**现象**：`e.joho.cn`（vshop，uni-app H5）上，**任何租户都能看到默认渠道的全部商品**。预期：默认渠道（`__default_channel__`）看到全部商品，其他租户只看到本租户渠道的商品。
+
+#### 5.14.1 根因（三重取证）
+
+**① 后端无问题（直连 shop-api 实测）**
+
+| 渠道 | `products.totalItems` | `search.totalItems` |
+|---|---|---|
+| 默认渠道 `cnx87ezvmjx8nn3bth6c` | 15 | 14 |
+| t1 `a6fn474hhiqasmyiyrfl` | **0** | 0 |
+| t3 `jmjobmq5lak9o50kevf` | 1 | 1 |
+| 伪造 token `deadbeef-not-a-real-token` | `No Channel with the token "..." could be found` | 同左 |
+
+→ Vendure 侧 `products` / `search`（DefaultSearchPlugin）**都严格按 `ctx.channelId` 过滤**，且确实识别 `vendure-token` 头。
+
+**② 泄漏在客户端（Playwright 实测时序）**：打开 `?tenant=t1`，逐条记录 shop-api 请求的 `vendure-token`：
+
+| 相对时刻 | 操作 | `vendure-token` | 结果 |
+|---|---|---|---|
+| ~406ms | `search`（首页推荐商品） | **（无该头）** | **14 件默认渠道商品** |
+| ≥437ms | `activeChannel` / `collections` / `shopTemplate` / `shopChannels` | `a6fn474h…`(t1) 正确 | 正确 |
+
+9s 后 DOM 仍是那 14 件商品 —— **不会重取**。
+
+**③ 机制**：`src/App.vue` 的 `onLaunch` 是 `async`，但 **uni-app 不会等 `onLaunch` 结束才挂载页面**。入口页 `onMounted` 取数时 `tenantStore.token` 仍为 `''`，而**空 `vendure-token` 在 Vendure 侧静默等于默认渠道**（不是报错）。全仓只有 `src/pages/cart/index.vue` 做过门控，其余页面皆漏。
+
+**爆炸半径**：首页 `search` + `GetEnabledFloors`、分类页 `collections`；秒杀/拼团/我的评价/`FlashSection`/fresh 模板首页同源同风险。商品详情按 id/slug 查询后端返回 `null`，**不漏**（只会空白）。
+
+#### 5.14.2 修复设计：客户端单点闸门
+
+在客户端**单点收口**：任何业务请求在租户 token 就绪前**一律不发**，并覆盖将来新增的页面。
+
+| 要点 | 实现 |
+|---|---|
+| 闸门语义 | **「渠道 token 已就绪」**，与 `tenantReady`（整体初始化完成）**解耦** —— 否则 `restoreSession()` 走闸门时，会与「`tenantReady` 在其之后才置位」互相等待而死锁 |
+| 卡点位置 | 必须卡在**取 headers 之前**：`getGraphQLClient()` 同步返回薄包装客户端，其 `request()` 先 `await waitTenantGate()`、**再** `setHeaders(getShopApiHeaders())`。`graphql-request` 的 headers 是 `setHeaders()` 那一刻被快照的，若把闸门放进 `customFetch`，headers 早已是空 token |
+| 免闸门旁路 | 引导查询走**独立的免闸门 client 实例** `getBootstrapClient()`；业务查询走 `getGraphQLClient()`，按**请求来源**区分 |
+| 兜底 | `initTenant()` 异常/网络卡死时 ≤8s 放行，避免页面永久骨架屏（退化为默认渠道，可接受） |
+| 页面改动 | **零**：所有调用点仍是 `getGraphQLClient().request(...)` |
+
+> ⚠️ **首次实现被实测推翻（重要教训）**：初版用「作用域旁路 `withoutTenantGate(fn)` + 全局 `bypassDepth` 计数」——`initTenant()` 执行期间把旁路 +1。实测 `?tenant=t1` 首屏 `search.totalItems` **仍是 14**、`SearchProducts` 仍无 `vendure-token`，7 项断言失败。原因：**入口页恰好是在 `initTenant()` 进行期间挂载的**，它的业务请求也看到 `bypassDepth === 1`，被一并放行。**任何以「时间窗口」为界的全局开关在并发下都不可靠**，必须按「请求来源」区分。
+
+文件改动（4 个，3 改 1 增）：
+
+| 文件 | 改动 |
+|---|---|
+| `src/api/client.ts` | 新增 `openTenantGate()` / `waitTenantGate()` / `createInnerClient()` / `ShopClient(inner, gated)` / `getBootstrapClient()`；`resetClient()` 同时重置两个实例 |
+| `src/api/queries/channel.ts` | 6 个引导查询（`resolveChannelByDomain` / `resolveChannelByCode` / `listShopChannels` / `getShopTemplate` / `getShopGlobalConfig` / `getActiveChannelConfig`）改用 `getBootstrapClient()`；`getAuthMethods` / `getSsoProviders` 保持带闸门（不在 `initTenant()` 链路内） |
+| `src/App.vue` | `await initTenant()` 之后 `openTenantGate()`（早于 `restoreSession()`） |
+| `web-admin/scripts/_tenant_token_gate_probe.mjs` | 新增：取证/回归探针（脚本，非产品代码） |
+
+设计文档：`docs/superpowers/specs/2026-09-30-vshop-tenant-token-gate-design.md`；实施计划：`docs/superpowers/plans/2026-09-30-vshop-tenant-token-gate.md`。
+
+#### 5.14.3 取证脚本
+
+`web-admin/scripts/_tenant_token_gate_probe.mjs`（Playwright，390×844 dpr=2）
+
+```bash
+node web-admin/scripts/_tenant_token_gate_probe.mjs                       # 打生产 https://e.joho.cn
+node web-admin/scripts/_tenant_token_gate_probe.mjs --site http://localhost:5210
+node web-admin/scripts/_tenant_token_gate_probe.mjs --shots               # 同时输出 4 张手机视口截图
+```
+
+判定规则：引导查询（`ResolveChannelByCode` / `ResolveChannelByDomain` / `shopChannels` / `GetShopTemplate` / `GetShopGlobalConfig` / `activeChannel` / `authMethods` / `ssoProviders`）允许空 `vendure-token`；**其余全部视为业务请求，必须带非空 `vendure-token` 且与用例期望的渠道 token 一致**；同时断言首屏 `search.totalItems`（t1 必须为 0、default/t3 必须 > 0）。
+
+#### 5.14.4 验收结果
+
+**修复前基线（生产，6 项断言失败）**：default 首页 2 条无 token `[SearchProducts, GetEnabledFloors]`；t1 / t3 首页各 1 条 `[SearchProducts]` 且 `search.totalItems = 14`（应 0 / 1）；t1 分类页 `collections` 无 token。
+
+**修复后（本地 + 生产各跑一遍，全部断言通过）**：
+
+| 用例 | 业务请求数 | 无 token 条数 | `search.totalItems` |
+|---|---|---|---|
+| default 首页 | 8 | 0 | 14 |
+| t1 首页 | 3 | 0 | **0**（修复前 14） |
+| t3 首页 | 3 | 0 | 1 |
+| 未知租户回退（`?tenant=nope`） | 8 | 0 | 14（回退默认店，不白屏） |
+| t1 分类页 | 3 | 0 | 0 |
+
+`npx tsc --noEmit` 无新增错误（既有 2 条与本改动无关：`useAuthGuard.ts(66,17)` TS2684、`html.test.ts(3,64)` TS5097）。
+
+**移动端截图（390×844 / dpr=2）**
+
+| 截图 | 场景 | 断言 |
+|---|---|---|
+| `tenant-gate-default-home.png` | `e.joho.cn/?tenant=default` | 默认店「优商铺」，推荐商品 14 件（未回归） |
+| `tenant-gate-t1-home.png` | `e.joho.cn/?tenant=t1` | 店名「新生」，**推荐商品区为空**（t1 渠道 0 商品，正确表现） |
+| `tenant-gate-t3-home.png` | `e.joho.cn/?tenant=t3` | 店名「陈记烘焙馆·手机版」，推荐商品**仅 1 件**（国信南山温泉门票 ¥168.00） |
+| `tenant-gate-t1-category.png` | `e.joho.cn/?tenant=t1#/pages/category/index` | 分类页无默认渠道商品 |
+
+#### 5.14.5 部署与产物核对
+
+只动 H5（**无后端改动、无数据库迁移**），按 §6.1：本地 `npm run build:h5` → `tar -czf vshop-h5.tgz -C dist/build/h5 .` → `scp joho:/tmp/` → 服务器备份并解压到 `.../sites/e.joho.cn/index`。
+
+> 服务器 `sites/e.joho.cn/` 父目录不归 `admin` 所有，**备份与清空必须 `sudo`**（`sudo -n true` 实测免密可用）；站点目录本身是 `drwxrwxrwx`，解压无需 sudo。
+
+| 项 | 值 |
+|---|---|
+| 线上入口 | `assets/index-BIxfaBN_.js`（上一版 `index-CYgHLybA.js`） |
+| 文件数 | 本地 132 = 服务器 132 |
+| 备份 | `index.bak_<epoch>`（兄弟目录，回滚见 §6.4） |
+
+#### 5.14.6 待处理事项
+
+| 项 | 状态 |
+|---|---|
+| 渠道商品配置（为什么 t1 是 0 商品、t3 只有 1 件） | **本轮不处理，下轮单独处理**。用户 2026-09-30 明确「只修闸门」。修好后 t1 首页近乎空白，这正是「只能看到本租户商品」的**正确**表现，不是新缺陷 |
+| 页面空态 UI（「本店暂无商品」） | 未做（用户本轮明确不加） |
+| `api/mutations/upload.ts` 的 `uni.uploadFile` 通道 | 未纳入门控（上传必经用户交互，此时 token 必已就绪）；仅记录 |
+| 商品详情页在无商品渠道下的表现 | 按 id/slug 查询后端返回 `null`，页面空白但不泄漏；未做专门空态 |
 
 ---
 
