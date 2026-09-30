@@ -159,9 +159,7 @@ const restockOpen = ref(false);
 
 const isExchange = computed(() => detail.value?.type === 'exchange');
 const productName = computed(() => detail.value?.orderLine?.productVariant?.name ?? '');
-const productSku = computed(
-  () => detail.value?.orderLine?.sku ?? detail.value?.orderLine?.productVariant?.sku ?? '',
-);
+const productSku = computed(() => detail.value?.orderLine?.productVariant?.sku ?? '');
 const productThumb = computed(
   () =>
     detail.value?.orderLine?.featuredAsset?.preview ??
