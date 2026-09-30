@@ -4,7 +4,21 @@
 
 **Goal:** 在 vshop（`e.joho.cn`）客户端装一道「租户就绪闸门」，让所有业务请求在渠道 token 就绪前一律不发，彻底堵住「每个租户都能看到默认渠道全部商品」的泄漏。
 
-**Architecture:** 闸门住在 `src/api/client.ts`：`getGraphQLClient()` 返回一个薄包装客户端，其 `request()` 先 `await waitTenantGate()`、**再**刷新 headers（必须卡在取 headers 之前，否则 token 仍是空快照）。`App.vue` 在 `initTenant()` 完成后 `openTenantGate()` 开闸；`initTenant()` / `switchTenant()` 内部用 `withoutTenantGate()` 作用域旁路，避免引导查询与闸门互等死锁。
+**Architecture:** 闸门住在 `src/api/client.ts`：`getGraphQLClient()` 返回一个薄包装客户端，其 `request()` 先 `await waitTenantGate()`、**再**刷新 headers（必须卡在取 headers 之前，否则 token 仍是空快照）。`App.vue` 在 `initTenant()` 完成后 `openTenantGate()` 开闸；引导查询走独立的免闸门 client `getBootstrapClient()`，避免与闸门互等死锁。
+
+> ⚠️ **实施变更记录（2026-09-30，Task 6 首次跑探针后修正）**
+>
+> 本计划 Task 2 / Task 3 里写的「**作用域旁路** `withoutTenantGate(fn)` + `bypassDepth` 计数」**已废弃，不要照抄**。
+>
+> **废弃原因（实测）**：`withoutTenantGate` 把**整个 `initTenant()` 执行期间**都设为旁路，而入口页恰好是在这期间挂载的 → 入口页的业务请求也看到 `bypassDepth === 1`，一并被放行。本地跑探针实测 `?tenant=t1` 首屏 `search.totalItems` 仍是 **14**、`SearchProducts` 仍无 `vendure-token`，7 项断言失败 —— **闸门形同虚设**。任何以「时间窗口」为界的全局开关在并发下都不可靠。
+>
+> **实际实现（以仓库代码为准）**：按**请求来源**区分，两个独立 client 实例：
+> - `src/api/client.ts`：删除 `bypassDepth` / `withoutTenantGate`；新增 `bootstrapInstance`、`createInnerClient()`、`ShopClient(inner, gated)`、`getBootstrapClient()`；`resetClient()` 同时重置两个实例。
+> - `src/stores/tenant.ts`：**不改**（`initTenant` / `switchTenant` 保持原实现）。
+> - `src/api/queries/channel.ts`：6 个引导查询（`resolveChannelByDomain` / `resolveChannelByCode` / `listShopChannels` / `getShopTemplate` / `getShopGlobalConfig` / `getActiveChannelConfig`）改用 `getBootstrapClient()`；`getAuthMethods` / `getSsoProviders` 保持 `getGraphQLClient()`。
+> - `src/App.vue`：不变（`initTenant()` 后 `openTenantGate()`）。
+>
+> 其余任务（Task 1 探针、Task 5 构建、Task 6/10 验证、Task 7 截图、Task 8 手册、Task 9 部署）不受影响。以仓库实际代码与设计文档 `2026-09-30-vshop-tenant-token-gate-design.md` 为准。
 
 **Tech Stack:** uni-app H5（Vue 3 + Pinia + TypeScript）、graphql-request 7、Vendure shop-api、Playwright（取证）、Node 脚本（探针）。
 
@@ -14,8 +28,8 @@
 
 | 文件 | 动作 |
 |---|---|
-| `src/api/client.ts` | 修改：新增闸门 + 包装客户端 |
-| `src/stores/tenant.ts` | 修改：`initTenant` / `switchTenant` 包旁路 |
+| `src/api/client.ts` | 修改：新增闸门 + 包装客户端 + 免闸门 `getBootstrapClient()` |
+| `src/api/queries/channel.ts` | 修改：6 个引导查询改用 `getBootstrapClient()`（见上方变更记录） |
 | `src/App.vue` | 修改：`initTenant()` 后开闸 |
 | `web-admin/scripts/_tenant_token_gate_probe.mjs` | 新增：取证/回归探针（脚本，非产品代码） |
 

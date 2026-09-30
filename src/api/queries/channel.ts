@@ -1,7 +1,10 @@
-import { getGraphQLClient } from '../client';
+// 引导查询（解析渠道本身 / 店铺装修模板）走**免闸门** client：
+// 它们必须在租户就绪之前就能发出（initTenant 全靠它们），否则会与租户闸门互等死锁。
+// 其余查询（authMethods / ssoProviders）走带闸门的业务 client。
+import { getBootstrapClient, getGraphQLClient } from '../client';
 
 export async function getActiveChannelConfig() {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query {
         activeChannel {
             id code token
@@ -34,7 +37,7 @@ export async function getSsoProviders() {
 }
 
 export async function resolveChannelByDomain(host: string) {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query ResolveChannelByDomain($host: String!) {
         resolveChannelByDomain(host: $host) {
             token
@@ -44,7 +47,7 @@ export async function resolveChannelByDomain(host: string) {
 }
 
 export async function resolveChannelByCode(code: string) {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query ResolveChannelByCode($code: String!) {
         resolveChannelByCode(code: $code) {
             token
@@ -65,7 +68,7 @@ export async function resolveChannelByCode(code: string) {
 
 /** 全部「可用店铺」（已停用渠道不返回）：店铺切换器的公开数据源 */
 export async function listShopChannels() {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query {
         shopChannels {
             code
@@ -78,7 +81,7 @@ export async function listShopChannels() {
 }
 
 export async function getShopTemplate(app: string) {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query GetShopTemplate($app: String!) {
         shopTemplate(app: $app) {
             id
@@ -94,7 +97,7 @@ export async function getShopTemplate(app: string) {
 }
 
 export async function getShopGlobalConfig(app: string) {
-    const client = getGraphQLClient();
+    const client = getBootstrapClient();
     return client.request(`query GetShopGlobalConfig($app: String!) {
         shopGlobalConfig(app: $app) {
             id

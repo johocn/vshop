@@ -59,7 +59,7 @@ App.onLaunch ──await initTenant()──▶ token = 'a6fn474h…'
 - 修好后 **t1 首页将是空的**（t1 渠道本身 0 商品、t3 1 件）—— 这正是「只能看到本租户商品」的正确表现。
 - 不动 Vendure 后端（已验证过滤正确）。
 - 不加「本店暂无商品」空态 UI。
-- 不改任何页面组件、不改任何业务 query 模块（`api/queries/*`、`api/mutations/*`）。
+- 不改任何页面组件、不改任何业务 query/mutation 模块（`api/queries/*`、`api/mutations/*`）——**唯一例外**是 `api/queries/channel.ts` 的 client 选型（6 个引导查询改走免闸门 client，见下）。
 
 ## 设计：客户端单点闸门
 
@@ -67,7 +67,7 @@ App.onLaunch ──await initTenant()──▶ token = 'a6fn474h…'
 
 **闸门 = 「渠道 token 已就绪」**，与 `tenantReady`（整体初始化完成）**解耦**。这样 `restoreSession()` 走闸门时不会与「`tenantReady` 在 `restoreSession` 之后才置位」互相等待而死锁。
 
-### 免闸门旁路
+### 免闸门旁路：按「请求来源」而非「时间窗口」
 
 `initTenant()` 内部的**引导查询**必须绕开闸门，否则与闸门互等死锁：
 
@@ -76,7 +76,11 @@ App.onLaunch ──await initTenant()──▶ token = 'a6fn474h…'
 - `shopChannels`（`listShopChannels`）
 - `shopTemplate` / `shopGlobalConfig`
 
-实现为**作用域旁路**：`withoutTenantGate(fn)` 在 `fn` 执行期间把旁路计数 +1，`finally` 归零。
+**最初的实现是「作用域旁路」`withoutTenantGate(fn)`**：在 `fn` 执行期间把全局旁路计数 +1，`finally` 归零。**该实现已废弃，实测闸门完全失效** —— 入口页恰好是在 `initTenant()` 进行期间挂载的，于是入口页的业务请求也看到 `bypassDepth === 1`，一并被放行。任何以「时间窗口」为界的全局开关在并发下都不可靠。
+
+**改为按请求来源区分**：引导查询走一个**独立的免闸门 client 实例**（`getBootstrapClient()`），业务查询走 `getGraphQLClient()`。两者互不影响，无竞态。
+
+分工落实在 `src/api/queries/channel.ts` 一处：该文件里 6 个引导查询用 `getBootstrapClient()`，`getAuthMethods()` / `getSsoProviders()` 保持 `getGraphQLClient()`（它们不在 `initTenant()` 链路内，可在闸门后发出）。
 
 ### 关键点：闸门必须卡在「取 headers 之前」
 
@@ -86,72 +90,89 @@ App.onLaunch ──await initTenant()──▶ token = 'a6fn474h…'
 
 ### 代码形状
 
-`src/api/client.ts`（新增约 40 行）：
+`src/api/client.ts`（新增约 50 行）：
 
 ```ts
 const TENANT_GATE_TIMEOUT_MS = 8000;
 
-let gateResolve: (() => void) | null = null;
-const gatePromise = new Promise<void>((resolve) => { gateResolve = resolve; });
-let gateTimeout: Promise<void> | null = null;
+let gateOpen = false;
+const gateWaiters: Array<() => void> = [];
 
-/** 由 App.onLaunch 在 initTenant() 完成后调用；只开一次 */
+/** 由 App.onLaunch 在 initTenant() 完成后调用；只开一次，可重复调用 */
 export function openTenantGate() {
-    gateResolve?.();
-    gateResolve = null;
+    if (gateOpen) return;
+    gateOpen = true;
+    gateWaiters.splice(0).forEach((fire) => fire());
 }
 
 /** 业务请求闸门：token 未就绪时挂起，≤8s 兜底放行（避免骨架屏永久卡死） */
 export function waitTenantGate(): Promise<void> {
-    if (!gateResolve) return Promise.resolve();
-    if (!gateTimeout) gateTimeout = new Promise<void>((r) => setTimeout(r, TENANT_GATE_TIMEOUT_MS));
-    return Promise.race([gatePromise, gateTimeout]);
+    if (gateOpen) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+        let done = false;
+        const fire = () => {
+            if (done) return;
+            done = true;
+            const i = gateWaiters.indexOf(fire);
+            if (i >= 0) gateWaiters.splice(i, 1);
+            resolve();
+        };
+        gateWaiters.push(fire);
+        setTimeout(fire, TENANT_GATE_TIMEOUT_MS);
+    });
 }
 
-let bypassDepth = 0;
-
-/** 引导查询旁路：宿主任一 await 链内所有请求都不走闸门 */
-export async function withoutTenantGate<T>(fn: () => Promise<T>): Promise<T> {
-    bypassDepth++;
-    try { return await fn(); } finally { bypassDepth--; }
-}
+// 引导查询走独立实例（见「免闸门旁路」一节，勿用全局开关实现）
+let clientInstance: GraphQLClient | null = null;
+let bootstrapInstance: GraphQLClient | null = null;
 
 export interface ShopGraphQLClient {
     request<T = any>(query: any, variables?: any, ...rest: any[]): Promise<T>;
     setHeaders(headers: Record<string, string>): void;
 }
 
-class GatedClient implements ShopGraphQLClient {
-    constructor(private inner: GraphQLClient) {}
+function createInnerClient(): GraphQLClient {
+    return new GraphQLClient(API_URL, { fetch: customFetch as any, headers: {} });
+}
+
+class ShopClient implements ShopGraphQLClient {
+    constructor(private inner: GraphQLClient, private gated: boolean) {}
     async request<T = any>(query: any, variables?: any, ...rest: any[]): Promise<T> {
-        if (bypassDepth === 0) await waitTenantGate();
+        if (this.gated) await waitTenantGate();
         this.inner.setHeaders(getShopApiHeaders());   // 就绪后再取 token
         return (this.inner.request as any)(query, variables, ...rest);
     }
     setHeaders(headers: Record<string, string>) { this.inner.setHeaders(headers); }
 }
 
+/** 业务请求入口：租户 token 未就绪前一律挂起 */
 export function getGraphQLClient(): ShopGraphQLClient {
-    if (!clientInstance) clientInstance = new GraphQLClient(API_URL, { fetch: customFetch as any, headers: {} });
-    return new GatedClient(clientInstance);
+    if (!clientInstance) clientInstance = createInnerClient();
+    return new ShopClient(clientInstance, true);
+}
+
+/** 引导查询入口（免闸门）：仅限解析渠道本身 */
+export function getBootstrapClient(): ShopGraphQLClient {
+    if (!bootstrapInstance) bootstrapInstance = createInnerClient();
+    return new ShopClient(bootstrapInstance, false);
 }
 ```
 
-`getShopApiHeaders()` / `customFetch` / `deduped()` / `resetClient()` 均不变。
+`resetClient()` 同时重置 `clientInstance` 与 `bootstrapInstance`；`getShopApiHeaders()` / `customFetch` / `deduped()` 均不变。
 
-`src/stores/tenant.ts`（±5 行）：
+`src/api/queries/channel.ts`（±6 行）：
 
 ```ts
-async function initTenant() {
-    await withoutTenantGate(async () => {
-        /* 原实现，原样搬入 */
-    });
-}
+import { getBootstrapClient, getGraphQLClient } from '../client';
 
-async function switchTenant(code: string) {
-    await withoutTenantGate(async () => { /* 原实现 */ });
-}
+// 免闸门：resolveChannelByDomain / resolveChannelByCode / listShopChannels /
+//        getShopTemplate / getShopGlobalConfig / getActiveChannelConfig
+const client = getBootstrapClient();
+// 带闸门（不在 initTenant 链路内）：getAuthMethods / getSsoProviders
+const client = getGraphQLClient();
 ```
+
+`src/stores/tenant.ts`：**不改**（`initTenant` / `switchTenant` 保持原实现）。
 
 `src/App.vue`（±1 行）：
 
@@ -187,16 +208,28 @@ App.onLaunch ─▶ initTenant() ─┬─▶ 引导查询（免闸门）─▶ 
 
 ## 验证
 
-1. `npx tsc --noEmit` 通过。
+1. `npx tsc --noEmit`：无新增错误（既有 2 条与本改动无关：`useAuthGuard.ts(66,17)` TS2684、`html.test.ts(3,64)` TS5097）。
 2. 本地 H5 构建 + 跑通「开闸前后」两条路径。
 3. **Playwright 取证（本地 + 生产各一遍）**：
    - `?tenant=t1`：首屏所有 shop-api 请求均带 `vendure-token=a6fn474h…`；首屏商品数 **0**（不再是 14）；无任何无 token 请求。
-   - `?tenant=default`：仍 15 件（不回归）。
+   - `?tenant=default`：仍 14 件（不回归）。
    - `?tenant=nope`：回退默认店，且不出现 `ChannelNotFound`。
    - 分类页 `collections` 与后续 `search` 的 token 一致。
 4. **手机浏览视图截图**（标准视口 390×844、dpr=2、Playwright 移动视口）：default 首页 / t1 首页 / t3 首页 / t1 分类页，共 4 张。
 5. 截图与说明补入手册 `web-admin/docs/superpowers/manual/vshop-usemall-alignment/README.md` 新章节。
 6. 本地构建 → 部署（服务器仅解压/`pm2 restart`）→ 生产复验第 3 条。
+
+### 本地实测结果（修复后，`localhost:5210`）
+
+| 用例 | 业务请求数 | 无 token 条数 | `search.totalItems` |
+|---|---|---|---|
+| default 首页 | 8 | 0 | 14 |
+| t1 首页 | 3 | 0 | **0**（修复前 14） |
+| t3 首页 | 3 | 0 | 1 |
+| 未知租户回退 | 8 | 0 | 14 |
+| t1 分类页 | 3 | 0 | 0 |
+
+→ **全部断言通过**（修复前 6 项断言失败）。
 
 ## 明确不做
 
