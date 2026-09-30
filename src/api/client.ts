@@ -96,22 +96,23 @@ export function waitTenantGate(): Promise<void> {
     });
 }
 
-// 引导查询旁路深度：initTenant 内部解析渠道必须免闸门，否则与闸门互等死锁
-let bypassDepth = 0;
-
-/** 在宿主的整个 await 链内关闭闸门（引导查询专用） */
-export async function withoutTenantGate<T>(fn: () => Promise<T>): Promise<T> {
-    bypassDepth += 1;
-    try {
-        return await fn();
-    } finally {
-        bypassDepth -= 1;
-    }
-}
+// 引导查询旁路：initTenant 内部解析渠道时必须免闸门，否则与闸门互等死锁。
+//
+// ⚠️ 这里**不能**用「全局 bypass 开关 / 深度计数」实现：入口页恰好是在 initTenant
+// 进行期间挂载的，任何以「时间窗口」为界的旁路都会把入口页的请求一并放过去。
+// 改为按**请求来源**区分 —— 引导查询走独立的免闸门 client 实例。
+let bootstrapInstance: GraphQLClient | null = null;
 
 export interface ShopGraphQLClient {
     request<T = any>(query: any, variables?: any, ...rest: any[]): Promise<T>;
     setHeaders(headers: Record<string, string>): void;
+}
+
+function createInnerClient(): GraphQLClient {
+    return new GraphQLClient(API_URL, {
+        fetch: customFetch as any,
+        headers: {},
+    });
 }
 
 /**
@@ -121,11 +122,11 @@ export interface ShopGraphQLClient {
  * 同步取 client、同步发起 request；graphql-request 的 headers 是 setHeaders() 那一刻
  * 被快照的 —— 若把闸门放到 customFetch 里，headers 早已是空 token，闸门形同虚设。
  */
-class GatedClient implements ShopGraphQLClient {
-    constructor(private inner: GraphQLClient) {}
+class ShopClient implements ShopGraphQLClient {
+    constructor(private inner: GraphQLClient, private gated: boolean) {}
 
     async request<T = any>(query: any, variables?: any, ...rest: any[]): Promise<T> {
-        if (bypassDepth === 0) await waitTenantGate();
+        if (this.gated) await waitTenantGate();
         this.inner.setHeaders(getShopApiHeaders());
         return (this.inner.request as any)(query, variables, ...rest);
     }
@@ -135,14 +136,16 @@ class GatedClient implements ShopGraphQLClient {
     }
 }
 
+/** 业务请求入口：租户 token 未就绪前一律挂起 */
 export function getGraphQLClient(): ShopGraphQLClient {
-    if (!clientInstance) {
-        clientInstance = new GraphQLClient(API_URL, {
-            fetch: customFetch as any,
-            headers: {},
-        });
-    }
-    return new GatedClient(clientInstance);
+    if (!clientInstance) clientInstance = createInnerClient();
+    return new ShopClient(clientInstance, true);
+}
+
+/** 引导查询入口（免闸门）：仅限解析渠道本身，见上方说明 */
+export function getBootstrapClient(): ShopGraphQLClient {
+    if (!bootstrapInstance) bootstrapInstance = createInnerClient();
+    return new ShopClient(bootstrapInstance, false);
 }
 
 /** Deduplicate identical in-flight requests */
@@ -156,4 +159,5 @@ export function deduped<T>(key: string, fn: () => Promise<T>): Promise<T> {
 /** Reset client (e.g. after tenant switch) */
 export function resetClient() {
     clientInstance = null;
+    bootstrapInstance = null;
 }
