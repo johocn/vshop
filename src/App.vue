@@ -40,6 +40,26 @@ onLaunch(async (options: any) => {
 
     // Initialize tenant from domain or URL (async)
     await tenantStore.initTenant();
+    // 请求的店铺不存在：明示告知并引导去选择店铺（与 nshop 的 404 行为对齐，替代原先的静默回退）
+    if (tenantStore.tenantInvalid) {
+        const invalidCode = tenantStore.tenantInvalid;
+        tenantStore.tenantInvalid = null;
+        uni.showModal({
+            title: '店铺不存在',
+            content: `店铺「${invalidCode}」可能已更名或停用，已为你切换到平台默认店铺。`,
+            confirmText: '选择其他店铺',
+            cancelText: '知道了',
+            success: (res: any) => {
+                // #ifdef H5
+                if (res.confirm) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('tenant');
+                    uni.reLaunch({ url: '/pages/home/index' });
+                }
+                // #endif
+            },
+        });
+    }
     // 渠道 token 已就绪，开闸放行所有被挂起的业务请求。
     // 必须早于 restoreSession：闸门语义是「渠道 token 就绪」而非「整体初始化完成」，
     // 否则 restoreSession 里的请求会等 tenantReady，而 tenantReady 又在其之后置位 → 死锁。

@@ -48,6 +48,9 @@ export const useTenantStore = defineStore('tenant', () => {
     const servicePhone = ref('');
     const shareImageUrl = ref('');
 
+    /** 请求的租户不存在/已停用：记下原始 code 供 UI 明示（不再静默回退） */
+    const tenantInvalid = ref<string | null>(null);
+
     const tenantName = computed(() => shopName.value || tenantCode.value);
 
     // 运行时租户表（后端公开查询 shopChannels）：店铺切换器的真实数据源。
@@ -85,15 +88,19 @@ export const useTenantStore = defineStore('tenant', () => {
         // `?tenant=` 会变成死代码 —— 分店永远退回默认店（原实现的缺陷）。
         const fromUrl = resolveTenantFromUrl();
         const stored = fromUrl ? null : (uni.getStorageSync('tenant_code') as string) || null;
-        let code = fromUrl || stored || (await resolveTenantByDomain()) || 'default';
+        const requested = fromUrl || stored || null;
+        let code = requested || (await resolveTenantByDomain()) || 'default';
 
         tenantCode.value = code;
         // 传入了不存在的 code（如 ?tenant=nope）时回退平台默认店，
-        // 避免停在占位态（店名显示 code、内容与默认店不一致）。
+        // 避免停在占位态（店名显示 code、内容与默认店不一致）；同时记下原始 code 供 UI 明示。
         if (!(await loadTenantDetails(code))) {
+            tenantInvalid.value = requested || code;
             code = 'default';
             tenantCode.value = code;
             await loadTenantDetails(code);
+        } else {
+            tenantInvalid.value = null;
         }
         await loadShopChannels();
     }
@@ -254,7 +261,7 @@ export const useTenantStore = defineStore('tenant', () => {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
         tenantReady, shopContent, rawShopContent, themeTokens, rawThemeOverride, mergedShopContent,
-        shopName, shopLogo, shopIntro, servicePhone, shareImageUrl,
+        shopName, shopLogo, shopIntro, servicePhone, shareImageUrl, tenantInvalid,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
     };
