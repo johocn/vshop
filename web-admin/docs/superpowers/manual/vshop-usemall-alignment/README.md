@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v1.10（2026-09-30；v1.8 商品销量/积分见 §5.11；v1.9 分类页商品为空的数据修复 + 首页商品楼层，见 §5.12；**v1.10 租户商品跨渠道泄漏修复，见 §5.14**） |
+| 版本 | v1.11（2026-09-30；v1.8 商品销量/积分见 §5.11；v1.9 分类页商品为空的数据修复 + 首页商品楼层，见 §5.12；v1.10 租户商品跨渠道泄漏修复，见 §5.14；**v1.11 未知租户明示化，见 §5.12.8**） |
 | 设计文档 | `web-admin/docs/superpowers/specs/2026-09-24-vshop-usemall-alignment-design.md`；第二轮：`web-admin/docs/superpowers/specs/2026-09-29-vshop-usemall-alignment-round2-design.md`（本轮） |
 | 执行计划 | `web-admin/docs/superpowers/plans/2026-09-24-vshop-usemall-alignment-plan.md`；第二轮：`web-admin/docs/superpowers/plans/2026-09-29-vshop-usemall-alignment-round2-plan.md`（本轮） |
 | 只读探针 | `web-admin/scripts/_smoke_usemall_align.py` |
@@ -675,7 +675,7 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | `www.youshop.cn/t24` / `/nonexistent-xyz` / `/zh/t1` | 404（t24 为 `enabled=false`，设计内） |
 | admin-api 置 t24 `enabled=true` → **不重建、不重部署** | 6s 后 `/t24` → **200**；复位 `false` → 58s 后 → 404（均在 SWR TTL 内收敛） |
 | `e.joho.cn/?tenant=t1` | 店名「新生」，引导类请求（`resolveChannelByCode` / `activeChannel` / `shopChannels` / `shopTemplate`）请求头 `vendure-token` = t1 渠道 token（`a6fn474hhiqasmyiyrfl`） |
-| `e.joho.cn/?tenant=nope` | 回退默认店（优商铺），不白屏 |
+| `e.joho.cn/?tenant=nope` | 回退默认店（优商铺），不白屏；**并弹「店铺不存在」明示提示**（v1.11，见 §5.12.8） |
 | `e.joho.cn` 首页 TenantBar 下拉 | **25** 项真实店铺（26 个渠道 − 已停用 t24） |
 
 > ⚠️ **本条验收结论当时过于乐观，已于同日补正**：上表「`?tenant=t1` 全部请求带 t1 token」只对**引导类请求**成立。当时采信的是「店名正确 = 渠道已切换」，但业务请求（`SearchProducts` / `GetEnabledFloors` / `collections`）在 `initTenant()` 完成前就以**空 `vendure-token`** 发出 → 静默落默认渠道 → **每个租户都能看到默认渠道的全部商品**。该缺陷独立于 §5.12.7 的 URL 可达性修复，根因与修复见 **§5.14**。
@@ -691,11 +691,40 @@ const rows = await repo(GroupBuyOrder).find({ where: { orderId: In(orders.map(o 
 | `nshop-default-home.png` | `www.youshop.cn/` | 对照：默认店「优商铺」 |
 | `vshop-t1-home.png` | `e.joho.cn/?tenant=t1` | 店名「新生」，内容为 t1 渠道装修 |
 | `vshop-tenant-switcher.png` | `e.joho.cn` 首页 TenantBar 展开 | 25 项真实店铺列表，当前项「优商铺 ✓」 |
-| `vshop-unknown-tenant-fallback.png` | `e.joho.cn/?tenant=nope` | 回退「优商铺」，不白屏 |
+| `vshop-unknown-tenant-fallback.png` | `e.joho.cn/?tenant=nope` | 回退「优商铺」+ 弹「店铺不存在」模态框（v1.11，见 §5.12.8） |
 | `vshop-default-home.png` | `e.joho.cn/` | 对照：默认店「优商铺」 |
 
 > 截图采集脚本 `web-admin/scripts/_tenant_reach_shots.mjs`（Playwright，390×844 dpr=2），运行时会同时打印每个页面的 HTTP 状态、`<title>` 与 `shop-api` 实际携带的 `vendure-token`，可直接作为断言日志留档。
 > 部署：vendure（`git pull` + `pm2 restart vendure`）→ nshop（`node scripts/deploy.mjs`）→ vshop（`npm run build:h5` → tar → scp → 解压到 `…/sites/e.joho.cn/index`）。**顺序不可颠倒**：`:tenantCode?` 必须与 Vue 全局中间件同批上线，否则会出现「未知首段渲染成默认店」的窗口期。
+
+#### 5.12.8 未知租户「明示化」（v1.11，2026-09-30）
+
+> 对应 nshop 侧的「多租户渠道永久可达补全」（错误页 / 域名直达 301 / 页头店铺切换器），
+> nshop 部分见 `nshop/docs/superpowers/manual/tenant-reachability/index.html`。本节只记 vshop 侧对齐改动。
+
+**问题**：§5.12.7 的 vshop 修复中，`?tenant=<不存在>` 只是**静默**回退默认店（用户看到「优商铺」，无从知道地址里的店铺名是错的），与 nshop 侧 `/<code>` 未知时**明确 404「店铺不存在」**的行为不一致。
+
+**改法**（就动 H5，无后端改动、无数据库迁移）：
+
+| 文件 | 改动 |
+|---|---|
+| `src/stores/tenant.ts` | 新增 `tenantInvalid` ref；`initTenant()` 在 `loadTenantDetails(code)` 失败回退默认店时，把**原始请求 code** 记入 `tenantInvalid` |
+| `src/App.vue` | `initTenant()` 与 `openTenantGate()` 之间检测 `tenantInvalid`：`uni.showModal` 明示「店铺不存在 / 店铺「&lt;code&gt;」可能已更名或停用，已为你切换到平台默认店铺。」，按钮「知道了 / 选择其他店铺」；H5 下点确认先 `searchParams.delete('tenant')` 再 `reLaunch` 首页 |
+
+**验收（2026-09-30 线上 `e.joho.cn`，Playwright 390×844 dpr=2）**
+
+| 用例 | 期望 | 实测 |
+|---|---|---|
+| `e.joho.cn/?tenant=t1` | 命中「新生」，不弹框 | ✅ 不弹框（`vendure-token` = t1） |
+| `e.joho.cn/?tenant=nope` | 弹「店铺不存在」，回退默认店 | ✅ 弹框（`text=店铺不存在` 命中，modal 节点 = 1） |
+| `e.joho.cn/?tenant=no-such-shop` | 弹「店铺不存在」 | ✅ 弹框 |
+| `e.joho.cn` 首页 TenantBar 下拉 | 25 项真实店铺 | ✅ 25 |
+
+| 截图 | 场景 | 断言 |
+|---|---|---|
+| `vshop-unknown-tenant-fallback.png` | `e.joho.cn/?tenant=nope` | 默认店首页 + 居中模态框「店铺不存在 / 店铺「nope」可能已更名或停用，已为你切换到平台默认店铺。」+「知道了 / 选择其他店铺」 |
+
+> 部署：本地 `npm run build:h5` → `tar -czf vshop-h5.tgz -C dist/build/h5 .` → `scp joho:/tmp/` → 服务器备份并解压到 `.../sites/e.joho.cn/index`（静态目录即时生效，无需 reload nginx）。**本轮未改后端，`pm2` 无操作。**
 
 ---
 
