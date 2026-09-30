@@ -6,7 +6,7 @@ import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
 import { setupRouteGuard } from './composables/useAuthGuard';
 import { getActiveOrder } from './api/queries/order';
-import { setSessionToken } from './api/client';
+import { openTenantGate, setSessionToken } from './api/client';
 
 // 模板库主题令牌 → 根节点 CSS 变量（H5；小程序由 uni.scss 兜底编译色）
 function applyThemeTokens(tokens: Record<string, any>) {
@@ -40,6 +40,10 @@ onLaunch(async (options: any) => {
 
     // Initialize tenant from domain or URL (async)
     await tenantStore.initTenant();
+    // 渠道 token 已就绪，开闸放行所有被挂起的业务请求。
+    // 必须早于 restoreSession：闸门语义是「渠道 token 就绪」而非「整体初始化完成」，
+    // 否则 restoreSession 里的请求会等 tenantReady，而 tenantReady 又在其之后置位 → 死锁。
+    openTenantGate();
 
     // Restore auth token from storage (must be after initTenant sets token)
     await authStore.restoreSession();
