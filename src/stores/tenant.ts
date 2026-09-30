@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode, listShopChannels, getShopTemplate, getShopGlobalConfig } from '../api/queries/channel';
+import { withoutTenantGate } from '../api/client';
 import { parseShopContent, ShopContent } from '../templates/shared/schema';
 import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, ThemeTokens } from '../utils/merge-config';
 
@@ -80,22 +81,25 @@ export const useTenantStore = defineStore('tenant', () => {
     }
 
     async function initTenant() {
-        // 租户来源优先级（用户确认）：?tenant= > localStorage > 域名 > 默认。
-        // ⚠️ 域名解析必须排在后两位。e.joho.cn 绑定在默认渠道上，若域名优先且命中即 return，
-        // `?tenant=` 会变成死代码 —— 分店永远退回默认店（原实现的缺陷）。
-        const fromUrl = resolveTenantFromUrl();
-        const stored = fromUrl ? null : (uni.getStorageSync('tenant_code') as string) || null;
-        let code = fromUrl || stored || (await resolveTenantByDomain()) || 'default';
+        // 引导查询（解析渠道本身）必须绕过租户就绪闸门，否则与闸门互等死锁。
+        await withoutTenantGate(async () => {
+            // 租户来源优先级（用户确认）：?tenant= > localStorage > 域名 > 默认。
+            // ⚠️ 域名解析必须排在后两位。e.joho.cn 绑定在默认渠道上，若域名优先且命中即 return，
+            // `?tenant=` 会变成死代码 —— 分店永远退回默认店（原实现的缺陷）。
+            const fromUrl = resolveTenantFromUrl();
+            const stored = fromUrl ? null : (uni.getStorageSync('tenant_code') as string) || null;
+            let code = fromUrl || stored || (await resolveTenantByDomain()) || 'default';
 
-        tenantCode.value = code;
-        // 传入了不存在的 code（如 ?tenant=nope）时回退平台默认店，
-        // 避免停在占位态（店名显示 code、内容与默认店不一致）。
-        if (!(await loadTenantDetails(code))) {
-            code = 'default';
             tenantCode.value = code;
-            await loadTenantDetails(code);
-        }
-        await loadShopChannels();
+            // 传入了不存在的 code（如 ?tenant=nope）时回退平台默认店，
+            // 避免停在占位态（店名显示 code、内容与默认店不一致）。
+            if (!(await loadTenantDetails(code))) {
+                code = 'default';
+                tenantCode.value = code;
+                await loadTenantDetails(code);
+            }
+            await loadShopChannels();
+        });
     }
 
     /** 拉取可用店铺列表（失败静默：listTenants 会回退为「当前店铺」单项，UI 不空） */
@@ -195,9 +199,11 @@ export const useTenantStore = defineStore('tenant', () => {
     }
 
     async function switchTenant(code: string) {
-        tenantCode.value = code;
-        await loadTenantDetails(code);
-        return true;
+        return await withoutTenantGate(async () => {
+            tenantCode.value = code;
+            await loadTenantDetails(code);
+            return true;
+        });
     }
 
     function listTenants(): Array<{ code: string; name: string; template: string }> {
