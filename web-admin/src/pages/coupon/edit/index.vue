@@ -11,6 +11,17 @@
         </picker>
       </view>
 
+      <view class="field">
+        <text class="label">{{ $t('couponEdit.sceneLabel') }}</text>
+        <picker :range="sceneLabels" @change="onSceneChange">
+          <view class="ipt vpicker">
+            <text>{{ sceneLabel(form.usageScene) }}</text>
+            <text class="caret">▾</text>
+          </view>
+        </picker>
+        <text v-if="form.usageScene === 'IN_STORE'" class="tip">{{ $t('couponEdit.sceneInStoreTip') }}</text>
+      </view>
+
       <!-- 满减 / 直减 面额 -->
       <view class="field" v-if="form.type === 'FIXED' || form.type === 'FULL'">
         <text class="label">{{ form.type === 'FIXED' ? $t('couponEdit.discountLabel') : $t('couponEdit.fullLabel') }}</text>
@@ -112,7 +123,7 @@ import { ref, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplate, createCouponTemplate, updateCouponTemplate, createProductCouponBinding,
-  couponTypeLabel, CouponType, CouponTemplateInput,
+  couponTypeLabel, CouponType, CouponTemplateInput, CouponUsageScene,
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
@@ -125,9 +136,28 @@ const bindProductId = ref<string | null>(null);
 const typeKeys: CouponType[] = ['FIXED', 'PERCENT', 'FULL', 'FREE_SHIPPING'];
 const typeLabels = [locale.t('couponEdit.typeFullMinus'), locale.t('couponEdit.typeDiscount'), locale.t('couponEdit.typeDirect'), locale.t('couponEdit.typeFreeShip')];
 const typeLabel = (t: CouponType) => couponTypeLabel(t);
+const sceneKeys: CouponUsageScene[] = ['ONLINE', 'IN_STORE', 'ALL'];
+const sceneLabels = [locale.t('couponEdit.sceneOnline'), locale.t('couponEdit.sceneInStore'), locale.t('couponEdit.sceneAll')];
+const SCENE_LABEL: Record<CouponUsageScene, string> = {
+  ONLINE: 'couponEdit.sceneOnline',
+  IN_STORE: 'couponEdit.sceneInStore',
+  ALL: 'couponEdit.sceneAll',
+};
+const sceneLabel = (s: CouponUsageScene) => locale.t(SCENE_LABEL[s] || 'couponEdit.sceneOnline');
+
+function onSceneChange(e: any) {
+  const s = sceneKeys[e.detail.value];
+  form.value.usageScene = s;
+  // 到店买单券默认 8 折：切场景时按 8 折预填折扣（商户可改）
+  if (s === 'IN_STORE') {
+    form.value.type = 'PERCENT';
+    if (!form.value.discountYuan || Number(form.value.discountYuan) > 9) form.value.discountYuan = '8';
+  }
+}
 
 const form = ref({
   type: 'FIXED' as CouponType,
+  usageScene: 'ONLINE' as CouponUsageScene,
   discountYuan: '',
   minSpendYuan: '',
   startsAt: '',
@@ -172,6 +202,7 @@ function buildInput(): CouponTemplateInput {
     enabled: f.enabled,
     claimable: f.claimable,
     newCustomerOnly: f.newCustomerOnly,
+    usageScene: f.usageScene,
   };
   if (f.descZh.trim()) model.description = f.descZh.trim();
   if (f.descZh.trim()) model.descZh = f.descZh.trim();
@@ -230,6 +261,7 @@ onMounted(async () => {
     if (c) {
       form.value = {
         type: c.type,
+        usageScene: (c.usageScene || 'ONLINE') as CouponUsageScene,
         discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
         minSpendYuan: String((c.minSpend || 0) / 100),
         startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',

@@ -645,6 +645,11 @@
   },
   "couponEdit": {
     "typeLabel": "Coupon type *",
+    "sceneLabel": "Usage scene *",
+    "sceneOnline": "Online orders only",
+    "sceneInStore": "In-store payment only",
+    "sceneAll": "Online + in-store",
+    "sceneInStoreTip": "In-store coupon: customer shows the code, merchant redeems and collects offline at the discount (8 off by default)",
     "discountLabel": "Discount amount (CNY) *",
     "fullLabel": "Direct discount amount (CNY) *",
     "phAmount": "e.g. 20",

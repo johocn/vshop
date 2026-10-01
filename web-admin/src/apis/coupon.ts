@@ -14,6 +14,7 @@ import { getAdminClient, graphQlErrorMsg } from './client';
 
 export type CouponType = 'FIXED' | 'PERCENT' | 'FULL' | 'FREE_SHIPPING';
 export type CouponScope = 'ALL' | 'CATEGORY' | 'SKU';
+export type CouponUsageScene = 'ONLINE' | 'IN_STORE' | 'ALL';
 
 export interface CouponTemplateItem {
   id: string;
@@ -42,6 +43,7 @@ export interface CouponTemplateItem {
   newCustomerOnly: boolean;
   memberLevel?: string | null;
   shopId?: string | null;
+  usageScene: CouponUsageScene;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -70,9 +72,10 @@ export interface CouponTemplateInput {
   validDays?: number | null;
   newCustomerOnly?: boolean;
   memberLevel?: string | null;
+  usageScene?: CouponUsageScene;
 }
 
-const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId createdAt updatedAt`;
+const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene createdAt updatedAt`;
 
 const TYPE_LABEL: Record<CouponType, string> = {
   FIXED: '满减',
