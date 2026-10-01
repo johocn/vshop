@@ -84,14 +84,19 @@ export interface CollectionListItem {
   name: string;
 }
 
-export async function createProduct(name: string, slug: string, description = ''): Promise<string> {
+export async function createProduct(
+  name: string,
+  slug: string,
+  description = '',
+  lang: string = PRODUCT_LANGUAGE_CODE,
+): Promise<string> {
   const { createProduct } = await getAdminClient().request<{ createProduct: { id: string } }>(
     `mutation CreateProduct($input: CreateProductInput!) {
       createProduct(input: $input) { id }
     }`,
     {
       input: {
-        translations: [{ languageCode: PRODUCT_LANGUAGE_CODE, name, slug, description }],
+        translations: [{ languageCode: lang, name, slug, description }],
       },
     },
   );
@@ -103,6 +108,7 @@ export interface UpdateProductArgs {
   name?: string;
   slug?: string;
   description?: string;
+  languageCode?: string;
 }
 
 export async function updateProduct(id: string, args: UpdateProductArgs = {}): Promise<void> {
@@ -111,7 +117,7 @@ export async function updateProduct(id: string, args: UpdateProductArgs = {}): P
   if (args.name !== undefined) {
     input.translations = [
       {
-        languageCode: PRODUCT_LANGUAGE_CODE,
+        languageCode: args.languageCode ?? PRODUCT_LANGUAGE_CODE,
         name: args.name,
         slug: args.slug ?? '',
         description: args.description ?? '',
@@ -170,9 +176,8 @@ export interface ProductFull {
   slug: string;
   enabled: boolean;
   description?: string;
-  nameEn?: string;
-  slugEn?: string;
-  descriptionEn?: string;
+  /** 全部语言译文：languageCode → { name, slug, description }（含默认语言，由消费方挑基准） */
+  i18n: Record<string, { name: string; slug: string; description: string }>;
   featuredAsset?: { id: string; preview: string } | null;
   assets?: { id: string; preview: string }[] | null;
   videoAssetId?: string | null;
@@ -212,11 +217,10 @@ export interface ProductSaveInput {
   name: string;
   slug: string;
   description?: string;
-  // 多语言（multilingualEnabled 开启时写入 en translation）：缺失回退 zh
-  nameEn?: string;
-  slugEn?: string;
-  descriptionEn?: string;
-  sellingPointEn?: string;
+  /** 基准语言码（= 租户默认语言）；缺省 zh_Hans */
+  baseLanguageCode?: string;
+  /** 非默认语言译文；key = Vendure languageCode */
+  i18n?: Record<string, { name?: string; slug?: string; description?: string; sellingPoint?: string }>;
   enabled?: boolean;
   priceYuan: number; // 单位：元，内部换算成分
   stock: number;
@@ -285,8 +289,6 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     }`,
     { id },
   );
-  const zh = product.translations?.find((t) => t.languageCode === PRODUCT_LANGUAGE_CODE);
-  const en = product.translations?.find((t) => t.languageCode === 'en');
   const v = product.variants?.[0];
   let marketingTags: string[] = [];
   try {
@@ -316,10 +318,13 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
     name: product.name,
     slug: product.slug,
     enabled: product.enabled,
-    description: zh?.description ?? '',
-    nameEn: en?.name ?? '',
-    slugEn: en?.slug ?? '',
-    descriptionEn: en?.description ?? '',
+    description: product.translations?.[0]?.description ?? '',
+    i18n: Object.fromEntries(
+      (product.translations ?? []).map((t) => [
+        t.languageCode,
+        { name: t.name ?? '', slug: t.slug ?? '', description: t.description ?? '' },
+      ]),
+    ),
     featuredAsset: product.featuredAsset ?? null,
     assets: product.assets ?? null,
     facetValues: product.facetValues ?? null,
@@ -645,7 +650,8 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
   if (input.assetIds?.length || input.featuredAssetId) {
     await ensureAssetsInCurrentChannel(input.assetIds, input.featuredAssetId);
   }
-  const pid = await createProduct(input.name, input.slug, input.description ?? '');
+  const baseLang = input.baseLanguageCode || PRODUCT_LANGUAGE_CODE;
+  const pid = await createProduct(input.name, input.slug, input.description ?? '', baseLang);
   const featuredAssetId = input.featuredAssetId ?? (input.assetIds[0] || undefined);
   const vm = input.variantMatrix;
   const isMatrix = !!vm && !!(vm.groups || []).length && !!(vm.skus || []).length;
@@ -688,14 +694,14 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
     await updateProduct(pid, { enabled: false });
   }
   await applyBrandAndMarketing(pid, input);
-  const hasEn = input.nameEn != null && input.nameEn !== '';
-  if (hasEn) {
-    // 英文卖点仅在显式提供时写入 en customFields.sellingPoint，否则回退 zh 展示
-    await upsertProductTranslation(pid, 'en', {
-      name: input.nameEn!,
-      slug: input.slugEn,
-      description: input.descriptionEn,
-      sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
+  // 非默认语言译文：逐个语言 upsert（upsertProductTranslation 已语言无关）
+  for (const [code, t] of Object.entries(input.i18n || {})) {
+    if (!t?.name) continue;
+    await upsertProductTranslation(pid, code, {
+      name: t.name,
+      slug: t.slug,
+      description: t.description,
+      sellingPoint: t.sellingPoint,
     });
   }
   // 归属分类：保存即建立商品→分类关联，使商品出现在该分类商品列表
@@ -712,11 +718,13 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
   }
   // 三件套更新：
   // 1) 基本字段（enabled/name/slug/description）
+  const baseLang = input.baseLanguageCode || PRODUCT_LANGUAGE_CODE;
   await updateProduct(id, {
     enabled: input.enabled,
     name: input.name,
     slug: input.slug,
     description: input.description,
+    languageCode: baseLang,
   });
 
   // 2) 商品图片与翻译（单独 mutation，携带 assetIds / featuredAssetId）
@@ -728,7 +736,7 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
         id,
         translations: [
           {
-            languageCode: PRODUCT_LANGUAGE_CODE,
+            languageCode: baseLang,
             name: input.name,
             slug: input.slug,
             description: input.description ?? '',
@@ -826,13 +834,14 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     }
   }
   await applyBrandAndMarketing(id, input);
-  const hasEn = input.nameEn != null && input.nameEn !== '';
-  if (hasEn) {
-    await upsertProductTranslation(id, 'en', {
-      name: input.nameEn!,
-      slug: input.slugEn,
-      description: input.descriptionEn,
-      sellingPoint: input.sellingPointEn ? input.sellingPointEn : undefined,
+  // 非默认语言译文：逐个语言 upsert，跳过基准语言（基准已由上方基本字段写入）
+  for (const [code, t] of Object.entries(input.i18n || {})) {
+    if (!t?.name || code === baseLang) continue;
+    await upsertProductTranslation(id, code, {
+      name: t.name,
+      slug: t.slug,
+      description: t.description,
+      sellingPoint: t.sellingPoint,
     });
   }
   // 归属分类：保存即建立商品→分类关联（幂等，追加进分类 filter；分类未变/未选则跳过）
