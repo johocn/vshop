@@ -64,8 +64,11 @@
       "marketing": "Marketing",
       "distribution": "Distribution",
       "system": "System",
-      "platform": "Platform"
+      "platform": "Platform",
+      "inStore": "In-store"
     },
+    "inStoreRedeem": "Redeem",
+    "inStoreBills": "Bills",
     "workbench": "Workbench",
     "category": "Categories",
     "productCreate": "+ Add Product",
@@ -743,6 +746,25 @@
     "errType": "This coupon type is not supported in store",
     "errMinSpend": "Minimum spend not reached",
     "errAmount": "Please enter a valid amount"
+  },
+  "inStoreBills": {
+    "headTitle": "In-store bills",
+    "sumCount": "Redemptions",
+    "sumFinal": "Collected",
+    "sumDiscount": "Discount",
+    "phCode": "Filter by code",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "search": "Search",
+    "coupon": "Coupon",
+    "customer": "Customer",
+    "amount": "Amount",
+    "remark": "Remark",
+    "operator": "Operator",
+    "empty": "No bills yet",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load"
   },
   "couponIssue": {
     "secPickTemplate": "① Select coupon template",
