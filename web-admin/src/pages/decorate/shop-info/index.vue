@@ -254,6 +254,10 @@ const enabledCodes = ref<string[]>([FALLBACK_LANGUAGE_CODE]);
 const defaultLangCode = ref<string>(FALLBACK_LANGUAGE_CODE);
 const defaultLangNames = computed(() => enabledCodes.value.map((c) => languageLabel(c)));
 const defaultLangLabel = computed(() => languageLabel(defaultLangCode.value));
+// 模板统一入口别名（模板引用 langLabel），与 ProductForm 保持一致
+function langLabel(code: string): string {
+  return languageLabel(code);
+}
 
 /** 开关某语言：zh_Hans 强制保留；顺序按 LANGUAGES 声明序；默认语言被关则顺延到集合首个 */
 function onToggleLang(code: string, e: any): void {
