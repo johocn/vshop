@@ -74,6 +74,10 @@ import { useLanguageStore } from '../../../stores/languageStore';
 
 const languageStore = useLanguageStore();
 const locale = useLocaleStore();
+// 模板统一入口别名（模板引用 langLabel），与 ProductForm 保持一致
+function langLabel(code: string): string {
+  return languageLabel(code);
+}
 const cats = ref<CollectionItem[]>([]);
 const collapsed = ref<Set<string>>(new Set());
 const mapping = ref<CategoryMapping[]>([]);
