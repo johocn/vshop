@@ -1,5 +1,21 @@
 <template>
   <view class="page">
+    <!-- 多语言：开启的语言才在商品/分类/方案库出现对应语言输入项 -->
+    <view class="card">
+      <view class="img-title">{{ $t('decorateShopInfo.mlTitle') }}</view>
+      <view class="hint">{{ $t('decorateShopInfo.mlHint') }}</view>
+      <view class="lang-row" v-for="l in LANGUAGES" :key="l.code">
+        <text class="lang-name">{{ l.label }}</text>
+        <text v-if="l.code === fallbackCode" class="lang-lock">{{ $t('decorateShopInfo.mlLocked') }}</text>
+        <switch v-else :checked="enabledCodes.includes(l.code)" @change="onToggleLang(l.code, $event)" />
+      </view>
+      <view class="cell row-in">
+        <text class="lbl">{{ $t('decorateShopInfo.mlDefault') }}</text>
+        <picker mode="selector" :range="defaultLangNames" @change="onDefaultLangChange">
+          <text class="val">{{ defaultLangLabel }}</text>
+        </picker>
+      </view>
+    </view>
     <view class="card">
       <view class="cell">
         <text class="lbl">{{ $t('decorateShopInfo.shopName') }}</text>
@@ -114,12 +130,17 @@
         </view>
       </view>
       <view class="scheme-row" v-for="(s, i) in promoSchemes" :key="i">
-        <input class="inp" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderFreeShip')" />
-        <input class="inp" v-model="s.zh" :placeholder="$t('decorateShopInfo.zhPlaceholder')" />
-        <input class="inp" v-model="s.en" :placeholder="$t('decorateShopInfo.enPlaceholder')" />
+        <input class="inp code" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderFreeShip')" />
+        <input
+          class="inp"
+          v-for="c in enabledCodes"
+          :key="c"
+          v-model="s.text[c]"
+          :placeholder="langLabel(c)"
+        />
         <button class="del" @tap="promoSchemes.splice(i, 1)">{{ $t('decorateShopInfo.del') }}</button>
       </view>
-      <button class="add" @tap="promoSchemes.push({ code: '', zh: '', en: '' })">{{ $t('decorateShopInfo.addScheme') }}</button>
+      <button class="add" @tap="promoSchemes.push({ code: '', text: {} })">{{ $t('decorateShopInfo.addScheme') }}</button>
     </view>
 
     <view class="card">
@@ -138,23 +159,44 @@
         </view>
       </view>
       <view class="scheme-row" v-for="(s, i) in serviceSchemes" :key="i">
-        <input class="inp" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderGenuine')" />
-        <input class="inp" v-model="s.zh" :placeholder="$t('decorateShopInfo.zhPlaceholder')" />
-        <input class="inp" v-model="s.en" :placeholder="$t('decorateShopInfo.enPlaceholder')" />
+        <input class="inp code" v-model="s.code" :placeholder="$t('decorateShopInfo.codePlaceholderGenuine')" />
+        <input
+          class="inp"
+          v-for="c in enabledCodes"
+          :key="c"
+          v-model="s.text[c]"
+          :placeholder="langLabel(c)"
+        />
         <button class="del" @tap="serviceSchemes.splice(i, 1)">{{ $t('decorateShopInfo.del') }}</button>
       </view>
-      <button class="add" @tap="serviceSchemes.push({ code: '', zh: '', en: '' })">{{ $t('decorateShopInfo.addScheme') }}</button>
+      <button class="add" @tap="serviceSchemes.push({ code: '', text: {} })">{{ $t('decorateShopInfo.addScheme') }}</button>
     </view>
     <button class="save" :disabled="saving" @tap="save">{{ saveText }}</button>
   </view>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { fetchTenantInventoryOverview, type TenantInventoryOverview } from '../../../apis/inventory';
 import { graphQlErrorMsg } from '../../../apis/client';
-import { PROMO_TEMPLATES, SERVICE_TEMPLATES, upsertScheme, hasScheme } from '../../../constants/scheme-templates';
+import {
+  PROMO_TEMPLATES,
+  SERVICE_TEMPLATES,
+  upsertScheme,
+  hasScheme,
+  parseSchemes,
+  serializeSchemes,
+  type SchemeRow,
+  type SchemeTemplate,
+} from '../../../constants/scheme-templates';
+import {
+  LANGUAGES,
+  FALLBACK_LANGUAGE_CODE,
+  languageLabel,
+  normalizeLanguageCodes,
+} from '../../../constants/languages';
+import { useLanguageStore } from '../../../stores/languageStore';
 import { fetchAssets } from '../../../apis/asset';
 import { useLocaleStore } from '../../../stores/localeStore';
 import MediaPicker from '../../../components/MediaPicker.vue';
@@ -201,32 +243,38 @@ function onShareImageChange(ids: string[]) {
 }
 let channelId = '';
 let rawDetailConfig = '';
-const promoSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
-const serviceSchemes = ref<Array<{ code: string; zh: string; en: string }>>([]);
-const saving = ref(false);
-const saveText = ref(locale.t('decorateShopInfo.save'));
+const promoSchemes = ref<SchemeRow[]>([]);
+const serviceSchemes = ref<SchemeRow[]>([]);
 
-function loadSchemeList(raw: string | undefined): Array<{ code: string; zh: string; en: string }> {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.map((s: any) => ({
-      code: s.code ?? '',
-      zh: s.text?.zh_Hans ?? '',
-      en: s.text?.en ?? '',
-    }));
-  } catch {
-    return [];
+// ---- 多语言 ----
+const languageStore = useLanguageStore();
+const fallbackCode = FALLBACK_LANGUAGE_CODE;
+// 初始为「仅兜底语言」占位；onMounted 里由 languageStore 回填真实集合
+const enabledCodes = ref<string[]>([FALLBACK_LANGUAGE_CODE]);
+const defaultLangCode = ref<string>(FALLBACK_LANGUAGE_CODE);
+const defaultLangNames = computed(() => enabledCodes.value.map((c) => languageLabel(c)));
+const defaultLangLabel = computed(() => languageLabel(defaultLangCode.value));
+
+/** 开关某语言：zh_Hans 强制保留；顺序按 LANGUAGES 声明序；默认语言被关则顺延到集合首个 */
+function onToggleLang(code: string, e: any): void {
+  const on = !!e?.detail?.value;
+  const s = new Set(enabledCodes.value);
+  if (on) s.add(code);
+  else if (code !== FALLBACK_LANGUAGE_CODE) s.delete(code);
+  s.add(FALLBACK_LANGUAGE_CODE);
+  enabledCodes.value = normalizeLanguageCodes([...s]);
+  if (!enabledCodes.value.includes(defaultLangCode.value)) {
+    defaultLangCode.value = enabledCodes.value[0];
   }
 }
-function toSchemePayload(list: Array<{ code: string; zh: string; en: string }>): string {
-  return JSON.stringify(
-    list
-      .filter((s) => s.code.trim())
-      .map((s) => ({ code: s.code.trim(), text: { zh_Hans: s.zh.trim(), en: s.en.trim() } })),
-  );
+
+function onDefaultLangChange(e: any): void {
+  const c = enabledCodes.value[Number(e?.detail?.value)];
+  if (c) defaultLangCode.value = c;
 }
+
+const saving = ref(false);
+const saveText = ref(locale.t('decorateShopInfo.save'));
 
 function setTaxMode(s: string) {
   f.value.taxMode = s;
@@ -261,20 +309,23 @@ function setLayout(s: string) {
   f.value.layout = s;
 }
 
-function addPromoTemplate(t: { code: string; zh: string; en: string }) {
+function addPromoTemplate(t: SchemeTemplate) {
   promoSchemes.value = upsertScheme(promoSchemes.value, t);
 }
-function addServiceTemplate(t: { code: string; zh: string; en: string }) {
+function addServiceTemplate(t: SchemeTemplate) {
   serviceSchemes.value = upsertScheme(serviceSchemes.value, t);
 }
 
 onMounted(async () => {
   const ch = await fetchActiveChannel();
   channelId = ch.id;
+  await languageStore.ensureLoaded();
+  enabledCodes.value = [...languageStore.availableLanguageCodes];
+  defaultLangCode.value = languageStore.defaultLanguageCode;
   const cf = ch.customFields as any;
   rawDetailConfig = cf.detailConfig ?? '';
-  promoSchemes.value = loadSchemeList(cf.promoSchemes);
-  serviceSchemes.value = loadSchemeList(cf.serviceSchemes);
+  promoSchemes.value = parseSchemes(cf.promoSchemes);
+  serviceSchemes.value = parseSchemes(cf.serviceSchemes);
   let style = 'classic';
   let layout = 'classic';
   if (rawDetailConfig) {
@@ -317,11 +368,17 @@ async function save() {
   cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
   payload.shareImageUrl = shareImageUrl.value || null;
-  payload.promoSchemes = toSchemePayload(promoSchemes.value);
-  payload.serviceSchemes = toSchemePayload(serviceSchemes.value);
+  payload.promoSchemes = serializeSchemes(promoSchemes.value);
+  payload.serviceSchemes = serializeSchemes(serviceSchemes.value);
   try {
+    // 先写语言配置（权限最敏感，且后端会同步 Vendure 原生语言字段）；
+    // 失败要显式暴露，不做静默回退到 myUpdateChannelCustomFields——那条路径不会同步原生字段，
+    // 会得到「看着保存成功、C 端语言依旧没启用」的假成功。
+    await languageStore.save(channelId, {
+      availableLanguageCodes: enabledCodes.value,
+      defaultLanguageCode: defaultLangCode.value,
+    });
     await updateChannelCustomFields(channelId, payload);
-    // 开启物理库存时后端会幂等补建系统仓，回读一次让摘要与后端一致
     if (payload.physicalStockEnabled === true) {
       await loadInventoryOverview();
     }
@@ -375,8 +432,14 @@ function safeParse(raw: string): any {
   .chip.on { background: $wa-accent; border-color: $wa-accent; color: #fff; }
   .hint-inline { display: block; margin-top: 12rpx; font-size: 22rpx; color: $wa-muted; }
   .img-title { font-size: 28rpx; color: $wa-ink; padding: 24rpx 0 8rpx; }
-  .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center;
+  .lang-row { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 0; border-bottom: 1rpx solid $wa-rule;
+    &:last-of-type { border-bottom: none; }
+    .lang-name { font-size: 28rpx; color: $wa-ink; }
+    .lang-lock { font-size: 24rpx; color: $wa-muted; }
+  }
+  .scheme-row { display: flex; gap: 12rpx; padding: 12rpx 0; align-items: center; flex-wrap: wrap;
     .inp { flex: 1; min-width: 0; background: $wa-bg; border-radius: 8rpx; padding: 12rpx; font-size: 26rpx; }
+    .inp.code { flex: 0 0 200rpx; }
     .del { color: #e6162d; font-size: 26rpx; }
   }
   .tpl-wrap { display: flex; flex-wrap: wrap; gap: 16rpx; padding: 16rpx 0 8rpx; }
