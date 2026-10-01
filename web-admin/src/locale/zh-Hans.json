@@ -64,8 +64,11 @@
       "marketing": "营销",
       "distribution": "分销",
       "system": "系统",
-      "platform": "平台"
+      "platform": "平台",
+      "inStore": "到店买单"
     },
+    "inStoreRedeem": "买单核销",
+    "inStoreBills": "买单流水",
     "workbench": "工作台",
     "category": "分类",
     "productCreate": "＋新增商品",
@@ -743,6 +746,25 @@
     "errType": "该券类型不支持到店买单",
     "errMinSpend": "未达到该券使用门槛",
     "errAmount": "请输入有效的消费金额"
+  },
+  "inStoreBills": {
+    "headTitle": "到店买单流水",
+    "sumCount": "核销笔数",
+    "sumFinal": "实收合计",
+    "sumDiscount": "优惠合计",
+    "phCode": "按券码筛选",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "search": "查询",
+    "coupon": "优惠券",
+    "customer": "顾客",
+    "amount": "金额",
+    "remark": "备注",
+    "operator": "操作人",
+    "empty": "暂无买单流水",
+    "loadMore": "加载更多",
+    "loading": "加载中…",
+    "loadFailed": "加载失败"
   },
   "couponIssue": {
     "secPickTemplate": "① 选择券模板",

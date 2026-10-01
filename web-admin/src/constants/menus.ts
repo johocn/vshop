@@ -114,6 +114,15 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.logout', tier: 3, action: 'logout' },
     ],
   },
+  {
+    domain: 'menu.domain.inStore',
+    color: D.d5.main,
+    grad: D.d5.grad,
+    items: [
+      { label: 'menu.inStoreRedeem', url: '/pages/in-store/redeem/index', tier: 1 },
+      { label: 'menu.inStoreBills', url: '/pages/in-store/bills/index', tier: 2 },
+    ],
+  },
 ];
 
 // 平台管理组：按权限渲染（仅持有对应权限者可见）
