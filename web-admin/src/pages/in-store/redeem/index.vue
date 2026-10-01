@@ -63,7 +63,7 @@
         </view>
         <view class="calc-row total">
           <text class="k">{{ $t('inStoreRedeem.final') }}</text>
-          <text class="v">{{ fenToYuan(quote.finalAmount) }}</text>
+          <text class="v">¥{{ fenToYuan(quote.finalAmount) }}</text>
         </view>
       </view>
       <view class="field">
