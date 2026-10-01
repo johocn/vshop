@@ -12,10 +12,14 @@
 
     <!-- 基本信息 -->
     <template v-if="activeTab === '基本信息'">
-      <!-- 多语言 Tab：multilingualEnabled 开启时展示，中/英分别编辑名称、Slug、描述、卖点 -->
-      <view v-if="multilingual" class="langbar">
-        <text :class="['lg', { on: lang === 'zh' }]" @tap="lang = 'zh'">{{ locale.t('productForm.langZh') }}</text>
-        <text :class="['lg', { on: lang === 'en' }]" @tap="lang = 'en'">{{ locale.t('productForm.langEn') }}</text>
+      <!-- 多语言页签：已开启语言 > 1 才渲染；仅 1 种语言时整条不渲染，只输默认语言 -->
+      <view v-if="isMulti" class="langbar">
+        <text
+          v-for="c in langCodes"
+          :key="c"
+          :class="['lg', { on: lang === c }]"
+          @tap="lang = c"
+        >{{ langLabel(c) }}</text>
       </view>
       <view class="card">
         <view class="cell">
@@ -144,17 +148,24 @@ import type { ProductFull } from '../apis/product';
 import { fetchShippingProfiles, type ShippingProfileItem } from '../apis/shipping-profile';
 import { fetchPaymentProfiles, type PaymentProfileItem } from '../apis/payment-profile';
 import { fetchCollectionsOptimized, type CollectionItem } from '../apis/collection';
-import { fetchActiveChannel } from '../apis/channel';
 import { getAdminClient } from '../apis/client';
+import { useLanguageStore } from '../stores/languageStore';
+import { FALLBACK_LANGUAGE_CODE, languageLabel } from '../constants/languages';
+
+interface I18nText {
+  name?: string;
+  slug?: string;
+  description?: string;
+}
 
 interface ProductDraft {
   name: string;
   slug: string;
   description: string;
-  // 多语言英文槽位（multilingualEnabled 开启时使用，缺失回退 zh）
-  nameEn?: string;
-  slugEn?: string;
-  descriptionEn?: string;
+  /** 非默认语言译文：languageCode → { name, slug, description }（默认语言占用上方基准槽位） */
+  i18n: Record<string, I18nText>;
+  /** 基准语言码（= 租户默认语言），随保存提交，决定写入哪条 translation */
+  baseLanguageCode: string;
   priceYuan: number;
   listPriceYuan: number;
   costYuan: number;
@@ -190,9 +201,7 @@ const props = defineProps<{
     name?: string;
     slug?: string;
     description?: string;
-    nameEn?: string;
-    slugEn?: string;
-    descriptionEn?: string;
+    i18n?: Record<string, I18nText>;
     priceYuan?: number;
     listPriceYuan?: number;
     costYuan?: number;
@@ -213,9 +222,8 @@ const d = reactive<ProductDraft>({
   name: props.initial?.name || '',
   slug: props.initial?.slug || '',
   description: props.initial?.description || '',
-  nameEn: props.initial?.nameEn || '',
-  slugEn: props.initial?.slugEn || '',
-  descriptionEn: props.initial?.descriptionEn || '',
+  i18n: props.initial?.i18n ? JSON.parse(JSON.stringify(props.initial.i18n)) : {},
+  baseLanguageCode: 'zh_Hans',
   priceYuan: props.initial?.priceYuan ?? 0,
   listPriceYuan: props.initial?.listPriceYuan ?? baseYuanFromVariants((cf: any) => cf?.listPrice),
   costYuan: props.initial?.costYuan ?? baseYuanFromVariants((cf: any) => cf?.costPrice),
@@ -288,22 +296,55 @@ const spName = computed(() => spList.value.find((i) => i.id === d.shippingProfil
 const ppName = computed(() => ppList.value.find((i) => i.id === d.paymentProfileId)?.name || locale.t('productForm.choose'));
 const catName = computed(() => catList.value.find((i) => i.id === d.collectionId)?.name || locale.t('productForm.choose'));
 
-// ---- 多语言（multilingualEnabled 开启时启用）----
-const multilingual = ref(false);
-const lang = ref<'zh' | 'en'>('zh');
-// 按当前语言绑定基础输入（中文->d.*，英文->d.*En）
+// ---- 多语言：基准槽位 = 默认语言；其余已开启语言走 d.i18n ----
+const languageStore = useLanguageStore();
+const langCodes = computed(() => languageStore.availableLanguageCodes);
+const defaultCode = computed(() => languageStore.defaultLanguageCode);
+const isMulti = computed(() => langCodes.value.length > 1);
+// 当前编辑语种（默认语言），仅多语言时可由页签切换
+const lang = ref<string>(FALLBACK_LANGUAGE_CODE);
+
+function langLabel(code: string): string {
+  return languageLabel(code);
+}
+function isBase(code: string): boolean {
+  return code === defaultCode.value;
+}
+function setI18nField(code: string, key: keyof I18nText, v: string): void {
+  if (!d.i18n[code]) d.i18n[code] = {};
+  d.i18n[code][key] = v;
+}
+function getI18nField(code: string, key: keyof I18nText): string {
+  return d.i18n[code]?.[key] ?? '';
+}
+
+// 按当前语种绑定基础输入（默认语言 → d.*，其余 → d.i18n[lang]）
 const curName = computed({
-  get: () => (lang.value === 'zh' ? d.name : d.nameEn || ''),
-  set: (v: string) => (lang.value === 'zh' ? (d.name = v) : (d.nameEn = v)),
+  get: () => (isBase(lang.value) ? d.name : getI18nField(lang.value, 'name')),
+  set: (v: string) => (isBase(lang.value) ? (d.name = v) : setI18nField(lang.value, 'name', v)),
 });
 const curSlug = computed({
-  get: () => (lang.value === 'zh' ? d.slug : d.slugEn || ''),
-  set: (v: string) => (lang.value === 'zh' ? (d.slug = v) : (d.slugEn = v)),
+  get: () => (isBase(lang.value) ? d.slug : getI18nField(lang.value, 'slug')),
+  set: (v: string) => (isBase(lang.value) ? (d.slug = v) : setI18nField(lang.value, 'slug', v)),
 });
 const curDesc = computed({
-  get: () => (lang.value === 'zh' ? d.description : d.descriptionEn || ''),
-  set: (v: string) => (lang.value === 'zh' ? (d.description = v) : (d.descriptionEn = v)),
+  get: () => (isBase(lang.value) ? d.description : getI18nField(lang.value, 'description')),
+  set: (v: string) =>
+    isBase(lang.value) ? (d.description = v) : setI18nField(lang.value, 'description', v),
 });
+
+/** 语言加载完成后：把默认语言的译文搬进基准槽位，并从 d.i18n 摘除 */
+function syncBaseFromI18n(): void {
+  const def = defaultCode.value;
+  d.baseLanguageCode = def;
+  lang.value = def;
+  const base = d.i18n[def];
+  if (!base) return;
+  d.name = base.name ?? '';
+  d.slug = base.slug ?? '';
+  d.description = base.description ?? '';
+  delete d.i18n[def];
+}
 
 function onSpChange(e: any) {
   const it = spList.value[Number(e.detail.value)];
@@ -369,12 +410,15 @@ function submit() {
   d.priceYuan = Number(d.priceYuan);
   d.stock = Number(d.stock);
   const out: ProductDraft = JSON.parse(JSON.stringify(d));
-  // 多语言开启时携带英文槽位，随 translations[].en 一次写入（缺失回退 zh 展示）
-  if (multilingual.value) {
-    out.nameEn = d.nameEn || '';
-    out.slugEn = d.slugEn || '';
-    out.descriptionEn = d.descriptionEn || '';
+  // 仅保留非默认语言、且至少填了一项的译文
+  const i18nOut: Record<string, I18nText> = {};
+  for (const [code, t] of Object.entries(out.i18n || {})) {
+    if (code === defaultCode.value) continue;
+    const has = (t.name ?? '').trim() || (t.slug ?? '').trim() || (t.description ?? '').trim();
+    if (has) i18nOut[code] = t;
   }
+  out.i18n = i18nOut;
+  out.baseLanguageCode = defaultCode.value;
   // 汇入品牌/营销到最终 ProductSaveInput（apis 内 applyBrandAndMarketing 落库）
   out.brandFacetValueId = brandMarketing.value.brandFacetValueId || null;
   out.marketingTags = brandMarketing.value.tags;
@@ -414,10 +458,9 @@ function submit() {
 }
 
 onMounted(async () => {
-  // 拉取当前渠道：multilingualEnabled 决定是否显示多语言 Tab
-  fetchActiveChannel()
-    .then((c) => (multilingual.value = !!c.customFields?.multilingualEnabled))
-    .catch(() => {});
+  // 语言配置决定页签数量；加载后把默认语言译文搬进基准槽位
+  await languageStore.ensureLoaded();
+  syncBaseFromI18n();
   const [sp, pp, cat] = await Promise.all([
     fetchShippingProfiles().catch(() => []),
     fetchPaymentProfiles().catch(() => []),
