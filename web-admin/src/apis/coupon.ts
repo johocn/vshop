@@ -121,7 +121,7 @@ export async function fetchCouponTemplate(id: string): Promise<CouponTemplateIte
 export async function createCouponTemplate(input: CouponTemplateInput): Promise<string> {
   try {
     const { createCouponTemplate } = await getAdminClient().request<{ createCouponTemplate: { id: string } }>(
-      `mutation CreateCouponTemplate($input: JSON!) { createCouponTemplate(input: $input) { id } }`,
+      `mutation CreateCouponTemplate($input: CreateCouponTemplateInput!) { createCouponTemplate(input: $input) { id } }`,
       { input },
     );
     return createCouponTemplate.id;
@@ -133,7 +133,7 @@ export async function createCouponTemplate(input: CouponTemplateInput): Promise<
 export async function updateCouponTemplate(input: CouponTemplateInput & { id: string }): Promise<string> {
   try {
     const { updateCouponTemplate } = await getAdminClient().request<{ updateCouponTemplate: { id: string } }>(
-      `mutation UpdateCouponTemplate($input: JSON!) { updateCouponTemplate(input: $input) { id } }`,
+      `mutation UpdateCouponTemplate($input: UpdateCouponTemplateInput!) { updateCouponTemplate(input: $input) { id } }`,
       { input },
     );
     return updateCouponTemplate.id;
