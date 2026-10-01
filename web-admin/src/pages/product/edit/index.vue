@@ -225,10 +225,8 @@ onMounted(async () => {
     name: data.name,
     slug: data.slug,
     description: data.description,
-    // 多语言英文回填（multilingualEnabled 开启时表单展示，缺失回退 zh）
-    nameEn: data.nameEn,
-    slugEn: data.slugEn,
-    descriptionEn: data.descriptionEn,
+    // 多语言译文回填：ProductForm 会挑出默认语言那条作为基准槽位
+    i18n: data.i18n,
     priceYuan: data.variant ? (data.variant.priceWithTax ?? data.variant.price) / 100 : 0,
     stock: data.variant?.stockOnHand ?? 0,
     enabled: data.enabled,
