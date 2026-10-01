@@ -974,7 +974,11 @@
     "mapEmpty": "Platform categories are empty, cannot select",
     "cancelOpt": "(Cancel)",
     "mappedTo": "Mapped to \"{name}\"",
-    "saveMapFailed": "Failed to save mapping"
+    "saveMapFailed": "Failed to save mapping",
+    "nameRequired": "Required",
+    "nameOptional": "Optional",
+    "cancel": "Cancel",
+    "confirm": "OK"
   },
   "category": {
     "topLevel": "Top level",
@@ -2052,6 +2056,10 @@
     "tplNone": "No template",
     "tplNoneEn": "global default",
     "tplEmpty": "No enabled templates yet. Create one under \"Platform → Style Template Library\" first.",
+    "mlTitle": "Languages",
+    "mlHint": "Only enabled languages show up as inputs in products, categories and scheme libraries. Simplified Chinese is the fallback language and cannot be disabled.",
+    "mlDefault": "Default language",
+    "mlLocked": "Locked",
     "promoSchemesTitle": "Promotion scheme library (channel default; products can override)",
     "codePlaceholderFreeShip": "code, e.g. freeShip99",
     "zhPlaceholder": "Chinese text",

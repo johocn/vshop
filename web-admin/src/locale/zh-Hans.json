@@ -974,7 +974,11 @@
     "mapEmpty": "平台分类为空，无法选择",
     "cancelOpt": "（取消）",
     "mappedTo": "已映射到「{name}」",
-    "saveMapFailed": "保存映射失败"
+    "saveMapFailed": "保存映射失败",
+    "nameRequired": "必填",
+    "nameOptional": "选填",
+    "cancel": "取消",
+    "confirm": "确定"
   },
   "category": {
     "topLevel": "顶层分类",
@@ -2052,6 +2056,10 @@
     "tplNone": "不使用模板",
     "tplNoneEn": "global default",
     "tplEmpty": "暂无启用中的模板，可先到「平台 → 风格模板库」新建。",
+    "mlTitle": "多语言",
+    "mlHint": "开启的语言才会在商品、分类、方案库出现对应语言的输入项。简体中文为兜底语言不可关闭；保存后请到对应页面补录译文。",
+    "mlDefault": "默认语言",
+    "mlLocked": "锁定",
     "promoSchemesTitle": "促销方案库（频道默认；商品可覆盖）",
     "codePlaceholderFreeShip": "code，如 freeShip99",
     "zhPlaceholder": "中文文案",
