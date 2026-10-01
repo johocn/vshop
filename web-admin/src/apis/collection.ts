@@ -107,13 +107,32 @@ export function buildCollectionTree(
   return out;
 }
 
-interface CollectionInput {
-  name: string;
-  slug?: string;
-  productIds?: string[];
+/** 分类多语言名称输入：已开启语言每个一行，未填回退默认语言文案 */
+export interface MultiLangNames {
+  defaultLanguageCode: string;
+  availableLanguageCodes: string[];
+  /** languageCode → 名称（可缺） */
+  names: Record<string, string>;
 }
 
-const LAN = 'zh_Hans';
+function buildNameTranslations(
+  input: MultiLangNames,
+): Array<{ languageCode: string; name: string; slug: string; description: string }> {
+  const base = (input.names[input.defaultLanguageCode] ?? '').trim();
+  const codes = input.availableLanguageCodes?.length
+    ? input.availableLanguageCodes
+    : [input.defaultLanguageCode];
+  const seen = new Set<string>();
+  const out: Array<{ languageCode: string; name: string; slug: string; description: string }> = [];
+  for (const code of [...codes, input.defaultLanguageCode]) {
+    if (seen.has(code)) continue;
+    seen.add(code);
+    const n = (input.names[code] ?? '').trim() || base;
+    if (!n) continue;
+    out.push({ languageCode: code, name: n, slug: n, description: n });
+  }
+  return out;
+}
 
 // calibrated against Vendure default-collection-filters.ts:
 //  code = 'product-id-filter', arg name = 'productIds' (ID list)
@@ -131,13 +150,13 @@ export async function moveCollection(id: string, parentId: string | null, index:
   );
 }
 
-// 纯重命名：只更新 translations，不触碰 filters，避免清空分类下已挂载商品
-export async function renameCollection(id: string, name: string): Promise<void> {
+// 纯重命名：更新全部已开启语言的 translations，不触碰 filters，避免清空分类下已挂载商品
+export async function renameCollection(id: string, names: MultiLangNames): Promise<void> {
   await getAdminClient().request(
     `mutation UpdateCollectionName($input: UpdateCollectionInput!) {
       updateCollection(input: $input) { id }
     }`,
-    { input: { id, translations: [{ languageCode: LAN, name, slug: name, description: name }] } },
+    { input: { id, translations: buildNameTranslations(names) } },
   );
 }
 
@@ -154,7 +173,10 @@ export async function mapProductToCollection(productId: string, collectionId: st
 
 // 租户分类隔离创建：createTenantCollection（backend cjk-plugin adminApiExtensions 提供），
 // 创建租户分类并从默认渠道摘除（隔离）。走平台的 product-id-filter 过滤器，含无商品时空 filters。
-export async function createTenantCollection(input: CollectionInput): Promise<string> {
+export async function createTenantCollection(input: {
+  names: MultiLangNames;
+  productIds?: string[];
+}): Promise<string> {
   const { createTenantCollection } = await getAdminClient().request<{ createTenantCollection: { id: string } }>(
     `mutation CreateTenantCollection($input: CreateCollectionInput!) {
       createTenantCollection(input: $input) { id }
@@ -162,7 +184,7 @@ export async function createTenantCollection(input: CollectionInput): Promise<st
     {
       input: {
         isPrivate: false,
-        translations: [{ languageCode: LAN, name: input.name, slug: input.slug || input.name, description: input.name }],
+        translations: buildNameTranslations(input.names),
         filters: await buildFilters(input.productIds || []),
       },
     },

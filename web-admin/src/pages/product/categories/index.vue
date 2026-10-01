@@ -36,6 +36,25 @@
       :value="iconModalPreselect"
       @confirm="onIconConfirm"
     />
+    <!-- 多语言命名弹窗：仅 1 种已开启语言时不走此弹窗（沿用 uni.showModal 单输入） -->
+    <view v-if="nameDlg.visible" class="dlg-mask" @tap="cancelNameDlg">
+      <view class="dlg" @tap.stop>
+        <text class="dlg-title">{{ nameDlg.title }}</text>
+        <view class="dlg-row" v-for="c in nameDlg.codes" :key="c">
+          <text class="dlg-lbl">{{ langLabel(c) }}</text>
+          <input
+            class="dlg-inp"
+            :value="nameDlg.names[c]"
+            :placeholder="c === nameDlg.base ? $t('productCategories.nameRequired') : $t('productCategories.nameOptional')"
+            @input="nameDlg.names[c] = $event.detail.value"
+          />
+        </view>
+        <view class="dlg-ops">
+          <text class="dlg-btn" @tap="cancelNameDlg">{{ $t('productCategories.cancel') }}</text>
+          <text class="dlg-btn primary" @tap="confirmNameDlg">{{ $t('productCategories.confirm') }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -45,12 +64,15 @@ import {
   saveCategoryMapping, fetchPlatformCollections, buildCollectionTree,
   buildCollectionTreeNodes, flattenCollectionTree,
   setCollectionIcon, pickDeletableCollections,
-  type CategoryMapping, type CollectionItem, type CollectionTreeNode,
+  type CategoryMapping, type CollectionItem, type CollectionTreeNode, type MultiLangNames,
 } from '../../../apis/collection';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchAssets, type AssetItem } from '../../../apis/asset';
 import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
+import { languageLabel, FALLBACK_LANGUAGE_CODE } from '../../../constants/languages';
+import { useLanguageStore } from '../../../stores/languageStore';
 
+const languageStore = useLanguageStore();
 const locale = useLocaleStore();
 const cats = ref<CollectionItem[]>([]);
 const collapsed = ref<Set<string>>(new Set());
@@ -170,7 +192,11 @@ async function prefetchIconUrls() {
     iconUrlById.value = {};
   }
 }
-onMounted(() => { reload(); ensurePlatformTree(); });
+onMounted(async () => {
+  await languageStore.ensureLoaded();
+  reload();
+  ensurePlatformTree();
+});
 
 // 平台（默认租户）分类下拉：懒加载一次
 async function ensurePlatformTree() {
@@ -184,15 +210,69 @@ async function ensurePlatformTree() {
   }
 }
 
-function promptName(title: string): Promise<string> {
+type NameDlgState = { visible: boolean; title: string; codes: string[]; base: string; names: Record<string, string> };
+const nameDlg = ref<NameDlgState>({ visible: false, title: '', codes: [], base: FALLBACK_LANGUAGE_CODE, names: {} });
+let nameDlgResolve: ((v: MultiLangNames | null) => void) | null = null;
+
+/** 命名输入：仅 1 种已开启语言 → 沿用单输入弹窗；多语言 → 多语言弹窗 */
+function promptNames(title: string): Promise<MultiLangNames | null> {
+  const store = useLanguageStore();
+  const codes = store.availableLanguageCodes.length
+    ? store.availableLanguageCodes
+    : [store.defaultLanguageCode];
+  const base = store.defaultLanguageCode;
+  if (codes.length <= 1) {
+    return new Promise((resolve) => {
+      uni.showModal({
+        title,
+        editable: true,
+        success: (r) => {
+          const v = (r.content || '').trim();
+          resolve(
+            r.confirm && v
+              ? { defaultLanguageCode: base, availableLanguageCodes: codes, names: { [base]: v } }
+              : null,
+          );
+        },
+      });
+    });
+  }
+  nameDlg.value = {
+    visible: true,
+    title,
+    codes,
+    base,
+    names: Object.fromEntries(codes.map((c) => [c, ''])),
+  };
   return new Promise((resolve) => {
-    uni.showModal({ title, editable: true, success: (r) => resolve(r.confirm ? (r.content || '') : '') });
+    nameDlgResolve = resolve;
   });
 }
+
+function cancelNameDlg(): void {
+  nameDlg.value = { ...nameDlg.value, visible: false };
+  const r = nameDlgResolve;
+  nameDlgResolve = null;
+  r?.(null);
+}
+
+function confirmNameDlg(): void {
+  const { codes, base, names } = nameDlg.value;
+  const baseName = (names[base] ?? '').trim();
+  if (!baseName) {
+    uni.showToast({ title: locale.t('productCategories.nameRequired'), icon: 'none' });
+    return;
+  }
+  nameDlg.value = { ...nameDlg.value, visible: false };
+  const r = nameDlgResolve;
+  nameDlgResolve = null;
+  r?.({ defaultLanguageCode: base, availableLanguageCodes: codes, names });
+}
+
 async function onAdd() {
-  const name = await promptName(locale.t('productCategories.newNameTitle'));
-  if (!name) return;
-  try { await createTenantCollection({ name }); await reload(); }
+  const names = await promptNames(locale.t('productCategories.newNameTitle'));
+  if (!names) return;
+  try { await createTenantCollection({ names }); await reload(); }
   catch (e: any) { uni.showToast({ title: e?.message || locale.t('productCategories.createFailed'), icon: 'none' }); }
 }
 
@@ -231,9 +311,9 @@ function onMap(c: any) {
   });
 }
 async function onEdit(c: any) {
-  const name = await promptName(locale.t('productCategories.renameTitle'));
-  if (!name) return;
-  try { await renameCollection(c.id, name); await reload(); }
+  const names = await promptNames(locale.t('productCategories.renameTitle'));
+  if (!names) return;
+  try { await renameCollection(c.id, names); await reload(); }
   catch (e: any) { uni.showToast({ title: e?.message || locale.t('productCategories.failed'), icon: 'none' }); }
 }
 function onDel(c: any) {
@@ -347,6 +427,18 @@ async function bulkDelete() {
     background: $wa-card; padding: 24rpx 32rpx; box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
     .muted { font-size: 26rpx; color: $wa-muted; }
     .act { font-size: 28rpx; color: $wa-accent; }
+  }
+  .dlg-mask { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .dlg { width: 620rpx; background: $wa-card; border-radius: $wa-radius; padding: 32rpx;
+    .dlg-title { display: block; font-size: 30rpx; color: $wa-ink; font-weight: 600; margin-bottom: 16rpx; }
+    .dlg-row { display: flex; align-items: center; padding: 12rpx 0;
+      .dlg-lbl { width: 180rpx; font-size: 26rpx; color: $wa-muted; flex-shrink: 0; }
+      .dlg-inp { flex: 1; background: $wa-bg; border-radius: 8rpx; padding: 14rpx; font-size: 27rpx; }
+    }
+    .dlg-ops { display: flex; justify-content: flex-end; gap: 32rpx; margin-top: 24rpx;
+      .dlg-btn { font-size: 28rpx; color: $wa-muted; }
+      .dlg-btn.primary { color: $wa-accent; font-weight: 600; }
+    }
   }
 }
 </style>
