@@ -60,6 +60,8 @@
     { "path": "pages/coupon/index", "style": { "navigationBarTitleText": "优惠券发行" } },
     { "path": "pages/coupon/edit/index", "style": { "navigationBarTitleText": "优惠券" } },
     { "path": "pages/coupon/issue/index", "style": { "navigationBarTitleText": "定向发券" } },
+    { "path": "pages/in-store/redeem/index", "style": { "navigationBarTitleText": "到店买单核销" } },
+    { "path": "pages/in-store/bills/index", "style": { "navigationBarTitleText": "买单流水" } },
     { "path": "pages/pos/index", "style": { "navigationBarTitleText": "门店收银" } },
     { "path": "pages/platform/tenants/index", "style": { "navigationBarTitleText": "租户列表" } },
     { "path": "pages/platform/tenants/detail", "style": { "navigationBarTitleText": "租户详情" } },
