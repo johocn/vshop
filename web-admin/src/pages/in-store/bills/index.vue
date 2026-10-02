@@ -56,7 +56,7 @@
       </view>
     </view>
 
-    <view v-if="!items.length && !loading" class="empty">{{ $t('inStoreBills.empty') }}</view>
+    <view v-if="!items.length && !loading" class="empty">{{ restricted ? $t('inStoreBills.emptyRestricted') : $t('inStoreBills.empty') }}</view>
     <view v-if="hasMore" class="more" @tap="loadMore">{{ loading ? $t('inStoreBills.loading') : $t('inStoreBills.loadMore') }}</view>
 
     <view style="height: 60rpx" />
@@ -71,8 +71,12 @@ import {
   InStoreBillRow, InStoreBillSummary,
 } from '../../../apis/in-store-bill';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useAuthStore } from '../../../stores/authStore';
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
+/** 受限核销员（持有 VerifyOrder 且非超管）：只看到自己经手的流水 */
+const restricted = computed(() => !auth.isSuperAdmin && auth.permissions.includes('VerifyOrder'));
 const PAGE_SIZE = 20;
 
 const items = ref<InStoreBillRow[]>([]);
