@@ -44,6 +44,10 @@ export interface CouponTemplateItem {
   memberLevel?: string | null;
   shopId?: string | null;
   usageScene: CouponUsageScene;
+  /** 分发渠道（逗号分隔：CENTRE,SALE,POINTS,CODE,PRODUCT,GRANT）；null=未显式配置（按老字段推导） */
+  distributionChannels?: string | null;
+  /** 出售价（分）；0=不可售 */
+  salePrice: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -73,9 +77,13 @@ export interface CouponTemplateInput {
   newCustomerOnly?: boolean;
   memberLevel?: string | null;
   usageScene?: CouponUsageScene;
+  /** 分发渠道（逗号分隔）；不传=不改/不配置 */
+  distributionChannels?: string;
+  /** 出售价（分）；0=不可售 */
+  salePrice?: number;
 }
 
-const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene createdAt updatedAt`;
+const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene distributionChannels salePrice createdAt updatedAt`;
 
 const TYPE_LABEL: Record<CouponType, string> = {
   FIXED: '满减',
@@ -349,6 +357,7 @@ export const COUPON_ISSUED_BY_LABELS: Record<string, string> = {
   CENTRE: '领取',
   ADMIN: '定向发放',
   EXCHANGE: '兑换',
+  SALE: '购买',
 };
 
 /** 某券模板的领取明细（分页；status 为空取全部） */
@@ -382,5 +391,247 @@ export async function fetchCustomerCoupons(
     return { items: customerCoupons?.items ?? [], totalItems: customerCoupons?.totalItems ?? 0 };
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '查询券明细失败'));
+  }
+}
+
+/* ------------------------- 分发渠道 / 出售价（coupon-plugin 计划1/2） ------------------------- */
+
+/** 渠道代号顺序与后端 ALL_COUPON_CHANNELS 一致 */
+export const COUPON_CHANNEL_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
+  { code: 'CENTRE', label: '领券中心' },
+  { code: 'SALE', label: '券商城' },
+  { code: 'POINTS', label: '积分商城' },
+  { code: 'CODE', label: '兑换码' },
+  { code: 'PRODUCT', label: '商品页领券' },
+  { code: 'GRANT', label: '定向发放' },
+];
+
+/** 逗号分隔渠道串 → 代号数组（去空白/未知值） */
+export function parseChannels(raw?: string | null): string[] {
+  if (!raw) return [];
+  const valid = COUPON_CHANNEL_OPTIONS.map((c) => c.code);
+  const out: string[] = [];
+  for (const p of String(raw).split(',')) {
+    const code = p.trim().toUpperCase();
+    if (valid.includes(code) && !out.includes(code)) out.push(code);
+  }
+  return out;
+}
+
+/** 代号数组 → 逗号分隔串（按固定顺序归一） */
+export function joinChannels(codes: string[]): string {
+  const set = new Set(codes);
+  return COUPON_CHANNEL_OPTIONS.filter((c) => set.has(c.code))
+    .map((c) => c.code)
+    .join(',');
+}
+
+/* ------------------------- 券包（CouponBundle） ------------------------- */
+
+export interface CouponBundleItemRow {
+  id: string;
+  bundleId: string;
+  templateId: string;
+  quantity: number;
+}
+
+export interface CouponBundleRow {
+  id: string;
+  name: string;
+  description?: string | null;
+  salePrice: number;
+  enabled: boolean;
+  shopId?: string | null;
+  channelId: string;
+  items: CouponBundleItemRow[];
+}
+
+export interface CouponBundleInput {
+  name: string;
+  description?: string;
+  salePrice: number;
+  enabled?: boolean;
+  items: Array<{ templateId: string; quantity: number }>;
+}
+
+const BUNDLE_FIELDS = `id name description salePrice enabled shopId channelId items { id bundleId templateId quantity }`;
+
+export async function fetchCouponBundles(
+  options: { skip: number; take: number },
+): Promise<{ items: CouponBundleRow[]; totalItems: number }> {
+  try {
+    const { couponBundles } = await getAdminClient().request<{
+      couponBundles: { items: CouponBundleRow[]; totalItems: number };
+    }>(
+      `query CouponBundles($options: CouponBundleListOptions) {
+        couponBundles(options: $options) { items { ${BUNDLE_FIELDS} } totalItems }
+      }`,
+      { options },
+    );
+    return { items: couponBundles?.items ?? [], totalItems: couponBundles?.totalItems ?? 0 };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载券包失败'));
+  }
+}
+
+export async function fetchCouponBundle(id: string): Promise<CouponBundleRow | null> {
+  try {
+    const { couponBundle } = await getAdminClient().request<{ couponBundle: CouponBundleRow | null }>(
+      `query CouponBundle($id: ID!) { couponBundle(id: $id) { ${BUNDLE_FIELDS} } }`,
+      { id },
+    );
+    return couponBundle ?? null;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载券包失败'));
+  }
+}
+
+export async function createCouponBundle(input: CouponBundleInput): Promise<string> {
+  try {
+    const { createCouponBundle } = await getAdminClient().request<{ createCouponBundle: { id: string } }>(
+      `mutation CreateCouponBundle($input: CouponBundleInput!) { createCouponBundle(input: $input) { id } }`,
+      { input },
+    );
+    return createCouponBundle.id;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '创建券包失败'));
+  }
+}
+
+export async function updateCouponBundle(id: string, input: CouponBundleInput): Promise<string> {
+  try {
+    const { updateCouponBundle } = await getAdminClient().request<{ updateCouponBundle: { id: string } }>(
+      `mutation UpdateCouponBundle($id: ID!, $input: CouponBundleInput!) { updateCouponBundle(id: $id, input: $input) { id } }`,
+      { id, input },
+    );
+    return updateCouponBundle.id;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '保存券包失败'));
+  }
+}
+
+export async function deleteCouponBundle(id: string): Promise<boolean> {
+  try {
+    const { deleteCouponBundle } = await getAdminClient().request<{ deleteCouponBundle: boolean }>(
+      `mutation DeleteCouponBundle($id: ID!) { deleteCouponBundle(id: $id) }`,
+      { id },
+    );
+    return !!deleteCouponBundle;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '删除券包失败'));
+  }
+}
+
+/* ------------------------- 出售单流水（CouponSaleOrder） ------------------------- */
+
+export interface CouponSaleOrderRow {
+  id: string;
+  customerId: string;
+  payMode: string;
+  templateId?: string | null;
+  bundleId?: string | null;
+  orderId?: string | null;
+  amount: number;
+  status: string;
+  paymentMethod?: string | null;
+  externalRef?: string | null;
+  paidAt?: string | null;
+  refundedAt?: string | null;
+  createdAt: string;
+}
+
+export const SALE_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待支付',
+  PAID: '已支付',
+  CANCELLED: '已取消',
+  REFUNDED: '已退款',
+};
+
+export const SALE_PAY_MODE_LABELS: Record<string, string> = {
+  WECHAT: '微信支付',
+  BALANCE: '余额支付',
+  ORDER_SURCHARGE: '加价购',
+};
+
+const SALE_ORDER_FIELDS = `id customerId payMode templateId bundleId orderId amount status paymentMethod externalRef paidAt refundedAt createdAt`;
+
+export async function fetchCouponSaleOrders(options: {
+  skip: number;
+  take: number;
+  status?: string;
+}): Promise<{ items: CouponSaleOrderRow[]; totalItems: number }> {
+  try {
+    const { couponSaleOrders } = await getAdminClient().request<{
+      couponSaleOrders: { items: CouponSaleOrderRow[]; totalItems: number };
+    }>(
+      `query CouponSaleOrders($options: CouponSaleOrderListOptions) {
+        couponSaleOrders(options: $options) { items { ${SALE_ORDER_FIELDS} } totalItems }
+      }`,
+      { options: { skip: options.skip, take: options.take, status: options.status || undefined } },
+    );
+    return { items: couponSaleOrders?.items ?? [], totalItems: couponSaleOrders?.totalItems ?? 0 };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载出售单失败'));
+  }
+}
+
+export async function refundCouponSaleOrder(id: string, reason?: string): Promise<CouponSaleOrderRow> {
+  try {
+    const { refundCouponSaleOrder } = await getAdminClient().request<{ refundCouponSaleOrder: CouponSaleOrderRow }>(
+      `mutation RefundCouponSaleOrder($id: ID!, $reason: String) {
+        refundCouponSaleOrder(id: $id, reason: $reason) { ${SALE_ORDER_FIELDS} }
+      }`,
+      { id, reason: reason || undefined },
+    );
+    return refundCouponSaleOrder;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '退款失败'));
+  }
+}
+
+/* ------------------------- 批量绑品（绑定商品到券模板） ------------------------- */
+
+export interface CouponBoundProductRow {
+  id: string;
+  productId: string;
+  variantIds: string[] | null;
+  couponTemplateId: string;
+  enabled: boolean;
+}
+
+/** 券模板已绑定的商品列表 */
+export async function fetchCouponBoundProducts(templateId: string): Promise<CouponBoundProductRow[]> {
+  try {
+    const { couponBoundProducts } = await getAdminClient().request<{ couponBoundProducts: CouponBoundProductRow[] }>(
+      `query CouponBoundProducts($templateId: ID!) {
+        couponBoundProducts(templateId: $templateId) { id productId variantIds couponTemplateId enabled }
+      }`,
+      { templateId },
+    );
+    return couponBoundProducts ?? [];
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载已绑商品失败'));
+  }
+}
+
+/**
+ * 批量绑定商品到券模板（商品级；variantIds 对全部 productIds 统一生效，
+ * 故本页不传 variantIds = 全规格适用）。返回新建的绑定数。
+ */
+export async function bindProductsToCoupon(
+  templateId: string,
+  productIds: string[],
+  variantIds?: string[],
+): Promise<number> {
+  try {
+    const { bindProductsToCoupon } = await getAdminClient().request<{ bindProductsToCoupon: number }>(
+      `mutation BindProductsToCoupon($templateId: ID!, $productIds: [ID!]!, $variantIds: [ID!]) {
+        bindProductsToCoupon(templateId: $templateId, productIds: $productIds, variantIds: $variantIds)
+      }`,
+      { templateId, productIds, variantIds: variantIds?.length ? variantIds : undefined },
+    );
+    return bindProductsToCoupon;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '批量绑定商品失败'));
   }
 }

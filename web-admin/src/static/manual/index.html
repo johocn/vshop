@@ -498,6 +498,44 @@ var CHAPTERS = [
 <p>优惠券列表页顶部提供<mark class="mark">运营三读</mark>与 KPI：<mark class="mark">发放总数 / 已核销 / 当前可用</mark>（已发放 − 已核销），一眼掌握券的整体消耗与剩余库存。每张券卡片展示<mark class="mark">「已发放 N | 已使用 N | 剩余 N」</mark>三读明细；对未下架的券提供<mark class="mark">「去发行」</mark>快捷入口，直接进入发行流程，无需先点进详情。</p>
 <img class="img" src="shots/ops5_coupon.png" alt="优惠券-运营三读KPI与去发行">
 <div class="imgcap">图 O6d · 优惠券运营看板（KPI 发放总数 36 / 可用券 193；券卡「已发放3 | 已使用— | 剩余97」+ 去发行按钮）</div>`},
+{book:'op', id:'op-14c', title:'优惠券多渠道分发（分发渠道 / 券商城 / 券包 / 加价购）', html:`
+<p class="lead">一张券可挂到<mark class="mark">多个分发渠道</mark>：领券中心、券商城（付费购买）、积分商城、兑换码、商品页领券、定向发放。后台在券编辑页<mark class="mark">多选渠道</mark>即可控制该券从哪些入口露出；选「券商城」时需填写<mark class="mark">出售价</mark>。</p>
+<h3>六个分发渠道</h3>
+<table>
+  <thead><tr><th>渠道</th><th>入口</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>CENTRE</td><td>领券中心</td><td>C 端优惠券页「领券中心」免费领取</td></tr>
+    <tr><td>SALE</td><td>券商城</td><td>用户<mark class="mark">付费购买</mark>单券或券包（微信 / 余额支付）</td></tr>
+    <tr><td>POINTS</td><td>积分商城</td><td>用积分兑换</td></tr>
+    <tr><td>CODE</td><td>兑换码</td><td>凭兑换码领取</td></tr>
+    <tr><td>PRODUCT</td><td>商品页领券</td><td>在指定商品详情页领取（需先绑定商品）</td></tr>
+    <tr><td>GRANT</td><td>定向发放</td><td>后台定向发券给指定客户</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>回退规则：</b>券若<mark class="mark">未勾选任何渠道</mark>，系统按历史字段自动推导（允许领取→领券中心、积分价&gt;0→积分商城、有兑换码→兑换码、已绑定商品→商品页领券），保证老券行为不变。编辑老券时后台会自动回显其实际生效的渠道。</div>
+<h3>券编辑：分发渠道 + 出售价</h3>
+<p>在券编辑页「使用场景」下方选择分发渠道（可多选，选中为橙色）；勾选<mark class="mark">券商城</mark>后出现「出售价（元）」字段，该价格即 C 端券商城 / 商品页加价购的售价，<mark class="mark">必须大于 0</mark>。</p>
+<img class="img" src="shots/coupon3_01_edit_channels.png" alt="券编辑页-分发渠道多选与出售价">
+<div class="imgcap">图 O6e · 券编辑页「分发渠道」多选（此券挂在 领券中心 + 券商城）与「出售价」字段</div>
+<h3>适用商品：批量选品</h3>
+<p>「适用商品」区块展示当前已绑定的商品数量，点<mark class="mark">批量选品</mark>进入独立选品页：可按商品名<mark class="mark">搜索</mark>、按<mark class="mark">仅在售</mark>筛选、<mark class="mark">全选本页</mark>，展开商品可查看各规格的 SKU / 价格 / 库存。绑定生效后本券对该商品<mark class="mark">全部规格</mark>可用。</p>
+<img class="img" src="shots/coupon3_02_edit_bind.png" alt="券编辑页-适用商品区块与批量选品入口">
+<div class="imgcap">图 O6f · 「适用商品」区块（显示已绑定数量 + 批量选品入口）</div>
+<img class="img" src="shots/coupon3_03_pick_products.png" alt="批量选品页-勾选商品与展开规格">
+<div class="imgcap">图 O6g · 批量选品页（勾选商品、展开查看 SKU/价格/库存，底部「已选 N 商品 · M 规格」+ 确定绑定）</div>
+<div class="warn"><b>提示：</b>先保存优惠券再选品（新建券未保存时点「批量选品」会提示先保存）。</div>
+<h3>券包管理（多种券打包出售）</h3>
+<p>「营销 → 券包管理」把多种券打成<mark class="mark">一个券包</mark>整体出售：设置券包名称、说明、出售价与上下架状态，并逐项添加所含券模板与张数。用户购买券包后，券会<mark class="mark">逐张签发</mark>到其券包。</p>
+<img class="img" src="shots/coupon3_04_bundle_list.png" alt="券包管理列表">
+<div class="imgcap">图 O6h · 券包管理（KPI 券包数 / 启用中；卡片显示售价、含 N 种券、总张数，操作：编辑 / 删除）</div>
+<img class="img" src="shots/coupon3_05_bundle_edit.png" alt="券包编辑页">
+<div class="imgcap">图 O6i · 券包编辑（名称 / 说明 / 出售价 / 包含优惠券明细 + 张数 / 是否上架）</div>
+<h3>出售单流水与退款</h3>
+<p>「营销 → 出售单流水」汇总所有券成交：来源区分<mark class="mark">券商城</mark>（单券）、<mark class="mark">券包</mark>与<mark class="mark">加价购</mark>（随主订单结算），并显示状态（待支付 / 已支付 / 已退款 / 已取消）、金额、支付方式、客户与时间。对<mark class="mark">已支付</mark>的单可点「退款」发起退款。</p>
+<img class="img" src="shots/coupon3_06_sale_orders.png" alt="出售单流水列表">
+<div class="imgcap">图 O6j · 出售单流水（状态筛选 Tab；来源 / 支付方式 / 客户 / 时间 / 关联订单）</div>
+<img class="img" src="shots/coupon3_07_sale_refund.png" alt="出售单退款确认弹层">
+<div class="imgcap">图 O6k · 出售单退款二次确认（仅「已支付」单显示退款入口）</div>`},
 {book:'op', id:'op-16', title:'成员密码管理与角色授权', html:`
 <p class="lead">「本租户人员」页提供<mark class="mark">成员密码管理</mark>与<mark class="mark">角色授权</mark>：租户管理员可为低权限成员重置密码、本人可自助修改密码；授予角色时<mark class="mark">只能授予权限小于自己的角色</mark>。</p>
 <h3>人员列表与密码管理入口</h3>
