@@ -23,6 +23,8 @@ export interface TenantMemberItem {
   phone?: string | null;
   emailAddress?: string | null;
   roleIds?: string[];
+  /** 可核销配送档案白名单（受限核销员；为空 = 默认拒绝） */
+  shippingProfileIds?: string[];
   canResetPassword?: boolean;
   createdAt: string;
 }
@@ -156,7 +158,7 @@ export async function clearTenantProducts(channelId: string): Promise<number> {
 export async function fetchTenantAdministrators(channelId: string): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantAdministrators: TenantMemberItem[] }>(
     `query TenantAdministrators($channelId: ID!) {
-      tenantAdministrators(channelId: $channelId) { id administratorId channelId enabled displayName remark phone roleIds createdAt }
+      tenantAdministrators(channelId: $channelId) { id administratorId channelId enabled displayName remark phone roleIds shippingProfileIds createdAt }
     }`,
     { channelId },
   );
@@ -294,7 +296,7 @@ export async function myImportDefaultRoles(): Promise<RoleItem[]> {
 // ===== 租户管理员视角（限定本 channel） =====
 export async function fetchMyTenantMembers(): Promise<TenantMemberItem[]> {
   const res = await getAdminClient().request<{ tenantMembers: TenantMemberItem[] }>(
-    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone emailAddress roleIds createdAt canResetPassword } }`,
+    `query TenantMembers { tenantMembers { id administratorId channelId enabled displayName remark phone emailAddress roleIds shippingProfileIds createdAt canResetPassword } }`,
   );
   return res.tenantMembers;
 }
@@ -329,6 +331,16 @@ export async function updateTenantMemberRolesToMember(id: string, roleIds: strin
   await getAdminClient().request(
     `mutation MyUpdateTenantMemberRoles($id: ID!, $roleIds: [ID!]!) { myUpdateTenantMemberRoles(id: $id, roleIds: $roleIds) }`,
     { id, roleIds },
+  );
+}
+
+/** 设置某人员的可核销配送档案白名单（受限核销员，租户自助） */
+export async function setMyTenantMemberRedeemProfiles(id: string, shippingProfileIds: string[]): Promise<void> {
+  await getAdminClient().request(
+    `mutation MySetTenantMemberRedeemProfiles($id: ID!, $shippingProfileIds: [ID!]!) {
+      mySetTenantMemberRedeemProfiles(id: $id, shippingProfileIds: $shippingProfileIds) { id shippingProfileIds }
+    }`,
+    { id, shippingProfileIds },
   );
 }
 

@@ -857,7 +857,8 @@
     "errTenant": "This coupon does not belong to this shop",
     "errType": "This coupon type is not supported in store",
     "errMinSpend": "Minimum spend not reached",
-    "errAmount": "Please enter a valid amount"
+    "errAmount": "Please enter a valid amount",
+    "errScope": "This coupon is outside your redemption scope. Ask the shop owner to configure your shipping profiles."
   },
   "inStoreBills": {
     "headTitle": "In-store bills",
@@ -874,6 +875,7 @@
     "remark": "Remark",
     "operator": "Operator",
     "empty": "No bills yet",
+    "emptyRestricted": "You have not been authorized to redeem any shipping profile. Ask the shop owner to configure it.",
     "loadMore": "Load more",
     "loading": "Loading…",
     "loadFailed": "Failed to load"
@@ -1109,6 +1111,7 @@
     "tagCod": "Pending collection",
     "goodsInfo": "Item Info",
     "empty": "No pickup orders to redeem",
+    "emptyRestricted": "You have not been authorized to redeem any shipping profile. Ask the shop owner to configure it.",
     "statusActive": "To redeem",
     "statusExpiring": "Expiring soon",
     "statusExpired": "Expired",
@@ -2487,7 +2490,11 @@
     "resetTitle": "Reset Password",
     "resetContent": "Reset the password of \"{name}\" to the default you123123?",
     "resetDone": "Reset to default password you123123",
-    "resetFailed": "Reset failed"
+    "resetFailed": "Reset failed",
+    "redeemScopeTitle": "Redeemable shipping profiles",
+    "redeemScopeHint": "This member is a restricted redeemer and can only redeem within the selected shipping profiles. Leaving it empty denies all redemptions.",
+    "redeemScopeNoProfiles": "No shipping profiles available for this tenant",
+    "redeemScopeEmptyWarn": "No profiles authorized (redemption denied by default)"
   },
   "platformTemplates": {
     "title": "Style Template Library",

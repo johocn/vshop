@@ -74,6 +74,19 @@
         </view>
         <view v-if="!roles.length" class="empty">{{ $t('platformMembers.noRoleShort') }}</view>
       </view>
+      <!-- 受限核销员（角色含 VerifyOrder）：配置可核销配送档案范围 -->
+      <view v-if="roleTargetHasVerify" class="scope-block">
+        <text class="scope-title">{{ $t('platformMembers.redeemScopeTitle') }}</text>
+        <text class="scope-hint">{{ $t('platformMembers.redeemScopeHint') }}</text>
+        <view class="scope-list">
+          <view v-for="p in shippingProfiles" :key="p.id" class="pick-item" @tap="toggleTargetProfile(p.id)">
+            <text class="pick-item-name" :class="{ on: roleTargetProfileIds.includes(p.id) }">{{ p.name }}</text>
+            <text class="check" :class="{ on: roleTargetProfileIds.includes(p.id) }">{{ roleTargetProfileIds.includes(p.id) ? '✓' : '' }}</text>
+          </view>
+          <view v-if="!shippingProfiles.length" class="empty">{{ $t('platformMembers.redeemScopeNoProfiles') }}</view>
+        </view>
+        <text v-if="!roleTargetProfileIds.length" class="scope-warn">{{ $t('platformMembers.redeemScopeEmptyWarn') }}</text>
+      </view>
       <view class="actions">
         <button class="btn ghost" @tap="showRoles = false">{{ $t('platformMembers.cancel') }}</button>
         <button class="btn" @tap="submitRoles">{{ $t('platformMembers.save') }}</button>
@@ -95,6 +108,7 @@
       <view class="kv"><text class="k">{{ $t('platformMembers.loginName') }}</text><text class="v">{{ infoTarget.emailAddress || '—' }}</text></view>
       <view class="kv"><text class="k">{{ $t('platformMembers.phone') }}</text><text class="v">{{ infoTarget.phone || '—' }}</text></view>
       <view class="kv"><text class="k">{{ $t('platformMembers.role') }}</text><text class="v">{{ infoRoleNames }}</text></view>
+      <view v-if="infoHasVerify" class="kv"><text class="k">{{ $t('platformMembers.redeemScopeTitle') }}</text><text class="v">{{ infoProfileNames }}</text></view>
       <view class="kv"><text class="k">{{ $t('platformMembers.remark') }}</text><text class="v">{{ infoTarget.remark || '—' }}</text></view>
       <view class="kv"><text class="k">{{ $t('platformMembers.memberId') }}</text><text class="v">{{ infoTarget.administratorId }}</text></view>
       <view class="kv"><text class="k">{{ $t('platformMembers.joinedAt') }}</text><text class="v">{{ fmtTime(infoTarget.createdAt) }}</text></view>
@@ -110,8 +124,10 @@ import { changeMyPassword } from '../../../apis/auth';
 import {
   fetchMyTenantMembers, createTenantMember, setTenantMemberEnabled, deleteTenantMember,
   fetchMyTenantRoles, updateTenantMemberRolesToMember, resetTenantMemberPasswordToDefault,
+  setMyTenantMemberRedeemProfiles,
   type TenantMemberItem, type RoleItem,
 } from '../../../apis/tenant-admin';
+import { fetchShippingProfiles, type ShippingProfileItem } from '../../../apis/shipping-profile';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
@@ -120,6 +136,7 @@ const locale = useLocaleStore();
 
 const members = ref<TenantMemberItem[]>([]);
 const roles = ref<RoleItem[]>([]);
+const shippingProfiles = ref<ShippingProfileItem[]>([]);
 
 const showAdd = ref(false);
 const addForm = ref({ email: '', displayName: '', phone: '', roleIds: [] as string[] });
@@ -134,6 +151,12 @@ const selectedRoleNames = computed(() =>
 const showRoles = ref(false);
 const roleTarget = ref<TenantMemberItem | null>(null);
 const roleTargetIds = ref([] as string[]);
+const roleTargetProfileIds = ref([] as string[]);
+
+/** 所选角色中是否含「核销·按配送档案」(VerifyOrder)：决定是否展示可核销配送档案配置区 */
+const roleTargetHasVerify = computed(() =>
+  roles.value.some((r) => roleTargetIds.value.includes(r.id) && r.permissions?.includes('VerifyOrder')),
+);
 
 const infoVisible = ref(false);
 const infoTarget = ref<TenantMemberItem | null>(null);
@@ -144,6 +167,18 @@ const infoRoleNames = computed(() => {
   return t.roleIds
     .map((id) => roles.value.find((r) => r.id === id)?.description || id)
     .join('、');
+});
+
+const infoHasVerify = computed(() => {
+  const t = infoTarget.value;
+  if (!t?.roleIds?.length) return false;
+  return roles.value.some((r) => t.roleIds!.includes(r.id) && r.permissions?.includes('VerifyOrder'));
+});
+
+const infoProfileNames = computed(() => {
+  const ids = infoTarget.value?.shippingProfileIds ?? [];
+  if (!ids.length) return locale.t('platformMembers.redeemScopeEmptyWarn');
+  return ids.map((id) => shippingProfiles.value.find((p) => p.id === id)?.name || id).join('、');
 });
 
 function showInfo(m: TenantMemberItem) {
@@ -164,6 +199,12 @@ async function load() {
   members.value = await fetchMyTenantMembers();
   const list = await fetchMyTenantRoles();
   roles.value = Array.from(new Map(list.map((r) => [r.id, r])).values());
+  try {
+    // 仅返回当前租户可见档案（全局 + 本租户），与后端 setMemberRedeemProfiles 校验口径一致
+    shippingProfiles.value = await fetchShippingProfiles();
+  } catch {
+    shippingProfiles.value = [];
+  }
 }
 
 const grantableRoles = computed(() => roles.value.filter((r) => r.grantable !== false));
@@ -211,6 +252,7 @@ async function submitAdd() {
 function openRoles(m: TenantMemberItem) {
   roleTarget.value = m;
   roleTargetIds.value = (m.roleIds || []).slice();
+  roleTargetProfileIds.value = (m.shippingProfileIds || []).slice();
   showRoles.value = true;
 }
 function toggleTargetRole(id: string) {
@@ -220,10 +262,19 @@ function toggleTargetRole(id: string) {
   if (i >= 0) roleTargetIds.value.splice(i, 1);
   else roleTargetIds.value.push(id);
 }
+function toggleTargetProfile(id: string) {
+  const i = roleTargetProfileIds.value.indexOf(id);
+  if (i >= 0) roleTargetProfileIds.value.splice(i, 1);
+  else roleTargetProfileIds.value.push(id);
+}
 async function submitRoles() {
   if (!roleTarget.value) return;
   try {
     await updateTenantMemberRolesToMember(roleTarget.value.id, roleTargetIds.value);
+    // 受限核销员：同步保存可核销配送档案白名单（未展示该区时不改动既有白名单）
+    if (roleTargetHasVerify.value) {
+      await setMyTenantMemberRedeemProfiles(roleTarget.value.id, roleTargetProfileIds.value);
+    }
     showRoles.value = false;
     uni.showToast({ title: locale.t('platformMembers.roleUpdated'), icon: 'none' });
     load();
@@ -298,7 +349,7 @@ function onChangeMyPassword() {
 .link { color: #e64340; font-size: 26rpx; }
 .empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
 .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 99; }
-.pop { width: 600rpx; background: #fff; border-radius: 20rpx; padding: 40rpx; }
+.pop { width: 600rpx; max-height: 86vh; overflow-y: auto; background: #fff; border-radius: 20rpx; padding: 40rpx; }
 .pop-title { display: block; font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
 .pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
 .pop-head .pop-title { margin-bottom: 0; }
@@ -336,4 +387,9 @@ function onChangeMyPassword() {
 .reset { display: block; font-size: 22rpx; color: #e64340; margin-top: 4rpx; }
 .pick-item-name.dis { color: #bbb; }
 .dis-tag { font-size: 22rpx; color: #bbb; }
+.scope-block { margin-top: 16rpx; padding-top: 20rpx; border-top: 1px dashed #e5e5e5; }
+.scope-title { display: block; font-size: 26rpx; font-weight: 600; color: #333; }
+.scope-hint { display: block; margin: 8rpx 0 12rpx; font-size: 22rpx; color: #999; line-height: 1.5; }
+.scope-list { max-height: 320rpx; overflow-y: auto; border: 1px solid #f2f2f2; border-radius: 12rpx; padding: 0 16rpx; }
+.scope-warn { display: block; margin-top: 12rpx; font-size: 22rpx; color: #e6a23c; }
 </style>

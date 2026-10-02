@@ -47,13 +47,13 @@
         <text class="exp" :class="{ hot: r.status === 'expiring_soon' }">{{ formatExpiry(r.expiresAt, r.status) }}</text>
       </view>
     </view>
-    <view v-if="!orders.length" class="empty">{{ $t('pickupRedeem.empty') }}</view>
+    <view v-if="!orders.length" class="empty">{{ restricted ? $t('pickupRedeem.emptyRestricted') : $t('pickupRedeem.empty') }}</view>
 
     <view style="height: 140rpx" />
   </view>
 </template>
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
   fetchPendingRedemptions,
@@ -65,8 +65,12 @@ import {
 } from '../../../apis/redemption';
 import { scanCode } from '../../../utils/scanner';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useAuthStore } from '../../../stores/authStore';
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
+/** 受限核销员（持有 VerifyOrder 且非超管）：仅在授权配送档案范围内可见/可核销 */
+const restricted = computed(() => !auth.isSuperAdmin && auth.permissions.includes('VerifyOrder'));
 
 const rawCode = ref('');
 const orders = ref<PendingRedemption[]>([]);

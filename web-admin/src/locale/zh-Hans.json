@@ -857,7 +857,8 @@
     "errTenant": "该券不属于当前门店",
     "errType": "该券类型不支持到店买单",
     "errMinSpend": "未达到该券使用门槛",
-    "errAmount": "请输入有效的消费金额"
+    "errAmount": "请输入有效的消费金额",
+    "errScope": "该券不在你的核销范围内，请联系店主配置可核销配送档案"
   },
   "inStoreBills": {
     "headTitle": "到店买单流水",
@@ -874,6 +875,7 @@
     "remark": "备注",
     "operator": "操作人",
     "empty": "暂无买单流水",
+    "emptyRestricted": "你尚未被授权核销任何配送档案范围，请联系店主配置",
     "loadMore": "加载更多",
     "loading": "加载中…",
     "loadFailed": "加载失败"
@@ -1109,6 +1111,7 @@
     "tagCod": "待收款",
     "goodsInfo": "商品信息",
     "empty": "暂无待核销自提单",
+    "emptyRestricted": "你尚未被授权核销任何配送档案范围，请联系店主配置",
     "statusActive": "待核销",
     "statusExpiring": "即将过期",
     "statusExpired": "已过期",
@@ -2487,7 +2490,11 @@
     "resetTitle": "重置密码",
     "resetContent": "确定将「{name}」的密码重置为默认口令 you123123？",
     "resetDone": "已重置为默认口令 you123123",
-    "resetFailed": "重置失败"
+    "resetFailed": "重置失败",
+    "redeemScopeTitle": "可核销配送档案",
+    "redeemScopeHint": "该成员为受限核销员，仅能在所选配送档案范围内核销；不选则默认拒绝。",
+    "redeemScopeNoProfiles": "当前租户暂无可用配送档案",
+    "redeemScopeEmptyWarn": "未授权任何档案（默认拒绝核销）"
   },
   "platformTemplates": {
     "title": "风格模板库",

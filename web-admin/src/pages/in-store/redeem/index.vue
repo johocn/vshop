@@ -152,6 +152,7 @@ function reasonText(reason: string): string {
     COUPON_EXPIRED: locale.t('inStoreRedeem.errExpired'),
     SCENE_MISMATCH: locale.t('inStoreRedeem.errScene'),
     TENANT_MISMATCH: locale.t('inStoreRedeem.errTenant'),
+    SCOPE_MISMATCH: locale.t('inStoreRedeem.errScope'),
     TYPE_NOT_SUPPORTED: locale.t('inStoreRedeem.errType'),
     MIN_SPEND_NOT_MET: locale.t('inStoreRedeem.errMinSpend'),
     INVALID_AMOUNT: locale.t('inStoreRedeem.errAmount'),
