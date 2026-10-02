@@ -91,6 +91,8 @@ export const menuGroups: MenuGroup[] = [
     grad: D.d5.grad,
     items: [
       { label: 'menu.couponIssue', url: '/pages/coupon/index', tier: 1 },
+      { label: 'menu.couponBundle', url: '/pages/coupon/bundle/index', tier: 2 },
+      { label: 'menu.couponSaleOrders', url: '/pages/coupon/sale-orders/index', tier: 2 },
       { label: 'menu.couponTargeted', url: '/pages/coupon/issue/index', tier: 3 },
     ],
   },

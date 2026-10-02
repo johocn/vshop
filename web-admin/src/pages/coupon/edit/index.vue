@@ -22,6 +22,28 @@
         <text v-if="form.usageScene === 'IN_STORE'" class="tip">{{ $t('couponEdit.sceneInStoreTip') }}</text>
       </view>
 
+      <!-- 分发渠道（多选）：显式配置后不再按老字段推导 -->
+      <view class="field">
+        <text class="label">{{ $t('couponEdit.channelsLabel') }}</text>
+        <view class="chips">
+          <text
+            v-for="ch in channelOptions"
+            :key="ch.code"
+            class="chip"
+            :class="{ on: form.channels.includes(ch.code) }"
+            @tap="toggleChannel(ch.code)"
+          >{{ channelLabel(ch.code) }}</text>
+        </view>
+        <text class="tip">{{ $t('couponEdit.channelsTip') }}</text>
+      </view>
+
+      <!-- 出售价：仅「券商城」渠道可售 -->
+      <view class="field" v-if="form.channels.includes('SALE')">
+        <text class="label">{{ $t('couponEdit.salePriceLabel') }}</text>
+        <input class="ipt" v-model="form.salePriceYuan" type="digit" :placeholder="$t('couponEdit.phSalePrice')" />
+        <text class="tip">{{ $t('couponEdit.salePriceTip') }}</text>
+      </view>
+
       <!-- 满减 / 直减 面额 -->
       <view class="field" v-if="form.type === 'FIXED' || form.type === 'FULL'">
         <text class="label">{{ form.type === 'FIXED' ? $t('couponEdit.discountLabel') : $t('couponEdit.fullLabel') }}</text>
@@ -106,6 +128,16 @@
         <input class="ipt" v-model="form.memberLevel" :placeholder="$t('couponEdit.phMemberLevel')" />
       </view>
 
+      <text class="lang-hd">{{ $t('couponEdit.bindSection') }}</text>
+      <view class="field">
+        <text class="label">{{ $t('couponEdit.boundLabel') }}</text>
+        <view class="bind-row">
+          <text class="bind-cnt">{{ boundCountText }}</text>
+          <text class="btn-mini" @tap="goBindProducts">{{ $t('couponEdit.batchPick') }}</text>
+        </view>
+        <text class="tip">{{ $t('couponEdit.bindTip') }}</text>
+      </view>
+
       <view class="field">
         <text class="label">{{ $t('couponEdit.enabledLabel') }}</text>
         <switch :checked="form.enabled" @change="form.enabled = $event.detail.value" color="#2563eb" />
@@ -119,11 +151,12 @@
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { ref, computed, onMounted } from 'vue';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplate, createCouponTemplate, updateCouponTemplate, createProductCouponBinding,
   couponTypeLabel, CouponType, CouponTemplateInput, CouponUsageScene,
+  COUPON_CHANNEL_OPTIONS, parseChannels, joinChannels, fetchCouponBoundProducts,
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
@@ -145,6 +178,25 @@ const SCENE_LABEL: Record<CouponUsageScene, string> = {
 };
 const sceneLabel = (s: CouponUsageScene) => locale.t(SCENE_LABEL[s] || 'couponEdit.sceneOnline');
 
+// 分发渠道：代号 → i18n key（与后端 ALL_COUPON_CHANNELS 顺序一致）
+const channelOptions = COUPON_CHANNEL_OPTIONS;
+const CHANNEL_LABEL_KEY: Record<string, string> = {
+  CENTRE: 'couponEdit.channelCentre',
+  SALE: 'couponEdit.channelSale',
+  POINTS: 'couponEdit.channelPoints',
+  CODE: 'couponEdit.channelCode',
+  PRODUCT: 'couponEdit.channelProduct',
+  GRANT: 'couponEdit.channelGrant',
+};
+const channelLabel = (code: string) => locale.t(CHANNEL_LABEL_KEY[code] || code);
+
+function toggleChannel(code: string) {
+  const list = form.value.channels;
+  const i = list.indexOf(code);
+  if (i >= 0) list.splice(i, 1);
+  else list.push(code);
+}
+
 function onSceneChange(e: any) {
   const s = sceneKeys[e.detail.value];
   form.value.usageScene = s;
@@ -158,6 +210,8 @@ function onSceneChange(e: any) {
 const form = ref({
   type: 'FIXED' as CouponType,
   usageScene: 'ONLINE' as CouponUsageScene,
+  channels: [] as string[],
+  salePriceYuan: '',
   discountYuan: '',
   minSpendYuan: '',
   startsAt: '',
@@ -203,6 +257,10 @@ function buildInput(): CouponTemplateInput {
     claimable: f.claimable,
     newCustomerOnly: f.newCustomerOnly,
     usageScene: f.usageScene,
+    // 分发渠道：显式写入（空串=不开放任何渠道，后端回退老字段推导）
+    distributionChannels: joinChannels(f.channels),
+    // 出售价：仅「券商城」渠道可售，元→分；非 SALE 渠道置 0 = 不可售
+    salePrice: f.channels.includes('SALE') ? Math.max(0, Math.round((Number(f.salePriceYuan) || 0) * 100)) : 0,
   };
   if (f.descZh.trim()) model.description = f.descZh.trim();
   if (f.descZh.trim()) model.descZh = f.descZh.trim();
@@ -233,6 +291,9 @@ async function onSave() {
   if (f.startsAt && f.endsAt && f.startsAt > f.endsAt) {
     uni.showToast({ title: locale.t('couponEdit.invalidDateRange'), icon: 'none' }); return;
   }
+  if (f.channels.includes('SALE') && !(Number(f.salePriceYuan) > 0)) {
+    uni.showToast({ title: locale.t('couponEdit.requireSalePrice'), icon: 'none' }); return;
+  }
   try {
     if (id.value) {
       await updateCouponTemplate({ id: id.value, ...buildInput() });
@@ -255,33 +316,76 @@ onLoad((query: any) => {
   if (query?.productId) bindProductId.value = query?.productId as string;
 });
 
-onMounted(async () => {
-    if (!id.value) return;
-    const c = await fetchCouponTemplate(id.value);
-    if (c) {
-      form.value = {
-        type: c.type,
-        usageScene: (c.usageScene || 'ONLINE') as CouponUsageScene,
-        discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
-        minSpendYuan: String((c.minSpend || 0) / 100),
-        startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',
-        endsAt: c.endsAt ? c.endsAt.slice(0, 10) : '',
-        totalCount: String(c.totalCount ?? 0),
-        perUserLimit: String(c.perUserLimit ?? 0),
-        // 后台已按原值回传 zh_Hans/en，直接回显；无多语言时回退当前语言 name
-        nameZh: c.nameZh ?? plainName(c.name),
-        nameEn: c.nameEn ?? '',
-        descZh: c.descZh ?? (c.description || ''),
-        descEn: c.descEn ?? '',
-        claimable: c.claimable ?? true,
-        claimCode: c.claimCode || '',
-        validDays: c.validDays != null ? String(c.validDays) : '',
-        newCustomerOnly: c.newCustomerOnly ?? false,
-        memberLevel: c.memberLevel || '',
-        enabled: c.enabled,
-      };
-    }
-  });
+// ---- 分发渠道回显：显式配置优先；历史券按老字段推导，避免编辑后丢渠道 ----
+const boundCount = ref(0);
+const formLoaded = ref(false);
+const boundCountText = computed(() =>
+  boundCount.value > 0
+    ? locale.t('couponEdit.boundCount').replace('{n}', String(boundCount.value))
+    : locale.t('couponEdit.boundNone'),
+);
+
+async function loadBound(): Promise<number> {
+  if (!id.value) return 0;
+  try {
+    const list = await fetchCouponBoundProducts(id.value);
+    boundCount.value = list.length;
+    return list.length;
+  } catch {
+    return boundCount.value;
+  }
+}
+
+/** 历史券（distributionChannels 为空）按老字段还原实际生效渠道，与后端 resolveCouponChannels 一致 */
+function deriveLegacyChannels(c: CouponTemplateInput & { claimable?: boolean; pointsPrice?: number; claimCode?: string | null }, bound: number): string[] {
+  const out: string[] = [];
+  if (c.claimable) out.push('CENTRE');
+  if (Number(c.pointsPrice ?? 0) > 0) out.push('POINTS');
+  if (c.claimCode) out.push('CODE');
+  if (bound > 0) out.push('PRODUCT');
+  return out;
+}
+
+function goBindProducts() {
+  if (!id.value) { uni.showToast({ title: locale.t('couponEdit.saveFirst'), icon: 'none' }); return; }
+  uni.navigateTo({ url: `/pages/coupon/pick-products/index?templateId=${id.value}` });
+}
+
+async function loadAll() {
+  if (!id.value) return;
+  const c = await fetchCouponTemplate(id.value);
+  if (!c) return;
+  const bound = await loadBound();
+  const explicit = parseChannels(c.distributionChannels);
+  form.value = {
+    type: c.type,
+    usageScene: (c.usageScene || 'ONLINE') as CouponUsageScene,
+    channels: explicit.length ? explicit : deriveLegacyChannels(c as any, bound),
+    salePriceYuan: c.salePrice ? String(c.salePrice / 100) : '',
+    discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
+    minSpendYuan: String((c.minSpend || 0) / 100),
+    startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',
+    endsAt: c.endsAt ? c.endsAt.slice(0, 10) : '',
+    totalCount: String(c.totalCount ?? 0),
+    perUserLimit: String(c.perUserLimit ?? 0),
+    // 后台已按原值回传 zh_Hans/en，直接回显；无多语言时回退当前语言 name
+    nameZh: c.nameZh ?? plainName(c.name),
+    nameEn: c.nameEn ?? '',
+    descZh: c.descZh ?? (c.description || ''),
+    descEn: c.descEn ?? '',
+    claimable: c.claimable ?? true,
+    claimCode: c.claimCode || '',
+    validDays: c.validDays != null ? String(c.validDays) : '',
+    newCustomerOnly: c.newCustomerOnly ?? false,
+    memberLevel: c.memberLevel || '',
+    enabled: c.enabled,
+  };
+  formLoaded.value = true;
+}
+
+onMounted(loadAll);
+// 从选品页返回时仅刷新「已绑商品」计数（首次显示时 formLoaded=false，由 onMounted 统一加载）
+onShow(() => { if (formLoaded.value) loadBound(); });
 
   // 后端 field resolver 返回的 name 为按会话语言本地化后的纯字符串，仅作 zh 兜底
   function plainName(name: string): string { return name || ''; }
@@ -305,6 +409,12 @@ function goBack() { backToHome(); }
       .field { flex: 1; margin-bottom: 0; }
     }
     .dtime-tip { display: block; margin: 6rpx 0 20rpx; font-size: 22rpx; color: $wa-muted; }
+    .chips { display: flex; flex-wrap: wrap; gap: 12rpx;
+      .chip { font-size: 24rpx; color: $wa-ink; background: $wa-bg; border: 1rpx solid $wa-rule; border-radius: 999rpx; padding: 8rpx 24rpx;
+        &.on { background: $wa-accent; border-color: $wa-accent; color: #fff; } } }
+    .bind-row { display: flex; align-items: center; justify-content: space-between;
+      .bind-cnt { font-size: 26rpx; color: $wa-ink; }
+      .btn-mini { font-size: 24rpx; color: #fff; background: $wa-accent; border-radius: 999rpx; padding: 8rpx 28rpx; } }
     .lang-hd { display: block; font-size: 24rpx; color: $wa-ink; font-weight: 600; padding: 8rpx 0 16rpx; border-top: 1rpx dashed $wa-rule; margin-top: 8rpx; }
   }
   .ops { display: flex; position: fixed; left: 0; right: 0; bottom: 0; padding: 20rpx 32rpx; background: #fff; box-shadow: 0 -2rpx 12rpx rgba(0,0,0,.04);

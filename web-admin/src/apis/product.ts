@@ -921,6 +921,50 @@ export async function fetchProductList(
   return { totalItems: products.totalItems, items };
 }
 
+/** 券批量选品器专用：带规格明细的商品列表（关键词 + 在售筛选），供「批量绑品」勾选 */
+export interface PickerProductRow {
+  id: string;
+  name: string;
+  enabled: boolean;
+  thumb?: string;
+  variants: Array<{ id: string; sku: string; priceYuan: number; stock: number }>;
+}
+
+export async function fetchPickerProducts(q: {
+  take: number;
+  skip: number;
+  term?: string;
+  enabled?: boolean;
+}): Promise<{ totalItems: number; items: PickerProductRow[] }> {
+  const filter: Record<string, unknown> = {};
+  if (q.term) filter.name = { contains: q.term };
+  if (q.enabled !== undefined) filter.enabled = { eq: q.enabled };
+  const { products } = await getAdminClient().request<{
+    products: { totalItems: number; items: any[] };
+  }>(
+    `query PickerProducts($take: Int, $skip: Int, $filter: ProductFilterParameter) {
+      products(options: { take: $take, skip: $skip, filter: $filter }) {
+        totalItems
+        items { id name enabled featuredAsset { preview } variants { id sku priceWithTax stockOnHand } }
+      }
+    }`,
+    { take: q.take, skip: q.skip, filter },
+  );
+  const items: PickerProductRow[] = (products.items || []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    enabled: p.enabled,
+    thumb: assetThumbUrl(p.featuredAsset?.preview),
+    variants: (p.variants || []).map((v: any) => ({
+      id: v.id,
+      sku: v.sku,
+      priceYuan: (v.priceWithTax ?? 0) / 100,
+      stock: v.stockOnHand ?? 0,
+    })),
+  }));
+  return { totalItems: products.totalItems, items };
+}
+
 /**
  * 批量上架/下架商品：调用 Vendure core 原生 updateProducts（数组输入）。
  * enabled 为 true 上架、false 下架，一次提交，事务性。
