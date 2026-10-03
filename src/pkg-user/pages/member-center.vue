@@ -94,6 +94,7 @@ const quickMenus = [
     { label: '余额明细', url: '/pkg-user/pages/balance-history' },
     { label: '积分兑换', url: '/pkg-user/pages/points-mall' },
     { label: '优惠券', url: '/pkg-promotion/pages/coupons' },
+    { label: '券商城', url: '/pkg-promotion/pages/coupon-mall' },
 ];
 </script>
 

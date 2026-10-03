@@ -42,6 +42,44 @@
         <text class="sku-entry__arrow">›</text>
       </view>
     </view>
+    <!-- 超值加价购：券价随主订单结算 -->
+    <view v-if="addonCoupons.length" class="addon-block">
+      <view class="addon-block__head">
+        <text class="addon-block__title">超值加价购</text>
+        <text class="addon-block__sub">券价随订单一起结算</text>
+      </view>
+      <view
+        v-for="b in addonCoupons"
+        :key="'addon-' + b.id"
+        class="addon-row"
+        :class="{ 'addon-row--attached': isAddonAttached(b) }"
+      >
+        <view class="addon-row__left">
+          <view class="addon-row__amount">
+            <text v-if="addonType(b) === 'FIXED' || addonType(b) === 'FULL'" class="addon-row__cny">¥</text>
+            <text class="addon-row__value">{{ addonAmount(b) }}</text>
+            <text v-if="addonType(b) === 'PERCENT'" class="addon-row__cny">折</text>
+          </view>
+          <text class="addon-row__cond">{{ addonCondition(b) }}</text>
+        </view>
+        <view class="addon-row__mid">
+          <view class="addon-row__name">
+            <text>{{ b.promoTitle || b.template?.name }}</text>
+            <text class="addon-row__tag">加价购</text>
+          </view>
+          <text class="addon-row__meta">{{ addonValidity(b) }}</text>
+        </view>
+        <button
+          class="addon-row__btn"
+          :class="{ 'addon-row__btn--on': isAddonAttached(b) }"
+          :disabled="!!attachingTplId"
+          @click="isAddonAttached(b) ? detachAddon(b) : attachAddon(b)"
+        >
+          <block v-if="isAddonAttached(b)">已换购<text class="addon-row__btn-sub">点击移除</text></block>
+          <block v-else>+{{ yuan(b.template?.salePrice) }}元<text class="addon-row__btn-sub">立即换购</text></block>
+        </button>
+      </view>
+    </view>
     <!-- 用户评价区：必须在详情富文本之前（对齐 usemall 05 → 06 顺序） -->
     <view v-if="reviewTotal > 0" class="review-block" @click="goReviewList">
       <view class="review-block__head">
@@ -99,8 +137,15 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
 import { getProduct } from '../../api/queries/product';
+import { getProductCoupons } from '../../api/queries/coupon';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { applyFlashSale } from '../../api/mutations/promotion';
+import {
+    attachCouponToOrder,
+    detachCouponFromOrder,
+    templateHasChannel,
+    couponErrorMessage,
+} from '../../api/mutations/coupon';
 import { useCartStore } from '../../stores/cart';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
@@ -256,6 +301,7 @@ onMounted(async () => {
         }
     } catch (e) { console.error(e); }
     await loadReviews();
+    loadAddons();
     // WeChat share
     if (product.value) {
       const meta = buildShareMeta({
@@ -314,6 +360,124 @@ function goReviewList() {
     uni.navigateTo({ url: '/pkg-product/pages/evaluate?slug=' + product.value.slug });
 }
 
+// ── 超值加价购：券价随主订单结算（attachCouponToOrder） ──
+const addonBindings = ref<any[]>([]);
+const attachingTplId = ref('');
+const attachedTplIds = ref<Set<string>>(new Set());
+
+/** 加价购可售券：渠道含 SALE 且 salePrice>0；排除纯到店券（到店券不可线上加购） */
+const addonCoupons = computed(() =>
+    addonBindings.value.filter(
+        (b: any) =>
+            b.enabled && !!b.template &&
+            templateHasChannel(b.template, 'SALE') &&
+            (b.template.salePrice ?? 0) > 0 &&
+            String(b.template.usageScene || 'ONLINE').toUpperCase() !== 'IN_STORE',
+    ),
+);
+
+/** 加载失败静默降级：加价购块不渲染，不阻塞商品主内容 */
+async function loadAddons() {
+    const pid = product.value?.id;
+    if (!pid) return;
+    try {
+        const res: any = await getProductCoupons(String(pid));
+        addonBindings.value = res.productCoupons || [];
+    } catch (e) {}
+}
+
+function isAddonAttached(b: any): boolean {
+    return attachedTplIds.value.has(b.template?.id);
+}
+
+/** 取活动订单 id；未登录/无活动订单返回 null */
+async function ensureOrderId(): Promise<string | null> {
+    try {
+        const res: any = await getActiveOrder();
+        if (res.activeOrder) {
+            cart.setOrder(res.activeOrder);
+            return res.activeOrder.id;
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function attachAddon(b: any) {
+    const tplId = b.template?.id;
+    if (!tplId || attachingTplId.value) return;
+    if (!auth.isLoggedIn) {
+        uni.navigateTo({ url: '/pages/login/index?redirect=' + encodeURIComponent('/pkg-product/pages/detail?slug=' + (product.value?.slug || '')) });
+        return;
+    }
+    attachingTplId.value = tplId;
+    try {
+        const orderId = await ensureOrderId();
+        if (!orderId) {
+            ui.showToast('请先将商品加入购物车');
+            return;
+        }
+        await attachCouponToOrder(orderId, tplId);
+        const next = new Set(attachedTplIds.value);
+        next.add(tplId);
+        attachedTplIds.value = next;
+        ui.showToast('已加入订单，随单结算', 'success');
+    } catch (e: any) {
+        ui.showToast(couponErrorMessage(e));
+    }
+    attachingTplId.value = '';
+}
+
+async function detachAddon(b: any) {
+    const tplId = b.template?.id;
+    if (!tplId) return;
+    try {
+        const orderId = await ensureOrderId();
+        if (!orderId) return;
+        await detachCouponFromOrder(orderId, tplId);
+        const next = new Set(attachedTplIds.value);
+        next.delete(tplId);
+        attachedTplIds.value = next;
+        ui.showToast('已移除加价购券', 'success');
+    } catch (e: any) {
+        ui.showToast(couponErrorMessage(e));
+    }
+}
+
+/** 分 → 元（去尾零） */
+function yuan(cents: any): string {
+    const n = Number(cents) || 0;
+    return (n / 100).toFixed(n % 100 === 0 ? 0 : 2);
+}
+
+function addonType(b: any): string {
+    return b.template?.type || 'FIXED';
+}
+
+function addonAmount(b: any): string {
+    const tpl = b.template || {};
+    if (tpl.type === 'FREE_SHIPPING') return '免邮';
+    if (tpl.type === 'PERCENT') {
+        const zhe = (tpl.discountValue || 0) / 10;
+        return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    }
+    return ((tpl.discountValue || 0) / 100).toString();
+}
+
+function addonCondition(b: any): string {
+    const tpl = b.template || {};
+    const minSpend = tpl.minSpend ? tpl.minSpend / 100 : 0;
+    if (tpl.type === 'FREE_SHIPPING') return '免配送费';
+    if (!minSpend) return '无门槛';
+    return `满${minSpend}可用`;
+}
+
+function addonValidity(b: any): string {
+    const tpl = b.template || {};
+    if (tpl.endsAt) return `有效期至 ${String(tpl.endsAt).slice(0, 10)}`;
+    if (tpl.validDays) return `领取后${tpl.validDays}天有效`;
+    return '';
+}
+
 onUnmounted(() => {
     if (offLogin) offLogin();
 });
@@ -347,6 +511,37 @@ onUnmounted(() => {
     &__ok { text-align: center; color: $brand-color; font-size: 28rpx; padding-top: 8rpx; }
 }
 .product-detail__rich { margin-top: 16rpx; background: #fff; }
+.addon-block {
+    margin-top: 16rpx; background: #fff; padding: 20rpx;
+    &__head { display: flex; align-items: baseline; gap: 12rpx; }
+    &__title { font-size: 28rpx; font-weight: bold; color: $brand-color; }
+    &__sub { font-size: 20rpx; color: #bbb; }
+}
+.addon-row {
+    display: flex; align-items: stretch; margin-top: 16rpx;
+    border: 1rpx dashed $border-color; border-radius: $radius-sm; overflow: hidden;
+    &--attached { border: 1rpx solid #0f8a43; background: rgba(15, 138, 67, 0.06); }
+    &__left {
+        width: 160rpx; background: $brand-color; color: #fff;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16rpx 0;
+    }
+    &__amount { display: flex; align-items: baseline; }
+    &__cny { font-size: 22rpx; font-weight: bold; }
+    &__value { font-size: 44rpx; font-weight: bold; line-height: 1; }
+    &__cond { font-size: 18rpx; opacity: 0.9; margin-top: 4rpx; }
+    &__mid { flex: 1; min-width: 0; padding: 14rpx 16rpx; display: flex; flex-direction: column; justify-content: center; gap: 6rpx; }
+    &__name { font-size: 26rpx; font-weight: bold; color: $text-color; display: flex; align-items: center; gap: 10rpx; }
+    &__tag { font-size: 18rpx; color: $brand-color; background: rgba(255, 102, 0, 0.08); border-radius: 6rpx; padding: 2rpx 10rpx; font-weight: normal; }
+    &__meta { font-size: 20rpx; color: #999; }
+    &__btn {
+        width: 150rpx; border: none; background: $brand-color; color: #fff;
+        font-size: 26rpx; font-weight: bold; line-height: 1.4; padding: 0; border-radius: 0;
+        &::after { border: none; }
+        &[disabled] { opacity: 0.7; }
+        &--on { background: #f5f5f5; color: $text-color-secondary; border-left: 1rpx solid $border-color; }
+    }
+    &__btn-sub { display: block; font-size: 18rpx; font-weight: normal; opacity: 0.85; }
+}
 .rich__video { padding: 16rpx 0; }
 .rich__video-tag { width: 100%; height: 380rpx; display: block; }
 .rich__sp { display: block; padding: 0 20rpx 8rpx; font-size: 26rpx; color: $text-color-secondary; }

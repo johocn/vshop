@@ -203,6 +203,12 @@
                     }
                 },
                 {
+                    "path": "pages/coupon-mall",
+                    "style": {
+                        "navigationBarTitleText": "券商城"
+                    }
+                },
+                {
                     "path": "pages/live-list",
                     "style": {
                         "navigationBarTitleText": "直播"
