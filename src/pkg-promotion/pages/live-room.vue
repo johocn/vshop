@@ -16,12 +16,16 @@
       </view>
       <view class="head">
         <text class="h-name">{{ room.name }}</text>
-        <text class="h-status">{{ statusLabel }}</text>
+        <view class="h-meta">
+          <text class="h-online">{{ onlineCount }} 人在看</text>
+          <text class="h-status">{{ statusLabel }}</text>
+        </view>
       </view>
     </view>
 
     <!-- 互动：弹幕 + 点赞 + 关注 -->
     <view class="interact">
+      <view v-if="sysTip" class="sys-tip"><text>{{ sysTip }}</text></view>
       <scroll-view scroll-y class="danmaku">
         <view v-for="(d, i) in danmakuList" :key="i" class="d-item">
           <text class="d-user">{{ d.user }}:</text>
@@ -31,7 +35,10 @@
       <view class="actions">
         <input v-model="inputText" class="input" placeholder="说点什么…" confirm-type="send" @confirm="sendDanmaku" />
         <text class="btn" @click="sendDanmaku">发送</text>
-        <text class="btn" @click="sendLike">赞 {{ likeCount }}</text>
+        <view class="like-wrap">
+          <text class="btn" @click="sendLike">赞 {{ likeCount }}</text>
+          <text v-for="h in hearts" :key="h.id" class="heart" :style="{ left: (h.id % 3) * 24 + 'rpx' }">♥</text>
+        </view>
         <text class="btn" @click="sendFollow">关注</text>
       </view>
     </view>
@@ -49,6 +56,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { io, Socket } from 'socket.io-client';
 import { getLiveRoom, enterLiveRoom, setOrderLiveRoom } from '../../api/queries/live';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { useUIStore } from '../../stores/ui';
@@ -62,7 +70,12 @@ const wsTicket = ref('');
 const danmakuList = ref<any[]>([]);
 const inputText = ref('');
 const likeCount = ref(0);
-let ws: WebSocket | null = null;
+const onlineCount = ref(0);
+const sysTip = ref('');
+const hearts = ref<{ id: number }[]>([]);
+let socket: Socket | null = null;
+let heartId = 0;
+let sysTimer: ReturnType<typeof setTimeout> | null = null;
 
 const products = computed(() => room.value?.products || []);
 const canPlay = computed(() => !!(playUrl.value && room.value.status === 'live'));
@@ -93,40 +106,55 @@ async function load() {
 
 function connectWs() {
   if (!wsUrl.value) return;
-  try {
-    ws = new WebSocket(wsUrl.value);
-    ws.onopen = () => ws!.send(JSON.stringify({ type: 'join', ticket: wsTicket.value }));
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === 'welcome') {
-        danmakuList.value = msg.history || [];
-        likeCount.value = msg.likes ?? likeCount.value;
-      } else if (msg.type === 'danmaku') {
-        danmakuList.value.push(msg);
-        if (danmakuList.value.length > 50) danmakuList.value.splice(0, danmakuList.value.length - 50);
-      } else if (msg.type === 'likes') {
-        likeCount.value = msg.count;
-      }
-    };
-  } catch (e) { /* ws 失败不影响页面 */ }
+  socket = io(wsUrl.value, {
+    transports: ['websocket'],
+    query: { roomId: String(roomId.value), ticket: wsTicket.value },
+    reconnection: true,
+    reconnectionDelay: 2000,
+  });
+  socket.on('connect', () => console.log('live ws connected'));
+  socket.on('history', ({ items }: any) => { danmakuList.value.push(...items); trimDanmaku(); });
+  socket.on('danmaku', (m: any) => { danmakuList.value.push(m); trimDanmaku(); });
+  socket.on('like', ({ count }: any) => { likeCount.value += count; popHearts(count); });
+  socket.on('online', ({ count }: any) => { onlineCount.value = count; });
+  socket.on('sys', (m: any) => {
+    sysTip.value = m.text;
+    if (sysTimer) clearTimeout(sysTimer);
+    sysTimer = setTimeout(() => (sysTip.value = ''), 3000);
+  });
+  socket.on('connect_error', () => { sysTip.value = '互动通道连接中…'; });
 }
 
 function sendDanmaku() {
   const text = inputText.value.trim();
-  if (!text || !ws) return;
-  ws.send(JSON.stringify({ type: 'danmaku', text }));
+  if (!text || !socket) return;
+  socket.emit('danmaku', { text });
   inputText.value = '';
 }
 
 function sendLike() {
-  if (!ws) return;
-  ws.send(JSON.stringify({ type: 'like' }));
+  socket?.emit('like');
 }
 
 function sendFollow() {
-  if (!ws) return;
-  ws.send(JSON.stringify({ type: 'follow' }));
   ui.showToast('关注成功', 'success');
+}
+
+function trimDanmaku() {
+  if (danmakuList.value.length > 60) danmakuList.value.splice(0, danmakuList.value.length - 60);
+}
+
+function popHearts(n: number) {
+  const count = Math.min(Math.max(n, 1), 3);
+  for (let i = 0; i < count; i++) {
+    if (hearts.value.length >= 6) hearts.value.shift();
+    const id = ++heartId;
+    hearts.value.push({ id });
+    setTimeout(() => {
+      const idx = hearts.value.findIndex((h) => h.id === id);
+      if (idx > -1) hearts.value.splice(idx, 1);
+    }, 1200);
+  }
 }
 
 async function buy(p: any) {
@@ -143,7 +171,10 @@ async function buy(p: any) {
 }
 
 onMounted(load);
-onUnmounted(() => { ws?.close(); });
+onUnmounted(() => {
+  socket?.disconnect();
+  if (sysTimer) clearTimeout(sysTimer);
+});
 </script>
 
 <style scoped>
@@ -153,6 +184,8 @@ onUnmounted(() => { ws?.close(); });
 .no-live { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; }
 .head { position: absolute; left: 0; right: 0; bottom: 0; padding: 16rpx 24rpx; display: flex; justify-content: space-between; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
 .h-name { color: #fff; font-size: 30rpx; font-weight: 600; }
+.h-meta { display: flex; align-items: center; gap: 12rpx; }
+.h-online { color: #fff; background: rgba(0,0,0,.4); border-radius: 999rpx; padding: 4rpx 20rpx; font-size: 24rpx; }
 .h-status { color: #e64340; background: #fff; border-radius: 999rpx; padding: 4rpx 20rpx; font-size: 24rpx; }
 .interact { display: flex; flex-direction: column; height: 400rpx; border-bottom: 1rpx solid #eee; }
 .danmaku { flex: 1; padding: 16rpx 24rpx; }
@@ -162,6 +195,13 @@ onUnmounted(() => { ws?.close(); });
 .actions { display: flex; align-items: center; gap: 16rpx; padding: 16rpx 24rpx; }
 .input { flex: 1; border: 1rpx solid #ddd; border-radius: 999rpx; padding: 12rpx 24rpx; font-size: 26rpx; }
 .btn { background: #e64340; color: #fff; border-radius: 999rpx; padding: 12rpx 24rpx; font-size: 24rpx; }
+.sys-tip { align-self: flex-start; margin: 12rpx 24rpx 0; background: rgba(0,0,0,.75); color: #fff; border-radius: 999rpx; padding: 8rpx 24rpx; font-size: 24rpx; }
+.like-wrap { position: relative; }
+.heart { position: absolute; bottom: 100%; left: 0; color: #ff5b8d; font-size: 32rpx; pointer-events: none; animation: heart-pop 1.2s ease-out forwards; }
+@keyframes heart-pop {
+  0% { transform: translateY(0) scale(.6); opacity: 1; }
+  100% { transform: translateY(-140rpx) scale(1.3); opacity: 0; }
+}
 .shelf { padding: 24rpx; }
 .p-item { display: flex; gap: 20rpx; background: #fff; border-radius: 12rpx; padding: 16rpx; margin-bottom: 16rpx; }
 .p-img { width: 140rpx; height: 140rpx; border-radius: 8rpx; background: #eee; }
