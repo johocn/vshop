@@ -1,3 +1,7 @@
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: true
+  esbuild: true
 # pnpm 工程配置（pnpm 10+ 的工程级配置统一在此文件）
 #
 # 采用 npm 式扁平链接（hoisted）：uni-app 生态的传递依赖层次复杂，

@@ -196,6 +196,13 @@
                     }
                 },
                 {
+                    "path": "pages/coupon-code",
+                    "style": {
+                        "navigationBarTitleText": "券码",
+                        "navigationBarBackgroundColor": "#ffffff"
+                    }
+                },
+                {
                     "path": "pages/live-list",
                     "style": {
                         "navigationBarTitleText": "直播"

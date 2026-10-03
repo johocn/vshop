@@ -6,7 +6,9 @@ import { getGraphQLClient } from '../client';
 const COUPON_TEMPLATE_FIELDS = `
     id name description type discountValue minSpend
     startsAt endsAt totalCount claimedCount pointsPrice perUserLimit
-    scope categoryId variantId enabled shopId createdAt updatedAt
+    scope categoryId variantId enabled shopId usageScene createdAt updatedAt
+    claimable claimCode validDays newCustomerOnly memberLevel
+    distributionChannels salePrice
 `;
 
 /** 领券中心：当前可领取的优惠券模板列表 */
@@ -34,4 +36,20 @@ export async function getMyCoupons(status?: string) {
         }
     }`;
     return client.request(query, { status: status ?? null });
+}
+
+/** 按券码精准查当前用户自己的单张券（券码页轮询核销状态用），非本人券返回 null */
+export async function getMyCouponByCode(code: string) {
+    const client = getGraphQLClient();
+    const query = `query MyCouponByCode($code: String!) {
+        customerCouponByCode(code: $code) {
+            id customerId templateId code status issuedBy
+            reservedOrderId usedOrderId issuedAt usedAt expiredAt
+            createdAt updatedAt
+            template {
+                ${COUPON_TEMPLATE_FIELDS}
+            }
+        }
+    }`;
+    return client.request(query, { code });
 }

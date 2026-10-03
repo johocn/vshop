@@ -72,6 +72,9 @@
                 <text class="coupon-card__code">券码：{{ mc.code }}</text>
                 <text class="coupon-card__date">{{ formatMyDate(mc) }}</text>
               </view>
+              <view v-if="isStoreCoupon(mc) && mc.status === 'UNUSED'" class="coupon-card__actions">
+                <button class="coupon-card__btn coupon-card__btn--outline" @click.stop="goShowCode(mc)">出示券码</button>
+              </view>
             </view>
             <view v-if="mc.status !== 'UNUSED'" class="coupon-card__stamp">
               <text>{{ mc.status === 'USED' ? '已使用' : (mc.status === 'EXPIRED' ? '已过期' : mc.status) }}</text>
@@ -378,6 +381,26 @@ function formatMyDate(mc: any): string {
     return formatDateRange(mc.template || {});
 }
 
+/** 判断券是否为到店买单券（usageScene 含 IN_STORE / ALL） */
+function isStoreCoupon(mc: any): boolean {
+    const scene = (mc.template?.usageScene || 'ONLINE').toUpperCase();
+    return scene === 'IN_STORE' || scene === 'ALL';
+}
+
+/** 打开券码出示页 */
+function goShowCode(mc: any) {
+    const tpl = mc.template || {};
+    const params = [
+        `code=${encodeURIComponent(mc.code || '')}`,
+        `name=${encodeURIComponent(tpl.name || '优惠券')}`,
+        `type=${encodeURIComponent(tpl.type || 'FIXED')}`,
+        `discountValue=${encodeURIComponent(tpl.discountValue?.toString() || '0')}`,
+        `minSpend=${encodeURIComponent(tpl.minSpend?.toString() || '0')}`,
+        `expiresAt=${encodeURIComponent(mc.expiredAt || tpl.endsAt || '')}`,
+    ].join('&');
+    uni.navigateTo({ url: `/pkg-promotion/pages/coupon-code?${params}` });
+}
+
 onMounted(async () => {
     await loadAvailable();
     checkPendingClaim();
@@ -433,7 +456,17 @@ onMounted(async () => {
         align-self: flex-end; background: $brand-color; color: #fff; border: none;
         font-size: 24rpx; padding: 8rpx 28rpx; border-radius: 30rpx; line-height: 1.6;
         &--disabled { background: #ccc; }
+        &--outline {
+            background: #fff; color: $brand-color;
+            border: 1rpx solid $brand-color;
+            &::after { border: none; }
+        }
         &::after { border: none; }
+    }
+
+    &__actions {
+        margin-top: 10rpx;
+        display: flex; justify-content: flex-end;
     }
 
     &__stamp {
