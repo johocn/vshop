@@ -1,5 +1,12 @@
 <template>
   <view class="coupons-page">
+    <view class="mall-entry" @click="goMall">
+      <view class="mall-entry__left">
+        <text class="mall-entry__title">券商城</text>
+        <text class="mall-entry__desc">购券 · 积分兑换 · 兑换码</text>
+      </view>
+      <text class="mall-entry__arrow">›</text>
+    </view>
     <view class="coupons-tabs">
       <text class="tab" :class="{ active: tab === 'center' }" @click="switchTab('center')">领券中心</text>
       <text class="tab" :class="{ active: tab === 'wallet' }" @click="switchTab('wallet')">我的卡包</text>
@@ -166,6 +173,11 @@ const walletEmptyText = computed(() => {
 
 function goLogin() {
     uni.navigateTo({ url: '/pages/login/index?redirect=' + encodeURIComponent('/pkg-promotion/pages/coupons') });
+}
+
+/** 进入券商城（购券/积分兑换/兑换码） */
+function goMall() {
+    uni.navigateTo({ url: '/pkg-promotion/pages/coupon-mall' });
 }
 
 /** 检测 GraphQL 错误是否为认证失败（token 过期/无效） */
@@ -409,6 +421,17 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .coupons-page { padding: 20rpx; padding-bottom: 40rpx; }
+
+.mall-entry {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, $brand-color, #ff9f43);
+    border-radius: $radius-md; padding: 24rpx 30rpx; margin-bottom: 20rpx;
+    &__left { display: flex; flex-direction: column; }
+    &__title { font-size: 32rpx; font-weight: bold; color: #fff; }
+    &__desc { font-size: 22rpx; color: rgba(255, 255, 255, 0.85); margin-top: 6rpx; }
+    &__arrow { font-size: 40rpx; color: #fff; }
+}
+
 .coupons-tabs {
     display: flex; background: #fff; border-radius: $radius-md; margin-bottom: 20rpx; overflow: hidden;
     .tab {
