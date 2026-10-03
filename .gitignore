@@ -28,6 +28,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# 本机密钥区（admin token、微信支付证书材料、联调脚本）——严禁入库
+.secrets/
+
 # Logs
 *.log
 npm-debug.log*
