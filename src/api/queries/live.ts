@@ -15,6 +15,7 @@ export async function getLiveRoom(id: string) {
         `query LiveRoom($id: ID!) { liveRoom(id: $id) {
             id name coverUrl streamerName status type scheduledStartAt startedAt endedAt playUrl replayUrl likeCount viewCount
             products { id variantId name price imageUrl sortOrder }
+            platforms { id platform externalUrl }
         } }`,
         { id },
     );
