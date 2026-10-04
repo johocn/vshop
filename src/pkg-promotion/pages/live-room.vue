@@ -2,17 +2,31 @@
   <view class="page">
     <!-- 播放区 -->
     <view class="player">
-      <video
-        v-if="canPlay"
-        :id="'player-' + roomId"
-        class="video"
-        :src="playUrl || ''"
-        controls
-        autoplay
-        :object-fit="'contain'"
-      />
+      <template v-if="canPlay">
+        <!-- #ifdef H5 -->
+        <video ref="videoRef" class="video" controls autoplay playsinline @error="h5PlayError = true"></video>
+        <view v-if="h5PlayError" class="retry" @click="setupH5Player"><text>加载失败，点击重试</text></view>
+        <!-- #endif -->
+        <!-- #ifndef H5 -->
+        <video
+          :id="'player-' + roomId"
+          class="video"
+          :src="playUrl || ''"
+          controls
+          autoplay
+          object-fit="contain"
+        />
+        <!-- #endif -->
+      </template>
       <view v-else class="no-live">
-        <text>{{ room.status === 'ended' ? '直播已结束' : '直播未开始' }}</text>
+        <template v-if="platforms.length">
+          <image v-if="room.coverUrl" class="no-live-cover" :src="room.coverUrl" mode="aspectFill" />
+          <text v-if="firstPlatform" class="go-btn" @click="onPlatformTap(firstPlatform)">前往{{ platformLabel(firstPlatform.platform) }}观看</text>
+        </template>
+        <text v-else>{{ room.status === 'ended' ? '直播已结束' : '直播未开始' }}</text>
+      </view>
+      <view v-if="platforms.length" class="pills">
+        <text v-for="p in platforms" :key="p.platform" class="pill" :class="'p-' + p.platform" @click="onPlatformTap(p)">{{ platformLabel(p.platform) }}</text>
       </view>
       <view class="head">
         <text class="h-name">{{ room.name }}</text>
@@ -51,11 +65,28 @@
         <text class="p-price">¥{{ (p.price / 100).toFixed(2) }}</text>
       </view>
     </view>
+
+    <!-- 视频号引导弹层（H5） -->
+    <view v-if="wxSheet" class="sheet-mask" @click="wxSheet = null">
+      <view class="sheet" @click.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">观看视频号直播</text>
+          <text class="sheet-x" @click="wxSheet = null">✕</text>
+        </view>
+        <text class="sheet-name">@{{ wxSheet.finder }}</text>
+        <view class="sheet-steps">
+          <text>1. 点击下方复制视频号名</text>
+          <text>2. 打开微信 → 搜一搜</text>
+          <text>3. 进入视频号观看直播</text>
+        </view>
+        <view class="sheet-btn" @click="copyWxChannels"><text>复制视频号名</text></view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import { io, Socket } from 'socket.io-client';
 import { getLiveRoom, enterLiveRoom, setOrderLiveRoom } from '../../api/queries/live';
 import { addItemToOrder } from '../../api/mutations/cart';
@@ -84,6 +115,73 @@ const statusLabel = computed(() => {
   if (room.value.status === 'ended') return '已结束';
   return '预告';
 });
+
+// ---- 平台分发（双形态 + 平台按钮组 + 视频号引导） ----
+const platforms = computed<any[]>(() => room.value?.platforms || []);
+const firstPlatform = computed(() => platforms.value[0]);
+const PLATFORM_LABELS: Record<string, string> = { douyin: '抖音', kuaishou: '快手', wechat_channels: '视频号' };
+function platformLabel(p: string) { return PLATFORM_LABELS[p] || p; }
+
+const wxSheet = ref<{ finder: string } | null>(null);
+
+// #ifdef H5
+const videoRef = ref<HTMLVideoElement | null>(null);
+const h5PlayError = ref(false);
+let hls: any = null;
+
+async function setupH5Player() {
+  h5PlayError.value = false;
+  const v = videoRef.value;
+  if (!v || !playUrl.value) return;
+  if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = playUrl.value; return; }
+  try {
+    const mod: any = await import('hls.js');
+    if (!mod.default.isSupported()) return;
+    hls?.destroy();
+    hls = new mod.default();
+    hls.loadSource(playUrl.value);
+    hls.attachMedia(v);
+  } catch { h5PlayError.value = true; }
+}
+watch(canPlay, (v) => { if (v) nextTick(setupH5Player); });
+// #endif
+
+function isWeixinBrowser() {
+  return /MicroMessenger/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+}
+
+function onPlatformTap(p: any) {
+  if (p.platform === 'wechat_channels') { onWxChannelsTap(p); return; }
+  // #ifdef H5
+  if (isWeixinBrowser()) {
+    uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast('链接已复制，请在浏览器打开', 'success') });
+  } else {
+    window.location.href = p.externalUrl;
+  }
+  // #endif
+  // #ifndef H5
+  uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast('链接已复制', 'success') });
+  // #endif
+}
+
+function onWxChannelsTap(p: any) {
+  const m = /^wxchannels:\/\/finder=([^&]+)(?:&feed=([^&]+))?/.exec(p.externalUrl || '');
+  const finder = m ? decodeURIComponent(m[1]) : '';
+  // #ifdef MP-WEIXIN
+  if (finder && typeof wx !== 'undefined') {
+    const open = (feedId?: string) => wx.openChannelsLive({ finderUserName: finder, feedId });
+    if (m?.[2]) { open(decodeURIComponent(m[2])); return; }
+    wx.getChannelsLiveInfo({ finderUserName: finder, success: (r: any) => open(r.feedId), fail: () => (wxSheet.value = { finder }) });
+    return;
+  }
+  // #endif
+  wxSheet.value = { finder: finder || p.externalUrl };
+}
+
+function copyWxChannels() {
+  if (!wxSheet.value) return;
+  uni.setClipboardData({ data: wxSheet.value.finder, success: () => ui.showToast('视频号名已复制', 'success') });
+}
 
 async function load() {
   const pages = getCurrentPages();
@@ -174,6 +272,10 @@ onMounted(load);
 onUnmounted(() => {
   socket?.disconnect();
   if (sysTimer) clearTimeout(sysTimer);
+  // #ifdef H5
+  hls?.destroy();
+  hls = null;
+  // #endif
 });
 </script>
 
@@ -207,4 +309,21 @@ onUnmounted(() => {
 .p-img { width: 140rpx; height: 140rpx; border-radius: 8rpx; background: #eee; }
 .p-name { flex: 1; font-size: 28rpx; }
 .p-price { color: #e64340; font-weight: 600; }
+/* ---- 平台分发 ---- */
+.pills { position: absolute; left: 0; right: 0; bottom: 88rpx; display: flex; gap: 12rpx; justify-content: center; z-index: 3; }
+.pill { background: rgba(0,0,0,.55); color: #fff; border-radius: 999rpx; padding: 8rpx 24rpx; font-size: 24rpx; }
+.pill.p-wechat_channels { background: #07c160; font-weight: 600; }
+.no-live { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20rpx; color: #fff; }
+.no-live-cover { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: .55; }
+.go-btn { position: relative; background: #07c160; color: #fff; border-radius: 999rpx; padding: 14rpx 44rpx; font-size: 28rpx; font-weight: 600; z-index: 1; }
+.retry { position: absolute; left: 0; right: 0; bottom: 140rpx; text-align: center; color: #fff; font-size: 26rpx; z-index: 3; }
+.sheet-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); z-index: 99; display: flex; align-items: flex-end; }
+.sheet { width: 100%; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 32rpx; box-sizing: border-box; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; }
+.sheet-title { font-size: 30rpx; font-weight: 700; color: #333; }
+.sheet-x { color: #999; font-size: 28rpx; padding: 8rpx; }
+.sheet-name { display: block; margin: 24rpx 0 8rpx; font-size: 40rpx; font-weight: 700; color: #07c160; }
+.sheet-steps { display: flex; flex-direction: column; gap: 8rpx; margin: 16rpx 0 24rpx; }
+.sheet-steps text { color: #666; font-size: 26rpx; }
+.sheet-btn { background: #07c160; color: #fff; text-align: center; border-radius: 12rpx; padding: 20rpx 0; font-size: 28rpx; font-weight: 700; }
 </style>
