@@ -21,6 +21,7 @@
 | 骑手入驻 | 线上申请 + web-admin 审核 |
 | 送达交接 | 宿舍楼下当面交付，拍照存证；联系不上走异常上报 |
 | MVP 范围 | 一步到位：立即单 + 预约时段 + 独立跑腿单 |
+| 无人接单 | 四级降级阶梯 T0 预防 → T1 抢单 → T2 强派 → T3 人工兜底 → T4 自动退款+补偿券 |
 
 ## 3. 履约方式矩阵（核心模型）
 
@@ -41,7 +42,7 @@
 
 | 层 | 复用（不改） | 新增 |
 |---|---|---|
-| 后端插件 | delivery-plugin（delivery-staff 角色/权限、状态机 assigned→in_progress→delivered/exception、拍照送达、异常上报、改派）；logistics-plugin（轨迹/回调/发货）；pickup-plugin（自提点/核销）；wechatpay/vcash 余额；多租户 channel；order-timeout job 模式 | `campus-delivery-plugin`：抢单大厅、超时自动派、送达时段、分区/宿舍楼、骑手入驻审核、分成入余额、履约路线配置 |
+| 后端插件 | delivery-plugin（delivery-staff 角色/权限、状态机 assigned→in_progress→delivered/exception、拍照送达、异常上报、改派）；logistics-plugin（轨迹/回调/发货）；pickup-plugin（自提点/核销）；wechatpay/vcash 余额；多租户 channel；order-timeout job 模式；wechat-subscribe-message-plugin（骑手新单订阅消息提醒） | `campus-delivery-plugin`：抢单大厅、超时自动派、送达时段、分区/宿舍楼、骑手入驻审核、分成入余额、履约路线配置 |
 | C 端 vshop | checkout 四类配送 Tab 架构（ShippingMethod.code 映射）、PickupLocationSheet、usePayment、余额 | `pkg-campus` 分包（跑腿下单/宿舍楼选择）；checkout 加「校园配送」方式 |
 | 骑手端 | vshop 登录/上传/余额组件 | `pkg-rider` 分包：招募申请、抢单大厅、任务详情、收入 |
 | 管理端 web-admin | 租户/人员管理、区域运费、订单管理、order/ship 发货 | 骑手审核、配送调度、履约配置 3 个页面 |
@@ -54,7 +55,7 @@
 `fulfillmentRoute`（R1–R5 语义码）、`orderKind`（normal/errand）、`leg1Status`（preparing/arrived_gate）、`handoverAt`、`errandFrom/errandTo/errandKind`（跑腿 A/B 点与类型）、`deliverySlotId/deliverySlotText`、`buildingId/campusZone`、`hallEnteredAt/hallStatus`（open/grabbed/assigned）、`riderEarning`。骑手段状态沿用 delivery-plugin 的 `deliveryStatus`，不新增。
 
 **Customer 新增 customFields**（骑手身份挂 C 端用户，不用 admin 账号）：
-`riderStatus`（none/pending/approved/suspended）、`realName`、`studentNo`、`campus`。
+`riderStatus`（none/pending/approved/suspended）、`realName`、`studentNo`、`campus`、`riderCredit`（信用分，默认 100）。
 
 **新实体**：
 - `CampusZone`：分区 + 配送费
@@ -100,20 +101,45 @@
 
 ```
 商品单 R1/R3：支付 → 入厅(open) → 骑手抢到(grabbed) → assigned → in_progress → delivered(拍照) → 分成入余额
-                     └→ N分钟无人抢 → 自动派单 → assigned → ...
-                     └→ 30分钟仍无人 → 告警 → 人工派单或自动退款
+                     └→ T0-T2 无人抢（见 §11 降级阶梯）：预防提醒 → 加急置顶 → 10min 强派
+                     └→ T3 10-30min：调度告警 → 人工派单/电话调度/商家自送
+                     └→ T4 30min：自动全额退款 + 定向补偿券 + 对账标记 cause=no_rider
 跑腿单 R5：   发布支付 → 入厅 → 同上（小费计入 riderEarning）
 R4 自取：     支付 → 自提码 → 核销
 R2 快递：     支付 → 商户发货 → 轨迹回写 → 到校 → 自取 or 发 R5
 异常：        reportException → 调度页跟进 → 改派或退款
 ```
 
-## 11. 错误处理
+## 11. 极端情况与降级处理
 
-- 抢单并发失败：乐观锁冲突提示重试。
-- 自动派无人接：告警 + 超时上限退款。
-- 快递轨迹回调失败：管理端手动 refreshTrack（已有）。
-- 支付后入厅失败：job 兜底重扫已支付未入厅订单。
+**无人接单四级降级阶梯（T0→T4）**：
+
+| 级别 | 时机 | 动作 |
+|---|---|---|
+| T0 预防 | 入厅前 | 检测在线骑手数；0 骑手时 C 端提示「运力紧张」并引导预约时段/加小费；新单入厅即触发骑手微信订阅消息（复用 wechat-subscribe-message-plugin） |
+| T1 抢单期 | 0–10min | 大厅倒计时；滞留超 5min 自动置顶 + 加急标 |
+| T2 强派 | 10min | 按分区强派在线骑手（最近活跃优先）；被派骑手可拒单一次但记信用分，连续拒单降派单权重；拒单后回大厅继续 T3 |
+| T3 人工兜底 | 10–30min | 调度页红色告警置顶；客服电话调度/手动改派，或联系商家自送进校 |
+| T4 终态 | 30min | 自动全额退款原路退回；学生收定向补偿券（复用 coupon 定向发券）；对账记 `cause=no_rider` 供商家分责结算 |
+
+**其他极端情况矩阵**：
+
+| 情况 | 处理 |
+|---|---|
+| 骑手接单 15min 未取货 | 自动改派（reassign）+ 骑手信用分扣减 |
+| in_progress 超 SLA（默认 45min，可配） | 调度页告警，客服介入 |
+| 送达联系不上学生 | 异常上报（no_recipient）→ 短信/电话 → 15min 无响应：拍照放置 + 系统通知自取，或带回交接点待取 |
+| 骑手中途无法配送（受伤/车辆故障） | 骑手发起转单 → 回大厅接力；已取货订单需新骑手拍照交接确认 |
+| 学生称未收到货 | 送达拍照 + 可选送达定位存证 → 客服仲裁 |
+| 刷单风控 | 同一用户下单/接单互斥校验；异常频次账号标记风控 |
+| 恶劣天气/运力枯竭 | 租户级「运力暂停」开关；C 端显示暂停接单，仅允许预约时段 |
+| 商家拒单/出餐慢 | 复用 after-sales-plugin 自动退款 |
+| 时段容量满 | 下单时锁容失败 → 引导相邻时段 |
+| 抢单并发冲突 | 乐观锁失败提示「手慢了」重试 |
+| 支付成功但入厅失败 | job 兜底重扫已支付未入厅订单 |
+| 快递轨迹回调失败 | 管理端手动 refreshTrack（已有） |
+
+**骑手信用分**：新增 Customer customFields `riderCredit`（默认 100）；拒单/超时/异常扣分，正常完单加分；低于阈值（默认 60）降低派单优先级并提示整改。
 
 ## 12. 测试与交付
 
