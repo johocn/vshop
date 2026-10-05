@@ -42,7 +42,7 @@
 | 截图 | 断言 |
 |---|---|
 | live-plat-01-pills.png | 形态一 pill 行显示 抖音+视频号 |
-| live-plat-02-wxsheet.png | 视频号弹层显示 @johocn_shop |
+| live-plat-02-wxsheet.png | 视频号弹层显示 @sphVymTBbxX448X（真实视频号 ID，2026-10-05 更新） |
 | live-plat-03-toast.png | 复制视频号名 toast 出现 |
 | live-plat-04-form2-gobtn.png | 形态二「前往视频号观看」按钮 |
 | live-plat-05-plain-ended.png | 无 platforms 回归：直播已结束、无 go-btn/pills |
