@@ -139,6 +139,7 @@ async function setupH5Player() {
     if (!mod.default.isSupported()) return;
     hls?.destroy();
     hls = new mod.default();
+    hls.on(mod.default.Events.ERROR, (_e: any, d: any) => { if (d?.fatal) h5PlayError.value = true; });
     hls.loadSource(playUrl.value);
     hls.attachMedia(v);
   } catch { h5PlayError.value = true; }
