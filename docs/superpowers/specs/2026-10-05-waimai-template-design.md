@@ -102,17 +102,19 @@ e:\zhao\waimai · 独立 uniapp（vite，照搬 vshop 构建配置）· H5 base=
 
 > 边界规则全部后端二次校验，前端仅做体验层拦截。
 
-## 7. 后端缺口清单（campus-delivery-plugin 内补齐）
+## 7. 后端缺口清单（campus-delivery-plugin 内补齐，2026-10-05 实测修正）
+
+> 实测：骑手任务流（campusHall/campusGrabOrder/campusMyTasks/campusStartTask/campusDeliverTask/campusReportException/applyRider/campusRiderOnline/campusRiderHeartbeat/campusCapacityCheck/myRiderEarnings）后端已全部就绪。真实缺口：
 
 | # | 缺口 | 说明 |
 |---|---|---|
-| 1 | 店铺列表聚合查询 | channels × campus_fulfillment_config 聚合店铺卡数据，新增 shop resolver |
-| 2 | 骑手任务流 shop-api | 大厅待抢列表、acceptTask（防双抢）、状态推进（交接拍照/取餐/送达）、收入与信用分查询——service 已有补 resolver，**每个方法显式 @Allow** |
-| 3 | 履约时间线查询 | hallStatus + 交接点事件聚合，供 C 端轮询 |
-| 4 | 转单 mutation | 回大厅 + 已取货强制拍照交接 |
+| 1 | 店铺列表聚合查询 | `waimaiStoreList`：channels × campus_fulfillment_config 聚合店铺卡数据（token/tags/月售/暂停态/routes），新增 shop resolver |
+| 2 | Channel 元数据字段 | `waimaiTags`/`waimaiMonthlySales`/`waimaiLogo` 三个 Channel customFields |
+| 3 | 订单骑手卡查询 | `campusOrderRider(orderId)`：骑手姓名+信用分（不含联系方式），C 端轮询用 |
+| 4 | 转单 mutation | `campusTransferTask`：assigned 直接回大厅；in_progress 已取货强制拍照交接（transferPhotos 存证） |
 | 5 | 未接单降级态 | C 端「平台调度中」只读展示；自动派单属 Plan 3，不阻塞 |
 
-支付/购物车/结算/上传复用现有能力，无后端改动。
+履约时间线：C 端轮询 `order { customFields { hallStatus deliveryStatus ... } }` + `campusOrderRider` 组合，无新后端。支付/购物车/结算/上传复用现有能力，无后端改动。
 
 ## 8. 部署方案
 
@@ -134,9 +136,33 @@ e:\zhao\waimai · 独立 uniapp（vite，照搬 vshop 构建配置）· H5 base=
 - 微信小程序端（manifest 预留，二期）
 - i18n / 多城市 / 五级风格体系（后置模板化阶段）
 - WebSocket 实时推送（一期轮询）
-- 自动派单与 T0-T4 降级的服务端完整实现（Plan 3）
+- ~~自动派单与 T0-T4 降级的服务端完整实现（Plan 3）~~ → 已由 campus-delivery Plan 3 完成并上线（2026-10-05 部署验证）；本模板一期 C 端仅做「平台调度中」只读展示与既有状态消费，调度看板属 web-admin，不在本模板范围
 
 ## 11. 与现有工作流的边界
 
 - Plan 2（vshop C 端校园 Tab + pkg-rider）与本模板的页面能力重叠：本模板是独立应用，不回写 vshop 页面；后端缺口 resolver 属插件公共能力，Plan 2 可直接受益
 - 后端改动仅限 campus-delivery-plugin，遵守「插件 lib 入库、服务器零构建」惯例
+
+## 12. 设计增补（2026-10-05 brainstorm 定案）
+
+### 12.1 视觉与主题系统
+
+- 品牌 token：`--brand: #ff6600`、`--brand-soft: #fff3e6`（与 vshop `uni.scss` 同款值），全部组件只引用 token，一处换肤（三方案 mockup 对比后定案 A·沃堡橙）
+- 运行时可覆盖：预留 `VITE_BRAND_COLOR` 环境变量注入（复用 vshop `App.vue` 的 CSS variable 注入模式），租户换色不改代码
+- H5 一期不做暗色模式；tabBar 用 uni-app 原生 tabBar（首页/订单/我的）
+
+### 12.2 首页搜索与满减 tag
+
+- 搜索：真搜索——输入即对 `waimaiStoreList` 结果做前端过滤（店名包含匹配、不分大小写），清空恢复全量；搜索激活时隐藏分类 pills，清空恢复；零后端成本
+- 满减 tag 数据源：Channel customFields 新增 `waimaiPromoText`（字符串，手工维护，如「满20减4」），与 `waimaiTags/waimaiMonthlySales/waimaiLogo` 同模式——**waimai Plan 1 Task 1 需补充此字段**
+
+### 12.3 执行编排（三段式，子代理驱动）
+
+| 段 | 内容 | 验收点 |
+|---|---|---|
+| 段 1 | 后端缺口 4 项 + `waimaiPromoText`：TDD → lib 入库 → dev-server dist 重编 → 部署 → 冒烟 | 单测绿 + 冒烟脚本过 |
+| 段 2 | `e:\zhao\waimai` 项目初始化（照搬 vshop 构建配置）→ 交易底座复制 → 主题 token → 新写 4 页（首页/店铺菜单/结算·校园配送 Tab/订单跟踪），orders/profile/login/webview 照搬 vshop 改造 | vitest 核心逻辑绿 + 手机截图目检 |
+| 段 3 | pkg-rider 骑手端 4 页 → 全链路冒烟 → 手机截图 → 部署 yourbao/waimai/ | 390×844 dpr=2 截图逐张目检 + 操作手册 |
+
+- 每段产出经主窗口复核后 commit；waimai 独立仓库本地 master、无 remote（参照 qijinqichu 模式）
+- 用户人工操作项（不阻塞开发，上线前完成）：微信商户平台为 JSAPI 支付追加 `/waimai/` 授权目录
