@@ -32,11 +32,12 @@ import { describe, expect, it } from 'vitest';
 import { campusCustomFields } from './custom-fields';
 
 describe('campusCustomFields', () => {
-    it('Channel 含 waimai 三字段（tags/monthlySales/logo）', () => {
+    it('Channel 含 waimai 四字段（tags/monthlySales/logo/promoText）', () => {
         const names = (campusCustomFields.Channel ?? []).map(f => f.name);
         expect(names).toContain('waimaiTags');
         expect(names).toContain('waimaiMonthlySales');
         expect(names).toContain('waimaiLogo');
+        expect(names).toContain('waimaiPromoText');
     });
     it('Order 含转单存证字段', () => {
         const names = campusCustomFields.Order.map(f => f.name);
@@ -61,6 +62,7 @@ Expected: FAIL（Channel 为 undefined）
         { name: 'waimaiTags', type: 'string', nullable: true }, // '米饭快餐,夜宵' 逗号分隔
         { name: 'waimaiMonthlySales', type: 'int', nullable: true },
         { name: 'waimaiLogo', type: 'string', nullable: true },
+        { name: 'waimaiPromoText', type: 'string', nullable: true }, // 满减 tag 文案，如 '满20减4'（spec §12.2 增补）
     ],
 ```
 
@@ -117,7 +119,7 @@ describe('WaimaiStoreService.listStores', () => {
             channels: [
                 { id: 1, token: 'default', code: 'default-channel', customFields: {} },
                 { id: 2, token: 'canteen', code: '一食堂麻辣香锅',
-                  customFields: { waimaiTags: '米饭快餐, 夜宵', waimaiMonthlySales: 320, waimaiLogo: '/static/a.webp' } },
+                  customFields: { waimaiTags: '米饭快餐, 夜宵', waimaiMonthlySales: 320, waimaiLogo: '/static/a.webp', waimaiPromoText: '满20减4' } },
             ],
         });
         const list = await env.svc.listStores({} as any);
@@ -125,6 +127,7 @@ describe('WaimaiStoreService.listStores', () => {
         expect(list[0]).toEqual({
             channelId: 2, channelToken: 'canteen', name: '一食堂麻辣香锅',
             logo: '/static/a.webp', tags: ['米饭快餐', '夜宵'], monthlySales: 320,
+            promoText: '满20减4',
             paused: false, routesEnabled: ['R1', 'R3'],
         });
     });
@@ -136,6 +139,7 @@ describe('WaimaiStoreService.listStores', () => {
         const list = await env.svc.listStores({} as any);
         expect(list[0].tags).toEqual([]);
         expect(list[0].monthlySales).toBe(0);
+        expect(list[0].promoText).toBeNull();
         expect(list[0].paused).toBe(true);
     });
 });
@@ -161,6 +165,7 @@ export interface WaimaiStore {
     logo: string | null;
     tags: string[];
     monthlySales: number;
+    promoText: string | null;
     paused: boolean;
     routesEnabled: string[];
 }
@@ -189,6 +194,7 @@ export class WaimaiStoreService {
                     ? cf.waimaiTags.split(',').map((t: string) => t.trim()).filter(Boolean)
                     : [],
                 monthlySales: cf.waimaiMonthlySales ?? 0,
+                promoText: cf.waimaiPromoText ?? null,
                 paused: cfg.paused,
                 routesEnabled: cfg.routesEnabled ?? [],
             });
@@ -523,8 +529,126 @@ Expected: 输出 `SMOKE PASS`；店铺列表含已配置履约的渠道
 
 ---
 
+### Task 6: campusSetDeliveryTarget 扩展 route/slotId（spec §12 执行时新增）
+
+> 侦察发现（2026-10-05）：`deliverySlotId/fulfillmentRoute(R1/R3)` 只有支付后锁位读取与入厅判定，**无 C 端写入路径**——现有 `setDeliveryTarget(zoneId, buildingId)` 只写 buildingId/campusZone。不补此缺口，学生选的时段与配送路线进不了订单，支付后锁位永远读空、R1/R3 单永不入厅。
+
+**Files:**
+- Modify: `e:\zhao\vendure\packages\campus-delivery-plugin\src\campus-config.service.ts`（setDeliveryTarget 加可选参数）
+- Modify: `e:\zhao\vendure\packages\campus-delivery-plugin\src\hall-shop.resolver.ts`（mutation 加两个可选 Args）
+- Test: `e:\zhao\vendure\packages\campus-delivery-plugin\src\campus-config.service.spec.ts`（追加 describe）
+
+- [ ] **Step 1: 写失败测试**（追加到 `campus-config.service.spec.ts` 末尾，复用该文件既有 mock 手法；核心断言如下）
+
+```ts
+describe('setDeliveryTarget route/slot 扩展', () => {
+    it('传 route+slotId 时写全 fulfillmentRoute/deliverySlotId/deliverySlotText', async () => {
+        // mock：zone/building 存在；DeliverySlot repo findOne 返回
+        // { id: 5, channelId: 1, active: true, capacity: 20, lockedCount: 3, slotDate: '2026-10-06', startTime: '11:00', endTime: '11:30' }
+        // orderService.updateCustomFields spy 断言收到：
+        // { buildingId: '7', campusZone: '东区', fulfillmentRoute: 'R3',
+        //   deliverySlotId: '5', deliverySlotText: '2026-10-06 11:00-11:30' }
+    });
+    it('slot 余量为 0 抛 UserInputError("该时段已满")', async () => {
+        // lockedCount === capacity 的 slot → expect throw
+    });
+    it('slot 跨渠道/不存在/未激活 抛 UserInputError("时段不可用")', async () => {
+        // findOne 返回 null 或 channelId 不匹配或 active=false → expect throw
+    });
+    it('非法 route 抛 UserInputError（仅允许 R1/R3）', async () => {
+        // route='R2' → expect throw（R2 有专属 r2-mark 流程，不走此口）
+    });
+    it('不传 route/slot 时行为与旧版完全一致（只写 buildingId/campusZone）', async () => {
+        // 向后兼容：旧调用形态不破坏
+    });
+});
+```
+
+> 执行时照该 spec 文件既有 mock 结构落地以上 5 例（repo 挂 findOne/find、orderService 挂 updateCustomFields spy）。
+
+- [ ] **Step 2: 运行确认失败**
+
+Run: `cd e:\zhao\vendure\packages\campus-delivery-plugin && npx vitest --config vitest.config.mts --run src/campus-config.service.spec.ts`
+Expected: FAIL（新参数被忽略/断言不满足）
+
+- [ ] **Step 3: 实现 service**（`campus-config.service.ts` 的 `setDeliveryTarget` 替换为）
+
+```ts
+    /** C 端选楼/选区/选路线/选时段写入 activeOrder。
+     * route/slot 可选（向后兼容 plan2 旧调用形态）；route 仅 R1/R3，R2 走 r2-mark 专属流程。 */
+    async setDeliveryTarget(
+        ctx: RequestContext,
+        zoneId: number,
+        buildingId: number,
+        route?: 'R1' | 'R3',
+        slotId?: number,
+    ) {
+        const zone = await this.dataSource.getRepository(CampusZone).findOne({ where: { id: zoneId as any } });
+        if (!zone) throw new UserInputError('分区不存在');
+        const building = await this.dataSource
+            .getRepository(CampusBuilding)
+            .findOne({ where: { id: buildingId as any } });
+        if (!building) throw new UserInputError('宿舍楼不存在');
+        if (route && route !== 'R1' && route !== 'R3') throw new UserInputError('配送路线不合法');
+        const fields: Record<string, string> = {
+            buildingId: String(buildingId),
+            campusZone: zone.name,
+        };
+        if (route) fields.fulfillmentRoute = route;
+        if (slotId != null) {
+            const slot = await this.dataSource.getRepository(DeliverySlot).findOne({ where: { id: slotId as any } });
+            if (!slot || !slot.active || Number(slot.channelId) !== Number(ctx.channelId)) {
+                throw new UserInputError('时段不可用');
+            }
+            if (slot.lockedCount >= slot.capacity) throw new UserInputError('该时段已满');
+            fields.deliverySlotId = String(slotId);
+            fields.deliverySlotText = `${slot.slotDate} ${slot.startTime}-${slot.endTime}`;
+        }
+        const orderId = ctx.session?.activeOrderId;
+        if (!orderId) throw new UserInputError('购物车为空');
+        return this.orderService.updateCustomFields(ctx, orderId, fields);
+    }
+```
+
+import 区补 `DeliverySlot`（同实体目录相对导入）。
+
+- [ ] **Step 4: resolver 透传**（`hall-shop.resolver.ts` 的 `campusSetDeliveryTarget` 替换为）
+
+```ts
+    @Mutation()
+    async campusSetDeliveryTarget(
+        @Ctx() ctx: RequestContext,
+        @Args('zoneId') zoneId: ID,
+        @Args('buildingId') buildingId: ID,
+        @Args({ name: 'route', type: () => String, nullable: true }) route?: 'R1' | 'R3',
+        @Args({ name: 'slotId', type: () => Int, nullable: true }) slotId?: number,
+    ) {
+        return this.config.setDeliveryTarget(ctx, Number(zoneId), Number(buildingId), route, slotId);
+    }
+```
+
+import 区补 `Int`（合并进既有 `@nestjs/graphql` import）。
+
+- [ ] **Step 5: 运行确认通过 + 全量插件测试**
+
+Run: `npx vitest --config vitest.config.mts --run`
+Expected: 全绿（确认未破坏既有用例）
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/campus-config.service.ts src/hall-shop.resolver.ts src/campus-config.service.spec.ts
+git commit -m "feat(campus): setDeliveryTarget 扩展 route/slotId（补 C 端时段+路线写入路径）"
+```
+
+> 注意：本 Task 与 Task 5 的先后不强制；若 Task 5 已部署，本 Task 完成后**重跑 Task 5 的 Step 1-4**（build lib → dist 重编 → 提交 → 部署），冒烟脚本补一条 setDeliveryTarget 带 route/slot 的调用验证。
+
+---
+
 ## Self-Review 结论
 
 - Spec §7 五项缺口的对应：#1→Task 2，#2→实测已存在（header 修正），#3→C 端轮询 order + Task 3 组合覆盖，#4→Task 4，#5→纯前端只读（Plan 2）
-- 类型一致性：`transfer(ctx, orderId, photos, note)` 与 resolver 一致；`WaimaiStore` 字段与冒烟脚本 GraphQL 字段一致
+- Spec §12.2 增补 `waimaiPromoText` → Task 1（customFields）+ Task 2（WaimaiStore.promoText）
+- spec §4 「送达时段写订单」缺口 → Task 6（route/slotId 写入路径，侦察实证后新增）
+- 类型一致性：`transfer(ctx, orderId, photos, note)` 与 resolver 一致；`WaimaiStore` 字段（含 promoText）与冒烟脚本 GraphQL 字段一致；Task 6 签名 `setDeliveryTarget(ctx, zoneId, buildingId, route?, slotId?)` 与 resolver 透传一致
 - 无占位符；所有命令含预期结果
