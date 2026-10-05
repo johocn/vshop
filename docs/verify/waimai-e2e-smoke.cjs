@@ -65,7 +65,7 @@ async function main() {
     const s1 = await gql(SHOP_API, `{ waimaiStoreList { channelId channelToken name promoText paused } }`, null, { 'vendure-token': DEFAULT_TOKEN });
     const stores = s1.waimaiStoreList ?? [];
     const withPromo = stores.filter(s => s.promoText);
-    assert('S1', stores.length >= 3 && withPromo.length >= 2, `店铺数=${stores.length}, 含 promoText=${withPromo.length}`);
+    assert('S1', stores.length >= 2 && withPromo.length >= 2, `店铺数=${stores.length}, 含 promoText=${withPromo.length}（waimaiStoreList 已过滤默认渠道）`);
 
     // S2 下单者登录
     const orderToken = await nativeLogin(ORDER_USER);
