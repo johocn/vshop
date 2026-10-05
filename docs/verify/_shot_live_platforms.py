@@ -56,7 +56,7 @@ def main():
         pg.click(".pill.p-wechat_channels")
         pg.wait_for_selector(".sheet", state="visible", timeout=5000)
         name_txt = pg.inner_text(".sheet-name").strip()
-        check(name_txt == "@johocn_shop", "视频号弹层显示 @johocn_shop（实际 %r）" % name_txt)
+        check(name_txt == "@sphVymTBbxX448X", "视频号弹层显示 @sphVymTBbxX448X（实际 %r）" % name_txt)
         shot(pg, "live-plat-02-wxsheet.png")
 
         # ③ 复制 toast
