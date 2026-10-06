@@ -156,6 +156,12 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   if (auth.isSuperAdmin || auth.hasPermission('ReadOrder')) {
     items.push({ label: 'menu.reconcile', url: '/pages/platform/reconcile/index', tier: 3 });
   }
+  // 公众号运营（平台级能力，仅超管可见）
+  if (auth.isSuperAdmin) {
+    items.push({ label: 'menu.wechatMenu', url: '/pages/wechat/menu/index', tier: 3 });
+    items.push({ label: 'menu.wechatFans', url: '/pages/wechat/fans/index', tier: 3 });
+    items.push({ label: 'menu.wechatTemplates', url: '/pages/wechat/templates/index', tier: 3 });
+  }
   if (!items.length) return null;
   return { domain: 'menu.domain.platform', color: D.d7.main, grad: D.d7.grad, items };
 }
