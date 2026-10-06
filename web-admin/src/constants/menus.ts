@@ -54,6 +54,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.picking', url: '/pages/order/picking/index', tier: 2 },
       { label: 'menu.ship', url: '/pages/order/ship/index', tier: 2 },
       { label: 'menu.afterSale', url: '/pages/after-sale/list/index', tier: 2 },
+      { label: 'menu.review', url: '/pages/review/list/index', tier: 2 },
       { label: 'menu.pos', url: '/pages/pos/index', tier: 2 },
       { label: 'menu.settleLedger', url: '/pages/settle/ledger/index', tier: 3 },
     ],
