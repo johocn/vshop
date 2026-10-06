@@ -2417,6 +2417,8 @@
     "deliveryFee": "Delivery Fee (yuan)",
     "errandBaseFee": "Errand base fee (yuan)",
     "errandBaseFeePh": "Empty = default ¥2",
+    "freeShipping": "Free shipping over X yuan",
+    "freeShippingPh": "Empty = disabled",
     "storeAddress": "Pickup Address",
     "storePhone": "Phone",
     "storeNotice": "Store Notice",

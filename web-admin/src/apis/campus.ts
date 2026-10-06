@@ -15,6 +15,7 @@ export interface CampusStoreConfig {
   storePhone: string | null;
   storeNotice: string | null;
   errandBaseFee: number | null;
+  freeShippingThreshold: number | null;
   notifyTemplateAccepted: string | null;
   notifyTemplateRiderAssigned: string | null;
   notifyTemplateCookingDone: string | null;
@@ -30,6 +31,7 @@ export interface CampusStoreConfigInput {
   storePhone?: string | null;
   storeNotice?: string | null;
   errandBaseFee?: number | null;
+  freeShippingThreshold?: number | null;
   notifyTemplateAccepted?: string | null;
   notifyTemplateRiderAssigned?: string | null;
   notifyTemplateCookingDone?: string | null;
@@ -37,7 +39,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered';
+  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(

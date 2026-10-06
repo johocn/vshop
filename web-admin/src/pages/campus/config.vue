@@ -44,6 +44,10 @@
           <input v-model="card.form.errandBaseFeeYuan" type="digit" :placeholder="$t('campusConfig.errandBaseFeePh')" />
         </view>
         <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.freeShipping') }}</text>
+          <input v-model="card.form.freeShipYuan" type="digit" :placeholder="$t('campusConfig.freeShippingPh')" />
+        </view>
+        <view class="cell">
           <text class="lbl">{{ $t('campusConfig.storeAddress') }}</text>
           <input v-model="card.form.storeAddress" :placeholder="$t('campusConfig.phText')" />
         </view>
@@ -106,6 +110,7 @@ interface CardForm {
   minOrderYuan: string;      // 元输入态；提交转分
   deliveryFeeYuan: string;
   errandBaseFeeYuan: string; // 跑腿起步价（元输入态）；提交转分
+  freeShipYuan: string;      // 满X元免配送费门槛（元输入态）；空=不启用
   storeAddress: string;
   storePhone: string;
   storeNotice: string;
@@ -130,6 +135,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     minOrderYuan: c.minOrderAmount != null ? fenToYuan(c.minOrderAmount) : '',
     deliveryFeeYuan: c.deliveryFee != null ? fenToYuan(c.deliveryFee) : '',
     errandBaseFeeYuan: c.errandBaseFee != null ? fenToYuan(c.errandBaseFee) : '',
+    freeShipYuan: c.freeShippingThreshold != null ? fenToYuan(c.freeShippingThreshold) : '',
     storeAddress: c.storeAddress ?? '',
     storePhone: c.storePhone ?? '',
     storeNotice: c.storeNotice ?? '',
@@ -165,6 +171,11 @@ async function save(card: Card) {
   const minOrder = f.minOrderYuan.trim() === '' ? null : yuanToFen(f.minOrderYuan);
   const fee = f.deliveryFeeYuan.trim() === '' ? null : yuanToFen(f.deliveryFeeYuan);
   const errandFee = f.errandBaseFeeYuan.trim() === '' ? null : yuanToFen(f.errandBaseFeeYuan);
+  const freeShip = f.freeShipYuan.trim() === '' ? null : yuanToFen(f.freeShipYuan);
+  if (f.freeShipYuan.trim() !== '' && freeShip == null) {
+    uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+    return;
+  }
   if (f.errandBaseFeeYuan.trim() !== '' && errandFee == null) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
@@ -185,6 +196,7 @@ async function save(card: Card) {
       minOrderAmount: minOrder,
       deliveryFee: fee,
       errandBaseFee: errandFee,
+      freeShippingThreshold: freeShip,
       storeAddress: f.storeAddress.trim() || null,
       storePhone: f.storePhone.trim() || null,
       storeNotice: f.storeNotice.trim() || null,
