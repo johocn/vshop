@@ -110,6 +110,7 @@ export interface CampusMerchantBoard {
   cooking: MerchantBoardOrder[];
   awaitingRider: MerchantBoardOrder[];
   delivering: MerchantBoardOrder[];
+  scheduled: MerchantBoardOrder[]; // 预约单（plan 3.1）：已支付未放量，到点前 30min 自动进入待接单/大厅
   completedToday: number;
   completedTodayAmount: number;
 }
@@ -123,6 +124,7 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
       paused merchantConfirmEnabled completedToday completedTodayAmount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
+      scheduled { ${ORDER_FIELDS} }
     } }`,
   );
   return res.campusMerchantBoard;

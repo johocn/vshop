@@ -82,6 +82,7 @@ const TABS = [
   { key: 'cooking', label: 'campusMerchant.tabCooking' },
   { key: 'awaitingRider', label: 'campusMerchant.tabAwaiting' },
   { key: 'delivering', label: 'campusMerchant.tabDelivering' },
+  { key: 'scheduled', label: 'campusMerchant.tabScheduled' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
@@ -94,6 +95,7 @@ const board = ref<CampusMerchantBoard>({
   cooking: [],
   awaitingRider: [],
   delivering: [],
+  scheduled: [],
   completedToday: 0,
   completedTodayAmount: 0,
 });
