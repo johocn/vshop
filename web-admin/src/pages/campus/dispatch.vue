@@ -133,7 +133,9 @@ function statusLabel(cf: DispatchOrder['customFields']): string {
     in_progress: locale.t('campusDispatch.stInProgress'),
     exception: locale.t('campusDispatch.stException'),
     delivered: locale.t('campusDispatch.stDelivered'),
+    no_rider_final: locale.t('campusDispatch.stRefunded'),
   };
+  if (!map[cf.deliveryStatus ?? ''] && cf.hallStatus === 'no_rider_final') return map.no_rider_final;
   return map[cf.deliveryStatus ?? ''] ?? cf.hallStatus ?? '';
 }
 
@@ -205,19 +207,26 @@ onUnmounted(() => {
       .alert-detail { color: $wa-ink; font-size: 24rpx; }
     }
   }
-  .cols { display: flex; gap: 20rpx; align-items: flex-start;
-    .col { flex: 1; min-width: 0;
+  .cols { display: flex; gap: 20rpx; align-items: flex-start; flex-direction: column;
+    .col { width: 100%; min-width: 0;
       .col-head { display: flex; align-items: center; gap: 12rpx; padding: 8rpx 4rpx 16rpx;
         .col-title { font-size: 28rpx; color: $wa-ink; font-weight: 700; }
         .col-count { font-size: 24rpx; color: $wa-accent; font-weight: 700; }
       }
     }
   }
+  @media (min-width: 768px) {
+    .cols { flex-direction: row;
+      .col { width: auto; flex: 1; }
+    }
+  }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 20rpx 24rpx; margin-bottom: 16rpx;
     .row { display: flex; align-items: center; gap: 12rpx; }
-    .code { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 700; }
-    .time { font-size: 22rpx; color: $wa-muted; }
-    .chip { font-size: 20rpx; padding: 2rpx 14rpx; border-radius: 999rpx; color: #fff; background: $wa-muted;
+    .code { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 700; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .time { font-size: 22rpx; color: $wa-muted; flex-shrink: 0; }
+    .chip { font-size: 20rpx; padding: 2rpx 14rpx; border-radius: 999rpx; color: #fff;
+      background: $wa-muted; white-space: nowrap; flex-shrink: 0;
       &.assigned { background: #1e80ff; }
       &.in_progress { background: #10b981; }
       &.exception { background: #ff4d4f; }

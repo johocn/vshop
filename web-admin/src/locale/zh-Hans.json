@@ -2443,7 +2443,8 @@
     "stAssigned": "已接单待取",
     "stInProgress": "配送中",
     "stException": "异常",
-    "stDelivered": "已送达"
+    "stDelivered": "已送达",
+    "stRefunded": "无人接单已退款"
   },
   "platformTenants": {
     "slotsTitle": "租户位",
