@@ -50,3 +50,26 @@ export async function campusUpdateStoreConfig(
   );
   return res.campusUpdateStoreConfig;
 }
+
+export interface CampusEnsureProfileResult {
+  profileId: string;
+  profileName: string;
+  linkedMethodCodes: string[];
+  missingMethodCodes: string[];
+  boundVariantCount: number;
+}
+
+/** R2/R4 档案冲突治本：get-or-create 渠道合并默认配送档案并补绑未绑档案变体（幂等） */
+export async function campusEnsureDefaultShippingProfile(
+  channelId: string,
+): Promise<CampusEnsureProfileResult> {
+  const res = await getAdminClient().request<{ campusEnsureDefaultShippingProfile: CampusEnsureProfileResult }>(
+    `mutation ($channelId: ID!) {
+      campusEnsureDefaultShippingProfile(channelId: $channelId) {
+        profileId profileName linkedMethodCodes missingMethodCodes boundVariantCount
+      }
+    }`,
+    { channelId },
+  );
+  return res.campusEnsureDefaultShippingProfile;
+}

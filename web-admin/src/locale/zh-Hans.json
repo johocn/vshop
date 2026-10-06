@@ -2300,7 +2300,12 @@
     "saved": "已保存",
     "saveFailed": "保存失败",
     "badAmount": "金额格式不正确（非负数字，最多两位小数）",
-    "badMinutes": "配送时长需为非负整数"
+    "badMinutes": "配送时长需为非负整数",
+    "ensureProfileBtn": "初始化配送档案",
+    "ensuring": "初始化中…",
+    "ensureProfileTip": "R2 快递到校与 R4 到店自取需共用配送档案：自动创建/合并默认档案（含两种方式）并把未绑定档案的商品补绑。幂等，可重复点击",
+    "ensureOk": "已绑定方式：{methods}；补绑商品 {n} 个",
+    "ensureMissing": "缺少配送方式：{codes}（对应路线暂不可用）"
   },
   "platformTenants": {
     "slotsTitle": "租户位",

@@ -58,6 +58,10 @@
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
         </button>
+        <button class="ensure" :disabled="ensuringId === card.channelId" @tap="ensureProfile(card)">
+          {{ ensuringId === card.channelId ? $t('campusConfig.ensuring') : $t('campusConfig.ensureProfileBtn') }}
+        </button>
+        <view class="ensure-tip">{{ $t('campusConfig.ensureProfileTip') }}</view>
       </block>
     </view>
   </view>
@@ -65,7 +69,7 @@
 
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue';
-import { campusStoreConfigs, campusUpdateStoreConfig, type CampusStoreConfig } from '../../apis/campus';
+import { campusStoreConfigs, campusUpdateStoreConfig, campusEnsureDefaultShippingProfile, type CampusStoreConfig } from '../../apis/campus';
 import { fenToYuan, yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
@@ -95,6 +99,7 @@ const loading = ref(true);
 const cards = ref<Card[]>([]);
 const expandedId = ref<string>('');
 const savingId = ref<string>('');
+const ensuringId = ref<string>('');
 
 function toForm(c: CampusStoreConfig): CardForm {
   return {
@@ -177,6 +182,25 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+/** R2/R4 档案初始化：合并默认档案（store-pickup + courier-delivery）+ 补绑未绑档案变体（幂等） */
+async function ensureProfile(card: Card) {
+  ensuringId.value = card.channelId;
+  try {
+    const r = await campusEnsureDefaultShippingProfile(card.channelId);
+    const lines = [locale.t('campusConfig.ensureOk')
+      .replace('{methods}', r.linkedMethodCodes.join(', ') || '-')
+      .replace('{n}', String(r.boundVariantCount))];
+    if (r.missingMethodCodes.length) {
+      lines.push(locale.t('campusConfig.ensureMissing').replace('{codes}', r.missingMethodCodes.join(', ')));
+    }
+    uni.showModal({ title: r.profileName, content: lines.join('\n'), showCancel: false });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusConfig.saveFailed')), icon: 'none' });
+  } finally {
+    ensuringId.value = '';
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -214,6 +238,8 @@ onMounted(async () => {
     }
     &:last-of-type { border-bottom: none; }
   }
-  .save { margin: 32rpx 0 24rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
+  .save { margin: 32rpx 0 16rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
+  .ensure { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; font-size: 28rpx; border-radius: $wa-radius; }
+  .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
 }
 </style>
