@@ -51,14 +51,14 @@
         <template v-if="editingWx">
           <text class="sec">{{ $t('paymentMethod.wxSection') }}</text>
           <text class="tip">{{ $t('paymentMethod.wxSecretTip') }}</text>
-          <input class="ipt" v-model="wxForm.appId" :placeholder="ph('appId')" />
-          <input class="ipt" v-model="wxForm.mchId" :placeholder="ph('mchId')" />
-          <input class="ipt" v-model="wxForm.serialNo" :placeholder="ph('serialNo')" />
-          <input class="ipt" v-model="wxForm.tradeType" :placeholder="ph('tradeType')" />
-          <input class="ipt" v-model="wxForm.notifyUrl" :placeholder="ph('notifyUrl')" />
-          <textarea class="tarea" v-model="wxForm.apiKey" :placeholder="ph('apiKey')" />
-          <textarea class="tarea" v-model="wxForm.privateKey" :placeholder="ph('privateKey')" />
-          <textarea class="tarea" v-model="wxForm.publicKey" :placeholder="ph('publicKey')" />
+          <input class="ipt" :maxlength="-1" v-model="wxForm.appId" :placeholder="ph('appId')" />
+          <input class="ipt" :maxlength="-1" v-model="wxForm.mchId" :placeholder="ph('mchId')" />
+          <input class="ipt" :maxlength="-1" v-model="wxForm.serialNo" :placeholder="ph('serialNo')" />
+          <input class="ipt" :maxlength="-1" v-model="wxForm.tradeType" :placeholder="ph('tradeType')" />
+          <input class="ipt" :maxlength="-1" v-model="wxForm.notifyUrl" :placeholder="ph('notifyUrl')" />
+          <textarea class="tarea" :maxlength="-1" v-model="wxForm.apiKey" :placeholder="ph('apiKey')" />
+          <textarea class="tarea" :maxlength="-1" v-model="wxForm.privateKey" :placeholder="ph('privateKey')" />
+          <textarea class="tarea" :maxlength="-1" v-model="wxForm.publicKey" :placeholder="ph('publicKey')" />
         </template>
         <button class="save" @tap="save">{{ $t('paymentMethod.save') }}</button>
       </scroll-view>
