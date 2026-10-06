@@ -73,3 +73,146 @@ export async function campusEnsureDefaultShippingProfile(
   );
   return res.campusEnsureDefaultShippingProfile;
 }
+
+// ===== 商家接单工作台（CampusMerchant 权限，渠道隔离 = 商家角色绑定渠道）=====
+
+export interface MerchantBoardLine {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface MerchantBoardOrder {
+  id: string;
+  code: string;
+  createdAt: string;
+  total: number;
+  building: string;
+  zone: string;
+  slotText: string;
+  route: string;
+  riderName: string | null;
+  lines: MerchantBoardLine[];
+}
+
+export interface CampusMerchantBoard {
+  paused: boolean;
+  merchantConfirmEnabled: boolean;
+  pending: MerchantBoardOrder[];
+  cooking: MerchantBoardOrder[];
+  awaitingRider: MerchantBoardOrder[];
+  delivering: MerchantBoardOrder[];
+  completedToday: number;
+  completedTodayAmount: number;
+}
+
+const ORDER_FIELDS =
+  'id code createdAt total building zone slotText route riderName lines { name quantity price }';
+
+export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
+  const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
+    `query { campusMerchantBoard {
+      paused merchantConfirmEnabled completedToday completedTodayAmount
+      pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
+      awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
+    } }`,
+  );
+  return res.campusMerchantBoard;
+}
+
+export async function campusMerchantAcceptOrder(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantAcceptOrder: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantAcceptOrder(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantAcceptOrder.ok;
+}
+
+export async function campusMerchantCookingDone(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantCookingDone: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantCookingDone(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantCookingDone.ok;
+}
+
+export async function campusMerchantSetPaused(paused: boolean): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantSetPaused: { ok: boolean } }>(
+    `mutation ($paused: Boolean!) { campusMerchantSetPaused(paused: $paused) { ok } }`,
+    { paused },
+  );
+  return res.campusMerchantSetPaused.ok;
+}
+
+// ===== 调度操作台（CampusViewDispatch 权限，复用 dispatch-admin 既有 API）=====
+
+export interface DispatchAlert {
+  orderId: string;
+  orderCode: string;
+  type: string;
+  detail: string;
+}
+
+export interface DispatchRider {
+  customerId: string;
+  realName: string;
+  credit: number;
+}
+
+export interface DispatchOrder {
+  id: string;
+  code: string;
+  createdAt: string;
+  total: number;
+  customFields: {
+    hallStatus: string | null;
+    hallEnteredAt: string | null;
+    deliveryStatus: string | null;
+    assignedAt: string | null;
+    campusZone: string | null;
+    buildingId: string | null;
+    campusCause: string | null;
+    exceptionType: string | null;
+  };
+}
+
+export interface CampusDispatchBoardData {
+  paused: boolean;
+  alerts: DispatchAlert[];
+  hallOrders: DispatchOrder[];
+  activeOrders: DispatchOrder[];
+  ridersOnline: DispatchRider[];
+}
+
+const DISPATCH_ORDER_FIELDS = `id code createdAt total
+  customFields { hallStatus hallEnteredAt deliveryStatus assignedAt campusZone buildingId campusCause exceptionType }`;
+
+export async function campusDispatchBoard(): Promise<CampusDispatchBoardData> {
+  const res = await getAdminClient().request<{ campusDispatchBoard: CampusDispatchBoardData }>(
+    `query { campusDispatchBoard {
+      paused alerts { orderId orderCode type detail }
+      hallOrders { ${DISPATCH_ORDER_FIELDS} }
+      activeOrders { ${DISPATCH_ORDER_FIELDS} }
+      ridersOnline { customerId realName credit }
+    } }`,
+  );
+  return res.campusDispatchBoard;
+}
+
+export async function campusDispatchAssign(orderId: string, riderCustomerId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusAssignOrder: { assigned: boolean } }>(
+    `mutation ($orderId: ID!, $riderCustomerId: ID!) {
+      campusAssignOrder(orderId: $orderId, riderCustomerId: $riderCustomerId) { assigned backToHall }
+    }`,
+    { orderId, riderCustomerId },
+  );
+  return res.campusAssignOrder.assigned;
+}
+
+export async function campusDispatchBackToHall(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusBackToHall: { backToHall: boolean } }>(
+    `mutation ($orderId: ID!) { campusBackToHall(orderId: $orderId) { assigned backToHall } }`,
+    { orderId },
+  );
+  return res.campusBackToHall.backToHall;
+}
