@@ -77,7 +77,10 @@
     { "path": "pages/platform/templates/index", "style": { "navigationBarTitleText": "风格模板库" } },
     { "path": "pages/platform/global-config/index", "style": { "navigationBarTitleText": "全局配置" } },
     { "path": "pages/platform/product-approval/index", "style": { "navigationBarTitleText": "商品上架审批" } },
-    { "path": "pages/platform/reconcile/index", "style": { "navigationBarTitleText": "四流对账" } }
+    { "path": "pages/platform/reconcile/index", "style": { "navigationBarTitleText": "四流对账" } },
+    { "path": "pages/wechat/menu/index", "style": { "navigationBarTitleText": "公众号菜单" } },
+    { "path": "pages/wechat/fans/index", "style": { "navigationBarTitleText": "微信用户" } },
+    { "path": "pages/wechat/templates/index", "style": { "navigationBarTitleText": "消息模板" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

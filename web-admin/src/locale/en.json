@@ -128,7 +128,10 @@
     "decorate": "Design",
     "productShort": "+ Products",
     "mine": "Mine",
-    "noStore": "No store selected"
+    "noStore": "No store selected",
+    "wechatMenu": "WeChat Menu",
+    "wechatFans": "WeChat Users",
+    "wechatTemplates": "Message Templates"
   },
   "dashboard": {
     "workbench": "Workbench",
@@ -1674,8 +1677,19 @@
     "loading": "Loading…",
     "noMore": "No more",
     "empty": "No reservations",
-    "tab": { "": "All", "PENDING_ALLOC": "Pending allocation", "ALLOCATED": "Allocated", "DONE": "Done", "RELEASED": "Released" },
-    "state": { "PENDING_ALLOC": "Pending allocation", "ALLOCATED": "Allocated", "DONE": "Done", "RELEASED": "Released" }
+    "tab": {
+      "": "All",
+      "PENDING_ALLOC": "Pending allocation",
+      "ALLOCATED": "Allocated",
+      "DONE": "Done",
+      "RELEASED": "Released"
+    },
+    "state": {
+      "PENDING_ALLOC": "Pending allocation",
+      "ALLOCATED": "Allocated",
+      "DONE": "Done",
+      "RELEASED": "Released"
+    }
   },
   "inventoryBin": {
     "offTitle": "Bin feature is off",
@@ -2317,7 +2331,11 @@
     "routesNone": "Delivery not enabled",
     "routeSection": "Delivery Methods",
     "infoSection": "Delivery Info",
-    "r1": "Merchant + Shiguangda Relay", "r2": "Parcel + Shiguangda Relay", "r3": "Stall + Shiguangda Relay", "r4": "Pickup in Store", "r5": "On-campus Shiguangda",
+    "r1": "Merchant + Shiguangda Relay",
+    "r2": "Parcel + Shiguangda Relay",
+    "r3": "Stall + Shiguangda Relay",
+    "r4": "Pickup in Store",
+    "r5": "On-campus Shiguangda",
     "r1Desc": "Merchant delivers to the campus gate, Shiguangda messenger relays it to your hand",
     "r2Desc": "After the parcel arrives on campus, Shiguangda messenger picks it up and delivers",
     "r3Desc": "Made fresh at the stall, Shiguangda messenger delivers to your floor",
@@ -2555,7 +2573,6 @@
     "disabled": "Disabled",
     "loginName": "Login username",
     "phone": "Phone",
-    "role": "Roles",
     "remark": "Remark",
     "memberId": "Member ID",
     "joinedAt": "Joined at",
@@ -3079,5 +3096,40 @@
     "copyBtn": "Copy Password",
     "done": "I've copied it",
     "copied": "Password copied"
+  },
+  "wechatOps": {
+    "menuHint": "Edit then tap Publish to push to the Official Account; drafts are stored in this browser only.",
+    "menuUnnamed": "Unnamed",
+    "menuAddTop": "Add top menu",
+    "menuAddSub": "Add sub menu",
+    "menuEditTitle": "Edit menu item",
+    "menuType": "Type",
+    "menuDraft": "Local drafts",
+    "phName": "Name (4-16 chars)",
+    "phKey": "Event key (required for click types)",
+    "phUrl": "URL https:// (required for view)",
+    "phAppid": "Mini program AppID",
+    "phPagepath": "Mini program page path",
+    "phMediaId": "Permanent media_id",
+    "phDraftName": "Draft name",
+    "moveUp": "Up",
+    "moveDown": "Down",
+    "del": "Delete",
+    "saveDraft": "Save draft",
+    "loadDraft": "Load draft",
+    "pullMenu": "Pull current menu",
+    "publish": "Publish to account",
+    "fansHint": "Follower openid list from the Official Account (paged via Load more).",
+    "fansTotal": "Total followers",
+    "fansEmpty": "No follower data",
+    "refresh": "Refresh",
+    "loadMore": "Load more",
+    "tplHint": "Private template list; templates must be approved in the Official Account console first.",
+    "tplEmpty": "No templates",
+    "send": "Send",
+    "sendTitle": "Send template message",
+    "phOpenid": "Receiver openid (required)",
+    "phJumpUrl": "Jump URL on tap (optional)",
+    "phFieldValue": "Field value"
   }
 }
