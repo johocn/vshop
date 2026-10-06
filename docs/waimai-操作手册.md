@@ -49,6 +49,7 @@
 | 信用分调整 | admin-api `updateCustomer(input: { id, customFields: { riderCredit } })`（无专用界面） |
 | 订单干预 | 管理台订单：cancelOrder / transitionOrderToState / settlePayment |
 | 店铺上下架/暂停 | 渠道 customFields（waimaiStoreList 读 paused/promoText） |
+| 骑手提现审核 | web-admin → 单 → 提现审核（四期，见 §8.1） |
 | 造数（测试环境） | `node docs/verify/waimai-e2e-prepare.cjs`（幂等：店铺渠道/校区/时段/冒烟商品/账号） |
 
 ## 4. 部署与冒烟复跑
@@ -191,8 +192,9 @@ R2（快递到校）与 R4（到店自取）依赖同一变体档案出配送方
 # H5 部署（同外卖主链路，本地构建 → scp → 解压，即时生效）
 node .secrets/deploy-waimai.mjs
 
-# 生产 E2E 冒烟（14 断言：订单 Delivered → createReview pending → 双流不可见 →
-# approve 可见 → stats/hasImages/评分聚合 → 回复 → myReviews → 软删回落 → 起送价还原）
+# 生产 E2E 冒烟（24 断言：订单 Delivered → createReview pending → 双流不可见 →
+# approve 可见+发奖（积分/定向券，幂等双闸）→ stats/hasImages/评分聚合 → 回复 →
+# 追评（创建 pending → approve → 评论流气泡）→ myReviews → 软删回落 → 起送价还原）
 node .secrets/review-e2e-verify.cjs   # 期望 REVIEW-E2E PASS，幂等可重复跑
 ```
 
@@ -201,8 +203,70 @@ node .secrets/review-e2e-verify.cjs   # 期望 REVIEW-E2E PASS，幂等可重复
 
 ## 7. 已知限制 / 待办
 
-- 骑手收入页提现功能二期开放（分成随送达实时入账 `status=credited`）。
 - R5 载体变体（id=86）`trackInventory=false` 且已分配到店铺渠道——R5 发单购物车载体行依赖，勿回收/重开库存。
 - 微信 JSAPI 支付需在生产配置商户参数后生效；当前冒烟走 COD 授权链路。
 - 大厅单滞留 >5 分钟自动加急置顶；强派（T2/T3）调度已具备（DispatchJobService），默认关闭。
-- 0 分成单（shipping=0 且 tip=0）送达会写库成功但 addBalance 抛错（不影响状态流转，真实跑腿单不触发）。
+- 提现打款为线下转账（管理员审核通过后自行转账并标记「已打款」），无线上支付通道对接。
+- 评价奖励的定向券依赖券模板 `distributionChannels` 含 `GRANT` 渠道；未配置的渠道 approve 只发积分（或均不发）。
+
+## 8. 四期：增长闭环
+
+上线日期：2026-10-06。设计文档：`docs/superpowers/specs/2026-10-06-phase4-growth-loop-design.md`。三个方向：骑手钱包与提现闭环、评价有礼 + 追评、经营看板增强。
+
+### 8.1 骑手钱包与提现
+
+**钱包（骑手端）**：「我的 → 骑手首页 → 收入卡 → 去提现」进入钱包页——余额卡（可提现大数字 + 冻结/累计收入副行）+「收入明细 / 提现记录」两个 tab（触底加载）。分成随送达实时入账（`status=credited`）。
+
+![骑手钱包](screenshots/waimai/12-1-rider-wallet.png)
+
+**申请提现**：金额输入（最低 ¥10，不可超可提现余额）+ 收款渠道 + 账号 → 提交后金额立即**冻结**（可提现减少、冻结增加），toast「申请已提交，等待审核」。
+
+![提现申请](screenshots/waimai/12-2-rider-withdraw.png)
+![提现记录](screenshots/waimai/12-3-rider-withdraw-list.png)
+
+**管理员审核（web-admin）**：「单 → 提现审核」四 tab：**审核中**（默认）/ 已打款 / 已驳回 / 全部。
+
+- **通过**：确认弹窗 → 状态置 PAID（线下已转账后操作）；
+- **驳回**：填驳回原因 → 冻结金额全额退回可提现余额。
+
+![提现审核（web-admin）](screenshots/waimai/12-4-admin-withdraw-pending.png)
+
+流程：`送达 → 分成入账 → 申请提现（冻结）→ 管理员通过（PAID）/ 驳回（退回）`。
+
+E2E 冒烟（认证 → 入账 → 冻结 → 驳回退回 → 再申请 → 通过 PAID）：
+
+```bash
+node .secrets/rider-withdraw-e2e.cjs   # 期望 WITHDRAW-E2E PASS，幂等可重复跑
+```
+
+### 8.2 评价有礼 + 追评
+
+**奖励规则**：主评**审核通过**时自动发奖（先审后显，发奖发生在放行时刻，防刷屏）：
+
+- **积分**：渠道配置的评价奖励积分（当前 50 分），写入会员积分流水（remark 含「评价」）；
+- **定向券**：渠道配置的券模板定向发放一张（模板须含 `GRANT` 发放渠道）；
+- **幂等双闸**：`giftGranted` 标记 + `reviewedAt` 审核时间，重复 approve 不重复发奖；追评 approve 不发奖；未配置奖励的渠道只流转状态。
+
+**追评**：主评通过后 **7 日内**可在「我的评价」对该订单主评**追评一次**（「追评」按钮），追评同样先审后显；通过后以气泡形式嵌在店铺评论 tab 的主评下方。已删主评不可追评，追评不允许再追评。
+
+![我的评价-追评按钮](screenshots/waimai/13-1-my-reviews-followup-btn.png)
+![追加评价表单](screenshots/waimai/13-2-review-create-followup.png)
+![评论流追评气泡](screenshots/waimai/13-3-menu-followup-bubble.png)
+
+E2E 冒烟：`node .secrets/review-e2e-verify.cjs`（24/24 PASS，含发奖/幂等/追评链路，见 §6.4）。
+
+### 8.3 经营看板增强（web-admin）
+
+「数据 → 数据看板 → 经营数据」新增四期区块：
+
+| 区块 | 口径 |
+| --- | --- |
+| 复购率 KPI | 窗口（近 7/30 天）内有效下单客户中 ≥2 单客户占比（%） |
+| 评价均分 KPI | 全量已审核主评均分（不随窗口） |
+| 热销商品榜 | 窗口内有效订单按商品**件数**排序 Top5，附金额 |
+| 骑手效率榜 | 窗口内送达单按骑手聚合：完成单数 + 准时率（基于承诺送达时段，无时段的单不参与准时率分母） |
+| 评价概览 | 均分 / 差评率（≤2 星）/ 待审核数 / 带图率 |
+
+![经营看板（web-admin）](screenshots/waimai/14-1-dashboard.png)
+
+任一接口失败对应卡片显示「—」（不伪造 0）。部署：vendure 走服务器 `git pull + pm2 restart`；web-admin 走 `node scripts/deploy.mjs`（本地构建 scp）。
