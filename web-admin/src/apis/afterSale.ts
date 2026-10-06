@@ -59,6 +59,7 @@ export interface AfterSaleRow {
     emailAddress?: string | null;
   } | null;
   updatedAt?: string | null;
+  history?: { fromState: string | null; toState: string; createdAt: string }[] | null;
 }
 
 const AFTER_SALE_FIELDS = `
@@ -229,4 +230,72 @@ export async function retryAfterSaleRefund(id: string): Promise<AfterSaleRow> {
     { id },
   );
   return retryAfterSalesRefund;
+}
+
+// ---- 迭代二期：单查 / 批量 / 退货地址 ----
+
+export interface AfterSaleBatchResult {
+  id: string;
+  success: boolean;
+  state?: string | null;
+  message?: string | null;
+}
+
+/** 售后详情 Admin 单查（含逐节点 history） */
+export async function fetchAfterSaleAdmin(id: string): Promise<AfterSaleRow | null> {
+  const { afterSalesRequestAdmin } = await getAdminClient().request<{ afterSalesRequestAdmin: AfterSaleRow }>(
+    `query AfterSaleAdmin($id: ID!) {
+      afterSalesRequestAdmin(id: $id) {
+        ${AFTER_SALE_FIELDS}
+        history { fromState toState createdAt }
+      }
+    }`,
+    { id },
+  );
+  return afterSalesRequestAdmin ?? null;
+}
+
+/** 批量同意（上限 50，后端逐条返回结果） */
+export async function batchApproveAfterSales(ids: string[]): Promise<AfterSaleBatchResult[]> {
+  const { batchApproveAfterSalesRequests } = await getAdminClient().request<{
+    batchApproveAfterSalesRequests: AfterSaleBatchResult[];
+  }>(
+    `mutation BatchApproveAfterSales($ids: [ID!]!) {
+      batchApproveAfterSalesRequests(ids: $ids) { id success state message }
+    }`,
+    { ids },
+  );
+  return batchApproveAfterSalesRequests ?? [];
+}
+
+/** 批量拒绝（整批共用 reason） */
+export async function batchRejectAfterSales(ids: string[], reason: string): Promise<AfterSaleBatchResult[]> {
+  const { batchRejectAfterSalesRequests } = await getAdminClient().request<{
+    batchRejectAfterSalesRequests: AfterSaleBatchResult[];
+  }>(
+    `mutation BatchRejectAfterSales($ids: [ID!]!, $reason: String!) {
+      batchRejectAfterSalesRequests(ids: $ids, reason: $reason) { id success state message }
+    }`,
+    { ids, reason },
+  );
+  return batchRejectAfterSalesRequests ?? [];
+}
+
+/** 读当前渠道售后寄回地址（未配置返回空串） */
+export async function fetchReturnAddress(): Promise<string> {
+  const { afterSalesReturnAddress } = await getAdminClient().request<{ afterSalesReturnAddress: string }>(
+    `query AfterSalesReturnAddress { afterSalesReturnAddress }`,
+  );
+  return afterSalesReturnAddress ?? '';
+}
+
+/** 写当前渠道售后寄回地址 */
+export async function updateReturnAddress(address: string): Promise<boolean> {
+  const { updateAfterSalesReturnAddress } = await getAdminClient().request<{ updateAfterSalesReturnAddress: boolean }>(
+    `mutation UpdateAfterSalesReturnAddress($address: String!) {
+      updateAfterSalesReturnAddress(address: $address)
+    }`,
+    { address },
+  );
+  return updateAfterSalesReturnAddress;
 }
