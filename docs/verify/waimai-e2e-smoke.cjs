@@ -75,6 +75,15 @@ async function main() {
     // S3 店铺 A 加购（按冒烟 slug 取商品；先清残留 activeOrder 保证可重复执行）
     const AH = { ...OH, 'vendure-token': CHANNEL_A_TOKEN };
     const at = await adminLogin();
+    // 起送价硬校验（二期）会拦小额冒烟单：临时调低 A/B 店起送价至 100 分，进程退出前还原原值
+    const ADMH = { Authorization: 'Bearer ' + at };
+    const cfgList = (await gql(ADMIN_API, `{ campusStoreConfigs { channelId channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee } }`, null, ADMH)).campusStoreConfigs;
+    const updCfg = (c, min) => gql(ADMIN_API, `mutation($ch: ID!, $input: CampusStoreConfigInput!) { campusUpdateStoreConfig(channelId: $ch, input: $input) { channelId minOrderAmount } }`,
+        { ch: String(c.channelId), input: { routesEnabled: c.routesEnabled, deliveryMinutes: c.deliveryMinutes, minOrderAmount: min, deliveryFee: c.deliveryFee, storeAddress: c.storeAddress, storePhone: c.storePhone, storeNotice: c.storeNotice, errandBaseFee: c.errandBaseFee } }, ADMH);
+    const smokeCfgs = cfgList.filter(c => [CHANNEL_A_TOKEN, CHANNEL_B_TOKEN].includes(c.channelToken));
+    globalThis.__restoreCfg = async () => { for (const c of smokeCfgs) await updCfg(c, c.minOrderAmount); };
+    for (const c of smokeCfgs) await updCfg(c, 100);
+    log(`临时调低 A/B 店起送价→100分（原值 ${smokeCfgs.map(c => c.minOrderAmount).join('/')}），结束还原`);
     const pre = await gql(SHOP_API, `{ activeOrder { id state lines { id } } }`, null, AH);
     if (pre.activeOrder && pre.activeOrder.state !== 'AddingItems') {
         // 已锁定单（上轮支付过）：admin cancelOrder 释放，再回到空购物车
@@ -212,4 +221,11 @@ async function main() {
     console.log('E2E SMOKE PASS');
 }
 
-main().catch(e => { console.error('[smoke][FATAL]', e.message); process.exit(1); });
+main()
+    .catch(e => { console.error('[smoke][FATAL]', e.message); process.exitCode = 1; })
+    .finally(async () => {
+        if (globalThis.__restoreCfg) {
+            try { await globalThis.__restoreCfg(); console.log('[smoke] 起送价配置已还原'); }
+            catch (e) { console.error('[smoke][restore failed] 需人工还原 campusStoreConfigs.minOrderAmount:', e.message); }
+        }
+    });

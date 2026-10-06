@@ -1386,7 +1386,7 @@ Expected: PASS
 
 ```powershell
 cd d:\zhao\waimai
-git add src/utils/errand.ts src/tests/errand.spec.ts
+git add src/utils/errand.ts tests/errand.spec.ts
 git commit -m "feat(waimai): errand utils (relay status label + payload builder)"
 ```
 
