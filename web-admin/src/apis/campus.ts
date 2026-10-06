@@ -185,7 +185,22 @@ export interface DispatchOrder {
     buildingId: string | null;
     campusCause: string | null;
     exceptionType: string | null;
+    exceptionNote: string | null;
+    exceptionPhotos: string[] | null;
   };
+}
+
+/** 已处置完结的异常单留痕（plan 3.4） */
+export interface HandedException {
+  orderId: string;
+  orderCode: string;
+  exceptionType: string | null;
+  action: string;
+  compensation: number | null;
+  couponTemplateId: string | null;
+  note: string | null;
+  handledAt: string | null;
+  handledBy: string;
 }
 
 export interface CampusDispatchBoardData {
@@ -194,10 +209,11 @@ export interface CampusDispatchBoardData {
   hallOrders: DispatchOrder[];
   activeOrders: DispatchOrder[];
   ridersOnline: DispatchRider[];
+  handledOrders: HandedException[];
 }
 
 const DISPATCH_ORDER_FIELDS = `id code createdAt total
-  customFields { hallStatus hallEnteredAt deliveryStatus assignedAt campusZone buildingId campusCause exceptionType }`;
+  customFields { hallStatus hallEnteredAt deliveryStatus assignedAt campusZone buildingId campusCause exceptionType exceptionNote exceptionPhotos }`;
 
 export async function campusDispatchBoard(): Promise<CampusDispatchBoardData> {
   const res = await getAdminClient().request<{ campusDispatchBoard: CampusDispatchBoardData }>(
@@ -206,6 +222,7 @@ export async function campusDispatchBoard(): Promise<CampusDispatchBoardData> {
       hallOrders { ${DISPATCH_ORDER_FIELDS} }
       activeOrders { ${DISPATCH_ORDER_FIELDS} }
       ridersOnline { customerId realName credit }
+      handledOrders { orderId orderCode exceptionType action compensation couponTemplateId note handledAt handledBy }
     } }`,
   );
   return res.campusDispatchBoard;
@@ -227,4 +244,25 @@ export async function campusDispatchBackToHall(orderId: string): Promise<boolean
     { orderId },
   );
   return res.campusBackToHall.backToHall;
+}
+
+/** 异常处置（plan 3.4）：reassign 回大厅 / refund_diff 退差价（amount 分）/ coupon 发补偿券 / refund_all 全额退单 */
+export async function campusHandleException(
+  orderId: string,
+  action: string,
+  opts?: { amount?: number; couponTemplateId?: string; note?: string },
+): Promise<{ ok: boolean; action: string }> {
+  const res = await getAdminClient().request<{ campusHandleException: { ok: boolean; action: string } }>(
+    `mutation ($orderId: ID!, $action: String!, $amount: Int, $couponTemplateId: ID, $note: String) {
+      campusHandleException(orderId: $orderId, action: $action, amount: $amount, couponTemplateId: $couponTemplateId, note: $note) { ok action }
+    }`,
+    {
+      orderId,
+      action,
+      amount: opts?.amount ?? null,
+      couponTemplateId: opts?.couponTemplateId ?? null,
+      note: opts?.note ?? null,
+    },
+  );
+  return res.campusHandleException;
 }
