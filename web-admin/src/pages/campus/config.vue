@@ -55,6 +55,24 @@
           <text class="lbl">{{ $t('campusConfig.storeNotice') }}</text>
           <textarea v-model="card.form.storeNotice" :placeholder="$t('campusConfig.phText')" />
         </view>
+        <view class="sec-t">{{ $t('campusConfig.notifySection') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyAccepted') }}</text>
+          <input v-model="card.form.notifyTemplateAccepted" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyRiderAssigned') }}</text>
+          <input v-model="card.form.notifyTemplateRiderAssigned" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyCookingDone') }}</text>
+          <input v-model="card.form.notifyTemplateCookingDone" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyDelivered') }}</text>
+          <input v-model="card.form.notifyTemplateDelivered" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
+        <view class="notify-tip">{{ $t('campusConfig.notifyTip') }}</view>
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
         </button>
@@ -91,6 +109,10 @@ interface CardForm {
   storeAddress: string;
   storePhone: string;
   storeNotice: string;
+  notifyTemplateAccepted: string;
+  notifyTemplateRiderAssigned: string;
+  notifyTemplateCookingDone: string;
+  notifyTemplateDelivered: string;
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -111,6 +133,10 @@ function toForm(c: CampusStoreConfig): CardForm {
     storeAddress: c.storeAddress ?? '',
     storePhone: c.storePhone ?? '',
     storeNotice: c.storeNotice ?? '',
+    notifyTemplateAccepted: c.notifyTemplateAccepted ?? '',
+    notifyTemplateRiderAssigned: c.notifyTemplateRiderAssigned ?? '',
+    notifyTemplateCookingDone: c.notifyTemplateCookingDone ?? '',
+    notifyTemplateDelivered: c.notifyTemplateDelivered ?? '',
   };
 }
 
@@ -162,6 +188,10 @@ async function save(card: Card) {
       storeAddress: f.storeAddress.trim() || null,
       storePhone: f.storePhone.trim() || null,
       storeNotice: f.storeNotice.trim() || null,
+      notifyTemplateAccepted: f.notifyTemplateAccepted.trim() || null,
+      notifyTemplateRiderAssigned: f.notifyTemplateRiderAssigned.trim() || null,
+      notifyTemplateCookingDone: f.notifyTemplateCookingDone.trim() || null,
+      notifyTemplateDelivered: f.notifyTemplateDelivered.trim() || null,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -241,5 +271,6 @@ async function ensureProfile(card: Card) {
   .save { margin: 32rpx 0 16rpx; background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius; }
   .ensure { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; font-size: 28rpx; border-radius: $wa-radius; }
   .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
+  .notify-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 24rpx; }
 }
 </style>
