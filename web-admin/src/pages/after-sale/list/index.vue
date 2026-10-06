@@ -55,9 +55,18 @@
       </template>
     </view>
 
+    <!-- 工具栏：退货地址 + 导出 -->
+    <view class="tools">
+      <button class="tool" @tap="onOpenAddress">{{ $t('afterSale.list.returnAddress') }}</button>
+      <button class="tool" @tap="onExport">{{ $t('afterSale.list.export') }}</button>
+    </view>
+
     <view class="card" v-for="a in page.items.value" :key="a.id" @tap="goDetail(a)">
       <view class="row">
-        <text class="code">{{ $t('afterSale.list.afterSalePrefix') }}{{ a.id }} · {{ $t('afterSale.list.orderPrefix') }}{{ a.order?.code || a.orderId }}</text>
+        <view class="pickrow">
+          <view class="pick" :class="{ on: selected.includes(a.id) }" @tap.stop="togglePick(a.id)">✓</view>
+          <text class="code">{{ $t('afterSale.list.afterSalePrefix') }}{{ a.id }} · {{ $t('afterSale.list.orderPrefix') }}{{ a.order?.code || a.orderId }}</text>
+        </view>
         <text class="st" :style="{ color: st(a).color }">{{ st(a).label }}</text>
       </view>
       <view class="prod">
@@ -97,8 +106,28 @@
       {{ $t('afterSale.list.shown').replace('{n}', String(page.shown.value)).replace('{m}', String(page.total.value)) }}
     </view>
 
+    <!-- 批量操作条 -->
+    <view class="batchbar" v-if="selected.length">
+      <text class="bcount">{{ $t('afterSale.list.selectedCount').replace('{n}', String(selected.length)) }}</text>
+      <button class="bop" @tap="onBatchApprove">{{ $t('afterSale.list.batchApprove') }}</button>
+      <button class="bop" @tap="onBatchReject">{{ $t('afterSale.list.batchReject') }}</button>
+      <button class="bop ghost" @tap="selected = []">{{ $t('afterSale.list.batchCancel') }}</button>
+    </view>
+
     <view style="height: 160rpx" />
     <BottomBar current="order" />
+
+    <!-- 退货地址弹窗 -->
+    <view class="mask" v-if="addressOpen" @tap="addressOpen = false">
+      <view class="modal" @tap.stop>
+        <text class="mtitle">{{ $t('afterSale.list.returnAddress') }}</text>
+        <textarea class="marea" v-model="addressText" :placeholder="$t('afterSale.list.returnAddressPlaceholder')" :maxlength="500" />
+        <view class="mbtns">
+          <button class="mbtn" @tap="addressOpen = false">{{ $t('afterSale.list.addressCancel') }}</button>
+          <button class="mbtn main" :disabled="addressSaving" @tap="onSaveAddress">{{ $t('afterSale.list.addressSave') }}</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
@@ -114,9 +143,14 @@ import {
   confirmAfterSaleReceived,
   processAfterSaleRefund,
   retryAfterSaleRefund,
+  batchApproveAfterSales,
+  batchRejectAfterSales,
+  fetchReturnAddress,
+  updateReturnAddress,
   AfterSaleRow,
   type AfterSaleSortBy,
 } from '../../../apis/afterSale';
+import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import { useListPage } from '../../../composables/useListPage';
 import { AFTER_SALE_TYPES } from '../../../constants/orderState';
 import {
@@ -308,6 +342,115 @@ function goDetail(a: AfterSaleRow) {
   uni.navigateTo({ url: `/pages/after-sale/detail/index?id=${a.id}` });
 }
 
+// ---- 迭代二期：勾选批量 + 退货地址 + CSV 导出 ----
+const selected = ref<string[]>([]);
+const BATCH_LIMIT = 50;
+
+function togglePick(id: string) {
+  const i = selected.value.indexOf(id);
+  if (i >= 0) selected.value.splice(i, 1);
+  else if (selected.value.length >= BATCH_LIMIT) toast(locale.t('afterSale.list.batchLimit'));
+  else selected.value.push(id);
+}
+
+// 退货地址弹窗
+const addressOpen = ref(false);
+const addressText = ref('');
+const addressSaving = ref(false);
+async function onOpenAddress() {
+  addressText.value = await fetchReturnAddress();
+  addressOpen.value = true;
+}
+async function onSaveAddress() {
+  addressSaving.value = true;
+  try {
+    await updateReturnAddress(addressText.value.trim());
+    uni.showToast({ title: locale.t('afterSale.list.addressSaved'), icon: 'success' });
+    addressOpen.value = false;
+  } catch (e: any) {
+    toast(e?.message || locale.t('afterSale.list.opFailed')); // 弹窗不关闭、内容保留
+  } finally {
+    addressSaving.value = false;
+  }
+}
+
+// 批量操作
+function summarize(results: { success: boolean }[]): string {
+  const ok = results.filter((r) => r.success).length;
+  const fail = results.length - ok;
+  return fail
+    ? locale.t('afterSale.list.batchPartial').replace('{ok}', String(ok)).replace('{fail}', String(fail))
+    : locale.t('afterSale.list.batchDone').replace('{n}', String(ok));
+}
+function onBatchApprove() {
+  const ids = selected.value;
+  if (!ids.length) return;
+  uni.showModal({
+    title: locale.t('afterSale.list.batchApproveTitle'),
+    content: locale.t('afterSale.list.batchApproveContent').replace('{n}', String(ids.length)),
+    success: async (res) => {
+      if (!res.confirm) return;
+      try {
+        const results = await batchApproveAfterSales(ids);
+        toast(summarize(results));
+        selected.value = [];
+        await reload();
+      } catch (e: any) { toast(e?.message || locale.t('afterSale.list.opFailed')); }
+    },
+  });
+}
+function onBatchReject() {
+  const ids = selected.value;
+  if (!ids.length) return;
+  uni.showModal({
+    title: locale.t('afterSale.list.batchRejectTitle'),
+    editable: true,
+    placeholderText: locale.t('afterSale.detail.rejectReasonPlaceholder'),
+    success: async (res) => {
+      if (!res.confirm) return;
+      const reason = (res.content || '').trim();
+      if (!reason) { toast(locale.t('afterSale.detail.rejectReasonRequired')); return; }
+      try {
+        const results = await batchRejectAfterSales(ids, reason);
+        toast(summarize(results));
+        selected.value = [];
+        await reload();
+      } catch (e: any) { toast(e?.message || locale.t('afterSale.list.opFailed')); }
+    },
+  });
+}
+
+// CSV 导出（当前筛选，上限 500 条）
+async function onExport() {
+  try {
+    const filter = combinedFilter();
+    const sort = { [sortBy.value]: 'DESC' };
+    const all: AfterSaleRow[] = [];
+    for (let skip = 0; skip < 500; skip += 100) {
+      const { items, total } = await fetchAfterSalePage({ skip, take: 100, filter, sort });
+      all.push(...items);
+      if (items.length === 0 || all.length >= total) break;
+    }
+    if (!all.length) { toast(locale.t('afterSale.list.exportEmpty')); return; }
+    if (all.length >= 500) toast(locale.t('afterSale.list.exportTruncated'));
+    const headers = ['售后单号', '订单号', '类型', '状态', '退款金额', '商品', '顾客', '手机', '申请时间'];
+    const rows = all.slice(0, 500).map((a) => [
+      a.id,
+      a.order?.code || a.orderId,
+      AFTER_SALE_TYPES[a.type] || a.type,
+      st(a).label,
+      money(a.refundAmount),
+      productName(a),
+      [a.customer?.firstName, a.customer?.lastName].filter(Boolean).join(' '),
+      a.customer?.phoneNumber || '',
+      fmtTime(a.createdAt),
+    ]);
+    downloadCsv(`after-sales-${fmtDateTime(new Date()).replace(/[: -]/g, '')}.csv`, headers, rows);
+  } catch (e: any) {
+    toast(e?.message || locale.t('afterSale.list.opFailed'));
+  }
+}
+
 onLoad((query) => {
   page.syncFromQuery((query ?? {}) as Record<string, string>);
   void reload();
@@ -325,6 +468,10 @@ onShow(() => { if (page.items.value.length) void reload(); });
   }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; justify-content: space-between;
+      .pickrow { display: flex; align-items: center; gap: 12rpx; flex: 1; min-width: 0;
+        .pick { width: 40rpx; height: 40rpx; border-radius: 8rpx; border: 2rpx solid $wa-muted;
+          display: flex; align-items: center; justify-content: center; font-size: 24rpx; color: transparent; flex-shrink: 0;
+          &.on { background: $wa-accent; border-color: $wa-accent; color: #fff; } } }
       .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
       .st { font-size: 24rpx; }
     }
@@ -355,5 +502,24 @@ onShow(() => { if (page.items.value.length) void reload(); });
       .range, .num { flex: 1; font-size: 24rpx; color: $wa-ink; background: $wa-bg; border-radius: $wa-radius; padding: 14rpx 20rpx; } } }
   .progress { text-align: center; color: $wa-muted; font-size: 24rpx; padding: 24rpx 0; }
   .retry { display: block; margin-top: 16rpx; color: $wa-accent; }
+  .tools { display: flex; gap: 16rpx; margin-bottom: 20rpx;
+    .tool { margin: 0; padding: 0 24rpx; height: 60rpx; line-height: 60rpx; font-size: 26rpx;
+      border-radius: $wa-radius; background: $wa-card; color: $wa-ink; } }
+  .batchbar { position: fixed; left: 24rpx; right: 24rpx; bottom: 140rpx; z-index: 20;
+    display: flex; align-items: center; gap: 16rpx; padding: 20rpx 24rpx;
+    background: $wa-card; border-radius: $wa-radius; box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.12);
+    .bcount { font-size: 26rpx; color: $wa-ink; flex: 1; }
+    .bop { margin: 0; padding: 0 20rpx; height: 60rpx; line-height: 60rpx; font-size: 24rpx;
+      border-radius: $wa-radius; background: $wa-accent; color: #fff;
+      &.ghost { background: $wa-bg; color: $wa-ink; } } }
+  .mask { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center; padding: 48rpx;
+    .modal { width: 100%; background: $wa-card; border-radius: $wa-radius; padding: 32rpx;
+      .mtitle { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; margin-bottom: 20rpx; }
+      .marea { width: 100%; height: 200rpx; background: $wa-bg; border-radius: $wa-radius; padding: 20rpx; font-size: 26rpx; color: $wa-ink; box-sizing: border-box; }
+      .mbtns { display: flex; gap: 16rpx; margin-top: 24rpx;
+        .mbtn { flex: 1; margin: 0; height: 72rpx; line-height: 72rpx; font-size: 28rpx;
+          border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
+          &.main { background: $wa-accent; color: #fff; } } } } }
 }
 </style>
