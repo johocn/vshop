@@ -28,6 +28,7 @@
     { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理", "enablePullDownRefresh": true } },
     { "path": "pages/review/list/index", "style": { "navigationBarTitleText": "评价管理", "enablePullDownRefresh": true } },
     { "path": "pages/rider/withdraw/index", "style": { "navigationBarTitleText": "骑手提现审核", "enablePullDownRefresh": true } },
+    { "path": "pages/rider/audit/index", "style": { "navigationBarTitleText": "骑手入驻审核", "enablePullDownRefresh": true } },
     { "path": "pages/after-sale/detail/index", "style": { "navigationBarTitleText": "售后详情" } },
     { "path": "pages/inventory/stock/index", "style": { "navigationBarTitleText": "库存与预警", "enablePullDownRefresh": true } },
     { "path": "pages/inventory/stock-doc/purchase/index", "style": { "navigationBarTitleText": "采购入库" } },
