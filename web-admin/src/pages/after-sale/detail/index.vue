@@ -113,7 +113,7 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import {
-  fetchAfterSale,
+  fetchAfterSaleAdmin,
   approveAfterSale,
   rejectAfterSale,
   confirmAfterSaleReceived,
@@ -181,7 +181,11 @@ const timeline = computed(() => {
   const list = TIMELINE_KEYS.map((k, i) => ({
     key: k,
     label: locale.t(`afterSale.timeline.step${k}`),
-    time: i === 0 ? fmtTime(r.createdAt) : i === idx ? fmtTime(r.updatedAt) : null,
+    time: (() => {
+      const rows = (r.history ?? []).filter((h) => h.toState === k);
+      if (rows.length) return fmtTime(rows[rows.length - 1].createdAt);
+      return i === 0 ? fmtTime(r.createdAt) : i === idx ? fmtTime(r.updatedAt) : null;
+    })(),
     reached: i <= idx,
     current: i === idx && r.state === k,
     failed: false,
@@ -190,11 +194,11 @@ const timeline = computed(() => {
       : null,
   }));
   if (r.state === 'RefundFailed') {
-    list.push({ key: 'RefundFailed', label: locale.t('afterSale.detail.statusFailed'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: true, detail: null });
+    list.push({ key: 'RefundFailed', label: locale.t('afterSale.detail.statusFailed'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: true, detail: null });
   } else if (r.state === 'Rejected') {
-    list.push({ key: 'Rejected', label: locale.t('afterSale.detail.statusRejected'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: true, detail: r.rejectReason ?? null });
+    list.push({ key: 'Rejected', label: locale.t('afterSale.detail.statusRejected'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: true, detail: r.rejectReason ?? null });
   } else if (r.state === 'Closed') {
-    list.push({ key: 'Closed', label: locale.t('afterSale.detail.statusClosed'), time: fmtTime(r.updatedAt), reached: true, current: true, failed: false, detail: null });
+    list.push({ key: 'Closed', label: locale.t('afterSale.detail.statusClosed'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: false, detail: null });
   }
   return list;
 });
@@ -223,7 +227,7 @@ async function refresh() {
   if (!detail.value?.id) return;
   loading.value = true;
   try {
-    detail.value = await fetchAfterSale(detail.value.id);
+    detail.value = await fetchAfterSaleAdmin(detail.value.id);
   } finally {
     loading.value = false;
   }
@@ -323,7 +327,7 @@ onLoad(async (q) => {
   const id: string = (q && (q.id as string)) || '';
   loading.value = true;
   try {
-    detail.value = await fetchAfterSale(id);
+    detail.value = await fetchAfterSaleAdmin(id);
   } finally {
     loading.value = false;
   }
