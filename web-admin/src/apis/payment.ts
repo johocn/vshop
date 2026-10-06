@@ -10,12 +10,13 @@ export interface PaymentRow {
   name: string;
   description: string;
   enabled: boolean;
+  handler?: { code: string; args: { name: string; value: string }[] };
 }
 
 export async function fetchPaymentMethods(): Promise<PaymentRow[]> {
   const { paymentMethods } = await getAdminClient().request<{
     paymentMethods: { items: PaymentRow[] };
-  }>(`query { paymentMethods { items { id code name description enabled } } }`);
+  }>(`query { paymentMethods { items { id code name description enabled handler { code args { name value } } } } }`);
   return paymentMethods.items;
 }
 
@@ -36,4 +37,15 @@ export async function updatePaymentMethod(id: string, name: string, description:
 
 export async function deletePaymentMethod(id: string): Promise<void> {
   await getAdminClient().request(`mutation Del($id: ID!) { deletePaymentMethod(id: $id) { result } }`, { id });
+}
+
+/** 更新支付方式的 handler 参数（如微信支付凭证）；handler.code 保持原值，arguments 全量替换 */
+export async function updatePaymentMethodArgs(
+  id: string,
+  handlerCode: string,
+  args: { name: string; value: string }[],
+): Promise<void> {
+  await getAdminClient().request(`mutation UpH($input: UpdatePaymentMethodInput!) {
+    updatePaymentMethod(input: $input) { id }
+  }`, { input: { id, handler: { code: handlerCode, arguments: args } } });
 }

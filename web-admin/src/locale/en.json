@@ -603,7 +603,18 @@
     "delTitle": "Delete payment method",
     "delContent": "Confirm delete \"{name}\"?",
     "deleted": "Deleted",
-    "delFailed": "Delete failed"
+    "delFailed": "Delete failed",
+    "wxSection": "WeChat Pay credentials",
+    "wxSecretTip": "Leave a field empty to keep its current value; paste full PEM for keys (including BEGIN/END lines)",
+    "wxSecretConfigured": "Configured — leave empty to keep",
+    "wx_appId": "AppID (official account / mini program)",
+    "wx_mchId": "Merchant ID (mchId)",
+    "wx_serialNo": "Certificate serial number",
+    "wx_tradeType": "Trade type",
+    "wx_notifyUrl": "Notify URL",
+    "wx_apiKey": "APIv3 key (32 chars)",
+    "wx_privateKey": "Merchant private key apiclient_key.pem (full PEM)",
+    "wx_publicKey": "WeChat platform public key (full PEM)"
   },
   "couponList": {
     "createNew": "New Coupon",

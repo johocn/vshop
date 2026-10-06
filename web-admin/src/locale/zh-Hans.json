@@ -603,7 +603,18 @@
     "delTitle": "删除支付方式",
     "delContent": "确认删除「{name}」？",
     "deleted": "已删除",
-    "delFailed": "删除失败"
+    "delFailed": "删除失败",
+    "wxSection": "微信支付凭证",
+    "wxSecretTip": "以下字段留空则保持原值不变；私钥/公钥粘贴 PEM 全文（含 BEGIN/END 行）",
+    "wxSecretConfigured": "已配置，留空保持不变",
+    "wx_appId": "应用 AppID（公众号/小程序）",
+    "wx_mchId": "商户号 mchId",
+    "wx_serialNo": "证书序列号 serialNo",
+    "wx_tradeType": "交易类型 tradeType",
+    "wx_notifyUrl": "回调地址 notifyUrl",
+    "wx_apiKey": "APIv3 密钥（32 位）",
+    "wx_privateKey": "商户私钥 apiclient_key.pem（PEM 全文）",
+    "wx_publicKey": "微信平台公钥（PEM 全文）"
   },
   "couponList": {
     "createNew": "新建优惠券",
