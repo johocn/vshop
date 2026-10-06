@@ -26,6 +26,17 @@
           <text class="lbl">{{ $t('dataDashboard.lowStock') }}</text>
         </view>
       </view>
+      <!-- 四期增长 KPI：复购率（随 7/30 窗口）+ 评价均分（全量主评） -->
+      <view class="stat">
+        <view class="stat-card">
+          <text class="num">{{ repurchase === null ? '—' : repurchase + '%' }}</text>
+          <text class="lbl">{{ $t('dataDashboard.repurchase') }}</text>
+        </view>
+        <view class="stat-card">
+          <text class="num">{{ review ? review.avgRating.toFixed(1) : '—' }}</text>
+          <text class="lbl">{{ $t('dataDashboard.reviewAvg') }}</text>
+        </view>
+      </view>
 
       <view class="card">
         <text class="sec">{{ days === 7 ? $t('dataDashboard.salesTrend') : $t('dataDashboard.salesTrend30') }}</text>
@@ -44,6 +55,54 @@
           </view>
         </view>
         <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
+      </view>
+
+      <view class="card">
+        <text class="sec">{{ days === 7 ? $t('dataDashboard.salesTop') : $t('dataDashboard.salesTop30') }}</text>
+        <view v-if="salesTop.length" class="top">
+          <view class="top-row" v-for="(t, i) in salesTop" :key="t.productId">
+            <text class="rank" :class="{ hot: i < 3 }">{{ i + 1 }}</text>
+            <text class="name">{{ t.name }}</text>
+            <text class="cnt">{{ t.quantity }} {{ $t('dataDashboard.unitPiece') }}</text>
+            <text class="gmv">¥{{ (t.amount / 100).toFixed(0) }}</text>
+          </view>
+        </view>
+        <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
+      </view>
+
+      <view class="card">
+        <text class="sec">{{ days === 7 ? $t('dataDashboard.riderTitle') : $t('dataDashboard.riderTitle30') }}</text>
+        <view v-if="riders.length" class="top">
+          <view class="top-row" v-for="(r, i) in riders" :key="r.customerId">
+            <text class="rank" :class="{ hot: i < 3 }">{{ i + 1 }}</text>
+            <text class="name">{{ r.name }}</text>
+            <text class="cnt">{{ r.completed }} {{ $t('dataDashboard.riderCompleted') }}</text>
+            <text class="qty">{{ r.onTimeRate }}%</text>
+          </view>
+        </view>
+        <text v-else class="muted">{{ $t('dataDashboard.riderNone') }}</text>
+      </view>
+
+      <view class="card">
+        <text class="sec">{{ $t('dataDashboard.reviewOverview') }}</text>
+        <view class="health">
+          <view class="health-cell">
+            <text class="num">{{ review ? review.avgRating.toFixed(1) : '—' }}</text>
+            <text class="lbl">{{ $t('dataDashboard.rvAvg') }}</text>
+          </view>
+          <view class="health-cell">
+            <text class="num">{{ review ? review.badRate + '%' : '—' }}</text>
+            <text class="lbl">{{ $t('dataDashboard.rvBad') }}</text>
+          </view>
+          <view class="health-cell">
+            <text class="num">{{ review ? review.pendingCount : '—' }}</text>
+            <text class="lbl">{{ $t('dataDashboard.rvPending') }}</text>
+          </view>
+          <view class="health-cell">
+            <text class="num">{{ review ? review.withImagesRate + '%' : '—' }}</text>
+            <text class="lbl">{{ $t('dataDashboard.rvImages') }}</text>
+          </view>
+        </view>
       </view>
 
       <view class="card">
@@ -128,7 +187,19 @@ import { computed, ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import TrendChart from '../../../components/TrendChart.vue';
 import { fetchTodayOverview, type TodayOverview } from '../../../apis/stats';
-import { fetchSalesTrend, fetchCategoryTop, type TrendPoint, type CategoryTopRow } from '../../../apis/operations';
+import {
+  fetchSalesTrend,
+  fetchCategoryTop,
+  fetchRepurchaseRate,
+  fetchReviewOverview,
+  fetchProductSalesTop,
+  fetchRiderEfficiency,
+  type TrendPoint,
+  type CategoryTopRow,
+  type ReviewOverview,
+  type ProductSalesRow,
+  type RiderEfficiencyRow,
+} from '../../../apis/operations';
 import { fetchInventoryHealth, type InventoryHealth } from '../../../apis/inventory';
 import { fetchPickBatchShippedCount } from '../../../apis/picking';
 import { fetchStocktakeKpi } from '../../../apis/stocktake';
@@ -153,6 +224,11 @@ const trend = ref<TrendPoint[]>([]);
 const topList = ref<CategoryTopRow[]>([]);
 const inv = ref<InventoryHealth | null>(null);
 const days = ref<7 | 30>(7);
+// 四期增长闭环：复购率/热销榜/骑手榜随 7/30 窗口；评价概览全量（null = 拉取失败显示 "—"）
+const repurchase = ref<number | null>(null);
+const review = ref<ReviewOverview | null>(null);
+const salesTop = ref<ProductSalesRow[]>([]);
+const riders = ref<RiderEfficiencyRow[]>([]);
 
 const view = ref<'biz' | 'ops'>('biz');
 
@@ -179,6 +255,10 @@ const trendMax = computed(() => varRows.value.reduce((m, r) => Math.max(m, r.dif
 async function loadDynamic() {
   try { trend.value = await fetchSalesTrend(days.value); } catch (e) { console.error('fetchSalesTrend failed', e); trend.value = []; }
   try { topList.value = await fetchCategoryTop(days.value); } catch (e) { console.error('fetchCategoryTop failed', e); topList.value = []; }
+  // 四期：复购率 + 热销榜 + 骑手效率榜（同窗口）
+  try { repurchase.value = await fetchRepurchaseRate(days.value); } catch (e) { console.error('fetchRepurchaseRate failed', e); repurchase.value = null; }
+  try { salesTop.value = await fetchProductSalesTop(days.value); } catch (e) { console.error('fetchProductSalesTop failed', e); salesTop.value = []; }
+  try { riders.value = await fetchRiderEfficiency(days.value); } catch (e) { console.error('fetchRiderEfficiency failed', e); riders.value = []; }
 }
 
 /** 切换 7/30 天：两个视图共用，按当前视图各自重载 */
@@ -268,6 +348,8 @@ function exportCsv(): void {
 onMounted(async () => {
   try { ov.value = await fetchTodayOverview(); } catch (e) { console.error('fetchTodayOverview failed', e); ov.value = null; }
   try { inv.value = await fetchInventoryHealth(); } catch (e) { console.error('fetchInventoryHealth failed', e); inv.value = null; }
+  // 四期：评价概览无窗口（全量主评），进页面拉一次
+  try { review.value = await fetchReviewOverview(); } catch (e) { console.error('fetchReviewOverview failed', e); review.value = null; }
   await loadDynamic();
 });
 </script>
