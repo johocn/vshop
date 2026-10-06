@@ -2417,6 +2417,8 @@
     "deliveryFee": "配送费（元）",
     "errandBaseFee": "跑腿起步价（元）",
     "errandBaseFeePh": "留空默认 2 元",
+    "freeShipping": "满X元免配送费（元）",
+    "freeShippingPh": "留空=不启用",
     "storeAddress": "自提地址",
     "storePhone": "联系电话",
     "storeNotice": "店铺公告",
