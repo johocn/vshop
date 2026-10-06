@@ -2276,6 +2276,8 @@
     "deliveryMinutes": "Delivery Time (min)",
     "minOrder": "Min Order (yuan)",
     "deliveryFee": "Delivery Fee (yuan)",
+    "errandBaseFee": "Errand base fee (yuan)",
+    "errandBaseFeePh": "Empty = default ¥2",
     "storeAddress": "Pickup Address",
     "storePhone": "Phone",
     "storeNotice": "Store Notice",

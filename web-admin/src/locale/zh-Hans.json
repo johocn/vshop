@@ -2276,6 +2276,8 @@
     "deliveryMinutes": "配送时长（分钟）",
     "minOrder": "起送价（元）",
     "deliveryFee": "配送费（元）",
+    "errandBaseFee": "跑腿起步价（元）",
+    "errandBaseFeePh": "留空默认 2 元",
     "storeAddress": "自提地址",
     "storePhone": "联系电话",
     "storeNotice": "店铺公告",

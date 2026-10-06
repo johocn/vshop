@@ -14,6 +14,7 @@ export interface CampusStoreConfig {
   storeAddress: string | null;
   storePhone: string | null;
   storeNotice: string | null;
+  errandBaseFee: number | null;
 }
 
 export interface CampusStoreConfigInput {
@@ -24,10 +25,11 @@ export interface CampusStoreConfigInput {
   storeAddress?: string | null;
   storePhone?: string | null;
   storeNotice?: string | null;
+  errandBaseFee?: number | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice';
+  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
