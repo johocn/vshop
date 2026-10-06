@@ -54,6 +54,7 @@
     { "path": "pages/media/library/index", "style": { "navigationBarTitleText": "图片库" } },
     { "path": "pages/shipping/profile/index", "style": { "navigationBarTitleText": "配送档案" } },
     { "path": "pages/payment/profile/index", "style": { "navigationBarTitleText": "支付档案" } },
+    { "path": "pages/campus/config", "style": { "navigationBarTitleText": "拾光达配置" } },
     { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
     { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } },
     { "path": "pages/pickup/redeem/index", "style": { "navigationBarTitleText": "到店自提核销" } },
