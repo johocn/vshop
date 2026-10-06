@@ -55,7 +55,7 @@
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\campus-fulfillment-config.entity.ts`
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\migrations\create-campus-tables.ts`
 
-- [ ] **Step 1: 实体加 6 个可空列**
+- [x] **Step 1: 实体加 6 个可空列**
 
 `campus-fulfillment-config.entity.ts` 在 `compensationCouponTemplateId` 行之后追加（保持既有列风格）：
 
@@ -68,7 +68,7 @@
     @Column({ type: 'varchar', nullable: true }) storeNotice: string | null; // 店铺公告
 ```
 
-- [ ] **Step 2: 迁移 SQL 补 6 条幂等 ALTER**
+- [x] **Step 2: 迁移 SQL 补 6 条幂等 ALTER**
 
 `migrations/create-campus-tables.ts` 在 `createCampusTables` 模板字符串末尾（`compensationCouponTemplateId` 那条 ALTER 之后）追加：
 
@@ -81,12 +81,12 @@ ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "storePhone" varc
 ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "storeNotice" varchar(255);
 ```
 
-- [ ] **Step 3: 跑既有 plugin 单测确认无回归**
+- [x] **Step 3: 跑既有 plugin 单测确认无回归**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: 全部 PASS（实体加列不影响既有 mock 测试）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 cd d:\zhao\vendure
@@ -102,7 +102,7 @@ git commit -m "feat(campus): add store config nullable columns to CampusFulfillm
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\waimai-store.service.ts`
 - Test: `d:\zhao\vendure\packages\campus-delivery-plugin\src\waimai-store.service.spec.ts`
 
-- [ ] **Step 1: 先改测试期望（写失败测试）**
+- [x] **Step 1: 先改测试期望（写失败测试）**
 
 `waimai-store.service.spec.ts` 两个用例的期望对象加 6 字段（无配置行 → 全 null）。把整个文件替换为：
 
@@ -172,12 +172,12 @@ describe('WaimaiStoreService.listStores', () => {
 
 （文件末尾保留位置给 Task 3 追加的 describe 块。）
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: FAIL（期望对象多出 6 个 undefined 字段，`toEqual` 不匹配）。
 
-- [ ] **Step 3: 实现 listStores 透出**
+- [x] **Step 3: 实现 listStores 透出**
 
 `waimai-store.service.ts`：
 ① `WaimaiStore` 接口在 `routesEnabled: string[];` 后追加：
@@ -202,12 +202,12 @@ Expected: FAIL（期望对象多出 6 个 undefined 字段，`toEqual` 不匹配
                 storeNotice: cfg.storeNotice ?? null,
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: PASS（2 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\vendure
@@ -223,7 +223,7 @@ git commit -m "feat(campus): expose store config fields via waimaiStoreList"
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\waimai-store.service.ts`
 - Test: `d:\zhao\vendure\packages\campus-delivery-plugin\src\waimai-store.service.spec.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `waimai-store.service.spec.ts` 末尾追加（`makeEnv` 已在 Task 2 支持 findOne/save，直接复用）：
 
@@ -313,12 +313,12 @@ describe('WaimaiStoreService.updateStoreConfig', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: FAIL（`listStoreConfigs` / `updateStoreConfig` 不存在，TypeError）。
 
-- [ ] **Step 3: 实现两个方法**
+- [x] **Step 3: 实现两个方法**
 
 `waimai-store.service.ts`：
 ① 文件顶部 import 补 `UserInputError` 与实体已有 import 不变：
@@ -422,12 +422,12 @@ const ROUTE_WHITELIST = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 注意：`new CampusFulfillmentConfig({ channelId })` 与 `campus-config.service.ts` 的 `getConfig` 建行方式一致；`channelId` 传 `number` 即可（构造器 `DeepPartial` 不校验 ID 类型）。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: PASS（waimai-store.service.spec.ts 全绿）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\vendure
@@ -443,7 +443,7 @@ git commit -m "feat(campus): add admin listStoreConfigs/updateStoreConfig with r
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\campus-delivery.plugin.ts`
 - Modify: `d:\zhao\vendure\packages\campus-delivery-plugin\src\campus-config-admin.resolver.ts`
 
-- [ ] **Step 1: admin schema 加类型与入口**
+- [x] **Step 1: admin schema 加类型与入口**
 
 `campus-delivery.plugin.ts` adminApiExtensions 的 gql 模板里，`type CampusErrandProductResult {...}` 块之后、`extend type Query` 之前插入：
 
@@ -484,7 +484,7 @@ git commit -m "feat(campus): add admin listStoreConfigs/updateStoreConfig with r
                     campusUpdateStoreConfig(channelId: ID!, input: CampusStoreConfigInput!): CampusStoreConfigWithChannel!
 ```
 
-- [ ] **Step 2: shop schema 的 WaimaiStore 加 6 可空字段**
+- [x] **Step 2: shop schema 的 WaimaiStore 加 6 可空字段**
 
 同一文件 shopApiExtensions gql 模板里 `type WaimaiStore {...}` 在 `routesEnabled: [String!]!` 后追加：
 
@@ -497,7 +497,7 @@ git commit -m "feat(campus): add admin listStoreConfigs/updateStoreConfig with r
                     storeNotice: String
 ```
 
-- [ ] **Step 3: admin resolver 加 query/mutation**
+- [x] **Step 3: admin resolver 加 query/mutation**
 
 `campus-config-admin.resolver.ts`：
 ① import 与构造器注入 `WaimaiStoreService`：
@@ -531,7 +531,7 @@ import { WaimaiStoreService } from './waimai-store.service';
     }
 ```
 
-- [ ] **Step 4: 全量回归 + TypeScript 编译验证**
+- [x] **Step 4: 全量回归 + TypeScript 编译验证**
 
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run`
 Expected: PASS。
@@ -539,7 +539,7 @@ Expected: PASS。
 Run: `cd d:\zhao\vendure\packages\campus-delivery-plugin; npx tsc --noEmit -p tsconfig.json`（若无独立 tsconfig，则 `cd d:\zhao\vendure; npx tsc --noEmit -p packages/campus-delivery-plugin/tsconfig.json`；两者都不可用时以 `pnpm build` 该包为准）
 Expected: 无类型错误（resolver 注入/schema 字符串均通过）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\vendure
@@ -555,7 +555,7 @@ git commit -m "feat(campus): admin GraphQL for campusStoreConfigs/campusUpdateSt
 - Create: `d:\zhao\vshop\web-admin\src\utils\money.ts`
 - Test: `d:\zhao\vshop\web-admin\src\utils\money.spec.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `src/utils/money.spec.ts`：
 
@@ -594,12 +594,12 @@ describe('yuanToFen', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd d:\zhao\vshop\web-admin; pnpm exec vitest run`
 Expected: FAIL（`./money` 模块不存在）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `src/utils/money.ts`：
 
@@ -621,12 +621,12 @@ export function yuanToFen(input: string): number | null {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd d:\zhao\vshop\web-admin; pnpm exec vitest run`
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\vshop
@@ -641,7 +641,7 @@ git commit -m "feat(web-admin): fen/yuan money helpers"
 **Files:**
 - Create: `d:\zhao\vshop\web-admin\src\apis\campus.ts`
 
-- [ ] **Step 1: 写 API 文件**
+- [x] **Step 1: 写 API 文件**
 
 ```ts
 // 拾光达（校内配送）域 admin-api 调用：店铺配置列表 + upsert
@@ -696,7 +696,7 @@ export async function campusUpdateStoreConfig(
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```powershell
 cd d:\zhao\vshop
@@ -714,7 +714,7 @@ git commit -m "feat(web-admin): campus store config api layer"
 - Modify: `d:\zhao\vshop\web-admin\src\constants\menus.ts`
 - Modify: `d:\zhao\vshop\web-admin\src\locale\zh-Hans.json`、`d:\zhao\vshop\web-admin\src\locale\en.json`
 
-- [ ] **Step 1: locale 词条（两语言同步）**
+- [x] **Step 1: locale 词条（两语言同步）**
 
 `src/locale/zh-Hans.json`：在 `"menu"` 对象内任意稳定位置加 `"campusConfig": "拾光达配置"`；顶层对象内加 `"campusConfig"` 命名空间（与 `decorateShopInfo` 同级）：
 
@@ -779,7 +779,7 @@ git commit -m "feat(web-admin): campus store config api layer"
 
 注意：两个 JSON 均为单一大对象，插入时保持前一行逗号合法（插入位置选同层级相邻键之间，勿破坏 JSON 结构）。
 
-- [ ] **Step 2: 页面文件**
+- [x] **Step 2: 页面文件**
 
 `src/pages/campus/config.vue`（交互形态=已定稿 mockup：店铺卡列表 + 5 路线 chips + 分↔元表单；样式沿用 shop-info 页 $wa-* 令牌）：
 
@@ -978,7 +978,7 @@ onMounted(async () => {
 </style>
 ```
 
-- [ ] **Step 3: 注册页面与菜单**
+- [x] **Step 3: 注册页面与菜单**
 
 `src/pages.json` 的 pages 数组在 `"pages/pickup/index"` 行前插入：
 
@@ -994,7 +994,7 @@ onMounted(async () => {
 
 （`perm: 'CampusConfig'` 与后端权限点同名，超管自然放行；无该权限的角色看不到入口。）
 
-- [ ] **Step 4: 构建验证**
+- [x] **Step 4: 构建验证**
 
 Run: `cd d:\zhao\vshop\web-admin; pnpm build:h5`
 Expected: 构建成功无报错。
@@ -1002,7 +1002,7 @@ Expected: 构建成功无报错。
 Run: `cd d:\zhao\vshop\web-admin; pnpm exec vitest run`
 Expected: PASS（money.spec 等）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\vshop
@@ -1020,7 +1020,7 @@ git commit -m "feat(web-admin): Shiguangda campus delivery config page"
 - Modify: `d:\zhao\waimai\src\utils\timeline.ts`
 - Test: `d:\zhao\waimai\tests\timeline.spec.ts`
 
-- [ ] **Step 1: 先改测试（写失败测试）**
+- [x] **Step 1: 先改测试（写失败测试）**
 
 `tests/store-display.spec.ts`：全局把旧文案替换为新文案——
 `'商家自送 + 校内骑手接力'` → `'商家自送 · 传信者接力'`；`'档口直送 · 校内骑手上楼'` → `'档口直送 · 传信者上楼'`；`'快递到校代取'` → `'快递到校 · 接力代取'`。
@@ -1049,12 +1049,12 @@ describe('deliveryTag（首页配送 tag：时长前缀）', () => {
 
 `tests/timeline.spec.ts` 第 40 行：`expect(tl[1].label).toBe('骑手取餐')` → `expect(tl[1].label).toBe('传信者取餐')`。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd d:\zhao\waimai; pnpm exec vitest run`
 Expected: FAIL（store-display 文案不匹配 + `deliveryTag` 未导出；timeline 断言失败）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `src/utils/store-display.ts`：
 ① 注释块第 14 行路线说明同步改为：`R1=商家自送至校门口+传信者接力；R2=快递到校·接力代取；R3=档口直送·传信者上楼；R4=到店自取；R5=跑腿代取。`（注释里是业务语义描述，随用户文案更新）
@@ -1084,12 +1084,12 @@ export function deliveryTag(store: { deliveryMinutes?: number | null; routesEnab
 
 `src/utils/timeline.ts` 第 34 行：`label: '骑手取餐'` → `label: '传信者取餐'`。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd d:\zhao\waimai; pnpm exec vitest run`
 Expected: PASS（store-display + timeline 全绿）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd d:\zhao\waimai
@@ -1106,48 +1106,48 @@ git commit -m "feat(waimai): brand copy for routes + deliveryTag helper"
 
 逐处精确替换（旧 → 新）：
 
-- [ ] **Step 1: pages.json**
+- [x] **Step 1: pages.json**
   - 第 3 行 `"navigationBarTitleText": "校园外卖"` → `"navigationBarTitleText": "拾光达"`
   - 第 22 行 `"navigationBarTitleText": "骑手入驻"` → `"navigationBarTitleText": "传信者入驻"`
   - 第 42 行 `"navigationBarTitleText": "校园外卖"` → `"navigationBarTitleText": "拾光达"`
 
-- [ ] **Step 2: manifest.json**
+- [x] **Step 2: manifest.json**
   - 第 4 行 `"description": "校园外卖学生端"` → `"description": "拾光达学生端"`
   - 第 54 行 `"title": "校园外卖"` → `"title": "拾光达"`
 
-- [ ] **Step 3: login/index.vue** — 第 5 行 `<text class="login-logo-text">校园外卖</text>` → `<text class="login-logo-text">拾光达</text>`
+- [x] **Step 3: login/index.vue** — 第 5 行 `<text class="login-logo-text">校园外卖</text>` → `<text class="login-logo-text">拾光达</text>`
 
-- [ ] **Step 4: home/index.vue**
+- [x] **Step 4: home/index.vue**
   - 第 21 行 `<text class="qtxt">骑手加入</text>` → `<text class="qtxt">传信者加入</text>`
   - 第 81 行 `const NOTICE_TEXT = '本平台为校内配送：范围覆盖校内宿舍楼与教学楼，营业时间 10:00–22:00，由商家与校内骑手接力送达。';` → `const NOTICE_TEXT = '本平台为拾光达校内配送：范围覆盖校内宿舍楼与教学楼，营业时间 10:00–22:00，由商家与拾光传信者接力送达。';`
 
-- [ ] **Step 5: menu.vue**
+- [x] **Step 5: menu.vue**
   - 第 70 行 `<text class="tag">校内配送</text>` → `<text class="tag">拾光达配送</text>`
   - 第 71 行 `<text class="tag">校内骑手接力送达</text>` → `<text class="tag">拾光传信者接力送达</text>`
   - 第 114 行 `const routesText = ref('校内骑手配送');` → `const routesText = ref('拾光传信者配送');`
 
-- [ ] **Step 6: checkout.vue**
+- [x] **Step 6: checkout.vue**
   - 第 279 行 `if (routeChoice.value === 'R1') return '商家送至校门口，校内骑手接力送达（R1）';` → `... '商家送至校门口，拾光传信者接力送达（R1）';`
   - 第 280 行 `return '档口直送，校内骑手上楼（R3）';` → `return '档口直送，拾光传信者上楼（R3）';`
   - 第 327 行 `[{ key: 'campus', label: '校园配送' }]` → `[{ key: 'campus', label: '拾光达配送' }]`
 
-- [ ] **Step 7: order-detail.vue**
+- [x] **Step 7: order-detail.vue**
   - 第 34 行 `· 接力骑手 · 第二程` → `· 接力传信者 · 第二程`
   - 第 127 行 `'暂无骑手接单，平台人工介入处理中'` → `'暂无传信者接单，平台人工介入处理中'`
   - 第 129 行 `'等待骑手接单…'` → `'等待传信者接单…'`
 
-- [ ] **Step 8: rider-join.vue**
+- [x] **Step 8: rider-join.vue**
   - 第 5 行 `您已是认证骑手，可以开始接单啦` → `您已是认证传信者，可以开始接单啦`
   - 第 22 行 `审核通过后即可在「我的-骑手中心」接单赚跑腿费` → `审核通过后即可在「我的-传信者中心」接单赚跑腿费`
 
-- [ ] **Step 9: profile/index.vue** — 第 12 行 `<text>成为骑手</text>` → `<text>成为传信者</text>`
+- [x] **Step 9: profile/index.vue** — 第 12 行 `<text>成为骑手</text>` → `<text>成为传信者</text>`
 
-- [ ] **Step 10: 验证无漏网**
+- [x] **Step 10: 验证无漏网**
 
 Run: `cd d:\zhao\waimai; pnpm exec vitest run`
 Expected: PASS（Task 8 已改测试，此处确认无回归）。
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```powershell
 cd d:\zhao\waimai
@@ -1165,7 +1165,7 @@ git commit -m "feat(waimai): unify brand copy to Shiguangda / messenger"
 - Modify: `d:\zhao\waimai\src\pages\shop\menu.vue`
 - Modify: `d:\zhao\waimai\src\pkg-order\pages\checkout.vue`
 
-- [ ] **Step 1: 查询扩展 6 字段**
+- [x] **Step 1: 查询扩展 6 字段**
 
 `src/api/queries/waimai.ts` 第 8 行改为：
 
@@ -1174,7 +1174,7 @@ git commit -m "feat(waimai): unify brand copy to Shiguangda / messenger"
             deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice
 ```
 
-- [ ] **Step 2: 首页店铺卡时长 tag**
+- [x] **Step 2: 首页店铺卡时长 tag**
 
 `src/pages/home/index.vue`：
 ① 第 74 行 import 改为 `import { storeDisplayName, routeText, deliveryTag } from '../../utils/store-display';`
@@ -1186,7 +1186,7 @@ git commit -m "feat(waimai): unify brand copy to Shiguangda / messenger"
 
 （null 兜底：无配置行/未配置时长时展示与现状完全一致。）
 
-- [ ] **Step 3: 店铺页商家 Tab 地址/电话/公告 + checkout 传参**
+- [x] **Step 3: 店铺页商家 Tab 地址/电话/公告 + checkout 传参**
 
 `src/pages/shop/menu.vue`：
 ① script 区 import 补：`import { fetchStoreList } from '../../api/queries/waimai';`（fetchProductList 已从同文件 import，可合并进该行）。
@@ -1243,7 +1243,7 @@ function goCheckout() {
 }
 ```
 
-- [ ] **Step 4: checkout 费用展示 + 起送价软校验**
+- [x] **Step 4: checkout 费用展示 + 起送价软校验**
 
 `src/pkg-order/pages/checkout.vue`：
 ① state 区（`zonesLoading` 附近）加：
@@ -1277,7 +1277,7 @@ const deliveryFeeFen = ref<number | null>(null); // 配送费（分，仅展示�
     }
 ```
 
-- [ ] **Step 5: 回归 + 构建**
+- [x] **Step 5: 回归 + 构建**
 
 Run: `cd d:\zhao\waimai; pnpm exec vitest run`
 Expected: PASS。
@@ -1285,7 +1285,7 @@ Expected: PASS。
 Run: `cd d:\zhao\waimai; pnpm build:h5`
 Expected: 构建成功。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 cd d:\zhao\waimai
@@ -1299,12 +1299,12 @@ git commit -m "feat(waimai): consume store config fields (minutes tag, info, fee
 
 **Files:** 无代码改动；产物为截图（目检用）。
 
-- [ ] **Step 1: 起本地 H5 dev**
+- [x] **Step 1: 起本地 H5 dev**
 
 Run（后台）: `cd d:\zhao\waimai; pnpm dev:h5`
 Expected: 输出本地访问地址（默认 http://localhost:5173 附近）。
 
-- [ ] **Step 2: Playwright 截图（390×844 dpr=2）**
+- [x] **Step 2: Playwright 截图（390×844 dpr=2）**
 
 复用既有脚本（按其内部目标端口对齐 dev 地址）：
 
@@ -1320,7 +1320,7 @@ Expected: 生成首页/店铺页截图。目检要点：
 - 若后台尚未配置数据，页面应与现状一致（null 兜底零破坏）——两种状态都要看
 - 明暗两态（首页 🌙 切换）各一张
 
-- [ ] **Step 3: checkout 截图（可选，如脚本缺失则手写临时 Playwright 脚本）**
+- [x] **Step 3: checkout 截图（可选，如脚本缺失则手写临时 Playwright 脚本）**
 
 进店加购 → checkout，验证「配送费/起送价」两行与软校验 toast。截图尺寸同上。
 
@@ -1328,7 +1328,7 @@ Expected: 生成首页/店铺页截图。目检要点：
 
 ### Task 12: 全量回归 + 三仓收口（提交 → 推送 → 部署）
 
-- [ ] **Step 1: 三仓全量单测**
+- [x] **Step 1: 三仓全量单测**
 
 ```powershell
 cd d:\zhao\vendure\packages\campus-delivery-plugin; npx vitest --config vitest.config.mts --run
@@ -1337,7 +1337,7 @@ cd d:\zhao\waimai; pnpm exec vitest run
 ```
 Expected: 三处全 PASS。
 
-- [ ] **Step 2: 推送**
+- [x] **Step 2: 推送**
 
 ```powershell
 cd d:\zhao\vendure; git push
@@ -1345,7 +1345,7 @@ cd d:\zhao\vshop; git push
 cd d:\zhao\waimai; git push
 ```
 
-- [ ] **Step 3: 部署 vendure 后端（campus-delivery-plugin）**
+- [x] **Step 3: 部署 vendure 后端（campus-delivery-plugin）**
 
 沿用 campus-delivery-plugin 上次上线同款通道（本地构建产物 → 服务器解压 → `pm2 restart`；**严禁服务器构建**）。部署后一锤定音校验：
 
@@ -1353,21 +1353,21 @@ cd d:\zhao\waimai; git push
 - shop-api：`waimaiStoreList { deliveryMinutes }` 字段可查
 - 若通道细节不明（服务器路径/应用名），执行本任务时先向用户确认上次上线命令，勿自行猜测
 
-- [ ] **Step 4: 部署 web-admin**
+- [x] **Step 4: 部署 web-admin**
 
 ```powershell
 cd d:\zhao\vshop\web-admin; pnpm build:h5; node scripts/deploy.mjs
 ```
 Expected: 产物上传成功。线上验证：登录 e.joho.cn/guanli → 工作台「履约」域出现「拾光达配置」→ 列表出店铺卡 → 保存一店配置成功 toast。
 
-- [ ] **Step 5: 部署 waimai**
+- [x] **Step 5: 部署 waimai**
 
 ```powershell
 cd d:\zhao\waimai; pnpm build:h5; node .secrets/deploy-waimai.mjs
 ```
 Expected: 静态目录替换生效（H5 静态站无需 nginx reload）。线上手机视口（390×844 dpr=2）截图验收：首页文案/店铺页/checkout，与 Task 11 同要点。
 
-- [ ] **Step 6: 线上配置冒烟（后台↔C 端闭环）**
+- [x] **Step 6: 线上配置冒烟（后台↔C 端闭环）**
 
 web-admin 给测试店铺配 deliveryMinutes=35、minOrderAmount=15 元、deliveryFee=2 元、storeAddress/Phone/Notice、勾选 R1/R3 → waimai 首页店铺卡出现「35分钟 · …」、商家 Tab 出地址/电话/公告、checkout 出「配送费 ¥2.00 / 满 ¥15.00 起送」。全 null 的其他店铺现状不变。
 
