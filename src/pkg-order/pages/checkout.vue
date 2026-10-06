@@ -324,7 +324,7 @@ import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyMemberInfo, redeemPoints } from '../../api/queries/member';
 import { getMyCoupons } from '../../api/queries/coupon';
 import { applyCouponToOrder, clearCouponFromOrder } from '../../api/mutations/coupon';
-import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
+import { handlePayment, isWechatpayMethod, resolveWechatMethodCode, type PaymentMethod } from '../../composables/usePayment';
 
 type ShippingCategory = 'shipping' | 'store-pickup' | 'point-pickup' | 'employee-pickup';
 
@@ -569,7 +569,8 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 function getPaymentIcon(code: string): string {
-    const icons: Record<string, string> = { 'wechatpay': '💳', 'alipay': '💰', 'cod': '📦', 'balance-pay': '💵', 'aggregate-pay': '🧾' };
+    if (isWechatpayMethod(code)) return '💳';
+    const icons: Record<string, string> = { 'alipay': '💰', 'cod': '📦', 'balance-pay': '💵', 'aggregate-pay': '🧾' };
     return icons[code] || '💳';
 }
 
@@ -946,6 +947,11 @@ onMounted(async () => {
             } catch (e) { console.warn('[checkout] Profile 级支付方式过滤失败，回退到全量', e); }
         }
 
+        // 分端支付方案：微信支付系按端只保留当前端对应的方法
+        // （小程序→wechatpay；H5 yourbao 域→wechatpay-yourbao-h5；H5 youshop 域→wechatpay-youshop-jsapi）
+        const wechatCode = resolveWechatMethodCode();
+        payList = payList.filter((p: any) => !isWechatpayMethod(p.code) || p.code === wechatCode);
+
         const seen = new Set<string>();
         paymentMethods.value = payList.filter((p: any) => {
             if (seen.has(p.code)) return false;
@@ -1125,7 +1131,7 @@ async function prepareOrderAddressAndShipping(): Promise<boolean> {
 async function payCurrentOrder(method: string): Promise<string> {
     // Build payment metadata (wechatpay JSAPI requires openid)
     const paymentMetadata: Record<string, any> = {};
-    if (method === 'wechatpay') {
+    if (isWechatpayMethod(method)) {
         const openid = uni.getStorageSync('auth_openid');
         if (openid) paymentMetadata.openid = openid;
     }
@@ -1190,7 +1196,7 @@ async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
                 method = allowed[0] || '';
                 // 若该档案允许在线支付，优先用在线支付；否则用第一个
                 const onlineOrder = ['wechatpay', 'alipay', 'douyinpay', 'balance-pay'];
-                const foundOnline = allowed.find((c: string) => onlineOrder.includes(c));
+                const foundOnline = allowed.find((c: string) => onlineOrder.includes(c) || isWechatpayMethod(c));
                 if (foundOnline) method = foundOnline;
             } catch (e) { console.warn('[checkout] resolve group payment method failed', e); }
         }
@@ -1199,7 +1205,7 @@ async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
     }
 
     // 排序：即时结算（cod/balance-pay）在前，在线支付在后
-    const isOnline = (m: string) => m === 'wechatpay' || m === 'alipay' || m === 'douyinpay';
+    const isOnline = (m: string) => m === 'alipay' || m === 'douyinpay' || isWechatpayMethod(m);
     resolved.sort((a, b) => {
         const aOnline = isOnline(a.paymentMethod) ? 1 : 0;
         const bOnline = isOnline(b.paymentMethod) ? 1 : 0;
@@ -1250,7 +1256,7 @@ async function payMarketplaceSellerSubOrders(method: string): Promise<string[]> 
             .filter((o: any) => o.state === 'ArrangingPayment');
         for (const sub of subOrders) {
             const metadata: Record<string, any> = {};
-            if (method === 'wechatpay') {
+            if (isWechatpayMethod(method)) {
                 const openid = uni.getStorageSync('auth_openid');
                 if (openid) metadata.openid = openid;
             }

@@ -1,6 +1,37 @@
 import { wxRequestPayment, redirectPayment, getPlatform } from "../utils/platform";
 
-export type PaymentMethod = "wechatpay" | "alipay" | "cod" | "balance-pay" | "aggregate-pay";
+export type PaymentMethod =
+    | "wechatpay" | "wechatpay-yourbao-h5" | "wechatpay-youshop-jsapi"
+    | "alipay" | "cod" | "balance-pay" | "aggregate-pay";
+
+/**
+ * 按端/域名解析实际使用的微信支付方法 code（分端分支付方案）：
+ * - 小程序 → wechatpay（yourbao 小程序商户）
+ * - H5 yourbao 域 → wechatpay-yourbao-h5（yourbao 公众号 JSAPI）
+ * - H5 youshop 域（及其他） → wechatpay-youshop-jsapi（youshop 公众号 JSAPI）
+ */
+export function resolveWechatMethodCode(): PaymentMethod {
+    // #ifdef MP-WEIXIN
+    return "wechatpay";
+    // #endif
+    // #ifdef H5
+    try {
+        const host = window.location.hostname || '';
+        if (host.includes('yourbao')) return "wechatpay-yourbao-h5";
+        return "wechatpay-youshop-jsapi";
+    } catch {
+        return "wechatpay-youshop-jsapi";
+    }
+    // #endif
+    // #ifdef APP-PLUS
+    return "wechatpay";
+    // #endif
+}
+
+/** 是否微信支付系方法（wechatpay / wechatpay-yourbao-h5 / wechatpay-youshop-jsapi） */
+export function isWechatpayMethod(method: string): boolean {
+    return method === 'wechatpay' || method.startsWith('wechatpay-');
+}
 
 export interface PaymentResult {
     success: boolean;
@@ -21,8 +52,8 @@ export async function handlePayment(
 ): Promise<PaymentResult> {
     const platform = getPlatform();
 
-    switch (method) {
-        case "wechatpay":
+    // 微信支付系（wechatpay / wechatpay-yourbao-h5 / wechatpay-youshop-jsapi）统一走此分支
+    if (isWechatpayMethod(method)) {
             if (platform === "mp-weixin") {
                 // WeChat JSAPI payment in mini-program: 后端返回完整签名参数
                 // Shop API 的 Payment.metadata 只暴露 metadata.public 字段
@@ -72,7 +103,9 @@ export async function handlePayment(
                 // #endif
                 return { success: false, message: "不支持的支付方式" };
             }
+    }
 
+    switch (method) {
         case "alipay":
             if (paymentData.payUrl || paymentData.metadata?.payUrl) {
                 redirectPayment(paymentData.payUrl || paymentData.metadata.payUrl);
@@ -103,3 +136,4 @@ export async function handlePayment(
             return { success: false, message: "未知支付方式: " + method };
     }
 }
+
