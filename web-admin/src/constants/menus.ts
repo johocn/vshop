@@ -70,6 +70,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.pickupRedeem', url: '/pages/pickup/redeem/index', tier: 2 },
       { label: 'menu.campusConfig', url: '/pages/campus/config', tier: 2, perm: 'CampusConfig' },
       { label: 'menu.campusMerchant', url: '/pages/campus/merchant', tier: 1, perm: 'CampusMerchant' },
+      { label: 'menu.campusDispatch', url: '/pages/campus/dispatch', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.riderWithdraw', url: '/pages/rider/withdraw/index', tier: 2, perm: 'CampusAuditRider' },
       { label: 'menu.shippingProfile', url: '/pages/shipping/profile/index', tier: 3 },
       { label: 'menu.paymentProfile', url: '/pages/payment/profile/index', tier: 3 },
