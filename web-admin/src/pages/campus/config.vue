@@ -13,12 +13,18 @@
       </view>
       <block v-if="expandedId === card.channelId">
         <view class="sec-t">{{ $t('campusConfig.routeSection') }}</view>
-        <view class="chips">
+        <view class="routes">
           <view
             v-for="r in ROUTES" :key="r.code"
-            class="chip" :class="{ on: card.form.routesEnabled.includes(r.code) }"
+            class="route" :class="{ on: card.form.routesEnabled.includes(r.code) }"
             @tap="toggleRoute(card, r.code)"
-          >{{ $t(r.key) }}</view>
+          >
+            <view class="dot" />
+            <view class="route-main">
+              <text class="route-name">{{ $t(r.key) }}</text>
+              <text class="route-desc">{{ $t(r.descKey) }}</text>
+            </view>
+          </view>
         </view>
         <view class="sec-t">{{ $t('campusConfig.infoSection') }}</view>
         <view class="cell">
@@ -61,11 +67,11 @@ import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 
 const ROUTES = [
-  { code: 'R1', key: 'campusConfig.r1' },
-  { code: 'R2', key: 'campusConfig.r2' },
-  { code: 'R3', key: 'campusConfig.r3' },
-  { code: 'R4', key: 'campusConfig.r4' },
-  { code: 'R5', key: 'campusConfig.r5' },
+  { code: 'R1', key: 'campusConfig.r1', descKey: 'campusConfig.r1Desc' },
+  { code: 'R2', key: 'campusConfig.r2', descKey: 'campusConfig.r2Desc' },
+  { code: 'R3', key: 'campusConfig.r3', descKey: 'campusConfig.r3Desc' },
+  { code: 'R4', key: 'campusConfig.r4', descKey: 'campusConfig.r4Desc' },
+  { code: 'R5', key: 'campusConfig.r5', descKey: 'campusConfig.r5Desc' },
 ] as const;
 
 interface CardForm {
@@ -174,9 +180,18 @@ onMounted(async () => {
     .chev { color: $wa-muted; font-size: 26rpx; }
   }
   .sec-t { font-size: 26rpx; color: $wa-ink; padding: 20rpx 0 8rpx; font-weight: 600; }
-  .chips { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 8rpx 0 16rpx;
-    .chip { padding: 10rpx 26rpx; border: 1px solid $wa-rule; border-radius: 999rpx; font-size: 24rpx; color: $wa-muted; background: $wa-card; }
-    .chip.on { background: $wa-accent; border-color: $wa-accent; color: #fff; }
+  .routes { display: flex; flex-direction: column; gap: 16rpx; padding: 8rpx 0 16rpx;
+    .route { display: flex; align-items: flex-start; gap: 16rpx; padding: 20rpx 24rpx;
+      border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
+    .route.on { border-color: $wa-accent; }
+    .dot { width: 32rpx; height: 32rpx; border-radius: 999rpx; border: 1.5px solid $wa-muted;
+      flex-shrink: 0; margin-top: 2rpx; box-sizing: border-box; position: relative; }
+    .route.on .dot { background: $wa-accent; border-color: $wa-accent;
+      &::after { content: ''; position: absolute; left: 8rpx; top: 4rpx; width: 12rpx; height: 6rpx;
+        border-left: 3rpx solid #fff; border-bottom: 3rpx solid #fff; transform: rotate(-45deg); } }
+    .route-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx;
+      .route-name { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
+      .route-desc { font-size: 24rpx; color: $wa-muted; } }
   }
   .cell { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid $wa-rule;
     .lbl { width: 240rpx; font-size: 28rpx; color: $wa-ink; flex-shrink: 0; }
