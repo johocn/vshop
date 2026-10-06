@@ -43,13 +43,25 @@
       <view v-if="!pool.length" class="empty">{{ $t('paymentMethod.emptyPool') }}</view>
     </template>
 
-    <view v-if="tab === 'mine' && editing" class="sheet-mask" @tap="editing = null">
-      <view class="sheet" @tap.stop>
+    <view v-if="editing" class="sheet-mask" @tap="editing = null">
+      <scroll-view class="sheet" scroll-y @tap.stop>
         <text class="st">{{ $t('paymentMethod.editMethodTitle') }}</text>
         <input class="ipt" v-model="form.name" :placeholder="$t('paymentMethod.phName')" />
         <input class="ipt" v-model="form.description" :placeholder="$t('paymentMethod.phDesc')" />
+        <template v-if="editingWx">
+          <text class="sec">{{ $t('paymentMethod.wxSection') }}</text>
+          <text class="tip">{{ $t('paymentMethod.wxSecretTip') }}</text>
+          <input class="ipt" v-model="wxForm.appId" :placeholder="ph('appId')" />
+          <input class="ipt" v-model="wxForm.mchId" :placeholder="ph('mchId')" />
+          <input class="ipt" v-model="wxForm.serialNo" :placeholder="ph('serialNo')" />
+          <input class="ipt" v-model="wxForm.tradeType" :placeholder="ph('tradeType')" />
+          <input class="ipt" v-model="wxForm.notifyUrl" :placeholder="ph('notifyUrl')" />
+          <textarea class="tarea" v-model="wxForm.apiKey" :placeholder="ph('apiKey')" />
+          <textarea class="tarea" v-model="wxForm.privateKey" :placeholder="ph('privateKey')" />
+          <textarea class="tarea" v-model="wxForm.publicKey" :placeholder="ph('publicKey')" />
+        </template>
         <button class="save" @tap="save">{{ $t('paymentMethod.save') }}</button>
-      </view>
+      </scroll-view>
     </view>
     <view style="height: 120rpx" />
     <BottomBar current="dashboard" />
@@ -58,7 +70,7 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
-import { fetchPaymentMethods, setPaymentEnabled, updatePaymentMethod, deletePaymentMethod } from '../../../apis/payment';
+import { fetchPaymentMethods, setPaymentEnabled, updatePaymentMethod, deletePaymentMethod, updatePaymentMethodArgs } from '../../../apis/payment';
 import { fetchPaymentTemplates, createPaymentMethodFromTemplate } from '../../../apis/payment-template';
 import { useLocaleStore } from '../../../stores/localeStore';
 
@@ -69,6 +81,12 @@ const items = ref<any[]>([]);
 const pool = ref<any[]>([]);
 const editing = ref<any>(null);
 const form = ref({ id: '', name: '', description: '' });
+
+// 微信支付凭证编辑（handler.code === 'wechatpay' 的方法）
+const WX_ARGS = ['appId', 'mchId', 'publicKey', 'privateKey', 'apiKey', 'serialNo', 'tradeType', 'notifyUrl'];
+const editingWx = ref(false);
+const origArgs = ref<Record<string, string>>({});
+const wxForm = ref<Record<string, string>>({});
 
 async function switchTab(t: 'mine' | 'pool') {
   tab.value = t;
@@ -99,14 +117,42 @@ async function toggle(p: any, e: any) {
   }
 }
 
-function openEdit(p: any) { editing.value = p; form.value = { id: p.id, name: p.name, description: p.description || '' }; }
+function openEdit(p: any) {
+  editing.value = p; form.value = { id: p.id, name: p.name, description: p.description || '' };
+  editingWx.value = p.handler?.code === 'wechatpay';
+  origArgs.value = {};
+  for (const n of WX_ARGS) origArgs.value[n] = p.handler?.args?.find((a: any) => a.name === n)?.value || '';
+  wxForm.value = { appId: '', mchId: '', serialNo: '', tradeType: '', notifyUrl: '', apiKey: '', privateKey: '', publicKey: '' };
+}
 function go(url: string) { uni.navigateTo({ url }); }
+// 敏感/普通字段占位：已配置 →「留空保持不变」；未配置 → 提示输入
+function ph(name: string): string {
+  const labels: Record<string, string> = {
+    appId: 'appId（公众号/小程序 AppID）', mchId: '商户号 mchId', serialNo: '证书序列号 serialNo',
+    tradeType: '交易类型 tradeType', notifyUrl: '回调地址 notifyUrl', apiKey: 'APIv3 密钥（32 位）',
+    privateKey: '商户私钥 apiclient_key.pem（PEM 全文）', publicKey: '微信平台公钥（PEM 全文）',
+  };
+  const label = locale.t(`paymentMethod.wx_${name}`) !== `paymentMethod.wx_${name}`
+    ? locale.t(`paymentMethod.wx_${name}`) : (labels[name] || name);
+  return origArgs.value[name] ? `${label} · ${locale.t('paymentMethod.wxSecretConfigured')}` : label;
+}
 async function save() {
   try {
     await updatePaymentMethod(form.value.id, form.value.name, form.value.description);
+    if (editingWx.value) {
+      const args = WX_ARGS
+        .map((name) => {
+          let v = (wxForm.value[name] || '').trim();
+          if (!v) v = origArgs.value[name] || (name === 'tradeType' ? 'JSAPI' : '');
+          return v ? { name, value: v } : null;
+        })
+        .filter(Boolean) as { name: string; value: string }[];
+      await updatePaymentMethodArgs(form.value.id, 'wechatpay', args);
+    }
     editing.value = null; items.value = await fetchPaymentMethods();
     uni.showToast({ title: locale.t('paymentMethod.saved'), icon: 'none' });
-  } catch (e: any) { uni.showToast({ title: e?.message || locale.t('paymentMethod.saveFailed'), icon: 'none' }); }
+  } catch (e: any) { uni.showToast({ title: e?.message || locale.t('paymentMethod.saveFailed'), icon: 'none' });
+  }
 }
 function onDel(p: any) {
   uni.showModal({ title: locale.t('paymentMethod.delTitle'), content: locale.t('paymentMethod.delContent').replace('{name}', p.name), success: async (r) => {
@@ -143,9 +189,12 @@ function onDel(p: any) {
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
 }
 .sheet-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 90; display: flex; align-items: flex-end; }
-.sheet { width: 100%; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 40rpx 32rpx calc(env(safe-area-inset-bottom) + 40rpx);
+.sheet { width: 100%; max-height: 82vh; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 40rpx 32rpx calc(env(safe-area-inset-bottom) + 40rpx);
   .st { font-size: 32rpx; font-weight: 700; color: $wa-ink; display: block; margin-bottom: 24rpx; }
+  .sec { display: block; margin: 20rpx 0 8rpx; font-size: 26rpx; font-weight: 600; color: $wa-ink; }
+  .tip { display: block; margin-bottom: 16rpx; font-size: 22rpx; color: $wa-muted; }
   .ipt { background: #f5f5f5; border-radius: 14rpx; padding: 22rpx 24rpx; font-size: 28rpx; margin-bottom: 20rpx; }
-  .save { background: $pm-d1; color: #fff; font-size: 30rpx; font-weight: 700; border-radius: 16rpx; line-height: 88rpx; }
+  .tarea { width: 100%; box-sizing: border-box; background: #f5f5f5; border-radius: 14rpx; padding: 22rpx 24rpx; font-size: 24rpx; min-height: 120rpx; margin-bottom: 20rpx; }
+  .save { background: $pm-d1; color: #fff; font-size: 30rpx; font-weight: 700; border-radius: 16rpx; line-height: 88rpx; margin-top: 8rpx; }
 }
 </style>
