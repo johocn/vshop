@@ -2443,7 +2443,8 @@
     "stAssigned": "Assigned",
     "stInProgress": "Delivering",
     "stException": "Exception",
-    "stDelivered": "Delivered"
+    "stDelivered": "Delivered",
+    "stRefunded": "Refunded (no rider)"
   },
   "platformTenants": {
     "slotsTitle": "Tenant Slots",
