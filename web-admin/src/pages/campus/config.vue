@@ -40,6 +40,10 @@
           <input v-model="card.form.deliveryFeeYuan" type="digit" :placeholder="$t('campusConfig.phYuan')" />
         </view>
         <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.errandBaseFee') }}</text>
+          <input v-model="card.form.errandBaseFeeYuan" type="digit" :placeholder="$t('campusConfig.errandBaseFeePh')" />
+        </view>
+        <view class="cell">
           <text class="lbl">{{ $t('campusConfig.storeAddress') }}</text>
           <input v-model="card.form.storeAddress" :placeholder="$t('campusConfig.phText')" />
         </view>
@@ -79,6 +83,7 @@ interface CardForm {
   deliveryMinutes: string;   // 输入态用字符串，提交时转 int
   minOrderYuan: string;      // 元输入态；提交转分
   deliveryFeeYuan: string;
+  errandBaseFeeYuan: string; // 跑腿起步价（元输入态）；提交转分
   storeAddress: string;
   storePhone: string;
   storeNotice: string;
@@ -97,6 +102,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     deliveryMinutes: c.deliveryMinutes != null ? String(c.deliveryMinutes) : '',
     minOrderYuan: c.minOrderAmount != null ? fenToYuan(c.minOrderAmount) : '',
     deliveryFeeYuan: c.deliveryFee != null ? fenToYuan(c.deliveryFee) : '',
+    errandBaseFeeYuan: c.errandBaseFee != null ? fenToYuan(c.errandBaseFee) : '',
     storeAddress: c.storeAddress ?? '',
     storePhone: c.storePhone ?? '',
     storeNotice: c.storeNotice ?? '',
@@ -127,6 +133,11 @@ async function save(card: Card) {
   }
   const minOrder = f.minOrderYuan.trim() === '' ? null : yuanToFen(f.minOrderYuan);
   const fee = f.deliveryFeeYuan.trim() === '' ? null : yuanToFen(f.deliveryFeeYuan);
+  const errandFee = f.errandBaseFeeYuan.trim() === '' ? null : yuanToFen(f.errandBaseFeeYuan);
+  if (f.errandBaseFeeYuan.trim() !== '' && errandFee == null) {
+    uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+    return;
+  }
   if (f.minOrderYuan.trim() !== '' && minOrder == null) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
@@ -142,6 +153,7 @@ async function save(card: Card) {
       deliveryMinutes: minutes,
       minOrderAmount: minOrder,
       deliveryFee: fee,
+      errandBaseFee: errandFee,
       storeAddress: f.storeAddress.trim() || null,
       storePhone: f.storePhone.trim() || null,
       storeNotice: f.storeNotice.trim() || null,
