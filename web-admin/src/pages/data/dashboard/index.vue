@@ -4,6 +4,7 @@
     <view class="seg views">
       <view class="seg-item" :class="{ on: view === 'biz' }" @tap="view = 'biz'">{{ $t('dataDashboard.view.biz') }}</view>
       <view class="seg-item" :class="{ on: view === 'ops' }" @tap="switchOps">{{ $t('dataDashboard.view.ops') }}</view>
+      <view class="seg-item" :class="{ on: view === 'as' }" @tap="switchAs">{{ $t('dataDashboard.view.as') }}</view>
     </view>
 
     <view class="seg">
@@ -124,7 +125,7 @@
       </view>
     </template>
 
-    <template v-else>
+    <template v-else-if="view === 'ops'">
       <view class="stat">
         <view class="stat-card">
           <text class="num">{{ opsNum(ops.pickCount) }}</text>
@@ -172,6 +173,62 @@
       </view>
     </template>
 
+    <template v-else-if="view === 'as'">
+      <view class="stat">
+        <view class="stat-card">
+          <text class="num">{{ asStats ? asStats.totalRequests : '—' }}</text>
+          <text class="lbl">{{ $t('dataDashboard.asRequests') }}</text>
+        </view>
+        <view class="stat-card">
+          <text class="num">{{ asStats ? '¥' + (asStats.totalRefundAmount / 100).toFixed(2) : '—' }}</text>
+          <text class="lbl">{{ $t('dataDashboard.asRefundAmount') }}</text>
+        </view>
+        <view class="stat-card">
+          <text class="num">{{ asStats && asStats.avgHandleHours != null ? asStats.avgHandleHours.toFixed(1) + 'h' : '—' }}</text>
+          <text class="lbl">{{ $t('dataDashboard.asAvgHandleHours') }}</text>
+        </view>
+      </view>
+
+      <!-- 近 N 日申请量趋势（css 条形，与差异趋势同款） -->
+      <view class="card">
+        <text class="sec">{{ $t('dataDashboard.asDaily') }}</text>
+        <view v-if="asDailyRows.length">
+          <view v-for="r in asDailyRows" :key="r.day" class="trow">
+            <text class="tday">{{ r.day }}</text>
+            <view class="tbar"><view class="tfill as" :style="{ width: asBarWidth(r.count) }" /></view>
+            <text class="tval">{{ r.count }}</text>
+          </view>
+        </view>
+        <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
+      </view>
+
+      <!-- 状态分布（AFTER_SALE_STATES 中文文案 + 状态色） -->
+      <view class="card">
+        <text class="sec">{{ $t('dataDashboard.asByState') }}</text>
+        <view v-if="asStats && asStats.byState.length">
+          <view v-for="b in asStats.byState" :key="b.key" class="trow">
+            <text class="tday">{{ stateLabel(AFTER_SALE_STATES, b.key).label }}</text>
+            <view class="tbar"><view class="tfill" :style="{ width: asBarWidth(b.count), background: stateLabel(AFTER_SALE_STATES, b.key).color }" /></view>
+            <text class="tval">{{ b.count }}</text>
+          </view>
+        </view>
+        <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
+      </view>
+
+      <!-- 类型分布 -->
+      <view class="card">
+        <text class="sec">{{ $t('dataDashboard.asByType') }}</text>
+        <view v-if="asStats && asStats.byType.length">
+          <view v-for="b in asStats.byType" :key="b.key" class="top-row">
+            <text class="name">{{ AFTER_SALE_TYPES[b.key] || b.key }}</text>
+            <text class="cnt">{{ b.count }} {{ $t('dataDashboard.asUnit') }}</text>
+            <text class="gmv" v-if="b.amount">¥{{ (b.amount / 100).toFixed(0) }}</text>
+          </view>
+        </view>
+        <text v-else class="muted">{{ $t('dataDashboard.empty') }}</text>
+      </view>
+    </template>
+
     <view style="height: 140rpx" />
     <BottomBar current="dashboard" />
   </view>
@@ -205,6 +262,8 @@ import { fetchPickBatchShippedCount } from '../../../apis/picking';
 import { fetchStocktakeKpi } from '../../../apis/stocktake';
 import { fetchOrders } from '../../../apis/order';
 import { fetchStockDocOperatorStats } from '../../../apis/stock-doc';
+import { fetchAfterSalesStats, type AfterSalesStats } from '../../../apis/afterSale';
+import { AFTER_SALE_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
 import { buildOrderFilter } from '../../../utils/orderFilter';
 import { downloadCsv } from '../../../utils/csv';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -230,7 +289,7 @@ const review = ref<ReviewOverview | null>(null);
 const salesTop = ref<ProductSalesRow[]>([]);
 const riders = ref<RiderEfficiencyRow[]>([]);
 
-const view = ref<'biz' | 'ops'>('biz');
+const view = ref<'biz' | 'ops' | 'as'>('biz');
 
 // 已发货族订单状态（含部分发货/已送达族，与「发货件数」口径一致）
 const SHIPPED_ORDER_STATES = ['Shipped', 'PartiallyShipped', 'Delivered', 'PartiallyDelivered'];
@@ -250,6 +309,37 @@ const ops = ref<OpsState>({ pickCount: null, shippedItems: null, stocktakeCount:
 /** 差异趋势原始行（页面条状行与 CSV 导出同源同值） */
 const varRows = ref<TrendPointRow[]>([]);
 
+// ---- 售后页签（三期）：null = 拉取失败显示 "—"；条形图与作业差异趋势同款自绘 ----
+const asStats = ref<AfterSalesStats | null>(null);
+const asDailyRows = computed(() => (asStats.value?.daily ?? []).map((d) => ({ day: d.date, count: d.total })));
+const asBarMax = computed(() => {
+  const daily = asDailyRows.value.reduce((m, r) => Math.max(m, r.count), 0);
+  const state = (asStats.value?.byState ?? []).reduce((m, b) => Math.max(m, b.count), 0);
+  return Math.max(daily, state);
+});
+
+/** 条宽归一：0 不画条（不伪造最小长度） */
+function asBarWidth(v: number): string {
+  if (asBarMax.value <= 0 || v <= 0) return '0%';
+  return `${Math.max(2, Math.round((v / asBarMax.value) * 100))}%`;
+}
+
+async function loadAs(): Promise<void> {
+  // 近 7/30 天窗口（本地时区）：from = 窗口首日，to = 今天；纯日期 to 由服务端按当日末收口
+  const end = new Date();
+  const start = new Date(end.getTime() - (days.value - 1) * 24 * 60 * 60 * 1000);
+  const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  try {
+    asStats.value = await fetchAfterSalesStats(ymdLocal(start), ymdLocal(end));
+  } catch (e) { console.error('fetchAfterSalesStats failed', e); asStats.value = null; }
+}
+
+function switchAs(): void {
+  if (view.value === 'as') return;
+  view.value = 'as';
+  loadAs();
+}
+
 const trendMax = computed(() => varRows.value.reduce((m, r) => Math.max(m, r.diff), 0));
 
 async function loadDynamic() {
@@ -266,7 +356,8 @@ function switchDays(d: 7 | 30): void {
   if (days.value === d) return;
   days.value = d;
   if (view.value === 'biz') loadDynamic();
-  else loadOps();
+  else if (view.value === 'ops') loadOps();
+  else loadAs();
 }
 
 async function loadOps(): Promise<void> {
@@ -377,7 +468,8 @@ onMounted(async () => {
     .trow { display: flex; align-items: center; padding: 8rpx 0;
       .tday { width: 150rpx; font-size: 22rpx; color: $wa-muted; }
       .tbar { flex: 1; height: 16rpx; background: $wa-bg; border-radius: 8rpx; margin-right: 16rpx; overflow: hidden;
-        .tfill { height: 100%; background: $wa-danger; border-radius: 8rpx; } }
+        .tfill { height: 100%; background: $wa-danger; border-radius: 8rpx; }
+        .tfill.as { background: $wa-accent; } }
       .tval { font-size: 22rpx; color: $wa-ink; } }
     .exp { display: block; text-align: center; font-size: 28rpx; color: #fff; background: $wa-accent; border-radius: $wa-radius; padding: 22rpx 0; } }
   .health { display: flex; gap: 20rpx;
