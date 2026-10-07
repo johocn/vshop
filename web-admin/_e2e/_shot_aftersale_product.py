@@ -21,11 +21,12 @@ BASE = os.environ.get('WA_SHOT_BASE', 'https://e.joho.cn/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
 AS_ID = os.environ.get('WA_AS_ID', '27')
 EXPECT_NAME = os.environ.get('WA_EXPECT_NAME', '可乐鸡排饭')
-# 依次尝试的账号（登录后需能取到含 canteen 的渠道 token）
+# 依次尝试的账号（登录后需能取到目标渠道 token；必须精确渠道——跨渠道查售后单 order.lines 会解析报错）
 ACCOUNTS = [
     ('superadmin', 'z123123'),
     ('guoxinnanshan@163.com', 'you123123'),
 ]
+CHANNEL = os.environ.get('WA_CHANNEL', 'canteen-a')
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 PAGE_PATH = 'pages/after-sale/detail/index?id=' + AS_ID
 
@@ -56,7 +57,7 @@ def try_login(pg, user, pwd, channel_kw):
         body: JSON.stringify({query:'query{ myTenantAccess{ channels{ id code token } } }'})});
       const d = await r.json();
       const cs = ((d.data||{}).myTenantAccess||{}).channels || [];
-      const c = cs.find(x=>(x.code||'').includes(kw));
+      const c = cs.find(x=>x.code===kw) || cs.find(x=>(x.code||'').includes(kw));
       if(!c) return 'NOCHANNEL:' + cs.map(x=>x.code).join(',');
       localStorage.setItem('wa_channel_token', c.token);
       localStorage.setItem('wa_channel_code', c.code);
@@ -85,7 +86,7 @@ def main():
         ok_login, who = '', ''
         for u, w in ACCOUNTS:
             who = u
-            ok_login = try_login(pg, u, w, 'canteen')
+            ok_login = try_login(pg, u, w, CHANNEL)
             if ok_login == 'OK':
                 break
             print('  .. 账号 %s 登录/渠道不可用: %s' % (u, ok_login[:120]))
