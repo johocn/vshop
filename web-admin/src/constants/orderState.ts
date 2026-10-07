@@ -24,6 +24,7 @@ export const AFTER_SALE_STATES: Record<string, StateLabel> = {
   Pending:      { label: '待处理', color: '#f59e0b' },
   Approved:     { label: '已同意', color: '#2563eb' },
   Rejected:     { label: '已拒绝', color: '#e64340' },
+  Appealed:     { label: '仲裁中', color: '#f59e0b' },
   Returning:    { label: '退回中', color: '#2563eb' },
   Received:     { label: '已收货', color: '#72767b' },
   Refunded:     { label: '已退款', color: '#059669' },

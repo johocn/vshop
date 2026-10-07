@@ -203,6 +203,17 @@ export async function rejectAfterSale(id: string, reason: string): Promise<After
   return rejectAfterSalesRequest;
 }
 
+/** 平台仲裁：approve=true 同意退款（refund_only 链式原路退回）；false 维持拒绝（note 必填） */
+export async function arbitrateAfterSale(id: string, approve: boolean, note?: string): Promise<AfterSaleRow> {
+  const { arbitrateAfterSales } = await getAdminClient().request<{ arbitrateAfterSales: AfterSaleRow }>(
+    `mutation ArbitrateAfterSale($id: ID!, $approve: Boolean!, $note: String) {
+      arbitrateAfterSales(id: $id, approve: $approve, note: $note) { ${AFTER_SALE_FIELDS} }
+    }`,
+    { id, approve, note: note || null },
+  );
+  return arbitrateAfterSales;
+}
+
 /** 确认收货退款（商家收货入库 + 状态置 Received） */
 export async function confirmAfterSaleReceived(id: string): Promise<AfterSaleRow> {
   const { confirmReturnReceived } = await getAdminClient().request<{ confirmReturnReceived: AfterSaleRow }>(

@@ -4,6 +4,7 @@
 //   confirmReturnReceived     : Returning
 //   processAfterSalesRefund   : Received
 //   retryAfterSalesRefund     : RefundFailed
+//   arbitrateAfterSales       : Appealed（平台仲裁；外卖售后四期新增）
 import { AFTER_SALE_STATES, stateLabel, type StateLabel } from './orderState';
 
 export interface AfterSaleActionAvailability {
@@ -14,6 +15,8 @@ export interface AfterSaleActionAvailability {
   retry: boolean;
   /** 换货发货（仅 exchange 单 Received 态；三期新增） */
   exchangeShip: boolean;
+  /** 平台仲裁（Appealed 态；外卖售后四期新增） */
+  arbitrate: boolean;
 }
 
 export function afterSaleActions(state?: string | null, type?: string | null): AfterSaleActionAvailability {
@@ -25,12 +28,13 @@ export function afterSaleActions(state?: string | null, type?: string | null): A
     refund: s === 'Received',
     retry: s === 'RefundFailed',
     exchangeShip: s === 'Received' && type === 'exchange',
+    arbitrate: s === 'Appealed',
   };
 }
 
 export function hasAfterSaleActions(state?: string | null, type?: string | null): boolean {
   const a = afterSaleActions(state, type);
-  return a.approve || a.reject || a.receive || a.refund || a.retry || a.exchangeShip;
+  return a.approve || a.reject || a.receive || a.refund || a.retry || a.exchangeShip || a.arbitrate;
 }
 
 export function afterSaleStateLabel(state?: string | null): StateLabel {
@@ -40,6 +44,7 @@ export function afterSaleStateLabel(state?: string | null): StateLabel {
 /** 列表页签：key 为服务端 state（'' = 全部），label 为 afterSale.list.* 下的词条名 */
 export const AFTER_SALE_TABS: { key: string; label: string }[] = [
   { key: 'Pending', label: 'tabPending' },
+  { key: 'Appealed', label: 'tabAppealed' },
   { key: 'Approved', label: 'tabToReturn' },
   { key: 'Returning', label: 'tabToReceive' },
   { key: 'Received', label: 'tabToRefund' },
@@ -64,7 +69,7 @@ export function afterSaleProgressIndex(state?: string | null): number {
   if (i >= 0) return i;
   if (s === 'RefundFailed') return 3;
   if (s === 'ExchangeShipped') return 4;
-  if (s === 'Rejected' || s === 'Closed') return 0;
+  if (s === 'Rejected' || s === 'Closed' || s === 'Appealed') return 0;
   return -1;
 }
 
