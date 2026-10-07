@@ -86,6 +86,7 @@
           <view v-for="o in board.hallOrders" :key="o.id" class="card">
             <view class="row">
               <text class="code">{{ o.code }}</text>
+              <text v-if="routeCount(o, board.hallOrders) > 1" class="route-tag">{{ $t('campusDispatch.routeGroup').replace('{n}', String(routeCount(o, board.hallOrders))) }}</text>
               <text class="time">{{ hhmm(o.createdAt) }}</text>
             </view>
             <view class="meta">{{ o.customFields.campusZone || '-' }} · #{{ o.customFields.buildingId || '-' }}</view>
@@ -108,6 +109,7 @@
           <view v-for="o in board.activeOrders" :key="o.id" class="card">
             <view class="row">
               <text class="code">{{ o.code }}</text>
+              <text v-if="routeCount(o, board.activeOrders) > 1" class="route-tag">{{ $t('campusDispatch.routeGroup').replace('{n}', String(routeCount(o, board.activeOrders))) }}</text>
               <text class="chip" :class="o.customFields.deliveryStatus">{{ statusLabel(o.customFields) }}</text>
             </view>
             <view class="meta">{{ o.customFields.campusZone || '-' }} · #{{ o.customFields.buildingId || '-' }}</view>
@@ -312,6 +314,13 @@ function waitMin(hallEnteredAt: string | null): string | null {
   return m > 0 ? String(m) : null;
 }
 
+/** plan 3.3 顺路组：当前列内同 routeGroupId 的单数（>1 显示徽标） */
+function routeCount(o: any, list: any[]): number {
+  const gid = o.customFields?.routeGroupId;
+  if (!gid) return 1;
+  return list.filter((x: any) => x.customFields?.routeGroupId === gid).length;
+}
+
 function typeLabel(type: string): string {
   const map: Record<string, string> = {
     stale_open: locale.t('campusDispatch.alertStaleOpen'),
@@ -467,6 +476,7 @@ onUnmounted(() => {
     }
     .meta { font-size: 24rpx; color: $wa-muted; padding-top: 8rpx; }
     .cause { font-size: 22rpx; color: #c47b00; padding-top: 8rpx; }
+    .route-tag { font-size: 20rpx; color: #0a8f4d; background: rgba(29, 201, 129, .12); padding: 2rpx 12rpx; border-radius: 999rpx; }
     .acts { padding-top: 16rpx;
       .act { background: $wa-accent; color: #fff; font-size: 24rpx; border-radius: $wa-radius;
         padding: 0 24rpx; line-height: 56rpx; margin: 0;

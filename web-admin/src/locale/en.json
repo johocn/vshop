@@ -2493,6 +2493,7 @@
     "active": "In progress",
     "riders": "Riders online",
     "emptyCol": "No orders",
+    "routeGroup": "{n} grouped orders",
     "noRiders": "No riders online",
     "waitMin": "Waiting {n} min",
     "assign": "Assign",

@@ -2493,6 +2493,7 @@
     "active": "进行中",
     "riders": "在线骑手",
     "emptyCol": "暂无订单",
+    "routeGroup": "顺路 {n} 单",
     "noRiders": "暂无在线骑手",
     "waitMin": "已滞留 {n} 分钟",
     "assign": "强派",
