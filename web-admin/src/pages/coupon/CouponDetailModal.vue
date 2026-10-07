@@ -5,6 +5,20 @@
         <text class="t">{{ $t('couponDetailModal.title') }}</text>
         <text class="x" @tap="close">✕</text>
       </view>
+      <view class="stats">
+        <view class="stat">
+          <text class="num">{{ issuedCount }}</text>
+          <text class="lbl">{{ $t('couponDetailModal.statsIssued') }}</text>
+        </view>
+        <view class="stat">
+          <text class="num">{{ usedCount }}</text>
+          <text class="lbl">{{ $t('couponDetailModal.statsUsed') }}</text>
+        </view>
+        <view class="stat">
+          <text class="num">{{ rateText }}</text>
+          <text class="lbl">{{ $t('couponDetailModal.statsRate') }}</text>
+        </view>
+      </view>
       <view class="tabs">
         <text :class="{ on: tab === 'issued' }" @tap="switchTab('issued')">{{ $t('couponDetailModal.tabIssued') }}</text>
         <text :class="{ on: tab === 'used' }" @tap="switchTab('used')">{{ $t('couponDetailModal.tabUsed') }}</text>
@@ -37,7 +51,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
   fetchCustomerCoupons, COUPON_STATUS_LABELS, COUPON_ISSUED_BY_LABELS,
   type CustomerCouponRow, type CouponTemplateItem,
@@ -54,6 +68,26 @@ const items = ref<CustomerCouponRow[]>([]);
 const loading = ref(false);
 const totalItems = ref(0);
 const PAGE = 20;
+
+const issuedCount = ref(0);
+const usedCount = ref(0);
+const rateText = computed(() => {
+  if (!issuedCount.value) return '—';
+  return `${Math.round((usedCount.value / issuedCount.value) * 100)}%`;
+});
+
+/** 领取/核销统计：并发两个 count 查询（take=1 仅取 total），失败不阻塞明细 */
+async function loadStats() {
+  if (!props.template) return;
+  try {
+    const [issuedRes, usedRes] = await Promise.all([
+      fetchCustomerCoupons(props.template.id, 0, 1),
+      fetchCustomerCoupons(props.template.id, 0, 1, 'USED'),
+    ]);
+    issuedCount.value = issuedRes.totalItems;
+    usedCount.value = usedRes.totalItems;
+  } catch { /* 统计加载失败不弹错 */ }
+}
 
 const hasMore = () => items.value.length < totalItems.value;
 
@@ -81,6 +115,7 @@ async function load() {
   if (!props.template) return;
   loading.value = true;
   items.value = [];
+  void loadStats();
   try {
     const res = await fetchCustomerCoupons(props.template.id, 0, PAGE, tab.value === 'used' ? 'USED' : undefined);
     items.value = res.items;
@@ -121,6 +156,10 @@ watch(() => props.visible, (v) => { if (v) load(); });
 .head { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 32rpx 16rpx;
   .t { font-size: 30rpx; color: $wa-ink; font-weight: 600; }
   .x { font-size: 32rpx; color: $wa-muted; padding: 0 8rpx; } }
+.stats { display: flex; gap: 12rpx; padding: 0 32rpx 16rpx;
+  .stat { flex: 1; background: $wa-bg; border-radius: $wa-radius; padding: 14rpx 0; text-align: center;
+    .num { display: block; font-size: 30rpx; color: $wa-ink; font-weight: 600; }
+    .lbl { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 4rpx; } } }
 .tabs { display: flex; gap: 12rpx; padding: 0 32rpx 16rpx;
   text { font-size: 26rpx; color: $wa-muted; padding: 8rpx 28rpx; border-radius: 999rpx; background: $wa-rule;
     &.on { background: $wa-accent; color: #fff; } } }
