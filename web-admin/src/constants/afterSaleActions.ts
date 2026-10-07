@@ -12,9 +12,11 @@ export interface AfterSaleActionAvailability {
   receive: boolean;
   refund: boolean;
   retry: boolean;
+  /** 换货发货（仅 exchange 单 Received 态；三期新增） */
+  exchangeShip: boolean;
 }
 
-export function afterSaleActions(state?: string | null): AfterSaleActionAvailability {
+export function afterSaleActions(state?: string | null, type?: string | null): AfterSaleActionAvailability {
   const s = state ?? '';
   return {
     approve: s === 'Pending',
@@ -22,12 +24,13 @@ export function afterSaleActions(state?: string | null): AfterSaleActionAvailabi
     receive: s === 'Returning',
     refund: s === 'Received',
     retry: s === 'RefundFailed',
+    exchangeShip: s === 'Received' && type === 'exchange',
   };
 }
 
-export function hasAfterSaleActions(state?: string | null): boolean {
-  const a = afterSaleActions(state);
-  return a.approve || a.reject || a.receive || a.refund || a.retry;
+export function hasAfterSaleActions(state?: string | null, type?: string | null): boolean {
+  const a = afterSaleActions(state, type);
+  return a.approve || a.reject || a.receive || a.refund || a.retry || a.exchangeShip;
 }
 
 export function afterSaleStateLabel(state?: string | null): StateLabel {
@@ -60,6 +63,7 @@ export function afterSaleProgressIndex(state?: string | null): number {
   const i = AFTER_SALE_PROGRESS.indexOf(s);
   if (i >= 0) return i;
   if (s === 'RefundFailed') return 3;
+  if (s === 'ExchangeShipped') return 4;
   if (s === 'Rejected' || s === 'Closed') return 0;
   return -1;
 }
