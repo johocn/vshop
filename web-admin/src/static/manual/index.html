@@ -1237,6 +1237,37 @@ var CHAPTERS = [
 <p>点「<mark class="mark">复核</mark>」后整页转为<mark class="mark">只读</mark>（所有操作按钮消失），批次进入「已完成」列表；配货台列表按「进行中 / 已完成」分 Tab。</p>
 <div class="shot-box"><img class="img" src="shots/gap4_op41_handover_detail.png" alt="批次详情-已交接"><div class="imgcap">图 P3 · 已交接的批次详情（交接对象 / 交接时间已写入）</div></div>
 <div class="shot-box"><img class="img" src="shots/gap4_op41_reviewed.png" alt="批次详情-已复核只读"><div class="imgcap">图 P4 · 复核后整页只读（已完成 Tab）</div></div>`},
+{book:'op', id:'op-42', title:'支付超时观测（待付款单自动提醒 / 取消）', html:`
+<p class="lead">校内配送的待付款订单会自动挂两个定时任务：到期前发一次<mark class="mark">催付款提醒</mark>、到期后<mark class="mark">自动取消订单</mark>。「交易 → 支付超时观测」把这两类任务的执行情况做成看板。<mark class="mark">正常情况无需任何人工干预</mark>：任务到期自动执行、失败自动重试、补偿扫描每 5 分钟自动跑一次；本页只做「看得见」与「兜得了」。</p>
+<h3>入口与 KPI</h3>
+<p>入口：工作台 → <mark class="mark">交易</mark> → <mark class="mark">支付超时观测</mark>。顶部四个指标：</p>
+<table>
+  <thead><tr><th>指标</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td>今日提醒</td><td>今天到期并已成功执行的「提醒」任务数</td></tr>
+    <tr><td>今日取消</td><td>今天到期并已成功执行的「取消」任务数</td></tr>
+    <tr><td>累计失败</td><td>自动重试 3 次仍失败的任务总数（大于 0 时红色告警）</td></tr>
+    <tr><td>滞留逾期</td><td>已过期却仍未执行的任务数（大于 0 时红色告警，补偿扫描的处理对象）</td></tr>
+  </tbody>
+</table>
+<div class="shot-box"><img class="img" src="shots/paytimeout_01_overview.png" alt="支付超时观测页"><div class="imgcap">图 PT1 · 支付超时观测页（KPI 行 + 任务表）</div></div>
+<h3>筛选与「今日」开关</h3>
+<p>任务表可按<mark class="mark">状态</mark>（待执行 / 已执行 / 已作废 / 失败）与<mark class="mark">类型</mark>（提醒 / 取消）筛选；点<mark class="mark">「今日」</mark>只看今天创建的任务。待执行任务实时显示<mark class="mark">剩余分钟</mark>倒计时，已过期的显示「已逾期」；点订单号可跳到订单详情。</p>
+<div class="shot-box"><img class="img" src="shots/paytimeout_02_today_on.png" alt="今日开关开启态"><div class="imgcap">图 PT2 · 「今日」开关开启（只看当天任务）</div></div>
+<h3>手动操作（仅兜底用）</h3>
+<div class="card">列表行内：<b>立即执行</b>——把待执行任务提前触发；<b>重试</b>——失败任务再跑一次；<b>重发提醒</b>——对已执行的提醒任务再发一次催付款通知。右上角<b>手动补偿</b>——立即跑一次补偿扫描，把滞留逾期的任务补执行。</div>
+<div class="warn"><b>什么时候需要人工？</b>绝大多数情况：<b>不需要</b>。任务到期自动执行、失败自动重试（最多 3 次）、每 5 分钟的补偿扫描会自动捞回滞留逾期任务。只有当「累计失败」或「滞留逾期」持续红色且排查确认通知通道 / 订单服务异常时，才需要人工重试或手动补偿。</div>`},
+{book:'op', id:'op-43', title:'商品专享券绑定（商品页领券）', html:`
+<p class="lead">「商品页领券（商品专享）」渠道的券要<mark class="mark">先绑定商品</mark>才会出现在商品详情页供领取。券编辑页勾选「商品页领券」并保存后，会出现<mark class="mark">「商品绑定」卡片</mark>：站内搜索商品、一键绑定 / 解绑、即时生效；券详情弹窗另有<mark class="mark">领取 / 已核销 / 核销率</mark>统计。</p>
+<h3>新建券并绑定商品</h3>
+<p>营销 → 优惠券 → 新建优惠券：分发渠道勾选<mark class="mark">「商品页领券」</mark>→ 填好面额 / 门槛 / 有效期 → <mark class="mark">先保存</mark>。保存后编辑页出现「商品绑定」卡片：顶部显示「已绑定 N 个商品」，搜索框输入商品名 → 点「搜索」→ 点商品行的「+ 绑定」。绑定后用户在该商品详情页即可领取本券。</p>
+<div class="shot-box"><img class="img" src="shots/couponbind_01_edit_card.png" alt="券编辑页-商品绑定卡片区"><div class="imgcap">图 CB1 · 券编辑页：勾选「商品页领券」后出现「商品绑定」卡片区</div></div>
+<div class="shot-box"><img class="img" src="shots/couponbind_02_card_zoom.png" alt="商品绑定卡片特写"><div class="imgcap">图 CB2 · 商品绑定卡片（已绑商品行 + 解绑；搜索 + 绑定）</div></div>
+<h3>改绑与解绑</h3>
+<p>点已绑商品行的<mark class="mark">「解绑」</mark>即从该商品页撤下本券；搜索新商品绑定即改绑。全部<mark class="mark">即时生效</mark>，无需重新保存券模板。</p>
+<h3>券详情统计</h3>
+<p>优惠券列表点「明细」打开券详情弹窗：顶部统计<mark class="mark">领取 / 已核销 / 核销率</mark>，「领取明细 / 核销明细」两个 Tab 可逐条核对领取人与使用记录。</p>
+<div class="shot-box"><img class="img" src="shots/couponbind_03_detail_stats.png" alt="券详情弹窗-统计块"><div class="imgcap">图 CB3 · 券使用明细弹窗（领取 / 已核销 / 核销率统计 + 两个 Tab）</div></div>`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
