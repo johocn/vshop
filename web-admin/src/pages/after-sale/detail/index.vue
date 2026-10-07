@@ -83,6 +83,25 @@
       </view>
     </view>
 
+    <!-- 协商留言（三期） -->
+    <view class="card" v-if="detail">
+      <text class="sec-title">{{ $t('afterSale.detail.messages') }}</text>
+      <view v-if="!msgs.length" class="muted">{{ $t('afterSale.detail.messagesEmpty') }}</view>
+      <view class="msg" v-for="m in msgs" :key="m.id" :class="{ mine: m.senderType === 'admin' }">
+        <text class="msg-meta">{{ m.senderName }} · {{ fmtTime(m.createdAt) }}</text>
+        <view class="bubble">{{ m.content }}</view>
+        <view class="msg-imgs" v-if="m.images && m.images.length">
+          <image v-for="(u, i) in m.images" :key="i" class="shot" :src="u" mode="aspectFill" />
+        </view>
+      </view>
+      <text class="loadmore" v-if="msgHasMore" @tap="loadMoreMessages">{{ $t('afterSale.detail.messagesLoadMore') }}</text>
+      <template v-if="!msgReadonly">
+        <textarea class="msg-input" v-model="msgContent" :placeholder="$t('afterSale.detail.messagesPlaceholder')" :maxlength="1000" />
+        <button class="op main send" :disabled="msgSending || !msgContent.trim()" @tap="sendMessage">{{ $t('afterSale.detail.messagesSend') }}</button>
+      </template>
+      <text v-else class="muted small">{{ $t('afterSale.detail.messagesClosed') }}</text>
+    </view>
+
     <!-- 库存回补明细（折叠） -->
     <view class="card" v-if="detail && restockRows.length">
       <view class="fold" @tap="restockOpen = !restockOpen">
@@ -102,6 +121,19 @@
 
     <view style="height: 200rpx" />
 
+    <!-- 换货发货弹层（运单号 + 承运商均必填） -->
+    <view class="mask" v-if="shipOpen" @tap="shipOpen = false">
+      <view class="dialog" @tap.stop>
+        <text class="dlg-title">{{ $t('afterSale.detail.exchangeShipTitle') }}</text>
+        <input class="dlg-input" v-model="shipTrackingNo" :placeholder="$t('afterSale.detail.exchangeTrackingNo')" />
+        <input class="dlg-input" v-model="shipCarrier" :placeholder="$t('afterSale.detail.exchangeCarrier')" />
+        <view class="dlg-btns">
+          <button class="op" @tap="shipOpen = false">{{ $t('afterSale.list.addressCancel') }}</button>
+          <button class="op main" :disabled="false" @tap="onExchangeShipConfirm">{{ $t('afterSale.detail.exchangeShipTitle') }}</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 吸底操作区：主操作 + （若同时可拒绝）次操作 -->
     <view class="footbar" v-if="detail && hasOps">
       <button v-if="secondaryAction()" class="op" @tap="secondaryAction()!()">{{ $t('afterSale.detail.reject') }}</button>
@@ -119,7 +151,11 @@ import {
   confirmAfterSaleReceived,
   processAfterSaleRefund,
   retryAfterSaleRefund,
+  exchangeShipAfterSale,
+  fetchAfterSaleMessages,
+  replyAfterSaleMessage,
   AfterSaleRow,
+  AfterSaleMessage,
 } from '../../../apis/afterSale';
 import { AFTER_SALE_TYPES } from '../../../constants/orderState';
 import {
@@ -141,14 +177,15 @@ const stLabel = computed(() => afterSaleStateLabel(detail.value?.state).label);
 const stColor = computed(() => afterSaleStateLabel(detail.value?.state).color);
 
 // 动作可用性：唯一来源 constants/afterSaleActions.ts，严格对齐服务端状态机
-const can = computed(() => afterSaleActions(detail.value?.state));
-const hasOps = computed(() => hasAfterSaleActions(detail.value?.state));
+const can = computed(() => afterSaleActions(detail.value?.state, detail.value?.type));
+const hasOps = computed(() => hasAfterSaleActions(detail.value?.state, detail.value?.type));
 
 // 吸底主按钮文案（主流程动作在任一状态下最多命中一个）
 const primaryLabel = computed(() => {
   const c = can.value;
   if (c.approve) return locale.t('afterSale.detail.approve');
   if (c.receive) return locale.t('afterSale.detail.receive');
+  if (c.exchangeShip) return locale.t('afterSale.detail.exchangeShipTitle');
   if (c.refund) return locale.t('afterSale.detail.refund');
   if (c.retry) return locale.t('afterSale.detail.retry');
   return '';
@@ -178,7 +215,8 @@ const timeline = computed(() => {
   const r = detail.value;
   if (!r) return [] as { key: string; label: string; time: string | null; reached: boolean; current: boolean; failed: boolean; detail?: string | null }[];
   const idx = afterSaleProgressIndex(r.state);
-  const list = TIMELINE_KEYS.map((k, i) => ({
+  const baseKeys = isExchange.value ? ['Pending', 'Approved', 'Returning', 'Received', 'ExchangeShipped'] : TIMELINE_KEYS;
+  const list = baseKeys.map((k, i) => ({
     key: k,
     label: locale.t(`afterSale.timeline.step${k}`),
     time: (() => {
@@ -189,7 +227,9 @@ const timeline = computed(() => {
     reached: i <= idx,
     current: i === idx && r.state === k,
     failed: false,
-    detail: k === 'Returning' && (r.returnCarrier || r.returnTrackingNo)
+    detail: k === 'ExchangeShipped' && (r.exchangeCarrier || r.exchangeTrackingNo)
+      ? `${r.exchangeCarrier || ''} ${r.exchangeTrackingNo || ''}`.trim()
+      : k === 'Returning' && (r.returnCarrier || r.returnTrackingNo)
       ? `${r.returnCarrier || ''} ${r.returnTrackingNo || ''}`.trim()
       : null,
   }));
@@ -294,6 +334,71 @@ function onRetry() {
   });
 }
 
+// ---- 换货发货（三期）：弹层填新品运单号 + 承运商，均必填 ----
+const shipOpen = ref(false);
+const shipTrackingNo = ref('');
+const shipCarrier = ref('');
+
+function onExchangeShip() {
+  shipTrackingNo.value = detail.value?.exchangeTrackingNo || '';
+  shipCarrier.value = detail.value?.exchangeCarrier || '';
+  shipOpen.value = true;
+}
+
+async function onExchangeShipConfirm() {
+  if (!detail.value) return;
+  const no = shipTrackingNo.value.trim();
+  const carrier = shipCarrier.value.trim();
+  if (!no || !carrier) { toast(locale.t('afterSale.detail.exchangeShipRequired')); return; }
+  try {
+    await exchangeShipAfterSale(detail.value.id, no, carrier);
+    shipOpen.value = false;
+    uni.showToast({ title: locale.t('afterSale.detail.exchangeShipDone'), icon: 'success' });
+    await refresh();
+  } catch (e: any) {
+    toast(e?.message || locale.t('afterSale.detail.opFailed'));
+  }
+}
+
+// ---- 协商留言（三期）：气泡列表 + 回复输入；Closed 只读 ----
+const msgs = ref<AfterSaleMessage[]>([]);
+const msgTotal = ref(0);
+const msgContent = ref('');
+const msgSending = ref(false);
+const MSG_TAKE = 20;
+
+async function loadMessages() {
+  if (!detail.value?.id) return;
+  try {
+    const r = await fetchAfterSaleMessages(detail.value.id, 0, MSG_TAKE);
+    msgs.value = r.items;
+    msgTotal.value = r.total;
+  } catch (e) { console.error('loadMessages failed', e); }
+}
+
+const msgHasMore = computed(() => msgs.value.length < msgTotal.value);
+async function loadMoreMessages() {
+  if (!detail.value?.id) return;
+  const r = await fetchAfterSaleMessages(detail.value.id, msgs.value.length, MSG_TAKE);
+  msgs.value = [...msgs.value, ...r.items];
+  msgTotal.value = r.total;
+}
+
+const msgReadonly = computed(() => detail.value?.state === 'Closed');
+async function sendMessage() {
+  if (!detail.value || !msgContent.value.trim()) return;
+  msgSending.value = true;
+  try {
+    await replyAfterSaleMessage(detail.value.id, msgContent.value.trim());
+    msgContent.value = '';
+    await loadMessages();
+  } catch (e: any) {
+    toast(e?.message || locale.t('afterSale.detail.opFailed'));
+  } finally {
+    msgSending.value = false;
+  }
+}
+
 function callCustomer() {
   const phone = detail.value?.customer?.phoneNumber;
   if (phone) uni.makePhoneCall({ phoneNumber: phone });
@@ -312,6 +417,7 @@ function onPrimary() {
   const c = can.value;
   if (c.approve) onApprove();
   else if (c.receive) onReceive();
+  else if (c.exchangeShip) onExchangeShip();
   else if (c.refund) onRefund();
   else if (c.retry) onRetry();
 }
@@ -328,6 +434,7 @@ onLoad(async (q) => {
   loading.value = true;
   try {
     detail.value = await fetchAfterSaleAdmin(id);
+    void loadMessages();
   } finally {
     loading.value = false;
   }
@@ -404,6 +511,29 @@ onLoad(async (q) => {
       }
     }
   }
+  .mask { position: fixed; inset: 0; z-index: 99; background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    .dialog { width: 600rpx; background: $wa-card; border-radius: $wa-radius; padding: 36rpx 32rpx;
+      .dlg-title { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; margin-bottom: 24rpx; }
+      .dlg-input { height: 72rpx; border: 1rpx solid $wa-rule; border-radius: $wa-radius; padding: 0 20rpx;
+        font-size: 28rpx; color: $wa-ink; margin-bottom: 20rpx; }
+      .dlg-btns { display: flex; gap: 20rpx; margin-top: 8rpx;
+        .op { flex: 1; margin: 0; height: 72rpx; line-height: 72rpx; font-size: 28rpx;
+          border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
+          &.main { background: $wa-accent; color: #fff; } } } } }
+  .msg { display: flex; flex-direction: column; align-items: flex-start; padding: 12rpx 0;
+    &.mine { align-items: flex-end; }
+    .msg-meta { font-size: 22rpx; color: $wa-muted; margin-bottom: 6rpx; }
+    .bubble { max-width: 80%; background: $wa-bg; border-radius: 12rpx; padding: 14rpx 20rpx;
+      font-size: 26rpx; color: $wa-ink; word-break: break-all; }
+    &.mine .bubble { background: rgba(37, 99, 235, 0.1); }
+    .msg-imgs { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 10rpx;
+      .shot { width: 120rpx; height: 120rpx; border-radius: $wa-radius; background: $wa-bg; } } }
+  .loadmore { display: block; text-align: center; font-size: 24rpx; color: $wa-accent; padding: 12rpx 0; }
+  .msg-input { width: 100%; min-height: 120rpx; border: 1rpx solid $wa-rule; border-radius: $wa-radius;
+    padding: 16rpx 20rpx; font-size: 26rpx; color: $wa-ink; margin-top: 16rpx; box-sizing: border-box; }
+  .send { width: 100%; margin-top: 16rpx; }
+  .small { font-size: 22rpx; }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
 }
 </style>
