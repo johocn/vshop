@@ -21,6 +21,11 @@ export interface CampusStoreConfig {
   notifyTemplateCookingDone: string | null;
   notifyTemplateDelivered: string | null;
   notifyTemplateExceptionHandled: string | null;
+  notifyTemplateOrderPlaced: string | null;
+  notifyTemplatePaymentPending: string | null;
+  notifyTemplateCancelled: string | null;
+  notifyTemplateAfterSales: string | null;
+  h5BaseUrl: string | null;
 }
 
 export interface CampusStoreConfigInput {
@@ -38,10 +43,15 @@ export interface CampusStoreConfigInput {
   notifyTemplateCookingDone?: string | null;
   notifyTemplateDelivered?: string | null;
   notifyTemplateExceptionHandled?: string | null;
+  notifyTemplateOrderPlaced?: string | null;
+  notifyTemplatePaymentPending?: string | null;
+  notifyTemplateCancelled?: string | null;
+  notifyTemplateAfterSales?: string | null;
+  h5BaseUrl?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled';
+  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
