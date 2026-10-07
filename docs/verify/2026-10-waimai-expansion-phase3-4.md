@@ -110,7 +110,7 @@ campus-delivery-plugin 全量 **149 绿**（+2：`handleException` 后 `notify.u
 | waimai | 骑手任务页多任务化（**方案 A 组卡聚合**，用户选定）：任务列表 ref；组卡 = 组头（楼栋 + 「路线任务 · N 单」badge）+ gmeta（期望时段 + 已送达 x/y + 催单警示）+ 子单行（✓圆圈仅配送中可勾选、点行展开开始取货/单独送达/转单/异常上报）+ 组级主按钮（整组待取货→「开始取货（N 单）」；配送中→「送达勾选的 N 单 · 拍照存证」，批量送达一次拍照逐单调 deliver）；报告位置对全部活动单循环上报；大厅 rider-home 加「顺路 N 单」badge（同 gid open 单数） |
 | web-admin | 调度台大厅/进行中订单卡「顺路 N 单」badge + 双语词条；**踩坑修复**：`DISPATCH_ORDER_FIELDS` gql 选择集漏 routeGroupId 致 badge 不渲染 |
 
-单测 campus-delivery-plugin 全量 **157 绿**（新 8：打包 5 + 整组抢单 3）。
+单测 campus-delivery-plugin 全量 **161 绿**（新 12：打包 5 + 整组抢单 3 + exitHall 取消脱厅 4）。
 
 ### 冒烟（生产实证，`waimai/scripts/_smoke_route_group.py` 一键复跑）
 
@@ -126,11 +126,19 @@ A/B 两单（同楼栋桂1栋 R3 即时单）→ 3s 打包同 gid → 调度台/
 13. 骑手上线后 T2 强派会把滞留单派给冒烟骑手——多轮冒烟残留任务卡在任务页，断言必须**以目标单所在组卡为作用域**（`.task-card.group` filter hasText 单号），不能 body 级全文匹配。
 14. 本店测试渠道配送费为 0（shippingWithTax=0）→ 分成 0 合法（deliver 写 earning=0 且跳过 RiderEarning 记录）。
 
+### 复跑冒烟收口（2026-10-07 下午：修复 1 真缺陷 + 1 数据伪影，第 5 轮 PASS）
+
+**缺陷：取消订单不脱厅（真缺陷，已修复）**——复跑清场取消 4 张残留单后，已 `Cancelled` 订单仍挂骑手大厅（badge 累计「顺路 6 单」）、新单 T1.5 打包继续复用同 gid、骑手可抢已取消单。根因：`hallStatus` 是全链路过滤键（大厅/打包/整组抢单/调度台），但取消路径无人清它。修复（vendure `b8cb0c058`）：`HallService.exitHall`（读 DB 当前 hallStatus，仅流转态 open/pending_merchant/accepted/scheduled/grabbed 清为 `cancelled`；grabbed 连带清指派字段防任务卡残留；**不碰 T4 `no_rider_final` 防竞态覆盖**）+ plugin.ts 既有 `OrderStateTransitionEvent` 订阅追加 `toState === 'Cancelled'` 分支 + 单测 4 例。生产实证：cancelOrder 后日志 `exited hall (open → cancelled)`、DB hallStatus=cancelled、新单打包不再并入取消单。
+
+**数据伪影：骑手信用分被残留单循环扣穿**——修复后第 4 轮 UI 抢单仍失败（停留大厅），API 探针实锤 `campusGrabOrder → FORBIDDEN "not currently authorized"`：`assertApprovedRider` 对 `riderCredit < 60` 抛 ForbiddenError，冒烟骑手信用分已被扣到 28。扣分源 = 历史冒烟残留 grabbed 单（10-05/10-06 遗留 19 张）：T3 扫描 assigned 超 15min → 回大厅 + `timeout_not_picked` -10 → 回到 open 后 T2 又强派给在线冒烟骑手 → 再超时再扣……**循环放血直到跌破抢单门槛**。处置：SQL 清残留 20 张（hallStatus=cancelled + 清指派字段）+ 信用分复位 100（测试骑手，扣分均为冒烟伪影）→ 第 5 轮冒烟全 PASS（A=CDF4KNTRVH3T7DQG B=RRU9VTTBAECNNF17 组 rg-1791349084682-890of2）。教训：**冒烟残留单必须清到终态**（delivered/cancelled），中途态（open/grabbed）会被调度 job 持续再消费；UI 抢单失败先查信用分门槛，不要盲试时序。
+
 ### 运维事件（本轮发生，已处置 + 遗留）
 
-冒烟期间服务器全局 OOM：**strapi 每次重启都会拉起 playwright chrome-headless**（total-vm 55GB），1.8GB 内存主机被打爆 → 内核 OOM killer 连杀 node → vendure/strapi 双双崩溃循环（~50s 一轮）、shop-api/admin-api 502。处置：`pm2 stop strapi` 后 chrome 清空、vendure 稳定。**遗留：strapi 处于 stopped 状态待排查**（为何 strapi 启动链会拉 playwright chrome，src/config 无直接引用，需查 dist/node_modules/钩子）。
+冒烟期间服务器全局 OOM：**strapi 每次重启都会拉起 playwright chrome-headless**（total-vm 55GB），1.8GB 内存主机被打爆 → 内核 OOM killer 连杀 node → vendure/strapi 双双崩溃循环（~50s 一轮）、shop-api/admin-api 502。处置：`pm2 stop strapi` 后 chrome 清空、vendure 稳定。
+
+**已根治（2026-10-07 下午）**：根因 = zhao-wealth 插件 bootstrap 里 eager `initBrowser()`（服务器无系统 Chrome → playwright 自带 chromium_headless_shell-1228，dmesg 实锤全局 OOM）。按方案 A 落地：browser-manager 上移 zhao-common 共享服务（**惰性启动** + 并发闸 `PLAYWRIGHT_MAX_PAGES` 默认 2 + 空闲回收 `PLAYWRIGHT_IDLE_CLOSE_MS` 默认 10min + 内存守门 `PLAYWRIGHT_MIN_FREE_MB` 默认 500（不足则优雅跳过当日采集）+ 每任务独立 BrowserContext/storageState 隔离），zhao-wealth 的 playwright-manager 改薄网关（collectors/单测零改动），strapi 提交 `8198ecd913`。服务器内存同步扩容：+2G swapfile2（fstab nofail，共 4G swap）、`vm.swappiness=80`（/etc/sysctl.d/99-memory-tuning.conf）、pgAdmin 彻底卸载（曾烧满 1 核 CPU + 白占 112MB）。复启验证：240s `/_health` 全 204、chrome 进程 0、strapi RSS 362MB、vendure/nshop 未受影响。经验教训：swap 救不了启动期突发分配（落盘 15MB/s 跟不上 400MB/14s），物理余量才是关键；**严禁任何插件 bootstrap eager 启动浏览器**。
 
 ## 遗留（下一轮）
 
 - 阶段三 3.3 已收官，**阶段三全部完成**。
-- 服务器 strapi 停机待排查（见 3.3 运维事件）。
+- ~~服务器 strapi 停机待排查~~ **已根治**（2026-10-07：方案 A 移除 eager 启动 + 服务器内存扩容，见 3.3 运维事件），strapi/vendure 均稳定在线；复跑冒烟第 5 轮全 PASS（期间修复取消脱厅缺陷 + 清理信用分循环扣分残留，见「复跑冒烟收口」）。
