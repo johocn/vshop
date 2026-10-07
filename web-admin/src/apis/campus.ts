@@ -215,7 +215,7 @@ export interface CampusDispatchBoardData {
 }
 
 const DISPATCH_ORDER_FIELDS = `id code createdAt total
-  customFields { hallStatus hallEnteredAt deliveryStatus assignedAt campusZone buildingId campusCause exceptionType exceptionNote exceptionPhotos }`;
+  customFields { hallStatus hallEnteredAt deliveryStatus assignedAt campusZone buildingId campusCause exceptionType exceptionNote exceptionPhotos routeGroupId }`;
 
 export async function campusDispatchBoard(): Promise<CampusDispatchBoardData> {
   const res = await getAdminClient().request<{ campusDispatchBoard: CampusDispatchBoardData }>(

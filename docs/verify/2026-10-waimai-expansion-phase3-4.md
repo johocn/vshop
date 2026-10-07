@@ -98,6 +98,39 @@ campus-delivery-plugin 全量 **149 绿**（+2：`handleException` 后 `notify.u
 8. **页内面板开合的 toggle 陷阱**：面板开着时 UI 轮询 refresh 重渲染不清状态，第二次 `click(异常上报)` 会把面板**关掉**——两次展开截图之间必须先点一次收起。
 9. UI 按钮点击推进状态（如「我已到店·开始取货」）受 toast/轮询竞态影响不稳定，冒烟中**状态推进一律 API 代劳**，UI 只验证展示与面板交互。
 
+## 3.3 多单顺路合并验收（2026-10-07，阶段三收官）
+
+设计：不建独立路线实体——调度/强派/退款/异常全以 Order 为中心，独立实体需双写状态同步不成比例。**routeGroupId 方案**：Order customFields 新增 `routeGroupId`（string nullable，启动自动建列），路线组 = 同 gid 的单集合，前端/调度台纯聚合。
+
+### 实现
+
+| 端 | 内容 |
+| --- | --- |
+| vendure | ① 调度 job **T1.5 打包**（scan() 内 T2 前）：同渠道 `hallStatus=open` 的 R1/R3 配送单（errand 不参与），按 `buildingId+deliverySlotId` 分桶；无 slot 即时单按 `hallEnteredAt` 升序相邻差 ≤10min 聚类；每批 ≥2 单写同一 gid（`rg-{ts}-{rand6}`），批内已有 gid 复用不重生成。② `grab()` **整组抢单**：主单锁内加载后，同 gid open 单按 id ASC 悲观锁一并写同骑手（加锁顺序一致防 PG 死锁）；组内骑手自己的单跳过留大厅；逐单 notify riderAssigned。③ 零改动：T2 强派逐单 grabByRider 同轮同组天然同骑手；T1 超时回厅/转单/异常/退款单单语义，回厅清指派即自然脱组；分成每单独立 (shipping+tip)×rate |
+| waimai | 骑手任务页多任务化（**方案 A 组卡聚合**，用户选定）：任务列表 ref；组卡 = 组头（楼栋 + 「路线任务 · N 单」badge）+ gmeta（期望时段 + 已送达 x/y + 催单警示）+ 子单行（✓圆圈仅配送中可勾选、点行展开开始取货/单独送达/转单/异常上报）+ 组级主按钮（整组待取货→「开始取货（N 单）」；配送中→「送达勾选的 N 单 · 拍照存证」，批量送达一次拍照逐单调 deliver）；报告位置对全部活动单循环上报；大厅 rider-home 加「顺路 N 单」badge（同 gid open 单数） |
+| web-admin | 调度台大厅/进行中订单卡「顺路 N 单」badge + 双语词条；**踩坑修复**：`DISPATCH_ORDER_FIELDS` gql 选择集漏 routeGroupId 致 badge 不渲染 |
+
+单测 campus-delivery-plugin 全量 **157 绿**（新 8：打包 5 + 整组抢单 3）。
+
+### 冒烟（生产实证，`waimai/scripts/_smoke_route_group.py` 一键复跑）
+
+A/B 两单（同楼栋桂1栋 R3 即时单）→ 3s 打包同 gid → 调度台/骑手大厅 badge → UI 抢单一次整组接走（两单 assigned 同 deliveryStaffId=150、hall=grabbed）→ 批量开始 → 勾选 2 子单 →「送达勾选的 2 单」→ 送达 A 组进度「已送达 1/2」→ 送达 B 组卡离场 → riderEarning 写入（本店 shipping=0 → 分成 0 合法，0 分成单跳过入账为既定设计）。
+
+截图（390×844 dpr=2，`waimai/docs/screenshots/`）：`wa-admin-dispatch-route-badge.png` / `wa-rider-hall-route-badge.png` / `wa-rider-task-group.png`（组卡全景）/ `wa-rider-task-group-checked.png` / `wa-rider-task-group-delivered.png`。样张中下方历史组卡为冒烟多轮运行残留。
+
+### 冒烟迭代踩坑沉淀（7 轮）
+
+10. **TypeORM `setLock('pessimistic_write', undefined, tables)` 的 lockTables 原样 join 不加引号**（`" OF " + tables.join(", ")`），别名 `order` 是 PG 保留字 → `syntax error at or near "order"`；单测 mock QueryBuilder 测不出，生产实测暴露。单表查询直接 `setLock('pessimistic_write')`（FOR UPDATE 语义等价）修复；find-options 路径 `lock.tables` 会正确解析别名不受影响。
+11. 抢单响应/送达响应返回**更新前加载的旧实体快照**（deliveryStatus 仍是旧值），落库断言必须回查 admin order。
+12. 骑手大厅页需先点「接单中」开关上线才拉取列表；大厅排序加急置顶（滞留 >5min），UI 抢单必须按单号定位卡片，不能 `.grab first`。
+13. 骑手上线后 T2 强派会把滞留单派给冒烟骑手——多轮冒烟残留任务卡在任务页，断言必须**以目标单所在组卡为作用域**（`.task-card.group` filter hasText 单号），不能 body 级全文匹配。
+14. 本店测试渠道配送费为 0（shippingWithTax=0）→ 分成 0 合法（deliver 写 earning=0 且跳过 RiderEarning 记录）。
+
+### 运维事件（本轮发生，已处置 + 遗留）
+
+冒烟期间服务器全局 OOM：**strapi 每次重启都会拉起 playwright chrome-headless**（total-vm 55GB），1.8GB 内存主机被打爆 → 内核 OOM killer 连杀 node → vendure/strapi 双双崩溃循环（~50s 一轮）、shop-api/admin-api 502。处置：`pm2 stop strapi` 后 chrome 清空、vendure 稳定。**遗留：strapi 处于 stopped 状态待排查**（为何 strapi 启动链会拉 playwright chrome，src/config 无直接引用，需查 dist/node_modules/钩子）。
+
 ## 遗留（下一轮）
 
-- 阶段三收尾：**3.3 多单合并**（最后一项）。
+- 阶段三 3.3 已收官，**阶段三全部完成**。
+- 服务器 strapi 停机待排查（见 3.3 运维事件）。
