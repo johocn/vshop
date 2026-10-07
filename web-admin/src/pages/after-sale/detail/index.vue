@@ -136,7 +136,7 @@
 
     <!-- 吸底操作区：主操作 + （若同时可拒绝）次操作 -->
     <view class="footbar" v-if="detail && hasOps">
-      <button v-if="secondaryAction()" class="op" @tap="secondaryAction()!()">{{ $t('afterSale.detail.reject') }}</button>
+      <button v-if="secondaryAction()" class="op" @tap="secondaryAction()!()">{{ $t(secondaryKey) }}</button>
       <button class="op main" @tap="onPrimary">{{ primaryLabel }}</button>
     </view>
   </view>
@@ -148,6 +148,7 @@ import {
   fetchAfterSaleAdmin,
   approveAfterSale,
   rejectAfterSale,
+  arbitrateAfterSale,
   confirmAfterSaleReceived,
   processAfterSaleRefund,
   retryAfterSaleRefund,
@@ -183,6 +184,7 @@ const hasOps = computed(() => hasAfterSaleActions(detail.value?.state, detail.va
 // 吸底主按钮文案（主流程动作在任一状态下最多命中一个）
 const primaryLabel = computed(() => {
   const c = can.value;
+  if (c.arbitrate) return locale.t('afterSale.detail.arbitrateApprove');
   if (c.approve) return locale.t('afterSale.detail.approve');
   if (c.receive) return locale.t('afterSale.detail.receive');
   if (c.exchangeShip) return locale.t('afterSale.detail.exchangeShipTitle');
@@ -237,6 +239,8 @@ const timeline = computed(() => {
     list.push({ key: 'RefundFailed', label: locale.t('afterSale.detail.statusFailed'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: true, detail: null });
   } else if (r.state === 'Rejected') {
     list.push({ key: 'Rejected', label: locale.t('afterSale.detail.statusRejected'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: true, detail: r.rejectReason ?? null });
+  } else if (r.state === 'Appealed') {
+    list.push({ key: 'Appealed', label: locale.t('afterSale.detail.statusAppealed'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === 'Appealed'); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: false, detail: null });
   } else if (r.state === 'Closed') {
     list.push({ key: 'Closed', label: locale.t('afterSale.detail.statusClosed'), time: (() => { const rows = (r.history ?? []).filter((h) => h.toState === r.state); return rows.length ? fmtTime(rows[rows.length - 1].createdAt) : fmtTime(r.updatedAt); })(), reached: true, current: true, failed: false, detail: null });
   }
@@ -334,6 +338,29 @@ function onRetry() {
   });
 }
 
+// ---- 平台仲裁（四期）：同意退款 / 维持拒绝（说明必填） ----
+function onArbitrateApprove() {
+  uni.showModal({
+    title: locale.t('afterSale.detail.arbitrateApproveTitle'),
+    content: locale.t('afterSale.detail.arbitrateApproveContent').replace('{amount}', money(detail.value?.refundAmount)),
+    success: (res) => { if (res.confirm && detail.value) void run(() => arbitrateAfterSale(detail.value!.id, true), locale.t('afterSale.detail.arbitrateApproved')); },
+  });
+}
+
+function onArbitrateReject() {
+  uni.showModal({
+    title: locale.t('afterSale.detail.arbitrateRejectTitle'),
+    editable: true,
+    placeholderText: locale.t('afterSale.detail.arbitrateNotePlaceholder'),
+    success: (res) => {
+      if (!res.confirm || !detail.value) return;
+      const note = (res.content || '').trim();
+      if (!note) { toast(locale.t('afterSale.detail.arbitrateNoteRequired')); return; }
+      void run(() => arbitrateAfterSale(detail.value!.id, false, note), locale.t('afterSale.detail.arbitrateRejected'));
+    },
+  });
+}
+
 // ---- 换货发货（三期）：弹层填新品运单号 + 承运商，均必填 ----
 const shipOpen = ref(false);
 const shipTrackingNo = ref('');
@@ -415,15 +442,20 @@ function goOrder() {
 
 function onPrimary() {
   const c = can.value;
-  if (c.approve) onApprove();
+  if (c.arbitrate) onArbitrateApprove();
+  else if (c.approve) onApprove();
   else if (c.receive) onReceive();
   else if (c.exchangeShip) onExchangeShip();
   else if (c.refund) onRefund();
   else if (c.retry) onRetry();
 }
 
+// 吸底次按钮：Appealed 态为「维持拒绝」，其余为「拒绝」
+const secondaryKey = computed(() => (can.value.arbitrate ? 'afterSale.detail.arbitrateReject' : 'afterSale.detail.reject'));
+
 function secondaryAction(): (() => void) | null {
   const c = can.value;
+  if (c.arbitrate) return onArbitrateReject;
   if (c.reject) return onReject;
   if (c.approve && (c.receive || c.refund || c.retry)) return onReject;
   return null;
