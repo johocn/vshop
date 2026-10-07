@@ -85,6 +85,7 @@
     "binManage": "库区库位",
     "mediaLibrary": "图片库",
     "order": "订单",
+    "paymentTimeout": "支付超时观测",
     "picking": "配货台",
     "ship": "发货",
     "afterSale": "售后",
@@ -3346,5 +3347,54 @@
     "phOpenid": "接收者 openid（必填）",
     "phJumpUrl": "点击卡片跳转链接（可选）",
     "phFieldValue": "字段值"
+  },
+  "ptStats": {
+    "todayRemind": "今日提醒",
+    "todayCancel": "今日取消",
+    "totalFailed": "累计失败",
+    "pendingOverdue": "滞留逾期"
+  },
+  "ptFilter": {
+    "today": "今日",
+    "compensate": "手动补偿"
+  },
+  "ptTable": {
+    "order": "订单号",
+    "type": "类型",
+    "status": "状态",
+    "dueAt": "到期",
+    "action": "操作",
+    "leftIn": "剩",
+    "min": "分钟",
+    "overdue": "已逾期",
+    "empty": "暂无任务",
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "ptType": {
+    "all": "全部",
+    "remind": "提醒",
+    "cancel": "取消"
+  },
+  "ptStatus": {
+    "all": "全部",
+    "pending": "待执行",
+    "executed": "已执行",
+    "cancelled": "已作废",
+    "failed": "失败"
+  },
+  "ptAction": {
+    "execute": "立即执行",
+    "retry": "重试",
+    "resend": "重发提醒"
+  },
+  "ptConfirm": {
+    "title": "确认操作",
+    "execute": "确认立即执行该任务？",
+    "resend": "确认重发该订单的待付款提醒？",
+    "compensate": "确认执行一次补偿扫描？"
+  },
+  "ptToast": {
+    "compensated": "已处理 {n} 条"
   }
 }

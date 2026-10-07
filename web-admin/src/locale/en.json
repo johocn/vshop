@@ -85,6 +85,7 @@
     "binManage": "Zones & Bins",
     "mediaLibrary": "Media Library",
     "order": "Orders",
+    "paymentTimeout": "Payment Timeout",
     "picking": "Picking Console",
     "ship": "Shipment",
     "afterSale": "After-sale",
@@ -3346,5 +3347,54 @@
     "phOpenid": "Receiver openid (required)",
     "phJumpUrl": "Jump URL on tap (optional)",
     "phFieldValue": "Field value"
+  },
+  "ptStats": {
+    "todayRemind": "Reminded today",
+    "todayCancel": "Cancelled today",
+    "totalFailed": "Failed tasks",
+    "pendingOverdue": "Overdue pending"
+  },
+  "ptFilter": {
+    "today": "Today",
+    "compensate": "Compensate"
+  },
+  "ptTable": {
+    "order": "Order",
+    "type": "Type",
+    "status": "Status",
+    "dueAt": "Due",
+    "action": "Action",
+    "leftIn": "in",
+    "min": "min",
+    "overdue": "Overdue",
+    "empty": "No tasks",
+    "prev": "Prev",
+    "next": "Next"
+  },
+  "ptType": {
+    "all": "All",
+    "remind": "Remind",
+    "cancel": "Cancel"
+  },
+  "ptStatus": {
+    "all": "All",
+    "pending": "Pending",
+    "executed": "Executed",
+    "cancelled": "Cancelled",
+    "failed": "Failed"
+  },
+  "ptAction": {
+    "execute": "Execute",
+    "retry": "Retry",
+    "resend": "Resend"
+  },
+  "ptConfirm": {
+    "title": "Confirm",
+    "execute": "Execute this task now?",
+    "resend": "Resend the pending-payment reminder?",
+    "compensate": "Run a compensation scan?"
+  },
+  "ptToast": {
+    "compensated": "{n} tasks processed"
   }
 }
