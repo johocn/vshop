@@ -1161,14 +1161,26 @@
       "stockLocation": "库存点 ",
       "statusFailed": "退款失败",
       "statusRejected": "已拒绝",
-      "statusClosed": "已关闭"
+      "statusClosed": "已关闭",
+      "messages": "协商留言",
+      "messagesEmpty": "暂无留言",
+      "messagesPlaceholder": "输入回复内容…",
+      "messagesSend": "发送",
+      "messagesClosed": "售后已关闭，留言停用",
+      "messagesLoadMore": "加载更多",
+      "exchangeShipTitle": "换货发货",
+      "exchangeTrackingNo": "新品运单号",
+      "exchangeCarrier": "承运商",
+      "exchangeShipRequired": "请填写运单号与承运商",
+      "exchangeShipDone": "换货已发货"
     },
     "timeline": {
       "stepPending": "已申请",
       "stepApproved": "商家已同意",
       "stepReturning": "退回中",
       "stepReceived": "商家已收货",
-      "stepRefunded": "退款完成"
+      "stepRefunded": "退款完成",
+      "stepExchangeShipped": "换货已发货"
     }
   },
   "pos": {
@@ -3084,8 +3096,16 @@
     "totalSku": "总 SKU",
     "view": {
       "biz": "经营数据",
-      "ops": "作业分析"
+      "ops": "作业分析",
+      "as": "售后"
     },
+    "asRequests": "申请数",
+    "asRefundAmount": "退款总额",
+    "asAvgHandleHours": "平均处理时长",
+    "asDaily": "申请量趋势",
+    "asByState": "状态分布",
+    "asByType": "类型分布",
+    "asUnit": "单",
     "ops": {
       "pickCount": "拣货单数",
       "shippedItems": "发货件数",

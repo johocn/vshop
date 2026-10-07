@@ -1161,14 +1161,26 @@
       "stockLocation": "Location ",
       "statusFailed": "Refund Failed",
       "statusRejected": "Rejected",
-      "statusClosed": "Closed"
+      "statusClosed": "Closed",
+      "messages": "Messages",
+      "messagesEmpty": "No messages yet",
+      "messagesPlaceholder": "Type a reply…",
+      "messagesSend": "Send",
+      "messagesClosed": "Request closed: messaging disabled",
+      "messagesLoadMore": "Load more",
+      "exchangeShipTitle": "Ship Exchange",
+      "exchangeTrackingNo": "New tracking No.",
+      "exchangeCarrier": "Carrier",
+      "exchangeShipRequired": "Tracking No. and carrier are required",
+      "exchangeShipDone": "Exchange shipped"
     },
     "timeline": {
       "stepPending": "Applied",
       "stepApproved": "Approved",
       "stepReturning": "Returning",
       "stepReceived": "Received",
-      "stepRefunded": "Refunded"
+      "stepRefunded": "Refunded",
+      "stepExchangeShipped": "Exchange shipped"
     }
   },
   "pos": {
@@ -3084,8 +3096,16 @@
     "totalSku": "Total SKUs",
     "view": {
       "biz": "Business",
-      "ops": "Operations"
+      "ops": "Operations",
+      "as": "After-sales"
     },
+    "asRequests": "Requests",
+    "asRefundAmount": "Refund Total",
+    "asAvgHandleHours": "Avg Handling Time",
+    "asDaily": "Daily Requests",
+    "asByState": "By State",
+    "asByType": "By Type",
+    "asUnit": "reqs",
     "ops": {
       "pickCount": "Pick Batches",
       "shippedItems": "Items Shipped",
