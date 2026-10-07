@@ -76,6 +76,10 @@
           <text class="lbl">{{ $t('campusConfig.notifyDelivered') }}</text>
           <input v-model="card.form.notifyTemplateDelivered" :placeholder="$t('campusConfig.notifyPh')" />
         </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyExceptionHandled') }}</text>
+          <input v-model="card.form.notifyTemplateExceptionHandled" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
         <view class="notify-tip">{{ $t('campusConfig.notifyTip') }}</view>
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
@@ -118,6 +122,7 @@ interface CardForm {
   notifyTemplateRiderAssigned: string;
   notifyTemplateCookingDone: string;
   notifyTemplateDelivered: string;
+  notifyTemplateExceptionHandled: string;
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -143,6 +148,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     notifyTemplateRiderAssigned: c.notifyTemplateRiderAssigned ?? '',
     notifyTemplateCookingDone: c.notifyTemplateCookingDone ?? '',
     notifyTemplateDelivered: c.notifyTemplateDelivered ?? '',
+    notifyTemplateExceptionHandled: c.notifyTemplateExceptionHandled ?? '',
   };
 }
 
@@ -204,6 +210,7 @@ async function save(card: Card) {
       notifyTemplateRiderAssigned: f.notifyTemplateRiderAssigned.trim() || null,
       notifyTemplateCookingDone: f.notifyTemplateCookingDone.trim() || null,
       notifyTemplateDelivered: f.notifyTemplateDelivered.trim() || null,
+      notifyTemplateExceptionHandled: f.notifyTemplateExceptionHandled.trim() || null,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });

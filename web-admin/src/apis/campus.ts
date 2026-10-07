@@ -20,6 +20,7 @@ export interface CampusStoreConfig {
   notifyTemplateRiderAssigned: string | null;
   notifyTemplateCookingDone: string | null;
   notifyTemplateDelivered: string | null;
+  notifyTemplateExceptionHandled: string | null;
 }
 
 export interface CampusStoreConfigInput {
@@ -36,10 +37,11 @@ export interface CampusStoreConfigInput {
   notifyTemplateRiderAssigned?: string | null;
   notifyTemplateCookingDone?: string | null;
   notifyTemplateDelivered?: string | null;
+  notifyTemplateExceptionHandled?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered';
+  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(

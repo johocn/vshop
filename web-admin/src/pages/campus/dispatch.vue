@@ -278,6 +278,9 @@ function previewPhoto(a: DispatchAlert, index: number) {
 function excTypeLabel(type: string): string {
   const map: Record<string, string> = {
     no_recipient: locale.t('campusDispatch.excTypeNoRecipient'),
+    food_spilled: locale.t('campusDispatch.excTypeFoodSpilled'),
+    merchant_issue: locale.t('campusDispatch.excTypeMerchantIssue'),
+    other: locale.t('campusDispatch.excTypeOther'),
   };
   return map[type] ?? type;
 }
