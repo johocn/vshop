@@ -23,15 +23,31 @@
       </view>
     </view>
 
-    <!-- 商品卡 -->
+    <!-- 商品卡：有关联订单行单行展示；仅退款整单回退展示整单商品清单 -->
     <view class="card" v-if="detail">
       <text class="sec-title">{{ $t('afterSale.detail.productTitle') }}</text>
-      <view class="prod">
+      <view class="prod" v-if="productName">
         <image v-if="productThumb" class="thumb" :src="productThumb" mode="aspectFill" />
         <view class="pmeta">
-          <text class="pname">{{ productName || '—' }}</text>
+          <text class="pname">{{ productName }}</text>
           <text class="line muted" v-if="productSku">{{ $t('afterSale.detail.skuLabel') }}{{ productSku }}</text>
-          <text class="line muted">{{ $t('afterSale.detail.typeLabel').replace('{type}', AFTER_SALE_TYPES[detail.type] || detail.type) }}</text>
+          <text class="line muted">{{ typeLine }}</text>
+        </view>
+      </view>
+      <template v-else-if="orderLines.length">
+        <view class="prod" v-for="(l, i) in orderLines" :key="l.id">
+          <image v-if="lineThumb(l)" class="thumb" :src="lineThumb(l)" mode="aspectFill" />
+          <view class="pmeta">
+            <text class="pname">{{ lineName(l) }}</text>
+            <text class="line muted">× {{ l.quantity }}</text>
+            <text class="line muted" v-if="i === 0">{{ typeLine }}</text>
+          </view>
+        </view>
+      </template>
+      <view class="prod" v-else>
+        <view class="pmeta">
+          <text class="pname">—</text>
+          <text class="line muted">{{ typeLine }}</text>
         </view>
       </view>
     </view>
@@ -156,6 +172,7 @@ import {
   fetchAfterSaleMessages,
   replyAfterSaleMessage,
   AfterSaleRow,
+  AfterSaleOrderLineBrief,
   AfterSaleMessage,
 } from '../../../apis/afterSale';
 import { AFTER_SALE_TYPES } from '../../../constants/orderState';
@@ -204,6 +221,16 @@ const productThumb = computed(
     detail.value?.orderLine?.featuredAsset?.preview ??
     detail.value?.orderLine?.productVariant?.featuredAsset?.preview ??
     '',
+);
+// 仅退款整单无 orderLine：回退展示整单商品清单（详情接口已带 order.lines）
+const orderLines = computed<AfterSaleOrderLineBrief[]>(() => detail.value?.order?.lines ?? []);
+const lineName = (l: AfterSaleOrderLineBrief): string => l.productVariant?.name || `#${l.id}`;
+const lineThumb = (l: AfterSaleOrderLineBrief): string =>
+  l.featuredAsset?.preview ?? l.productVariant?.featuredAsset?.preview ?? '';
+const typeLine = computed(() =>
+  locale
+    .t('afterSale.detail.typeLabel')
+    .replace('{type}', AFTER_SALE_TYPES[detail.value?.type ?? ''] || detail.value?.type || ''),
 );
 const customerName = computed(() => {
   const c = detail.value?.customer;

@@ -15,6 +15,18 @@
 //   - refundAmount / actualRefundAmount 单位是分（与 Vendure 金额一致），展示时 /100
 import { getAdminClient } from './client';
 
+export interface AfterSaleOrderLineBrief {
+  id: string;
+  quantity: number;
+  featuredAsset?: { id: string; preview: string } | null;
+  productVariant?: {
+    id: string;
+    name: string;
+    sku: string;
+    featuredAsset?: { id: string; preview: string } | null;
+  } | null;
+}
+
 export interface AfterSaleRow {
   id: string;
   orderId: string;
@@ -42,18 +54,9 @@ export interface AfterSaleRow {
   order?: {
     id: string;
     code: string;
+    lines?: AfterSaleOrderLineBrief[] | null;
   } | null;
-  orderLine?: {
-    id: string;
-    quantity: number;
-    featuredAsset?: { id: string; preview: string } | null;
-    productVariant?: {
-      id: string;
-      name: string;
-      sku: string;
-      featuredAsset?: { id: string; preview: string } | null;
-    } | null;
-  } | null;
+  orderLine?: AfterSaleOrderLineBrief | null;
   customer?: {
     id: string;
     firstName?: string | null;
@@ -65,14 +68,20 @@ export interface AfterSaleRow {
   history?: { fromState: string | null; toState: string; createdAt: string }[] | null;
 }
 
-const AFTER_SALE_FIELDS = `
+const AFTER_SALE_BASE_FIELDS = `
   id orderId orderLineId customerId type state reason description
   evidenceImages refundAmount returnTrackingNo returnCarrier rejectReason
   receivedQuantity restockJson refundTransactionId actualRefundAmount
   refundedAt refundError exchangeTrackingNo exchangeCarrier messageCount
   createdAt updatedAt
+`;
+const ORDER_LINE_FIELDS = `
+  id quantity featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } }
+`;
+const AFTER_SALE_FIELDS = `
+  ${AFTER_SALE_BASE_FIELDS}
   order { id code }
-  orderLine { id quantity featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } } }
+  orderLine { ${ORDER_LINE_FIELDS} }
   customer { id firstName lastName phoneNumber emailAddress }
 `;
 
@@ -256,12 +265,17 @@ export interface AfterSaleBatchResult {
   message?: string | null;
 }
 
-/** 售后详情 Admin 单查（含逐节点 history） */
+/** 售后详情 Admin 单查（含逐节点 history + 整单行清单）：
+ *  仅退款单无 orderLineId，商品卡需回退展示 order.lines，故详情查询比列表多取 lines。
+ *  注意 order 与 orderLine 子选择不同，不能复用 AFTER_SALE_FIELDS（GraphQL 同名字段子选择冲突）。 */
 export async function fetchAfterSaleAdmin(id: string): Promise<AfterSaleRow | null> {
   const { afterSalesRequestAdmin } = await getAdminClient().request<{ afterSalesRequestAdmin: AfterSaleRow }>(
     `query AfterSaleAdmin($id: ID!) {
       afterSalesRequestAdmin(id: $id) {
-        ${AFTER_SALE_FIELDS}
+        ${AFTER_SALE_BASE_FIELDS}
+        order { id code lines { ${ORDER_LINE_FIELDS} } }
+        orderLine { ${ORDER_LINE_FIELDS} }
+        customer { id firstName lastName phoneNumber emailAddress }
         history { fromState toState createdAt }
       }
     }`,
