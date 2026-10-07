@@ -61,9 +61,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getOrderByCode } from '../../api/queries/order';
+import { getOrderByCode, getMyOrderPackages } from '../../api/queries/order';
 import { getMyReviews } from '../../api/queries/review';
-import { getGraphQLClient } from '../../api/client';
+import { confirmOrderReceipt, cancelMyOrder as cancelMyOrderApi } from '../../api/mutations/order';
 import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
@@ -97,20 +97,22 @@ onMounted(async () => {
     const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
     const code = page?.options?.code; if (!code) return;
     try { const res: any = await getOrderByCode(code); order.value = res.orderByCode; } catch (e) { console.error(e); }
+    // 物流单号取自「本人订单包裹」（myOrderPackages 内部按 activeUserId 归属校验），
+    // 不能用 afterSalesRequest(id)：其入参是售后单 id，传订单 id 恒查不到。
     try {
-        const client = getGraphQLClient();
-        const tRes: any = await client.request(`query { afterSalesRequest(id: "${order.value?.id}") { returnTrackingNo } }`);
-        if (tRes?.afterSalesRequest?.returnTrackingNo) trackingNo.value = tRes.afterSalesRequest.returnTrackingNo;
+        const pkgRes: any = await getMyOrderPackages(order.value?.id);
+        const pkg = (pkgRes?.myOrderPackages || []).find((p: any) => p?.trackingNo);
+        if (pkg) trackingNo.value = pkg.carrierName ? `${pkg.carrierName} ${pkg.trackingNo}` : pkg.trackingNo;
     } catch (e) {}
     await loadReviewedLines();
 });
 function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
 function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: '已复制', icon: 'success' }); }
 function goPay() { uni.navigateTo({ url: '/pkg-order/pages/payment?code=' + order.value.code }); }
-function confirmReceive() { uni.showModal({ title: '确认收货', content: '确认已收到商品?', success: async (r: any) => { if (r.confirm) { try { const client = getGraphQLClient(); await client.request(`mutation { transitionOrderToState(state: "Delivered") { ... on Order { id state } ... on ErrorResult { errorCode message } } }`); uni.showToast({ title: '已确认收货' }); order.value.state = 'Delivered'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
+function confirmReceive() { uni.showModal({ title: '确认收货', content: '确认已收到商品?', success: async (r: any) => { if (r.confirm) { try { const res: any = await confirmOrderReceipt(String(order.value.id)); if (res?.confirmOrderReceipt === false) { uni.showToast({ title: '当前状态不可确认收货', icon: 'none' }); return; } uni.showToast({ title: '已确认收货' }); order.value.state = 'Completed'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 function applyAfterSale() { uni.navigateTo({ url: '/pkg-after-sale/pages/apply?orderId=' + order.value.id }); }
 function applyInvoice() { uni.navigateTo({ url: '/pkg-order/pages/invoice-apply?orderIds=' + order.value.id }); }
-function cancelOrder() { uni.showModal({ title: '取消订单', content: '确定取消该订单?', success: async (r: any) => { if (r.confirm) { try { const client = getGraphQLClient(); await client.request(`mutation { cancelOrder(orderId: "${order.value.id}") { ... on Order { id state } ... on ErrorResult { errorCode message } } }`); uni.showToast({ title: '已取消' }); order.value.state = 'Cancelled'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
+function cancelOrder() { uni.showModal({ title: '取消订单', content: '确定取消该订单?', success: async (r: any) => { if (r.confirm) { try { const res: any = await cancelMyOrderApi(String(order.value.id)); if (res?.cancelMyOrder?.state) order.value.state = res.cancelMyOrder.state; else order.value.state = 'Cancelled'; uni.showToast({ title: '已取消' }); } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 async function loadReviewedLines() {
     if (!auth.isLoggedIn) return;
     try {

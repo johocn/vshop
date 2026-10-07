@@ -98,6 +98,43 @@ function isSafeRedirect(path: string): boolean {
     return true;
 }
 
+// ── OAuth state（防登录 CSRF）─────────────────────────────────
+// 跳转前生成随机 state 存入 sessionStorage，回调时校验并消费。
+// 仅用 [a-z0-9]（微信要求 state 为 a-zA-Z0-9 且 ≤128 字节）。
+const OAUTH_STATE_KEY = 'oauth_state';
+
+function randomOAuthState(prefix: string): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let rnd = '';
+    for (let i = 0; i < 24; i++) rnd += chars[Math.floor(Math.random() * chars.length)];
+    return prefix + rnd;
+}
+
+function saveOAuthState(state: string) {
+    // #ifdef H5
+    try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch (e) { /* 忽略 */ }
+    // #endif
+}
+
+function consumeOAuthState(): string {
+    // #ifdef H5
+    try {
+        const s = sessionStorage.getItem(OAUTH_STATE_KEY) || '';
+        sessionStorage.removeItem(OAUTH_STATE_KEY);
+        return s;
+    } catch (e) { return ''; }
+    // #endif
+    return '';
+}
+
+/** 回到本页的 state 可能落在 search 或 hash query（H5 hash 路由） */
+function readOAuthState(url: URL): string {
+    // #ifdef H5
+    return url.searchParams.get('state') || getHashQueryParams().state || '';
+    // #endif
+    return '';
+}
+
 onLoad((query: any) => {
     if (query?.redirect) {
         const redirect = decodeURIComponent(query.redirect);
@@ -119,27 +156,42 @@ onMounted(async () => {
     const oauthState = url.searchParams.get('state');
 
     if (oauthCode && oauthState) {
-        if (oauthState === 'wechat_base' || oauthState === 'wechat_userinfo') {
+        const expected = consumeOAuthState();
+        window.history.replaceState({}, '', window.location.pathname);
+        // 校验随机 state：不匹配视为登录 CSRF，拒绝
+        if (oauthState.startsWith('wc') && oauthState === expected) {
             handleWechatH5Callback(oauthCode);
-            // Clean up URL params
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
+        } else {
+            ui.showToast(t('auth.loginFailed'));
         }
+        return;
     }
 
     // 处理支付宝回调
     const alipayAuthCode = url.searchParams.get('alipay_auth_code');
     if (alipayAuthCode) {
+        const expected = consumeOAuthState();
+        const gotState = readOAuthState(url);
         window.history.replaceState({}, '', window.location.pathname);
-        handleAlipayH5Callback(alipayAuthCode);
+        if (gotState.startsWith('ali') && gotState === expected) {
+            handleAlipayH5Callback(alipayAuthCode);
+        } else {
+            ui.showToast(t('auth.loginFailed'));
+        }
         return;
     }
 
     // 处理抖音回调
     const douyinCode = url.searchParams.get('douyin_code');
     if (douyinCode) {
+        const expected = consumeOAuthState();
+        const gotState = readOAuthState(url);
         window.history.replaceState({}, '', window.location.pathname);
-        handleDouyinH5Callback(douyinCode);
+        if (gotState.startsWith('dy') && gotState === expected) {
+            handleDouyinH5Callback(douyinCode);
+        } else {
+            ui.showToast(t('auth.loginFailed'));
+        }
         return;
     }
 
@@ -233,7 +285,8 @@ function loginWithWechatH5(scope: 'snsapi_base' | 'snsapi_userinfo' = 'snsapi_ba
         return;
     }
     const redirectUri = encodeURIComponent(window.location.href.split('?')[0]);
-    const state = scope === 'snsapi_base' ? 'wechat_base' : 'wechat_userinfo';
+    const state = randomOAuthState('wc');
+    saveOAuthState(state);
     const oauthUrl = 'https://open.weixin.qq.com/connect/oauth2/authorize'
         + '?appid=' + wechatAppId.value
         + '&redirect_uri=' + redirectUri
@@ -274,7 +327,9 @@ function loginWithAlipayH5() {
         return;
     }
     const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
-    window.location.href = `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${alipayAppId}&scope=auth_user&redirect_uri=${redirectUri}`;
+    const state = randomOAuthState('ali');
+    saveOAuthState(state);
+    window.location.href = `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${alipayAppId}&scope=auth_user&state=${state}&redirect_uri=${redirectUri}`;
     // #endif
     // #ifdef MP-ALIPAY
     my.getAuthCode({
@@ -300,7 +355,9 @@ function loginWithDouyinH5() {
         return;
     }
     const redirectUri = encodeURIComponent(window.location.origin + '/#/pages/login/index');
-    window.location.href = `https://developer.toutiao.com/openapi/oauth2/auth/v2/?app_id=${douyinAppId}&response_type=code&scope=user_info&redirect_uri=${redirectUri}`;
+    const state = randomOAuthState('dy');
+    saveOAuthState(state);
+    window.location.href = `https://developer.toutiao.com/openapi/oauth2/auth/v2/?app_id=${douyinAppId}&response_type=code&scope=user_info&state=${state}&redirect_uri=${redirectUri}`;
     // #endif
     // #ifdef MP-TOUTIAO
     uni.login({
@@ -391,6 +448,11 @@ function loginWithSso(provider: any) {
         };
     }
 
+    // 随机 state：防登录 CSRF（回调时校验）
+    const state = randomOAuthState('sso');
+    saveOAuthState(state);
+    params.state = state;
+    sessionStorage.setItem('sso_state', state);
     sessionStorage.setItem('sso_provider', provider.providerKey);
     const query = new URLSearchParams(params).toString();
     window.location.href = `${unifiedLoginUrl}?${query}`;
@@ -411,6 +473,18 @@ async function handleSsoCallback(): Promise<boolean> {
         return window.location.origin + window.location.pathname + hash;
     };
     if ((token || code) && providerKey) {
+        // 校验 state（防登录 CSRF）：仅当回调携带 state 时强制匹配，
+        // 避免破坏「统一页未回传 state」的既有流程
+        const gotState = urlParams.get('state') ?? hashParams.state ?? '';
+        const expectedState = sessionStorage.getItem('sso_state') || '';
+        if (gotState && expectedState && gotState !== expectedState) {
+            sessionStorage.removeItem('sso_provider');
+            sessionStorage.removeItem('sso_state');
+            window.history.replaceState({}, '', cleanUrl());
+            ui.showToast(t('auth.ssoLoginFailed'));
+            mode.value = 'select';
+            return true;
+        }
         try {
             const result = token
                 ? await authenticateSsoWithToken(providerKey, token)

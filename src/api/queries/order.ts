@@ -29,6 +29,18 @@ export async function getOrderByCode(code: string) {
     return client.request(query, { code });
 }
 
+/**
+ * C 端查询本人订单的包裹（含承运商/运单号）。shop-api 由 logistics-plugin 提供，
+ * 内部按 activeUserId 做归属校验。
+ */
+export async function getMyOrderPackages(orderId: string) {
+    const client = getGraphQLClient();
+    const query = `query MyOrderPackages($orderId: String!) {
+        myOrderPackages(orderId: $orderId) { code status trackingNo carrierName courierName }
+    }`;
+    return client.request(query, { orderId });
+}
+
 export async function getEligibleShippingMethods() {
     const client = getGraphQLClient();
     const query = `query { eligibleShippingMethods { id name code price priceWithTax description } }`;
