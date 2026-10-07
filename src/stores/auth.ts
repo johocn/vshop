@@ -41,6 +41,8 @@ export const useAuthStore = defineStore('auth', () => {
         uni.removeStorageSync('auth_userId');
         uni.removeStorageSync('auth_inviteCode');
         uni.removeStorageSync('auth_openid');
+        // Vendure 会话令牌：被 App.onLogout 监听补齐前若已调用 logout()，旧会话会残留、串到下个账号
+        uni.removeStorageSync('vendure_session_token');
         uni.$emit(LOGOUT_EVENT);
     }
 
