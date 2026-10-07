@@ -37,6 +37,13 @@
         <text class="tip">{{ $t('couponEdit.channelsTip') }}</text>
       </view>
 
+      <!-- 商品专享券绑定：勾选「商品页领券」渠道时管理绑定商品 -->
+      <view class="field" v-if="form.channels.includes('PRODUCT')">
+        <text class="label">{{ $t('couponBinding.title') }}</text>
+        <CouponBindingCard v-if="id" :template-id="id || ''" @changed="loadBound" />
+        <text v-else class="tip">{{ $t('couponBinding.saveFirst') }}</text>
+      </view>
+
       <!-- 出售价：仅「券商城」渠道可售 -->
       <view class="field" v-if="form.channels.includes('SALE')">
         <text class="label">{{ $t('couponEdit.salePriceLabel') }}</text>
@@ -160,6 +167,7 @@ import {
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
+import CouponBindingCard from '../../../components/coupon/CouponBindingCard.vue';
 
 const locale = useLocaleStore();
 

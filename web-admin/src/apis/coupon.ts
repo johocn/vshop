@@ -635,3 +635,18 @@ export async function bindProductsToCoupon(
     throw new Error(graphQlErrorMsg(e, '批量绑定商品失败'));
   }
 }
+
+/** 解绑：按商品维度移除该券模板下该商品的绑定（后端按 productId 删除） */
+export async function unbindProductFromCoupon(templateId: string, productId: string): Promise<boolean> {
+  try {
+    const { unbindProductFromCoupon } = await getAdminClient().request<{ unbindProductFromCoupon: boolean }>(
+      `mutation UnbindProductFromCoupon($templateId: ID!, $productId: ID!) {
+        unbindProductFromCoupon(templateId: $templateId, productId: $productId)
+      }`,
+      { templateId, productId },
+    );
+    return !!unbindProductFromCoupon;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '解绑商品失败'));
+  }
+}
