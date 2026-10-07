@@ -28,13 +28,14 @@
 新增 `payment-timeout-admin.resolver.ts`（挂 admin-api，走现有 Administrator 登录守卫）：
 
 ```graphql
-# 查询：任务分页列表，join 订单摘要
+# 查询：任务分页列表，join 订单摘要（code/state；totalWithTax 为 getter 非列，金额不进行内，见订单详情）
 paymentTimeoutTasks(status: String, type: String, from: DateTime, to: DateTime, skip: Int, take: Int): PaymentTimeoutTaskList!
-  # item: { id, orderId, orderCode, orderState, orderTotalWithTax, type, status, dueAt, retryCount, lastError, createdAt }
+  # item: { id, orderId, orderCode, orderState, type, status, dueAt, retryCount, lastError, channelId }
 
-# 统计：观测页 KPI 行数据源
+# 统计：观测页 KPI 行数据源（实体无 createdAt，时间口径用 dueAt）
 paymentTimeoutStats: PaymentTimeoutStats!
-  # { todayRemind, todayCancel, todayFailed, pendingOpenOrders }  // pendingOpenOrders=滞留待付(ArrangingPayment 超过15min)单数
+  # { todayRemind, todayCancel, totalFailed, pendingOverdue }
+  # todayRemind/todayCancel = 今日 dueAt 且 EXECUTED；totalFailed = 累计 FAILED；pendingOverdue = PENDING 且 dueAt 已过（滞留）
 
 # 手动执行：仅 PENDING/FAILED 可执行；复用 Job 内执行逻辑（抽公共方法），条件更新防并发
 executePaymentTimeoutTask(id: ID!): PaymentTimeoutTask!
@@ -42,8 +43,8 @@ executePaymentTimeoutTask(id: ID!): PaymentTimeoutTask!
   # FAILED：重试（沿用 retryCount/lastError 机制）
   # EXECUTED/CANCELLED：抛业务错误码 PAYMENT_TIMEOUT_TASK_NOT_EXECUTABLE
 
-# 重发提醒：已执行 REMIND 行的「重发提醒」操作（不经任务状态机，直接调通知）
-resendPaymentTimeoutRemind(orderId: ID!): Boolean!
+# 重发提醒：已执行 REMIND 行的「重发提醒」操作（不经任务状态机，直接调通知；按 taskId 取 orderId/channelId）
+resendPaymentTimeoutRemind(taskId: ID!): Boolean!
 
 # 手动补偿：触发一次补偿扫描（Job 的 runCompensation 同源逻辑），处理逾期 PENDING 任务
 runPaymentTimeoutCompensation: Int!   # 返回本次处理条数
@@ -60,7 +61,7 @@ runPaymentTimeoutCompensation: Int!   # 返回本次处理条数
 ### 4.1 支付超时观测页（版式 A，mockup 已确认）
 
 - 新文件：`src/apis/paymentTimeout.ts`（graphql-request，复用 `apis/client.ts`）、`src/pages/order/payment-timeout/index.vue`
-- 页面结构：KPI 行（今日提醒/今日取消/失败/滞留待付）→ 筛选条（状态/类型/日期 + 「手动补偿」入口）→ 任务表（订单号/类型/状态/到期/操作）
+- 页面结构：KPI 行（今日提醒/今日取消/累计失败/滞留逾期）→ 筛选条（状态/类型/日期 + 「手动补偿」入口）→ 任务表（订单号/类型/状态/到期/操作）
 - 行为：
   - PENDING 行显示到期倒计时（`dueAt - now`，分钟级）；操作=「立即执行」
   - REMIND 已执行行操作=「重发提醒」（调 `resendPaymentTimeoutRemind`）
