@@ -34,6 +34,9 @@ export interface AfterSaleRow {
   refundTransactionId?: string | null;
   actualRefundAmount?: number | null;
   refundedAt?: string | null;
+  exchangeTrackingNo?: string | null;
+  exchangeCarrier?: string | null;
+  messageCount?: number | null;
   refundError?: string | null;
   createdAt?: string | null;
   order?: {
@@ -66,7 +69,8 @@ const AFTER_SALE_FIELDS = `
   id orderId orderLineId customerId type state reason description
   evidenceImages refundAmount returnTrackingNo returnCarrier rejectReason
   receivedQuantity restockJson refundTransactionId actualRefundAmount
-  refundedAt refundError createdAt updatedAt
+  refundedAt refundError exchangeTrackingNo exchangeCarrier messageCount
+  createdAt updatedAt
   order { id code }
   orderLine { id quantity featuredAsset { id preview } productVariant { id name sku featuredAsset { id preview } } }
   customer { id firstName lastName phoneNumber emailAddress }
@@ -298,4 +302,82 @@ export async function updateReturnAddress(address: string): Promise<boolean> {
     { address },
   );
   return updateAfterSalesReturnAddress;
+}
+
+// ---- 迭代三期：协商留言 / 换货发货 / 数据看板 ----
+
+export interface AfterSaleMessage {
+  id: string;
+  requestId: string;
+  senderType: string;
+  senderName: string;
+  content: string;
+  images?: string[] | null;
+  createdAt: string;
+}
+
+/** 售后留言分页列表（createdAt 正序；skip/take 均可选，服务端默认 take=50 上限 100） */
+export async function fetchAfterSaleMessages(id: string, skip?: number, take?: number): Promise<{ items: AfterSaleMessage[]; total: number }> {
+  const { afterSalesMessages } = await getAdminClient().request<{
+    afterSalesMessages: { items: AfterSaleMessage[]; totalItems: number };
+  }>(
+    `query AfterSaleMessages($id: ID!, $skip: Int, $take: Int) {
+      afterSalesMessages(id: $id, options: { skip: $skip, take: $take }) {
+        totalItems
+        items { id requestId senderType senderName content images createdAt }
+      }
+    }`,
+    { id, skip, take },
+  );
+  return { items: afterSalesMessages?.items ?? [], total: afterSalesMessages?.totalItems ?? 0 };
+}
+
+/** 商家回复售后留言（Closed 后服务端拒绝） */
+export async function replyAfterSaleMessage(id: string, content: string, images?: string[]): Promise<AfterSaleMessage> {
+  const { replyAfterSalesMessage } = await getAdminClient().request<{ replyAfterSalesMessage: AfterSaleMessage }>(
+    `mutation ReplyAfterSaleMessage($id: ID!, $content: String!, $images: [String!]) {
+      replyAfterSalesMessage(id: $id, content: $content, images: $images) {
+        id requestId senderType senderName content images createdAt
+      }
+    }`,
+    { id, content, images },
+  );
+  return replyAfterSalesMessage;
+}
+
+/** 换货发货（exchange 单 Received 态 → ExchangeShipped，需新品运单号 + 承运商） */
+export async function exchangeShipAfterSale(id: string, trackingNo: string, carrier: string): Promise<AfterSaleRow> {
+  const { exchangeShipAfterSalesRequest } = await getAdminClient().request<{ exchangeShipAfterSalesRequest: AfterSaleRow }>(
+    `mutation ExchangeShipAfterSale($id: ID!, $trackingNo: String!, $carrier: String!) {
+      exchangeShipAfterSalesRequest(id: $id, trackingNo: $trackingNo, carrier: $carrier) { ${AFTER_SALE_FIELDS} }
+    }`,
+    { id, trackingNo, carrier },
+  );
+  return exchangeShipAfterSalesRequest;
+}
+
+export interface AfterSalesStats {
+  totalRequests: number;
+  pendingCount: number;
+  totalRefundAmount: number;
+  avgHandleHours: number | null;
+  daily: { date: string; total: number }[];
+  byState: { key: string; count: number; amount: number }[];
+  byType: { key: string; count: number; amount: number }[];
+}
+
+/** 售后看板聚合（from/to 接受 'yyyy-MM-dd' 或完整 ISO 串；纯日期 to 按当日 23:59:59.999 收口） */
+export async function fetchAfterSalesStats(from: string, to: string): Promise<AfterSalesStats> {
+  const { afterSalesStats } = await getAdminClient().request<{ afterSalesStats: AfterSalesStats }>(
+    `query AfterSalesStats($from: String!, $to: String!) {
+      afterSalesStats(from: $from, to: $to) {
+        totalRequests pendingCount totalRefundAmount avgHandleHours
+        daily { date total }
+        byState { key count amount }
+        byType { key count amount }
+      }
+    }`,
+    { from, to },
+  );
+  return afterSalesStats;
 }

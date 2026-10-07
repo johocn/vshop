@@ -28,6 +28,7 @@ export const AFTER_SALE_STATES: Record<string, StateLabel> = {
   Received:     { label: '已收货', color: '#72767b' },
   Refunded:     { label: '已退款', color: '#059669' },
   RefundFailed: { label: '退款失败', color: '#e64340' },
+  ExchangeShipped: { label: '换货已发货', color: '#2563eb' },
   Closed:       { label: '已关闭', color: '#72767b' },
 };
 
