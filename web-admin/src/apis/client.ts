@@ -1,5 +1,5 @@
 import { GraphQLClient } from 'graphql-request';
-import { getAuthToken, getChannelToken, setAuthToken } from './session';
+import { getAuthToken, getChannelToken, setAuthToken, clearSession } from './session';
 
 export const ADMIN_API_PATH = '/admin-api';
 
@@ -16,14 +16,41 @@ export function buildClientUrl(): string {
 
 let instance: GraphQLClient | null = null;
 
+// 会话失效统一分流：清会话 → 重置客户端 → 回登录页。
+// handlingUnauthenticated 作去重闸，避免并发请求同时失败时连环跳转。
+let handlingUnauthenticated = false;
+
+function handleUnauthenticated(): void {
+  if (handlingUnauthenticated) return;
+  handlingUnauthenticated = true;
+  clearSession();
+  resetAdminClient();
+  setTimeout(() => {
+    handlingUnauthenticated = false;
+    uni.reLaunch({ url: '/pages/login/index' });
+  }, 100);
+}
+
 export function getAdminClient(): GraphQLClient {
   if (!instance) {
     const customFetch: typeof fetch = (input, init) =>
-      fetch(input, init).then((res) => {
+      fetch(input, init).then(async (res) => {
         const token = res.headers.get(AUTH_HEADER);
         if (token) {
           setAuthToken(token);
         }
+        if (res.status === 401) {
+          handleUnauthenticated();
+          return res;
+        }
+        // Vendure 未认证时 HTTP 仍为 200，错误码在 GraphQL errors[].extensions.code
+        // （本 fork：auth guard 未认证抛 UnauthorizedError → code=UNAUTHORIZED；FORBIDDEN 属权限不足，不触发登出）
+        try {
+          const body = await res.clone().json();
+          if (body?.errors?.some((e: any) => e?.extensions?.code === 'UNAUTHORIZED')) {
+            handleUnauthenticated();
+          }
+        } catch { /* 非 JSON 响应忽略 */ }
         return res;
       });
     instance = new GraphQLClient(buildClientUrl(), {

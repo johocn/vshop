@@ -17,8 +17,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { ref, computed } from 'vue';
 import { changeMyPassword } from '../../apis/auth';
 import { useLocaleStore } from '../../stores/localeStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -27,17 +26,15 @@ import { useTenantStore } from '../../stores/tenantStore';
 const auth = useAuthStore();
 const tenant = useTenantStore();
 const locale = useLocaleStore();
-const isManual = ref(false);
+// 是否为主动改密（需验旧密码）：仅首登强改密（mustChangePassword=true）时不验旧密码。
+// 不再信任 URL ?manual=1 参数决定安全行为——否则普通会话可绕过旧密码校验（见审计 B3-A P1-1）。
+const isManual = computed(() => !auth.mustChangePassword);
 const oldPw = ref('');
 const pw1 = ref('');
 const pw2 = ref('');
 const showPwd = ref(false);
 const loading = ref(false);
 const err = ref('');
-
-onLoad((q) => {
-  isManual.value = q?.manual === '1';
-});
 
 async function submit() {
   err.value = '';
