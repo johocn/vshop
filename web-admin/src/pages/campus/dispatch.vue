@@ -238,13 +238,23 @@ async function runHandle(a: DispatchAlert, action: string, opts?: { amount?: num
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusDispatch.opFailed')), icon: 'none' });
   }
 }
+// F12 残留收口：退差价/补偿券/重派均为资金或调度动作，与全额退单同款二次确认（留痕不可撤销）
+function confirmHandle(title: string, a: DispatchAlert, run: () => void) {
+  uni.showModal({
+    title,
+    content: `${a.orderCode} · ${locale.t('campusDispatch.excConfirmBody')}`,
+    success: (r: any) => {
+      if (r.confirm) run();
+    },
+  });
+}
 function handleDiff(a: DispatchAlert) {
   const fen = yuanToFen(excAmount[a.orderId] ?? '');
   if (!fen || fen <= 0) {
     uni.showToast({ title: locale.t('campusDispatch.excAmountInvalid'), icon: 'none' });
     return;
   }
-  void runHandle(a, 'refund_diff', { amount: fen });
+  confirmHandle(locale.t('campusDispatch.excDiffConfirmTitle'), a, () => void runHandle(a, 'refund_diff', { amount: fen }));
 }
 function handleCoupon(a: DispatchAlert) {
   const tplId = excCouponPick[a.orderId];
@@ -252,7 +262,7 @@ function handleCoupon(a: DispatchAlert) {
     uni.showToast({ title: locale.t('campusDispatch.excPickCouponPh'), icon: 'none' });
     return;
   }
-  void runHandle(a, 'coupon', { couponTemplateId: tplId });
+  confirmHandle(locale.t('campusDispatch.excCouponConfirmTitle'), a, () => void runHandle(a, 'coupon', { couponTemplateId: tplId }));
 }
 function handleRefundAll(a: DispatchAlert) {
   uni.showModal({
@@ -263,7 +273,10 @@ function handleRefundAll(a: DispatchAlert) {
     },
   });
 }
-async function handleReassign(a: DispatchAlert) {
+function handleReassign(a: DispatchAlert) {
+  confirmHandle(locale.t('campusDispatch.excReassignConfirmTitle'), a, () => void doReassign(a));
+}
+async function doReassign(a: DispatchAlert) {
   try {
     await campusHandleException(a.orderId, 'reassign', { note: excNote[a.orderId] || undefined });
     uni.showToast({ title: locale.t('campusDispatch.excReassigned'), icon: 'success' });
