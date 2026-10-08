@@ -24,6 +24,36 @@ const ALLOWED_ATTR = new Set([
 // 仅放行 http(s)/mailto/tel 与相对路径
 const SAFE_URL = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
 
+// style 值级白名单：仅展示类属性，剔除可布局覆盖的属性（position/z-index/transform 等），
+// 防后台富文本在 C 端构造全屏覆盖层钓鱼（审计 B3-C P2）
+const SAFE_STYLE_PROPS = new Set([
+  'color', 'background-color', 'background',
+  'font-size', 'font-weight', 'font-style', 'font-family',
+  'text-align', 'text-decoration', 'text-indent', 'line-height', 'letter-spacing', 'white-space',
+  'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+  'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'border', 'border-radius', 'border-collapse',
+  'width', 'max-width', 'height', 'max-height',
+  'list-style', 'vertical-align', 'word-break', 'overflow-wrap',
+]);
+
+/** 清洗 style 内联值：逐条声明过滤，属性不在白名单或值含危险构造的整条剔除 */
+function cleanStyleValue(value: string): string {
+  return value
+    .split(';')
+    .map((d) => d.trim())
+    .filter((d) => {
+      const i = d.indexOf(':');
+      if (i <= 0) return false;
+      const prop = d.slice(0, i).trim().toLowerCase();
+      const val = d.slice(i + 1).trim().toLowerCase();
+      if (!SAFE_STYLE_PROPS.has(prop)) return false;
+      if (/(url\(|javascript|expression|@import|behavior|position|fixed|absolute|z-index|opacity|transform)/.test(val)) return false;
+      return true;
+    })
+    .join('; ');
+}
+
 function cleanElement(el: Element): void {
   for (const child of Array.from(el.children)) {
     const tag = child.tagName.toLowerCase();
@@ -46,6 +76,12 @@ function cleanElement(el: Element): void {
       const value = attr.value;
       if (name.startsWith('on') || !ALLOWED_ATTR.has(name)) {
         child.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === 'style') {
+        const cleaned = cleanStyleValue(value);
+        if (cleaned) child.setAttribute('style', cleaned);
+        else child.removeAttribute('style');
         continue;
       }
       if ((name === 'href' || name === 'src') && !SAFE_URL.test(value.trim())) {
