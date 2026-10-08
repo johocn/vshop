@@ -123,6 +123,7 @@ import { REDEMPTION_STATES, stateLabel } from '../../constants/orderState';
 import { useLocaleStore } from '../../stores/localeStore';
 import { fetchActiveChannel } from '../../apis/channel';
 import { fmtDateTime } from '../../utils/csv';
+import { fenToYuanFixed } from '../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -153,7 +154,7 @@ const result = ref<PosResult | null>(null);
 const receipt = ref<Receipt | null>(null);
 
 function money(n?: number | null): string {
-  return ((n ?? 0) / 100).toFixed(2);
+  return fenToYuanFixed(n);
 }
 
 // redemption-* 渠道域状态 → 通用核销展示状态

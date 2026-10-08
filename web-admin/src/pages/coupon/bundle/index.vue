@@ -55,6 +55,7 @@ import { ref, computed, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import { fetchCouponBundles, deleteCouponBundle, type CouponBundleRow } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -64,7 +65,7 @@ const loadingMore = ref(false);
 const totalItems = ref(0);
 const PAGE = 20;
 
-const money = (cents: number) => (cents / 100).toFixed(2);
+const money = fenToYuanFixed;
 const totalQty = (b: CouponBundleRow) => b.items.reduce((s, i) => s + (i.quantity || 0), 0);
 const enabledCount = computed(() => items.value.filter((b) => b.enabled).length);
 

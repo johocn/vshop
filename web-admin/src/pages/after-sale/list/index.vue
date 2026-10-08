@@ -153,6 +153,7 @@ import {
 import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import { useListPage } from '../../../composables/useListPage';
 import { AFTER_SALE_TYPES } from '../../../constants/orderState';
+import { fenToYuanFixed } from '../../../utils/money';
 import {
   AFTER_SALE_TABS,
   afterSaleActions,
@@ -236,7 +237,7 @@ function onTab(key: string) {
 const st = (a: AfterSaleRow) => afterSaleStateLabel(a.state);
 
 function money(n?: number | null): string {
-  return ((n ?? 0) / 100).toFixed(2);
+  return fenToYuanFixed(n);
 }
 
 function productName(a: AfterSaleRow): string {

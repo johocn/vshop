@@ -62,6 +62,7 @@ import {
   SALE_STATUS_LABELS, SALE_PAY_MODE_LABELS, type CouponSaleOrderRow,
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -80,7 +81,7 @@ const loadingMore = ref(false);
 const totalItems = ref(0);
 const PAGE = 20;
 
-const money = (cents: number) => (cents / 100).toFixed(2);
+const money = fenToYuanFixed;
 const statusLabel = (s: string) => SALE_STATUS_LABELS[s] || s;
 const payModeLabel = (m: string) => SALE_PAY_MODE_LABELS[m] || m;
 

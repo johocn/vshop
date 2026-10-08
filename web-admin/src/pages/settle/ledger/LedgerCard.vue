@@ -35,13 +35,14 @@ import {
   rowTime,
   SettlementLedgerRow,
 } from '../../../apis/settlement';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const props = defineProps<{ row: SettlementLedgerRow; today?: boolean }>();
 
 const displayCode = computed(() => props.row.orderCode || '#' + props.row.orderId);
 
 function fmt(v: number): string {
-  return '¥' + (v / 100).toFixed(2);
+  return '¥' + fenToYuanFixed(v);
 }
 function label(method?: string | null): string {
   return settleMethodLabel(method);

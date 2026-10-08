@@ -1,6 +1,7 @@
 // 到店买单 admin-api 调用（coupon-plugin，schema 见 spec §9.1）。
 // 金额单位一律为「分」；页面展示时用 fenToYuan 转元。
 import { getAdminClient, graphQlErrorMsg } from './client';
+import { fenToYuanFixed } from '../utils/money';
 
 export interface InStoreBillQuote {
   ok: boolean;
@@ -60,7 +61,7 @@ const BILL_FIELDS = `id channelId couponCode couponTemplateId couponName custome
 /** 分 → 元（两位小数） */
 export function fenToYuan(cents: number | null | undefined): string {
   if (cents == null) return '—';
-  return (cents / 100).toFixed(2);
+  return fenToYuanFixed(cents);
 }
 
 /** 折扣展示：PERCENT 80 → “8 折”；FIXED/FULL → “减 ¥x” */

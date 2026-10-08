@@ -6,7 +6,7 @@
 export function fenToYuan(fen: number): string {
   const n = Number(fen);
   if (!Number.isFinite(n)) return '0.00';
-  return (n / 100).toFixed(2);
+  return fenToYuanFixed(n);
 }
 
 /** 分 → 带符号金额；null/负数/非法 → '—'（列表里「无成本价」占位） */
