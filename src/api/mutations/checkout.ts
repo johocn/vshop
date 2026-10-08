@@ -3,9 +3,12 @@ import { ORDER_FRAGMENT } from '../fragments';
 
 export async function setOrderShippingAddress(input: any) {
     const client = getGraphQLClient();
+    // CreateAddressInput 无 id 字段；选中已有地址时调用方会带 id，必须剥离，
+    // 否则 GraphQL 校验直接失败 → 有默认地址时提交订单必报错
+    const { id: _ignored, ...rest } = input || {};
     const mutation = `${ORDER_FRAGMENT}
         mutation SetAddr($input: CreateAddressInput!) { setOrderShippingAddress(input: $input) { ... on Order { ...OrderDetail } ... on ErrorResult { errorCode message } } }`;
-    return client.request(mutation, { input });
+    return client.request(mutation, { input: rest });
 }
 
 export async function setOrderShippingMethod(shippingMethodId: string[]) {
