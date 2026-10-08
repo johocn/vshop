@@ -45,7 +45,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { getOrderByCode, getActiveOrder } from '../../api/queries/order';
 import { getEligiblePaymentMethods } from '../../api/queries/user';
 import { addPaymentToOrder, transitionOrderToState } from '../../api/mutations/checkout';
-import { handlePayment, isWechatpayMethod, type PaymentMethod } from '../../composables/usePayment';
+import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
 import EmptyState from '../../components/EmptyState.vue';
 
 const PAYABLE_STATES = ['Created', 'AddingItems', 'ArrangingPayment'];
@@ -106,11 +106,8 @@ async function pay() {
     submitting.value = true;
     try {
         const method = selected.value as PaymentMethod;
+        // openid 由服务端客户档案推导（wechatOpenid/wechatMiniOpenid），前端不再传
         const metadata: Record<string, any> = {};
-        if (isWechatpayMethod(method)) {
-            const openid = uni.getStorageSync('auth_openid');
-            if (openid) metadata.openid = openid;
-        }
         const payRes: any = await addPaymentToOrder(method, metadata);
         const o = payRes?.addPaymentToOrder;
         if (!o || o.errorCode) throw new Error(o?.message || '支付失败');
