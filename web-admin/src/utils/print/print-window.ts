@@ -3,11 +3,6 @@
 
 let lastHtml = '';
 
-/** 最近一次待打印的单据 HTML（兜底重试用；为空则没有可重试的单据） */
-export function getLastPrintHtml(): string {
-  return lastHtml;
-}
-
 /**
  * 用隐藏 iframe 打印完整 HTML（含内联 CSS）。
  * 返回是否成功发起打印；`false` 时调用方应引导用户走 `openPrintFallback`。

@@ -541,7 +541,8 @@ function chooseFilesMixedH5(_remain: number): Promise<any[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*,video/*';
+    // 显式枚举类型而非 image/*,video/*：排除 image/svg+xml（svg 以 URL 直开可执行内嵌脚本）
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/x-m4v,video/x-msvideo,video/webm';
     input.multiple = true;
     input.style.display = 'none';
     document.body.appendChild(input);
@@ -560,6 +561,26 @@ function chooseFilesMixedH5(_remain: number): Promise<any[]> {
 }
 // #endif
 
+// 上传前置校验（accept 可被拖拽/控制台绕过，提交前必须再验一次；后端 mime 白名单是最终兜底）
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const ALLOWED_MIME = /^(image\/(png|jpe?g|webp|gif)|video\/(mp4|quicktime|x-m4v|x-msvideo|webm))$/;
+
+function validateUploadFile(file: File): string | null {
+  if (file.name.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml') {
+    return locale.t('mediaLibraryModal.unsupportedType');
+  }
+  if (file.type && !ALLOWED_MIME.test(file.type)) {
+    return locale.t('mediaLibraryModal.unsupportedType');
+  }
+  const isVideo = file.type.startsWith('video/');
+  const max = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  if (file.size > max) {
+    return locale.t('mediaLibraryModal.tooLarge').replace('{max}', Math.round(max / 1024 / 1024).toString());
+  }
+  return null;
+}
+
 async function chooseAndUpload() {
   const remain = props.max - selected.value.length;
   if (remain <= 0) {
@@ -569,13 +590,22 @@ async function chooseAndUpload() {
   uploading.value = true;
   try {
     const files = await chooseFiles(remain);
+    let okCount = 0;
     for (const tf of files.slice(0, remain)) {
       const { file, name } = await toFile(tf);
+      const err = validateUploadFile(file);
+      if (err) {
+        uni.showToast({ title: `${name}: ${err}`, icon: 'none' });
+        continue;
+      }
       const asset = await uploadAsset(file, name);
       if (!selected.value.some((x) => x.id === asset.id)) selected.value.push(asset);
+      okCount++;
     }
-    await load(false);
-    await loadTags();
+    if (okCount > 0) {
+      await load(false);
+      await loadTags();
+    }
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('mediaLibraryModal.uploadFailed'), icon: 'none' });
   } finally {

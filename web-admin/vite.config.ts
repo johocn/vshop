@@ -11,6 +11,7 @@ export default defineConfig({
         host: '0.0.0.0',
         proxy: {
             '/admin-api': {
+                // 仅 dev server 用；缺失 env 时回退本地后端并打日志提醒，避免静默指错目标
                 target: process.env.VITE_API_URL || 'http://localhost:3000',
                 changeOrigin: true,
             },
