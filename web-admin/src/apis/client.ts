@@ -31,6 +31,33 @@ function handleUnauthenticated(): void {
   }, 100);
 }
 
+// FORBIDDEN 探测：本 fork 的 auth-guard 对「会话失效」与「权限不足」均抛 ForbiddenError，
+// 无法从单次响应区分。用 me（仅需 Authenticated）探测——会话真失效时 me 同样报错；
+// 有会话但权限不足的用户 me 会成功，不误杀。
+let probingSession = false;
+
+async function probeSessionThenLogout(): Promise<void> {
+  if (probingSession) return;
+  probingSession = true;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const auth = getAuthToken();
+    if (auth) headers['Authorization'] = 'Bearer ' + auth;
+    const ch = getChannelToken();
+    if (ch) headers['vendure-token'] = ch;
+    const res = await fetch(buildClientUrl(), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: 'query { me { id } }' }),
+    });
+    const body = await res.json();
+    const code = body?.errors?.[0]?.extensions?.code;
+    if (code === 'FORBIDDEN' || code === 'UNAUTHORIZED') handleUnauthenticated();
+  } catch { /* 网络异常不误杀会话 */ } finally {
+    probingSession = false;
+  }
+}
+
 export function getAdminClient(): GraphQLClient {
   if (!instance) {
     const customFetch: typeof fetch = (input, init) =>
@@ -44,11 +71,14 @@ export function getAdminClient(): GraphQLClient {
           return res;
         }
         // Vendure 未认证时 HTTP 仍为 200，错误码在 GraphQL errors[].extensions.code
-        // （本 fork：auth guard 未认证抛 UnauthorizedError → code=UNAUTHORIZED；FORBIDDEN 属权限不足，不触发登出）
+        // （本 fork：无会话与权限不足均为 FORBIDDEN，后者走 me 探测区分；UNAUTHORIZED 理论保留）
         try {
           const body = await res.clone().json();
-          if (body?.errors?.some((e: any) => e?.extensions?.code === 'UNAUTHORIZED')) {
+          const codes = (body?.errors || []).map((e: any) => e?.extensions?.code);
+          if (codes.includes('UNAUTHORIZED')) {
             handleUnauthenticated();
+          } else if (codes.includes('FORBIDDEN')) {
+            void probeSessionThenLogout();
           }
         } catch { /* 非 JSON 响应忽略 */ }
         return res;
