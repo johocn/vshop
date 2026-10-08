@@ -1,5 +1,5 @@
 // 骑手注册审核域 admin-api 调用（schema 以 vendure/packages/campus-delivery-plugin/src/campus-delivery.plugin.ts adminApiExtensions 为准）
-//   - Query riderApplications(status): [Customer!]!（Customer.customFields 含 rider* 字段，无分页参数）
+//   - Query riderApplications(status, skip, take): RiderApplicationList { items: [Customer!]!, total: Int! }（F8 分页）
 //   - Mutation campusSetRiderStatus(customerId, status): CampusSetRiderStatusResult { status }
 //   - status：pending（审核中）/ approved（已通过）/ suspended（已暂停）/ none（未申请/已清退）
 import { getAdminClient } from './client';
@@ -27,15 +27,24 @@ const APPLICATION_FIELDS = `
   }
 `;
 
-/** 按状态查询骑手申请/名单（后端 getMany 全量返回，无分页） */
-export async function fetchRiderApplications(status: string): Promise<RiderApplicationRow[]> {
-  const { riderApplications } = await getAdminClient().request<{ riderApplications: RiderApplicationRow[] }>(
-    `query RiderApplications($status: String!) {
-      riderApplications(status: $status) { ${APPLICATION_FIELDS} }
+/** 按状态分页查询骑手申请/名单 */
+export async function fetchRiderApplications(
+  status: string,
+  skip = 0,
+  take = 50,
+): Promise<{ items: RiderApplicationRow[]; total: number }> {
+  const { riderApplications } = await getAdminClient().request<{
+    riderApplications: { items: RiderApplicationRow[]; total: number };
+  }>(
+    `query RiderApplications($status: String!, $skip: Int, $take: Int) {
+      riderApplications(status: $status, skip: $skip, take: $take) {
+        items { ${APPLICATION_FIELDS} }
+        total
+      }
     }`,
-    { status },
+    { status, skip, take },
   );
-  return riderApplications ?? [];
+  return { items: riderApplications?.items ?? [], total: riderApplications?.total ?? 0 };
 }
 
 /** 审核操作：approved 通过 / suspended 暂停 / none 拒绝（清退） */
