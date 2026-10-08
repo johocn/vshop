@@ -1129,12 +1129,8 @@ async function prepareOrderAddressAndShipping(): Promise<boolean> {
  * 返回跳转用的订单号（在线支付前最后一笔订单号）
  */
 async function payCurrentOrder(method: string): Promise<string> {
-    // Build payment metadata (wechatpay JSAPI requires openid)
+    // payment metadata：openid 由服务端客户档案推导，前端不再传
     const paymentMetadata: Record<string, any> = {};
-    if (isWechatpayMethod(method)) {
-        const openid = uni.getStorageSync('auth_openid');
-        if (openid) paymentMetadata.openid = openid;
-    }
     // Add payment
     const payRes: any = await addPaymentToOrder(method, paymentMetadata);
     const order = payRes.addPaymentToOrder;
@@ -1255,11 +1251,8 @@ async function payMarketplaceSellerSubOrders(method: string): Promise<string[]> 
         const subOrders = (res?.myMarketplaceSellerOrders || [])
             .filter((o: any) => o.state === 'ArrangingPayment');
         for (const sub of subOrders) {
+            // openid 由服务端客户档案推导，前端不再传
             const metadata: Record<string, any> = {};
-            if (isWechatpayMethod(method)) {
-                const openid = uni.getStorageSync('auth_openid');
-                if (openid) metadata.openid = openid;
-            }
             const payRes: any = await payMarketplaceSellerOrder(sub.id, method, metadata);
             const result = payRes?.payMarketplaceSellerOrder;
             if (result?.code) codes.push(result.code);

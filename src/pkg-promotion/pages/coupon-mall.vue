@@ -662,8 +662,8 @@ async function confirmPay() {
             await onPaid();
         } else {
             const tradeType = getPlatform() === 'mp-weixin' ? 'JSAPI' : 'H5';
-            const openid = uni.getStorageSync('auth_openid') || undefined;
-            const res: any = await createWechatCouponPayment(order.id, tradeType, openid);
+            // openid 由服务端客户档案推导（第三参可选），前端不再传
+            const res: any = await createWechatCouponPayment(order.id, tradeType);
             const pay = res.createWechatCouponPayment?.pay;
             if (!pay || (!pay.payUrl && !pay.paySign)) {
                 ui.showToast('支付通道暂不可用，请改用余额支付');

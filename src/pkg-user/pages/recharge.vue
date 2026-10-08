@@ -79,8 +79,8 @@ async function doWechatRecharge() {
         const id = orderRes.createRechargeOrder.id;
         // 2. 发起支付
         const tradeType = getPlatform() === 'mp-weixin' ? 'JSAPI' : 'H5';
-        const openid = uni.getStorageSync('auth_openid') || undefined;
-        const payRes: any = await createWechatRechargePayment(id, tradeType, openid);
+        // openid 由服务端客户档案推导（第三参可选），前端不再传
+        const payRes: any = await createWechatRechargePayment(id, tradeType);
         const pay = payRes.createWechatRechargePayment.pay;
         // 3. 调起支付：结构与订单支付 metadata 一致，走 usePayment 现成分支
         const result = await handlePayment('wechatpay', pay);
