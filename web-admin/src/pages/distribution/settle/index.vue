@@ -12,8 +12,8 @@
       <text class="line">{{ $t('distributionSettle.line').replace('{distributorId}', c.distributorId).replace('{orderId}', c.orderId) }}</text>
       <text class="line">{{ (c.commissionType === 'direct' ? $t('distributionSettle.feeDirect') : $t('distributionSettle.feeIndirect')).replace('{rate}', (c.commissionRate / 100).toFixed(1)) }}</text>
       <view class="amt">
-        <text class="amt-item">{{ $t('distributionSettle.order') }} ¥{{ (c.orderAmount / 100).toFixed(2) }}</text>
-        <text class="amt-item">{{ $t('distributionSettle.commission') }} ¥{{ (c.commissionAmount / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionSettle.order') }} ¥{{ fenToYuanFixed(c.orderAmount) }}</text>
+        <text class="amt-item">{{ $t('distributionSettle.commission') }} ¥{{ fenToYuanFixed(c.commissionAmount) }}</text>
       </view>
     </view>
     <view v-if="!items.length" class="empty">{{ $t('distributionSettle.empty') }}</view>
@@ -26,6 +26,7 @@ import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchCommissions, type CommissionRow } from '../../../apis/distribution';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 const items = ref<CommissionRow[]>([]);

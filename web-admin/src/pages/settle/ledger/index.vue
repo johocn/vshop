@@ -69,6 +69,7 @@ import {
 import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import LedgerCard from './LedgerCard.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -97,7 +98,7 @@ function pad2(n: number): string { return String(n).padStart(2, '0'); }
 function dateKey(d: Date | null): string {
   return d ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
 }
-function fmtY(v: number): string { return (v / 100).toFixed(2); }
+function fmtY(v: number): string { return fenToYuanFixed(v); }
 
 const dayGroups = computed(() => {
   const map = new Map<string, SettlementLedgerRow[]>();
@@ -129,7 +130,7 @@ function daySummary(list: SettlementLedgerRow[]) {
   }
   return Array.from(map.entries())
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .map(([date, s]) => ({ date, count: s.count, amount: (s.amount / 100).toFixed(2) }));
+    .map(([date, s]) => ({ date, count: s.count, amount: fenToYuanFixed(s.amount) }));
 }
 
 function onExport() {
@@ -153,7 +154,7 @@ function onExport() {
       r.collectorName || '',
       ch,
       settleMethodLabel(r.settleMethod),
-      (r.amount / 100).toFixed(2),
+      fenToYuanFixed(r.amount),
       isPendingSign(r.status) ? locale.t('settleLedger.pending') : locale.t('settleLedger.paid'),
     ];
   });
@@ -188,7 +189,7 @@ const stat = computed(() => {
 });
 
 function fmt(v: number): string {
-  return '¥' + (v / 100).toFixed(2);
+  return '¥' + fenToYuanFixed(v);
 }
 
 async function load(): Promise<void> {

@@ -12,9 +12,9 @@
       <text class="line">{{ $t('distributionRelations.customer').replace('{customerId}', d.customerId).replace('{referralCode}', d.referralCode) }}</text>
       <text class="line">{{ $t('distributionRelations.level').replace('{level}', d.level) }}<text v-if="d.parentId">{{ $t('distributionRelations.parent').replace('{parentId}', d.parentId) }}</text></text>
       <view class="amt">
-        <text class="amt-item">{{ $t('distributionRelations.totalEarnings') }} ¥{{ (d.totalEarnings / 100).toFixed(2) }}</text>
-        <text class="amt-item">{{ $t('distributionRelations.availableBalance') }} ¥{{ (d.availableBalance / 100).toFixed(2) }}</text>
-        <text class="amt-item">{{ $t('distributionRelations.frozenBalance') }} ¥{{ (d.frozenBalance / 100).toFixed(2) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.totalEarnings') }} ¥{{ fenToYuanFixed(d.totalEarnings) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.availableBalance') }} ¥{{ fenToYuanFixed(d.availableBalance) }}</text>
+        <text class="amt-item">{{ $t('distributionRelations.frozenBalance') }} ¥{{ fenToYuanFixed(d.frozenBalance) }}</text>
       </view>
     </view>
     <view v-if="!items.length" class="empty">{{ $t('distributionRelations.empty') }}</view>
@@ -27,6 +27,7 @@ import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchDistributors, type DistributorRow } from '../../../apis/distribution';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 const items = ref<DistributorRow[]>([]);

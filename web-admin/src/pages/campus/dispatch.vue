@@ -174,7 +174,7 @@ import {
 } from '../../apis/campus';
 import { fetchCouponTemplates, type CouponTemplateItem } from '../../apis/coupon';
 import { graphQlErrorMsg } from '../../apis/client';
-import { yuanToFen } from '../../utils/money';
+import { yuanToFen, fenToYuanFixed } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -310,7 +310,7 @@ function actionLabel(action: string): string {
 }
 function handledDetail(h: HandedException): string {
   if (h.action === 'refund_diff' && h.compensation != null) {
-    return `${locale.t('campusDispatch.actRefundDiff')} ¥${(h.compensation / 100).toFixed(2)}`;
+    return `${locale.t('campusDispatch.actRefundDiff')} ¥${fenToYuanFixed(h.compensation)}`;
   }
   return actionLabel(h.action);
 }

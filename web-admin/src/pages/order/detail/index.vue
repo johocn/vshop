@@ -107,6 +107,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { fetchOrderDetail, cancelOrder, addOrderNote, modifyOrderPrice, OrderDetail } from '../../../apis/order';
 import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -120,7 +121,7 @@ const adjusting = ref(false);
 
 const canAdjustPrice = computed(() => ['AddingItems', 'ArrangingPayment'].includes(order.value?.state || ''));
 
-const money = (n?: number | null): string => ((n ?? 0) / 100).toFixed(2);
+const money = fenToYuanFixed;
 
 const canShip = computed(() => ['PaymentAuthorized', 'WaitingForShipping'].includes(order.value?.state || ''));
 const canCancel = computed(() => ['PaymentAuthorized', 'WaitingForShipping'].includes(order.value?.state || ''));
@@ -174,7 +175,7 @@ async function onSubmitNote() {
 }
 
 function openAdjust() {
-  adjustInput.value = order.value ? (order.value.totalWithTax / 100).toFixed(2) : '';
+  adjustInput.value = order.value ? fenToYuanFixed(order.value.totalWithTax) : '';
   adjustVisible.value = true;
 }
 

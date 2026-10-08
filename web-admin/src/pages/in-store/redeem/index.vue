@@ -97,6 +97,7 @@ import {
 } from '../../../apis/in-store-bill';
 import { scanCode } from '../../../utils/scanner';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -115,7 +116,7 @@ const canRedeem = computed(() => !!quote.value?.ok && quote.value?.finalAmount !
 
 /** 分 → 元（两位小数）。本地未引入的数值（券卡展示用）用价格格式化兜底。 */
 function fen(v: number | null | undefined): string {
-  return v == null ? '—' : (v / 100).toFixed(2);
+  return v == null ? '—' : fenToYuanFixed(v);
 }
 function fmtDate(t?: string | null): string {
   if (!t) return '—';

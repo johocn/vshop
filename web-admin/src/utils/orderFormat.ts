@@ -1,6 +1,7 @@
 // 订单列表·中国本地化 展示层工具与视图模型（纯函数，SSR/H5 友好）
 import type { OrderRow, ShopOrderRow } from '../apis/order';
 import { inTimeWindow, TimeRangeInput } from './orderFilter';
+import { fenToYuanFixed } from './money';
 
 // —— 展示视图模型：把渠道单/商品单两种异构数据统一成同一渲染结构 ——
 export interface OrderGood {
@@ -89,7 +90,7 @@ export function formatAddress(a?: ShipAddressLike | null): string {
 }
 
 export function fmtMoney(cents: number): string {
-  return ((cents || 0) / 100).toFixed(2);
+  return fenToYuanFixed(cents);
 }
 
 export interface StatsValue { today: string; unpaid: string; toShip: string; refund: string }

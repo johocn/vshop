@@ -66,6 +66,7 @@ import { fetchShippingMethods, setShippingEnabled, updateShippingMethod, deleteS
 import { fetchShippingTemplates, createShippingMethodFromTemplate } from '../../../apis/shipping-template';
 import { useAuthStore } from '../../../stores/authStore';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -74,7 +75,7 @@ const FIXED_FEE_CALCS = ['pickup-point-calculator', 'employee-pickup-calculator'
 const isFixedFee = (code: string) => FIXED_FEE_CALCS.includes(code);
 const isStorePickup = (code: string) => code === 'store-pickup-calculator';
 const isMail = (code: string) => !!code && !isFixedFee(code) && !isStorePickup(code);
-const fen2yuan = (fen: number) => ((Number(fen) || 0) / 100).toFixed(2);
+const fen2yuan = (fen: number) => fenToYuanFixed(fen);
 
 const tab = ref<'mine' | 'pool'>('mine');
 const items = ref<any[]>([]);

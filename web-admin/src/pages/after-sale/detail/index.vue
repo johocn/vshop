@@ -183,13 +183,14 @@ import {
   hasAfterSaleActions,
 } from '../../../constants/afterSaleActions';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
 const detail = ref<AfterSaleRow | null>(null);
 const loading = ref(false);
 
-const money = (n?: number | null): string => ((n ?? 0) / 100).toFixed(2);
+const money = fenToYuanFixed;
 
 const stLabel = computed(() => afterSaleStateLabel(detail.value?.state).label);
 const stColor = computed(() => afterSaleStateLabel(detail.value?.state).color);

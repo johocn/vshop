@@ -56,6 +56,7 @@ import { visibleMenus } from '../../constants/menus';
 import { useBinMode } from '../../composables/useBinMode';
 import { fetchHomeKpis } from '../../apis/stats';
 import { confirmExit } from '../../utils/h5Nav';
+import { fenToYuanFixed } from '../../utils/money';
 import BottomBar from '../../components/BottomBar.vue';
 import Drawer from '../../components/Drawer.vue';
 
@@ -82,7 +83,7 @@ const kpis = ref([
 async function loadKpis() {
   try {
     const k = await fetchHomeKpis();
-    kpis.value[0].value = '¥' + (k.revenue / 100).toFixed(2);
+    kpis.value[0].value = '¥' + fenToYuanFixed(k.revenue);
     kpis.value[1].value = String(k.toShip);
     kpis.value[2].value = String(k.lowStock);
   } catch (e) {

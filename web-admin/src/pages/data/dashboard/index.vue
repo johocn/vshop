@@ -19,7 +19,7 @@
           <text class="lbl">{{ $t('dataDashboard.todayOrders') }}</text>
         </view>
         <view class="stat-card">
-          <text class="num">{{ ov ? '¥' + (ov.revenue / 100).toFixed(2) : '—' }}</text>
+          <text class="num">{{ ov ? '¥' + fenToYuanFixed(ov.revenue) : '—' }}</text>
           <text class="lbl">{{ $t('dataDashboard.todayRevenue') }}</text>
         </view>
         <view class="stat-card">
@@ -180,7 +180,7 @@
           <text class="lbl">{{ $t('dataDashboard.asRequests') }}</text>
         </view>
         <view class="stat-card">
-          <text class="num">{{ asStats ? '¥' + (asStats.totalRefundAmount / 100).toFixed(2) : '—' }}</text>
+          <text class="num">{{ asStats ? '¥' + fenToYuanFixed(asStats.totalRefundAmount) : '—' }}</text>
           <text class="lbl">{{ $t('dataDashboard.asRefundAmount') }}</text>
         </view>
         <view class="stat-card">
@@ -267,6 +267,7 @@ import { AFTER_SALE_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../consta
 import { buildOrderFilter } from '../../../utils/orderFilter';
 import { downloadCsv } from '../../../utils/csv';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fenToYuanFixed } from '../../../utils/money';
 import {
   buildOpsWindow,
   sumShippedItems,

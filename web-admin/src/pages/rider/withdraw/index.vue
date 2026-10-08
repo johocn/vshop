@@ -45,6 +45,7 @@ import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
 import { fetchWithdrawPage, approveRiderWithdraw, rejectRiderWithdraw, type RiderWithdrawRow } from '../../../apis/rider-withdraw';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 
@@ -70,7 +71,7 @@ function onTab(key: string) {
 }
 
 function fmtFen(fen: number): string {
-  return ((fen ?? 0) / 100).toFixed(2);
+  return fenToYuanFixed(fen);
 }
 
 function fmtTime(t?: string | null): string {

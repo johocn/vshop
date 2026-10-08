@@ -66,6 +66,7 @@ import {
 import { scanCode } from '../../../utils/scanner';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
+import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -116,7 +117,7 @@ function formatExpiry(t?: string | null, status?: string): string {
 
 /** 分（Vendure Money）→ 元 */
 function fenToYuan(v?: number): string {
-  return v == null ? '—' : (v / 100).toFixed(2);
+  return v == null ? '—' : fenToYuanFixed(v);
 }
 
 async function loadList(): Promise<void> {
