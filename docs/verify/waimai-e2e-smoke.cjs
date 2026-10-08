@@ -16,13 +16,25 @@ function assert(step, cond, detail) {
     if (!ok) throw new Error(`SMOKE FAILED at ${step}${detail ? ': ' + detail : ''}`);
 }
 
+/** 响应必须是 JSON：HTML（网关错误页/301/SPA 回退/nginx 缺 location）给出含 URL+status+body 摘要的可诊断报错 */
+async function jsonOrThrow(res, url) {
+    const text = await res.text();
+    const ct = res.headers.get('content-type') || '';
+    const snippet = text.replace(/\s+/g, ' ').slice(0, 120);
+    if (!ct.includes('json') && !/^\s*[[{]/.test(text)) {
+        throw new Error(`非 JSON 响应 HTTP ${res.status}（${ct || '无 content-type'}）来自 ${url} —— 检查基址/网关/反代 location；body: ${snippet}`);
+    }
+    try { return JSON.parse(text); }
+    catch { throw new Error(`JSON 解析失败 HTTP ${res.status} 来自 ${url}；body: ${snippet}`); }
+}
+
 async function gql(url, query, variables, headers = {}) {
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ query, variables: variables || {} }),
     });
-    const body = await res.json();
+    const body = await jsonOrThrow(res, url);
     if (body.errors?.length) throw new Error(`gql ${body.errors[0].message}`);
     return body.data;
 }
@@ -40,7 +52,7 @@ async function nativeLogin(user) {
             } }`,
         }),
     });
-    const body = await res.json();
+    const body = await jsonOrThrow(res, SHOP_API);
     const r = body.data?.login;
     if (!r || !r.identifier) throw new Error('native login failed: ' + JSON.stringify(r ?? body.errors));
     return res.headers.get('vendure-auth-token');
@@ -53,7 +65,7 @@ async function adminLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: `mutation { login(username: "superadmin", password: "z123123") { ... on CurrentUser { id } } }` }),
     });
-    const body = await res.json();
+    const body = await jsonOrThrow(res, ADMIN_API);
     if (!body.data?.login?.id) throw new Error('admin login failed: ' + JSON.stringify(body.errors ?? body.data));
     return res.headers.get('vendure-auth-token');
 }
