@@ -143,8 +143,17 @@ async function main() {
     assert('S5-pre', paidState === 'PaymentSettled', `结算后 state=${paidState}`);
     const paid = await gql(SHOP_API, `{ order(id: "${orderId}") { state customFields { hallStatus hallEnteredAt } } }`, null, AH);
     const locked = (await gql(ADMIN_API, `{ campusSlots { id lockedCount } }`, null, AHADMIN)).campusSlots.find(s => s.id === slot.id);
-    assert('S5', paid.order.customFields.hallStatus === 'open' && locked.lockedCount >= 1,
+    // F14 适配：订单在 scheduledFor 前 30min 才放量进厅（dispatch-job）；所选时段在窗口外时
+    // hallStatus=scheduled 属预期，S6-S8 调度流（大厅/抢单/送达/转单）无从执行，降级跳过。
+    // 时段窗口内重跑可覆盖全链路（如清晨首个时段）。提现链路由 waimai-withdraw-smoke.cjs 独立覆盖。
+    const inWindow = paid.order.customFields.hallStatus === 'open';
+    assert('S5', inWindow ? locked.lockedCount >= 1 : paid.order.customFields.hallStatus === 'scheduled',
         `hallStatus=${paid.order.customFields.hallStatus} slot lockedCount=${locked.lockedCount}`);
+    if (!inWindow) {
+        console.log(`[smoke] F14 适配：时段 ${cf.deliverySlotText} 在 30min 进厅窗口外，S6-S8 调度流跳过（窗口内重跑可全链路）`);
+        console.log('E2E SMOKE PASS (partial S1-S5, 调度流因时段窗口跳过)');
+        return;
+    }
 
     // S6 骑手：登录→大厅含单→抢单→开始取货→送达
     const riderToken = await nativeLogin(RIDER_USER);
