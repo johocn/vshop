@@ -69,10 +69,9 @@ const cur = ref('pending');
 const page = useListPage<RiderApplicationRow>({
   take: 50,
   immediate: false,
-  // 后端全量返回无分页：忽略 skip/take，一次取全
-  fetcher: async () => {
-    const rows = await fetchRiderApplications(cur.value);
-    return { items: rows, total: rows.length };
+  // F8 后端分页：resolver 返回 { items, total }
+  fetcher: async (p) => {
+    return await fetchRiderApplications(cur.value, p.skip, p.take);
   },
 });
 
