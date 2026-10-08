@@ -52,7 +52,8 @@ async function probeSessionThenLogout(): Promise<void> {
     });
     const body = await res.json();
     const code = body?.errors?.[0]?.extensions?.code;
-    if (code === 'FORBIDDEN' || code === 'UNAUTHORIZED') handleUnauthenticated();
+    // 无效 token 下 me 可能返回 data.me=null（无 error）或 FORBIDDEN 两种形态，都视为会话失效
+    if (!body?.data?.me || code === 'FORBIDDEN' || code === 'UNAUTHORIZED') handleUnauthenticated();
   } catch { /* 网络异常不误杀会话 */ } finally {
     probingSession = false;
   }
