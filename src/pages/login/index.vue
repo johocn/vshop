@@ -46,9 +46,9 @@
     </view>
     <view class="login-page__agreement">
       <text class="agreement-text">{{ t('auth.agreementPrefix') }}</text>
-      <text class="agreement-link">{{ t('auth.userAgreement') }}</text>
+      <text class="agreement-link" @click="goAgreement('user')">{{ t('auth.userAgreement') }}</text>
       <text class="agreement-text">{{ t('auth.agreementAnd') }}</text>
-      <text class="agreement-link">{{ t('auth.privacyPolicy') }}</text>
+      <text class="agreement-link" @click="goAgreement('privacy')">{{ t('auth.privacyPolicy') }}</text>
     </view>
   </view>
 </template>
@@ -532,6 +532,10 @@ async function tryUpdateReferredBy(inviteCode: string) {
 
 function goRegister() {
     uni.navigateTo({ url: '/pages/register/index' });
+}
+
+function goAgreement(type: 'user' | 'privacy') {
+    uni.navigateTo({ url: `/pkg-user/pages/agreement?type=${type}` });
 }
 </script>
 <style lang="scss" scoped>

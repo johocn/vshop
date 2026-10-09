@@ -298,6 +298,12 @@
                     "style": {
                         "navigationBarTitleText": "修改密码"
                     }
+                },
+                {
+                    "path": "pages/agreement",
+                    "style": {
+                        "navigationBarTitleText": "协议"
+                    }
                 }
             ]
         }
