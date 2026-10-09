@@ -161,9 +161,12 @@ SITE_URL="https://e.joho.cn/workbench/"
 - **注意**：若服务器曾在新插件加入前安装过依赖，需手工补 workspace 符号链接（本次已执行）：
   `ln -s /www/apps/vendure/packages/tcm-clinic-plugin /www/apps/vendure/node_modules/@vendure/tcm-clinic-plugin`
 
-### 6.3 待办（用户侧）
+### 6.3 SSO 中心登记（已完成 2026-10-09）
 
-- **SSO 中心注册 `app_code=tcm-workbench`**：zhao-sso 管理侧需登记该应用标识，否则统一登录页回调时可能拒绝跳转。
+- `app_code=tcm-workbench` 已登记进 zhao-sso（strapi 插件 `plugin::zhao-sso.sso-app`，`sso_apps` 表 id=11，`is_active=true`）。
+- 回调白名单：`https://e.joho.cn/workbench/*`、`https://e.joho.cn/workbench/#/pages/auth-callback/auth-callback`、SSO 自身 login-callback 页、`http://localhost:*`。
+- `app_secret` 已生成（仅 bcrypt 哈希入库，明文已在交付时告知，用于将来服务间调用如消息推送；工作台登录流程不需要它）。
+- 后续如需调整白名单：strapi 后台「SSO App」或直接改 `sso_apps` 表对应行。
 
 ### 6.4 代码托管
 
