@@ -7,7 +7,9 @@
     { "path": "pages/encounter/flow", "style": { "navigationBarTitleText": "接诊录入" } },
     { "path": "pages/plan/list", "style": { "navigationBarTitleText": "康养规划" } },
     { "path": "pages/plan/detail", "style": { "navigationBarTitleText": "规划详情" } },
-    { "path": "pages/followup/list", "style": { "navigationBarTitleText": "随访任务" } }
+    { "path": "pages/followup/list", "style": { "navigationBarTitleText": "随访任务" } },
+    { "path": "pages/record/list", "style": { "navigationBarTitleText": "病志档案" } },
+    { "path": "pages/record/detail", "style": { "navigationBarTitleText": "病志详情" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "white",
