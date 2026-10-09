@@ -29,6 +29,12 @@
       <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')">
         <text>分销中心</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/faq')">
+        <text>常见问题</text><text class="menu-arrow">></text>
+      </view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/feedback')">
+        <text>意见反馈</text><text class="menu-arrow">></text>
+      </view>
     </view>
     <button class="profile-page__logout" @click="doLogout">退出登录</button>
   </view>

@@ -258,6 +258,18 @@
                     }
                 },
                 {
+                    "path": "pages/faq",
+                    "style": {
+                        "navigationBarTitleText": "常见问题"
+                    }
+                },
+                {
+                    "path": "pages/feedback",
+                    "style": {
+                        "navigationBarTitleText": "意见反馈"
+                    }
+                },
+                {
                     "path": "pages/member-center",
                     "style": {
                         "navigationBarTitleText": "会员权益中心"
