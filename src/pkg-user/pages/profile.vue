@@ -19,6 +19,7 @@
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')"><text>优惠券</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/live-list')"><text>直播</text><text>></text></view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')"><text>分销中心</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/change-password')"><text>修改密码</text><text>></text></view>
     </view>
     <button class="profile-page__logout" @click="doLogout">退出登录</button>
   </view>

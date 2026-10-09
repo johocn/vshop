@@ -206,3 +206,22 @@ export async function registerCustomer(input: {
 export async function logout(): Promise<void> {
     const { data } = await authRequest(`mutation { logout { success } }`);
 }
+
+type UpdateCustomerPasswordResult =
+    | { __typename: 'Success' }
+    | { __typename: 'InvalidCredentialsError'; errorCode: string; message: string }
+    | { __typename: 'PasswordValidationError'; errorCode: string; message: string }
+    | { __typename: 'NativeAuthStrategyError'; errorCode: string; message: string };
+
+export async function updateCustomerPassword(currentPassword: string, newPassword: string): Promise<UpdateCustomerPasswordResult> {
+    const { data } = await authRequest(
+        `mutation UpdateCustomerPassword($currentPassword: String!, $newPassword: String!) {
+            updateCustomerPassword(currentPassword: $currentPassword, newPassword: $newPassword) {
+                __typename
+                ... on ErrorResult { errorCode message }
+            }
+        }`,
+        { currentPassword, newPassword }
+    );
+    return data?.updateCustomerPassword as UpdateCustomerPasswordResult;
+}
