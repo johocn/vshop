@@ -22,13 +22,23 @@
           <button class="btn save-btn" @tap="saveName">{{ $t('platformTenantsDetail.save') }}</button>
         </view>
       </view>
-      <view class="field" style="margin-bottom: 0;">
+      <view class="field">
         <text class="label">{{ $t('platformTenantsDetail.domainLabel') }}</text>
         <view class="save-row">
           <input class="input" v-model="tenantDomain" :placeholder="$t('platformTenantsDetail.domainPh')" />
           <button class="btn save-btn" @tap="saveDomain">{{ $t('platformTenantsDetail.save') }}</button>
         </view>
         <text class="tip">{{ $t('platformTenantsDetail.domainTip') }}</text>
+      </view>
+      <view class="field" style="margin-bottom: 0;">
+        <text class="label">{{ $t('platformTenantsDetail.industryLabel') }}</text>
+        <view class="save-row">
+          <picker :range="industryLabels" :value="industryIndex" @change="onIndustryChange">
+            <view class="input picker-val">{{ industryLabel || $t('platformTenantsDetail.industryPh') }}</view>
+          </picker>
+          <button class="btn save-btn" @tap="saveIndustry">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.industryTip') }}</text>
       </view>
     </view>
 
@@ -178,6 +188,28 @@ const tenantDomain = ref('');
 const tenantCode = ref('');
 const tenantNo = ref<number | null>(null);
 
+// 行业类型（仅平台管理员可改；catering 为外卖准入，见设计文档 2026-10-09）
+const INDUSTRY_OPTIONS = ['catering', 'retail', 'fresh', 'service', 'hotel', 'beauty', 'education', 'other'] as const;
+const tenantIndustry = ref<string | null>(null);
+const industryLabels = computed(() => INDUSTRY_OPTIONS.map(v => locale.t(`platformTenantsDetail.industry_${v}`)));
+const industryIndex = computed(() => Math.max(0, INDUSTRY_OPTIONS.indexOf((tenantIndustry.value || '') as any)));
+const industryLabel = computed(() => {
+  const i = INDUSTRY_OPTIONS.indexOf((tenantIndustry.value || '') as any);
+  return i >= 0 ? locale.t(`platformTenantsDetail.industry_${INDUSTRY_OPTIONS[i]}`) : '';
+});
+function onIndustryChange(e: any) {
+  tenantIndustry.value = INDUSTRY_OPTIONS[Number(e.detail.value)];
+}
+async function saveIndustry() {
+  if (!tenantIndustry.value) { uni.showToast({ title: locale.t('platformTenantsDetail.industryRequired'), icon: 'none' }); return; }
+  try {
+    await updateTenant(channelId.value, { industryType: tenantIndustry.value });
+    uni.showToast({ title: locale.t('platformTenantsDetail.industryUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
 onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
 onShow(() => { if (channelId.value) loadAll(); });
 
@@ -191,6 +223,7 @@ async function loadTenant() {
     tenantDomain.value = t.domain || '';
     tenantCode.value = t.code;
     tenantNo.value = t.tenantNo ?? null;
+    tenantIndustry.value = t.industryType ?? null;
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
   }
@@ -411,6 +444,8 @@ function onEditRole(r: RoleItem) {
 .save-row { display: flex; align-items: center; gap: 16rpx; }
 .save-row .input { flex: 1; }
 .save-btn { flex: 0 0 auto; padding: 0 30rpx; line-height: 2.4; border-radius: 12rpx; background: $pm-info; }
+.save-row picker { flex: 1; min-width: 0; }
+.picker-val { min-width: 320rpx; }
 .tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: #bbb; }
 .warn-link { color: #e64340; flex: 0 0 auto; }
 .row { display: flex; align-items: center; }
