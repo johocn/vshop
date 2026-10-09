@@ -106,6 +106,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.memberLevel', url: '/pages/member/level-config/index', tier: 2 },
       { label: 'menu.faqManage', url: '/pages/feedback/faq/index', tier: 2 },
       { label: 'menu.feedbackList', url: '/pages/feedback/list/index', tier: 2 },
+      { label: 'menu.circleManage', url: '/pages/circle/posts/index', tier: 2 },
     ],
   },
   {
