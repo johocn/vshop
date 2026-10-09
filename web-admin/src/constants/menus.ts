@@ -113,6 +113,7 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { label: 'menu.distributionRelations', url: '/pages/distribution/relations/index', tier: 2 },
       { label: 'menu.distributionSettle', url: '/pages/distribution/settle/index', tier: 2 },
+      { label: 'menu.balanceWithdraw', url: '/pages/balance/withdraw/index', tier: 2 },
     ],
   },
   {

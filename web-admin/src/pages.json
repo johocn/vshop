@@ -54,6 +54,7 @@
     { "path": "pages/data/dashboard/index", "style": { "navigationBarTitleText": "数据看板" } },
     { "path": "pages/distribution/relations/index", "style": { "navigationBarTitleText": "分销关系" } },
     { "path": "pages/distribution/settle/index", "style": { "navigationBarTitleText": "佣金结算" } },
+    { "path": "pages/balance/withdraw/index", "style": { "navigationBarTitleText": "余额提现审核", "enablePullDownRefresh": true } },
     { "path": "pages/settle/ledger/index", "style": { "navigationBarTitleText": "收款台账" } },
     { "path": "pages/media/library/index", "style": { "navigationBarTitleText": "图片库" } },
     { "path": "pages/shipping/profile/index", "style": { "navigationBarTitleText": "配送档案" } },
