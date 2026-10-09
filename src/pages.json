@@ -325,6 +325,30 @@
                     }
                 }
             ]
+        },
+        {
+            "root": "pkg-circle",
+            "pages": [
+                {
+                    "path": "pages/feed",
+                    "style": {
+                        "navigationBarTitleText": "购物圈",
+                        "enablePullDownRefresh": true
+                    }
+                },
+                {
+                    "path": "pages/detail",
+                    "style": {
+                        "navigationBarTitleText": "帖子详情"
+                    }
+                },
+                {
+                    "path": "pages/publish",
+                    "style": {
+                        "navigationBarTitleText": "发布帖子"
+                    }
+                }
+            ]
         }
     ],
     "preloadRule": {
