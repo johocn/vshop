@@ -103,6 +103,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.couponTargeted', url: '/pages/coupon/issue/index', tier: 3 },
       { label: 'menu.flashSale', url: '/pages/promotion/flash-sale/index', tier: 2 },
       { label: 'menu.groupBuy', url: '/pages/promotion/group-buy/index', tier: 2 },
+      { label: 'menu.memberLevel', url: '/pages/member/level-config/index', tier: 2 },
     ],
   },
   {

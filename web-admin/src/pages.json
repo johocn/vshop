@@ -75,6 +75,7 @@
     { "path": "pages/promotion/flash-sale/edit", "style": { "navigationBarTitleText": "编辑秒杀活动" } },
     { "path": "pages/promotion/group-buy/index", "style": { "navigationBarTitleText": "拼团活动", "enablePullDownRefresh": true } },
     { "path": "pages/promotion/group-buy/edit", "style": { "navigationBarTitleText": "编辑拼团活动" } },
+    { "path": "pages/member/level-config/index", "style": { "navigationBarTitleText": "会员等级配置" } },
     { "path": "pages/in-store/redeem/index", "style": { "navigationBarTitleText": "到店买单核销" } },
     { "path": "pages/in-store/bills/index", "style": { "navigationBarTitleText": "买单流水" } },
     { "path": "pages/pos/index", "style": { "navigationBarTitleText": "门店收银" } },
