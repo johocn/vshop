@@ -164,4 +164,8 @@ SITE_URL="https://e.joho.cn/workbench/"
 ### 6.3 待办（用户侧）
 
 - **SSO 中心注册 `app_code=tcm-workbench`**：zhao-sso 管理侧需登记该应用标识，否则统一登录页回调时可能拒绝跳转。
-- **GitHub 远端**：本机无 gh CLI、无 HTTPS PAT，仓库创建需用户在 github.com 上手动建空仓 `johocn/tcm-workbench`（Private），远端 `origin`（`git@github.com:johocn/tcm-workbench.git`，SSH 已认证）已配置好，建好后直接 `git push -u origin master` 即可。
+
+### 6.4 代码托管
+
+- 本项目以 **vshop 仓库的 `zhongyi` 分支**托管（`git@github.com:johocn/vshop.git`，与 vshop 主干互不相关的独立历史）。
+- 本地已配置远端名 `vshop`，后续提交推送：`git push vshop master:zhongyi`。
