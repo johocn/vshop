@@ -167,6 +167,8 @@ SITE_URL="https://e.joho.cn/workbench/"
 - 回调白名单：`https://e.joho.cn/workbench/*`、`https://e.joho.cn/workbench/#/pages/auth-callback/auth-callback`、SSO 自身 login-callback 页、`http://localhost:*`。
 - `app_secret` 已生成（仅 bcrypt 哈希入库，明文已在交付时告知，用于将来服务间调用如消息推送；工作台登录流程不需要它）。
 - 后续如需调整白名单：strapi 后台「SSO App」或直接改 `sso_apps` 表对应行。
+- **线上账号绑定首例（2026-10-09）**：SSO 账号 `etao` 已绑至 Vendure `superadmin`（id=1）。绑定方式：`authentication_method` 表插入 `(type='external', strategy='tcmSso', externalIdentifier='sso:tcm:<uuid>', userId=1)`。注意该 SSO 账号 mobile/email 均为空，无法走首登自动匹配，必须显式绑定；其余医生账号仍按 §2.2 约定（identifier=手机号或邮箱一致）。
+- 线上登录闭环已验证：`python scripts/prod_login_test.py`（Playwright 390×844，截图 `docs/shots/12/13-prod-*.png`）。
 
 ### 6.4 代码托管
 
