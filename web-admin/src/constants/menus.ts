@@ -107,6 +107,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.faqManage', url: '/pages/feedback/faq/index', tier: 2 },
       { label: 'menu.feedbackList', url: '/pages/feedback/list/index', tier: 2 },
       { label: 'menu.circleManage', url: '/pages/circle/posts/index', tier: 2 },
+      { label: 'menu.lotteryManage', url: '/pages/lottery/prizes/index', tier: 2 },
     ],
   },
   {
