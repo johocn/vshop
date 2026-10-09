@@ -210,7 +210,7 @@ export interface ProductFull {
     } | null;
   }> | null;
   customFields?: { shippingProfileId?: string | null; paymentProfileId?: string | null } | null;
-  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; promos?: string[] | null; services?: string[] | null } | null;
+  productCustomFields?: { marketingTags?: string[] | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; promos?: string[] | null; services?: string[] | null; productType?: string | null } | null;
 }
 
 export interface ProductSaveInput {
@@ -236,6 +236,7 @@ export interface ProductSaveInput {
   tenantCategoryRef?: string | null; // 商品所属租户分类名（过审归位匹配依据）
   collectionId?: string; // 归属分类 id：保存时经 mapProductToCollection 把商品挂入该分类 filter，建立关联
   videoAssetId?: string | null; // 商品主视频资产 id（随 customFields 落库）
+  productType?: string; // 商品类型（customFields 落库；physical/virtual/service）
   // 多规格变体矩阵（新建落库 / 编辑同结构数值更新用）。productId 由 create/update 补齐。
   variantMatrix?: CreateVariantMatrixInput | null;
 }
@@ -255,7 +256,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         name: string;
         facet?: { name: string; code: string; id: string };
       }>;
-      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; videoAssetId?: string | null; promos?: string | null; services?: string | null } | null;
+      customFields?: { marketingTags?: string | null; sellingPoint?: string | null; tenantCategoryRef?: string | null; videoAssetId?: string | null; promos?: string | null; services?: string | null; productType?: string | null } | null;
       translations?: Array<{ languageCode: string; name: string; slug: string; description: string }>;
       variants: Array<{
         id: string;
@@ -276,7 +277,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         featuredAsset { id preview }
         assets { id preview }
         facetValues { id code name facet { id code name } }
-        customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId promos services }
+        customFields { marketingTags sellingPoint tenantCategoryRef videoAssetId promos services productType }
         translations { languageCode name slug description }
         variants {
           id sku price priceWithTax stockOnHand trackInventory
@@ -339,6 +340,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
           tenantCategoryRef: product.customFields.tenantCategoryRef ?? null,
           promos: promos,
           services: services,
+          productType: product.customFields?.productType ?? null,
         }
       : null,
   };
@@ -600,7 +602,7 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
   // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
   // tenantCategoryRef 为 Product 自定义 string 字段，随 customFields 落库，null 则清除。
-  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null && !input.promos?.length && !input.services?.length) return;
+  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null && !input.promos?.length && !input.services?.length && input.productType == null) return;
   const updated: Record<string, unknown> = { id };
   if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
@@ -609,6 +611,7 @@ async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Prom
   if (input.services?.length) customFields.services = JSON.stringify(input.services);
   if (input.tenantCategoryRef != null) customFields.tenantCategoryRef = input.tenantCategoryRef;
   if (input.videoAssetId != null) customFields.videoAssetId = input.videoAssetId;
+  if (input.productType != null) customFields.productType = input.productType;
   if (Object.keys(customFields).length) updated.customFields = customFields;
   if (input.sellingPoint) {
     updated.translations = [

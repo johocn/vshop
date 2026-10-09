@@ -243,6 +243,8 @@ onMounted(async () => {
     paymentProfileId: data.variant?.customFields?.paymentProfileId ?? '',
     // 主视频资产 id 回填
     videoAssetId: data.videoAssetId ?? null,
+    // 商品类型回填（存量老商品为 null 时回退 physical）
+    productType: data.productCustomFields?.productType ?? 'physical',
     // 归属分类：优先按 tenantCategoryRef 反解预选；找不到则 undefined（不预选不改动）
     collectionId: mappedCat?.id ?? undefined,
   };
