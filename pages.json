@@ -1,0 +1,12 @@
+{
+  "pages": [
+    { "path": "pages/home/index", "style": { "navigationBarTitleText": "医生工作台" } },
+    { "path": "pages/mock-login/mock-login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "医生工作台",
+    "navigationBarBackgroundColor": "#2f7d5f",
+    "backgroundColor": "#f6f7f6"
+  }
+}
