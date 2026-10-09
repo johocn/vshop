@@ -137,6 +137,29 @@ pnpm dev:h5                          # http://localhost:5177/workbench/
 - 手机视口截图回归：`python scripts/shoot.py`（需 fixture 与 dev:h5 已启动，产物输出 `docs/shots/`）。
 - 后端 e2e 回归：`cd packages/tcm-clinic-plugin && npx vitest --config vitest.config.mts --run`。
 
+### 5.1 线上演示账号（生产环境）
+
+| 角色 | SSO 账号 | 邮箱 | 密码 | 说明 |
+|---|---|---|---|---|
+| 超级管理员 | `etao` | — | `a963963` | 已显式绑定 Vendure superadmin（见 §6.3） |
+| 医生 | `dao` | `txting@163.com` | `a963963` | 陶医生（同德堂中医馆），SSO 用户名/邮箱均可登录 |
+
+### 5.2 线上演示数据（生产种子，2026-10-09 已灌入）
+
+种子脚本：服务器上执行 `python3 scripts/seed_prod.py`（经内网 `127.0.0.1:3020/admin-api`，SSO 登录换 Vendure 会话后逐项建数；**幂等可重跑**，已存在数据自动跳过）。
+
+| 数据 | 内容 |
+|---|---|
+| 医馆 | 同德堂中医馆 |
+| 医生 | 陶医生（txting@163.com，Administrator + ClinicStaff doctor） |
+| 患者 | 李患者（平和质）/ 王患者（气虚质）/ 赵患者（湿热质），均含患者档案 |
+| 接诊 | 李（初诊→已完成，病志 v2 两次修订）/ 王（复诊→进行中，病志 v1）/ 赵（初诊→待接诊） |
+| 康养规划 | 李「春季综合调理」（执行中，含针灸推拿/八段锦计划项）/ 王「脾胃调理计划」（草稿，含艾灸调理项） |
+| 随访 | 「一周后电话回访」（电话，已完成）/「发送调理提醒」（微信，待随访） |
+
+- 巡检回归：`python scripts/prod_dao_tour.py`（Playwright 390×844 手机视口以 dao 登录，逐页截图验证）。
+- 巡检截图：![dao 首页](shots/14-prod-dao-home.png) ![规划](shots/15-prod-dao-plans.png) ![随访](shots/16-prod-dao-followups.png) ![病志](shots/17-prod-dao-records.png)
+
 ## 6. 部署说明
 
 ### 6.1 前端（tcm-workbench H5）——已自动化
@@ -168,6 +191,7 @@ SITE_URL="https://e.joho.cn/workbench/"
 - `app_secret` 已生成（仅 bcrypt 哈希入库，明文已在交付时告知，用于将来服务间调用如消息推送；工作台登录流程不需要它）。
 - 后续如需调整白名单：strapi 后台「SSO App」或直接改 `sso_apps` 表对应行。
 - **线上账号绑定首例（2026-10-09）**：SSO 账号 `etao` 已绑至 Vendure `superadmin`（id=1）。绑定方式：`authentication_method` 表插入 `(type='external', strategy='tcmSso', externalIdentifier='sso:tcm:<uuid>', userId=1)`。注意该 SSO 账号 mobile/email 均为空，无法走首登自动匹配，必须显式绑定；其余医生账号仍按 §2.2 约定（identifier=手机号或邮箱一致）。
+- **演示医生账号（2026-10-09）**：SSO 账号 `dao`（邮箱 txting@163.com）↔ Vendure Administrator `txting@163.com`（陶医生），走 §2.2 首登自动匹配（邮箱一致）；建馆/员工/演示数据由 `scripts/seed_prod.py` 幂等灌入（见 §5.2）。
 - 线上登录闭环已验证：`python scripts/prod_login_test.py`（Playwright 390×844，截图 `docs/shots/12/13-prod-*.png`）。
 
 ### 6.4 代码托管
