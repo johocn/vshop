@@ -6,6 +6,7 @@ uni-app H5（Vue 3）医生端工作台：接诊录入 → 病志版本化管理
 
 ## 1. 访问方式与部署路径
 
+- **线上地址：`https://e.joho.cn/workbench/`**（未登录自动跳转 zhao-sso 统一登录页「星枢通行」）。
 - 构建：`pnpm build:h5`，产物在 `dist/build/h5/`。
 - 部署子路径：**`/workbench/`**（`vite.config.ts` 中 `base: '/workbench/'`，产物资源引用 `/workbench/assets/*`）。
 - 路由形态：**hash 路由**，页面地址形如 `https://<域名>/workbench/#/pages/home/index`，服务器无需为子路径做 history 回退配置，nginx 只需把 `/workbench/` 静态目录指向构建产物，并把 `/admin-api` 反代到 Vendure 服务。
@@ -93,7 +94,7 @@ uni-app H5（Vue 3）医生端工作台：接诊录入 → 病志版本化管理
 | 变量 | 说明 | 默认/示例 |
 |---|---|---|
 | `VITE_AUTH_MODE` | `sso` = 线上 SSO；`mock` = 本地手机号登录 | `.env.development`: `mock`；`.env.production`: `sso` |
-| `VITE_SSO_LOGIN_URL` | zhao-sso 统一登录页地址（sso 模式必填） | `https://sso.example.com/login` |
+| `VITE_SSO_LOGIN_URL` | zhao-sso 统一登录页地址（sso 模式必填）。**注意：URL 含 `#`，在 .env 中必须加双引号**，否则 `#` 后会被当行内注释截断 | `https://h.joho.cn/#/pages/sso/login` |
 | `VITE_SSO_APP_CODE` | SSO 应用标识 | `tcm-workbench` |
 | `VITE_ADMIN_API_BASE` | Admin API 路径（走同域反代） | `/admin-api` |
 | `VITE_API_TARGET` | 仅 dev：vite proxy `/admin-api` 的目标 | `http://localhost:3930`（联调 fixture）或 dev-server `http://localhost:3050` |
@@ -138,6 +139,29 @@ pnpm dev:h5                          # http://localhost:5177/workbench/
 
 ## 6. 部署说明
 
-- **服务端入口核查结论**：vendure 仓库内 `TcmClinicPlugin` 仅在 `packages/dev-server/dev-config.ts` 注册（无独立生产 config）；pm2 生产启动脚本 `packages/dev-server/prod-start.js` → `dist/index` → `devConfig`，即 **dev-config 就是生产入口**。本次已把 SSO 接线补进该入口（`ZHAO_SSO_BASE_URL` / `SSO_MOCK` 环境变量读取），生产部署时在服务器 `.env` 配好即可，无需改其他注册点。
-- **前端**：`pnpm build:h5` → 将 `dist/build/h5/` 发布到 nginx 站点 `/workbench/` 目录；`/admin-api` 反代到 Vendure。
-- **待补充**：workbench 首次部署需服务器 nginx 站点目录与域名信息（可参照 nshop/web-admin 的 `scripts/deploy.mjs` 机制），服务器路径信息不在本仓库内，需运维补充后才能自动化部署。
+### 6.1 前端（tcm-workbench H5）——已自动化
+
+一键部署：`node scripts/deploy.mjs`（本地构建 → scp → 服务器拷入站点目录，绝不在服务器构建）。部署目标等参数在 `.env.deploy`：
+
+```env
+SERVER_HOST="joho"
+REMOTE_DIR="/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index/workbench"
+SITE_URL="https://e.joho.cn/workbench/"
+```
+
+- 产物 `dist/build/h5/` 发布到 e.joho.cn 站点（1Panel openresty）`/workbench/` 子目录，静态目录替换即时生效。
+- nginx 站点配置已加 `/workbench/` 缓存控制块（`index.html` 每次强校验 `no-cache`，资源按 hash 文件名长缓存；`try_files` 回退到 `/workbench/index.html`）。
+- 线上冒烟：`python scripts/prod_smoke.py`（Playwright 390×844 dpr=2 手机视口）——校验未登录访问 `/workbench/` 会重定向到 zhao-sso 统一登录页且携带 `app_code=tcm-workbench`、`return_url`，截图存 `docs/shots/12-prod-sso-redirect.png`。
+
+### 6.2 服务端（Vendure）——已完成
+
+- 部署方式：服务器 `/www/apps/vendure` 执行 `git pull` + `pm2 restart vendure`（dist 构建产物随 git 入库，本地构建、服务器不构建）。
+- 服务器 `packages/dev-server/.env` 已配置：`ZHAO_SSO_BASE_URL=https://h.joho.cn/api/zhao-sso`、`TCM_RECORD_KEY=<64位hex>`、`SSO_MOCK=false`。
+- `TcmClinicPlugin` 经 `dev-config.ts`（生产入口 `prod-start.js` → `dist/index`）注册，启动自动建表（`tcm_clinic`/`tcm_patient_profile`/`tcm_encounter`/`tcm_medical_record(_revisions)`/`tcm_audit_log`/`tcm_wellness_plan`/`tcm_plan_item`/`tcm_follow_up_task`/`tcm_clinic_staff` 共 10 张），Admin API `AuthenticationInput.tcmSso` 已注册。
+- **注意**：若服务器曾在新插件加入前安装过依赖，需手工补 workspace 符号链接（本次已执行）：
+  `ln -s /www/apps/vendure/packages/tcm-clinic-plugin /www/apps/vendure/node_modules/@vendure/tcm-clinic-plugin`
+
+### 6.3 待办（用户侧）
+
+- **SSO 中心注册 `app_code=tcm-workbench`**：zhao-sso 管理侧需登记该应用标识，否则统一登录页回调时可能拒绝跳转。
+- **GitHub 远端**：本机无 gh CLI、无 HTTPS PAT，仓库创建需用户在 github.com 上手动建空仓 `johocn/tcm-workbench`（Private），远端 `origin`（`git@github.com:johocn/tcm-workbench.git`，SSH 已认证）已配置好，建好后直接 `git push -u origin master` 即可。
