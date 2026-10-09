@@ -1474,7 +1474,12 @@
     "deliveryUnknown": "Not determinable (no bound profile or variants unsaved)",
     "deliveryBoth": "Mail + pickup",
     "deliveryMailOnly": "Mail only",
-    "deliveryPickupOnly": "Pickup only"
+    "deliveryPickupOnly": "Pickup only",
+    "typeLabel": "Type",
+    "typePhysical": "Physical",
+    "typeVirtual": "Virtual",
+    "typeService": "Service",
+    "typeHelper": "Label only for now; no shipping/stock/checkout impact"
   },
   "productVariantMatrixTab": {
     "noSpec": "No spec (single)",

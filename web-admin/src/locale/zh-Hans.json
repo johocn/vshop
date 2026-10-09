@@ -1474,7 +1474,12 @@
     "deliveryUnknown": "暂不可判定（未绑定档案或变体未保存）",
     "deliveryBoth": "邮寄 + 自提",
     "deliveryMailOnly": "仅邮寄",
-    "deliveryPickupOnly": "仅自提"
+    "deliveryPickupOnly": "仅自提",
+    "typeLabel": "商品类型",
+    "typePhysical": "实体商品",
+    "typeVirtual": "虚拟商品",
+    "typeService": "服务商品",
+    "typeHelper": "首期仅标记展示，不影响运费 / 库存 / 结算"
   },
   "productVariantMatrixTab": {
     "noSpec": "无规格（单品）",

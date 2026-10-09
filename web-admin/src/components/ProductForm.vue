@@ -94,6 +94,15 @@
             <text class="val">{{ catName }}</text>
           </view>
         </picker>
+        <view class="cell col">
+          <text class="lbl">{{ locale.t('productForm.typeLabel') }}</text>
+          <view class="type-seg">
+            <view class="seg-opt" :class="{ on: d.productType === 'physical' }" @tap="d.productType = 'physical'">{{ locale.t('productForm.typePhysical') }}</view>
+            <view class="seg-opt" :class="{ on: d.productType === 'virtual' }" @tap="d.productType = 'virtual'">{{ locale.t('productForm.typeVirtual') }}</view>
+            <view class="seg-opt" :class="{ on: d.productType === 'service' }" @tap="d.productType = 'service'">{{ locale.t('productForm.typeService') }}</view>
+          </view>
+          <text class="tip">{{ locale.t('productForm.typeHelper') }}</text>
+        </view>
         <view class="cell row-in">
           <text class="lbl">{{ locale.t('productForm.onShelf') }}</text>
           <switch :checked="d.enabled" @change="onToggle" />
@@ -185,6 +194,8 @@ interface ProductDraft {
   tenantCategoryRef?: string | null;
   // 商品主视频资产 id（随 customFields 落库，详情页展示可播放视频）
   videoAssetId?: string | null;
+  // 商品类型 physical/virtual/service（customFields 落库）
+  productType: string;
   // 具变体矩阵：priceCents/listPriceCents 单位「分」；随保存落库（apis 的 createVariantMatrixForProduct 消费）
   variantMatrix?: VariantMatrixState;
 }
@@ -212,6 +223,7 @@ const props = defineProps<{
     paymentProfileId?: string;
     collectionId?: string;
     videoAssetId?: string | null;
+    productType?: string;
   }>;
   full?: ProductFull | null;
 }>();
@@ -235,6 +247,8 @@ const d = reactive<ProductDraft>({
   collectionId: props.initial?.collectionId,
   // 主视频 id：优先取 initial（edit 页已回填），fallback full（兼容未透传 initial 的场景）
   videoAssetId: props.initial?.videoAssetId ?? props.full?.videoAssetId ?? null,
+  // 商品类型：新建默认实体；编辑页由 initial 回填（存量老商品回退 physical）
+  productType: props.initial?.productType ?? 'physical',
 });
 
 // 品牌营销 / 规格变体：编辑态用 full 反解，否则给默认初值
@@ -592,6 +606,38 @@ defineExpose({ submit, brandMarketing, variantMatrix });
       min-height: 140rpx;
       font-size: 28rpx;
       box-sizing: border-box;
+    }
+
+    // 商品类型三选一 segmented（实体/虚拟/服务）
+    .type-seg {
+      display: flex;
+      gap: 8rpx;
+      width: 100%;
+      background: $wa-bg;
+      border-radius: 12rpx;
+      padding: 6rpx;
+      box-sizing: border-box;
+
+      .seg-opt {
+        flex: 1;
+        text-align: center;
+        padding: 14rpx 0;
+        border-radius: 10rpx;
+        font-size: 26rpx;
+        color: $wa-muted;
+
+        &.on {
+          background: $wa-accent;
+          color: #fff;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .tip {
+      font-size: 24rpx;
+      color: $wa-muted;
+      margin-top: 12rpx;
     }
 
     .img-title {
