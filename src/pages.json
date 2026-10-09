@@ -292,6 +292,12 @@
                     "style": {
                         "navigationBarTitleText": "我的评价"
                     }
+                },
+                {
+                    "path": "pages/change-password",
+                    "style": {
+                        "navigationBarTitleText": "修改密码"
+                    }
                 }
             ]
         }
