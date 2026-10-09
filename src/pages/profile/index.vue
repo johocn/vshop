@@ -17,6 +17,9 @@
       <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')">
         <text>余额明细</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/withdraw')">
+        <text>余额提现</text><text class="menu-arrow">></text>
+      </view>
       <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')">
         <text>售后记录</text><text class="menu-arrow">></text>
       </view>
