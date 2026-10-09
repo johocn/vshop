@@ -32,6 +32,9 @@
       <view class="menu-item" @click="navTo('/pkg-circle/pages/feed')">
         <text>购物圈</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/lottery')">
+        <text>积分抽奖</text><text class="menu-arrow">></text>
+      </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/faq')">
         <text>常见问题</text><text class="menu-arrow">></text>
       </view>
