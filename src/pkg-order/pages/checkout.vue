@@ -250,7 +250,7 @@
     <view class="section coupon-entry" @click="openCouponPicker">
       <text class="coupon-entry__label">优惠券</text>
       <view class="coupon-entry__right">
-        <text v-if="appliedCouponCode" class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text>
+        <text v-if="appliedCouponCode" class="coupon-entry__discount">{{ appliedCouponCode }}</text>
         <text v-else-if="unusedCoupons.length > 0" class="coupon-entry__count">{{ unusedCoupons.length }}张可用</text>
         <text v-else class="coupon-entry__none">暂无可用</text>
         <text class="coupon-entry__arrow">▸</text>
@@ -292,9 +292,14 @@
 
     <view class="checkout-page__summary" v-if="cart.order">
       <view class="summary-row"><text>商品总额</text><text>¥{{ originalSubTotalYuan }}</text></view>
-      <view v-if="appliedCouponCode" class="summary-row"><text>优惠券</text><text class="coupon-entry__discount">-¥{{ couponDiscountYuan }}</text></view>
+      <!-- 会员/促销/优惠券折扣逐行动态渲染（含播种的「金卡及以上专属95折」演示行，不再按 name 过滤） -->
+      <template v-if="Number(memberDiscountYuan) > 0">
+        <view v-for="(d, index) in cart.order.discounts" :key="index" class="summary-row">
+          <text>{{ d.description }}</text>
+          <text class="coupon-entry__discount">-¥{{ (Math.abs(d.amountWithTax) / 100).toFixed(2) }}</text>
+        </view>
+      </template>
       <view v-if="pointsDiscountYuan > 0" class="summary-row"><text>积分抵扣</text><text class="coupon-entry__discount">-¥{{ (pointsDiscountYuan / 100).toFixed(2) }}</text></view>
-      <view v-if="Number(memberDiscountYuan) > 0" class="summary-row"><text>会员折扣</text><text class="coupon-entry__discount">-¥{{ memberDiscountYuan }}</text></view>
       <view class="summary-row"><text>运费</text><text>¥{{ shippingFee }}</text></view>
       <view class="summary-row summary-row--total"><text>应付</text><text class="checkout-page__total">¥{{ cart.formatPrice(cart.order.totalWithTax) }}</text></view>
     </view>
@@ -444,8 +449,7 @@ function goRecharge() {
     uni.navigateTo({ url: '/pkg-user/pages/recharge' });
 }
 // ===== 会员等级权益展示（阶段39） =====
-// 后端播种的等级折扣 Promotion 名称（用于从订单 discounts 中区分「会员折扣」与「优惠券」）
-const MEMBER_TIER_PROMO_NAME = '金卡及以上专属95折';
+// 注：播种数据 Promotion name（'金卡及以上专属95折'，dev-server/china-data）仅影响演示文案，展示已按 order.discounts 逐行动态渲染，不再依赖特定 name。
 const memberInfo = ref<any>(null);
 const hasMemberInfo = computed(() => !!memberInfo.value);
 // 专属折扣展示（specialDiscountRate 千分比：50=5%优惠→95折；0=无）
@@ -464,13 +468,10 @@ const memberBenefits = computed(() => {
     if ((mi.redeemDiscountRate ?? 1000) > 1000) list.push('抵现增强');
     return list;
 });
-// 会员折扣金额（元）：订单 discounts 中来源为等级折扣的合计
+// 订单折扣合计（元）：order.discounts 全部行求和（含会员等级折扣、优惠券等），仅用于判断是否渲染折扣行，各项明细由汇总区逐行动态展示
 const memberDiscountYuan = computed(() => {
     const discounts = cart.order?.discounts || [];
-    const total = discounts.reduce((sum: number, d: any) => {
-        if ((d.description || '') === MEMBER_TIER_PROMO_NAME) return sum + Math.abs(d.amountWithTax || 0);
-        return sum;
-    }, 0);
+    const total = discounts.reduce((sum: number, d: any) => sum + Math.abs(d.amountWithTax || 0), 0);
     return (total / 100).toFixed(2);
 });
 
@@ -522,16 +523,6 @@ const unusedCoupons = computed(() => myCouponsList.value.filter((c: any) => (c.s
 const appliedCouponCode = computed(() => {
     return (cart.order as any)?.customFields?.couponCode || '';
 });
-// 当前订单优惠券优惠总金额（元）：仅累加「非会员折扣」来源（会员折扣单列，避免重复计入券）
-const couponDiscountYuan = computed(() => {
-    const discounts = cart.order?.discounts || [];
-    const total = discounts.reduce((sum: number, d: any) => {
-        if ((d.description || '') === MEMBER_TIER_PROMO_NAME) return sum;
-        return sum + Math.abs(d.amountWithTax || 0);
-    }, 0);
-    return (total / 100).toFixed(2);
-});
-
 // 当前 tab 对应的自提点列表
 const currentPickupLocations = computed(() =>
     shippingCategory.value === 'employee-pickup' ? employeePickupLocations.value : pickupLocations.value
