@@ -1,5 +1,15 @@
 import { getGraphQLClient } from '../client';
 
+/** 我的会员档位（与 myMemberInfo 同实现，权益展示用） */
+export async function getMyTier() {
+    const client = getGraphQLClient();
+    const query = `query MyTier {
+        myTier { level levelName growthValue points nextLevelThreshold nextLevelName
+            pointsMultiplier redeemDiscountRate redeemCapRatio specialDiscountRate }
+    }`;
+    return client.request(query);
+}
+
 /** 我的会员信息（等级/成长值/积分/权益倍率） */
 export async function getMyMemberInfo() {
     const client = getGraphQLClient();

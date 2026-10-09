@@ -8,6 +8,30 @@
       <text v-if="info.nextLevelName" class="member-page__next">距离 {{ info.nextLevelName }} 还差 {{ nextThresholdDiff }}</text>
     </view>
 
+    <!-- 会员权益卡 -->
+    <view v-if="info.level" class="benefit-card">
+      <view class="benefit-card__title">会员权益</view>
+      <view class="benefit-card__grid">
+        <view class="benefit-item">
+          <text class="benefit-item__value">{{ multiplierText(info.pointsMultiplier) }}</text>
+          <text class="benefit-item__label">积分加速</text>
+        </view>
+        <view class="benefit-item">
+          <text class="benefit-item__value">{{ discountText(info.specialDiscountRate) }}</text>
+          <text class="benefit-item__label">专属折扣</text>
+        </view>
+        <view class="benefit-item">
+          <text class="benefit-item__value">{{ redeemText(info.redeemDiscountRate) }}</text>
+          <text class="benefit-item__label">积分抵现</text>
+        </view>
+        <view class="benefit-item">
+          <text class="benefit-item__value">{{ info.points }}</text>
+          <text class="benefit-item__label">可用积分</text>
+        </view>
+      </view>
+      <view class="benefit-card__note">会员价下单能力建设中，敬请期待</view>
+    </view>
+
     <!-- 权益卡片 -->
     <view class="member-page__cards">
       <view class="card" @click="navTo('/pkg-user/pages/points-history')">
@@ -37,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { getMyMemberInfo, getCheckinToday, doCheckin as doCheckinMutation } from '../../api/queries/member';
+import { getMyTier, getCheckinToday, doCheckin as doCheckinMutation } from '../../api/queries/member';
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyCoupons } from '../../api/queries/coupon';
 import { useUIStore } from '../../stores/ui';
@@ -58,11 +82,30 @@ const growthPercent = computed(() => {
 });
 const nextThresholdDiff = computed(() => Math.max(0, (info.value.nextLevelThreshold || 0) - (info.value.growthValue || 0)));
 
+// 权益文案（rate 均为千分比，与 checkout.vue 会员折扣口径一致）：
+// specialDiscountRate=折让比例（50=让5%→95折，0=无）；
+// redeemDiscountRate=积分价值率（1000=1分抵1分→10折，1200=1分抵1.2分→12折）；
+// pointsMultiplier=积分获取倍率（1000=×1，1500=×1.5）。
+function discountText(rate?: number) {
+    if (!rate || rate <= 0) return '-';
+    const zhe = (1000 - rate) / 10;
+    return `${Number.isInteger(zhe) ? zhe : zhe.toFixed(1)}折`;
+}
+function redeemText(rate?: number) {
+    if (!rate || rate <= 0) return '-';
+    const zhe = rate / 100;
+    return `${Number.isInteger(zhe) ? zhe : zhe.toFixed(1)}折`;
+}
+function multiplierText(m?: number) {
+    const x = (m ?? 1000) / 1000;
+    return `×${Number.isInteger(x) ? x : x.toFixed(1)}`;
+}
+
 async function refresh() {
-    const [mi, bal, cp, ct]: any[] = await Promise.all([
-        getMyMemberInfo(), getMyBalance(), getMyCoupons(), getCheckinToday(),
+    const [mt, bal, cp, ct]: any[] = await Promise.all([
+        getMyTier(), getMyBalance(), getMyCoupons(), getCheckinToday(),
     ]);
-    info.value = mi?.myMemberInfo || {};
+    info.value = mt?.myTier || {};
     balance.value = bal?.myRechargeBalance || 0;
     myCoupons.value = cp?.myCoupons || [];
     checkedIn.value = ct?.checkinToday?.checkedIn || false;
@@ -112,5 +155,12 @@ const quickMenus = [
                 &--done { color: $success-color; } }
             &__label { display: block; font-size: 24rpx; color: #666; margin-top: 8rpx; } } }
     &__menu { background: #fff; margin: 20rpx; border-radius: $radius-md; } }
+.benefit-card { background: #fff; border-radius: $radius-md; padding: 24rpx; margin: 16rpx 20rpx 0;
+    &__title { font-size: 28rpx; font-weight: 600; margin-bottom: 20rpx; }
+    &__grid { display: flex; }
+    &__note { margin-top: 20rpx; font-size: 22rpx; color: #999; text-align: center; } }
+.benefit-item { flex: 1; text-align: center;
+    &__value { display: block; font-size: 32rpx; font-weight: 700; color: $brand-color; }
+    &__label { display: block; font-size: 22rpx; color: #999; margin-top: 6rpx; } }
 .menu-item { display: flex; justify-content: space-between; padding: 30rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx; }
 </style>
