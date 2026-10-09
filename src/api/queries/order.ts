@@ -35,7 +35,7 @@ export async function getOrderByCode(code: string) {
  */
 export async function getMyOrderPackages(orderId: string) {
     const client = getGraphQLClient();
-    const query = `query MyOrderPackages($orderId: String!) {
+    const query = `query MyOrderPackages($orderId: ID!) {
         myOrderPackages(orderId: $orderId) { code status trackingNo carrierName courierName }
     }`;
     return client.request(query, { orderId });
@@ -47,7 +47,7 @@ export async function getMyOrderPackages(orderId: string) {
  */
 export async function getMyOrderTracks(orderId: string) {
     const client = getGraphQLClient();
-    const query = `query MyOrderTracks($orderId: String!) {
+    const query = `query MyOrderTracks($orderId: ID!) {
         myOrderTracks(orderId: $orderId) {
             id fulfillmentId trackingNo carrierCode carrierName status trackInfo signedAt lastSyncedAt
         }

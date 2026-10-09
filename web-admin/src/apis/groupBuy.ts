@@ -68,7 +68,7 @@ export interface GroupBuyUpdateInput {
   status?: GroupBuyStatus;
 }
 
-const FIELDS = `id name description targetCount currentCount maxCount status startAt endAt groupPrice leaderDiscount leaderRewardType autoConfirm allowJoinAfterComplete createdAt updatedAt`;
+const FIELDS = `id name description targetCount currentCount maxCount status startAt endAt groupPrice leaderDiscount leaderRewardType autoConfirm allowJoinAfterComplete productId variantId createdAt updatedAt`;
 
 export async function fetchGroupBuyActivities(take = 20, skip = 0): Promise<{ items: GroupBuyActivity[]; totalItems: number }> {
   try {
