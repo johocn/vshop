@@ -2,7 +2,9 @@
   "pages": [
     { "path": "pages/home/index", "style": { "navigationBarTitleText": "医生工作台" } },
     { "path": "pages/mock-login/mock-login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } },
-    { "path": "pages/auth-callback/auth-callback", "style": { "navigationBarTitleText": "登录中", "navigationStyle": "custom" } }
+    { "path": "pages/auth-callback/auth-callback", "style": { "navigationBarTitleText": "登录中", "navigationStyle": "custom" } },
+    { "path": "pages/encounter/create", "style": { "navigationBarTitleText": "新建接诊" } },
+    { "path": "pages/encounter/flow", "style": { "navigationBarTitleText": "接诊录入" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "white",
