@@ -77,6 +77,8 @@
     { "path": "pages/promotion/group-buy/index", "style": { "navigationBarTitleText": "拼团活动", "enablePullDownRefresh": true } },
     { "path": "pages/promotion/group-buy/edit", "style": { "navigationBarTitleText": "编辑拼团活动" } },
     { "path": "pages/member/level-config/index", "style": { "navigationBarTitleText": "会员等级配置" } },
+    { "path": "pages/feedback/faq/index", "style": { "navigationBarTitleText": "FAQ 管理", "enablePullDownRefresh": true } },
+    { "path": "pages/feedback/list/index", "style": { "navigationBarTitleText": "意见反馈", "enablePullDownRefresh": true } },
     { "path": "pages/in-store/redeem/index", "style": { "navigationBarTitleText": "到店买单核销" } },
     { "path": "pages/in-store/bills/index", "style": { "navigationBarTitleText": "买单流水" } },
     { "path": "pages/pos/index", "style": { "navigationBarTitleText": "门店收银" } },
