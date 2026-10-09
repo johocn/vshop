@@ -16,6 +16,10 @@
         <text v-if="trackingNo" class="logistics__no">运单号: {{ trackingNo }}</text>
         <text v-else class="logistics__empty">暂无物流信息</text>
       </view>
+      <view v-if="trackingNo || orderPackages.length" class="logistics-link" @tap="goLogistics">
+        <text class="logistics-link__text">查看物流</text>
+        <text class="logistics-link__arrow">›</text>
+      </view>
     </view>
     <view class="section">
       <text class="section__title">商品信息</text>
@@ -72,6 +76,7 @@ const { t } = useI18n();
 const auth = useAuthStore();
 const reviewedLineIds = ref<Set<string>>(new Set());
 const trackingNo = ref('');
+const orderPackages = ref<any[]>([]);
 const statusMap: Record<string, string> = { Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', PartiallyDelivered:'待收货', Shipped:'待收货', Cancelled:'已取消', Modified:'已修改' };
 const statusHintMap: Record<string, string> = { Created:'请尽快完成支付', PaymentAuthorized:'商家正在处理', PaymentSettled:'商家正在处理', Delivered:'请确认收货', Shipped:'商品正在配送中' };
 const statusLabel = computed(() => statusMap[order.value?.state] || order.value?.state || '');
@@ -101,7 +106,8 @@ onMounted(async () => {
     // 不能用 afterSalesRequest(id)：其入参是售后单 id，传订单 id 恒查不到。
     try {
         const pkgRes: any = await getMyOrderPackages(order.value?.id);
-        const pkg = (pkgRes?.myOrderPackages || []).find((p: any) => p?.trackingNo);
+        orderPackages.value = pkgRes?.myOrderPackages || [];
+        const pkg = orderPackages.value.find((p: any) => p?.trackingNo);
         if (pkg) trackingNo.value = pkg.carrierName ? `${pkg.carrierName} ${pkg.trackingNo}` : pkg.trackingNo;
     } catch (e) {}
     await loadReviewedLines();
@@ -109,6 +115,7 @@ onMounted(async () => {
 function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
 function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: '已复制', icon: 'success' }); }
 function goPay() { uni.navigateTo({ url: '/pkg-order/pages/payment?code=' + order.value.code }); }
+function goLogistics() { uni.navigateTo({ url: '/pkg-user/pages/logistics?orderId=' + order.value.id }); }
 function confirmReceive() { uni.showModal({ title: '确认收货', content: '确认已收到商品?', success: async (r: any) => { if (r.confirm) { try { const res: any = await confirmOrderReceipt(String(order.value.id)); if (res?.confirmOrderReceipt === false) { uni.showToast({ title: '当前状态不可确认收货', icon: 'none' }); return; } uni.showToast({ title: '已确认收货' }); order.value.state = 'Completed'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 function applyAfterSale() { uni.navigateTo({ url: '/pkg-after-sale/pages/apply?orderId=' + order.value.id }); }
 function applyInvoice() { uni.navigateTo({ url: '/pkg-order/pages/invoice-apply?orderIds=' + order.value.id }); }
@@ -136,6 +143,7 @@ function goEvaluate() {
 .status--Cancelled { background: linear-gradient(135deg, #999, #bbb); }
 .section { background: #fff; margin: 20rpx; padding: 24rpx; border-radius: $radius-md; &__title { font-size: 28rpx; font-weight: bold; display: block; margin-bottom: 16rpx; } &__sub { font-size: 26rpx; color: $text-color-secondary; display: block; margin-top: 6rpx; } }
 .logistics { &__no { font-size: 26rpx; color: $brand-color; display: block; margin-top: 8rpx; } &__empty { font-size: 26rpx; color: #999; } }
+.logistics-link { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid #f0f0f0; &__text { font-size: 26rpx; color: $brand-color; } &__arrow { color: $brand-color; font-size: 32rpx; } }
 .order-line { display: flex; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f5; &:last-child { border-bottom: none; } &__info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; } &__name { font-size: 26rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } &__spec { font-size: 22rpx; color: #999; margin-top: 4rpx; } &__bottom { display: flex; justify-content: space-between; align-items: center; } &__price { font-size: 28rpx; color: $price-color; } &__qty { font-size: 24rpx; color: #999; } }
 .summary { &__row { display: flex; justify-content: space-between; padding: 8rpx 0; font-size: 26rpx; &--total { padding-top: 16rpx; margin-top: 8rpx; border-top: 1rpx solid $border-color; font-size: 28rpx; } } &__total { font-size: 36rpx; color: $price-color; font-weight: bold; } }
 .discount { color: #07c160; }
