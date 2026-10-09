@@ -41,6 +41,20 @@ export async function getMyOrderPackages(orderId: string) {
     return client.request(query, { orderId });
 }
 
+/**
+ * C 端查询本人订单的物流轨迹（按 fulfillment 关联）。shop-api 由 logistics-plugin 提供，
+ * 内部校验订单归属（customer.user.id 与 activeUserId 比较）。
+ */
+export async function getMyOrderTracks(orderId: string) {
+    const client = getGraphQLClient();
+    const query = `query MyOrderTracks($orderId: String!) {
+        myOrderTracks(orderId: $orderId) {
+            id fulfillmentId trackingNo carrierCode carrierName status trackInfo signedAt lastSyncedAt
+        }
+    }`;
+    return client.request(query, { orderId });
+}
+
 export async function getEligibleShippingMethods() {
     const client = getGraphQLClient();
     const query = `query { eligibleShippingMethods { id name code price priceWithTax description } }`;
