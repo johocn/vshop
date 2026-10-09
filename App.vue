@@ -2,7 +2,6 @@
 import { config } from './config'
 import { isLoggedIn } from './utils/storage'
 import { guardSsoRedirect } from './utils/sso-guard'
-import './static/common.css'
 
 function needAuthPage() {
   const hash = window.location.hash || ''
@@ -38,5 +37,7 @@ export default {
 </script>
 
 <style>
+/* 全局公共样式：经 SFC @import 内联（static/ 目录在 H5 dev 下按静态资源直出，不能作为 JS module import） */
+@import './static/common.css';
 page { background-color: #f6f7f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; color: #303133; }
 </style>
