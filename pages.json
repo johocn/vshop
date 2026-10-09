@@ -4,12 +4,26 @@
     { "path": "pages/mock-login/mock-login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } },
     { "path": "pages/auth-callback/auth-callback", "style": { "navigationBarTitleText": "登录中", "navigationStyle": "custom" } },
     { "path": "pages/encounter/create", "style": { "navigationBarTitleText": "新建接诊" } },
-    { "path": "pages/encounter/flow", "style": { "navigationBarTitleText": "接诊录入" } }
+    { "path": "pages/encounter/flow", "style": { "navigationBarTitleText": "接诊录入" } },
+    { "path": "pages/plan/list", "style": { "navigationBarTitleText": "康养规划" } },
+    { "path": "pages/plan/detail", "style": { "navigationBarTitleText": "规划详情" } },
+    { "path": "pages/followup/list", "style": { "navigationBarTitleText": "随访任务" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "white",
     "navigationBarTitleText": "医生工作台",
     "navigationBarBackgroundColor": "#2f7d5f",
     "backgroundColor": "#f6f7f6"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2f7d5f",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "工作台" },
+      { "pagePath": "pages/plan/list", "text": "康养规划" },
+      { "pagePath": "pages/followup/list", "text": "随访" }
+    ]
   }
 }

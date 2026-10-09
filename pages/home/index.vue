@@ -18,8 +18,8 @@
     <view class="section-title">{{ t('home.quickTitle') }}</view>
     <view class="quick-grid card">
       <view class="quick-item" @tap="go('/pages/encounter/create')"><text class="q-ico">🩺</text><text>{{ t('home.newEncounter') }}</text></view>
-      <view class="quick-item" @tap="go('/pages/plan/list')"><text class="q-ico">🌿</text><text>{{ t('home.wellnessPlans') }}</text></view>
-      <view class="quick-item" @tap="go('/pages/followup/list')"><text class="q-ico">📋</text><text>{{ t('home.followUps') }}</text></view>
+      <view class="quick-item" @tap="goTab('/pages/plan/list')"><text class="q-ico">🌿</text><text>{{ t('home.wellnessPlans') }}</text></view>
+      <view class="quick-item" @tap="goTab('/pages/followup/list')"><text class="q-ico">📋</text><text>{{ t('home.followUps') }}</text></view>
       <view class="quick-item" @tap="go('/pages/record/list')"><text class="q-ico">📚</text><text>{{ t('home.records') }}</text></view>
     </view>
 
@@ -80,6 +80,8 @@ async function refresh() {
 function switchClinic(s) { currentClinicId.value = s.clinicId }
 
 function go(url) { uni.navigateTo({ url }) }
+
+function goTab(url) { uni.switchTab({ url }) }
 
 function goEncounter(p) {
   uni.navigateTo({ url: `/pages/encounter/create?patientId=${p.id}&clinicId=${p.clinicId}` })
