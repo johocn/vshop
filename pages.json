@@ -1,7 +1,8 @@
 {
   "pages": [
     { "path": "pages/home/index", "style": { "navigationBarTitleText": "医生工作台" } },
-    { "path": "pages/mock-login/mock-login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } }
+    { "path": "pages/mock-login/mock-login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } },
+    { "path": "pages/auth-callback/auth-callback", "style": { "navigationBarTitleText": "登录中", "navigationStyle": "custom" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "white",
