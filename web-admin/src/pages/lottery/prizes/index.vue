@@ -1,5 +1,12 @@
 <template>
   <view class="page">
+    <view class="tabs">
+      <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">
+        {{ locale.t('lotteryManage.' + s.label) }}
+      </text>
+    </view>
+
+    <template v-if="cur === 'prizes'">
     <view class="toolbar">
       <button class="add-btn" @tap="onAdd">+ {{ locale.t('lotteryManage.add') }}</button>
     </view>
@@ -58,13 +65,39 @@
       <text class="retry" @tap="load">{{ locale.t('lotteryManage.retry') }}</text>
     </view>
     <view v-else-if="!rows.length" class="empty">{{ locale.t('lotteryManage.empty') }}</view>
+    </template>
+
+    <template v-else>
+      <view class="card rec-card" v-for="r in recPage.items.value" :key="r.id">
+        <image v-if="r.prizeImage" class="rec-img" :src="r.prizeImage" mode="aspectFill" />
+        <view v-else class="rec-img rec-ph"><text>{{ (r.prizeName || '?').slice(0, 1) }}</text></view>
+        <view class="rec-main">
+          <view class="rec-top">
+            <text class="rec-name">{{ r.prizeName }}</text>
+            <text class="rec-cost">{{ r.consume }}{{ locale.t('lotteryManage.pointsUnit') }}</text>
+          </view>
+          <text class="rec-meta">{{ locale.t('lotteryManage.customerLabel') }} #{{ r.customerId }} · {{ fmtTime(r.createdAt) }}</text>
+        </view>
+      </view>
+
+      <view v-if="recPage.loading.value" class="empty">{{ locale.t('lotteryManage.loading') }}</view>
+      <view v-else-if="recPage.error.value" class="empty">
+        <text>{{ recPage.error.value }}</text>
+        <text class="retry" @tap="recPage.refresh()">{{ locale.t('lotteryManage.retry') }}</text>
+      </view>
+      <view v-else-if="!recPage.items.value.length" class="empty">{{ locale.t('lotteryManage.recEmpty') }}</view>
+
+      <view class="empty" v-if="recPage.loadingMore.value">{{ locale.t('lotteryManage.loadMore') }}</view>
+      <view class="empty" v-else-if="recPage.items.value.length && !recPage.hasMore.value">{{ locale.t('lotteryManage.noMore') }}</view>
+    </template>
   </view>
 </template>
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
-import { fetchLotteryPrizes, createLotteryPrize, updateLotteryPrize, deleteLotteryPrize, type LotteryPrizeRow } from '../../../apis/lottery';
+import { useListPage } from '../../../composables/useListPage';
+import { fetchLotteryPrizes, createLotteryPrize, updateLotteryPrize, deleteLotteryPrize, fetchLotteryRecords, type LotteryPrizeRow, type LotteryRecordRow } from '../../../apis/lottery';
 import type { AssetItem } from '../../../apis/asset';
 import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
 
@@ -89,6 +122,37 @@ let keySeq = 1;
 const rows = ref<EditRow[]>([]);
 const loading = ref(false);
 const error = ref('');
+
+const tabs = [
+  { key: 'prizes', label: 'tabPrizes' },
+  { key: 'records', label: 'tabRecords' },
+];
+const cur = ref('prizes');
+
+// 抽奖记录 tab：首次切入加载；分页 / 上滑加载 / 下拉刷新由 useListPage 托管
+const recPage = useListPage<LotteryRecordRow>({
+  take: 20,
+  immediate: false,
+  fetcher: ({ skip, take }) => fetchLotteryRecords(skip, take),
+});
+const recLoaded = ref(false);
+
+function onTab(key: string) {
+  if (cur.value === key) return;
+  cur.value = key;
+  if (key === 'records' && !recLoaded.value) {
+    recLoaded.value = true;
+    void recPage.refresh();
+  }
+}
+
+function fmtTime(t?: string | null): string {
+  if (!t) return '—';
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '—';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 const imgModalVisible = ref(false);
 let imgTargetKey = -1;
@@ -248,6 +312,8 @@ function toast(msg: string) {
 }
 
 onPullDownRefresh(async () => {
+  // 记录 tab 的下拉刷新由 useListPage 内部注册的钩子处理
+  if (cur.value !== 'prizes') return;
   await load();
   uni.stopPullDownRefresh();
 });
@@ -259,6 +325,9 @@ onLoad(() => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 60rpx;
+  .tabs { display: flex; margin-bottom: 24rpx; background: $wa-card; border-radius: $wa-radius; padding: 8rpx;
+    text { flex: 1; text-align: center; padding: 16rpx 0; font-size: 26rpx; color: $wa-muted; border-radius: $wa-radius;
+      &.on { color: #fff; background: $wa-accent; font-weight: 600; } } }
   .toolbar { display: flex; justify-content: flex-end; margin-bottom: 20rpx;
     .add-btn { margin: 0; padding: 0 32rpx; height: 64rpx; line-height: 64rpx; font-size: 26rpx;
       border-radius: $wa-radius; background: $wa-accent; color: #fff; } }
@@ -285,6 +354,15 @@ onLoad(() => {
         &.main { background: $wa-accent; color: #fff; }
         &.danger { color: #dc2626; } } }
   }
+  .rec-card { flex-direction: row; align-items: center; gap: 20rpx;
+    .rec-img { width: 100rpx; height: 100rpx; border-radius: $wa-radius; background: $wa-bg; overflow: hidden; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; }
+    .rec-ph { font-size: 32rpx; color: $wa-muted; font-weight: 600; }
+    .rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
+    .rec-top { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+    .rec-name { font-size: 28rpx; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rec-cost { font-size: 24rpx; color: $wa-accent; flex-shrink: 0; }
+    .rec-meta { font-size: 24rpx; color: $wa-muted; } }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
   .retry { display: block; margin-top: 16rpx; color: $wa-accent; }
 }

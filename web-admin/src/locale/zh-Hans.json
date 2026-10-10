@@ -3765,6 +3765,13 @@
     "opFailed": "操作失败",
     "loading": "加载中…",
     "empty": "暂无奖品",
+    "tabPrizes": "奖品配置",
+    "tabRecords": "抽奖记录",
+    "customerLabel": "用户",
+    "pointsUnit": "积分",
+    "recEmpty": "暂无抽奖记录",
+    "loadMore": "加载更多",
+    "noMore": "没有更多了",
     "retry": "重试"
   }
 }

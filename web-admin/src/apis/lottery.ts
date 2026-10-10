@@ -1,7 +1,9 @@
 // 积分抽奖 admin-api 调用（schema 以 vendure/packages/lottery-plugin/src/plugin.ts adminApiExtensions 为准）
 //   - Query lotteryPrizes(options: LotteryPrizeListOptions { skip, take }): LotteryPrizeList（sort ASC/id ASC）
+//   - Query lotteryRecords(options: LotteryRecordListOptions { skip, take }): LotteryRecordList（id DESC）
 //   - Mutation createLotteryPrize(input) / updateLotteryPrize(input) / deleteLotteryPrize(id)
 //   - LotteryPrize { id name image weight consume stock enabled sort }
+//   - LotteryRecord { id customerId prizeId prizeName prizeImage consume channelId createdAt }
 //   - weight<=0 仅展示、不参与抽取；stock null=不限量、0=停用
 //   - update 仅覆盖传入字段；image/stock 传 null 可清空
 import { getAdminClient, graphQlErrorMsg } from './client';
@@ -29,6 +31,17 @@ export interface LotteryPrizeInput {
 
 export interface LotteryPrizeUpdateInput extends Partial<LotteryPrizeInput> {
   id: string;
+}
+
+export interface LotteryRecordRow {
+  id: string;
+  customerId: string;
+  prizeId: string;
+  prizeName: string;
+  prizeImage?: string | null;
+  consume: number;
+  channelId: string;
+  createdAt?: string | null;
 }
 
 const FIELDS = `id name image weight consume stock enabled sort`;
@@ -79,5 +92,21 @@ export async function deleteLotteryPrize(id: string): Promise<void> {
     );
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '删除奖品失败'));
+  }
+}
+
+const RECORD_FIELDS = `id customerId prizeId prizeName prizeImage consume channelId createdAt`;
+
+export async function fetchLotteryRecords(skip = 0, take = 20): Promise<{ items: LotteryRecordRow[]; total: number }> {
+  try {
+    const { lotteryRecords } = await getAdminClient().request<{ lotteryRecords: { items: LotteryRecordRow[]; totalItems: number } }>(
+      `query LotteryRecords($options: LotteryRecordListOptions) {
+        lotteryRecords(options: $options) { items { ${RECORD_FIELDS} } totalItems }
+      }`,
+      { options: { skip, take } },
+    );
+    return { items: lotteryRecords?.items ?? [], total: lotteryRecords?.totalItems ?? 0 };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载抽奖记录失败'));
   }
 }
