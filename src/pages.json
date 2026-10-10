@@ -329,6 +329,36 @@
                     "style": {
                         "navigationBarTitleText": "协议"
                     }
+                },
+                {
+                    "path": "pages/points-goods-list",
+                    "style": {
+                        "navigationBarTitleText": "积分商品"
+                    }
+                },
+                {
+                    "path": "pages/points-goods-detail",
+                    "style": {
+                        "navigationBarTitleText": "积分商品详情"
+                    }
+                },
+                {
+                    "path": "pages/points-goods-confirm",
+                    "style": {
+                        "navigationBarTitleText": "确认兑换"
+                    }
+                },
+                {
+                    "path": "pages/points-orders",
+                    "style": {
+                        "navigationBarTitleText": "我的积分订单"
+                    }
+                },
+                {
+                    "path": "pages/favorites",
+                    "style": {
+                        "navigationBarTitleText": "我的收藏"
+                    }
                 }
             ]
         },
