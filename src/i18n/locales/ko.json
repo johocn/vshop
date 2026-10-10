@@ -296,6 +296,7 @@
         "balanceAfter": "교환 후 잔액",
         "cashTotal": "현금 결제",
         "wechatPay": "WeChat Pay",
+        "limitReached": "교환 한도에 도달했습니다",
         "submitting": "제출 중...",
         "submitExchange": "교환하기",
         "exchangeSuccess": "교환되었습니다",

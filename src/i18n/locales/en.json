@@ -296,6 +296,7 @@
         "balanceAfter": "Balance after",
         "cashTotal": "Cash payable",
         "wechatPay": "WeChat Pay",
+        "limitReached": "Redemption limit reached",
         "submitting": "Submitting...",
         "submitExchange": "Redeem",
         "exchangeSuccess": "Redeemed successfully",

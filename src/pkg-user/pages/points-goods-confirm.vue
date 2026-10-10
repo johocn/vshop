@@ -74,8 +74,8 @@
         <text class="pgc-bar__points">{{ pointsCost }}{{ t('pointsGoods.pointsUnit') }}</text>
         <text v-if="cashTotal > 0" class="pgc-bar__cash">+¥{{ (cashTotal / 100).toFixed(2) }}</text>
       </view>
-      <button class="pgc-bar__btn" :disabled="submitting" @click="submit">
-        {{ submitting ? t('pointsGoods.submitting') : t('pointsGoods.submitExchange') }}
+      <button class="pgc-bar__btn" :disabled="submitting || limitReached" @click="submit">
+        {{ limitReached ? t('pointsGoods.limitReached') : (submitting ? t('pointsGoods.submitting') : t('pointsGoods.submitExchange')) }}
       </button>
     </view>
 
@@ -137,12 +137,20 @@ const selectedAddress = ref<any>(null);
 const showAddressPicker = ref(false);
 const submitting = ref(false);
 
-/** 可兑上限：库存与每人限兑取小（perUserLimit>0 时生效） */
+/** 可兑上限：库存与「每人限兑-已兑数量」取小（perUserLimit>0 时生效；myRedeemedCount 为后端返回的本人累计已兑） */
 const maxQty = computed(() => {
     const p = product.value;
     if (!p) return 1;
-    const limit = p.perUserLimit > 0 ? p.perUserLimit : p.stock;
-    return Math.max(1, Math.min(p.stock, limit));
+    let limit = p.stock;
+    if (p.perUserLimit > 0) {
+        limit = Math.min(limit, Math.max(0, (p.perUserLimit || 0) - (p.myRedeemedCount || 0)));
+    }
+    return Math.max(1, limit);
+});
+const limitReached = computed(() => {
+    const p = product.value;
+    if (!p || !(p.perUserLimit > 0)) return false;
+    return Math.max(0, (p.perUserLimit || 0) - (p.myRedeemedCount || 0)) <= 0;
 });
 
 const pointsCost = computed(() => (product.value?.pointsPrice || 0) * qty.value);

@@ -46,8 +46,10 @@ import { getPointsProducts } from '../../api/queries/points-mall';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
 import VImage from '../../components/VImage.vue';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 const points = ref<number | null>(null);
 
 const { items, loading, loadMore } = usePagination<any>({
@@ -58,6 +60,7 @@ const { items, loading, loadMore } = usePagination<any>({
 });
 
 onMounted(async () => {
+    if (!auth.isLoggedIn) return; // 游客不查余额，避免 401 噪音
     try {
         const r: any = await getMyMemberInfo();
         points.value = r?.myMemberInfo?.points ?? null;

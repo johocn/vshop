@@ -296,6 +296,7 @@
         "balanceAfter": "交換後の残高",
         "cashTotal": "現金支払い",
         "wechatPay": "WeChat Pay",
+        "limitReached": "引換限度に達しました",
         "submitting": "送信中...",
         "submitExchange": "交換する",
         "exchangeSuccess": "交換しました",
