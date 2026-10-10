@@ -10,6 +10,8 @@
         <PriceTag :price="displayPrice" :large="true" />
         <text class="price-row__origin" v-if="originPrice">¥{{ originPrice }}</text>
         <text class="price-row__badge" v-if="isFlash">秒杀价</text>
+        <text class="price-row__member" v-if="memberPriceLabel">{{ memberPriceLabel }}</text>
+        <text class="price-row__member-ref" v-if="memberRefPrice">约¥{{ memberRefPrice }}</text>
       </view>
       <view class="price-note" @click="showPriceNote = true">
         <text class="price-note__text">价格说明</text>
@@ -137,6 +139,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
 import { getProduct } from '../../api/queries/product';
+import { getMyMemberPrice } from '../../api/queries/member-price';
 import { getProductCoupons } from '../../api/queries/coupon';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { applyFlashSale } from '../../api/mutations/promotion';
@@ -208,6 +211,41 @@ const originPrice = computed(() => {
     if (!isFlash.value || !Number.isFinite(p)) return '';
     return (p / 100).toFixed(2);
 });
+
+// ── 会员价标签（仅展示）：登录后按等级×分类命中 MemberPriceRule；不改价格链路 ──
+const memberPrice = ref<{ applied: boolean; discountPercent: number | null } | null>(null);
+
+/** discountPercent 语义：95 = 95 折 → 展示「会员9.5折」 */
+const memberPriceLabel = computed(() => {
+    const dp = memberPrice.value;
+    if (!dp?.applied || !dp.discountPercent || dp.discountPercent >= 100) return '';
+    const zhe = dp.discountPercent / 10;
+    const zheText = zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    return `会员${zheText}折`;
+});
+
+/** 折后参考价（当前变体价 × 折扣，向下取整到分），仅参考、以结算页为准 */
+const memberRefPrice = computed(() => {
+    const dp = memberPrice.value;
+    const p = displayPrice.value;
+    if (!dp?.applied || !dp.discountPercent || !Number.isFinite(p)) return '';
+    return (Math.floor((p * dp.discountPercent) / 100) / 100).toFixed(2);
+});
+
+/** 拉取失败/未登录静默降级：标签不渲染，不阻塞商品主内容 */
+async function loadMemberPrice() {
+    const pid = product.value?.id;
+    if (!pid || !auth.isLoggedIn) {
+        memberPrice.value = null;
+        return;
+    }
+    try {
+        const list = await getMyMemberPrice([String(pid)]);
+        memberPrice.value = list[0] ?? null;
+    } catch (e) {
+        memberPrice.value = null;
+    }
+}
 
 /** 降级：无数据源则不渲染 */
 const salesCountText = computed(() => {
@@ -302,6 +340,7 @@ onMounted(async () => {
     } catch (e) { console.error(e); }
     await loadReviews();
     loadAddons();
+    loadMemberPrice();
     // WeChat share
     if (product.value) {
       const meta = buildShareMeta({
@@ -323,6 +362,7 @@ onMounted(async () => {
 
 onMounted(async () => {
     offLogin = auth.onLogin(async () => {
+        loadMemberPrice();
         if (pendingAction === 'cart') {
             pendingAction = null;
             if (selectedVariant.value) await addVariant(selectedVariant.value.id, 1);
@@ -495,6 +535,8 @@ onUnmounted(() => {
 .price-row { display: flex; align-items: baseline; gap: 12rpx; }
 .price-row__origin { font-size: 24rpx; color: #999; text-decoration: line-through; }
 .price-row__badge { font-size: 20rpx; color: #fff; background: $price-color; border-radius: 8rpx; padding: 2rpx 10rpx; }
+.price-row__member { font-size: 20rpx; color: $price-color; border: 1rpx solid $price-color; border-radius: 8rpx; padding: 0 10rpx; }
+.price-row__member-ref { font-size: 22rpx; color: $price-color; }
 .price-note { display: flex; align-items: center; gap: 6rpx; margin-top: 8rpx; &__text { font-size: 22rpx; color: #999; } &__arrow { font-size: 22rpx; color: #999; } }
 .meta-row { display: flex; align-items: center; gap: 32rpx; margin-top: 16rpx; &__share { display: flex; align-items: center; gap: 6rpx; } &__item { display: flex; align-items: center; } &__icon { font-size: 26rpx; color: $text-color-secondary; } &__text { font-size: 24rpx; color: $text-color-secondary; } }
 .sku-entry { display: flex; align-items: center; gap: 12rpx; margin-top: 20rpx; padding: 16rpx 0; border-top: 1rpx solid $border-color;
