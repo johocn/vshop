@@ -1,5 +1,9 @@
 <template>
   <view class="page">
+    <view class="pgo-search">
+      <input class="pgo-search__input" v-model="keyword" :placeholder="locale.t('pointsOrders.searchPlaceholder')" confirm-type="search" @confirm="doSearch" />
+      <button class="pgo-search__btn" @tap="doSearch">{{ locale.t('pointsOrders.searchBtn') }}</button>
+    </view>
     <view class="tabs">
       <text v-for="s in tabs" :key="s.key" :class="{ on: s.key === cur }" @tap="onTab(s.key)">
         {{ locale.t('pointsOrders.' + s.label) }}
@@ -55,12 +59,18 @@ const tabs = [
   { key: 'cancelled', label: 'status_cancelled' },
 ];
 const cur = ref('all');
+const keyword = ref('');
 
 // 状态 tabs：fetcher 闭包读取 cur，切换 tab 后 refresh 即按新状态拉取
 const page = useListPage<PointsOrderRow>({
   take: 20,
-  fetcher: ({ skip, take }) => fetchPointsOrdersAdmin({ skip, take, status: cur.value === 'all' ? null : cur.value }),
+  fetcher: ({ skip, take }) => fetchPointsOrdersAdmin({ skip, take, status: cur.value === 'all' ? null : cur.value, keyword: keyword.value || null }),
 });
+
+function doSearch() {
+  keyword.value = keyword.value.trim();
+  void page.refresh();
+}
 
 function onTab(key: string) {
   if (cur.value === key) return;
@@ -151,6 +161,9 @@ function toast(msg: string) {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 60rpx;
+  .pgo-search { display: flex; gap: 12rpx; margin-bottom: 20rpx;
+    &__input { flex: 1; height: 64rpx; background: $wa-card; border-radius: $wa-radius; padding: 0 28rpx; font-size: 26rpx; color: $wa-ink; }
+    &__btn { margin: 0; padding: 0 30rpx; height: 64rpx; line-height: 64rpx; font-size: 26rpx; border-radius: $wa-radius; background: $wa-accent; color: #fff; border: none; } }
   .tabs { display: flex; flex-wrap: wrap; margin-bottom: 24rpx; background: $wa-card; border-radius: $wa-radius; padding: 8rpx; gap: 4rpx;
     text { flex: 1; text-align: center; padding: 16rpx 0; font-size: 26rpx; color: $wa-muted; border-radius: $wa-radius; white-space: nowrap;
       &.on { color: #fff; background: $wa-accent; font-weight: 600; } } }

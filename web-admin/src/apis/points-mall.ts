@@ -67,15 +67,16 @@ export interface PointsOrderRow {
 const PRODUCT_FIELDS = `id productId variantId pointsPrice cashPrice deliveryType stock perUserLimit redeemedCount validFrom validTo status sortOrder`;
 const ORDER_FIELDS = `id code customerId quantity pointsTotal cashTotal deliveryType status productSnapshot addressSnapshot trackingNo paidAt shippedAt completedAt createdAt`;
 
-export async function fetchPointsProductsAdmin(options: { skip?: number; take?: number } = {}): Promise<{ items: PointsProductRow[]; total: number }> {
+export async function fetchPointsProductsAdmin(options: { skip?: number; take?: number; keyword?: string | null } = {}): Promise<{ items: PointsProductRow[]; total: number }> {
   const skip = options.skip ?? 0;
   const take = options.take ?? 100;
+  const keyword = options.keyword || null;
   try {
     const { pointsProductsAdmin } = await getAdminClient().request<{ pointsProductsAdmin: { items: PointsProductRow[]; totalItems: number } }>(
-      `query PointsProductsAdmin($skip: Int, $take: Int) {
-        pointsProductsAdmin(options: { skip: $skip, take: $take }) { items { ${PRODUCT_FIELDS} } totalItems }
+      `query PointsProductsAdmin($skip: Int, $take: Int, $keyword: String) {
+        pointsProductsAdmin(options: { skip: $skip, take: $take, keyword: $keyword }) { items { ${PRODUCT_FIELDS} } totalItems }
       }`,
-      { skip, take },
+      { skip, take, keyword },
     );
     return { items: pointsProductsAdmin?.items ?? [], total: pointsProductsAdmin?.totalItems ?? 0 };
   } catch (e: any) {
@@ -118,16 +119,17 @@ export async function deletePointsProduct(id: string): Promise<void> {
   }
 }
 
-export async function fetchPointsOrdersAdmin(options: { skip?: number; take?: number; status?: string | null } = {}): Promise<{ items: PointsOrderRow[]; total: number }> {
+export async function fetchPointsOrdersAdmin(options: { skip?: number; take?: number; status?: string | null; keyword?: string | null } = {}): Promise<{ items: PointsOrderRow[]; total: number }> {
   const skip = options.skip ?? 0;
   const take = options.take ?? 20;
   const status = options.status ?? null;
+  const keyword = options.keyword || null;
   try {
     const { pointsOrdersAdmin } = await getAdminClient().request<{ pointsOrdersAdmin: { items: PointsOrderRow[]; totalItems: number } }>(
-      `query PointsOrdersAdmin($skip: Int, $take: Int, $status: String) {
-        pointsOrdersAdmin(options: { skip: $skip, take: $take, status: $status }) { items { ${ORDER_FIELDS} } totalItems }
+      `query PointsOrdersAdmin($skip: Int, $take: Int, $status: String, $keyword: String) {
+        pointsOrdersAdmin(options: { skip: $skip, take: $take, status: $status, keyword: $keyword }) { items { ${ORDER_FIELDS} } totalItems }
       }`,
-      { skip, take, status },
+      { skip, take, status, keyword },
     );
     return { items: pointsOrdersAdmin?.items ?? [], total: pointsOrdersAdmin?.totalItems ?? 0 };
   } catch (e: any) {

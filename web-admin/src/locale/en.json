@@ -3851,6 +3851,8 @@
     "retry": "Retry"
   },
   "pointsGoods": {
+    "searchPlaceholder": "Search product name / ID",
+    "searchBtn": "Search",
     "add": "New Item",
     "idPh": "Product ID / Variant ID (see admin product list)",
     "pointsPrice": "Points Price",
@@ -3890,6 +3892,8 @@
     "retry": "Retry"
   },
   "pointsOrders": {
+    "searchPlaceholder": "Search code / customer ID",
+    "searchBtn": "Search",
     "tabAll": "All",
     "status_pending_payment": "Pending Payment",
     "status_pending_ship": "Pending Shipment",
