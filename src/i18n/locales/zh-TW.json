@@ -296,6 +296,7 @@
         "balanceAfter": "兌換後餘額",
         "cashTotal": "現金應付",
         "wechatPay": "微信支付",
+        "limitReached": "已達限兌上限",
         "submitting": "提交中...",
         "submitExchange": "提交兌換",
         "exchangeSuccess": "兌換成功",
