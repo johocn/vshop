@@ -2980,6 +2980,28 @@
     "deleted": "Deleted",
     "delFailed": "Delete failed"
   },
+  "hotelRoomCalendar": {
+    "expand": "📅 Room Availability",
+    "collapse": "Collapse availability calendar",
+    "loading": "Loading…",
+    "closedTag": "Closed",
+    "fullTag": "Full",
+    "unlimitedTag": "∞",
+    "batchTitle": "Bulk settings",
+    "fromDate": "From",
+    "toDate": "To",
+    "totalRoomsPh": "Total rooms",
+    "totalRoomsLabel": "Total rooms",
+    "closedSwitch": "Close day",
+    "allDays": "All weekdays",
+    "applyBatch": "Apply bulk",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "saveDay": "Save day",
+    "batchDone": "{n} days written",
+    "batchFailed": "Bulk update failed"
+  },
   "platformRoomTemplates": {
     "title": "Room Template Library",
     "add": "＋ New Template",
