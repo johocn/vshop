@@ -3,7 +3,7 @@ import { getGraphQLClient } from '../client';
 /** PointsProduct 公开字段串（列表/详情复用） */
 const POINTS_PRODUCT_FIELDS = `
             id productId variantId name slug image pointsPrice cashPrice deliveryType
-            stock perUserLimit redeemedCount validFrom validTo sortOrder priceWithTax inStock
+            stock perUserLimit myRedeemedCount redeemedCount validFrom validTo sortOrder priceWithTax inStock
         `;
 
 /** PointsOrder 字段串（下单返回/订单列表复用） */
