@@ -3851,6 +3851,8 @@
     "retry": "重试"
   },
   "pointsGoods": {
+    "searchPlaceholder": "搜索商品名/商品ID",
+    "searchBtn": "搜索",
     "add": "新增商品",
     "idPh": "商品ID/变体ID（管理后台商品列表可查）",
     "pointsPrice": "积分价格",
@@ -3890,6 +3892,8 @@
     "retry": "重试"
   },
   "pointsOrders": {
+    "searchPlaceholder": "搜索单号/客户ID",
+    "searchBtn": "搜索",
     "tabAll": "全部",
     "status_pending_payment": "待支付",
     "status_pending_ship": "待发货",

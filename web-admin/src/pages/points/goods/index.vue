@@ -1,5 +1,9 @@
 <template>
   <view class="page">
+    <view class="pgoods-search">
+      <input class="pgoods-search__input" v-model="keyword" :placeholder="locale.t('pointsGoods.searchPlaceholder')" confirm-type="search" @confirm="doSearch" />
+      <button class="pgoods-search__btn" @tap="doSearch">{{ locale.t('pointsGoods.searchBtn') }}</button>
+    </view>
     <view class="toolbar">
       <button class="add-btn" @tap="onAdd">+ {{ locale.t('pointsGoods.add') }}</button>
     </view>
@@ -113,6 +117,12 @@ let keySeq = 1;
 const rows = ref<EditRow[]>([]);
 const loading = ref(false);
 const error = ref('');
+const keyword = ref('');
+
+function doSearch() {
+  keyword.value = keyword.value.trim();
+  void load();
+}
 
 function toRow(p: PointsProductRow): EditRow {
   return {
@@ -138,7 +148,7 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const r = await fetchPointsProductsAdmin({ skip: 0, take: 100 });
+    const r = await fetchPointsProductsAdmin({ skip: 0, take: 100, keyword: keyword.value || null });
     rows.value = r.items.map(toRow);
   } catch (e: any) {
     error.value = e?.message || locale.t('pointsGoods.opFailed');
@@ -308,6 +318,9 @@ onLoad(() => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 60rpx;
+  .pgoods-search { display: flex; gap: 12rpx; margin-bottom: 20rpx;
+    &__input { flex: 1; height: 64rpx; background: $wa-card; border-radius: $wa-radius; padding: 0 28rpx; font-size: 26rpx; color: $wa-ink; }
+    &__btn { margin: 0; padding: 0 30rpx; height: 64rpx; line-height: 64rpx; font-size: 26rpx; border-radius: $wa-radius; background: $wa-accent; color: #fff; border: none; } }
   .toolbar { display: flex; justify-content: flex-end; margin-bottom: 20rpx;
     .add-btn { margin: 0; padding: 0 32rpx; height: 64rpx; line-height: 64rpx; font-size: 26rpx;
       border-radius: $wa-radius; background: $wa-accent; color: #fff; } }
