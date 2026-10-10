@@ -70,6 +70,10 @@
           <textarea class="hotel-ta" v-model="hotelForm.priceCalendarJson" placeholder='[{"type":"weekday","rate":1.0},{"type":"weekend","rate":1.2}]' />
         </view>
         <button class="ghost" :disabled="hotelSaving" @tap="saveHotelConfig">{{ hotelSaving ? locale.t('productVariantMatrixTab.saving') : locale.t('productVariantMatrixTab.saveHotel') }}</button>
+        <view class="rdc-toggle" @tap="showRoomCalendar = !showRoomCalendar">
+          {{ showRoomCalendar ? locale.t('hotelRoomCalendar.collapse') : locale.t('hotelRoomCalendar.expand') }}
+        </view>
+        <RoomDayCalendar v-if="showRoomCalendar" :variant-id="variantId" />
       </template>
     </view>
 
@@ -176,6 +180,7 @@
 import { reactive, ref, watch } from 'vue';
 import { useLocaleStore } from '../../stores/localeStore';
 import ImagePicker from '../../components/ImagePicker.vue';
+import RoomDayCalendar from '../../components/hotel/RoomDayCalendar.vue';
 import {
   buildMatrix,
   batchFill,
@@ -227,6 +232,8 @@ const hotelConfig = ref<Record<string, any> | null>(null);
 const hotelLoading = ref(false);
 const hotelSaving = ref(false);
 const hotelForm = reactive({ roomsJson: '', priceCalendarJson: '' });
+// 房量日历（P1 Task 4）：已配置酒店房型的变体可展开月视图管理
+const showRoomCalendar = ref(false);
 
 // 编辑已配置变体时回填两个 textarea；变体 id 变化（切换商品/进入编辑）时重载
 // hotelRoomConfig 落 text 列，GraphQL 返回 JSON 字符串：先解析为对象再取 rooms/priceCalendar
@@ -606,6 +613,9 @@ function promptFillFromFirst(field: 'priceCents' | 'stock' | 'listPriceCents'): 
   .hotel-ta {
     width: 100%; box-sizing: border-box; border: 1rpx solid $wa-rule; border-radius: 12rpx;
     padding: 16rpx 20rpx; font-size: 24rpx; height: 160rpx;
+  }
+  .rdc-toggle {
+    text-align: center; font-size: 26rpx; color: $wa-accent; padding: 20rpx 0 4rpx;
   }
 }
 .seg {

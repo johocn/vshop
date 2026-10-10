@@ -2980,6 +2980,28 @@
     "deleted": "已删除",
     "delFailed": "删除失败"
   },
+  "hotelRoomCalendar": {
+    "expand": "📅 房量日历",
+    "collapse": "收起房量日历",
+    "loading": "加载中…",
+    "closedTag": "关",
+    "fullTag": "满",
+    "unlimitedTag": "不限",
+    "batchTitle": "批量设置",
+    "fromDate": "开始日期",
+    "toDate": "结束日期",
+    "totalRoomsPh": "总房量",
+    "totalRoomsLabel": "总房量",
+    "closedSwitch": "关房",
+    "allDays": "全部星期",
+    "applyBatch": "应用批量",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "saveFailed": "保存失败",
+    "saveDay": "保存本日",
+    "batchDone": "已写入 {n} 天",
+    "batchFailed": "批量设置失败"
+  },
   "platformRoomTemplates": {
     "title": "房型模板库",
     "add": "＋新建模板",
