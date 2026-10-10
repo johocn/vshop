@@ -3765,6 +3765,13 @@
     "opFailed": "Operation failed",
     "loading": "Loading…",
     "empty": "No prizes yet",
+    "tabPrizes": "Prize Setup",
+    "tabRecords": "Draw Records",
+    "customerLabel": "Customer",
+    "pointsUnit": "pts",
+    "recEmpty": "No draw records yet",
+    "loadMore": "Load more",
+    "noMore": "No more",
     "retry": "Retry"
   }
 }
