@@ -108,10 +108,47 @@
 
 ---
 
-## 四、已知边界（暂缓项与口径）
+## 四、暂缓项补齐（2026-10-10）
 
-1. **POS 规则型 MemberPriceRule 不进 shop-api（暂缓项，沿用批次 2 结论）**：按行改价的 MemberPriceRule 若注册进 shop-api 会撞全局 OrderItemPriceCalculationStrategy 的 bootstrap 覆盖链，复合兜底风险高、收益低，记录不迁移。
-2. **购物圈发布页选商品暂缓**：「从我的订单/收藏选商品」降级为不选商品（productId 留空），详情页「买同款」入口随之隐藏；后续增强另立任务（矩阵已注明口径）。
+批次 3 收尾时遗留的 4 个暂缓项已全部补齐（vendure `6059aa7b6` + `0230556c0`；vshop `d92a2c1` + `8af8650` + `695bacc`）：
+
+### 4.1 购物圈发布支持关联商品（vshop `d92a2c1`）
+
+发布页新增「关联商品（可选）」区块：关键词搜索商品（shop-api search，groupByProduct 口径）→ 点选候选即进入**已选卡片态**（首图 + 名称 + 价格 + 「移除」），再次发布时随 `createCirclePost` 透传 `productId`；帖子详情页「买同款」入口随之恢复（仅当帖子带 productId 时出现）。
+
+![C 端发布帖子页（关联商品已选卡片态）](c-publish.png)
+
+### 4.2 web-admin 抽奖奖品页新增「抽奖记录」tab（vshop `8af8650`）
+
+「积分抽奖奖品」页顶部改为双 tab（**奖品配置 / 抽奖记录**）。抽奖记录 tab 首次切入加载、上滑分页，每条含奖品图/名称/消耗积分/用户/时间，倒序排列（最新在上）。
+
+![后台抽奖奖品页（抽奖记录 tab，5 条记录）](admin-lottery-records.png)
+
+### 4.3 C 端商品详情会员价标签（vshop `695bacc` + vendure `6059aa7b6`）
+
+商品详情价格区在「秒杀价」旁新增**会员价标签**（如「会员9.5折」）与折后参考价（约¥xx，当前变体价 × 折扣向下取整到分）。数据来自 vcash-pos-plugin shop-api 只读查询 `myMemberPrice`（登录后按 `customer.customFields.memberLevel` × 商品主分类命中 MemberPriceRule；global 规则免分类直接命中全场商品）。
+
+**仅展示不算价语义（重要）**：标签与参考价**只是展示层信息，不参与下单计价**——会员真实下单优惠仍走批次 2 的 `tier_discount` 订单级促销（成长值达标 → 金卡及以上专属95折），结算页金额以订单促销计算为准。拉取失败/未登录/未命中时静默降级不渲染，不影响商品主内容。
+
+![C 端商品详情（价格区带「会员9.5折」标签与约¥2.14 参考价）](c-detail.png)
+
+### 4.4 抽奖启用奖品数量上限 8（vendure `0230556c0`）
+
+lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台「＋ 新增奖项」或全量保存时启用数超过 8 将被拒绝（前端同步提示）。九宫格 8 奖位与奖品池容量对齐，防止奖项溢出抽奖位。
+
+### 4.5 复现造数口径（本地 dev-server）
+
+- 测试顾客 `hayden.zieme12@hotmail.com / test`（shop-api `registerCustomerAccount` 注册，customer id=9），admin-api `updateCustomer` 将 `customFields.memberLevel` 提为 **2**；
+- admin-api `createMemberPriceRule` 建 **global 会员价规则**（scope=global、memberLevel=2、discountPercent=95、active=true，channelId=1，规则 id=1，global 免分类覆盖种子商品）；
+- admin-api `adjustPoints(customerId:9, amount:10000)` 充积分 → shop-api `drawLottery` 抽 3 次产生记录；
+- 截图注入：C 端走登录页真实登录（需以 sessionStorage `sso_auto_jumped=1` 阻断企业 SSO 自动跳转）；web-admin 注入 `wa_auth_token`/`wa_user_id`/`wa_channel_code`/`wa_channel_token` 同前。
+
+---
+
+## 五、已知边界（暂缓项与口径）
+
+1. **会员价规则仍不参与 shop-api 下单计价（口径更新）**：按行改价的 MemberPriceRule 引擎仍只在 admin/POS 侧；C 端通过只读 `myMemberPrice` 查询**仅展示**会员价标签（见「暂缓项补齐」4.3），下单优惠以 `tier_discount` 订单级促销为准——不把规则计算器注册进全局价格策略链。
+2. **购物圈发布页选商品已补齐（2026-10-10）**：发布时按关键词搜索全店商品选中关联（见「暂缓项补齐」4.1）；「从我的订单/收藏快捷选商品」增强另立任务。
 3. **提现额度与打款离线**：起提 ¥10 为后端常量（暂未开放渠道级配置）；「标记已打款」仅做状态记账，实际打款（微信商家转账/支付宝转账）线下完成，无支付通道对接。
 4. **收款账号明文存储**：`accountInfo` 按业务需要明文展示于后台审核页（打款要用）；如需合规加固另立任务。
 5. **FAQ 分组固定**：C 端 tab（注册登录/订单/支付/售后/账户）为前端硬编码映射，后端 type 新增值需同步前端 tab。
@@ -122,7 +159,7 @@
 
 ---
 
-## 五、验证记录（2026-10-10）
+## 六、验证记录（2026-10-10）
 
 | 验证项 | 结果 |
 |--------|------|
@@ -130,6 +167,7 @@
 | 双端构建 | vshop `build:h5` 0 error（150 assets 新产物，`chore(c端)` 提交）；web-admin `build:h5` 0 error（606 文件） |
 | 本地端到端造数走查 | admin 造 FAQ×3、奖项×7（含 consume=0 免费奖与谢谢参与）、zhangsan 积分 +10000 / 余额 +¥500；C 端发帖×2 并点赞收藏、提交提现 ¥100（待审核）、抽奖 2 次（谢谢参与 -10 / 50元券 -100，积分 10000→9890） |
 | 截图 | 13 张（C 端 8 + 后台 5），390×844 @2x，全部人工目检通过（本目录） |
+| 暂缓项补齐（同日） | hayden memberLevel=2 + global 规则（95 折）造数 → `myMemberPrice` 全部命中 applied=true；`drawLottery` ×3 产生记录；补齐截图 3 张（c-publish / admin-lottery-records / c-detail，均为新增文件）目检通过，详情页「会员9.5折」标签成功显示 |
 
 ### 本地测试环境说明（复现用）
 
@@ -142,7 +180,7 @@
 
 ---
 
-## 六、截图索引
+## 七、截图索引
 
 | 文件 | 内容 | 目检要点 |
 |---|---|---|
@@ -152,6 +190,7 @@
 | `c-circle-feed.png` | C 端购物圈瀑布流 | 双列两卡、首图/标题截断/♡1 · ☆1、右下发布悬浮钮 |
 | `c-circle-detail.png` | C 端帖子详情 | 轮播图指示点、标题/正文/时间、底部 ♥1 ★1 分享（激活态橙色） |
 | `c-circle-publish.png` | C 端发布帖子（表单态） | 标题 8/50 计数、正文已填、图片（最多 6 张）、发布按钮 |
+| `c-publish.png` | C 端发布帖子（**关联商品已选卡片态**，暂缓项补齐新增） | 标题/正文已填、关联商品区块选中「农夫山泉天然水 ¥2.26」+ 移除钮、发布按钮 |
 | `c-lottery.png` | C 端积分抽奖九宫格 | 我的积分 10000、8 奖位循环 7 奖品（免费/积分标注）、中央抽奖格、记录空态 |
 | `c-lottery-result.png` | C 端中奖弹窗 | 中奖结果徽标、奖品图、「恭喜获得 50元优惠券礼包」、本次消耗 100 积分、开心收下 |
 | `admin-balance-withdraw.png` | 后台余额提现审核 | 待审核 tab、¥100.00 卡（客户#1·微信·zs_alipay_2026）、通过/驳回 |
@@ -159,3 +198,5 @@
 | `admin-feedback-list.png` | 后台意见反馈 | 待处理 tab、两卡类型徽标（功能异常/体验问题）、处理中/已解决按钮 |
 | `admin-circle-posts.png` | 后台帖子管理 | 两卡首图缩略、已发布徽标、点赞 1 · 收藏 1、置顶/隐藏 |
 | `admin-lottery-prizes.png` | 后台抽奖奖品配置 | 7 张奖项卡（#8-14：图/名称/权重/消耗积分/库存/排序/启用）、0 权重与 0 消耗文案说明 |
+| `admin-lottery-records.png` | 后台抽奖记录 tab（暂缓项补齐新增） | 双 tab 激活「抽奖记录」、5 条记录（奖品图/名称/消耗积分/用户/时间倒序） |
+| `c-detail.png` | C 端商品详情（**会员价标签态**，暂缓项补齐新增） | 价格区 ¥2.26 +「会员9.5折」徽标 + 约¥2.14 参考价、价格说明入口 |
