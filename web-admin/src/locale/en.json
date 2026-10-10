@@ -3879,6 +3879,7 @@
     "cashPriceInvalid": "Cash price must be a non-negative integer",
     "stockInvalid": "Stock must be a non-negative integer",
     "perUserLimitInvalid": "Per-user limit must be a non-negative integer",
+    "sortOrderInvalid": "Sort order must be a non-negative integer",
     "delTitle": "Delete points product",
     "delContent": "It can no longer be redeemed on the C-end. Delete now?",
     "saveOk": "Saved",

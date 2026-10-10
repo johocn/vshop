@@ -3879,6 +3879,7 @@
     "cashPriceInvalid": "现金价格需为不小于 0 的整数",
     "stockInvalid": "库存需为不小于 0 的整数",
     "perUserLimitInvalid": "每人限购需为不小于 0 的整数",
+    "sortOrderInvalid": "排序需为不小于 0 的整数",
     "delTitle": "删除积分商品",
     "delContent": "删除后前台将无法兑换该商品，确认删除？",
     "saveOk": "已保存",

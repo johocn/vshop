@@ -108,6 +108,8 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.feedbackList', url: '/pages/feedback/list/index', tier: 2 },
       { label: 'menu.circleManage', url: '/pages/circle/posts/index', tier: 2 },
       { label: 'menu.lotteryManage', url: '/pages/lottery/prizes/index', tier: 2 },
+      { label: 'menu.pointsGoodsManage', url: '/pages/points/goods/index', tier: 2 },
+      { label: 'menu.pointsOrdersManage', url: '/pages/points/orders/index', tier: 2 },
     ],
   },
   {
