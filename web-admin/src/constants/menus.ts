@@ -57,6 +57,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.afterSale', url: '/pages/after-sale/list/index', tier: 2 },
       { label: 'menu.review', url: '/pages/review/list/index', tier: 2 },
       { label: 'menu.pos', url: '/pages/pos/index', tier: 2 },
+      { label: 'menu.hotelBookings', url: '/pages/hotel/bookings/index', tier: 2 },
       { label: 'menu.settleLedger', url: '/pages/settle/ledger/index', tier: 3 },
     ],
   },
