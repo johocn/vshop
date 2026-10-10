@@ -73,6 +73,7 @@ export function enableH5Nav(_opts: { hasStore: () => boolean }) {
     { label: '工作台', url: '/pages/dashboard/index', home: true },
     { label: '订单', url: '/pages/order/list/index' },
     { label: '到店自提核销', url: '/pages/pickup/redeem/index' },
+    { label: '酒店预订', url: '/pages/hotel/bookings/index' },
     { label: '门店收银', url: '/pages/pos/index' },
     { label: '数据看板', url: '/pages/data/dashboard/index' },
     { label: '收款台账', url: '/pages/settle/ledger/index' },

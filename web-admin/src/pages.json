@@ -83,6 +83,7 @@
     { "path": "pages/lottery/prizes/index", "style": { "navigationBarTitleText": "积分抽奖奖品", "enablePullDownRefresh": true } },
     { "path": "pages/points/goods/index", "style": { "navigationBarTitleText": "积分商品管理", "enablePullDownRefresh": true } },
     { "path": "pages/points/orders/index", "style": { "navigationBarTitleText": "积分订单管理", "enablePullDownRefresh": true } },
+    { "path": "pages/hotel/bookings/index", "style": { "navigationBarTitleText": "酒店预订管理", "enablePullDownRefresh": true } },
     { "path": "pages/in-store/redeem/index", "style": { "navigationBarTitleText": "到店买单核销" } },
     { "path": "pages/in-store/bills/index", "style": { "navigationBarTitleText": "买单流水" } },
     { "path": "pages/pos/index", "style": { "navigationBarTitleText": "门店收银" } },
