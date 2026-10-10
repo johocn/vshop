@@ -74,6 +74,8 @@
           {{ showRoomCalendar ? locale.t('hotelRoomCalendar.collapse') : locale.t('hotelRoomCalendar.expand') }}
         </view>
         <RoomDayCalendar v-if="showRoomCalendar" :variant-id="variantId" />
+        <!-- 房价方案管理（P2 Task 9）：A 行内快捷改 + B 弹层全字段编辑 -->
+        <RatePlanManager v-if="variantId" :variant-id="variantId" />
       </template>
     </view>
 
@@ -181,6 +183,7 @@ import { reactive, ref, watch } from 'vue';
 import { useLocaleStore } from '../../stores/localeStore';
 import ImagePicker from '../../components/ImagePicker.vue';
 import RoomDayCalendar from '../../components/hotel/RoomDayCalendar.vue';
+import RatePlanManager from '../../components/hotel/RatePlanManager.vue';
 import {
   buildMatrix,
   batchFill,
