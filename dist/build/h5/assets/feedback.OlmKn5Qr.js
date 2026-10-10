@@ -1,0 +1,1 @@
+import{g as t}from"./index-Cw5Zx0ME.js";async function e(e){return t().request("query Faqs($type: String) { faqs(type: $type) { id title content type sort } }",{type:e||null})}async function n(e){return t().request("mutation CreateFeedback($input: CreateFeedbackInput!) {\n            createFeedback(input: $input) { id status }\n        }",{input:e})}export{n as c,e as g};

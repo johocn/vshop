@@ -110,7 +110,7 @@
     </view>
     <view class="product-detail__bar">
       <view class="bar-ico" @click="contactService"><text class="bar-ico__g">☎</text><text class="bar-ico__t">客服</text></view>
-      <view class="bar-ico" @click="onFavorite"><text class="bar-ico__g">☆</text><text class="bar-ico__t">收藏</text></view>
+      <view class="bar-ico" @click="onFavorite"><text class="bar-ico__g" :class="{ 'bar-ico__g--fav': isFavorited }">{{ isFavorited ? '♥' : '♡' }}</text><text class="bar-ico__t">{{ isFavorited ? '已收藏' : '收藏' }}</text></view>
       <view class="bar-ico" @click="goCart"><text class="bar-ico__g">🛒</text><text class="bar-ico__t">购物车</text></view>
       <button class="product-detail__cart-btn" @click="openSku('cart')">加入购物车</button>
       <button class="product-detail__buy-btn" @click="openSku('buy')">立即购买</button>
@@ -140,6 +140,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
 import { getProduct } from '../../api/queries/product';
 import { getMyMemberPrice } from '../../api/queries/member-price';
+import { toggleProductFavorite, getProductFavoriteMeta } from '../../api/queries/points-mall';
 import { getProductCoupons } from '../../api/queries/coupon';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { applyFlashSale } from '../../api/mutations/promotion';
@@ -167,6 +168,8 @@ import { getProductReviews, getReviewStats } from '../../api/queries/review';
 
 const product = ref<any>(null);
 const { t } = useI18n();
+const isFavorited = ref(false);
+const favoriteCount = ref(0);
 const previewReviews = ref<any[]>([]);
 const reviewTotal = ref(0);
 const reviewStats = ref<any>(null);
@@ -312,8 +315,39 @@ async function addVariant(variantId: string, quantity: number) {
 function contactService() {
     ui.showToast('客服功能敬请期待');
 }
-function onFavorite() {
-    ui.showToast('收藏功能敬请期待');
+/** 收藏元信息（进入页面静默拉取，失败不阻塞商品主内容） */
+async function loadFavoriteMeta() {
+    const pid = product.value?.id;
+    if (!pid) return;
+    try {
+        const r: any = await getProductFavoriteMeta(String(pid));
+        favoriteCount.value = r?.productFavoriteMeta?.favoriteCount ?? 0;
+        isFavorited.value = !!r?.productFavoriteMeta?.myFavorited;
+    } catch (e) { /* 静默 */ }
+}
+
+async function onFavorite() {
+    if (!product.value?.id) return;
+    if (!auth.isLoggedIn) {
+        uni.showToast({ title: '请先登录', icon: 'none' });
+        uni.navigateTo({ url: '/pages/login/index' });
+        return;
+    }
+    const pid = String(product.value.id);
+    const next = !isFavorited.value;
+    // 乐观更新，失败回滚
+    isFavorited.value = next;
+    favoriteCount.value = Math.max(0, favoriteCount.value + (next ? 1 : -1));
+    try {
+        const r: any = await toggleProductFavorite(pid);
+        isFavorited.value = !!r?.toggleProductFavorite?.favorited;
+        favoriteCount.value = r?.toggleProductFavorite?.favoriteCount ?? favoriteCount.value;
+        uni.showToast({ title: next ? '收藏成功' : '已取消收藏', icon: 'none' });
+    } catch (e: any) {
+        isFavorited.value = !next;
+        favoriteCount.value = Math.max(0, favoriteCount.value + (next ? -1 : 1));
+        uni.showToast({ title: e?.response?.errors?.[0]?.message || e?.message || '操作失败', icon: 'none' });
+    }
 }
 function goCart() {
     uni.switchTab({ url: '/pages/cart/index' });
@@ -338,6 +372,7 @@ onMounted(async () => {
             });
         }
     } catch (e) { console.error(e); }
+    loadFavoriteMeta();
     await loadReviews();
     loadAddons();
     loadMemberPrice();
@@ -545,7 +580,7 @@ onUnmounted(() => {
     &__arrow { font-size: 26rpx; color: #ccc; }
 }
 .product-detail__bar { justify-content: space-between; gap: 8rpx; }
-.bar-ico { display: flex; flex-direction: column; align-items: center; width: 88rpx; &__g { font-size: 32rpx; } &__t { font-size: 20rpx; color: $text-color-secondary; } }
+.bar-ico { display: flex; flex-direction: column; align-items: center; width: 88rpx; &__g { font-size: 32rpx; &--fav { color: #ff4d4f; } } &__t { font-size: 20rpx; color: $text-color-secondary; } }
 .note-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 210; display: flex; align-items: center; justify-content: center; }
 .note-sheet { width: 620rpx; background: #fff; border-radius: $radius-md; padding: 32rpx; display: flex; flex-direction: column; gap: 20rpx;
     &__title { font-size: 30rpx; font-weight: bold; }
