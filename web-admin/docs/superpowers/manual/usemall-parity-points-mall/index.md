@@ -156,6 +156,7 @@
 
 - **C 端 6 页时间显示本地化**：balance-history / points-history / distribution / logistics / lottery / withdraw 六页沿用「UTC 串直接截取」旧写法（显示慢 8 小时），统一替换为与 points-orders 相同的 Date 本地格式化（无效串回退原样）。线上空态截图证页面无回归（该渠道无存量流水/订单）。
 - **web-admin 积分商品有效期回显修正**：编辑卡 validFrom/validTo 由 UTC 串 `slice(0,10)` 改 `toLocalDate()` 本地日期，修掉本地零点时间戳回显差一天的偏差（配合此前 validTo 当日 23:59:59 语义修复）。见 `assets/points-orders-local-time-v2.png`（积分订单页无回归）。
+- **全库收尾（本轮扩展至 11 处）**：同一修法推广至全库——C 端社区帖子时间、分销结算时间、加购券「有效期至」、券商城与我的券日期区间；web-admin 优惠券/拼团/秒杀编辑 picker 回显、盘点任务时间、拣货批次创建/操作时间（文件内共用 toLocalMinute）、对账默认日期（`toISOString` 早上 8 点前会落到昨天）、平台模板时间。券商城线上登录态截图：一屏含日期区间券（「至 2027-01-01」）渲染正常无回归，见 `assets/coupon-mall-local-date.png`。
 
 ### 2026-10-11 C 端退款状态展示
 
