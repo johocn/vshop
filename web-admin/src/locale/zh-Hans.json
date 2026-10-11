@@ -3925,7 +3925,11 @@
     "empty": "暂无积分订单",
     "loadMore": "加载更多",
     "noMore": "没有更多了",
-    "retry": "重试"
+    "retry": "重试",
+    "refunding": "退款中",
+    "refunded": "已退款",
+    "refundFailed": "退款失败",
+    "refundError": "退款失败原因"
   },
   "hotelBookings": {
     "headTitle": "酒店预订管理",
