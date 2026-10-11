@@ -753,7 +753,9 @@
         "live": "ライブ",
         "distributionCenter": "アフィリエイトセンター",
         "changePassword": "パスワード変更",
-        "logout": "ログアウト"
+        "logout": "ログアウト",
+        "language": "言語",
+        "languageSwitched": "言語を切り替えました"
     },
     "distribution": {
         "title": "アフィリエイトセンター",

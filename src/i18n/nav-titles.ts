@@ -1,4 +1,4 @@
-import { i18n } from './index';
+import { i18n, SUPPORTED_LOCALES } from './index';
 
 /**
  * 导航标题集中式 i18n 映射：pages.json 路由 path（不带前导斜杠、不含 query）→ nav 命名空间 key。
@@ -148,6 +148,20 @@ export function applyTabbarLabels(): void {
         });
     });
     tabbarApplied = !failed;
+}
+
+/**
+ * 应用内切换语言：更新 vue-i18n locale（composition 模式为 ref，页面 t() 随 reactive 自动重渲染）
+ * → uni storage 持久化（H5 落 localStorage `vshop-locale`，与 i18n/index.ts 启动读取对称）→
+ * 手动刷新原生 chrome 层（导航标题 + tabbar 标签为 uni 原生 UI，不随 locale 响应式更新）。
+ * 非法 locale 直接忽略；置于本文件避免 i18n/index.ts ↔ 页面循环依赖。
+ */
+export function setAppLocale(loc: string): void {
+    if (!SUPPORTED_LOCALES.includes(loc)) return;
+    (i18n.global as any).locale.value = loc;
+    try { uni.setStorageSync('vshop-locale', loc); } catch (e) {}
+    applyNavTitleForCurrentPage();
+    applyTabbarLabels();
 }
 
 export function startNavTitleWatch(): void {
