@@ -29,6 +29,12 @@
           <view class="pgo-card__price">
             <text class="pgo-card__points">{{ o.pointsTotal }}{{ t('pointsGoods.pointsUnit') }}</text>
             <text v-if="o.cashTotal > 0" class="pgo-card__cash">+¥{{ (o.cashTotal / 100).toFixed(2) }}</text>
+            <text
+              v-if="o.cashTotal > 0 && o.refundStatus && o.refundStatus !== 'none'"
+              class="pgo-card__refund-tag"
+              :class="'pgo-card__refund-tag--' + o.refundStatus"
+              @click.stop="onRefundTagTap(o)"
+            >{{ refundTagLabel(o.refundStatus) }}</text>
           </view>
           <text class="pgo-card__time">{{ t('pointsGoods.createTime') }} {{ fmtTime(o.createdAt) }}</text>
         </view>
@@ -125,6 +131,23 @@ function statusLabel(key: string): string {
 }
 function statusColor(key: string): string {
     return TABS.find((x) => x.key === key)?.color || '#999999';
+}
+
+/** 现金退款状态标签文案（none 不展示，调用前已过滤） */
+const REFUND_TAG_KEY: Record<string, string> = {
+    refunding: 'refundTagRefunding',
+    refunded: 'refundTagRefunded',
+    failed: 'refundTagFailed',
+};
+function refundTagLabel(s: string): string {
+    const k = REFUND_TAG_KEY[s];
+    return k ? t('pointsGoods.' + k) : s;
+}
+
+/** 退款异常点击提示（联系客服语义） */
+function onRefundTagTap(order: any) {
+    if (order?.refundStatus !== 'failed') return;
+    ui.showToast(t('pointsGoods.refundFailedTip'), 'error');
 }
 
 function switchTab(key: string) {
@@ -249,6 +272,16 @@ function onCancel(order: any) {
     &__price { display: flex; align-items: baseline; margin-top: 8rpx; }
     &__points { font-size: 30rpx; font-weight: bold; color: $brand-color; }
     &__cash { font-size: 24rpx; color: $brand-color; margin-left: 8rpx; }
+    &__refund-tag {
+        font-size: 20rpx;
+        margin-left: 12rpx;
+        padding: 2rpx 12rpx;
+        border-radius: 20rpx;
+        align-self: center;
+        &--refunding { color: #ff9900; background: #fff7e6; }
+        &--refunded { color: #52c41a; background: #f6ffed; }
+        &--failed { color: #ff4d4f; background: #fff1f0; }
+    }
     &__time { font-size: 22rpx; color: #999; margin-top: 8rpx; }
     &__detail { border-top: 1rpx solid $border-color; margin-top: 20rpx; padding-top: 16rpx; }
     &__actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 20rpx; }

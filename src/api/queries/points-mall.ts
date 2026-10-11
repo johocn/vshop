@@ -6,12 +6,12 @@ const POINTS_PRODUCT_FIELDS = `
             stock perUserLimit myRedeemedCount redeemedCount validFrom validTo sortOrder priceWithTax inStock
         `;
 
-/** PointsOrder 字段串（下单返回/订单列表复用） */
+/** PointsOrder 字段串（下单返回/订单列表复用）；refundStatus=聚合现金退款状态 none/refunding/refunded/failed */
 const POINTS_ORDER_FIELDS = `
             id code customerId quantity pointsTotal cashTotal deliveryType status
             productSnapshot { productId variantId name image spec }
             addressSnapshot { name phone province city district detail }
-            trackingNo paidAt shippedAt completedAt createdAt
+            trackingNo paidAt shippedAt completedAt createdAt refundStatus
         `;
 
 /** 积分商品列表（分页，游客可浏览） */

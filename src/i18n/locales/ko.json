@@ -329,7 +329,11 @@
         "removeFavorite": "찜 취소",
         "goBuy": "구매하기",
         "emptyFavorites": "찜 목록이 비어 있습니다",
-        "goShopping": "쇼핑하러 가기"
+        "goShopping": "쇼핑하러 가기",
+        "refundTagRefunding": "환불 진행 중",
+        "refundTagRefunded": "환불 완료",
+        "refundTagFailed": "환불 실패",
+        "refundFailedTip": "환불 처리 중 오류가 발생했습니다. 고객센터에 문의해 주세요."
     },
     "pointsMall": {
         "myPoints": "내 포인트",

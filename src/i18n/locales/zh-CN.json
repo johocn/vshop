@@ -329,7 +329,11 @@
         "removeFavorite": "取消收藏",
         "goBuy": "去购买",
         "emptyFavorites": "暂无收藏",
-        "goShopping": "去逛逛"
+        "goShopping": "去逛逛",
+        "refundTagRefunding": "退款中",
+        "refundTagRefunded": "已退款",
+        "refundTagFailed": "退款异常",
+        "refundFailedTip": "退款异常，请联系客服处理"
     },
     "pointsMall": {
         "myPoints": "我的积分",
