@@ -27,8 +27,12 @@
       </view>
     </view>
 
+    <view v-if="error && items.length === 0" class="fav-page__error">
+      <text class="fav-page__error-text">{{ t('pointsGoods.loadFailed') }}</text>
+      <button class="fav-page__retry" @click="refresh">{{ t('common.retry') }}</button>
+    </view>
     <EmptyState
-      v-if="items.length === 0 && !loading"
+      v-else-if="items.length === 0 && !loading"
       :text="t('pointsGoods.emptyFavorites')"
       :button-text="t('pointsGoods.goShopping')"
       @action="goShopping"
@@ -52,7 +56,7 @@ const { t } = useI18n();
 const auth = useAuthStore();
 const ui = useUIStore();
 
-const { items, loading, loadMore } = usePagination<any>({
+const { items, loading, error, loadMore, refresh } = usePagination<any>({
     fetchFn: async ({ take, skip }) => {
         if (!auth.isLoggedIn) return { items: [], totalItems: 0 };
         const r: any = await getMyFavorites({ take, skip });
@@ -94,6 +98,19 @@ function goShopping() {
     padding: 20rpx;
     padding-bottom: 40rpx;
     &__loading { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx; }
+    &__error { display: flex; flex-direction: column; align-items: center; padding: 80rpx 0; }
+    &__error-text { color: #999; font-size: 26rpx; }
+    &__retry {
+        margin-top: 24rpx;
+        background: $brand-color;
+        color: #fff;
+        font-size: 26rpx;
+        padding: 0 40rpx;
+        height: 60rpx;
+        line-height: 60rpx;
+        border-radius: 30rpx;
+        border: none;
+    }
 }
 .fav-card {
     background: #fff;

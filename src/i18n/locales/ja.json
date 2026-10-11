@@ -330,5 +330,28 @@
         "goBuy": "購入する",
         "emptyFavorites": "お気に入りはありません",
         "goShopping": "買い物へ"
+    },
+    "pointsMall": {
+        "myPoints": "ポイント残高",
+        "topTip": "ポイントで以下のクーポンと交換できます",
+        "pointsUnit": "ポイント",
+        "exchange": "交換",
+        "empty": "交換可能なクーポンはありません",
+        "discountPercent": "{n}割引",
+        "freeOrder": "全品無料クーポン",
+        "discountAmount": "¥{n} 引き",
+        "noThreshold": "購入金額の条件なし",
+        "minSpend": "¥{n} 以上で利用可",
+        "stockRemaining": "残り {n} 枚",
+        "limitShort": "お一人様{n}枚まで",
+        "limitFull": "お一人様 {n} 枚まで",
+        "unlimited": "制限なし",
+        "soldOut": "交換済み",
+        "insufficientPoints": "ポイント不足",
+        "exchangeConfirmTitle": "交換の確認",
+        "exchangeConfirmContent": "{points} ポイントで「{name}」と交換しますか？交換後すぐにポイントが差し引かれます。",
+        "exchangeConfirmBtn": "交換する",
+        "exchangeSuccess": "交換しました（{points} ポイント使用）",
+        "exchangeFailed": "交換に失敗しました"
     }
 }

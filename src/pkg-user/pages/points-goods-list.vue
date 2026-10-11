@@ -32,7 +32,11 @@
       </view>
     </view>
 
-    <EmptyState v-if="items.length === 0 && !loading" :text="t('pointsGoods.emptyGoods')" />
+    <view v-if="error && items.length === 0" class="pgl-page__error">
+      <text class="pgl-page__error-text">{{ t('pointsGoods.loadFailed') }}</text>
+      <button class="pgl-page__retry" @click="refresh">{{ t('common.retry') }}</button>
+    </view>
+    <EmptyState v-else-if="items.length === 0 && !loading" :text="t('pointsGoods.emptyGoods')" />
     <view v-if="loading" class="pgl-page__loading">{{ t('common.loading') }}</view>
   </view>
 </template>
@@ -52,7 +56,7 @@ const { t } = useI18n();
 const auth = useAuthStore();
 const points = ref<number | null>(null);
 
-const { items, loading, loadMore } = usePagination<any>({
+const { items, loading, error, loadMore, refresh } = usePagination<any>({
     fetchFn: async ({ take, skip }) => {
         const r: any = await getPointsProducts({ take, skip });
         return r?.pointsProducts || { items: [], totalItems: 0 };
@@ -107,6 +111,19 @@ function goDetail(g: any) {
         border: none;
     }
     &__loading { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx; }
+    &__error { display: flex; flex-direction: column; align-items: center; padding: 80rpx 0; }
+    &__error-text { color: #999; font-size: 26rpx; }
+    &__retry {
+        margin-top: 24rpx;
+        background: $brand-color;
+        color: #fff;
+        font-size: 26rpx;
+        padding: 0 40rpx;
+        height: 60rpx;
+        line-height: 60rpx;
+        border-radius: 30rpx;
+        border: none;
+    }
 }
 .pgl-grid {
     display: flex;

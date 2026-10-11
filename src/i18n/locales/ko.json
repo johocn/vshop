@@ -330,5 +330,28 @@
         "goBuy": "구매하기",
         "emptyFavorites": "찜 목록이 비어 있습니다",
         "goShopping": "쇼핑하러 가기"
+    },
+    "pointsMall": {
+        "myPoints": "내 포인트",
+        "topTip": "포인트로 아래 쿠폰을 교환할 수 있습니다",
+        "pointsUnit": "포인트",
+        "exchange": "교환",
+        "empty": "교환 가능한 쿠폰이 없습니다",
+        "discountPercent": "{n}할인",
+        "freeOrder": "전 상품 무료 쿠폰",
+        "discountAmount": "¥{n} 할인",
+        "noThreshold": "최소 구매 금액 없음",
+        "minSpend": "¥{n} 이상 사용 가능",
+        "stockRemaining": "남은 수량 {n}장",
+        "limitShort": "1인 {n}장 제한",
+        "limitFull": "1인 {n}장 제한",
+        "unlimited": "제한 없음",
+        "soldOut": "모두 교환됨",
+        "insufficientPoints": "포인트 부족",
+        "exchangeConfirmTitle": "교환 확인",
+        "exchangeConfirmContent": "{points} 포인트로 「{name}」을(를) 교환하시겠습니까? 교환 즉시 포인트가 차감됩니다.",
+        "exchangeConfirmBtn": "교환하기",
+        "exchangeSuccess": "교환 완료, {points} 포인트 사용",
+        "exchangeFailed": "교환에 실패했습니다"
     }
 }

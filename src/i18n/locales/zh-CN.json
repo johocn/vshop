@@ -330,5 +330,28 @@
         "goBuy": "去购买",
         "emptyFavorites": "暂无收藏",
         "goShopping": "去逛逛"
+    },
+    "pointsMall": {
+        "myPoints": "我的积分",
+        "topTip": "积分可兑换以下优惠券",
+        "pointsUnit": "积分",
+        "exchange": "兑换",
+        "empty": "暂无可用兑换券",
+        "discountPercent": "{n}折",
+        "freeOrder": "全场免单券",
+        "discountAmount": "立减 ¥{n}",
+        "noThreshold": "无门槛使用",
+        "minSpend": "满 ¥{n} 可用",
+        "stockRemaining": "剩余 {n} 张",
+        "limitShort": "限兑{n}张",
+        "limitFull": "限兑 {n} 张",
+        "unlimited": "不限量",
+        "soldOut": "已兑完",
+        "insufficientPoints": "积分不足",
+        "exchangeConfirmTitle": "确认兑换",
+        "exchangeConfirmContent": "使用 {points} 积分兑换「{name}」？兑换后积分将立即扣减。",
+        "exchangeConfirmBtn": "确认兑换",
+        "exchangeSuccess": "兑换成功，消耗 {points} 积分",
+        "exchangeFailed": "兑换失败"
     }
 }

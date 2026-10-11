@@ -330,5 +330,28 @@
         "goBuy": "Buy",
         "emptyFavorites": "No favorites yet",
         "goShopping": "Go Shopping"
+    },
+    "pointsMall": {
+        "myPoints": "My Points",
+        "topTip": "Redeem points for the coupons below",
+        "pointsUnit": "pts",
+        "exchange": "Redeem",
+        "empty": "No coupons available",
+        "discountPercent": "{n}0% off",
+        "freeOrder": "Free order coupon",
+        "discountAmount": "¥{n} off",
+        "noThreshold": "No minimum spend",
+        "minSpend": "Valid on orders over ¥{n}",
+        "stockRemaining": "{n} left",
+        "limitShort": "limit {n}/user",
+        "limitFull": "Limit {n} per user",
+        "unlimited": "Unlimited",
+        "soldOut": "Sold out",
+        "insufficientPoints": "Not enough points",
+        "exchangeConfirmTitle": "Confirm Redemption",
+        "exchangeConfirmContent": "Redeem \"{name}\" with {points} points? Points will be deducted immediately.",
+        "exchangeConfirmBtn": "Redeem",
+        "exchangeSuccess": "Redeemed successfully, {points} points spent",
+        "exchangeFailed": "Redemption failed"
     }
 }

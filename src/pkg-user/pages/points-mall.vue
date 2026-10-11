@@ -2,9 +2,9 @@
   <view class="mall-page">
     <!-- 顶部积分余额 -->
     <view class="mall-page__top">
-      <text class="mall-page__label">我的积分</text>
+      <text class="mall-page__label">{{ t('pointsMall.myPoints') }}</text>
       <text class="mall-page__points">{{ info.points ?? '--' }}</text>
-      <text class="mall-page__tip">积分可兑换以下优惠券</text>
+      <text class="mall-page__tip">{{ t('pointsMall.topTip') }}</text>
     </view>
 
     <!-- 兑换列表 -->
@@ -15,28 +15,30 @@
         <text class="mall-card__cond">{{ condLabel(tpl) }}</text>
       </view>
       <view class="mall-card__right">
-        <text class="mall-card__price">{{ tpl.pointsPrice }}<text class="mall-card__unit"> 积分</text></text>
+        <text class="mall-card__price">{{ tpl.pointsPrice }}<text class="mall-card__unit"> {{ t('pointsMall.pointsUnit') }}</text></text>
         <text class="mall-card__stock">{{ stockLabel(tpl) }}</text>
         <button
           class="mall-card__btn"
           :class="{ 'mall-card__btn--disabled': !canExchange(tpl) }"
           :disabled="!canExchange(tpl)"
           @click.stop="onExchange(tpl)"
-        >{{ canExchange(tpl) ? '兑换' : disabledReason(tpl) }}</button>
+        >{{ canExchange(tpl) ? t('pointsMall.exchange') : disabledReason(tpl) }}</button>
       </view>
     </view>
 
-    <EmptyState v-if="templates.length === 0 && !loading" text="暂无可用兑换券" />
-    <view v-if="loading" class="mall-page__loading">加载中...</view>
+    <EmptyState v-if="templates.length === 0 && !loading" :text="t('pointsMall.empty')" />
+    <view v-if="loading" class="mall-page__loading">{{ t('common.loading') }}</view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getMyMemberInfo, getPointsMallTemplates, exchangeCouponWithPoints } from '../../api/queries/member';
 import EmptyState from '../../components/EmptyState.vue';
 import { useUIStore } from '../../stores/ui';
 
+const { t } = useI18n();
 const ui = useUIStore();
 const info = ref<any>({});
 const templates = ref<any[]>([]);
@@ -63,25 +65,26 @@ function myPoints(): number {
 /** 权益描述 */
 function benefitLabel(tpl: any): string {
   const v = tpl.discountValue ?? 0;
-  if (tpl.type === 'PERCENT') return `${(v / 10).toFixed(1).replace(/\.0$/, '')}折`;
-  if (tpl.type === 'FULL') return '全场免单券';
-  return `立减 ¥${(v / 100).toFixed(2)}`;
+  if (tpl.type === 'PERCENT') return t('pointsMall.discountPercent', { n: (v / 10).toFixed(1).replace(/\.0$/, '') });
+  if (tpl.type === 'FULL') return t('pointsMall.freeOrder');
+  return t('pointsMall.discountAmount', { n: (v / 100).toFixed(2) });
 }
 
 /** 使用门槛描述 */
 function condLabel(tpl: any): string {
   const min = tpl.minSpend ?? 0;
-  if (min <= 0) return '无门槛使用';
-  return `满 ¥${(min / 100).toFixed(2)} 可用`;
+  if (min <= 0) return t('pointsMall.noThreshold');
+  return t('pointsMall.minSpend', { n: (min / 100).toFixed(2) });
 }
 
 /** 库存/限购描述 */
 function stockLabel(tpl: any): string {
   if (tpl.totalCount > 0) {
     const left = Math.max(0, tpl.totalCount - (tpl.claimedCount ?? 0));
-    return `剩余 ${left} 张${tpl.perUserLimit > 0 ? ` · 限兑${tpl.perUserLimit}张` : ''}`;
+    const limit = tpl.perUserLimit > 0 ? t('pointsMall.limitShort', { n: tpl.perUserLimit }) : '';
+    return t('pointsMall.stockRemaining', { n: left }) + (limit ? ' · ' + limit : '');
   }
-  return tpl.perUserLimit > 0 ? `限兑 ${tpl.perUserLimit} 张` : '不限量';
+  return tpl.perUserLimit > 0 ? t('pointsMall.limitFull', { n: tpl.perUserLimit }) : t('pointsMall.unlimited');
 }
 
 function soldOut(tpl: any): boolean {
@@ -95,16 +98,16 @@ function canExchange(tpl: any): boolean {
 }
 
 function disabledReason(tpl: any): string {
-  if (soldOut(tpl)) return '已兑完';
-  return '积分不足';
+  if (soldOut(tpl)) return t('pointsMall.soldOut');
+  return t('pointsMall.insufficientPoints');
 }
 
 function onExchange(tpl: any) {
   const need = tpl.pointsPrice ?? 0;
   uni.showModal({
-    title: '确认兑换',
-    content: `使用 ${need} 积分兑换「${tpl.name}」？兑换后积分将立即扣减。`,
-    confirmText: '确认兑换',
+    title: t('pointsMall.exchangeConfirmTitle'),
+    content: t('pointsMall.exchangeConfirmContent', { points: need, name: tpl.name }),
+    confirmText: t('pointsMall.exchangeConfirmBtn'),
     confirmColor: '#ff6600',
     success: async (res) => {
       if (!res.confirm) return;
@@ -113,11 +116,11 @@ function onExchange(tpl: any) {
         const result: any = await exchangeCouponWithPoints(tpl.id);
         ui.hideLoading();
         const spent = result?.exchangeCouponWithPoints?.spentPoints ?? need;
-        ui.showToast(`兑换成功，消耗 ${spent} 积分`, 'success');
+        ui.showToast(t('pointsMall.exchangeSuccess', { points: spent }), 'success');
         await load();
       } catch (e: any) {
         ui.hideLoading();
-        const msg = e?.response?.errors?.[0]?.message || e.message || '兑换失败';
+        const msg = e?.response?.errors?.[0]?.message || e.message || t('pointsMall.exchangeFailed');
         ui.showToast(msg, 'error');
         await load(); // 刷新积分与库存
       }
