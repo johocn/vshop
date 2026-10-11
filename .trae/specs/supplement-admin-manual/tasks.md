@@ -15,10 +15,10 @@
   - [x] 3.2 每章插入对应截图与 imgcap 图注；检查图片文件名与 shots/ 实际文件一致
   - [x] 3.3 封面页尾部加「修订记录」块，登记本次 7 章补充
   - [x] 3.4 校验章节 id/编号连续、无重复 id、HTML 无未闭合标签
-- [ ] Task 4: 验证与交付（依赖 Task 3）
+- [x] Task 4: 验证与交付（依赖 Task 3）
   - [x] 4.1 浏览器打开 index.html：目录/搜索含新章节、样式正常、图片全部加载（无 404）
-  - [ ] 4.2 提交 vshop（仅手册相关文件）→ 推送 → `cd web-admin; node scripts/deploy.mjs` 部署
-  - [ ] 4.3 生产验证：e.joho.cn/guanli 手册入口可达、新章节在线可读
+  - [x] 4.2 提交 vshop（仅手册相关文件）→ 推送 → `cd web-admin; node scripts/deploy.mjs` 部署
+  - [x] 4.3 生产验证：e.joho.cn/guanli 手册入口可达、新章节在线可读
 
 # Task Dependencies
 - Task 2 依赖 Task 1.5（先有缺口清单再截屏）
