@@ -329,7 +329,11 @@
         "removeFavorite": "Unfavorite",
         "goBuy": "Buy",
         "emptyFavorites": "No favorites yet",
-        "goShopping": "Go Shopping"
+        "goShopping": "Go Shopping",
+        "refundTagRefunding": "Refunding",
+        "refundTagRefunded": "Refunded",
+        "refundTagFailed": "Refund failed",
+        "refundFailedTip": "Refund failed. Please contact customer service."
     },
     "pointsMall": {
         "myPoints": "My Points",

@@ -329,7 +329,11 @@
         "removeFavorite": "お気に入り解除",
         "goBuy": "購入する",
         "emptyFavorites": "お気に入りはありません",
-        "goShopping": "買い物へ"
+        "goShopping": "買い物へ",
+        "refundTagRefunding": "返金処理中",
+        "refundTagRefunded": "返金済み",
+        "refundTagFailed": "返金エラー",
+        "refundFailedTip": "返金エラーが発生しました。カスタマーサービスまでお問い合わせください。"
     },
     "pointsMall": {
         "myPoints": "ポイント残高",
