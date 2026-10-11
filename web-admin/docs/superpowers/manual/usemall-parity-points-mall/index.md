@@ -121,6 +121,8 @@
 
 **配置开关**：`pointsRefundRetryEnabled`（默认开启）。排查后台积压时可查 `points_order_payment` 表的 `refundStatus / refundError / refundAttempts` 三列。
 
+**C 端展示**（vendure `59c31714d` / vshop 同轮）：shop 端 `myPointsOrders` 的 `PointsOrder` 暴露聚合字段 `refundStatus`（按 orderId 取最新一条支付行，无支付行默认 `none`，不暴露 refundNo/externalRef 等内部字段）；C 端「我的积分订单」混合价订单卡金额旁展示退款小标签——退款中（amber）/ 已退款（green）/ 退款异常（red，点击 toast 提示联系客服），`none` 不显示。见 `assets/points-c-orders-refund.png`。
+
 ---
 
 ## 附：截图清单与复现
@@ -142,12 +144,17 @@
 | `assets/points-orders-localtime.png` | 积分订单列表（兑换时间已按本地时区格式化） |
 | `assets/points-goods-list-error-retry.png` | 积分商品列表加载失败错误态（拦截 /shop-api 返回 500，展示「加载失败 + 重试」） |
 | `assets/points-admin-orders-refund-column.png` | 后台积分订单列表（desktop 1440×900，`payments` 退款字段查询与渲染无回归；线上当前无退款单，退款标签不显示属预期） |
+| `assets/points-c-orders-refund.png` | C 端积分订单列表（390×844@2x，混合价单金额旁退款状态标签位；线上当前无退款单，标签不显示属预期，截图证明页面无回归） |
 
-复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成。
+复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 C 端退款状态展示
+
+9. **C 端积分订单退款标签**：shop 端 `myPointsOrders` 暴露聚合 `refundStatus`（vendure `59c31714d`，e2e 22/22）；vshop `points-mall.ts` 查询字段同步、`points-orders.vue` 混合价订单卡金额旁按态显示小标签（refunding 退款中 amber / refunded 已退款 green / failed 退款异常 red，点击 toast 联系客服语义），zh-CN/zh-TW/en/ja/ko 五语言补 `pointsGoods.refundTag*` 词条。见「五之一·C 端展示」与 `assets/points-c-orders-refund.png`。
 
 ### 2026-10-11 web-admin 退款状态展示
 
