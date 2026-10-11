@@ -2,6 +2,7 @@
   <view class="order-page">
     <!-- 版式切换入口（顶部） -->
     <view class="layout-bar">
+      <view v-if="restricted" class="scope-chip">{{ $t('orderAlert.profileScoped') }}</view>
       <text class="layout-btn" @tap="layoutOpen = true">{{ $t('orderAdmin.orderList.layout') }} · {{ ORDER_LIST_LAYOUTS[layoutKey].label }} ▾</text>
     </view>
 
@@ -12,7 +13,7 @@
       :config="config"
       :loading="loading"
       :loading-more="loadingMore"
-      :scopes="scopes"
+      :scopes="restricted ? [] : scopes"
       :scope="scope"
       :tab-groups="tabGroups"
       :cur="cur"
@@ -64,10 +65,10 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import OrderListRenderer from '../../../components/order-list/OrderListRenderer.vue';
-import { fetchOrders, fetchOrderCounts, fetchShopOrders, fetchProductThumbs } from '../../../apis/order';
+import { fetchOrders, fetchOrderCounts, fetchShopOrders, fetchProductThumbs, fetchScopedOrders, fetchScopedOrderCounts, ScopedOrderFilterInput } from '../../../apis/order';
 import { fetchPickupOrders } from '../../../apis/pickup';
 import {
   channelToView,
@@ -80,6 +81,7 @@ import {
 } from '../../../utils/orderFormat';
 import {
   buildOrderFilter,
+  buildScopedFilter,
   STATE_GROUPS,
   EXCEPTION_TYPES,
   AFTER_SALES_OPEN,
@@ -94,8 +96,12 @@ import { ORDER_LIST_LAYOUTS, LAYOUT_KEYS, DEFAULT_LAYOUT, OrderListLayoutKey } f
 import { parseLayout, parseOrderListConfig } from '../../../utils/orderListConfig';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useAuthStore } from '../../../stores/authStore';
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
+// 受限核销员（与 pickup/redeem、in-store/bills 同一判定模式）
+const restricted = computed(() => !auth.isSuperAdmin && auth.permissions.includes('VerifyOrder'));
 
 // —— tab 定义：分组折叠 + 16 状态全枚举 + 异常组（exceptionType）+ 售后组 ——
 // 键位契约：分组「全部」chip 的 key 固定为 `g:<groupKey>`，桌面 B 版式左侧导航直接复用该键。
@@ -154,6 +160,11 @@ const scopes = [
 ];
 
 const scope = ref('channel');
+// 受限核销员无商品单视图：强制回渠道单；权限异步就绪（false→true）时数据源随之切换，需重载
+watch(restricted, (r, was) => {
+  if (r) scope.value = 'channel';
+  if (r && was === false) { resetPage(); load(); loadCounts(); }
+}, { immediate: true });
 const cur = ref('');
 const kw = ref('');
 const timeKey = ref<TimeRangeKey>('');
@@ -209,6 +220,11 @@ function groupCondition(key: string): OrderFilterInput {
 function currentFilter(): Record<string, any> | null {
   return buildOrderFilter({ ...baseInput(), ...currentTabInput() });
 }
+/** 受限核销员路径：语义条件 → 按配送档案过滤的后端查询条件 */
+function currentScopedFilter(): ScopedOrderFilterInput | null {
+  const f = buildScopedFilter({ ...baseInput(), ...currentTabInput() });
+  return Object.keys(f).length ? f : null;
+}
 function toastFail(e: unknown) {
   const msg = graphQlErrorMsg(e, '');
   uni.showToast({
@@ -244,6 +260,15 @@ async function load() {
       } catch { thumbMap = {}; }
       if (my !== seq) return;
       views.value = rows.map((o) => shopToView(o, thumbMap)).filter((v) => !isGhostView(v));
+    } else if (restricted.value) {
+      const { items, totalItems: total } = await fetchScopedOrders({
+        take: perPage.value,
+        skip: (page.value - 1) * perPage.value,
+        filter: currentScopedFilter(),
+      });
+      if (my !== seq) return;
+      totalItems.value = total;
+      views.value = items.map(channelToView).filter((v) => !isGhostView(v));
     } else {
       const { items, totalItems: total } = await fetchOrders({
         take: perPage.value,
@@ -271,11 +296,17 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     const next = page.value + 1;
-    const { items, totalItems: total } = await fetchOrders({
-      take: perPage.value,
-      skip: (next - 1) * perPage.value,
-      filter: currentFilter(),
-    });
+    const { items, totalItems: total } = restricted.value
+      ? await fetchScopedOrders({
+          take: perPage.value,
+          skip: (next - 1) * perPage.value,
+          filter: currentScopedFilter(),
+        })
+      : await fetchOrders({
+          take: perPage.value,
+          skip: (next - 1) * perPage.value,
+          filter: currentFilter(),
+        });
     if (my !== seq) return;
     page.value = next;
     totalItems.value = total;
@@ -294,17 +325,21 @@ async function loadMore() {
  */
 async function loadCounts() {
   const b = baseInput();
+  // 受限核销员走按配送档案过滤的计数接口：翻译函数随权限二选一（避免双翻译）
+  const mk = (inp: OrderFilterInput) => (restricted.value ? buildScopedFilter(inp) : buildOrderFilter(inp));
   const filters = [
     // 今日卡 = 固定「当日」口径（不带状态/关键词，也不随当前时间胶囊漂移）；
     // 用 timeInput() 会让默认态（未选时间）退化成全量计数，卡片数字与「今日订单」标题不符。
-    buildOrderFilter({ time: { key: 'today' } }),
-    buildOrderFilter({ states: UNPAID_STATES }),
-    buildOrderFilter({ states: TO_SHIP_STATES }),
-    buildOrderFilter({ afterSales: AFTER_SALES_OPEN }),
-    ...tabGroups.value.map((g) => buildOrderFilter({ ...b, ...groupCondition(g.key) })),
+    mk({ time: { key: 'today' } }),
+    mk({ states: UNPAID_STATES }),
+    mk({ states: TO_SHIP_STATES }),
+    mk({ afterSales: AFTER_SALES_OPEN }),
+    ...tabGroups.value.map((g) => mk({ ...b, ...groupCondition(g.key) })),
   ];
   try {
-    const nums = await fetchOrderCounts(filters);
+    const nums = restricted.value
+      ? await fetchScopedOrderCounts(filters as ScopedOrderFilterInput[])
+      : await fetchOrderCounts(filters as Array<Record<string, any> | null>);
     stats.value = {
       today: String(nums[0] ?? 0),
       unpaid: String(nums[1] ?? 0),
@@ -492,6 +527,17 @@ onReachBottom(loadMore);
     .p-check { color: $wa-accent; font-size: 28rpx; font-weight: 700; }
     .p-desc { font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
   }
+}
+
+.scope-chip {
+  display: inline-block;
+  margin-left: 16rpx;
+  padding: 4rpx 20rpx;
+  font-size: 24rpx;
+  color: #004d26;
+  background: #e5fff2;
+  border: 1px dashed #0ab861;
+  border-radius: 999rpx;
 }
 
 @media (min-width: 768px) {
