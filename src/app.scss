@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ 设计 Token（Jewelry Atelier） ============ */
+:root {
+  --gold-1: #c89b3c;
+  --gold-2: #e0b95f;
+  --gold-3: #8a6a24;
+  --ink-deep: #1c1613;
+  --ink-panel: #2a211b;
+  --ink-light: #f2ebe0;
+  --text-1: #f5efe6;
+  --text-2: #c9bfb2;
+  --text-dark: #3a2f27;
+  --func-success: #4f8f7d;
+  --func-warn: #c0522f;
+}
+
+page {
+  background: var(--ink-deep);
+  color: var(--text-1);
+  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 隐藏滚动条但保留滚动能力 */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  color: transparent;
+}
+
+.bead-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-anchor: none;
+}

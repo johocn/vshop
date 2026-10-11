@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["DOM", "ES2020", "ESNext"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "isolatedModules": false,
+    "verbatimModuleSyntax": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "types": ["@tarojs/taro", "node"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@engine/*": ["./src/engine/*"],
+      "@data/*": ["./src/data/*"],
+      "@store/*": ["./src/store/*"],
+      "@components/*": ["./src/components/*"]
+    }
+  },
+  "include": ["src", "config", "tests", "types", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

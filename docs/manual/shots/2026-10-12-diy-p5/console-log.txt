@@ -1,0 +1,12 @@
+[designer][console.info] [webpack-dev-server] Server started: Hot Module Replacement disabled, Live Reloading enabled, Progress disabled, Overlay enabled.
+[designer][console.log] [HMR] Waiting for update signal from WDS...
+[designer][console.info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[designer][console.log] [bead-diy] app launched
+[bom][console.info] [webpack-dev-server] Server started: Hot Module Replacement disabled, Live Reloading enabled, Progress disabled, Overlay enabled.
+[bom][console.log] [HMR] Waiting for update signal from WDS...
+[bom][console.info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[bom][console.log] [bead-diy] app launched
+[works][console.info] [webpack-dev-server] Server started: Hot Module Replacement disabled, Live Reloading enabled, Progress disabled, Overlay enabled.
+[works][console.log] [HMR] Waiting for update signal from WDS...
+[works][console.info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[works][console.log] [bead-diy] app launched

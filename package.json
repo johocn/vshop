@@ -1,0 +1,53 @@
+{
+  "name": "bead-diy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DIY 串珠手串小程序：手围算量 + 材质搭配 + 真实感实时渲染 + 珠子清单导出",
+  "templateInfo": {
+    "name": "default",
+    "typescript": true,
+    "css": "sass"
+  },
+  "scripts": {
+    "build:weapp": "taro build --type weapp",
+    "build:h5": "taro build --type h5",
+    "dev:weapp": "taro build --type weapp --watch",
+    "dev:h5": "taro build --type h5 --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tarojs/components": "4.3.0",
+    "@tarojs/plugin-platform-h5": "4.3.0",
+    "@tarojs/plugin-platform-weapp": "4.3.0",
+    "@tarojs/react": "4.3.0",
+    "@tarojs/runtime": "4.3.0",
+    "@tarojs/taro": "4.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@babel/preset-react": "^7.29.7",
+    "@tarojs/cli": "4.3.0",
+    "@tarojs/plugin-framework-react": "^4.3.0",
+    "@tarojs/webpack5-runner": "4.3.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "autoprefixer": "^10.4.20",
+    "babel-preset-taro": "^4.3.0",
+    "lucide-react": "^0.469.0",
+    "postcss": "8.5.3",
+    "react-icons": "^5.4.0",
+    "sass": "^1.83.0",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss": "3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^1.6.0",
+    "weapp-tailwindcss": "^3.7.0",
+    "webpack": "^5.91.0"
+  }
+}

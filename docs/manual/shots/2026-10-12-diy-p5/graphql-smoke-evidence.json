@@ -1,0 +1,20 @@
+{
+  "capturedAt": "2026-10-12 (Task 6 联调留证)",
+  "endpoint": "http://localhost:3000/shop-api",
+  "diyMaterials": {
+    "query": "query { diyMaterials(filter:{onlyEnabled:true,take:200}) { total items { id code diameter attrs } } }",
+    "result": { "total": 68 },
+    "targetSku": { "id": "17", "code": "AG-RED-08-N", "diameter": 8, "attrs": { "group": "agate-red", "defaultDiameter": 8, "weightPerBead": 1.1 } }
+  },
+  "createDiyPlan": {
+    "request": {
+      "query": "mutation($spec: JSON!){ createDiyPlan(templateCode:\"bracelet-classic\" spec:$spec){ id status bom } }",
+      "variables": { "spec": { "slots": { "main": { "materialId": "17" } }, "params": { "wristSize": 160, "fit": "comfort", "gap": 0.6 }, "seed": 1 } }
+    },
+    "response": { "data": { "createDiyPlan": { "id": "1", "status": "draft", "bom": { "items": [ { "materialId": "17", "code": "AG-RED-08-N", "name": "南红玛瑙·柿子红圆珠", "spec": "8mm round", "unitPrice": 650, "qty": 22, "subtotal": 14300 } ], "totalCount": 22, "totalAmount": 14300, "cord": { "length": 349.84455274432116, "diameter": 0.8, "note": "弹力线，打结收尾留量 160mm" }, "geometry": { "innerCircumference": 164.71181151560285, "feedback": "ok", "clearance": 4.711811515602847 } } } } }
+  },
+  "diyCategories": {
+    "response": { "data": { "diyCategories": [ { "id": "1", "code": "crystal", "name": { "zh-CN": "水晶", "en-US": "Crystal" } }, { "id": "2", "code": "agate", "name": { "zh-CN": "玛瑙玉髓", "en-US": "Agate & Chalcedony" } }, { "id": "3", "code": "wood", "name": { "zh-CN": "木质", "en-US": "Wood" } }, { "id": "4", "code": "amber", "name": { "zh-CN": "蜜蜡琉璃", "en-US": "Amber & Glass" } }, { "id": "5", "code": "pearl", "name": { "zh-CN": "珍珠贝珠", "en-US": "Pearl & Shell" } }, { "id": "6", "code": "metal", "name": { "zh-CN": "金属配件", "en-US": "Metal" } }, { "id": "7", "code": "gemstone", "name": { "zh-CN": "天然宝石", "en-US": "Gemstone" } }, { "id": "8", "code": "spacer", "name": { "zh-CN": "隔片配饰", "en-US": "Spacers" } } ] } },
+    "count": 8
+  }
+}
