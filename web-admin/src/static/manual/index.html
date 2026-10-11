@@ -138,7 +138,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <section id="viewHome" class="page">
   <div class="cover">
     <img src="cover.jpg" alt="youshop 使用手册">
-    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p></div>
+    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）</p></div>
   </div>
   <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
   <div id="bookList"></div>
@@ -1306,6 +1306,157 @@ var CHAPTERS = [
   <li><mark class="mark">刷新页面不重播</mark>旧单提醒，只有真正的新单才会触发。</li>
   <li>未登录 / 登录页<mark class="mark">不显示</mark>任何提醒元素。</li>
 </ul>`},
+{book:'op', id:'op-46', title:'积分商城（积分商品 · 积分订单）', html:`
+<p class="lead">积分商城让用户用<mark class="mark">积分兑换商品</mark>，是留存与积分消耗的主阵地。两页配合使用：「营销 → <mark class="mark">积分商品</mark>」配置哪些商品可兑换、扣多少积分；「营销 → <mark class="mark">积分订单</mark>」处理用户的兑换单（收款、发货、完成）。</p>
+<h3>积分商品：配置可兑换商品</h3>
+<ol class="steps">
+  <li>进入「营销 → 积分商品」，顶部按<mark class="mark">商品名 / 商品ID</mark>搜索；点「<mark class="mark">+ 新增商品</mark>」追加一张商品卡片。</li>
+  <li>填「商品ID / 变体ID（管理后台商品列表可查）」——<mark class="mark">保存后不可再改</mark>，填错只能删除重录。</li>
+  <li>填「<mark class="mark">积分价格</mark>」（必填、不小于 0 的整数）与「<mark class="mark">现金价格（分）</mark>」：现金价 <b>0 = 纯积分兑换</b>。</li>
+  <li>选「<mark class="mark">配送方式</mark>」：<b>实物</b>（需发货、订单带收货地址）或<b>虚拟</b>（无需物流）；再填库存、每人限购（0 = 不限）、排序、生效 / 失效日期（留空 = 不限，可点「清除」重置）。</li>
+  <li>打开「启用」开关，点「<mark class="mark">保存</mark>」。卡片上的「已兑换：N」实时统计兑换量；随时可用开关下架，不必删除。</li>
+</ol>
+<div class="warn"><b>现金价格单位是「分」：</b>填 500 = 5 元。与秒杀 / 拼团编辑页「按元填写」口径不同，别填反了。</div>
+<div class="note"><b>删除即下架：</b>删除弹窗写明「删除后前台将无法兑换该商品，确认删除？」；只是暂时不卖就用「启用」开关，保留配置。</div>
+<h3>积分订单：处理兑换单</h3>
+<p>「营销 → 积分订单」顶部按<mark class="mark">单号 / 客户ID</mark>搜索，状态 Tab：<b>全部 / 待支付 / 待发货 / 已发货 / 已完成 / 已取消</b>。订单卡展示商品快照 ×数量、用户、积分与现金金额、快递单号与收货地址（实物单）。操作随状态推进：</p>
+<table>
+  <thead><tr><th>当前状态</th><th>操作</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>待支付</td><td><mark class="mark">标记已收款</mark></td><td>确认弹窗「确认该订单已完成收款？」，确认后进入待发货</td></tr>
+    <tr><td>待发货</td><td><mark class="mark">标记发货</mark></td><td>弹窗填「快递单号（可留空）」；虚拟商品可直接发货</td></tr>
+    <tr><td>已发货</td><td><mark class="mark">标记完成</mark></td><td>用户签收后点击「标记完成」，订单完结</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>退款角标：</b>卡片上出现「退款中 / 已退款 / 退款失败」标签；「退款失败」为红色可点，展示退款失败原因，按原因人工跟进。</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/op46-points-goods-390.png" alt="积分商品管理页"><div class="imgcap">图 P1 · 积分商品卡片（390 视口）：积分价 / 现金价 / 配送方式 / 库存 / 限购 / 有效期</div></div>
+  <div><img class="img" src="shots/op46-points-orders-390.png" alt="积分订单列表页"><div class="imgcap">图 P2 · 积分订单（390 视口）：状态 Tab + 标记收款 / 发货 / 完成</div></div>
+</div>
+<details><summary>用户说兑换成功了，为什么订单列表里找不到</summary><p>积分兑换单<mark class="mark">不进常规订单列表</mark>，只在「营销 → 积分订单」里处理。切「待发货」Tab 或按单号 / 客户ID搜索即可定位。</p></details>
+<details><summary>积分价格、库存填错了能改吗</summary><p>能。积分价格、现金价、库存、限购、排序、有效期都随时可改；只有「商品ID / 变体ID」保存后锁定，错了删除重录。</p></details>
+<details><summary>每人限购和库存的关系</summary><p>库存控制总量、每人限购控制单人上限，<b>0 = 不限</b>的是限购数；库存没有负数概念，兑完即自动不可兑。</p></details>
+`},
+{book:'op', id:'op-47', title:'促销活动：秒杀与拼团', html:`
+<p class="lead">两类拉峰值的促销都在「营销」组：「<mark class="mark">秒杀活动</mark>」把某个变体（SKU）在指定时间段打到一口价；「<mark class="mark">拼团活动</mark>」让用户凑人成团享成团价，团长还可得折扣 / 返现 / 免单。两者都<mark class="mark">按变体（SKU）生效</mark>，先在「商品列表」复制好商品 ID 与变体 ID 再来建。</p>
+<h3>秒杀活动</h3>
+<ol class="steps">
+  <li>「营销 → 秒杀活动」点「<mark class="mark">＋ 新建秒杀</mark>」。</li>
+  <li>填活动名称（如「周末爆品秒杀」）、开始 / 结束日期——<mark class="mark">开始日 0 点起、结束日当日结束止</mark>；状态由时间自动推导：<b>未开始 / 进行中 / 已结束</b>，不用手动切换。</li>
+  <li>填「<mark class="mark">秒杀价（元）</mark>」（按元填写，提交自动转为分）、总库存、每人限购（<b>0 = 不限</b>）。</li>
+  <li>填「商品 ID」与「<mark class="mark">变体 ID（SKU）</mark>」（秒杀价按变体生效）。保存后列表卡片实时显示<mark class="mark">已售 / 库存</mark>与每人限购，可编辑 / 删除。</li>
+</ol>
+<h3>拼团活动</h3>
+<p>「营销 → 拼团活动」点「＋ 新建拼团」，卡片展示成团进度、最大人数、团长奖励与商品 ID。关键字段：</p>
+<table>
+  <thead><tr><th>字段</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td>目标成团人数</td><td>至少 <mark class="mark">2 人</mark>；「最大参团人数」留空 = 不限</td></tr>
+    <tr><td>成团价（元）</td><td>按元填写，按变体（SKU）生效</td></tr>
+    <tr><td>团长奖励</td><td>三选一：<mark class="mark">团长折扣 / 返现 / 免单</mark>；选「团长折扣」时按「团长优惠（元）」每单直减（0 = 无）</td></tr>
+    <tr><td>满员自动成团</td><td>开启后凑满目标人数即自动成团</td></tr>
+    <tr><td>成团后允许加入</td><td>控制成团后新人还能否参团</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>创建后不可修改：</b>拼团的「<mark class="mark">商品 / 变体 / 团长奖励 / 满员自动成团 / 成团后允许加入</mark>」仅创建时可设置，编辑页这些字段锁定；名称、描述、日期、成团价、团长优惠等可改。</div>
+<div class="warn"><b>到点自动开始 / 结束依赖常驻 worker：</b>秒杀场次到点自动开始 / 结束、拼团到期检查都由<mark class="mark">常驻 worker 进程</mark>每分钟执行（见 op-40「定时任务与常驻 worker」）。worker 没在跑时页面不报错，但活动会一直停在「未开始」或「进行中」，该下线的不下线——先查 worker。</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/op47-flash-sale-390.png" alt="秒杀活动列表"><div class="imgcap">图 K1 · 秒杀活动列表（390 视口）：状态徽标 + 时间 / 已售库存 / 每人限购 / 商品 ID</div></div>
+  <div><img class="img" src="shots/op47-group-buy-390.png" alt="拼团活动列表"><div class="imgcap">图 K2 · 拼团活动列表（390 视口）：成团进度 / 最大人数 / 团长奖励</div></div>
+</div>
+<details><summary>活动到点了还显示「未开始」，是配置错了吗</summary><p>大概率不是。状态转换由 worker 每分钟跑一次，按 op-40 的四步自检确认 <code>vendure-worker</code> 在线；worker 恢复后下个周期自动补上状态。</p></details>
+<details><summary>秒杀价能低于成本价兜底吗</summary><p>系统只校验秒杀价大于 0 且库存 / 商品 / 变体齐全，不拦成本价——定价请自审；活动结束商品自动恢复原价。</p></details>
+`},
+{book:'op', id:'op-48', title:'积分抽奖', html:`
+<p class="lead">「营销 → <mark class="mark">积分抽奖</mark>」配置 C 端九宫格抽奖：用户消耗积分抽奖赢奖品。页面两个 Tab：「<mark class="mark">奖品配置</mark>」管奖品，「<mark class="mark">抽奖记录</mark>」查每次抽奖的用户与消耗积分。</p>
+<h3>奖品配置</h3>
+<ol class="steps">
+  <li>点「<mark class="mark">+ 新增奖品</mark>」追加一张奖品卡片；先「选择图片」（已配可「换图」），图片直接显示在 C 端九宫格。</li>
+  <li>填「奖项名称」（如「一等奖 / 谢谢参与」）、「<mark class="mark">权重</mark>」——权重越高越易中，<mark class="mark">0 = 仅展示、不参与抽取</mark>。</li>
+  <li>填「<mark class="mark">消耗积分</mark>」（抽中该奖品时消耗的积分，0 = 免费抽奖）与「库存」（<mark class="mark">留空 = 不限量</mark>）、排序。</li>
+  <li>打开「启用」开关，点「保存」。</li>
+</ol>
+<div class="note"><b>九宫格口径：</b>删除弹窗写明「删除后 C 端九宫格将不再展示该奖项」；「谢谢参与」这类兜底奖项也要占一格——把它的权重设 0，只展示不参与抽取，其余奖品照常中出。</div>
+<div class="tip"><b>中奖记录：</b>切「抽奖记录」Tab 可按时间查看每次抽奖的「用户 + 消耗积分」，上滑「加载更多」，作为发奖与对账依据。</div>
+<img class="img" src="shots/op48-lottery-prizes-390.png" alt="积分抽奖奖品配置页">
+<div class="imgcap">图 L1 · 积分抽奖奖品卡片（390 视口）：权重 / 消耗积分 / 库存 / 启用开关</div>
+<details><summary>奖品发完了会怎样</summary><p>库存留空 = 不限量；填了库存的奖品抽完即不再中出，九宫格仍展示但用户抽不到它，建议节假日大促前核对一轮库存。</p></details>
+<details><summary>「谢谢参与」要配消耗积分吗</summary><p>不用。把它权重设 0（仅展示不参与抽取）即可；若希望「谢谢参与」也被抽中并扣积分，权重设大于 0、消耗积分按需配置。</p></details>
+`},
+{book:'op', id:'op-49', title:'会员等级配置', html:`
+<p class="lead">「营销 → <mark class="mark">会员等级配置</mark>」决定会员「<mark class="mark">升到哪一档、每档打几折</mark>」。页面两个区块：① 等级档位（档位名称、升级门槛、专属折扣）；② 升级配置（各级名称与门槛、积分倍率）。</p>
+<h3>① 等级档位与专属折扣</h3>
+<ol class="steps">
+  <li>每档是一张「档位 N」卡片：填「<mark class="mark">档位名称</mark>」（如「金卡会员」）与「<mark class="mark">升级门槛（成长值）</mark>」——达到该成长值即升级到此档。</li>
+  <li>填「<mark class="mark">专属折扣率（千分比）</mark>」：换算公式「折扣 =（1000 − 千分比）÷ 10」，即 <mark class="mark">50 = 95 折、100 = 90 折</mark>，0 = 无折扣；下单时按档位折扣结算，卡片会按此公式实时回显折扣文案。</li>
+  <li>点「<mark class="mark">＋ 新增一档</mark>」加档，最后点「<mark class="mark">保存档位</mark>」。</li>
+</ol>
+<div class="warn"><b>折扣率是千分比且会钳制：</b>取值 <mark class="mark">0～1000</mark>，0 = 无折扣，填超范围保存时自动钳到边界；档位保存为<mark class="mark">全量提交</mark>——保存会覆盖全部档位，改一档也要整页确认后再保存。</div>
+<h3>② 升级配置</h3>
+<p>配置「等级 1～5」的<mark class="mark">名称与门槛（成长值）</mark>，用于会员等级展示与升级判定；另有「<mark class="mark">积分获取倍率</mark>」与「<mark class="mark">运费也计成长值与积分</mark>」开关（决定运费是否计入成长值与积分），填完点「保存升级配置」。</p>
+<img class="img" src="shots/op49-member-level-390.png" alt="会员等级配置页">
+<div class="imgcap">图 V1 · 会员等级配置（390 视口）：等级档位 + 专属折扣率（千分比）与升级配置</div>
+<details><summary>95 折应该填多少</summary><p>套换算公式「折扣 =（1000 − 千分比）÷ 10」：<mark class="mark">95 折填 50、90 折填 100、88 折填 120</mark>。填 0 或留空 = 无折扣；超过 1000 的值保存时被钳到 1000。拿不准就以档位卡片上实时回显的折扣文案为准。</p></details>
+<details><summary>改了档位门槛，已达标会员会自动升级吗</summary><p>会。门槛用于升级判定，保存后系统按新门槛重新计算会员档位；名称与门槛同时用于 C 端等级展示。</p></details>
+`},
+{book:'op', id:'op-50', title:'评价管理', html:`
+<p class="lead">「交易 → <mark class="mark">评价管理</mark>」审核用户的商品评价：<mark class="mark">先审后显</mark>——只有「通过」的评价才展示在小程序评论列表并计入商品评分。默认打开「待审核」Tab，是每天的待办入口。</p>
+<h3>评价卡片</h3>
+<ul>
+  <li>星级（实心 ★ 数 = 评分）、状态徽标（待审核 / 已通过 / 已驳回 / 已删除）、客户（未授权昵称显示「<mark class="mark">匿名用户</mark>」）与「评价于」时间。</li>
+  <li>评价内容、<mark class="mark">图片缩略图</mark>（点击全屏预览）、标签；带「<mark class="mark">追评</mark>」标记的是用户的追加评价。</li>
+  <li>你回复过的评价显示「商家回复：…」。</li>
+</ul>
+<h3>操作与状态矩阵</h3>
+<table>
+  <thead><tr><th>当前状态</th><th>可用操作</th><th>效果</th></tr></thead>
+  <tbody>
+    <tr><td>待审核</td><td><mark class="mark">通过</mark> / <mark class="mark">驳回</mark></td><td>通过后展示并计分；驳回后不展示、不计分</td></tr>
+    <tr><td>已通过</td><td><mark class="mark">回复</mark> / 驳回</td><td>回复内容展示在评价下；发现违规可再驳回下架</td></tr>
+    <tr><td>已驳回</td><td><mark class="mark">通过</mark></td><td>误驳回可挽回，通过后恢复展示与计分</td></tr>
+    <tr><td>追评（parentId 非空）</td><td>仅审核，<mark class="mark">无「回复」入口</mark></td><td>追评只随主评展示，不能单独回复</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>口径提醒：</b>「通过」提示写明「通过后将展示在小程序评论列表，并计入商品评分」；「驳回」写明「驳回后该评价将不在小程序展示，且不计入商品评分」。列表底部有「已显示 n / m 条」进度，上滑加载更多。</div>
+<img class="img" src="shots/op50-review-list-390.png" alt="评价管理列表">
+<div class="imgcap">图 E1 · 评价管理（390 视口）：待审核 Tab + 星级 / 内容 / 图片 / 通过 · 回复 · 驳回</div>
+<details><summary>驳回错了还能恢复吗</summary><p>能。切「已驳回」Tab，该评价卡片上有「通过」按钮，点通过即恢复展示并重新计入评分。</p></details>
+<details><summary>回复和追评怎么区分</summary><p>「回复」是你对主评的官方答复，显示为「商家回复：…」；「追评」是用户下单后追加的评价，卡片带「追评」标记、不能被回复，但同样要走审核。</p></details>
+`},
+{book:'op', id:'op-51', title:'余额提现审核', html:`
+<p class="lead">分销佣金进用户余额后，用户可申请提现；「分销 → <mark class="mark">余额提现审核</mark>」是唯一的处理入口。流程三步：<mark class="mark">待审核 → 已通过（待打款）→ 已打款</mark>；驳回则金额<mark class="mark">解冻退回客户余额</mark>。默认打开「待审核」Tab。</p>
+<h3>申请卡片</h3>
+<p>每张卡片显示：金额、状态、客户编号、<mark class="mark">收款方式（微信 / 支付宝 / 银行卡）</mark>与「收款账号：…」、申请于 / 审核于 / 打款于时间、备注——<b>打款前务必核对这里的收款账号</b>。</p>
+<ol class="steps">
+  <li>「待审核」单：点「<mark class="mark">通过</mark>」——确认弹窗提示「通过后 ¥N 将进入待打款状态，请线下核对收款账号」；或点「<mark class="mark">驳回</mark>」。</li>
+  <li>驳回时<mark class="mark">必须填驳回原因</mark>（不能为空），确认后 ¥N 解冻退回客户余额，状态转「已驳回」。</li>
+  <li>线下向客户转账后，切「已通过」Tab，点「<mark class="mark">标记已打款</mark>」——确认弹窗「确认已线下向客户打款 ¥N？打款后冻结金额出账」。</li>
+</ol>
+<div class="warn"><b>线下打款后别忘了回后台点「标记已打款」：</b>不点，这笔钱的<mark class="mark">冻结金额一直不出账</mark>，对账永远差一笔；点了，冻结金额才正式出账。打款动作不可逆，转前核对收款账号与姓名。</div>
+<img class="img" src="shots/op51-balance-withdraw-390.png" alt="余额提现审核页">
+<div class="imgcap">图 C1 · 余额提现审核（390 视口）：待审核 Tab + 收款账号 + 通过 / 驳回 / 标记已打款</div>
+<details><summary>驳回后钱去哪了</summary><p>退回客户余额（解冻），客户可重新发起提现；驳回原因会作为该单的备注留痕，方便客户与客服对质。</p></details>
+<details><summary>点错「通过」了怎么补救</summary><p>「已通过（待打款）」状态没有撤销入口。若还没线下打款，先与客户沟通；确认无法打款时按店铺流程登记后人工处理，<mark class="mark">不要随意点「标记已打款」</mark>——它代表资金已出账。</p></details>
+`},
+{book:'op', id:'op-52', title:'反馈与 FAQ', html:`
+<p class="lead">「营销」组两页联动：①「<mark class="mark">FAQ 管理</mark>」维护 C 端「常见问题」内容（标题、答案、分类、排序、启用）；②「<mark class="mark">意见反馈</mark>」承接用户提交的问题反馈，按「待处理 → 处理中 → 已解决」推进闭环。</p>
+<h3>FAQ 管理</h3>
+<ol class="steps">
+  <li>「营销 → FAQ 管理」点「<mark class="mark">+ 新增问题</mark>」追加一张卡片。</li>
+  <li>点卡片左上「<mark class="mark">类型徽标</mark>」可切换分类：<b>通用 / 注册登录 / 订单 / 支付 / 售后 / 账户</b>。</li>
+  <li>填「问题标题」（最长 100 字）与「答案内容」，设「排序」（数字越小越靠前），打开「启用」开关后点「保存」。</li>
+</ol>
+<div class="tip"><b>下架用开关：</b>答案过时了先关「启用」而非删除，改好再开；删除的 FAQ 前台立即消失。</div>
+<h3>意见反馈</h3>
+<p>状态 Tab：<b>待处理（默认）/ 处理中 / 已解决 / 全部</b>。卡片含标题、类型（<mark class="mark">功能异常 / 体验问题 / 其他</mark>）、客户编号、内容摘要、<mark class="mark">图片缩略图（点击全屏预览）</mark>、「联系方式：…」（用于回访）与提交于 / 处理于时间。</p>
+<div class="note"><b>操作只在「待处理」上出现：</b>「<mark class="mark">处理中</mark>」「<mark class="mark">已解决</mark>」两个按钮仅待处理反馈有，点击有确认弹窗「将反馈「X」标记为「Y」？」；标记为处理中 / 已解决后<mark class="mark">没有再改回的入口</mark>，先核实再点——需要继续跟进的先转「处理中」并按联系方式回访，能一次关单的直接「已解决」。</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/op52-feedback-faq-390.png" alt="FAQ 管理页"><div class="imgcap">图 Q1 · FAQ 管理（390 视口）：类型徽标 / 启用开关 / 标题 · 答案 · 排序</div></div>
+  <div><img class="img" src="shots/op52-feedback-list-390.png" alt="意见反馈列表页"><div class="imgcap">图 Q2 · 意见反馈（390 视口）：状态 Tab + 类型 / 联系方式 / 处理中 · 已解决</div></div>
+</div>
+<details><summary>反馈里的图片打不开吗</summary><p>能看。反馈附图以缩略图展示，点击即全屏预览；结合内容与联系方式判断问题，必要时回访用户要更多信息。</p></details>
+<details><summary>FAQ 的类型有什么用</summary><p>C 端按类型归类展示常见问题，用户能更快定位（如支付类问题看「支付」组）；类型可随时点徽标改，保存后立即生效。</p></details>
+`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
