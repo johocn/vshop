@@ -147,8 +147,8 @@
 | `assets/points-c-orders-refund.png` | C 端积分订单列表（390×844@2x，混合价单金额旁退款状态标签位；线上当前无退款单，标签不显示属预期，截图证明页面无回归） |
 | `assets/member-center-i18n.png` | 会员权益中心（i18n 专项后登录态渲染：等级/成长值/权益卡/快捷入口） |
 | `assets/distribution-i18n.png` | 分销中心（i18n 专项后未申请引导态：标题/描述/申请按钮） |
-| `assets/nav-title-en.png` | 导航标题 i18n：首页 en（localStorage `vshop-locale=en` + reload，导航栏标题 Home） |
-| `assets/nav-title-zh.png` | 导航标题 i18n：首页 zh-CN 对照（默认中文「首页」） |
+| `assets/nav-title-en.png` | 导航标题 i18n：购物车页 en 直载（localStorage `vshop-locale=en`，导航栏标题 Cart——tabbar 页直载为本轮修复覆盖场景） |
+| `assets/nav-title-zh.png` | 导航标题 i18n：购物车页 zh-CN 对照（默认中文「购物车」；页体文案属主包页面，待 i18n 下一批次） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
@@ -157,6 +157,8 @@
 ## 六、变更记录
 
 ### 2026-10-11 导航标题集中式 i18n（54 页五语言）
+
+- **直载缺口修复（同日追加）**：实测发现 uni-app H5 对 tabbar 页直载是「先起首页再内部切 tab」，内部切换不走 uni.switchTab、拦截器拦不到，onLaunch 单次 apply 只会落在首页 → 购物车等 tabbar 页直载标题回退中文。修复：新增 `startNavTitleWatch()`（App onShow 启动，仅前 5 秒轮询栈顶路由、变化即应用，之后交由拦截器）+ navigateBack 拦截器（语言切换等返回后对新栈顶页应用）。Playwright 实测 en 直载 cart 标题 "Cart"、flash-sale "Flash Sale"、zh 复原，截图更新为 cart 直载对照。已知边界：主包页面（home/category/cart/profile/login 等）页体文案不在 13 页 i18n 批次内，待下一批次。
 
 - **集中映射 + 导航拦截器**：新增 `src/i18n/nav-titles.ts`——`NAV_TITLE_KEYS` 收录 pages.json 全部用户侧页面 54 个 route path → `nav.*` 语义化 key（排除 pages/admin/ 下 3 个内部工具页与 globalStyle 的 Youshop 品牌名；pages.json 本身不改，中文仍是默认 fallback）；`setupNavTitleInterceptor()` 在 App onLaunch 对 navigateTo/redirectTo/reLaunch/switchTab 挂拦截器（uni 拦截器 success 回调只带结果，目标 url 在 invoke 钩子捕获），`applyNavTitle()` 查表 → i18n t() → `uni.setNavigationBarTitle`，页面 meta 未挂载时 fail 短重试、H5 下以 document.title 达成与否校验防默认标题回写；启动时对当前页也应用一次。纯全局机制不依赖页面实例，setup 写法页面零改动。
 - **语言持久化**：`src/i18n/index.ts` 初始化时从 uni storage（H5 落 localStorage，key `vshop-locale`）读取语言；五语言包同步新增 `nav` 命名空间 54 key（顶级 key 位置五文件一致）。

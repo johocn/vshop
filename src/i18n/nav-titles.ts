@@ -96,6 +96,46 @@ export function applyNavTitle(path: string, attempt = 0): void {
 }
 
 /**
+ * 对当前栈顶页面应用导航标题（App onShow / 语言切换等时机调用）。
+ * 解决 onLaunch 一次性 apply 覆盖不到的场景：tabbar 页直载（meta 挂载晚于重试窗口）、
+ * 分享链接/收藏直达等入口。
+ */
+export function applyNavTitleForCurrentPage(attempt = 0): void {
+    const pages = getCurrentPages();
+    const cur = pages[pages.length - 1] as any;
+    if (!cur?.route) {
+        // 冷启动 onShow 时页面栈可能尚未就绪，短重试兜底
+        if (attempt < 10) setTimeout(() => applyNavTitleForCurrentPage(attempt + 1), 100);
+        return;
+    }
+    applyNavTitle(String(cur.route));
+}
+
+/**
+ * 启动期路由观察（仅前 5 秒，之后交由导航拦截器）：
+ * uni-app H5 对 tabbar 页直载是「先起首页再内部切 tab」，内部切换不走 uni.switchTab API、
+ * 拦截器拦不到；onLaunch/onShow 单次 apply 也只会落在首页。故在启动早期轮询栈顶路由，
+ * 每次变化即应用对应语言标题，覆盖直载/分享直达/初始切 tab 等入口。
+ */
+let watchStarted = false;
+export function startNavTitleWatch(): void {
+    if (watchStarted) return;
+    watchStarted = true;
+    let last = '';
+    let n = 0;
+    const timer = setInterval(() => {
+        const pages = getCurrentPages();
+        const cur = pages[pages.length - 1] as any;
+        const r = String(cur?.route || '');
+        if (r && r !== last) {
+            last = r;
+            applyNavTitle(r);
+        }
+        if (++n >= 50) clearInterval(timer);
+    }, 100);
+}
+
+/**
  * 挂载导航标题拦截器：四类导航成功后按目标页 path 应用当前语言标题。
  * 注意 uni 拦截器 success 回调只带结果（errMsg），目标 url 需在 invoke 钩子里捕获。
  */
@@ -114,5 +154,11 @@ export function setupNavTitleInterceptor(): void {
                 target = '';
             },
         });
+    });
+    // 返回不经过 invoke 的目标 url：成功后对新的栈顶页应用标题（如语言切换页返回）
+    uni.addInterceptor('navigateBack', {
+        success() {
+            applyNavTitleForCurrentPage();
+        },
     });
 }
