@@ -138,7 +138,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <section id="viewHome" class="page">
   <div class="cover">
     <img src="cover.jpg" alt="youshop 使用手册">
-    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）</p></div>
+    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）；二批：酒店预订管理（op-17 扩节）、成员启停移除与核销档案（op-16 扩节）、公众号三件套 / 平台角色 / 拾光达校园配送（op-53～op-55）</p></div>
   </div>
   <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
   <div id="bookList"></div>
@@ -559,7 +559,13 @@ var CHAPTERS = [
 <div class="warn"><b>安全边界：</b>重置仅对<mark class="mark">低权限成员</mark>开放；<mark class="mark">租户管理员角色不可被授予、本人口令不可被他人重置</mark>，本人改密必须提供原密码。</div>
 <h3>查看成员信息</h3>
 <p>点击成员列表中的「显示姓名」，可查看该成员的完整信息，包括登录用户名（邮箱）、手机号、角色、状态、人员 ID 与加入时间。</p>
-<img class="img" src="shots/r05_member_info.png" alt="成员信息弹窗">`},
+<img class="img" src="shots/r05_member_info.png" alt="成员信息弹窗">
+<h3>启用 / 停用 / 移除成员</h3>
+<p>成员行的<mark class="mark">启停开关</mark>切换即生效，确认弹窗「确定启用 / 停用「姓名」？」；停用后该成员无法再登录本店后台。点「<mark class="mark">移除</mark>」弹窗「确定从本租户移除「姓名」？」——<mark class="mark">移除只解除与本店的关联</mark>，平台账号本身不会被删除，仍可再加入其它租户。</p>
+<img class="img" src="shots/op54-members-390.png" alt="人员管理列表">
+<div class="imgcap">图 R13 · 人员管理（390 视口）：＋添加人员 / 启停开关 / 角色 / 移除</div>
+<h3>受限核销员的「可核销配送档案」</h3>
+<p>添加 / 编辑人员时，所选角色含<mark class="mark">核销（VerifyOrder）权限</mark>，弹层底部会出现<mark class="mark">「可核销配送档案」</mark>多选区：勾选哪些配送档案，该成员就只能核销 / 查看这些档案范围内的订单；<mark class="mark">一个不选 = 默认拒绝核销</mark>（显示红色警示「未授权任何档案（默认拒绝核销）」）。租户暂无配送档案时提示「当前租户暂无可用配送档案」。订单侧的过滤效果详见「受限核销员订单查看（配送档案过滤）」一章。</p>`},
 {book:'op', id:'op-17', title:'房型模板库与酒店版式', html:`
 <p class="lead">酒店房型商品采用「<mark class="mark">房型模板库 → 商品变体酒店配置 → 店铺酒店版式</mark>」三级配置：先在「平台 → 房型模板库」沉淀可复用的房型模板，再到商品编辑页为变体套用模板生成配置快照，最后在店铺信息中把详情页版式切到「酒店」，前台即渲染酒店版式详情页（日期条 + 房型卡 + 逐日计价 + 预订规则）。</p>
 <h3>房型模板库</h3>
@@ -626,7 +632,22 @@ var CHAPTERS = [
 </ul>
 <img class="img" src="shots/r12_room_template_create_guide.png" alt="新建模板-JSON录入引导条">
 <div class="imgcap">图 R11 · 新建模板 JSON 录入引导（点选价格段/床型/取消政策/押金/快捷房间即填充 JSON）</div>
-<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>`},
+<div class="warn"><b>引导只增不删：</b>引导条负责生成<mark class="mark">合法 JSON 片段</mark>并合并/覆盖对应键，不清空已手写内容；保存时仍做整体 JSON 校验，非法格式仍会拦截。</div>
+<h3>预订管理：到店核销与取消退款</h3>
+<p>入口：<mark class="mark">交易 → 酒店预订管理</mark>（有订单权限即可见）。顶部是<mark class="mark">核销卡</mark>：输入 8 位数字入住码，或点「扫码」自动从二维码内容中提取 8 位码并回填核销，成功提示「核销成功」；格式不对提示「请输入 8 位数字入住码」，扫码未识别提示「未识别到 8 位入住码」。</p>
+<p>状态 Tab：<b>全部 / 待付订金 / 已确认 / 已入住 / 已完成 / 已取消 / 未到店</b>。紧凑行式卡片：客人名、预订码、状态徽标、房型、入住 → 离店日期（N 晚 M 间）与金额；点卡片或「详情」展开<mark class="mark">订单号、联系电话、价格方案、免费取消截止、入住 / 离店 / 取消时间、取消原因、创建时间</mark>。操作随状态出现：</p>
+<table>
+  <thead><tr><th>当前状态</th><th>操作</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>已确认</td><td><mark class="mark">核销</mark></td><td>行内直接办理入住；后端校验「预订须为已确认，且当日落在入住 → 离店区间内」，提前到店或状态不符都会被拒绝并提示原因</td></tr>
+    <tr><td>已入住</td><td><mark class="mark">完成离店</mark></td><td>确认弹窗「确认该预订已离店完成？」，确认后提示「已完结」</td></tr>
+    <tr><td>待付订金 / 已确认</td><td><mark class="mark">强制取消</mark></td><td>弹层输入取消原因（可留空）后「确认取消」，提示「已取消并释放锁房」</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>取消 ≠ 自动退款：</b>强制取消只是把预订置为「已取消」并释放锁房，<mark class="mark">退款走售后单流程</mark>——到「交易 → 售后处理」按售后单推进退款；用户自行取消是否免费，按预订规则中的「免费取消截止」执行（展开详情可见）。</div>
+<img class="img" src="shots/op17-hotel-bookings-390.png" alt="酒店预订管理页">
+<div class="imgcap">图 R12 · 酒店预订管理（390 视口）：核销卡 + 状态 Tab + 按状态出现的核销 / 完成离店 / 强制取消</div>
+<details><summary>客人到店了，点「核销」却报错</summary><p>核销要求预订状态为「已确认」且<mark class="mark">当日落在入住 → 离店区间内</mark>：提前到店（未到入住日）或还在「待付订金」状态都会被拒绝。待付订金的先收款确认订单；确需提前入住的与客人协商后改期或按售后流程处理。</p></details>`},
 {book:'op', id:'op-18', title:'四流对账：批次 / 差异 / 重跑闭环', html:`
 <p class="lead">「平台 → 四流对账」为开启<mark class="mark">物理库存</mark>的租户提供<mark class="mark">业务 / 资金 / 库存 / 配送</mark>四流日对账：按「租户 × 日期」生成对账批次，逐单比对并用 <code>D1-D4</code> 差异类型标记异常订单，支持<mark class="mark">手动立即对账</mark>与<mark class="mark">每日 2:00 后自动日批</mark>（幂等，同日不重复跑），对差异行可<mark class="mark">重跑</mark>复核、闭环确认。</p>
 <h3>四流与差异类型</h3>
@@ -1456,6 +1477,81 @@ var CHAPTERS = [
 </div>
 <details><summary>反馈里的图片打不开吗</summary><p>能看。反馈附图以缩略图展示，点击即全屏预览；结合内容与联系方式判断问题，必要时回访用户要更多信息。</p></details>
 <details><summary>FAQ 的类型有什么用</summary><p>C 端按类型归类展示常见问题，用户能更快定位（如支付类问题看「支付」组）；类型可随时点徽标改，保存后立即生效。</p></details>
+`},
+{book:'op', id:'op-53', title:'微信公众号管理（菜单 · 用户 · 消息模板）', html:`
+<p class="lead">「平台管理」组的公众号三件套——「<mark class="mark">公众号菜单</mark>」「<mark class="mark">微信用户</mark>」「<mark class="mark">消息模板</mark>」——直接对接微信公众号 API，<mark class="mark">仅平台超管可见</mark>。使用前提：平台已完成公众号 AppID / Secret 对接；模板消息还需先在公众号后台申请模板并审核通过。</p>
+<h3>公众号菜单</h3>
+<p>页面顶部提示「编辑后点『发布』下发到公众号；保存草稿仅存本机浏览器」，配<mark class="mark">手机预览区</mark>与属性编辑卡。规则与微信官方一致：<mark class="mark">一级菜单最多 3 个、每级子菜单最多 5 个</mark>（超限即时提示），菜单名 4-16 字符，支持上移 / 下移 / 删除。菜单类型十种，按类型填对应字段：</p>
+<ul>
+<li><b>点击推事件</b>（必填事件 key）、<b>跳转链接</b>（必填 https:// 链接）、<b>跳转小程序</b>（必填小程序 AppID 与页面路径）。</li>
+<li><b>扫码推事件 / 扫码带提示</b>、<b>系统拍照发图 / 拍照或相册 / 微信相册发图</b>、<b>发送位置</b>、<b>素材消息 / 图文素材</b>（填永久素材 media_id）。</li>
+</ul>
+<p>编辑好点「<mark class="mark">发布到公众号</mark>」，成功提示「发布成功，约 5 分钟后手机端生效」；「<mark class="mark">拉取线上菜单</mark>」把公众号当前菜单拉回编辑器，菜单为空时提示「公众号菜单为空，请添加」。「本地草稿」按名称保存在<mark class="mark">本机浏览器</mark>：「保存草稿」命名存档、「加载草稿」按名恢复，换设备不互通；发布前校验「请至少添加一个一级菜单」与各类型必填字段，缺字段会精确提示「『某某』缺少必填字段」。</p>
+<img class="img" src="shots/op53-wechat-menu-390.png" alt="公众号菜单编辑页">
+<div class="imgcap">图 W1 · 公众号菜单（390 视口）：手机预览 + 菜单类型 + 拉取线上菜单 / 发布到公众号</div>
+<h3>微信用户（粉丝）</h3>
+<p>展示公众号<mark class="mark">关注总数</mark>与粉丝 openid 列表。微信按批次返回粉丝数据，点「<mark class="mark">加载更多</mark>」翻下一批，「刷新」重新拉取；无数据时显示「暂无粉丝数据」。此处只读 openid，主要用途是<mark class="mark">给模板消息提供接收者</mark>；粉丝昵称 / 头像等详情请到公众号后台查看。</p>
+<img class="img" src="shots/op53-wechat-fans-390.png" alt="微信用户列表页">
+<div class="imgcap">图 W2 · 微信用户（390 视口）：关注总数 / 刷新 / openid 批次加载更多</div>
+<h3>消息模板</h3>
+<p>列出公众号<mark class="mark">私有模板消息</mark>（标题 / 模板 ID / 示例），空态「暂无模板」。点模板卡的「<mark class="mark">发送</mark>」打开发送弹层：<mark class="mark">接收者 openid 必填</mark>（从「微信用户」页复制）、点击卡片跳转链接可选、字段值按模板示例逐项填写。发送成功提示「已发送（msgid N）」。</p>
+<div class="note"><b>逐条发送，没有群发：</b>模板消息按 openid 单发；用户须已关注公众号，否则微信侧直接报错。提示「公众号私有模板消息列表；发送前需在公众号后台申请模板并审核通过」——列表为空先去公众号后台申模板。</div>
+<img class="img" src="shots/op53-wechat-templates-390.png" alt="消息模板列表页">
+<div class="imgcap">图 W3 · 消息模板（390 视口）：私有模板列表 + 发送弹层（openid 必填）</div>
+<details><summary>发布菜单 / 拉取粉丝报错怎么办</summary><p>报错信息带微信原始提示：多为 AppID / Secret 失效或服务器 IP 不在公众号白名单，处理后重试即可。模板列表为空通常是尚未申请模板或模板未审核通过。</p></details>
+`},
+{book:'op', id:'op-54', title:'平台角色管理（本店角色 · 全局角色池）', html:`
+<p class="lead">「平台管理 → 角色管理」是权限的源头：<mark class="mark">本店角色</mark>维护本租户的角色与权限码；<mark class="mark">全局角色池</mark>沉淀平台级角色标准（默认模板导入、入池引用、创建即分发）。入口需「角色管理」权限；把角色授给成员的操作见「成员密码管理与角色授权」一章。</p>
+<h3>本店角色</h3>
+<p>默认 Tab 列出本店全部角色（如租户管理员 / 销售 / 库存 / 收银员），每张卡片显示<mark class="mark">角色编码与已绑定权限码</mark>标签，直接增删权限码后点「保存」即生效。右下角「＋」新建角色：<mark class="mark">角色编码</mark>（英文唯一，如 kefu，提示「角色编码必填」）+ <mark class="mark">显示名称</mark>（中文）+ 勾选权限（新角色默认勾选 ReadProduct）。删除角色有「确定删除「名称」？」确认。</p>
+<div class="tip"><b>一键导入默认角色：</b>切到「全局角色池」Tab，顶部「默认角色模板」预置租户管理员 / 销售 / 库存 / 收银员等成套权限（如销售含 VerifyOrder 核销权限），点「<mark class="mark">导入到本店</mark>」复制为本店独立角色，导入后可自由增删权限，不影响模板本身。</div>
+<img class="img" src="shots/op54-roles-shop-390.png" alt="角色管理-本店角色">
+<div class="imgcap">图 M1 · 本店角色（390 视口）：角色卡片 + 权限码标签 + 新建入口</div>
+<h3>全局角色池</h3>
+<p>同页下半区「<mark class="mark">全局可用角色（引用 / 分发到租户）</mark>」是平台级角色池：</p>
+<ul>
+<li><b>新建全局角色</b>：除编码 / 名称 / 权限外，可选<mark class="mark">角色范围</mark>——「<b>全局可用</b>」（入池，供租户引用）或「<b>全局默认</b>」（<mark class="mark">创建即分发到所选租户</mark>，至少选一家，否则提示「全局默认需选择至少一家租户」）。</li>
+<li><b>引用到本店</b>：把池中角色复制为本店角色，不改池中原件。</li>
+<li><b>分发 / 管理租户</b>：把池中角色分发到指定租户；管理弹层可看到每个租户「已入本地 / 可引用」状态，随时补发。</li>
+</ul>
+<img class="img" src="shots/op54-roles-global-390.png" alt="角色管理-全局角色池">
+<div class="imgcap">图 M2 · 全局角色池（390 视口）：默认角色模板 + 权限码全览 + 全局可用角色区</div>
+<div class="warn"><b>权限码即能力：</b>权限码来自系统权限目录（ReadProduct / VerifyOrder / StocktakeCount / TenantRoleManage 等），勾得越细成员能做的事越精确；改完权限码务必点「保存」。</div>
+<details><summary>新建角色不想从零勾权限怎么办</summary><p>用「默认角色模板 → 导入到本店」起步，再按需微调；或从「全局角色池」引用平台统一角色，保持多店权限口径一致。</p></details>
+`},
+{book:'op', id:'op-55', title:'校园配送与骑手（拾光达）', html:`
+<p class="lead">「履约」组五件套构成校园即时配送闭环：「<mark class="mark">拾光达配置</mark>」开通路线与费用 → 用户下单 → 「<mark class="mark">商家接单</mark>」接单备餐 → 骑手抢单配送 → 「<mark class="mark">调度中心</mark>」监控与处置异常；「<mark class="mark">骑手入驻审核</mark>」「<mark class="mark">骑手提现审核</mark>」管理运力与佣金。五个菜单各挂独立权限点（拾光达配置 / 商家接单 / 调度中心 / 骑手审核与提现），按需分配，平台超管全可见。</p>
+<h3>拾光达配置：开通路线与费用</h3>
+<p>页面先列出全部店铺渠道及开通状态（「已开通 N 条路线 / 暂未开通配送」），点渠道行展开配置：</p>
+<ul>
+<li><b>配送方式（路线）</b>：商家自送+拾光达接力 / 快递到校+接力 / 档口+接力 / 到店自取 / 校内拾光达（跑腿代办），按需勾选。</li>
+<li><b>配送信息</b>：配送时长（分钟）、起送价、配送费、跑腿起步价（留空默认 2 元）、满 X 元免配送费（留空 = 不启用）、自提地址、联系电话、店铺公告；金额按元填写、最多两位小数。</li>
+<li><b>节点通知模板（公众号）</b>：为「商家已接单 / 骑手已接单 / 出餐完成 / 已送达」等节点填公众号模板 ID，<mark class="mark">留空则该节点不通知</mark>；再填 H5 站点域名供模板消息跳转。用户需关注公众号且下单账号已绑定 openid 才能收到。</li>
+</ul>
+<div class="warn"><b>初始化配送档案：</b>「快递到校」与「到店自取」需共用配送档案——点「<mark class="mark">初始化配送档案</mark>」自动创建 / 合并默认档案并把未绑定商品补绑（幂等可重复点），成功提示「已绑定方式：…；补绑商品 N 个」；缺配送方式的路线暂不可用。</div>
+<img class="img" src="shots/op55-campus-config-390.png" alt="拾光达配置-路线与配送信息">
+<div class="imgcap">图 X1 · 拾光达配置（390 视口）：渠道列表 → 路线勾选 + 配送信息</div>
+<img class="img" src="shots/op55-campus-notify-390.png" alt="拾光达配置-节点通知模板">
+<div class="imgcap">图 X2 · 节点通知模板（390 视口）：各节点模板 ID 留空不通知 + H5 域名 + 保存</div>
+<h3>商家接单</h3>
+<p>顶部展示<mark class="mark">今日完成单数 / 金额</mark>与营业状态（歇业后新单不可下单，恢复即时生效）。订单按 <b>待接单 / 备餐中 / 待取货 / 配送中 / 预约单</b> 五个 Tab 流转：待接单点「<mark class="mark">接单</mark>」进入备餐，备好点「<mark class="mark">出餐完成</mark>」等待骑手取货。卡片含订单号、下单时间、路线、目的地、商品明细、骑手与金额。</p>
+<div class="note"><b>没看到「接单」按钮？</b>本店未开启「商家接单确认」模式时（页面顶部会提示「新单支付后直接进入抢单大厅」），订单无需商家确认，直接由骑手抢单——该开关在拾光达配置中调整。</div>
+<img class="img" src="shots/op55-campus-merchant-390.png" alt="商家接单页">
+<div class="imgcap">图 X3 · 商家接单（390 视口）：五状态 Tab + 接单 / 出餐完成</div>
+<h3>调度中心</h3>
+<p>三列看板：<mark class="mark">大厅待接 / 进行中 / 在线骑手</mark>。大厅单显示滞留分钟（「已滞留 N 分钟」）并按「顺路 N 单」分组；骑手列展示在线骑手与信用分。运力歇业时顶部横幅提示「当前渠道运力已暂停（歇业），新单无法进入大厅」。两类干预：「<mark class="mark">强派</mark>」把大厅单指派给骑手；进行中的单可「<mark class="mark">回大厅</mark>」重新进入抢单。</p>
+<p><b>异常待处理：</b>出现「滞留超时 / 配送超 SLA / 时段锁位失败 / 骑手异常」告警时按四种方式处置——「<mark class="mark">退差价</mark>」（填赔付金额）、「<mark class="mark">补偿券</mark>」（选券模板发放）、「<mark class="mark">退单重发</mark>」（<mark class="mark">全额原路退款含配送费</mark>，订单取消不可恢复，需二次确认）、「<mark class="mark">回大厅重派</mark>」。异常原因含联系不上收件人 / 餐品洒漏损坏 / 商家无法出餐 / 其他，可填处理备注；处置<mark class="mark">留痕不可撤销</mark>，在「异常处置记录」回看。无人接单的超时单会自动退款并标记「无人接单已退款」。</p>
+<img class="img" src="shots/op55-campus-dispatch-390.png" alt="调度中心三列看板">
+<div class="imgcap">图 X4 · 调度中心（390 视口）：大厅待接 / 进行中 / 在线骑手 三列看板</div>
+<h3>骑手入驻审核</h3>
+<p>Tab：<b>审核中（默认）/ 已通过 / 已暂停</b>。卡片展示姓名、状态、账号、学号、校区、信用分，点「<mark class="mark">查看学生证</mark>」核验证件照。操作：「<mark class="mark">通过</mark>」（确认弹窗写明「通过后其可进入接单大厅抢单」）、「<mark class="mark">拒绝</mark>」（拒绝后需重新提交资料）；对已通过骑手可「<mark class="mark">暂停接单</mark>」（暂停后无法抢 / 接新单）与「<mark class="mark">恢复接单</mark>」。</p>
+<img class="img" src="shots/op55-rider-audit-390.png" alt="骑手入驻审核页">
+<div class="imgcap">图 X5 · 骑手入驻审核（390 视口）：三 Tab + 学生证核验 + 通过 / 拒绝</div>
+<h3>骑手提现审核</h3>
+<p>Tab：<b>审核中 / 已打款 / 已驳回 / 全部</b>。卡片含金额（¥）、提现到账渠道与账号、申请与审核时间。「<mark class="mark">通过打款</mark>」确认弹窗「确认已线下向骑手打款 ¥N？通过后本单留痕归档」——即<mark class="mark">先线下转账、再点通过留痕</mark>；「<mark class="mark">驳回</mark>」必须填原因，驳回后 ¥N <mark class="mark">自动退回骑手余额</mark>。</p>
+<img class="img" src="shots/op55-rider-withdraw-390.png" alt="骑手提现审核页">
+<div class="imgcap">图 X6 · 骑手提现审核（390 视口）：审核中申请 + 通过打款 / 驳回</div>
+<details><summary>骑手端入口在哪</summary><p>骑手在 C 端小程序 / H5 的骑手入口提交入驻资料、抢单与发起提现；后台只负责审核、调度与打款留痕，两侧数据实时同步。</p></details>
 `},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
