@@ -172,3 +172,30 @@ export function buildOrderFilter(input: OrderFilterInput = {}, now = new Date())
   // 生产只读探针实测：pickup=17、state.in=1，组合默认=1（=交集，AND），显式 OR 才得 17。
   return filter;
 }
+
+/** 后端 ScopedOrderFilterInput 入参（order-scope 模块） */
+export interface ScopedFilterOut {
+  states?: string[];
+  timeStart?: string;
+  timeEnd?: string;
+  keyword?: string;
+  deliveryType?: string;
+  exceptionType?: string;
+  exceptionOnly?: boolean;
+  afterSales?: string[];
+}
+
+/** 受限核销员路径：语义条件 → 后端 ScopedOrderFilterInput（时间在后端按 createdAt 比较） */
+export function buildScopedFilter(input: OrderFilterInput = {}, now = new Date()): ScopedFilterOut {
+  const out: ScopedFilterOut = {};
+  if (input.states?.length) out.states = input.states;
+  const w = resolveTimeWindow(input.time || {}, now);
+  if (w) { out.timeStart = w.start; out.timeEnd = w.end; }
+  const kw = (input.keyword || '').trim();
+  if (kw) out.keyword = kw;
+  if (input.delivery) out.deliveryType = input.delivery;
+  if (input.exceptionType) out.exceptionType = input.exceptionType;
+  else if (input.exceptionOnly) out.exceptionOnly = true;
+  if (input.afterSales?.length) out.afterSales = input.afterSales;
+  return out;
+}
