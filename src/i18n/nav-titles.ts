@@ -151,14 +151,17 @@ export function applyTabbarLabels(): void {
 }
 
 /**
- * 应用内切换语言：更新 vue-i18n locale（composition 模式为 ref，页面 t() 随 reactive 自动重渲染）
- * → uni storage 持久化（H5 落 localStorage `vshop-locale`，与 i18n/index.ts 启动读取对称）→
- * 手动刷新原生 chrome 层（导航标题 + tabbar 标签为 uni 原生 UI，不随 locale 响应式更新）。
- * 非法 locale 直接忽略；置于本文件避免 i18n/index.ts ↔ 页面循环依赖。
+ * 应用内切换语言 → uni storage 持久化（H5 落 localStorage `vshop-locale`，与 i18n/index.ts 启动读取对称）
+ * → 手动刷新原生 chrome 层（导航标题 + tabbar 标签为 uni 原生 UI，不随 locale 响应式更新）。
+ * locale 写法双模式兼容：createI18n 默认 legacy 实例（locale 为字符串 getter/setter，
+ * setter 委托底层 composer，与页面 useI18n() 所取 global composer 同源，t() 自动重渲染）；
+ * legacy: false 时为 WritableComputedRef。非法 locale 直接忽略。
  */
 export function setAppLocale(loc: string): void {
     if (!SUPPORTED_LOCALES.includes(loc)) return;
-    (i18n.global as any).locale.value = loc;
+    const g = i18n.global as any;
+    if (typeof g.locale === 'string') g.locale = loc;
+    else g.locale.value = loc;
     try { uni.setStorageSync('vshop-locale', loc); } catch (e) {}
     applyNavTitleForCurrentPage();
     applyTabbarLabels();

@@ -56,10 +56,9 @@ import { getActiveCustomer } from '../../api/queries/user';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
-import { i18n } from '../../i18n';
 import { setAppLocale } from '../../i18n/nav-titles';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const customer = ref<any>(null);
@@ -72,7 +71,7 @@ const LOCALE_OPTIONS = [
     { locale: 'ja', label: '日本語' },
     { locale: 'ko', label: '한국어' },
 ];
-const currentLocale = computed(() => String((i18n.global as any).locale.value));
+const currentLocale = computed(() => String(locale.value));
 const currentLangLabel = computed(() => LOCALE_OPTIONS.find((o) => o.locale === currentLocale.value)?.label || currentLocale.value);
 
 function chooseLanguage() {
