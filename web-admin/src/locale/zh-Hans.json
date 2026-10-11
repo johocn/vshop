@@ -5,6 +5,15 @@
     "leaveConfirm": "退出",
     "leaveCancel": "取消"
   },
+  "orderAlert": {
+    "profileScoped": "已按配送档案过滤",
+    "banner": "您有 {n} 笔新订单",
+    "bannerOne": "您有 1 笔新订单",
+    "view": "查看",
+    "voiceOn": "语音播报 开",
+    "voiceOff": "语音播报 关",
+    "goOrders": "前往订单列表"
+  },
   "login": {
     "title": "youshop 管理后台",
     "subtitle": "店铺经营 · 一部手机搞定",

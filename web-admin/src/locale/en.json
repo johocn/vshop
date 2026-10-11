@@ -5,6 +5,15 @@
     "leaveConfirm": "Sign Out",
     "leaveCancel": "Cancel"
   },
+  "orderAlert": {
+    "profileScoped": "Filtered by delivery profile",
+    "banner": "You have {n} new orders",
+    "bannerOne": "You have 1 new order",
+    "view": "View",
+    "voiceOn": "Voice on",
+    "voiceOff": "Voice off",
+    "goOrders": "Go to orders"
+  },
   "login": {
     "title": "youshop Admin",
     "subtitle": "Manage your store from one phone",

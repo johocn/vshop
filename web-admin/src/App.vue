@@ -2,6 +2,7 @@
 import { onLaunch } from '@dcloudio/uni-app';
 import { getChannelToken } from './apis/session';
 import { enableH5Nav } from './utils/h5Nav';
+import { startOrderAlertHub } from './utils/orderAlertHub';
 import { installRouteGuard } from './utils/routeGuard';
 import { useLocaleStore } from './stores/localeStore';
 import { useAuthStore } from './stores/authStore';
@@ -16,6 +17,8 @@ onLaunch(() => {
   // H5 端体验增强：悬浮「返回首页」按钮 + 面板页返回退出确认（仅在 H5 运行环境注入）
   if (typeof window !== 'undefined') {
     enableH5Nav({ hasStore: () => !!getChannelToken() });
+    // 全局新订单提醒（H5）：登录态由 Hub 每 tick 自检，登录/登出动态生效
+    startOrderAlertHub();
   }
 });
 </script>
