@@ -2,10 +2,10 @@
   <view class="lottery-page">
     <view class="points-card">
       <view class="points-card__row">
-        <text class="points-card__label">我的积分</text>
+        <text class="points-card__label">{{ t('lottery.myPoints') }}</text>
         <text class="points-card__value">{{ points === null ? '—' : points }}</text>
       </view>
-      <text class="points-card__tip">抽中奖品按其「消耗积分」扣减，0 积分奖品为免费抽奖</text>
+      <text class="points-card__tip">{{ t('lottery.tip') }}</text>
     </view>
 
     <view class="wheel-card">
@@ -13,7 +13,7 @@
         <template v-for="(cell, gi) in cells" :key="gi">
           <view v-if="gi === 4" class="wheel__slot wheel__slot--center">
             <view class="wheel__draw" :class="{ 'wheel__draw--busy': spinning }" @tap="onDraw">
-              <text class="wheel__draw-txt">{{ spinning ? '抽奖中' : '抽奖' }}</text>
+              <text class="wheel__draw-txt">{{ spinning ? t('lottery.drawing') : t('lottery.draw') }}</text>
             </view>
           </view>
           <view v-else class="wheel__slot">
@@ -29,21 +29,21 @@
           </view>
         </template>
       </view>
-      <text v-if="!prizes.length && !prizesLoading" class="wheel-card__empty">暂未配置奖品，敬请期待</text>
+      <text v-if="!prizes.length && !prizesLoading" class="wheel-card__empty">{{ t('lottery.emptyPrizes') }}</text>
     </view>
 
     <view v-if="showResult && result" class="result-mask" @tap="closeResult">
       <view class="result" @tap.stop>
-        <text class="result__badge">中奖结果</text>
+        <text class="result__badge">{{ t('lottery.resultBadge') }}</text>
         <image v-if="result.prize.image" class="result__img" :src="result.prize.image" mode="aspectFit" />
-        <text class="result__title">恭喜获得「{{ result.prize.name }}」</text>
-        <text class="result__consume">{{ result.prize.consume > 0 ? '本次消耗 ' + result.prize.consume + ' 积分' : '本次为免费抽奖' }}</text>
-        <button class="result__btn" @tap="closeResult">开心收下</button>
+        <text class="result__title">{{ t('lottery.congrats', { name: result.prize.name }) }}</text>
+        <text class="result__consume">{{ result.prize.consume > 0 ? t('lottery.resultConsume', { n: result.prize.consume }) : t('lottery.resultFree') }}</text>
+        <button class="result__btn" @tap="closeResult">{{ t('lottery.okBtn') }}</button>
       </view>
     </view>
 
     <view class="records">
-      <text class="records__title">我的中奖记录</text>
+      <text class="records__title">{{ t('lottery.recordsTitle') }}</text>
       <view v-for="rec in recordItems" :key="rec.id" class="records__item">
         <image v-if="rec.prizeImage" class="records__img" :src="rec.prizeImage" mode="aspectFill" />
         <view v-else class="records__img records__img--ph" />
@@ -52,11 +52,11 @@
           <text class="records__time">{{ fmtTime(rec.createdAt) }}</text>
         </view>
         <text class="records__consume" :class="{ 'records__consume--free': !rec.consume }">
-          {{ rec.consume > 0 ? '-' + rec.consume + ' 积分' : '免费' }}
+          {{ rec.consume > 0 ? t('lottery.consumeMinus', { n: rec.consume }) : t('lottery.free') }}
         </text>
       </view>
-      <EmptyState v-if="recordItems.length === 0 && !recordsLoading" :text="authStore.token ? '暂无中奖记录' : '登录后可查看中奖记录'" />
-      <view v-if="recordsLoading" class="records__loading">加载中...</view>
+      <EmptyState v-if="recordItems.length === 0 && !recordsLoading" :text="authStore.token ? t('lottery.noRecords') : t('lottery.loginToView')" />
+      <view v-if="recordsLoading" class="records__loading">{{ t('lottery.loading') }}</view>
     </view>
   </view>
 </template>
@@ -64,12 +64,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { onReachBottom, onPullDownRefresh, onShow } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { getMyLotteryPrizes, drawLottery, getMyLotteryRecords, type LotteryPrizeInfo } from '../../api/queries/lottery';
 import { getMyMemberInfo } from '../../api/queries/member';
 import { useAuthStore } from '../../stores/auth';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 
 const prizes = ref<LotteryPrizeInfo[]>([]);
@@ -103,7 +105,7 @@ const cells = computed(() => {
 });
 
 function consumeText(consume: number): string {
-  return consume > 0 ? consume + '积分' : '免费';
+  return consume > 0 ? String(consume) + t('pointsGoods.pointsUnit') : t('lottery.free');
 }
 
 function fmtTime(s: string): string {
@@ -184,7 +186,7 @@ async function onDraw() {
     void refreshRecords();
   } catch (e: any) {
     // 积分不足等后端报错原样透出
-    uni.showToast({ title: e?.response?.errors?.[0]?.message || e?.message || '抽奖失败', icon: 'none' });
+    uni.showToast({ title: e?.response?.errors?.[0]?.message || e?.message || t('lottery.drawFailed'), icon: 'none' });
   }
   spinning.value = false;
 }

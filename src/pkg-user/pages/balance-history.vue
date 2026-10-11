@@ -4,35 +4,40 @@
       <view class="history-item__left">
         <text class="history-item__type">{{ typeLabel(tx.type) }}</text>
         <text class="history-item__remark">{{ tx.remark || '' }}</text>
-        <text v-if="tx.orderId" class="history-item__order">订单 #{{ tx.orderId }}</text>
+        <text v-if="tx.orderId" class="history-item__order">{{ t('balanceHistory.orderNo', { id: tx.orderId }) }}</text>
       </view>
       <view class="history-item__right">
         <text class="history-item__value" :class="signClass(tx.amount)">{{ signed(tx.amount) }}</text>
         <text class="history-item__date">{{ fmtTime(tx.createdAt) }}</text>
-        <text v-if="tx.balanceAfter !== undefined && tx.balanceAfter !== null" class="history-item__balance">余额 ¥{{ (tx.balanceAfter / 100).toFixed(2) }}</text>
+        <text v-if="tx.balanceAfter !== undefined && tx.balanceAfter !== null" class="history-item__balance">{{ t('balanceHistory.balanceLabel', { amount: (tx.balanceAfter / 100).toFixed(2) }) }}</text>
       </view>
     </view>
-    <EmptyState v-if="items.length === 0 && !loading" text="暂无余额流水" />
-    <view v-if="loading" class="history-page__loading">加载中...</view>
+    <EmptyState v-if="items.length === 0 && !loading" :text="t('balanceHistory.empty')" />
+    <view v-if="loading" class="history-page__loading">{{ t('balanceHistory.loading') }}</view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { getMyBalanceTransactions } from '../../api/mutations/recharge';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
 
+const { t } = useI18n();
+
 // type → 文案（与后端 BalanceTransactionType 枚举对齐）
-const TYPE_LABEL: Record<string, string> = {
-    recharge: '充值',
-    consume: '消费',
-    refund: '退款',
-    adjust: '调账',
-    freeze: '冻结',
-    unfreeze: '解冻',
-};
-function typeLabel(t: string): string { return TYPE_LABEL[t] || t; }
+function typeLabel(s: string): string {
+    const map: Record<string, string> = {
+        recharge: t('balanceHistory.typeRecharge'),
+        consume: t('balanceHistory.typeConsume'),
+        refund: t('balanceHistory.typeRefund'),
+        adjust: t('balanceHistory.typeAdjust'),
+        freeze: t('balanceHistory.typeFreeze'),
+        unfreeze: t('balanceHistory.typeUnfreeze'),
+    };
+    return map[s] || s;
+}
 // 余额流水 amount 语义：消费存负值，充值/退款存正值；「+/-」以 amount 符号为准
 function signed(amount: number): string {
     return (amount >= 0 ? '+' : '') + '¥' + (Math.abs(amount) / 100).toFixed(2);

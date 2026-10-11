@@ -1,28 +1,28 @@
 <template>
   <view class="withdraw-page">
     <view class="withdraw-page__balance">
-      <text>可提余额</text>
+      <text>{{ t('withdraw.available') }}</text>
       <text class="withdraw-page__amount">¥{{ (balance / 100).toFixed(2) }}</text>
-      <text v-if="frozenBalance > 0" class="withdraw-page__frozen">冻结中 ¥{{ (frozenBalance / 100).toFixed(2) }}</text>
+      <text v-if="frozenBalance > 0" class="withdraw-page__frozen">{{ t('withdraw.frozen', { amount: (frozenBalance / 100).toFixed(2) }) }}</text>
     </view>
 
     <view class="section">
-      <text class="section__title">申请提现</text>
-      <input v-model.trim="amount" type="digit" placeholder="提现金额（元），最低 ¥10" class="input" />
+      <text class="section__title">{{ t('withdraw.applyTitle') }}</text>
+      <input v-model.trim="amount" type="digit" :placeholder="t('withdraw.amountPlaceholder')" class="input" />
       <picker :range="methodNames" @change="onMethodChange">
         <view class="picker">
-          <text>收款方式：{{ methodNames[methodIndex] }}</text>
+          <text>{{ t('withdraw.methodLabel', { name: methodNames[methodIndex] }) }}</text>
           <text class="picker__arrow">></text>
         </view>
       </picker>
       <input v-model.trim="account" :placeholder="accountPlaceholder" class="input" />
       <button class="withdraw-page__btn" :disabled="submitting" @click="doSubmit">
-        {{ submitting ? '提交中...' : '提交申请' }}
+        {{ submitting ? t('withdraw.submitting') : t('withdraw.submit') }}
       </button>
     </view>
 
     <view class="section">
-      <text class="section__title">提现记录</text>
+      <text class="section__title">{{ t('withdraw.records') }}</text>
       <view v-for="r in items" :key="r.id" class="record-item">
         <view class="record-item__left">
           <text class="record-item__amount">¥{{ (r.amount / 100).toFixed(2) }}</text>
@@ -34,8 +34,8 @@
           <text class="record-item__date">{{ fmtTime(r.createdAt) }}</text>
         </view>
       </view>
-      <EmptyState v-if="items.length === 0 && !loading" text="暂无提现记录" />
-      <view v-if="loading" class="withdraw-page__loading">加载中...</view>
+      <EmptyState v-if="items.length === 0 && !loading" :text="t('withdraw.empty')" />
+      <view v-if="loading" class="withdraw-page__loading">{{ t('withdraw.loading') }}</view>
     </view>
   </view>
 </template>
@@ -43,11 +43,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { getMyBalanceWithFrozen, getMyBalanceWithdrawals, requestBalanceWithdrawal } from '../../api/queries/withdraw';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
 import { useUIStore } from '../../stores/ui';
 
+const { t } = useI18n();
 const ui = useUIStore();
 
 const balance = ref(0);
@@ -57,24 +59,28 @@ const account = ref('');
 const submitting = ref(false);
 
 // 收款方式：key 与后端 method 枚举对齐
-const METHODS = [
-    { key: 'wechat', name: '微信', placeholder: '请输入微信号' },
-    { key: 'alipay', name: '支付宝', placeholder: '请输入支付宝账号' },
-    { key: 'bank', name: '银行卡', placeholder: '请输入银行卡号' },
-];
-const methodNames = METHODS.map(m => m.name);
+const METHODS = computed(() => [
+    { key: 'wechat', name: t('withdraw.methodWechat'), placeholder: t('withdraw.phWechat') },
+    { key: 'alipay', name: t('withdraw.methodAlipay'), placeholder: t('withdraw.phAlipay') },
+    { key: 'bank', name: t('withdraw.methodBank'), placeholder: t('withdraw.phBank') },
+]);
+const methodNames = computed(() => METHODS.value.map(m => m.name));
 const methodIndex = ref(0);
-const accountPlaceholder = computed(() => METHODS[methodIndex.value].placeholder);
+const accountPlaceholder = computed(() => METHODS.value[methodIndex.value].placeholder);
 
-const METHOD_LABEL: Record<string, string> = { wechat: '微信', alipay: '支付宝', bank: '银行卡' };
-function methodLabel(m: string): string { return METHOD_LABEL[m] || m; }
-const STATUS_LABEL: Record<string, string> = {
-    pending: '待审核',
-    approved: '已通过',
-    paid: '已打款',
-    rejected: '已驳回',
-};
-function statusLabel(s: string): string { return STATUS_LABEL[s] || s; }
+function methodLabel(m: string): string {
+    const map: Record<string, string> = { wechat: t('withdraw.methodWechat'), alipay: t('withdraw.methodAlipay'), bank: t('withdraw.methodBank') };
+    return map[m] || m;
+}
+function statusLabel(s: string): string {
+    const map: Record<string, string> = {
+        pending: t('withdraw.statusPending'),
+        approved: t('withdraw.statusApproved'),
+        paid: t('withdraw.statusPaid'),
+        rejected: t('withdraw.statusRejected'),
+    };
+    return map[s] || s;
+}
 function fmtTime(s: string): string {
     if (!s) return '';
     const d = new Date(s);
@@ -109,18 +115,18 @@ onMounted(() => loadBalance());
 
 async function doSubmit() {
     const yuan = Number(amount.value);
-    if (!yuan || yuan <= 0) { ui.showToast('请输入正确的提现金额', 'error'); return; }
-    if (!account.value) { ui.showToast('请输入收款账号', 'error'); return; }
+    if (!yuan || yuan <= 0) { ui.showToast(t('withdraw.invalidAmount'), 'error'); return; }
+    if (!account.value) { ui.showToast(t('withdraw.accountRequired'), 'error'); return; }
     if (submitting.value) return;
     submitting.value = true;
     try {
-        await requestBalanceWithdrawal(Math.round(yuan * 100), METHODS[methodIndex.value].key, account.value);
-        ui.showToast('申请已提交', 'success');
+        await requestBalanceWithdrawal(Math.round(yuan * 100), METHODS.value[methodIndex.value].key, account.value);
+        ui.showToast(t('withdraw.submitted'), 'success');
         amount.value = '';
         account.value = '';
         await Promise.all([loadBalance(), refresh()]);
     } catch (e: any) {
-        ui.showToast(e?.message || '提交失败', 'error');
+        ui.showToast(e?.message || t('withdraw.failed'), 'error');
     } finally {
         submitting.value = false;
     }
