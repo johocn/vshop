@@ -1,35 +1,37 @@
 <template>
   <view class="profile-page">
     <view class="profile-page__header">
-      <text class="profile-page__name">{{ customer?.firstName || '用户' }} {{ customer?.lastName }}</text>
+      <text class="profile-page__name">{{ customer?.firstName || t('profile.defaultName') }} {{ customer?.lastName }}</text>
       <text class="profile-page__email">{{ customer?.emailAddress }}</text>
     </view>
     <view class="profile-page__menu">
-      <view class="menu-item" @click="navTo('/pkg-user/pages/member-center')"><text>会员中心</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/points-mall')"><text>积分兑换</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/points-history')"><text>积分明细</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>我的订单</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/my-reviews')"><text>我的评价</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-order/pages/invoices')"><text>我的发票</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/invoice-titles')"><text>发票抬头管理</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>地址管理</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')"><text>我的钱包</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')"><text>余额明细</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')"><text>售后记录</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')"><text>优惠券</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-promotion/pages/live-list')"><text>直播</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')"><text>分销中心</text><text>></text></view>
-      <view class="menu-item" @click="navTo('/pkg-user/pages/change-password')"><text>修改密码</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/member-center')"><text>{{ t('profile.memberCenter') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/points-mall')"><text>{{ t('profile.pointsExchange') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/points-history')"><text>{{ t('profile.pointsHistory') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-order/pages/orders')"><text>{{ t('profile.myOrders') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/my-reviews')"><text>{{ t('profile.myReviews') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-order/pages/invoices')"><text>{{ t('profile.myInvoices') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/invoice-titles')"><text>{{ t('profile.invoiceTitles') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')"><text>{{ t('profile.addressManagement') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')"><text>{{ t('profile.myWallet') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')"><text>{{ t('profile.balanceHistory') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')"><text>{{ t('profile.afterSaleRecords') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')"><text>{{ t('profile.coupons') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-promotion/pages/live-list')"><text>{{ t('profile.live') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')"><text>{{ t('profile.distributionCenter') }}</text><text>></text></view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/change-password')"><text>{{ t('profile.changePassword') }}</text><text>></text></view>
     </view>
-    <button class="profile-page__logout" @click="doLogout">退出登录</button>
+    <button class="profile-page__logout" @click="doLogout">{{ t('profile.logout') }}</button>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
+const { t } = useI18n();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const customer = ref<any>(null);

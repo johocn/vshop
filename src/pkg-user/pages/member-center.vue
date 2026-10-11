@@ -3,52 +3,52 @@
     <!-- 等级头部 -->
     <view class="member-page__header">
       <text class="member-page__level">{{ info.levelName || ('Lv.' + info.level) }}</text>
-      <text class="member-page__growth">成长值 {{ info.growthValue }}{{ info.nextLevelThreshold ? ' / ' + info.nextLevelThreshold : '' }}</text>
+      <text class="member-page__growth">{{ t('memberCenter.growthValue') }} {{ info.growthValue }}{{ info.nextLevelThreshold ? ' / ' + info.nextLevelThreshold : '' }}</text>
       <view class="member-page__bar"><view class="member-page__bar--fill" :style="{ width: growthPercent + '%' }" /></view>
-      <text v-if="info.nextLevelName" class="member-page__next">距离 {{ info.nextLevelName }} 还差 {{ nextThresholdDiff }}</text>
+      <text v-if="info.nextLevelName" class="member-page__next">{{ t('memberCenter.nextLevelHint', { name: info.nextLevelName, diff: nextThresholdDiff }) }}</text>
     </view>
 
     <!-- 会员权益卡 -->
     <view v-if="info.level" class="benefit-card">
-      <view class="benefit-card__title">会员权益</view>
+      <view class="benefit-card__title">{{ t('memberCenter.benefits') }}</view>
       <view class="benefit-card__grid">
         <view class="benefit-item">
           <text class="benefit-item__value">{{ multiplierText(info.pointsMultiplier) }}</text>
-          <text class="benefit-item__label">积分加速</text>
+          <text class="benefit-item__label">{{ t('memberCenter.pointsMultiplier') }}</text>
         </view>
         <view class="benefit-item">
           <text class="benefit-item__value">{{ discountText(info.specialDiscountRate) }}</text>
-          <text class="benefit-item__label">专属折扣</text>
+          <text class="benefit-item__label">{{ t('memberCenter.specialDiscount') }}</text>
         </view>
         <view class="benefit-item">
           <text class="benefit-item__value">{{ redeemText(info.redeemDiscountRate) }}</text>
-          <text class="benefit-item__label">积分抵现</text>
+          <text class="benefit-item__label">{{ t('memberCenter.pointsRedeem') }}</text>
         </view>
         <view class="benefit-item">
           <text class="benefit-item__value">{{ info.points }}</text>
-          <text class="benefit-item__label">可用积分</text>
+          <text class="benefit-item__label">{{ t('memberCenter.availablePoints') }}</text>
         </view>
       </view>
-      <view class="benefit-card__note">会员价下单能力建设中，敬请期待</view>
+      <view class="benefit-card__note">{{ t('memberCenter.memberPriceComing') }}</view>
     </view>
 
     <!-- 权益卡片 -->
     <view class="member-page__cards">
       <view class="card" @click="navTo('/pkg-user/pages/points-history')">
         <text class="card__num">{{ info.points }}</text>
-        <text class="card__label">我的积分</text>
+        <text class="card__label">{{ t('memberCenter.myPoints') }}</text>
       </view>
       <view class="card" @click="navTo('/pkg-user/pages/recharge')">
         <text class="card__num">¥{{ balanceYuan }}</text>
-        <text class="card__label">余额</text>
+        <text class="card__label">{{ t('memberCenter.balance') }}</text>
       </view>
       <view class="card" @click="navTo('/pkg-promotion/pages/coupons')">
         <text class="card__num">{{ couponCount }}</text>
-        <text class="card__label">优惠券</text>
+        <text class="card__label">{{ t('memberCenter.coupons') }}</text>
       </view>
       <view class="card" @click="doCheckin">
-        <text class="card__num" :class="{ 'card__num--done': checkedIn }">{{ checkedIn ? '已签' : '签到' }}</text>
-        <text class="card__label">连签 {{ streak }} 天</text>
+        <text class="card__num" :class="{ 'card__num--done': checkedIn }">{{ checkedIn ? t('memberCenter.checkedIn') : t('memberCenter.checkin') }}</text>
+        <text class="card__label">{{ t('memberCenter.streakDays', { n: streak }) }}</text>
       </view>
     </view>
 
@@ -61,11 +61,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getMyTier, getCheckinToday, doCheckin as doCheckinMutation } from '../../api/queries/member';
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyCoupons } from '../../api/queries/coupon';
 import { useUIStore } from '../../stores/ui';
 
+const { t } = useI18n();
 const ui = useUIStore();
 const info = ref<any>({});
 const balance = ref(0);
@@ -86,15 +88,16 @@ const nextThresholdDiff = computed(() => Math.max(0, (info.value.nextLevelThresh
 // specialDiscountRate=折让比例（50=让5%→95折，0=无）；
 // redeemDiscountRate=积分价值率（1000=1分抵1分→10折，1200=1分抵1.2分→12折）；
 // pointsMultiplier=积分获取倍率（1000=×1，1500=×1.5）。
+const fmtNum = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 function discountText(rate?: number) {
     if (!rate || rate <= 0) return '-';
     const zhe = (1000 - rate) / 10;
-    return `${Number.isInteger(zhe) ? zhe : zhe.toFixed(1)}折`;
+    return t('memberCenter.discountValue', { zhe: fmtNum(zhe), off: fmtNum(rate / 10) });
 }
 function redeemText(rate?: number) {
     if (!rate || rate <= 0) return '-';
     const zhe = rate / 100;
-    return `${Number.isInteger(zhe) ? zhe : zhe.toFixed(1)}折`;
+    return t('memberCenter.redeemValue', { zhe: fmtNum(zhe), pct: fmtNum(rate / 10) });
 }
 function multiplierText(m?: number) {
     const x = (m ?? 1000) / 1000;
@@ -120,27 +123,27 @@ async function doCheckin() {
         const r = res?.checkin;
         ui.hideLoading();
         if (r?.success) {
-            ui.showToast(`签到成功 +${r.points ?? 0}积分`, 'success');
+            ui.showToast(t('memberCenter.checkinSuccess', { n: r.points ?? 0 }), 'success');
             await refresh();
         } else {
-            ui.showToast(r?.reason || '今日已签到', 'error');
+            ui.showToast(r?.reason || t('memberCenter.alreadyCheckedIn'), 'error');
         }
-    } catch (e: any) { ui.hideLoading(); ui.showToast(e.message || '签到失败', 'error'); }
+    } catch (e: any) { ui.hideLoading(); ui.showToast(e.message || t('memberCenter.checkinFailed'), 'error'); }
 }
 
 onMounted(async () => {
     try { await refresh(); } catch (e) { console.warn('[member-center] load failed', e); }
 });
 function navTo(url: string) { uni.navigateTo({ url }); }
-const quickMenus = [
-    { label: '我的订单', url: '/pkg-order/pages/orders' },
-    { label: '余额明细', url: '/pkg-user/pages/balance-history' },
-    { label: '积分兑换', url: '/pkg-user/pages/points-mall' },
-    { label: '积分商品', url: '/pkg-user/pages/points-goods-list' },
-    { label: '我的收藏', url: '/pkg-user/pages/favorites' },
-    { label: '优惠券', url: '/pkg-promotion/pages/coupons' },
-    { label: '券商城', url: '/pkg-promotion/pages/coupon-mall' },
-];
+const quickMenus = computed(() => [
+    { label: t('memberCenter.menuOrders'), url: '/pkg-order/pages/orders' },
+    { label: t('memberCenter.menuBalanceHistory'), url: '/pkg-user/pages/balance-history' },
+    { label: t('memberCenter.menuPointsExchange'), url: '/pkg-user/pages/points-mall' },
+    { label: t('memberCenter.menuPointsGoods'), url: '/pkg-user/pages/points-goods-list' },
+    { label: t('memberCenter.menuFavorites'), url: '/pkg-user/pages/favorites' },
+    { label: t('memberCenter.menuCoupons'), url: '/pkg-promotion/pages/coupons' },
+    { label: t('memberCenter.menuCouponMall'), url: '/pkg-promotion/pages/coupon-mall' },
+]);
 </script>
 
 <style lang="scss" scoped>
