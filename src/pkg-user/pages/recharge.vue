@@ -1,12 +1,12 @@
 <template>
   <view class="recharge-page">
     <view class="recharge-page__balance">
-      <text>当前余额</text>
+      <text>{{ t('recharge.currentBalance') }}</text>
       <text class="recharge-page__amount">¥{{ (balance / 100).toFixed(2) }}</text>
     </view>
 
     <view class="section">
-      <text class="section__title">在线充值</text>
+      <text class="section__title">{{ t('recharge.onlineTitle') }}</text>
       <view class="amount-row">
         <view
           v-for="amt in presetAmounts"
@@ -18,7 +18,7 @@
         <input
           v-model.trim="customAmount"
           type="digit"
-          placeholder="自定义"
+          :placeholder="t('recharge.custom')"
           class="amount-tag amount-tag--custom"
           @focus="selectedAmount = 0"
         />
@@ -27,24 +27,26 @@
         class="recharge-page__btn"
         :disabled="!parsedAmount || paying"
         @click="doWechatRecharge"
-      >{{ paying ? '支付中...' : '微信充值' }}</button>
+      >{{ paying ? t('recharge.paying') : t('recharge.wechatBtn') }}</button>
     </view>
 
     <view class="section">
-      <text class="section__title">卡密充值</text>
-      <input v-model="cardCode" placeholder="请输入卡密" class="input" />
-      <input v-model="cardPin" placeholder="PIN码(可选)" class="input" />
-      <button @click="doRecharge" class="recharge-page__btn recharge-page__btn--ghost">充值</button>
+      <text class="section__title">{{ t('recharge.cardTitle') }}</text>
+      <input v-model="cardCode" :placeholder="t('recharge.cardCodePlaceholder')" class="input" />
+      <input v-model="cardPin" :placeholder="t('recharge.pinPlaceholder')" class="input" />
+      <button @click="doRecharge" class="recharge-page__btn recharge-page__btn--ghost">{{ t('recharge.rechargeBtn') }}</button>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { redeemRechargeCard, getMyBalance, createRechargeOrder, createWechatRechargePayment } from '../../api/mutations/recharge';
 import { useUIStore } from '../../stores/ui';
 import { handlePayment } from '../../composables/usePayment';
 import { getPlatform } from '../../utils/platform';
+const { t } = useI18n();
 const ui = useUIStore();
 
 const balance = ref(0);
@@ -85,14 +87,14 @@ async function doWechatRecharge() {
         // 3. 调起支付：结构与订单支付 metadata 一致，走 usePayment 现成分支
         const result = await handlePayment('wechatpay', pay);
         if (!result.success) {
-            ui.showToast(result.message || '支付未完成', 'error');
+            ui.showToast(result.message || t('recharge.payIncomplete'), 'error');
             return;
         }
         // 4. 返回后刷新余额
-        ui.showToast('充值成功', 'success');
+        ui.showToast(t('recharge.success'), 'success');
         await refreshBalance();
     } catch (e: any) {
-        ui.showToast(e.message || '充值失败', 'error');
+        ui.showToast(e.message || t('recharge.failed'), 'error');
     } finally {
         paying.value = false;
     }
@@ -102,7 +104,7 @@ async function doRecharge() {
     try {
         const res: any = await redeemRechargeCard(cardCode.value, cardPin.value || undefined);
         balance.value = res.redeemRechargeCard?.newBalance || 0;
-        ui.showToast('充值成功 +¥' + (res.redeemRechargeCard?.faceValue / 100).toFixed(2), 'success');
+        ui.showToast(t('recharge.successAmount', { amount: (res.redeemRechargeCard?.faceValue / 100).toFixed(2) }), 'success');
         cardCode.value = ''; cardPin.value = '';
     } catch (e: any) { ui.showToast(e.message); }
 }

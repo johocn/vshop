@@ -2,9 +2,9 @@
   <view class="dist-center">
     <!-- 未申请：引导申请成为分销商 -->
     <view v-if="!profile" class="dc-empty">
-      <text class="dc-empty__title">分销中心</text>
-      <text class="dc-empty__desc">分享商品链接给好友，好友下单你就能获得佣金奖励</text>
-      <button class="dc-empty__btn" :loading="applying" @click="doApply">申请成为分销商</button>
+      <text class="dc-empty__title">{{ t('distribution.title') }}</text>
+      <text class="dc-empty__desc">{{ t('distribution.emptyDesc') }}</text>
+      <button class="dc-empty__btn" :loading="applying" @click="doApply">{{ t('distribution.applyBtn') }}</button>
     </view>
 
     <!-- 已申请：概况 + 推广 + 佣金 + 提现 -->
@@ -13,19 +13,19 @@
       <view class="dc-hero">
         <view class="dc-hero__row">
           <text class="dc-hero__level">V{{ profile.level }} · {{ statusText(profile.status) }}</text>
-          <text class="dc-hero__code" @click="copy(referralLink(), '推荐链接已复制')">推荐码：{{ profile.referralCode }} 复制</text>
+          <text class="dc-hero__code" @click="copy(referralLink(), t('distribution.referralCopied'))">{{ t('distribution.referralCode', { code: profile.referralCode }) }} {{ t('distribution.copy') }}</text>
         </view>
         <view class="dc-hero__moneys">
           <view class="dc-money">
-            <text class="dc-money__label">累计收益</text>
+            <text class="dc-money__label">{{ t('distribution.totalEarnings') }}</text>
             <text class="dc-money__val">¥{{ formatYuan(profile.totalEarnings) }}</text>
           </view>
           <view class="dc-money">
-            <text class="dc-money__label">可用余额</text>
+            <text class="dc-money__label">{{ t('distribution.availableBalance') }}</text>
             <text class="dc-money__val dc-money__val--primary">¥{{ formatYuan(profile.availableBalance) }}</text>
           </view>
           <view class="dc-money">
-            <text class="dc-money__label">冻结余额</text>
+            <text class="dc-money__label">{{ t('distribution.frozenBalance') }}</text>
             <text class="dc-money__val">¥{{ formatYuan(profile.frozenBalance) }}</text>
           </view>
         </view>
@@ -33,34 +33,34 @@
 
       <!-- 推广工具 -->
       <view class="dc-card">
-        <text class="dc-card__title">推广工具</text>
-        <view class="dc-promo__link" @click="copy(promoLink(), '推广链接已复制')">
-          <text class="dc-promo__text">分享链接（好友下单你得佣金）</text>
-          <text class="dc-promo__copy">复制</text>
+        <text class="dc-card__title">{{ t('distribution.promoTools') }}</text>
+        <view class="dc-promo__link" @click="copy(promoLink(), t('distribution.promoCopied'))">
+          <text class="dc-promo__text">{{ t('distribution.shareLinkText') }}</text>
+          <text class="dc-promo__copy">{{ t('distribution.copy') }}</text>
         </view>
-        <button class="dc-promo__poster" @click="showPoster = true">生成推广海报</button>
+        <button class="dc-promo__poster" @click="showPoster = true">{{ t('distribution.genPoster') }}</button>
       </view>
 
       <!-- 我的团队 -->
       <view class="dc-card" v-if="teamSummary">
-        <text class="dc-card__title">我的团队</text>
+        <text class="dc-card__title">{{ t('distribution.myTeam') }}</text>
         <view class="dc-team__grid">
-          <view class="dc-team__cell"><text>直推</text><text>{{ teamSummary.directTeamSize }}人</text></view>
-          <view class="dc-team__cell"><text>间推</text><text>{{ teamSummary.indirectTeamSize }}人</text></view>
-          <view class="dc-team__cell"><text>带来订单</text><text>{{ teamSummary.orderCount }}单</text></view>
-          <view class="dc-team__cell"><text>团队佣金</text><text>¥{{ formatYuan(teamSummary.teamCommission) }}</text></view>
+          <view class="dc-team__cell"><text>{{ t('distribution.direct') }}</text><text>{{ t('distribution.personCount', { n: teamSummary.directTeamSize }) }}</text></view>
+          <view class="dc-team__cell"><text>{{ t('distribution.indirect') }}</text><text>{{ t('distribution.personCount', { n: teamSummary.indirectTeamSize }) }}</text></view>
+          <view class="dc-team__cell"><text>{{ t('distribution.ordersLabel') }}</text><text>{{ t('distribution.ordersCount', { n: teamSummary.orderCount }) }}</text></view>
+          <view class="dc-team__cell"><text>{{ t('distribution.teamCommission') }}</text><text>¥{{ formatYuan(teamSummary.teamCommission) }}</text></view>
         </view>
       </view>
 
       <!-- 佣金明细 -->
       <view class="dc-card">
-        <text class="dc-card__title">佣金明细</text>
-        <view v-if="commissions.length === 0 && !loadingCom" class="dc-card__empty">暂无佣金记录</view>
+        <text class="dc-card__title">{{ t('distribution.commissionRecords') }}</text>
+        <view v-if="commissions.length === 0 && !loadingCom" class="dc-card__empty">{{ t('distribution.noCommissions') }}</view>
         <view v-for="c in commissions" :key="c.id" class="dc-item">
           <view class="dc-item__main">
             <text class="dc-item__name">{{ typeText(c.commissionType) }} · {{ commissionStatusText(c.status) }}</text>
-            <text class="dc-item__sub">订单 ¥{{ formatYuan(c.orderAmount) }} · 费率 {{ (c.commissionRate / 100).toFixed(2) }}%</text>
-            <text class="dc-item__sub">时间：{{ fmtTime(c.settledAt || c.createdAt) }}</text>
+            <text class="dc-item__sub">{{ t('distribution.orderFeeRate', { amount: formatYuan(c.orderAmount), rate: (c.commissionRate / 100).toFixed(2) }) }}</text>
+            <text class="dc-item__sub">{{ t('distribution.settledTime', { time: fmtTime(c.settledAt || c.createdAt) }) }}</text>
           </view>
           <text class="dc-item__amount">+¥{{ formatYuan(c.commissionAmount) }}</text>
         </view>
@@ -69,33 +69,33 @@
 
       <!-- 提现中心 -->
       <view class="dc-card">
-        <text class="dc-card__title">提现中心</text>
+        <text class="dc-card__title">{{ t('distribution.withdrawCenter') }}</text>
         <view class="dc-withdraw-form">
           <view class="dc-form-row">
-            <text class="dc-form-label">金额</text>
-            <input class="dc-form-input" type="digit" v-model="withdrawAmount" placeholder="请输入提现金额（元）" />
+            <text class="dc-form-label">{{ t('distribution.amount') }}</text>
+            <input class="dc-form-input" type="digit" v-model="withdrawAmount" :placeholder="t('distribution.amountPlaceholder')" />
           </view>
           <view class="dc-form-row">
-            <text class="dc-form-label">方式</text>
+            <text class="dc-form-label">{{ t('distribution.method') }}</text>
             <picker :range="methodLabels" @change="onMethodChange">
               <view class="dc-form-picker">{{ methodLabels[methodIndex] }}</view>
             </picker>
           </view>
           <view class="dc-form-row">
-            <text class="dc-form-label">收款信息</text>
-            <input class="dc-form-input" v-model="accountInfo" :placeholder="methodIndex === 0 ? '开户行 + 账号' : '账号/收款码' + (methodIndex === 1 ? '/' : '') + methodLabels[methodIndex]" />
+            <text class="dc-form-label">{{ t('distribution.payeeInfo') }}</text>
+            <input class="dc-form-input" v-model="accountInfo" :placeholder="accountPlaceholder" />
           </view>
-          <button class="dc-withdraw-btn" :loading="withdrawing" @click="doWithdraw">申请提现</button>
+          <button class="dc-withdraw-btn" :loading="withdrawing" @click="doWithdraw">{{ t('distribution.withdrawBtn') }}</button>
         </view>
 
-        <text class="dc-card__title dc-card__title--sub">提现记录</text>
-        <view v-if="withdrawals.length === 0 && !loadingWd" class="dc-card__empty">暂无提现记录</view>
+        <text class="dc-card__title dc-card__title--sub">{{ t('distribution.withdrawRecords') }}</text>
+        <view v-if="withdrawals.length === 0 && !loadingWd" class="dc-card__empty">{{ t('distribution.noWithdrawals') }}</view>
         <view v-for="w in withdrawals" :key="w.id" class="dc-item">
           <view class="dc-item__main">
             <text class="dc-item__name">{{ methodText(w.method) }} · {{ withdrawalStatusText(w.status) }}</text>
-            <text class="dc-item__sub">申请时间：{{ fmtTime(w.createdAt) }}</text>
-            <text v-if="w.reviewedAt" class="dc-item__sub">审核：{{ fmtTime(w.reviewedAt) }}</text>
-            <text v-if="w.paidAt" class="dc-item__sub">打款：{{ fmtTime(w.paidAt) }}</text>
+            <text class="dc-item__sub">{{ t('distribution.appliedAt', { time: fmtTime(w.createdAt) }) }}</text>
+            <text v-if="w.reviewedAt" class="dc-item__sub">{{ t('distribution.reviewedAt', { time: fmtTime(w.reviewedAt) }) }}</text>
+            <text v-if="w.paidAt" class="dc-item__sub">{{ t('distribution.paidAt', { time: fmtTime(w.paidAt) }) }}</text>
           </view>
           <text class="dc-item__amount dc-item__amount--minus">-¥{{ formatYuan(w.amount) }}</text>
         </view>
@@ -111,7 +111,7 @@
           :inviter-name="profile?.referralCode || ''"
           :invite-code="profile?.referralCode || ''"
         />
-        <button class="dc-poster-close" @click="showPoster = false">关闭</button>
+        <button class="dc-poster-close" @click="showPoster = false">{{ t('distribution.close') }}</button>
       </view>
     </view>
   </view>
@@ -119,6 +119,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../../stores/auth';
 import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
@@ -138,6 +139,7 @@ import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 const authStore = useAuthStore();
 const ui = useUIStore();
 const tenantStore = useTenantStore();
+const { t } = useI18n();
 
 const profile = ref<any | null>(null);
 const commissions = ref<any[]>([]);
@@ -149,13 +151,16 @@ const withdrawing = ref(false);
 const teamSummary = ref<TeamSummary | null>(null);
 const showPoster = ref(false);
 
-const tenantName = computed(() => tenantStore.tenantName || '商城');
+const tenantName = computed(() => tenantStore.tenantName || t('distribution.defaultTenant'));
 
 const withdrawAmount = ref('');
-const methodLabels = ['银行转账', '支付宝', '微信'];
+const methodLabels = computed(() => [t('distribution.methodBank'), t('distribution.methodAlipay'), t('distribution.methodWechat')]);
 const methodKeys = ['bank', 'alipay', 'wechat'];
 const methodIndex = ref(0);
 const accountInfo = ref('');
+const accountPlaceholder = computed(() => methodIndex.value === 0
+    ? t('distribution.bankAccountPlaceholder')
+    : t('distribution.accountCodePlaceholder') + (methodIndex.value === 1 ? '/' : '') + methodLabels.value[methodIndex.value]);
 
 onShow(() => {
     loadProfile();
@@ -195,10 +200,10 @@ async function doApply() {
     applying.value = true;
     try {
         await applyDistributor(authStore.inviteCode || null);
-        ui.showToast('申请成功，等待审核', 'success');
+        ui.showToast(t('distribution.applySuccess'), 'success');
         loadProfile();
     } catch (e: any) {
-        ui.showToast(e.message || '申请失败');
+        ui.showToast(e.message || t('distribution.applyFailed'));
     }
     applying.value = false;
 }
@@ -237,7 +242,7 @@ async function copy(text: string, msg: string) {
             success: () => ui.showToast(msg, 'success'),
         });
     } catch (e: any) {
-        ui.showToast('复制失败');
+        ui.showToast(t('distribution.copyFailed'));
     }
 }
 
@@ -247,38 +252,38 @@ function onMethodChange(e: any) {
 
 async function doWithdraw() {
     const amount = parseFloat(withdrawAmount.value);
-    if (!amount || amount <= 0) { ui.showToast('请输入正确的提现金额'); return; }
+    if (!amount || amount <= 0) { ui.showToast(t('distribution.invalidAmount')); return; }
     const account = accountInfo.value.trim();
-    if (!account) { ui.showToast('请填写收款信息'); return; }
+    if (!account) { ui.showToast(t('distribution.payeeRequired')); return; }
     withdrawing.value = true;
     try {
         await requestWithdrawal(amount, methodKeys[methodIndex.value], account);
-        ui.showToast('提现申请已提交');
+        ui.showToast(t('distribution.withdrawSubmitted'));
         withdrawAmount.value = '';
         accountInfo.value = '';
         loadProfile();
         loadWithdrawals();
     } catch (e: any) {
-        ui.showToast(e.message || '提现失败');
+        ui.showToast(e.message || t('distribution.withdrawFailed'));
     }
     withdrawing.value = false;
 }
 
 // ---- 文案映射 ----
 function statusText(s: string): string {
-    return { active: '正常', frozen: '已冻结', pending: '待审核' }[s] ?? s;
+    return { active: t('distribution.statusActive'), frozen: t('distribution.statusFrozen'), pending: t('distribution.statusPending') }[s] ?? s;
 }
-function typeText(t: string): string {
-    return { direct: '直推佣金', indirect: '间推佣金' }[t] ?? t;
+function typeText(s: string): string {
+    return { direct: t('distribution.typeDirect'), indirect: t('distribution.typeIndirect') }[s] ?? s;
 }
 function commissionStatusText(s: string): string {
-    return { pending: '待结算', confirmed: '已入账', paid: '已打款', cancelled: '已取消' }[s] ?? s;
+    return { pending: t('distribution.comPending'), confirmed: t('distribution.comConfirmed'), paid: t('distribution.comPaid'), cancelled: t('distribution.comCancelled') }[s] ?? s;
 }
 function methodText(m: string): string {
-    return { bank: '银行转账', alipay: '支付宝', wechat: '微信' }[m] ?? m;
+    return { bank: t('distribution.methodBank'), alipay: t('distribution.methodAlipay'), wechat: t('distribution.methodWechat') }[m] ?? m;
 }
 function withdrawalStatusText(s: string): string {
-    return { pending: '待审核', approved: '已批准', paid: '已打款', rejected: '已驳回' }[s] ?? s;
+    return { pending: t('distribution.wdPending'), approved: t('distribution.wdApproved'), paid: t('distribution.wdPaid'), rejected: t('distribution.wdRejected') }[s] ?? s;
 }
 function fmtTime(t?: string): string {
     if (!t) return '';

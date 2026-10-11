@@ -3,53 +3,53 @@
         <view v-if="loading" class="logistics-page__loading">
             <LoadingSkeleton type="card" :count="2" />
         </view>
-        <EmptyState v-else-if="!packages.length && !tracks.length" text="暂无物流信息" />
+        <EmptyState v-else-if="!packages.length && !tracks.length" :text="t('logistics.empty')" />
         <view v-else class="logistics-page__body">
             <template v-if="packages.length">
                 <view v-for="pkg in packages" :key="pkg.code" class="package-card">
                     <view class="package-card__head">
-                        <text class="package-card__no">包裹 {{ pkg.code }}</text>
+                        <text class="package-card__no">{{ t('logistics.packageNo', { code: pkg.code }) }}</text>
                         <text class="package-card__status">{{ statusLabel(pkg.status) }}</text>
                     </view>
                     <view v-if="pkg.trackingNo" class="package-card__row">
-                        <text class="label">运单号</text>
+                        <text class="label">{{ t('logistics.trackingNo') }}</text>
                         <text class="value" selectable>{{ pkg.trackingNo }}</text>
                     </view>
                     <view v-if="pkg.carrierName" class="package-card__row">
-                        <text class="label">承运</text>
+                        <text class="label">{{ t('logistics.carrier') }}</text>
                         <text class="value">{{ pkg.carrierName }}</text>
                     </view>
                     <view v-if="pkg.courierName" class="package-card__row">
-                        <text class="label">配送员</text>
+                        <text class="label">{{ t('logistics.courier') }}</text>
                         <text class="value">{{ pkg.courierName }}{{ pkg.courierPhone ? ' ' + pkg.courierPhone : '' }}</text>
                     </view>
                     <view class="package-card__row">
-                        <text class="label">状态</text>
+                        <text class="label">{{ t('logistics.statusLabel') }}</text>
                         <text class="value">{{ statusLabel(pkg.status) }}{{ pkg.deliveredAt ? ' · ' + fmtTime(pkg.deliveredAt) : '' }}</text>
                     </view>
                     <view v-if="tracksByPkg(pkg.code).length" class="track-list">
                         <view v-for="tr in tracksByPkg(pkg.code)" :key="tr.id" class="track-item">
                             <view class="track-item__dot" />
                             <view class="track-item__body">
-                                <text class="track-item__info">{{ tr.trackInfo || '包裹更新' }}</text>
+                                <text class="track-item__info">{{ tr.trackInfo || t('logistics.defaultTrackInfo') }}</text>
                                 <text class="track-item__time">{{ fmtTime(tr.signedAt || tr.lastSyncedAt) }}</text>
                             </view>
                         </view>
                     </view>
                     <view v-else class="track-empty">
-                        <text>暂无轨迹明细</text>
+                        <text>{{ t('logistics.noTracks') }}</text>
                     </view>
                 </view>
             </template>
             <view v-else class="package-card">
                 <view class="package-card__head">
-                    <text class="package-card__no">物流轨迹</text>
+                    <text class="package-card__no">{{ t('logistics.trackTitle') }}</text>
                 </view>
                 <view class="track-list track-list--bare">
                     <view v-for="tr in tracks" :key="tr.id" class="track-item">
                         <view class="track-item__dot" />
                         <view class="track-item__body">
-                            <text class="track-item__info">{{ tr.trackInfo || '包裹更新' }}</text>
+                            <text class="track-item__info">{{ tr.trackInfo || t('logistics.defaultTrackInfo') }}</text>
                             <text class="track-item__time">{{ fmtTime(tr.signedAt || tr.lastSyncedAt) }}</text>
                         </view>
                     </view>
@@ -62,9 +62,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import EmptyState from '../../components/EmptyState.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 import { getMyOrderPackages, getMyOrderTracks } from '../../api/queries/order';
+
+const { t } = useI18n();
 
 interface OrderPackage { code: string; status: string; trackingNo: string | null; carrierName: string | null;
     courierName: string | null; courierPhone: string | null; deliveredAt: string | null; }
@@ -77,7 +80,12 @@ const packages = ref<OrderPackage[]>([]);
 const tracks = ref<Track[]>([]);
 
 function statusLabel(s: string) {
-    const map: Record<string, string> = { pending: '待发货', shipped: '运输中', delivered: '已送达', cancelled: '已取消' };
+    const map: Record<string, string> = {
+        pending: t('logistics.statusPending'),
+        shipped: t('logistics.statusShipped'),
+        delivered: t('logistics.statusDelivered'),
+        cancelled: t('logistics.statusCancelled'),
+    };
     return map[s] || s;
 }
 function fmtTime(v: string | null) {
@@ -105,7 +113,7 @@ onLoad(async (opts) => {
         packages.value = (pkgs?.myOrderPackages || []) as OrderPackage[];
         tracks.value = (trs?.myOrderTracks || []) as Track[];
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '加载失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('logistics.loadFailed'), icon: 'none' });
     } finally {
         loading.value = false;
     }
