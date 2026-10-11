@@ -5,6 +5,7 @@ import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
 import { setupRouteGuard } from './composables/useAuthGuard';
+import { applyNavTitle, setupNavTitleInterceptor } from './i18n/nav-titles';
 import { getActiveOrder } from './api/queries/order';
 import { openTenantGate, setSessionToken } from './api/client';
 
@@ -28,6 +29,10 @@ function applyThemeTokens(tokens: Record<string, any>) {
 }
 
 onLaunch(async (options: any) => {
+    // 导航标题 i18n：四类导航成功后按目标页应用当前语言标题；启动页同样处理
+    setupNavTitleInterceptor();
+    applyNavTitle(String(options?.path || 'pages/home/index'));
+
     const tenantStore = useTenantStore();
     const authStore = useAuthStore();
     const cartStore = useCartStore();
