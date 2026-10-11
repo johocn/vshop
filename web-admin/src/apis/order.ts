@@ -358,9 +358,9 @@ export async function fetchScopedOrderCounts(filters: ScopedOrderFilterInput[]):
   return scopedOrderCounts ?? [];
 }
 
-export async function fetchNewOrderSignal(since: string): Promise<{ count: number; latestPlacedAt: string | null }> {
-  const { newOrderSignal } = await getAdminClient().request<{ newOrderSignal: { count: number; latestPlacedAt: string | null } }>(
-    `query NewOrderSignal($since: DateTime!) { newOrderSignal(since: $since) { count latestPlacedAt } }`,
+export async function fetchNewOrderSignal(since: string): Promise<{ count: number; latestCreatedAt: string | null }> {
+  const { newOrderSignal } = await getAdminClient().request<{ newOrderSignal: { count: number; latestCreatedAt: string | null } }>(
+    `query NewOrderSignal($since: DateTime!) { newOrderSignal(since: $since) { count latestCreatedAt } }`,
     { since },
   );
   return newOrderSignal;

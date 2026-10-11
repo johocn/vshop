@@ -134,14 +134,14 @@ export function startOrderAlertHub() {
       const last = localStorage.getItem(LS_LAST);
       const since = last || new Date(Date.now() - 30_000).toISOString();
       const sig = await fetchNewOrderSignal(since);
-      if (sig.latestPlacedAt) {
+      if (sig.latestCreatedAt) {
         // 首轮（无 last）只记 baseline 不提醒，避免刷新/登录后重播历史订单
-        if (last && sig.latestPlacedAt > last && sig.count > 0) {
+        if (last && sig.latestCreatedAt > last && sig.count > 0) {
           setUnread(unread + sig.count);
           showBanner(sig.count);
           speak();
         }
-        localStorage.setItem(LS_LAST, sig.latestPlacedAt);
+        localStorage.setItem(LS_LAST, sig.latestCreatedAt);
       }
     } catch { /* 静默重试下一轮 */ }
   }
