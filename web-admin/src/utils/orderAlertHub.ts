@@ -7,9 +7,31 @@ import { fetchNewOrderSignal } from '../apis/order';
 
 const LS_LAST = 'orderAlertLastPlacedAt';
 const LS_MUTE = 'orderAlertMuted';
+const LS_TTS_LOCK = 'orderAlertTtsLock';
 const HIDDEN_ROUTES = new Set(['pages/login/index', 'pages/channel-select/index', 'pages/change-password/index']);
 const ORDERS_URL = '/pages/order/list/index';
 let booted = false;
+
+// 角标状态提升到模块级：订单列表页 onShow 需经 markOrdersViewed() 清零（覆盖手动导航入口）
+let unread = 0;
+let bell: HTMLElement | null = null;
+
+function badge(): HTMLElement | null {
+  return bell ? (bell.querySelector('.wa-badge') as HTMLElement | null) : null;
+}
+
+function setUnread(n: number) {
+  unread = n;
+  const b = badge();
+  if (!b) return;
+  b.textContent = String(n);
+  b.style.display = n > 0 ? 'block' : 'none';
+}
+
+/** 主动查看订单列表即视为已读（订单列表页 onShow 调用，与横幅「查看」/铃铛跳转同语义） */
+export function markOrdersViewed() {
+  setUnread(0);
+}
 
 function currentRoute(): string {
   try {
@@ -27,7 +49,6 @@ export function startOrderAlertHub() {
 
   const auth = useAuthStore();
   const locale = useLocaleStore();
-  let unread = 0;
 
   // ---- DOM：顶部横幅 + 右下铃铛角标 + 铃铛菜单 ----
   const banner = document.createElement('div');
@@ -36,7 +57,7 @@ export function startOrderAlertHub() {
     'display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #0ab861;border-radius:10px;' +
     'box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px 12px;font-size:14px;color:#1a1f2b;' +
     'transition:transform .25s;max-width:92vw;';
-  const bell = document.createElement('div');
+  bell = document.createElement('div');
   bell.setAttribute('role', 'button');
   bell.style.cssText =
     'position:fixed;right:12px;bottom:64px;z-index:9999;width:34px;height:34px;border-radius:50%;' +
@@ -52,7 +73,6 @@ export function startOrderAlertHub() {
   document.body.appendChild(bell);
   document.body.appendChild(menu);
 
-  const badge = () => bell.querySelector('.wa-badge') as HTMLElement;
   function syncMuteItem() {
     const mute = localStorage.getItem(LS_MUTE) === '1';
     menu.innerHTML =
@@ -77,7 +97,6 @@ export function startOrderAlertHub() {
     if (!bell.contains(e.target as Node) && !menu.contains(e.target as Node)) setMenu(false);
   });
   function setMenu(open: boolean) { menu.style.display = open ? 'flex' : 'none'; }
-
   function showBanner(n: number) {
     const t = locale.t('orderAlert.banner').replace('{n}', String(n));
     banner.innerHTML =
@@ -98,11 +117,15 @@ export function startOrderAlertHub() {
   function speak() {
     if (localStorage.getItem(LS_MUTE) === '1') return;
     try {
+      // 近似互斥：多标签页同时轮询会各自触发 TTS 造成叠音，6s 窗口内另一 tab 刚播过则跳过
+      const now = Date.now();
+      if (now - Number(localStorage.getItem(LS_TTS_LOCK) || 0) < 6000) return;
+      localStorage.setItem(LS_TTS_LOCK, String(now));
       const synth = window.speechSynthesis;
       if (!synth) return;
       synth.cancel();
-      const u = new SpeechSynthesisUtterance('您有新的订单，请及时处理');
-      u.lang = 'zh-CN';
+      const u = new SpeechSynthesisUtterance(locale.t('orderAlert.ttsText'));
+      u.lang = locale.locale === 'en' ? 'en-US' : 'zh-CN';
       u.rate = 1;
       synth.speak(u);
     } catch { /* TTS 不可用 → 仅横幅 */ }
@@ -115,23 +138,15 @@ export function startOrderAlertHub() {
   };
   document.addEventListener('pointerdown', unlock, { once: true });
 
-  function setUnread(n: number) {
-    unread = n;
-    const b = badge();
-    if (!b) return;
-    b.textContent = String(n);
-    b.style.display = n > 0 ? 'block' : 'none';
-  }
-
   // ---- 轮询 ----
   async function tick() {
     const route = currentRoute();
     if (!auth.isAuthed || HIDDEN_ROUTES.has(route)) {
-      bell.style.display = 'none';
+      bell!.style.display = 'none';
       hideBanner();
       return;
     }
-    bell.style.display = 'flex';
+    bell!.style.display = 'flex';
     try {
       const last = localStorage.getItem(LS_LAST);
       const since = last || new Date(Date.now() - 30_000).toISOString();

@@ -66,7 +66,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue';
-import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import OrderListRenderer from '../../../components/order-list/OrderListRenderer.vue';
 import { fetchOrders, fetchOrderCounts, fetchShopOrders, fetchProductThumbs, fetchScopedOrders, fetchScopedOrderCounts, ScopedOrderFilterInput } from '../../../apis/order';
 import { fetchPickupOrders } from '../../../apis/pickup';
@@ -97,6 +97,7 @@ import { parseLayout, parseOrderListConfig } from '../../../utils/orderListConfi
 import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
+import { markOrdersViewed } from '../../../utils/orderAlertHub';
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -470,6 +471,8 @@ onPullDownRefresh(async () => {
   uni.stopPullDownRefresh();
 });
 onReachBottom(loadMore);
+// 进入订单列表=主动查看，清零提醒角标（覆盖底部导航等手动入口，与横幅/铃铛跳转同语义）
+onShow(() => markOrdersViewed());
 </script>
 
 <style lang="scss" scoped>
