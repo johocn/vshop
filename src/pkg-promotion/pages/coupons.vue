@@ -2,15 +2,15 @@
   <view class="coupons-page">
     <view class="mall-entry" @click="goMall">
       <view class="mall-entry__left">
-        <text class="mall-entry__title">券商城</text>
-        <text class="mall-entry__desc">购券 · 积分兑换 · 兑换码</text>
+        <text class="mall-entry__title">{{ t('coupons.mallTitle') }}</text>
+        <text class="mall-entry__desc">{{ t('coupons.mallDesc') }}</text>
       </view>
       <text class="mall-entry__arrow">›</text>
     </view>
     <view class="coupons-tabs">
-      <text class="tab" :class="{ active: tab === 'center' }" @click="switchTab('center')">领券中心</text>
-      <text class="tab" :class="{ active: tab === 'wallet' }" @click="switchTab('wallet')">我的卡包</text>
-      <text class="tab" :class="{ active: tab === 'code' }" @click="switchTab('code')">使用优惠码</text>
+      <text class="tab" :class="{ active: tab === 'center' }" @click="switchTab('center')">{{ t('coupons.tabCenter') }}</text>
+      <text class="tab" :class="{ active: tab === 'wallet' }" @click="switchTab('wallet')">{{ t('coupons.tabWallet') }}</text>
+      <text class="tab" :class="{ active: tab === 'code' }" @click="switchTab('code')">{{ t('coupons.tabCode') }}</text>
     </view>
 
     <!-- 领券中心 -->
@@ -42,20 +42,20 @@
           </view>
         </view>
       </view>
-      <EmptyState v-else-if="!loadingCenter" text="暂无可领取的优惠券" />
+      <EmptyState v-else-if="!loadingCenter" :text="t('coupons.emptyCenter')" />
     </view>
 
     <!-- 我的卡包 -->
     <view v-else-if="tab === 'wallet'">
       <view v-if="!isLoggedIn" class="login-prompt" @click="goLogin">
-        <text class="login-prompt__text">请先登录查看您的优惠券</text>
-        <text class="login-prompt__btn">去登录</text>
+        <text class="login-prompt__text">{{ t('coupons.loginForWallet') }}</text>
+        <text class="login-prompt__btn">{{ t('promotion.goLogin') }}</text>
       </view>
       <template v-else>
         <view class="wallet-subtabs">
-          <text class="subtab" :class="{ active: walletTab === 'unused' }" @click="walletTab = 'unused'">未使用</text>
-          <text class="subtab" :class="{ active: walletTab === 'used' }" @click="walletTab = 'used'">已使用</text>
-          <text class="subtab" :class="{ active: walletTab === 'expired' }" @click="walletTab = 'expired'">已过期</text>
+          <text class="subtab" :class="{ active: walletTab === 'unused' }" @click="walletTab = 'unused'">{{ t('coupons.walletUnused') }}</text>
+          <text class="subtab" :class="{ active: walletTab === 'used' }" @click="walletTab = 'used'">{{ t('coupons.walletUsed') }}</text>
+          <text class="subtab" :class="{ active: walletTab === 'expired' }" @click="walletTab = 'expired'">{{ t('coupons.walletExpired') }}</text>
         </view>
         <view v-if="filteredMyCoupons.length > 0">
           <view
@@ -68,23 +68,23 @@
               <view class="coupon-card__amount-row">
                 <text class="coupon-card__symbol" v-if="myCouponType(mc) === 'FIXED' || myCouponType(mc) === 'FULL'">¥</text>
                 <text class="coupon-card__amount">{{ formatMyAmount(mc) }}</text>
-                <text class="coupon-card__unit">{{ myCouponType(mc) === 'FREE_SHIPPING' ? '' : (myCouponType(mc) === 'PERCENT' ? '折' : '元') }}</text>
+                <text class="coupon-card__unit">{{ myCouponType(mc) === 'FREE_SHIPPING' || myCouponType(mc) === 'PERCENT' ? '' : t('coupons.unitYuan') }}</text>
               </view>
               <text class="coupon-card__left-tip">{{ couponTypeTip(myCouponType(mc)) }}</text>
             </view>
             <view class="coupon-card__right">
               <view class="coupon-card__info">
-                <text class="coupon-card__name">{{ mc.template?.name || '优惠券' }}</text>
+                <text class="coupon-card__name">{{ mc.template?.name || t('coupons.nameFallback') }}</text>
                 <text class="coupon-card__cond">{{ formatMyCondition(mc) }}</text>
-                <text class="coupon-card__code">券码：{{ mc.code }}</text>
+                <text class="coupon-card__code">{{ t('coupons.codeColon', { code: mc.code }) }}</text>
                 <text class="coupon-card__date">{{ formatMyDate(mc) }}</text>
               </view>
               <view v-if="isStoreCoupon(mc) && mc.status === 'UNUSED'" class="coupon-card__actions">
-                <button class="coupon-card__btn coupon-card__btn--outline" @click.stop="goShowCode(mc)">出示券码</button>
+                <button class="coupon-card__btn coupon-card__btn--outline" @click.stop="goShowCode(mc)">{{ t('coupons.showCode') }}</button>
               </view>
             </view>
             <view v-if="mc.status !== 'UNUSED'" class="coupon-card__stamp">
-              <text>{{ mc.status === 'USED' ? '已使用' : (mc.status === 'EXPIRED' ? '已过期' : mc.status) }}</text>
+              <text>{{ mc.status === 'USED' ? t('coupons.statusUsed') : (mc.status === 'EXPIRED' ? t('coupons.statusExpired') : mc.status) }}</text>
             </view>
           </view>
         </view>
@@ -95,20 +95,20 @@
     <!-- 使用优惠码 -->
     <view v-else class="coupons-code">
       <view v-if="!isLoggedIn" class="login-prompt" @click="goLogin">
-        <text class="login-prompt__text">请先登录后使用优惠码</text>
-        <text class="login-prompt__btn">去登录</text>
+        <text class="login-prompt__text">{{ t('coupons.loginForCode') }}</text>
+        <text class="login-prompt__btn">{{ t('promotion.goLogin') }}</text>
       </view>
       <template v-else>
-        <text class="coupons-code__tip">输入优惠码即可绑定到当前订单使用</text>
+        <text class="coupons-code__tip">{{ t('coupons.codeTip') }}</text>
         <view class="coupons-code__row">
-          <input v-model="couponCode" placeholder="请输入优惠码" class="input" />
-          <button @click="applyCode" class="coupons-code__btn" :disabled="applying">使用</button>
+          <input v-model="couponCode" :placeholder="t('coupons.codePlaceholder')" class="input" />
+          <button @click="applyCode" class="coupons-code__btn" :disabled="applying">{{ t('coupons.useBtn') }}</button>
         </view>
         <view v-if="activeCouponCode" class="coupons-code__active">
-          <text class="coupons-code__active-title">当前订单已使用</text>
+          <text class="coupons-code__active-title">{{ t('coupons.activeTitle') }}</text>
           <view class="coupons-code__active-item">
             <text class="coupons-code__active-code">{{ activeCouponCode }}</text>
-            <text class="coupons-code__active-remove" @click="removeCode">移除</text>
+            <text class="coupons-code__active-remove" @click="removeCode">{{ t('coupons.remove') }}</text>
           </view>
         </view>
       </template>
@@ -118,6 +118,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getCouponCentre, getMyCoupons } from '../../api/queries/coupon';
 import { claimCoupon, applyCouponToOrder, clearCouponFromOrder, couponErrorMessage } from '../../api/mutations/coupon';
 import { getActiveOrder } from '../../api/queries/order';
@@ -127,11 +128,12 @@ import { useAuthStore } from '../../stores/auth';
 import EmptyState from '../../components/EmptyState.vue';
 import { useShare } from '../../composables/useShare';
 
+const { t } = useI18n();
 const ui = useUIStore();
 const cart = useCartStore();
 const auth = useAuthStore();
 useShare({
-    title: '优惠券 - 精选好物',
+    title: t('coupons.shareTitle'),
     path: '/pkg-promotion/pages/coupons',
 });
 
@@ -164,11 +166,11 @@ const filteredMyCoupons = computed(() => {
 
 const walletEmptyText = computed(() => {
     const map: Record<WalletKey, string> = {
-        unused: '暂无可用优惠券',
-        used: '暂无已使用优惠券',
-        expired: '暂无已过期优惠券',
+        unused: 'emptyUnused',
+        used: 'emptyUsed',
+        expired: 'emptyExpired',
     };
-    return map[walletTab.value];
+    return t('coupons.' + map[walletTab.value]);
 });
 
 function goLogin() {
@@ -217,7 +219,7 @@ async function loadMy() {
     } catch (e: any) {
         if (isAuthError(e)) {
             auth.logout();
-            ui.showToast('登录已过期，请重新登录');
+            ui.showToast(t('coupons.sessionExpired'));
         } else {
             ui.showToast(couponErrorMessage(e));
         }
@@ -246,9 +248,9 @@ function canClaim(c: any): boolean {
 }
 
 function claimBtnText(c: any): string {
-    if (c._claimed) return '已领取';
-    if (c.totalCount && c.claimedCount != null && c.claimedCount >= c.totalCount) return '已抢完';
-    return '立即领取';
+    if (c._claimed) return t('coupons.claimed');
+    if (c.totalCount && c.claimedCount != null && c.claimedCount >= c.totalCount) return t('coupons.soldOut');
+    return t('coupons.claimNow');
 }
 
 const PENDING_CLAIM_KEY = 'pending_claim_coupon_id';
@@ -263,12 +265,12 @@ async function claim(c: any) {
     claiming.value = true;
     try {
         await claimCoupon(c.id);
-        ui.showToast('领取成功', 'success');
+        ui.showToast(t('coupons.claimSuccess'), 'success');
         c._claimed = true;
     } catch (e: any) {
         if (isAuthError(e)) {
             auth.logout();
-            ui.showToast('登录已过期，请重新登录');
+            ui.showToast(t('coupons.sessionExpired'));
         } else {
             ui.showToast(couponErrorMessage(e));
         }
@@ -284,7 +286,7 @@ async function checkPendingClaim() {
     uni.removeStorageSync(PENDING_CLAIM_KEY);
     try {
         await claimCoupon(pendingId);
-        ui.showToast('领取成功', 'success');
+        ui.showToast(t('coupons.claimSuccess'), 'success');
         const target = availableCoupons.value.find((c: any) => c.id === pendingId);
         if (target) target._claimed = true;
     } catch (e: any) {
@@ -294,7 +296,7 @@ async function checkPendingClaim() {
 
 async function applyCode() {
     if (!isLoggedIn.value) { goLogin(); return; }
-    if (!couponCode.value) { ui.showToast('请输入优惠码'); return; }
+    if (!couponCode.value) { ui.showToast(t('coupons.codeRequired')); return; }
     applying.value = true;
     try {
         await applyCouponToOrder(couponCode.value);
@@ -304,12 +306,12 @@ async function applyCode() {
             cart.setOrder(res.activeOrder);
             activeCouponCode.value = (res.activeOrder.customFields as any)?.couponCode || '';
         }
-        ui.showToast('优惠券已应用', 'success');
+        ui.showToast(t('coupons.applySuccess'), 'success');
         couponCode.value = '';
     } catch (e: any) {
         if (isAuthError(e)) {
             auth.logout();
-            ui.showToast('登录已过期，请重新登录');
+            ui.showToast(t('coupons.sessionExpired'));
         } else {
             ui.showToast(couponErrorMessage(e));
         }
@@ -325,7 +327,7 @@ async function removeCode() {
             cart.setOrder(res.activeOrder);
             activeCouponCode.value = (res.activeOrder.customFields as any)?.couponCode || '';
         }
-        ui.showToast('已移除', 'success');
+        ui.showToast(t('coupons.removed'), 'success');
     } catch (e: any) {
         if (isAuthError(e)) {
             auth.logout();
@@ -339,26 +341,27 @@ async function removeCode() {
 
 /** 券类型文案（左侧 tip）：FIXED=立减 / PERCENT=折扣 / FULL=直减 / FREE_SHIPPING=免配送费 */
 function couponTypeTip(type?: string): string {
-    if (type === 'FREE_SHIPPING') return '免配送费';
-    if (type === 'FULL') return '直减';
-    if (type === 'PERCENT') return '折扣';
-    return '立减';
+    if (type === 'FREE_SHIPPING') return t('promotion.freeShipping');
+    if (type === 'FULL') return t('coupons.tipFull');
+    if (type === 'PERCENT') return t('coupons.tipPercent');
+    return t('coupons.tipFixed');
 }
 
 /** 左侧大字：FIXED/FULL 显示金额（元）；PERCENT 显示折扣（discountValue=85 → 8.5折）；FREE_SHIPPING 显示免配送费 */
 function formatAmount(c: any): string {
-    if (c.type === 'FREE_SHIPPING') return '免配送费';
+    if (c.type === 'FREE_SHIPPING') return t('promotion.freeShipping');
     if (c.type === 'PERCENT') {
         const zhe = c.discountValue / 10;
-        return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+        const zheText = zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+        // PERCENT 沿用批次 4 的 percentOff 双参模式
+        return t('promotion.percentOff', { zhe: zheText, off: 100 - c.discountValue });
     }
     return (c.discountValue / 100).toString();
 }
 
 function formatUnit(c: any): string {
-    if (c.type === 'FREE_SHIPPING') return '';
-    if (c.type === 'PERCENT') return '折';
-    return '元';
+    if (c.type === 'FREE_SHIPPING' || c.type === 'PERCENT') return '';
+    return t('coupons.unitYuan');
 }
 
 function myCouponType(mc: any): string {
@@ -371,10 +374,10 @@ function formatMyAmount(mc: any): string {
 
 function formatCondition(c: any): string {
     const minSpend = c.minSpend ? c.minSpend / 100 : 0;
-    if (c.type === 'FREE_SHIPPING') return c.description || '免配送费';
-    if (c.type === 'FULL') return '无门槛直减';
-    if (!minSpend) return '无门槛';
-    return `满${minSpend}元可用`;
+    if (c.type === 'FREE_SHIPPING') return c.description || t('promotion.freeShipping');
+    if (c.type === 'FULL') return t('coupons.noThresholdDirect');
+    if (!minSpend) return t('coupons.noThreshold');
+    return t('coupons.spendAvailable', { amount: minSpend });
 }
 
 function formatMyCondition(mc: any): string {
@@ -391,8 +394,8 @@ function formatDateRange(c: any): string {
     };
     const start = c.startsAt ? toLocal(String(c.startsAt)) : '';
     const end = c.endsAt ? toLocal(String(c.endsAt)) : '';
-    if (start && end) return `${start} 至 ${end}`;
-    if (end) return `至 ${end}`;
+    if (start && end) return `${start} ${t('coupons.dateTo')} ${end}`;
+    if (end) return `${t('coupons.dateTo')} ${end}`;
     return '';
 }
 
@@ -411,7 +414,7 @@ function goShowCode(mc: any) {
     const tpl = mc.template || {};
     const params = [
         `code=${encodeURIComponent(mc.code || '')}`,
-        `name=${encodeURIComponent(tpl.name || '优惠券')}`,
+        `name=${encodeURIComponent(tpl.name || t('coupons.nameFallback'))}`,
         `type=${encodeURIComponent(tpl.type || 'FIXED')}`,
         `discountValue=${encodeURIComponent(tpl.discountValue?.toString() || '0')}`,
         `minSpend=${encodeURIComponent(tpl.minSpend?.toString() || '0')}`,

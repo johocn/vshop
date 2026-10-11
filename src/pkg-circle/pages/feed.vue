@@ -6,7 +6,7 @@
           <image v-if="coverOf(post)" :src="coverOf(post)" class="post-card__img" mode="widthFix" />
           <view class="post-card__body">
             <view class="post-card__badges" v-if="post.isPinned">
-              <text class="post-card__badge">置顶</text>
+              <text class="post-card__badge">{{ t('circleFeed.pinned') }}</text>
             </view>
             <text v-if="post.title" class="post-card__title">{{ post.title }}</text>
             <text class="post-card__content">{{ post.content }}</text>
@@ -22,7 +22,7 @@
           <image v-if="coverOf(post)" :src="coverOf(post)" class="post-card__img" mode="widthFix" />
           <view class="post-card__body">
             <view class="post-card__badges" v-if="post.isPinned">
-              <text class="post-card__badge">置顶</text>
+              <text class="post-card__badge">{{ t('circleFeed.pinned') }}</text>
             </view>
             <text v-if="post.title" class="post-card__title">{{ post.title }}</text>
             <text class="post-card__content">{{ post.content }}</text>
@@ -34,22 +34,25 @@
         </view>
       </view>
     </view>
-    <EmptyState v-if="items.length === 0 && !loading" text="还没有帖子，快来发布第一条吧" />
-    <view v-if="loading" class="feed-page__loading">加载中...</view>
+    <EmptyState v-if="items.length === 0 && !loading" :text="t('circleFeed.empty')" />
+    <view v-if="loading" class="feed-page__loading">{{ t('common.loading') }}</view>
     <view class="feed-page__fab" @tap="goPublish">
       <text class="feed-page__fab-icon">＋</text>
-      <text class="feed-page__fab-text">发布</text>
+      <text class="feed-page__fab-text">{{ t('circleFeed.publish') }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onShow } from '@dcloudio/uni-app';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
 import { getCircleFeed } from '../../api/queries/circle';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
+
+const { t } = useI18n();
 
 const { items, loading, loadMore, refresh } = usePagination<any>({
     fetchFn: async ({ take, skip }) => {

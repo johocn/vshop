@@ -6,7 +6,7 @@
           v-model="title"
           class="publish-page__input"
           :maxlength="50"
-          placeholder="标题（选填，50 字以内）"
+          :placeholder="t('circlePublish.titlePlaceholder')"
           placeholder-class="publish-page__placeholder"
         />
         <text class="publish-page__count">{{ title.length }}/50</text>
@@ -16,23 +16,23 @@
           v-model="content"
           class="publish-page__textarea"
           :maxlength="2000"
-          placeholder="分享你的购物心得…"
+          :placeholder="t('circlePublish.contentPlaceholder')"
           placeholder-class="publish-page__placeholder"
         />
       </view>
       <view class="publish-page__field">
-        <text class="publish-page__label">图片（最多 6 张）</text>
+        <text class="publish-page__label">{{ t('circlePublish.imageLabel') }}</text>
         <ImageUpload v-model="images" :maxCount="6" />
       </view>
       <view class="publish-page__field">
-        <text class="publish-page__label">关联商品（可选）</text>
+        <text class="publish-page__label">{{ t('circlePublish.productLabel') }}</text>
         <view v-if="product" class="publish-page__product">
           <image class="publish-page__product-img" :src="product.preview" mode="aspectFill" />
           <view class="publish-page__product-info">
             <text class="publish-page__product-name">{{ product.name }}</text>
             <PriceTag :price="product.price" />
           </view>
-          <text class="publish-page__product-remove" @tap="clearProduct">移除</text>
+          <text class="publish-page__product-remove" @tap="clearProduct">{{ t('circlePublish.remove') }}</text>
         </view>
         <view v-else class="publish-page__picker">
           <view class="publish-page__search">
@@ -41,13 +41,13 @@
               class="publish-page__search-input"
               :maxlength="50"
               confirm-type="search"
-              placeholder="输入商品名搜索"
+              :placeholder="t('circlePublish.searchPlaceholder')"
               placeholder-class="publish-page__placeholder"
               @confirm="doSearch"
             />
-            <text class="publish-page__search-btn" @tap="doSearch">搜索</text>
+            <text class="publish-page__search-btn" @tap="doSearch">{{ t('circlePublish.searchBtn') }}</text>
           </view>
-          <view v-if="searching" class="publish-page__hint">搜索中…</view>
+          <view v-if="searching" class="publish-page__hint">{{ t('circlePublish.searching') }}</view>
           <view v-else-if="candidates.length" class="publish-page__candidates">
             <view
               v-for="item in candidates"
@@ -62,24 +62,26 @@
               </view>
             </view>
           </view>
-          <view v-else-if="searched" class="publish-page__hint">未找到相关商品</view>
+          <view v-else-if="searched" class="publish-page__hint">{{ t('circlePublish.noResults') }}</view>
         </view>
       </view>
     </view>
     <button class="publish-page__submit" :disabled="submitting" @tap="doSubmit">
-      {{ submitting ? '发布中…' : '发布' }}
+      {{ submitting ? t('circlePublish.publishing') : t('circlePublish.publish') }}
     </button>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { createCirclePost } from '../../api/queries/circle';
 import { searchProducts } from '../../api/queries/product';
 import { useAuthStore } from '../../stores/auth';
 import ImageUpload from '../../components/ImageUpload.vue';
 import PriceTag from '../../components/PriceTag.vue';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 
 // 游客进发布页直接引导登录（createCirclePost 需登录）
@@ -113,7 +115,7 @@ async function doSearch() {
         }));
     } catch (e) {
         candidates.value = [];
-        uni.showToast({ title: '搜索失败', icon: 'none' });
+        uni.showToast({ title: t('circlePublish.searchFailed'), icon: 'none' });
     }
     searched.value = true;
     searching.value = false;
@@ -132,7 +134,7 @@ function clearProduct() {
 
 async function doSubmit() {
     if (!content.value.trim()) {
-        uni.showToast({ title: '请填写正文', icon: 'none' });
+        uni.showToast({ title: t('circlePublish.contentRequired'), icon: 'none' });
         return;
     }
     if (submitting.value) return;
@@ -144,10 +146,10 @@ async function doSubmit() {
             images: images.value.length ? images.value : null,
             productId: product.value?.productId || null,
         });
-        uni.showToast({ title: '发布成功', icon: 'success' });
+        uni.showToast({ title: t('circlePublish.publishSuccess'), icon: 'success' });
         setTimeout(() => uni.navigateBack(), 600);
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '发布失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('circlePublish.publishFailed'), icon: 'none' });
     }
     submitting.value = false;
 }

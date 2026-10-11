@@ -33,25 +33,27 @@
       </view>
       <view class="detail-page__action" @tap="onShare">
         <text class="detail-page__action-icon">↗</text>
-        <text class="detail-page__action-text">分享</text>
+        <text class="detail-page__action-text">{{ t('circleDetail.share') }}</text>
       </view>
       <view v-if="post.productId" class="detail-page__buy" @tap="goBuySame">
-        <text class="detail-page__buy-text">买同款</text>
+        <text class="detail-page__buy-text">{{ t('circleDetail.buySame') }}</text>
       </view>
     </view>
   </view>
-  <EmptyState v-else-if="!loading" text="帖子不存在或已被删除" />
-  <view v-if="loading" class="detail-page__loading">加载中...</view>
+  <EmptyState v-else-if="!loading" :text="t('circleDetail.notFound')" />
+  <view v-if="loading" class="detail-page__loading">{{ t('common.loading') }}</view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onLoad } from '@dcloudio/uni-app';
 import { getCirclePost, toggleCircleLike, toggleCircleFavorite } from '../../api/queries/circle';
 import { getProductsByIds } from '../../api/queries/product';
 import { useAuthStore } from '../../stores/auth';
 import EmptyState from '../../components/EmptyState.vue';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const post = ref<any>(null);
 const loading = ref(true);
@@ -96,7 +98,7 @@ async function doToggle(kind: 'like' | 'favorite') {
             post.value.favoriteCount = r.favoriteCount;
         }
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('circleDetail.operationFailed'), icon: 'none' });
     }
 }
 const onToggleLike = () => doToggle('like');
@@ -107,7 +109,7 @@ function onShare() {
     const link = window.location.origin + '/#/pkg-circle/pages/detail?id=' + post.value?.id;
     uni.setClipboardData({
         data: link,
-        success: () => uni.showToast({ title: '链接已复制', icon: 'none' }),
+        success: () => uni.showToast({ title: t('circleDetail.linkCopied'), icon: 'none' }),
     });
 }
 
@@ -119,12 +121,12 @@ function goBuySame() {
         .then((products: any[]) => {
             const slug = products?.[0]?.slug;
             if (!slug) {
-                uni.showToast({ title: '商品不存在或已下架', icon: 'none' });
+                uni.showToast({ title: t('circleDetail.productGone'), icon: 'none' });
                 return;
             }
             uni.navigateTo({ url: '/pkg-product/pages/detail?slug=' + slug });
         })
-        .catch(() => uni.showToast({ title: '商品加载失败', icon: 'none' }));
+        .catch(() => uni.showToast({ title: t('circleDetail.productLoadFailed'), icon: 'none' }));
 }
 </script>
 

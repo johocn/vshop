@@ -2,8 +2,8 @@
   <view class="coupon-code-page">
     <!-- 顶部操作栏 -->
     <view class="code-header">
-      <text class="code-header__title">出示券码</text>
-      <text class="code-header__tip">到店向商户出示此券码核销</text>
+      <text class="code-header__title">{{ t('couponCode.headerTitle') }}</text>
+      <text class="code-header__tip">{{ t('couponCode.headerTip') }}</text>
     </view>
 
     <!-- 主卡：券信息 + QR -->
@@ -23,7 +23,7 @@
           <!-- #ifdef H5 -->
           <image v-if="qrDataUrl" class="code-qr" :src="qrDataUrl" mode="aspectFit" />
           <view v-else class="code-qr code-qr--loading">
-            <text>生成中…</text>
+            <text>{{ t('couponCode.generating') }}</text>
           </view>
           <!-- #endif -->
 
@@ -40,46 +40,46 @@
 
       <!-- 已过期遮罩 -->
       <view v-if="isExpired" class="code-mask">
-        <text class="code-mask__text">该券已过期</text>
+        <text class="code-mask__text">{{ t('couponCode.expiredMask') }}</text>
       </view>
     </view>
 
     <!-- 券码大字区 -->
     <view class="code-strip" @click="copyCode">
-      <text class="code-strip__label">券码</text>
+      <text class="code-strip__label">{{ t('couponCode.codeLabel') }}</text>
       <text class="code-strip__value">{{ couponCode }}</text>
       <view class="code-strip__copy">
-        <text class="code-strip__copy-text">复制</text>
+        <text class="code-strip__copy-text">{{ t('couponCode.copy') }}</text>
       </view>
     </view>
 
     <!-- 到期信息 -->
     <view class="code-meta">
       <view class="code-meta__row">
-        <text class="code-meta__label">有效期至</text>
+        <text class="code-meta__label">{{ t('couponCode.validUntil') }}</text>
         <text class="code-meta__value" :class="{ 'code-meta__value--warn': isExpiring }">{{ expiresText }}</text>
       </view>
       <view v-if="minSpendText" class="code-meta__row">
-        <text class="code-meta__label">使用门槛</text>
+        <text class="code-meta__label">{{ t('couponCode.minSpend') }}</text>
         <text class="code-meta__value">{{ minSpendText }}</text>
       </view>
     </view>
 
     <!-- 使用说明 -->
     <view class="code-guide">
-      <text class="code-guide__title">使用说明</text>
+      <text class="code-guide__title">{{ t('couponCode.guideTitle') }}</text>
       <view class="code-guide__list">
         <view class="code-guide__item">
           <text class="code-guide__dot">1</text>
-          <text class="code-guide__text">到店消费，结算时向商户出示本券</text>
+          <text class="code-guide__text">{{ t('couponCode.guideStep1') }}</text>
         </view>
         <view class="code-guide__item">
           <text class="code-guide__dot">2</text>
-          <text class="code-guide__text">商户扫码或输入券码核销成功后，即可按折扣结算</text>
+          <text class="code-guide__text">{{ t('couponCode.guideStep2') }}</text>
         </view>
         <view class="code-guide__item">
           <text class="code-guide__dot">3</text>
-          <text class="code-guide__text">平台不参与收款，券核销后由您与商户线下结算</text>
+          <text class="code-guide__text">{{ t('couponCode.guideStep3') }}</text>
         </view>
       </view>
     </view>
@@ -88,17 +88,17 @@
     <view v-if="!verified && !isExpired" class="code-poll">
       <template v-if="polling">
         <view class="code-poll__dot code-poll__dot--spin" />
-        <text class="code-poll__text">等待商户核销…</text>
-        <text class="code-poll__hint">（每 3 秒刷新，最多 3 分钟）</text>
+        <text class="code-poll__text">{{ t('couponCode.pollWaiting') }}</text>
+        <text class="code-poll__hint">{{ t('couponCode.pollIntervalHint') }}</text>
       </template>
       <template v-else-if="pollTimedOut">
-        <text class="code-poll__text code-poll__text--warn">检测超时</text>
-        <text class="code-poll__hint">如已核销，点下方按钮确认</text>
-        <text class="code-poll__retry" @click="restartPolling">重新检测</text>
+        <text class="code-poll__text code-poll__text--warn">{{ t('couponCode.pollTimeout') }}</text>
+        <text class="code-poll__hint">{{ t('couponCode.pollTimeoutHint') }}</text>
+        <text class="code-poll__retry" @click="restartPolling">{{ t('couponCode.pollRetry') }}</text>
       </template>
       <template v-else>
         <view class="code-poll__dot" />
-        <text class="code-poll__text">即将自动检测核销状态</text>
+        <text class="code-poll__text">{{ t('couponCode.pollPending') }}</text>
       </template>
     </view>
 
@@ -109,12 +109,12 @@
           <!-- ✓ SVG 勾 -->
           <view class="code-verified__check" />
         </view>
-        <text class="code-verified__title">核销成功</text>
+        <text class="code-verified__title">{{ t('couponCode.verifiedTitle') }}</text>
         <text class="code-verified__sub">
-          券 {{ couponCode }} 已被商户核销
+          {{ t('couponCode.verifiedSub', { code: couponCode }) }}
         </text>
-        <text class="code-verified__tip">请按折扣金额与商户线下结算</text>
-        <button class="code-verified__btn" @click="backToWallet">返回我的券包</button>
+        <text class="code-verified__tip">{{ t('couponCode.verifiedTip') }}</text>
+        <button class="code-verified__btn" @click="backToWallet">{{ t('couponCode.backToWallet') }}</button>
       </view>
     </view>
   </view>
@@ -122,9 +122,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onShow, onHide, onUnload } from '@dcloudio/uni-app';
 import { getMyCouponByCode } from '../../api/queries/coupon';
 import { couponErrorMessage } from '../../api/mutations/coupon';
+
+const { t } = useI18n();
 
 interface QueryParams {
   code?: string;
@@ -171,7 +174,7 @@ onMounted(() => {
 
 function readQuery(q: Record<string, string>) {
   code.value = q.code || '';
-  name.value = q.name || '优惠券';
+  name.value = q.name || t('couponCode.nameFallback');
   type.value = (q.type || 'FIXED') as any;
   discountValue.value = parseInt(q.discountValue || '0', 10);
   minSpend.value = parseInt(q.minSpend || '0', 10);
@@ -309,7 +312,7 @@ function copyCode() {
   if (!code.value) return;
   uni.setClipboardData({
     data: code.value,
-    success: () => uni.showToast({ title: '券码已复制', icon: 'success' }),
+    success: () => uni.showToast({ title: t('couponCode.copied'), icon: 'success' }),
   });
 }
 
@@ -320,25 +323,26 @@ const isPercent = computed(() => type.value === 'PERCENT');
 const isFreeShipping = computed(() => type.value === 'FREE_SHIPPING');
 
 const amountText = computed(() => {
-  if (isFreeShipping.value) return '免配送费';
+  if (isFreeShipping.value) return t('promotion.freeShipping');
   if (isPercent.value) {
     const zhe = discountValue.value / 10;
-    return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    const zheText = zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    // PERCENT 沿用批次 4 的 percentOff 双参模式（zh 显示 {zhe}折，en/ja/ko 显示 {off}% off）
+    return t('promotion.percentOff', { zhe: zheText, off: 100 - discountValue.value });
   }
   return (discountValue.value / 100).toString();
 });
 
 const unitText = computed(() => {
-  if (isFreeShipping.value) return '';
-  if (isPercent.value) return '折';
-  return '元';
+  if (isFreeShipping.value || isPercent.value) return '';
+  return t('couponCode.unitYuan');
 });
 
 const typeTip = computed(() => {
-  if (isFreeShipping.value) return '免配送费';
-  if (type.value === 'FULL') return '无门槛直减';
-  if (isPercent.value) return '折扣券';
-  return '立减券';
+  if (isFreeShipping.value) return t('promotion.freeShipping');
+  if (type.value === 'FULL') return t('couponCode.typeNoThreshold');
+  if (isPercent.value) return t('couponCode.typePercent');
+  return t('couponCode.typeFixed');
 });
 
 const couponName = computed(() => name.value);
@@ -347,17 +351,17 @@ const couponCode = computed(() => code.value);
 const minSpendText = computed(() => {
   const m = minSpend.value;
   if (!m) return '';
-  return `满 ${(m / 100).toFixed(m % 100 === 0 ? 0 : 2)} 元可用`;
+  return t('couponCode.minSpendAvailable', { amount: (m / 100).toFixed(m % 100 === 0 ? 0 : 2) });
 });
 
 const expiresText = computed(() => {
-  if (!expiresAt.value) return '长期有效';
+  if (!expiresAt.value) return t('couponCode.validForever');
   const d = new Date(expiresAt.value);
   if (Number.isNaN(d.getTime())) return expiresAt.value;
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day} 前有效`;
+  return t('couponCode.validBefore', { date: `${y}-${m}-${day}` });
 });
 
 const remainingMs = computed(() => {

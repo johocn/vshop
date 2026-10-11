@@ -1,9 +1,9 @@
 <template>
   <view class="flash-sale">
     <view class="flash-head" v-if="items.length">
-      <text class="flash-head__title">限时秒杀</text>
+      <text class="flash-head__title">{{ t('flashSale.title') }}</text>
       <view class="flash-head__clock" v-if="countdown">
-        <text class="flash-head__lbl">距结束</text>
+        <text class="flash-head__lbl">{{ t('flashSale.endsIn') }}</text>
         <text class="flash-head__val">{{ countdown }}</text>
       </view>
     </view>
@@ -12,7 +12,7 @@
       <view v-for="item in items" :key="item.activityId" class="flash-card" @click="goProduct(item)">
         <view class="flash-card__media">
           <VImage :src="productMap[item.productId]?.featuredAsset?.preview || ''" width="100%" height="300rpx" />
-          <text class="flash-card__badge">秒杀价</text>
+          <text class="flash-card__badge">{{ t('flashSale.badge') }}</text>
         </view>
         <text class="flash-card__name">{{ productMap[item.productId]?.name || item.name }}</text>
         <view class="flash-card__prices">
@@ -26,12 +26,13 @@
       </view>
     </view>
 
-    <EmptyState v-if="items.length === 0" text="暂无秒杀活动" />
+    <EmptyState v-if="items.length === 0" :text="t('flashSale.empty')" />
     <BackTop :threshold="300" />
   </view>
 </template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onPageScroll } from '@dcloudio/uni-app';
 import { getActiveFlashSaleActivities } from '../../api/queries/promotion';
 import { getProductsByIds } from '../../api/queries/product';
@@ -42,13 +43,14 @@ import BackTop from '../../components/BackTop.vue';
 import { useShare } from '../../composables/useShare';
 import { earliestEndAt, formatCountdown, normalizeFlashActivities, soldPercent, type FlashItem } from '../../utils/flash-normalize';
 
+const { t } = useI18n();
 const items = ref<FlashItem[]>([]);
 const productMap = ref<Record<string, any>>({});
 const countdown = ref('');
 let timer: ReturnType<typeof setInterval> | null = null;
 
 useShare({
-    title: '限时秒杀 - 精选好物',
+    title: t('flashSale.shareTitle'),
     path: '/pkg-promotion/pages/flash-sale',
 });
 
@@ -62,7 +64,7 @@ function tick() {
         countdown.value = '00:00:00';
         stopTimer();
         items.value = [];
-        uni.showToast({ title: '秒杀活动已结束', icon: 'none' });
+        uni.showToast({ title: t('flashSale.endedToast'), icon: 'none' });
         return;
     }
     countdown.value = formatCountdown(remain);
