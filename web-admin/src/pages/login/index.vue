@@ -21,6 +21,7 @@ import { ref } from 'vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLocaleStore } from '../../stores/localeStore';
+import { applyNavTitleForCurrentPage } from '../../i18n/nav-titles';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
@@ -34,6 +35,8 @@ const err = ref('');
 function toggleLang() {
   const next = locale.locale === 'zh-Hans' ? 'en' : 'zh-Hans';
   locale.apply(next);
+  // 语言切换后原生导航栏标题不随 locale 响应式更新，手动重应用当前栈顶页标题
+  applyNavTitleForCurrentPage();
   uni.showToast({ title: next === 'en' ? locale.t('login.en') : locale.t('login.zh'), icon: 'none' });
 }
 
