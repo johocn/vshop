@@ -1,6 +1,6 @@
 // 全局新订单提醒 Hub（H5 专用，DOM 注入挂 body，任意页面生效；对齐 h5Nav.ts 模式）
 // 轮询 newOrderSignal(30s)：受限核销员按档案白名单口径（后端决定），其余为本店渠道。
-// localStorage: orderAlertLastPlacedAt（防刷新重播）、orderAlertMuted（语音开关）
+// localStorage: orderAlertLastPlacedAt（防刷新重播；存 latestCreatedAt 轴游标）、orderAlertMuted（语音开关）
 import { useAuthStore } from '../stores/authStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { fetchNewOrderSignal } from '../apis/order';
@@ -68,6 +68,7 @@ export function startOrderAlertHub() {
       syncMuteItem();
     } else {
       setMenu(false);
+      setUnread(0); // 主动查看视为已读
       uni.navigateTo({ url: ORDERS_URL });
     }
   });
@@ -85,6 +86,7 @@ export function startOrderAlertHub() {
       `<span class="wa-x" style="color:#6a7480;cursor:pointer;flex-shrink:0;">&#10005;</span>`;
     banner.querySelector('.wa-view')!.addEventListener('click', () => {
       hideBanner();
+      setUnread(0); // 主动查看视为已读，避免角标只增不减
       uni.navigateTo({ url: ORDERS_URL });
     });
     banner.querySelector('.wa-x')!.addEventListener('click', hideBanner);
