@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app';
+import { onLaunch, onShow } from '@dcloudio/uni-app';
 import { watch } from 'vue';
 import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
 import { setupRouteGuard } from './composables/useAuthGuard';
-import { applyNavTitle, setupNavTitleInterceptor } from './i18n/nav-titles';
+import { applyNavTitle, setupNavTitleInterceptor, startNavTitleWatch } from './i18n/nav-titles';
 import { getActiveOrder } from './api/queries/order';
 import { openTenantGate, setSessionToken } from './api/client';
 
@@ -27,6 +27,11 @@ function applyThemeTokens(tokens: Record<string, any>) {
     }
     // #endif
 }
+
+// 启动期路由观察：覆盖 onLaunch 单次 apply 兜不住的 tabbar 页直载/内部切 tab/分享直达场景
+onShow(() => {
+    startNavTitleWatch();
+});
 
 onLaunch(async (options: any) => {
     // 导航标题 i18n：四类导航成功后按目标页应用当前语言标题；启动页同样处理
