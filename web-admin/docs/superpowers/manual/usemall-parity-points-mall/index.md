@@ -125,6 +125,28 @@
 
 ---
 
+## 五之二、C 端多语言本地化机制（chrome 层，2026-10-11 新增）
+
+**范围**：C 端多语言 = 页面文案（55 个 i18n 命名空间，五语言包 `src/i18n/locales/*.json`）+ 导航标题（54 页）+ 原生 tabbar 标签（4 项）。本节说明后两者的集中机制与验证/维护方法。
+
+**实现**（`src/i18n/nav-titles.ts`，App.vue 挂载）：
+
+1. **导航标题**：`NAV_TITLE_KEYS` 集中映射 route path → `nav.*` 词条（排除 pages/admin 内部工具页；pages.json 不改，中文为 fallback）。四类导航（navigateTo/redirectTo/reLaunch/switchTab）经 `uni.addInterceptor` 拦截，目标 url 在 `invoke` 钩子捕获（success 回调只有 errMsg），`applyNavTitle()` 查表 → `uni.setNavigationBarTitle`，页面 meta 未挂载时 fail 短重试。
+2. **tabbar 直载坑**：uni-app H5 对 tabbar 页直载是「先起首页再内部切 tab」，内部切换不走 uni.switchTab、拦截器拦不到 → `startNavTitleWatch()` 启动期 5 秒轮询栈顶路由，变化即应用标题。
+3. **tabbar 标签**：`applyTabbarLabels()` 复用 `nav.home/category/cart/profile` 词条 + `uni.setTabBarItem`（0-3 固定序）。**tabbar 挂载晚于 App onShow，首次 set 静默 fail** → success/fail 标记 `tabbarApplied`，观察循环内重试直至成功。
+4. **语言存储**：localStorage `vshop-locale`（i18n/index.ts 持久化）；当前无应用内切换器，直载生效。切换器落地后在切换处重调 `applyNavTitleForCurrentPage()` + `applyTabbarLabels()` 即可即时刷新。
+
+**验证方法**（Playwright 或手测）：
+
+- 预置 localStorage `vshop-locale=en` 后直载 `https://e.joho.cn/#/pages/cart/index`，断言 `document.title === 'Cart'` 且 `.uni-tabbar__label` 文本为 Home/Categories/Cart/My Account；zh-CN 复原对照。截图见 `assets/tabbar-i18n-en.png`。
+- 注意首页/分类页用自定义频道头（无原生标题栏），验证原生标题应选 cart/flash-sale 等页。
+
+**维护指引**：新增页面 → pages.json 注册后往 `NAV_TITLE_KEYS` 加一行 path→key，五语言包 `nav` 命名空间同步补词条（key 顺序五文件一致）；新增 tabbar 项 → `applyTabbarLabels()` 的 items 数组加一行（index 按顺序）。
+
+**已知边界**：tabbar 图标不参与本地化（静态 PNG）；`agreement.vue` 法律长文保留中文待内容本地化决策；pages/admin 3 页（商家上架/平台上架审批/分销结算）为内部工具不本地化。
+
+---
+
 ## 附：截图清单与复现
 
 截图均由 `web-admin/scripts/_vshop_points_mall_shots.mjs` 生成（Playwright 390×844@2x，SPA 导航，登录态经 localStorage 注入）：
