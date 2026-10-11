@@ -3890,7 +3890,11 @@
     "opFailed": "Operation failed",
     "loading": "Loading…",
     "empty": "No points products yet",
-    "retry": "Retry"
+    "retry": "Retry",
+    "total": "Total",
+    "prevPage": "Prev",
+    "nextPage": "Next",
+    "perPage": "/ page"
   },
   "pointsOrders": {
     "searchPlaceholder": "Search code / customer ID",

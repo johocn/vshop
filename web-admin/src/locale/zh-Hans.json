@@ -3890,7 +3890,11 @@
     "opFailed": "操作失败",
     "loading": "加载中…",
     "empty": "暂无积分商品",
-    "retry": "重试"
+    "retry": "重试",
+    "total": "共",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "perPage": "条/页"
   },
   "pointsOrders": {
     "searchPlaceholder": "搜索单号/客户ID",

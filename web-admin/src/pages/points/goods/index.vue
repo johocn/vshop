@@ -84,10 +84,22 @@
       <text class="retry" @tap="load">{{ locale.t('pointsGoods.retry') }}</text>
     </view>
     <view v-else-if="!rows.length" class="empty">{{ locale.t('pointsGoods.empty') }}</view>
+
+    <view v-if="total > 0" class="pager">
+      <text class="pager__total">{{ locale.t('pointsGoods.total') }} {{ total }}</text>
+      <view class="pager__nav">
+        <button class="pager__btn" :disabled="pageIndex <= 0" @tap="onPrevPage">{{ locale.t('pointsGoods.prevPage') }}</button>
+        <text class="pager__page">{{ pageIndex + 1 }} / {{ pageCount }}</text>
+        <button class="pager__btn" :disabled="pageIndex + 1 >= pageCount" @tap="onNextPage">{{ locale.t('pointsGoods.nextPage') }}</button>
+        <picker class="pager__size" mode="selector" :range="pageSizeOptions" :value="pageSizeIndex" @change="(e: any) => onPageSizeChange(Number(e.detail.value))">
+          <view class="pager__size-val">{{ pageSize }} {{ locale.t('pointsGoods.perPage') }}</view>
+        </picker>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchPointsProductsAdmin, createPointsProduct, updatePointsProduct, deletePointsProduct, type PointsProductRow } from '../../../apis/points-mall';
@@ -118,9 +130,36 @@ const rows = ref<EditRow[]>([]);
 const loading = ref(false);
 const error = ref('');
 const keyword = ref('');
+const total = ref(0);
+const pageIndex = ref(0);
+const pageSize = ref(20);
+const pageSizeOptions = [10, 20, 50];
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const pageSizeIndex = computed(() => Math.max(0, pageSizeOptions.indexOf(pageSize.value)));
 
 function doSearch() {
   keyword.value = keyword.value.trim();
+  pageIndex.value = 0;
+  void load();
+}
+
+function onPrevPage() {
+  if (pageIndex.value <= 0) return;
+  pageIndex.value--;
+  void load();
+}
+
+function onNextPage() {
+  if (pageIndex.value + 1 >= pageCount.value) return;
+  pageIndex.value++;
+  void load();
+}
+
+function onPageSizeChange(i: number) {
+  const v = pageSizeOptions[i];
+  if (!v || v === pageSize.value) return;
+  pageSize.value = v;
+  pageIndex.value = 0;
   void load();
 }
 
@@ -148,8 +187,9 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const r = await fetchPointsProductsAdmin({ skip: 0, take: 100, keyword: keyword.value || null });
+    const r = await fetchPointsProductsAdmin({ skip: pageIndex.value * pageSize.value, take: pageSize.value, keyword: keyword.value || null });
     rows.value = r.items.map(toRow);
+    total.value = r.total;
   } catch (e: any) {
     error.value = e?.message || locale.t('pointsGoods.opFailed');
   } finally {
@@ -177,8 +217,12 @@ async function persist(row: EditRow, input: Record<string, unknown>): Promise<bo
   row.saving = true;
   try {
     const saved = await updatePointsProduct(input as any);
+    // 开关切换只回写 enabled（及 redeemedCount 快照），保留该行未保存的编辑
     const i = rows.value.findIndex((r) => r.key === row.key);
-    if (i >= 0) rows.value[i] = toRow(saved);
+    if (i >= 0) {
+      rows.value[i].enabled = saved.status !== 'disabled';
+      rows.value[i].redeemedCount = saved.redeemedCount ?? rows.value[i].redeemedCount;
+    }
     return true;
   } catch (e: any) {
     toast(e?.message || locale.t('pointsGoods.opFailed'));
@@ -188,10 +232,17 @@ async function persist(row: EditRow, input: Record<string, unknown>): Promise<bo
   }
 }
 
-/** 日期 'YYYY-MM-DD' → ISO；空/非法返回 null */
-function toIso(s: string): string | null {
+/** 日期 'YYYY-MM-DD' → ISO；endOfDay=true 取本地当天 23:59:59.999（validTo 当日有效），否则本地 00:00:00；空/非法返回 null */
+function toIso(s: string, endOfDay = false): string | null {
   const v = (s || '').trim();
   if (!v) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (m) {
+    const d = endOfDay
+      ? new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999)
+      : new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0);
+    return d.toISOString();
+  }
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
@@ -262,7 +313,7 @@ async function onSave(row: EditRow) {
     stock: nums.stock,
     perUserLimit: nums.perUserLimit,
     validFrom: toIso(row.validFrom),
-    validTo: toIso(row.validTo),
+    validTo: toIso(row.validTo, true),
     status: row.enabled ? 'enabled' : 'disabled',
     sortOrder: nums.sortOrder,
   };
@@ -349,5 +400,13 @@ onLoad(() => {
   }
   .empty { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
   .retry { display: block; margin-top: 16rpx; color: $wa-accent; }
+  .pager { display: flex; flex-direction: column; align-items: center; gap: 16rpx; padding: 24rpx 0 40rpx;
+    .pager__total { font-size: 24rpx; color: $wa-muted; }
+    .pager__nav { display: flex; align-items: center; gap: 20rpx; }
+    .pager__btn { margin: 0; padding: 0 28rpx; height: 56rpx; line-height: 56rpx; font-size: 24rpx;
+      border-radius: $wa-radius; background: $wa-card; color: $wa-ink;
+      &[disabled] { color: $wa-muted; opacity: .5; } }
+    .pager__page { font-size: 26rpx; color: $wa-ink; }
+    .pager__size-val { font-size: 24rpx; color: $wa-accent; padding: 8rpx 16rpx; } }
 }
 </style>
