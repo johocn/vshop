@@ -118,9 +118,42 @@ export function applyNavTitleForCurrentPage(attempt = 0): void {
  * 每次变化即应用对应语言标题，覆盖直载/分享直达/初始切 tab 等入口。
  */
 let watchStarted = false;
+let tabbarApplied = false;
+
+/**
+ * 原生 tabbar 标签 i18n：pages.json tabBar.list 顺序固定（0首页/1分类/2购物车/3我的），
+ * 文案复用 nav.* 词条（与对应页面标题同 key），uni.setTabBarItem 逐项应用。
+ * 全部成功前置 tabbarApplied=false，由启动观察循环重试（onShow 时 tabbar 可能尚未挂载）；
+ * 查不到词条时跳过该项保留中文默认。
+ */
+export function applyTabbarLabels(): void {
+    const items: Array<{ index: number; key: string }> = [
+        { index: 0, key: 'nav.home' },
+        { index: 1, key: 'nav.category' },
+        { index: 2, key: 'nav.cart' },
+        { index: 3, key: 'nav.profile' },
+    ];
+    const t = i18n.global.t as (k: string) => string;
+    let failed = false;
+    items.forEach(({ index, key }) => {
+        const label = t(key);
+        if (!label || label === key) return;
+        uni.setTabBarItem({
+            index,
+            text: label,
+            success: () => {},
+            fail: () => {
+                failed = true;
+            },
+        });
+    });
+    tabbarApplied = !failed;
+}
+
 export function startNavTitleWatch(): void {
     if (watchStarted) return;
     watchStarted = true;
+    applyTabbarLabels();
     let last = '';
     let n = 0;
     const timer = setInterval(() => {
@@ -131,6 +164,7 @@ export function startNavTitleWatch(): void {
             last = r;
             applyNavTitle(r);
         }
+        if (!tabbarApplied) applyTabbarLabels();
         if (++n >= 50) clearInterval(timer);
     }, 100);
 }
