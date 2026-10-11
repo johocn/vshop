@@ -34,6 +34,7 @@ import { tierStyle } from '../theme';
 import { visibleMenus } from '../constants/menus';
 import { useBinMode } from '../composables/useBinMode';
 import { confirmExit } from '../utils/h5Nav';
+import { applyNavTitleForCurrentPage } from '../i18n/nav-titles';
 const emit = defineEmits(['close']);
 const tenant = useTenantStore();
 const auth = useAuthStore();
@@ -49,6 +50,8 @@ function switchStore() { uni.redirectTo({ url: '/pages/channel-select/index' });
 function toggleLang() {
   const next = locale.locale === 'zh-Hans' ? 'en' : 'zh-Hans';
   locale.apply(next);
+  // 语言切换后原生导航栏标题不随 locale 响应式更新，手动重应用当前栈顶页标题
+  applyNavTitleForCurrentPage();
   uni.showToast({ title: next === 'en' ? locale.t('login.en') : locale.t('login.zh'), icon: 'none' });
 }
 // 公开手册：独立新窗口打开，无需登录鉴权

@@ -1,14 +1,24 @@
 <script lang="ts" setup>
-import { onLaunch } from '@dcloudio/uni-app';
+import { onLaunch, onShow } from '@dcloudio/uni-app';
 import { getChannelToken } from './apis/session';
 import { enableH5Nav } from './utils/h5Nav';
 import { startOrderAlertHub } from './utils/orderAlertHub';
 import { installRouteGuard } from './utils/routeGuard';
 import { useLocaleStore } from './stores/localeStore';
 import { useAuthStore } from './stores/authStore';
+import { applyNavTitle, applyNavTitleForCurrentPage, setupNavTitleInterceptor, startNavTitleWatch } from './i18n/nav-titles';
 
-onLaunch(() => {
+onShow(() => {
+  // 启动期路由观察：覆盖深链直载/前进后退等不走 uni 导航 API 的入口（仅前 5 秒）
+  startNavTitleWatch();
+});
+
+onLaunch((options: any) => {
   useLocaleStore().ensure();
+  // 导航标题 i18n：四类导航成功后按目标页应用当前语言标题；启动页同样处理
+  setupNavTitleInterceptor();
+  applyNavTitle(String(options?.path || ''));
+  applyNavTitleForCurrentPage();
   installRouteGuard();
   // 硬刷新/深链进入内页时 Pinia 会重建，权限上下文随之丢失（权限门控会被误判为「无权限」），
   // 故按已恢复的会话令牌补拉一次；失败静默（令牌失效由后续请求统一处理）
