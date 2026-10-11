@@ -753,7 +753,9 @@
         "live": "Live",
         "distributionCenter": "Distribution Center",
         "changePassword": "Change Password",
-        "logout": "Log Out"
+        "logout": "Log Out",
+        "language": "Language",
+        "languageSwitched": "Language switched"
     },
     "distribution": {
         "title": "Distribution Center",

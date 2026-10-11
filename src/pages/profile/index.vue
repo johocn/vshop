@@ -41,23 +41,51 @@
       <view class="menu-item" @click="navTo('/pkg-user/pages/feedback')">
         <text>{{ t('nav.feedback') }}</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="chooseLanguage">
+        <text>{{ t('profile.language') }}</text><text class="menu-lang">{{ currentLangLabel }}</text>
+      </view>
     </view>
     <button class="profile-page__logout" @click="doLogout">{{ t('profile.logout') }}</button>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
+import { i18n } from '../../i18n';
+import { setAppLocale } from '../../i18n/nav-titles';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const customer = ref<any>(null);
+
+// 语言原生名（各语言下展示一致，不随界面语言翻译，故不入语言包）
+const LOCALE_OPTIONS = [
+    { locale: 'zh-CN', label: '简体中文' },
+    { locale: 'zh-TW', label: '繁體中文' },
+    { locale: 'en', label: 'English' },
+    { locale: 'ja', label: '日本語' },
+    { locale: 'ko', label: '한국어' },
+];
+const currentLocale = computed(() => String((i18n.global as any).locale.value));
+const currentLangLabel = computed(() => LOCALE_OPTIONS.find((o) => o.locale === currentLocale.value)?.label || currentLocale.value);
+
+function chooseLanguage() {
+    uni.showActionSheet({
+        itemList: LOCALE_OPTIONS.map((o) => o.label),
+        success: (res) => {
+            const opt = res.tapIndex != null ? LOCALE_OPTIONS[res.tapIndex] : undefined;
+            if (!opt || opt.locale === currentLocale.value) return;
+            setAppLocale(opt.locale);
+            uni.showToast({ title: t('profile.languageSwitched'), icon: 'none' });
+        },
+    });
+}
 
 onMounted(async () => {
     try { const res: any = await getActiveCustomer(); customer.value = res.activeCustomer; } catch (e) {}
@@ -92,4 +120,5 @@ async function doLogout() {
     padding: 30rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx;
 }
 .menu-arrow { color: #ccc; }
+.menu-lang { color: #999; }
 </style>

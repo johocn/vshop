@@ -753,7 +753,9 @@
         "live": "直播",
         "distributionCenter": "分销中心",
         "changePassword": "修改密码",
-        "logout": "退出登录"
+        "logout": "退出登录",
+        "language": "语言",
+        "languageSwitched": "语言已切换"
     },
     "distribution": {
         "title": "分销中心",
