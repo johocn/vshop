@@ -1268,6 +1268,44 @@ var CHAPTERS = [
 <h3>券详情统计</h3>
 <p>优惠券列表点「明细」打开券详情弹窗：顶部统计<mark class="mark">领取 / 已核销 / 核销率</mark>，「领取明细 / 核销明细」两个 Tab 可逐条核对领取人与使用记录。</p>
 <div class="shot-box"><img class="img" src="shots/couponbind_03_detail_stats.png" alt="券详情弹窗-统计块"><div class="imgcap">图 CB3 · 券使用明细弹窗（领取 / 已核销 / 核销率统计 + 两个 Tab）</div></div>`},
+{book:'op', id:'op-44', title:'受限核销员订单查看（配送档案过滤）', html:`
+<p class="lead">给核销员只开「订单核销」权限（非平台超管）时，其登录后台看到的订单数据会<mark class="mark">自动按配送档案白名单收窄</mark>：订单列表、统计与各状态计数只统计「订单内所有商品行的配送档案都在白名单内」的订单；页面顶部显示<mark class="mark">绿色虚线胶囊「已按配送档案过滤」</mark>，一眼识别当前视图口径。普通管理员不受任何影响。</p>
+<h3>谁会看到过滤视图</h3>
+<div class="card">账号满足<mark class="mark">同时</mark>满足两个条件即启用过滤：<b>①</b> 拥有「订单核销」权限；<b>②</b> 不是平台超管。可查看范围 = 该账号在成员权限里勾选的配送档案白名单，白名单之外的配送档案订单一律不可见。</div>
+<h3>界面标识与视图口径</h3>
+<ul>
+  <li>顶部常驻<mark class="mark">绿色虚线胶囊「已按配送档案过滤」</mark>，提示当前列表已收窄，并非数据缺失。</li>
+  <li>受限核销员<mark class="mark">不提供「渠道单 / 商品单」切换</mark>，强制使用渠道单视图，避免跨口径看到白名单外订单。</li>
+</ul>
+<div class="note"><b>过滤按订单整单生效：</b>只要订单中有任一商品行的配送档案在白名单外，该订单整体不显示；列表、统计、计数三处口径一致。</div>
+<img class="img" src="shots/orderlist_profile_scoped_390.png" alt="受限核销员订单列表-手机视口">
+<div class="imgcap">图 F1 · 受限核销员订单列表（手机）：过滤胶囊 + 白名单内订单</div>
+<img class="img" src="shots/orderlist_profile_scoped_1440.png" alt="受限核销员订单列表-桌面视口">
+<div class="imgcap">图 F2 · 桌面（1440）对照：同样的过滤胶囊与收窄后的数据</div>
+<div class="tip"><b>普通管理员视角：</b>未配置核销白名单的管理账号看到的订单列表与之前完全一致，无胶囊、无过滤，仍可在「渠道单 / 商品单」间切换。</div>`},
+{book:'op', id:'op-45', title:'新订单提醒（横幅 · 铃铛 · 语音播报）', html:`
+<p class="lead">登录后台任意页面，系统每 <mark class="mark">30 秒</mark>自动检查一次新订单。发现新单时三路提醒同时生效：<mark class="mark">顶部横幅</mark>、<mark class="mark">右下铃铛角标 +N</mark>、<mark class="mark">语音播报「您有新的订单，请及时处理」</mark>，确保不漏单。</p>
+<h3>三路提醒</h3>
+<table>
+  <thead><tr><th>提醒</th><th>行为</th></tr></thead>
+  <tbody>
+    <tr><td>顶部横幅</td><td>出现新单提醒条，<mark class="mark">8 秒后自动收起</mark>；点「查看」直达订单列表</td></tr>
+    <tr><td>铃铛角标</td><td>页面右下角铃铛显示 <mark class="mark">+N</mark>，累计未处理的新单数</td></tr>
+    <tr><td>语音播报</td><td>播报「您有新的订单，请及时处理」，可在铃铛菜单里开关</td></tr>
+  </tbody>
+</table>
+<h3>铃铛菜单与语音开关</h3>
+<p>点右下角铃铛弹出菜单：<mark class="mark">语音播报开 / 关</mark>与「前往订单列表」。语音开关<mark class="mark">本地持久化</mark>——关闭后刷新页面、下次登录仍保持关闭，不想被打扰只看角标即可。</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/order_alert_banner_390.png" alt="新订单横幅与铃铛角标"><div class="imgcap">图 N1 · 顶部横幅（可点「查看」）+ 右下铃铛角标 +N</div></div>
+  <div><img class="img" src="shots/order_alert_menu_390.png" alt="铃铛菜单-语音开关"><div class="imgcap">图 N2 · 铃铛菜单：语音播报开关 + 前往订单列表</div></div>
+</div>
+<h3>提醒口径</h3>
+<ul>
+  <li>提醒与<mark class="mark">登录者的数据范围一致</mark>：受限核销员只会收到其配送档案白名单内的新单提醒。</li>
+  <li><mark class="mark">刷新页面不重播</mark>旧单提醒，只有真正的新单才会触发。</li>
+  <li>未登录 / 登录页<mark class="mark">不显示</mark>任何提醒元素。</li>
+</ul>`},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
 <table>
