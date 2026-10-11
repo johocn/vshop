@@ -145,6 +145,8 @@
 
 **已知边界**：tabbar 图标不参与本地化（静态 PNG）；`agreement.vue` 法律长文保留中文待内容本地化决策；pages/admin 3 页（商家上架/平台上架审批/分销结算）为内部工具不本地化。
 
+**web-admin 端平移版**（2026-10-12 新增，`web-admin/src/i18n/nav-titles.ts`）：同一机制平移到管理端，`NAV_TITLE_KEYS` 全量覆盖 pages.json 94 页（无一空标题，C 端为按需收录），词条入双语包既有 `nav` 命名空间（与既有 leave* 4 键共存，98 子键两文件 key 顺序一致）。机制差异点：① web-admin 无 vue-i18n，`applyNavTitle` 翻译走自研 Pinia `useLocaleStore().t()`；② pages.json 无 tabBar 配置，整个 tabbar 部分（`applyTabbarLabels`）不适用已裁剪；③ 语言持久化 key 为 `wa_locale`，应用内有两处切换入口（Drawer 抽屉 + 登录页右上角），两处 `locale.apply()` 后均补调 `applyNavTitleForCurrentPage()` 即时刷新标题；④ 挂载点同为 App.vue（onLaunch 装 4+1 拦截器 + 首页 apply，onShow 启动 5 秒栈顶路由观察，覆盖深链直载/浏览器前进后退）。验证：临时 node 脚本校验双语包 JSON + 103 顶级命名空间无回归 + 94 页 zh 值与 pages.json 逐字一致 ALL PASS 后删除；Playwright 1440×900 直载自提点编辑页（localStorage `wa_locale=en` 预置），断言 `document.title === 'Pickup Point Edit'`（截图 `assets/webadmin-navtitle-en.png`），zh-Hans 复原断言「自提点」通过。鉴权注入注意：shop-api 的 points-probe 会话在 admin-api 为 FORBIDDEN（C 端 token 不跨端），web-admin 须走 admin-api superadmin 登录注入 `wa_auth_token` + `wa_channel_token`（与 webadmin-i18n-en.png 先例一致）。
+
 ---
 
 ## 附：截图清单与复现
@@ -174,12 +176,19 @@
 | `assets/batch5-i18n-en.png` | i18n 批次 5 收尾：券商城 en 直载（localStorage `vshop-locale=en`）——标题/Tabs/按钮/门槛与标签全英文；券名与描述为后端 API 动态数据保留中文 |
 | `assets/lang-switcher.png` | profile 页应用内语言切换器 en 态（导航标题 My Account + 菜单全英文 + Language 行右侧值 English + tabbar 英文；切换后无需 reload，切回简体中文复原断言通过） |
 | `assets/webadmin-i18n-en.png` | web-admin 管理端 i18n 收口：编辑自提点页 en 态（desktop 1440×900，localStorage `wa_locale=en` 预置 + superadmin 登录，表单标签/占位/按钮/提示全英文生效） |
+| `assets/webadmin-navtitle-en.png` | web-admin 导航标题集中本地化：自提点编辑页 en 直载（desktop 1440×900，`wa_locale=en` + superadmin/admin-api 注入，原生导航栏标题 Pickup Point Edit，与页体英文一致） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-12 web-admin 导航标题集中本地化（平移 C 端机制）
+
+- **机制**：C 端 `src/i18n/nav-titles.ts` 平移到 `web-admin/src/i18n/nav-titles.ts`——`NAV_TITLE_KEYS` 全量映射 pages.json **94 页**（C 端为按需 54 页）→ `uni.setNavigationBarTitle`（meta 未挂载 fail 短重试 + document.title 达成校验），四类导航拦截器（目标 url 在 invoke 钩子捕获）+ navigateBack 拦截 + App.vue onShow 启动 5 秒栈顶路由观察。词条入双语包既有 `nav` 命名空间（+94 key，共 98 子键两文件顺序一致），en 译法与 `menu.*` 既有用词对齐。
+- **机制差异**：web-admin 无 vue-i18n，翻译走自研 Pinia `useLocaleStore().t()`；无 tabBar 配置，`applyTabbarLabels` 裁剪；语言持久化 `wa_locale`，两处应用内切换入口（Drawer + 登录页）`locale.apply()` 后补调 `applyNavTitleForCurrentPage()`。
+- **验证与部署**：`npm run build:h5` 通过；node 临时脚本校验双语包 JSON + 103 顶级命名空间无回归 + 94 页 zh 值与 pages.json 逐字一致，ALL PASS 后删除；commit `5122663` 经 `deploy.mjs` 部署，`https://e.joho.cn/guanli/` 200；Playwright 1440×900 en 直载自提点编辑页断言 `document.title === 'Pickup Point Edit'`（截图 `assets/webadmin-navtitle-en.png`）+ zh 复原「自提点」断言通过。鉴权注入：shop-api points-probe 会话在 admin-api FORBIDDEN（token 不跨端），走 admin-api superadmin + 渠道 token 注入 `wa_auth_token`/`wa_channel_token`。
 
 ### 2026-10-11 web-admin 管理端 i18n 收口（中英双语，存量页批次）
 
