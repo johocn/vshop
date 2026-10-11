@@ -15,7 +15,8 @@ export interface TimeRangeInput {
   to?: string;
 }
 
-/** 半开区间 [start, end)，ISO 字符串（含时区偏移，服务端按瞬时比较） */
+/** 半开区间 [start, end)，形态为「本地日历 0 点字面挂 Z」（如 '2026-10-11T00:00:00.000Z'），
+ *  并非真实瞬时——口径依据见 resolveTimeWindow 的 zLiteral 注释 */
 export interface TimeWindow {
   start: string;
   end: string;
@@ -42,23 +43,45 @@ function parseDay(s?: string): Date | null {
 }
 
 /**
- * 纯函数：把快捷键 / 自定义日期翻译为半开区间 [start, end)（ISO）。
+ * 本地日历日 → 窗口端点字符串：本地「0 点字面」直接挂 Z（如东八区今日 → '2026-10-11T00:00:00.000Z'）。
+ *
+ * ⚠ 时区口径（dev 实测定性，勿改回真实瞬时 toISOString() 形态）：
+ *   1) 列形态：order.createdAt 为 timestamp without time zone，且**存本地字面**——
+ *      写入时 pg 驱动把 Date 序列化为「本地字面+偏移」（如 2026-10-11T17:40:39+08:00），
+ *      Postgres 对该列类型解析时丢弃偏移、保留字面（实查：本地 17:40 建单 → 列字面 2026-10-11 17:40:39）。
+ *   2) 比较路径：服务端把 between/after/before 与 scoped 的参数统一转为 ISO UTC 字符串再下发 SQL，
+ *      Postgres 解析时丢掉 Z 标记 → 按 UTC 字面与列字面比较。若传真实瞬时（东八区今日 0 点 = 16:00Z 前一天），
+ *      SQL 窗整体早 8h：昨晚 16 点后的单被错算为「今日」，今天 16 点后的单被漏掉（e2e「今日订单」卡显示 0 的根因）。
+ *   3) 因此窗口端点输出「本地字面挂 Z」：经 DateTime scalar → Date → toISOString() 字面不变，
+ *      SQL 字面窗 = 本地日历窗，与列字面对齐；scoped 路径字符串直传同样丢 Z，两条路径天然同口径。
+ */
+function zLiteral(y: number, m: number, d: number): string {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000Z`;
+}
+
+function zOf(d: Date): string {
+  return zLiteral(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * 纯函数：把快捷键 / 自定义日期翻译为半开区间 [start, end)。
+ * 输出为「本地日历 0 点字面挂 Z」形态（口径见 zLiteral 注释），非真实瞬时。
  * 无有效条件 → null（调用方据此不拼时间 filter）。非法自定义输入返回 null，不抛异常。
  */
 export function resolveTimeWindow(input: TimeRangeInput = {}, now = new Date()): TimeWindow | null {
   const key = input.key || '';
   if (key === 'today') {
     const s = dayStart(now);
-    return { start: s.toISOString(), end: addDays(s, 1).toISOString() };
+    return { start: zOf(s), end: zOf(addDays(s, 1)) };
   }
   if (key === '7d') {
-    const s = addDays(dayStart(now), -6);
-    return { start: s.toISOString(), end: addDays(dayStart(now), 1).toISOString() };
+    const s = dayStart(now);
+    return { start: zOf(addDays(s, -6)), end: zOf(addDays(s, 1)) };
   }
   if (key === 'month') {
-    const s = new Date(now.getFullYear(), now.getMonth(), 1);
-    const e = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return { start: s.toISOString(), end: e.toISOString() };
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    return { start: zLiteral(y, m, 1), end: zOf(new Date(y, m + 1, 1)) };
   }
   if (key !== 'custom') return null;
   const f = parseDay(input.from);
@@ -67,17 +90,20 @@ export function resolveTimeWindow(input: TimeRangeInput = {}, now = new Date()):
   // 起止颠倒（运营手滑）自动交换，避免筛出空结果被当成“搜索不稳定”
   const lo = t.getTime() < f.getTime() ? t : f;
   const hi = t.getTime() < f.getTime() ? f : t;
-  return { start: dayStart(lo).toISOString(), end: addDays(dayStart(hi), 1).toISOString() };
+  return { start: zOf(dayStart(lo)), end: zOf(addDays(dayStart(hi), 1)) };
 }
 
-/** 纯函数：某时间戳是否落在窗口内（商品单本地过滤用）。无时间条件 → 恒真 */
+/** 纯函数：某时间戳是否落在窗口内（商品单本地过滤用）。无时间条件 → 恒真。
+ *  ts 为真实瞬时 ISO；窗口端点是「本地字面挂 Z」（假瞬时）→ 剥掉 Z 按本地解析还原真实日历窗再比较 */
 export function inTimeWindow(ts: string | null | undefined, input: TimeRangeInput = {}, now = new Date()): boolean {
   const w = resolveTimeWindow(input, now);
   if (!w) return true;
   if (!ts) return false;
   const t = new Date(ts).getTime();
   if (Number.isNaN(t)) return false;
-  return t >= new Date(w.start).getTime() && t < new Date(w.end).getTime();
+  const startT = new Date(w.start.replace(/Z$/, '')).getTime();
+  const endT = new Date(w.end.replace(/Z$/, '')).getTime();
+  return t >= startT && t < endT;
 }
 
 /** 状态分组：并集 = ORDER_STATES 全部键（单测保证无遗漏、无重复） */
