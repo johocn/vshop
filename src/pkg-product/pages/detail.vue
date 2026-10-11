@@ -548,7 +548,13 @@ function addonCondition(b: any): string {
 
 function addonValidity(b: any): string {
     const tpl = b.template || {};
-    if (tpl.endsAt) return `有效期至 ${String(tpl.endsAt).slice(0, 10)}`;
+    // UTC 串直接截取会差一天
+    if (tpl.endsAt) {
+        const d = new Date(tpl.endsAt);
+        const p = (n: number) => String(n).padStart(2, '0');
+        const end = Number.isNaN(d.getTime()) ? String(tpl.endsAt).slice(0, 10) : `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+        return `有效期至 ${end}`;
+    }
     if (tpl.validDays) return `领取后${tpl.validDays}天有效`;
     return '';
 }

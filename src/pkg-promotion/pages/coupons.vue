@@ -382,8 +382,15 @@ function formatMyCondition(mc: any): string {
 }
 
 function formatDateRange(c: any): string {
-    const start = c.startsAt ? String(c.startsAt).slice(0, 10) : '';
-    const end = c.endsAt ? String(c.endsAt).slice(0, 10) : '';
+    // UTC 串直接截取会差一天
+    const toLocal = (s: string): string => {
+        const d = new Date(s);
+        if (!s || Number.isNaN(d.getTime())) return s ? String(s).slice(0, 10) : '';
+        const p = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    };
+    const start = c.startsAt ? toLocal(String(c.startsAt)) : '';
+    const end = c.endsAt ? toLocal(String(c.endsAt)) : '';
     if (start && end) return `${start} 至 ${end}`;
     if (end) return `至 ${end}`;
     return '';

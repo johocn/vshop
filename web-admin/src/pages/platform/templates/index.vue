@@ -336,9 +336,12 @@ function appLabel(a: string): string {
   return a === 'vshop' ? 'youshop 商城' : 'nshop 商城';
 }
 
+// UTC 串直接截取会差 8 小时
 function fmtTime(s: string): string {
-  if (!s) return '';
-  return s.replace('T', ' ').slice(0, 16);
+  const d = new Date(s);
+  if (!s || Number.isNaN(d.getTime())) return s ? String(s).replace('T', ' ').slice(0, 16) : '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function previewText(t: ShopTemplate): string {

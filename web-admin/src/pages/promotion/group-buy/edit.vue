@@ -228,6 +228,14 @@ async function onSave() {
   }
 }
 
+/** ISO → 本地 YYYY-MM-DD（UTC 串直接截取会差一天，早上 8 点前回显会落到昨天） */
+function toLocalDate(s?: string | null): string {
+  const d = new Date(s || '');
+  if (!s || Number.isNaN(d.getTime())) return s ? String(s).slice(0, 10) : '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 async function loadAll() {
   if (!id.value) return;
   try {
@@ -240,8 +248,8 @@ async function loadAll() {
       description: c.description || '',
       targetCount: String(c.targetCount ?? 2),
       maxCount: c.maxCount && c.maxCount > 0 ? String(c.maxCount) : '',
-      startAt: c.startAt ? c.startAt.slice(0, 10) : '',
-      endAt: c.endAt ? c.endAt.slice(0, 10) : '',
+      startAt: toLocalDate(c.startAt),
+      endAt: toLocalDate(c.endAt),
       priceYuan: c.groupPrice != null ? String(c.groupPrice / 100) : '',
       leaderDiscountYuan: String((c.leaderDiscount || 0) / 100),
       leaderRewardType: c.leaderRewardType || 'discount',
