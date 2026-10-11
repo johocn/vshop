@@ -325,3 +325,43 @@ export async function modifyOrderPrice(orderId: string, priceDelta: number, note
     throw new Error(graphQlErrorMsg(e, '改价失败'));
   }
 }
+
+// ===== 配送档案范围查询（order-scope 模块，受限核销员使用） =====
+export interface ScopedOrderFilterInput {
+  states?: string[]; timeStart?: string; timeEnd?: string; keyword?: string;
+  deliveryType?: string; exceptionType?: string; exceptionOnly?: boolean; afterSales?: string[];
+}
+
+export async function fetchScopedOrders(
+  input: { take?: number; skip?: number; filter?: ScopedOrderFilterInput | null } = {},
+): Promise<{ totalItems: number; items: OrderRow[] }> {
+  const { take = 20, skip = 0, filter } = input;
+  const vars: Record<string, any> = { take, skip };
+  if (filter && Object.keys(filter).length) vars.filter = filter;
+  const { scopedOrders } = await getAdminClient().request<{ scopedOrders: { totalItems: number; items: OrderRow[] } }>(
+    `query ScopedOrders($take: Int, $skip: Int, $filter: ScopedOrderFilterInput) {
+      scopedOrders(take: $take, skip: $skip, filter: $filter) {
+        totalItems
+        items {${ORDER_FIELDS}}
+      }
+    }`,
+    vars,
+  );
+  return { totalItems: scopedOrders.totalItems, items: scopedOrders.items };
+}
+
+export async function fetchScopedOrderCounts(filters: ScopedOrderFilterInput[]): Promise<number[]> {
+  const { scopedOrderCounts } = await getAdminClient().request<{ scopedOrderCounts: number[] }>(
+    `query ScopedOrderCounts($filters: [ScopedOrderFilterInput!]) { scopedOrderCounts(filters: $filters) }`,
+    { filters: filters.length ? filters : [{}] },
+  );
+  return scopedOrderCounts ?? [];
+}
+
+export async function fetchNewOrderSignal(since: string): Promise<{ count: number; latestPlacedAt: string | null }> {
+  const { newOrderSignal } = await getAdminClient().request<{ newOrderSignal: { count: number; latestPlacedAt: string | null } }>(
+    `query NewOrderSignal($since: DateTime!) { newOrderSignal(since: $since) { count latestPlacedAt } }`,
+    { since },
+  );
+  return newOrderSignal;
+}
