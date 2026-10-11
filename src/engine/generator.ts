@@ -25,8 +25,9 @@ const JOINT_ALLOWANCE_MM: Record<JointMode, number> = {
 /**
  * 动态长度：环形手串总长 = Σ(珠长) + N×(间隙) + Σ(衔接 allowance)。
  * N 为序列件数（环形有 N 个连接处）。
+ * （实现以 calc.ts 的 computeSequenceLength 为准，避免重复导出；此处保留本地等价实现供 reconcile 使用）
  */
-export function computeSequenceLength(sequence: SequenceItem[], spec: BraceletSpec): number {
+function computeSequenceLength(sequence: SequenceItem[], spec: BraceletSpec): number {
   const gap = spec.gap
   let len = 0
   for (const it of sequence) {

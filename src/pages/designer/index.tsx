@@ -36,9 +36,9 @@ export default function DesignerPage() {
     load()
   })
 
-  const { calc, slots, bom, lookup, mainMaterial: mainMat } = useMemo(
-    () => deriveBracelet(spec, materials),
-    [spec, materials],
+  const { calc, sequence, bom, lookup, mainMaterial: mainMat } = useMemo(
+    () => deriveBracelet(spec),
+    [spec],
   )
   const diameters = mainMat?.availableDiameters ?? [spec.diameter]
 
@@ -54,7 +54,7 @@ export default function DesignerPage() {
     const { ctx, width, height } = canvasRef.current
     if (!cacheRef.current) cacheRef.current = new SpriteCache(buildCanvasFactory())
     renderBracelet(ctx, width, height, {
-      slots,
+      sequence,
       lookup,
       spec,
       calc,
@@ -62,7 +62,7 @@ export default function DesignerPage() {
       showScale: true,
       spriteCache: cacheRef.current,
     })
-  }, [ready, slots, lookup, spec, calc, mainMat])
+  }, [ready, sequence, lookup, spec, calc, mainMat])
 
   const onTouchStart = (e: any) => {
     lastTouch.current = { x: e.touches[0].x, y: e.touches[0].y }

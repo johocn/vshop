@@ -90,20 +90,18 @@ describe('generator', () => {
     expect(len).toBeGreaterThan(sumLen)
   })
 
-  it('BOM 由 @diy/calc 回译：金额为元且含主珠行', async () => {
-    const materials = await beadRepository.listMaterials()
-    const derived = deriveBracelet(base(), materials)
+  it('BOM 含主珠行且金额为元', () => {
+    const derived = deriveBracelet(base())
     const item = derived.bom.items.find((it) => it.code === 'AG-RED-08-N')
     expect(item).toBeTruthy()
     expect(item!.unitPrice).toBe(6.5)
     expect(derived.bom.totalAmount).toBeGreaterThan(0)
   })
 
-  it('deriveBracelet 输出有效算量与排布（不超松）', async () => {
-    const materials = await beadRepository.listMaterials()
-    const derived = deriveBracelet(base({ seed: 7 }), materials)
-    expect(derived.slots.length).toBeGreaterThan(0)
-    expect(derived.slots.length).toBe(derived.calc.count)
+  it('deriveBracelet 输出有效算量与序列（不超松）', () => {
+    const derived = deriveBracelet(base({ seed: 7 }))
+    expect(derived.sequence.length).toBeGreaterThan(0)
+    expect(derived.sequence.length).toBe(derived.calc.count)
     expect(['ok', 'tight']).toContain(derived.calc.fitStatus)
   })
 })

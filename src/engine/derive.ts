@@ -1,31 +1,28 @@
-import type { BraceletSpec, BeadMaterial, BeadSlot, BraceletBOM } from '../types'
-import { computeBracelet, BraceletCalc } from './calc'
-import { buildSlots } from './layout'
-import { toBraceletBOM } from './bom'
+import type { BraceletSpec, ResolvedItem, SequenceItem, BraceletBOM } from '../types'
+import type { BraceletCalc } from './calc'
+import { generateSequence } from './generator'
+import { calcFromSequence } from './calc'
+import { buildBOM } from './bom'
+import { beadRepository } from '../data/repository'
 
 export interface DerivedBracelet {
   calc: BraceletCalc
-  slots: BeadSlot[]
+  sequence: SequenceItem[]
   bom: BraceletBOM
-  lookup: (id: string) => BeadMaterial | undefined
-  mainMaterial?: BeadMaterial
+  lookup: (id: string) => ResolvedItem | undefined
+  mainMaterial?: ResolvedItem
 }
 
-/** 由方案 + 材质库派生出算量、排布与清单（供设计器 / 清单 / 导出页复用） */
-export function deriveBracelet(spec: BraceletSpec, materials: BeadMaterial[]): DerivedBracelet {
-  const lookup = (id: string): BeadMaterial | undefined => materials.find((m) => m.id === id)
+/**
+ * 由方案派生出完整装配序列、动态算量与清单（生成系统主线）。
+ * 内部统一使用本地「珠子 + 配件」视图（ResolvedItem），与后端来源解耦。
+ */
+export function deriveBracelet(spec: BraceletSpec): DerivedBracelet {
+  const items = beadRepository.resolveItemsSync()
+  const lookup = (id: string): ResolvedItem | undefined => items.find((i) => i.id === id)
+  const sequence = generateSequence(spec, items)
+  const calc = calcFromSequence(sequence, spec)
+  const bom = buildBOM(sequence, lookup, calc)
   const mainMaterial = lookup(spec.mainMaterialId)
-  const calc = computeBracelet(spec, materials)
-  const slots = buildSlots({
-    mainMaterialId: spec.mainMaterialId,
-    secondaryMaterialId: spec.secondaryMaterialId,
-    layoutMode: spec.layoutMode,
-    count: calc.count,
-    seed: spec.seed,
-    focalId: spec.focalId,
-    focalPosition: spec.focalPosition ?? 0.5,
-    focalCount: spec.focalId ? spec.focalCount ?? 1 : 0,
-  })
-  const bom = toBraceletBOM(calc.raw.bom, materials)
-  return { calc, slots, bom, lookup, mainMaterial }
+  return { calc, sequence, bom, lookup, mainMaterial }
 }

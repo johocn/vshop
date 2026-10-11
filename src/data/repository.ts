@@ -213,7 +213,9 @@ class RemoteBeadRepository implements BeadRepository {
   }
 }
 
-export const beadRepository: BeadRepository = new RemoteBeadRepository()
+// 默认走本地 mock 仓库：离线/演示即可完整渲染（含 44 珠 + 18 配件）；
+// 接入真实后端时改为 new RemoteBeadRepository() 即可。
+export const beadRepository: BeadRepository = new LocalBeadRepository()
 
 /** 设计器默认主珠 / 次珠 / 焦点珠（= 素材 attrs.group，沿用 mock id 作为分组键） */
 export const DEFAULT_MAIN_BEAD_ID = 'agate-red'

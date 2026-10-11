@@ -60,7 +60,7 @@ export default function GeneratorPage() {
     [materials, accessories],
   )
 
-  const derived = useMemo(() => deriveBracelet(spec, materials), [spec, materials])
+  const derived = useMemo(() => deriveBracelet(spec), [spec])
 
   useEffect(() => {
     getCanvas2D('gen-preview', (c) => {
@@ -74,7 +74,7 @@ export default function GeneratorPage() {
     const { ctx, width, height } = canvasRef.current
     if (!cacheRef.current) cacheRef.current = new SpriteCache(buildCanvasFactory())
     renderBracelet(ctx, width, height, {
-      slots: derived.slots,
+      sequence: derived.sequence,
       lookup: derived.lookup,
       spec,
       calc: derived.calc,

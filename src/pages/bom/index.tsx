@@ -5,12 +5,12 @@ import { useDesignerStore } from '../../store/designer-store'
 import { deriveBracelet } from '../../engine'
 
 export default function BomPage() {
-  const { spec, materials, loaded, load } = useDesignerStore()
+  const { spec, loaded, load } = useDesignerStore()
   useLoad(() => {
     load()
   })
 
-  const derived = useMemo(() => deriveBracelet(spec, materials), [spec, materials])
+  const derived = useMemo(() => deriveBracelet(spec), [spec])
 
   if (!loaded) {
     return (

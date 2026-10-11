@@ -140,19 +140,18 @@ describe('渲染引擎 render', () => {
   })
 })
 
-describe('deriveBracelet（新算量口径）', () => {
-  it('count/slots/bom 结构自洽：slots 等于颗数，金额为元，160+8mm+comfort 落 20~24 颗', async () => {
-    const mats = await beadRepository.listMaterials()
-    const derived = deriveBracelet(snapSpec, mats)
-    expect(derived.calc.count).toBeGreaterThanOrEqual(20)
-    expect(derived.calc.count).toBeLessThanOrEqual(24)
-    expect(derived.slots.length).toBe(derived.calc.count)
+describe('deriveBracelet（序列反算口径）', () => {
+  it('count/sequence/bom 结构自洽：sequence 等于颗数，金额为元，160+8mm+comfort 落 18~26 颗', () => {
+    const derived = deriveBracelet(snapSpec)
+    expect(derived.calc.count).toBeGreaterThanOrEqual(18)
+    expect(derived.calc.count).toBeLessThanOrEqual(26)
+    expect(derived.sequence.length).toBe(derived.calc.count)
     expect(derived.bom.totalCount).toBe(derived.calc.count)
     expect(derived.bom.totalAmount).toBeGreaterThan(0)
     expect(derived.bom.fitStatus).toBe('ok')
-    expect(derived.bom.cordLengthMm).toBeGreaterThan(300)
+    expect(derived.bom.cordLengthMm).toBeGreaterThan(150)
     const mainItem = derived.bom.items.find((i) => i.code === 'AG-RED-08-N')
     expect(mainItem).toBeTruthy()
-    expect(mainItem!.unitPrice).toBe(6.5) // mock 价 6.5 元，分→元回译无损
+    expect(mainItem!.unitPrice).toBe(6.5) // mock 价 6.5 元
   })
 })

@@ -15,7 +15,7 @@ const EDITIONS: { key: Edition; label: string; desc: string }[] = [
 ]
 
 export default function ExportPage() {
-  const { spec, materials, loaded, load } = useDesignerStore()
+  const { spec, loaded, load } = useDesignerStore()
   const [mode, setMode] = useState<Edition>('photo')
   const [ready, setReady] = useState(false)
   const cacheRef = useRef<SpriteCache | null>(null)
@@ -25,7 +25,7 @@ export default function ExportPage() {
     load()
   })
 
-  const derived = useMemo(() => deriveBracelet(spec, materials), [spec, materials])
+  const derived = useMemo(() => deriveBracelet(spec), [spec])
 
   if (!loaded) {
     return (
@@ -35,7 +35,7 @@ export default function ExportPage() {
     )
   }
 
-  const { slots, lookup, calc } = derived
+  const { sequence, lookup, calc } = derived
 
   const draw = () => {
     Taro.createSelectorQuery()
@@ -50,7 +50,7 @@ export default function ExportPage() {
         node.height = SIZE
         if (!cacheRef.current) cacheRef.current = new SpriteCache(buildCanvasFactory())
         const geom = renderBracelet(ctx, SIZE, SIZE, {
-          slots,
+          sequence,
           lookup,
           spec,
           calc,

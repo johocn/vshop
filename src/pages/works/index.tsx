@@ -16,7 +16,7 @@ export default function WorksPage() {
     setWorks(loadWorks())
   })
 
-  const currentDerived = useMemo(() => deriveBracelet(spec, materials), [spec, materials])
+  const currentDerived = useMemo(() => deriveBracelet(spec), [spec])
 
   const openWork = (w: WorkRecord) => {
     applySpec(w.spec)
