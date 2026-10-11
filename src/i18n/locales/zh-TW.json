@@ -330,5 +330,28 @@
         "goBuy": "去購買",
         "emptyFavorites": "暫無收藏",
         "goShopping": "去逛逛"
+    },
+    "pointsMall": {
+        "myPoints": "我的積分",
+        "topTip": "積分可兌換以下優惠券",
+        "pointsUnit": "積分",
+        "exchange": "兌換",
+        "empty": "暫無可用兌換券",
+        "discountPercent": "{n}折",
+        "freeOrder": "全場免單券",
+        "discountAmount": "立減 ¥{n}",
+        "noThreshold": "無門檻使用",
+        "minSpend": "滿 ¥{n} 可用",
+        "stockRemaining": "剩餘 {n} 張",
+        "limitShort": "限兌{n}張",
+        "limitFull": "限兌 {n} 張",
+        "unlimited": "不限量",
+        "soldOut": "已兌完",
+        "insufficientPoints": "積分不足",
+        "exchangeConfirmTitle": "確認兌換",
+        "exchangeConfirmContent": "使用 {points} 積分兌換「{name}」？兌換後積分將立即扣減。",
+        "exchangeConfirmBtn": "確認兌換",
+        "exchangeSuccess": "兌換成功，消耗 {points} 積分",
+        "exchangeFailed": "兌換失敗"
     }
 }

@@ -18,6 +18,8 @@ export function usePagination<T = any>(options: PaginationOptions<T>) {
     const loading = ref(false);
     const hasMore = ref(true);
     const totalItems = ref(0);
+    /** 最近一次加载失败的错误（页面据此展示错误态 + 重试按钮），成功即清空 */
+    const error = ref('');
     let skip = 0;
 
     async function loadMore() {
@@ -30,8 +32,10 @@ export function usePagination<T = any>(options: PaginationOptions<T>) {
             totalItems.value = result.totalItems || 0;
             skip += newItems.length;
             hasMore.value = newItems.length > 0 && items.value.length < totalItems.value;
-        } catch (e) {
+            error.value = '';
+        } catch (e: any) {
             console.error('Pagination load error:', e);
+            error.value = e?.response?.errors?.[0]?.message || e?.message || String(e);
         }
         loading.value = false;
     }
@@ -45,5 +49,5 @@ export function usePagination<T = any>(options: PaginationOptions<T>) {
 
     onMounted(() => loadMore());
 
-    return { items, loading, hasMore, totalItems, loadMore, refresh };
+    return { items, loading, hasMore, totalItems, error, loadMore, refresh };
 }

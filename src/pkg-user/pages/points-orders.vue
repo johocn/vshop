@@ -57,7 +57,11 @@
       </view>
     </view>
 
-    <EmptyState v-if="items.length === 0 && !loading" :text="t('pointsGoods.emptyOrders')" />
+    <view v-if="error && items.length === 0" class="pgo-page__error">
+      <text class="pgo-page__error-text">{{ t('pointsGoods.loadFailed') }}</text>
+      <button class="pgo-page__retry" @click="refresh">{{ t('common.retry') }}</button>
+    </view>
+    <EmptyState v-else-if="items.length === 0 && !loading" :text="t('pointsGoods.emptyOrders')" />
     <view v-if="loading" class="pgo-page__loading">{{ t('common.loading') }}</view>
   </view>
 </template>
@@ -100,7 +104,7 @@ const status = ref('');
 const expandedId = ref('');
 const acting = ref(false);
 
-const { items, loading, loadMore, refresh } = usePagination<any>({
+const { items, loading, error, loadMore, refresh } = usePagination<any>({
     fetchFn: async ({ take, skip }) => {
         if (!auth.isLoggedIn) return { items: [], totalItems: 0 };
         const r: any = await getMyPointsOrders({ take, skip, status: status.value || undefined });
@@ -134,8 +138,13 @@ function toggleExpand(id: string) {
     expandedId.value = expandedId.value === id ? '' : id;
 }
 
+/** UTC ISO → 本地 YYYY-MM-DD HH:mm（后端返回带时区，直接字符串截取会差 8 小时） */
 function fmtTime(s: string): string {
-    return s ? String(s).replace('T', ' ').slice(0, 16) : '';
+    if (!s) return '';
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(s).replace('T', ' ').slice(0, 16);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /** 继续支付：与充值/确认兑换页同款（createPointsOrderPayment → handlePayment） */
@@ -195,6 +204,19 @@ function onCancel(order: any) {
     background: $bg-color;
     padding-bottom: 40rpx;
     &__loading { text-align: center; color: #999; font-size: 24rpx; padding: 20rpx; }
+    &__error { display: flex; flex-direction: column; align-items: center; padding: 80rpx 0; }
+    &__error-text { color: #999; font-size: 26rpx; }
+    &__retry {
+        margin-top: 24rpx;
+        background: $brand-color;
+        color: #fff;
+        font-size: 26rpx;
+        padding: 0 40rpx;
+        height: 60rpx;
+        line-height: 60rpx;
+        border-radius: 30rpx;
+        border: none;
+    }
 }
 .pgo-tabs {
     display: flex;
