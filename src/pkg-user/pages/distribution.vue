@@ -282,7 +282,10 @@ function withdrawalStatusText(s: string): string {
 }
 function fmtTime(t?: string): string {
     if (!t) return '';
-    return t.replace('T', ' ').slice(0, 16);
+    const d = new Date(t);
+    if (Number.isNaN(d.getTime())) return t.replace('T', ' ').slice(0, 16);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 </script>
 <style lang="scss" scoped>
