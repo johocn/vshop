@@ -82,7 +82,10 @@ function statusLabel(s: string) {
 }
 function fmtTime(v: string | null) {
     if (!v) return '';
-    return String(v).replace('T', ' ').slice(0, 16);
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v).replace('T', ' ').slice(0, 16);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 // 后端 OrderPackage.trackingNo 即其关联 fulfillment 上 LogisticsTrack 的运单号
 // （order-package.service 按 trackMap(fulfillmentId→track) 回填），故按 trackingNo 匹配即等效按 fulfillment 关联。

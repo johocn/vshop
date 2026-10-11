@@ -107,7 +107,11 @@ function consumeText(consume: number): string {
 }
 
 function fmtTime(s: string): string {
-  return s ? String(s).replace('T', ' ').slice(0, 16) : '';
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(s).replace('T', ' ').slice(0, 16);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 async function loadPrizes() {

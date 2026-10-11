@@ -163,6 +163,15 @@ function onPageSizeChange(i: number) {
   void load();
 }
 
+/** ISO → 本地 YYYY-MM-DD（直接切 UTC 串会让本地零点日期回显差一天） */
+function toLocalDate(s?: string | null): string {
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(s).slice(0, 10);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function toRow(p: PointsProductRow): EditRow {
   return {
     key: keySeq++,
@@ -174,8 +183,8 @@ function toRow(p: PointsProductRow): EditRow {
     isVirtual: p.deliveryType === 'virtual',
     stock: String(p.stock ?? 0),
     perUserLimit: String(p.perUserLimit ?? 0),
-    validFrom: (p.validFrom || '').slice(0, 10),
-    validTo: (p.validTo || '').slice(0, 10),
+    validFrom: toLocalDate(p.validFrom),
+    validTo: toLocalDate(p.validTo),
     sortOrder: String(p.sortOrder ?? 0),
     enabled: p.status !== 'disabled',
     redeemedCount: p.redeemedCount ?? 0,
