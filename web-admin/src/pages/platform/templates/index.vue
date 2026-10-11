@@ -193,32 +193,32 @@ import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
 
-const APP_OPTS = [
-  { key: 'nshop', label: 'nshop 商城' },
-  { key: 'vshop', label: 'youshop 商城' },
-] as const;
+const APP_OPTS = computed(() => [
+  { key: 'nshop', label: locale.t('platformTemplates.appNshop') },
+  { key: 'vshop', label: locale.t('platformTemplates.appVshop') },
+]);
 
-const PAGE_OPTS = [
-  { key: 'product', label: '商品详情' },
-  { key: 'home', label: '首页' },
-  { key: 'category', label: '分类' },
-  { key: 'cart', label: '购物车' },
-  { key: 'profile', label: '我的' },
-] as const;
-const LAYOUT_OPTS = [
-  { key: 'classic', label: '经典' },
-  { key: 'floor', label: '楼层' },
-  { key: 'dualBuy', label: '双通道' },
-] as const;
-const BLOCK_OPTS = [
-  { key: 'gallery', label: '主图' },
-  { key: 'price', label: '价格' },
-  { key: 'promo', label: '促销' },
-  { key: 'service', label: '服务' },
-  { key: 'params', label: '参数' },
-  { key: 'reviews', label: '评价' },
-  { key: 'description', label: '详情' },
-] as const;
+const PAGE_OPTS = computed(() => [
+  { key: 'product', label: locale.t('platformTemplates.pageProduct') },
+  { key: 'home', label: locale.t('platformTemplates.pageHome') },
+  { key: 'category', label: locale.t('platformTemplates.pageCategory') },
+  { key: 'cart', label: locale.t('platformTemplates.pageCart') },
+  { key: 'profile', label: locale.t('platformTemplates.pageProfile') },
+]);
+const LAYOUT_OPTS = computed(() => [
+  { key: 'classic', label: locale.t('platformTemplates.layoutClassic') },
+  { key: 'floor', label: locale.t('platformTemplates.layoutFloor') },
+  { key: 'dualBuy', label: locale.t('platformTemplates.layoutDualBuy') },
+]);
+const BLOCK_OPTS = computed(() => [
+  { key: 'gallery', label: locale.t('platformTemplates.blockGallery') },
+  { key: 'price', label: locale.t('platformTemplates.blockPrice') },
+  { key: 'promo', label: locale.t('platformTemplates.blockPromo') },
+  { key: 'service', label: locale.t('platformTemplates.blockService') },
+  { key: 'params', label: locale.t('platformTemplates.blockParams') },
+  { key: 'reviews', label: locale.t('platformTemplates.blockReviews') },
+  { key: 'description', label: locale.t('platformTemplates.blockDescription') },
+]);
 
 const paletteList = ref<Record<string, { name: string; tokens: Record<string, any> }>>({});
 const paletteScheme = ref('');
@@ -333,7 +333,7 @@ const form = ref({
 });
 
 function appLabel(a: string): string {
-  return a === 'vshop' ? 'youshop 商城' : 'nshop 商城';
+  return locale.t(a === 'vshop' ? 'platformTemplates.appVshop' : 'platformTemplates.appNshop');
 }
 
 // UTC 串直接截取会差 8 小时
@@ -349,8 +349,8 @@ function previewText(t: ShopTemplate): string {
   return c ? c : '';
 }
 
-function switchApp(a: 'nshop' | 'vshop') {
-  app.value = a;
+function switchApp(a: string) {
+  app.value = a as 'nshop' | 'vshop';
   load();
 }
 

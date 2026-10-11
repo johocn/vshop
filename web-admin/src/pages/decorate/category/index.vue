@@ -45,7 +45,7 @@ import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
 const f = ref({
-  title: '分类',
+  title: locale.t('decorateCategory.titlePlaceholder'),
   subtitle: '',
   bgColor: '#ffffff',
   listStyle: 'grid',

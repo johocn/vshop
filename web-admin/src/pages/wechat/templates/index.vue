@@ -33,6 +33,9 @@
 import { ref, computed, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchWechatTemplates, sendWechatTemplate } from '../../../apis/wechat';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const templates = ref<any[]>([]);
 const loading = ref(false);
@@ -54,7 +57,7 @@ async function load() {
   try {
     templates.value = await fetchWechatTemplates();
   } catch (e: any) {
-    toast('拉取失败：' + String(e?.message || e));
+    toast(locale.t('wechatOps.pullFailed') + String(e?.message || e));
   } finally { loading.value = false; }
 }
 function openSend(t: any) {
@@ -63,7 +66,7 @@ function openSend(t: any) {
   sending.value = true;
 }
 async function doSend() {
-  if (!form.value.touser.trim()) { toast('请填写接收者 openid'); return; }
+  if (!form.value.touser.trim()) { toast(locale.t('wechatOps.requireOpenid')); return; }
   busy.value = true;
   try {
     const input: any = {
@@ -73,10 +76,10 @@ async function doSend() {
     };
     if (form.value.url.trim()) input.url = form.value.url.trim();
     const res = await sendWechatTemplate(input);
-    toast(res?.msgid ? `已发送（msgid ${res.msgid}）` : '已发送');
+    toast(res?.msgid ? locale.t('wechatOps.sentWithMsgid').replace('{n}', String(res.msgid)) : locale.t('wechatOps.sent'));
     sending.value = false;
   } catch (e: any) {
-    toast('发送失败：' + String(e?.message || e));
+    toast(locale.t('wechatOps.sendFailed') + String(e?.message || e));
   } finally { busy.value = false; }
 }
 

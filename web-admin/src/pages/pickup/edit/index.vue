@@ -2,11 +2,11 @@
   <view class="page">
     <view class="card">
       <view class="field">
-        <text class="label">名称 *</text>
-        <input class="ipt" v-model="form.name" placeholder="如 北京朝阳自提点" />
+        <text class="label">{{ $t('pickupEdit.nameLabel') }}</text>
+        <input class="ipt" v-model="form.name" :placeholder="$t('pickupEdit.namePh')" />
       </view>
       <view class="field">
-        <text class="label">类型 *</text>
+        <text class="label">{{ $t('pickupEdit.typeLabel') }}</text>
         <picker :range="typeLabels" @change="form.type = typeKeys[$event.detail.value]">
           <view class="ipt vpicker">
             <text>{{ mapTypeLabel(form.type) }}</text>
@@ -15,80 +15,80 @@
         </picker>
       </view>
       <view class="field">
-        <text class="label">联系人</text>
-        <input class="ipt" v-model="form.contactPerson" placeholder="如 王店长" />
+        <text class="label">{{ $t('pickupEdit.contactLabel') }}</text>
+        <input class="ipt" v-model="form.contactPerson" :placeholder="$t('pickupEdit.contactPh')" />
       </view>
       <view class="field">
-        <text class="label">联系电话</text>
-        <input class="ipt" v-model="form.phoneNumber" placeholder="如 010-88886666" />
+        <text class="label">{{ $t('pickupEdit.phoneLabel') }}</text>
+        <input class="ipt" v-model="form.phoneNumber" :placeholder="$t('pickupEdit.phonePh')" />
       </view>
       <view class="field">
-        <text class="label">营业时间</text>
-        <input class="ipt" v-model="form.businessHours" placeholder="如 09:00-21:00" />
+        <text class="label">{{ $t('pickupEdit.hoursLabel') }}</text>
+        <input class="ipt" v-model="form.businessHours" :placeholder="$t('pickupEdit.hoursPh')" />
       </view>
 
       <!-- 省市区三级联动（高德行政区划） -->
       <view class="field">
-        <text class="label">所在地区</text>
+        <text class="label">{{ $t('pickupEdit.regionLabel') }}</text>
         <view class="region">
           <picker class="region-item" :range="provinceNames" @change="onProvinceChange">
-            <view class="ipt vpicker"><text>{{ form.province || '省份' }}</text><text class="caret">▾</text></view>
+            <view class="ipt vpicker"><text>{{ form.province || $t('pickupEdit.provincePh') }}</text><text class="caret">▾</text></view>
           </picker>
           <picker class="region-item" :range="cityNames" @change="onCityChange">
-            <view class="ipt vpicker"><text>{{ form.city || '城市' }}</text><text class="caret">▾</text></view>
+            <view class="ipt vpicker"><text>{{ form.city || $t('pickupEdit.cityPh') }}</text><text class="caret">▾</text></view>
           </picker>
           <picker class="region-item" :range="districtNames" @change="onDistrictChange">
-            <view class="ipt vpicker"><text>{{ form.district || '区县' }}</text><text class="caret">▾</text></view>
+            <view class="ipt vpicker"><text>{{ form.district || $t('pickupEdit.districtPh') }}</text><text class="caret">▾</text></view>
           </picker>
         </view>
       </view>
       <view class="field">
-        <text class="label">街道/详细地址（可修改）</text>
-        <input class="ipt" v-model="form.street" placeholder="如 望京街道XX路1号" @tap="mapCandidatesVisible = false" />
+        <text class="label">{{ $t('pickupEdit.streetLabel') }}</text>
+        <input class="ipt" v-model="form.street" :placeholder="$t('pickupEdit.streetPh')" @tap="mapCandidatesVisible = false" />
       </view>
       <view class="field">
-        <text class="label">完整地址</text>
-        <input class="ipt" v-model="form.address" placeholder="省市区 + 详细地址" />
+        <text class="label">{{ $t('pickupEdit.addressLabel') }}</text>
+        <input class="ipt" v-model="form.address" :placeholder="$t('pickupEdit.addressPh')" />
       </view>
 
       <!-- 经纬度：可手填，也可高德地图选点 -->
       <view class="field">
-        <text class="label">经纬度</text>
+        <text class="label">{{ $t('pickupEdit.coordLabel') }}</text>
         <view class="coord">
-          <input class="ipt half" v-model="form.lat" type="digit" placeholder="纬度 lat" />
-          <input class="ipt half" v-model="form.lng" type="digit" placeholder="经度 lng" />
+          <input class="ipt half" v-model="form.lat" type="digit" :placeholder="$t('pickupEdit.latPh')" />
+          <input class="ipt half" v-model="form.lng" type="digit" :placeholder="$t('pickupEdit.lngPh')" />
         </view>
         <view class="mapbtn" @tap="openMapPicker">
           <text class="mb-ico">🗺</text>
-          <text>{{ mapBusy ? '定位中…' : '高德地图选点' }}</text>
+          <text>{{ mapBusy ? $t('pickupEdit.locating') : $t('pickupEdit.mapPick') }}</text>
         </view>
         <text v-if="mapErr" class="maperr">{{ mapErr }}</text>
       </view>
 
       <view class="field">
-        <text class="label">备注</text>
-        <textarea class="area" v-model="form.remark" placeholder="如 临街商铺，进门报手机号取件"></textarea>
+        <text class="label">{{ $t('pickupEdit.remarkLabel') }}</text>
+        <textarea class="area" v-model="form.remark" :placeholder="$t('pickupEdit.remarkPh')" />
       </view>
       <view class="field">
-        <text class="label">排序号</text>
-        <input class="ipt" v-model="form.sortOrder" type="number" placeholder="数字越小越靠前" />
-        <text class="tip">同号自提点按新建时间倒序展示</text>
+        <text class="label">{{ $t('pickupEdit.sortLabel') }}</text>
+        <input class="ipt" v-model="form.sortOrder" type="number" :placeholder="$t('pickupEdit.sortPh')" />
+        <text class="tip">{{ $t('pickupEdit.sortTip') }}</text>
       </view>
       <view class="field">
-        <text class="label">启用</text>
+        <text class="label">{{ $t('pickupEdit.enabledLabel') }}</text>
         <switch :checked="form.enabled" @change="form.enabled = $event.detail.value" color="#2563eb" />
       </view>
 
       <!-- 全局可用：仅超级管理员可把自提点设为全局（后端 SetGlobalPickupLocation 二次鉴权） -->
       <view v-if="auth.isSuperAdmin" class="field">
-        <text class="label">全局可用</text>
+        <text class="label">{{ $t('pickupEdit.globalLabel') }}</text>
         <switch :checked="form.isPublic" @change="form.isPublic = $event.detail.value" color="#0a9c6e" />
-        <text class="tip">全局自提点全平台租户可选用（「引用到本店」），仅超级管理员可维护</text>
+        <text class="tip">{{ $t('pickupEdit.globalTip') }}</text>
       </view>
 
       <!-- 自提点照片：复用图片库（图库选择/上传） -->
       <view class="field">
-        <text class="label">自提点照片（从图片库选择）</text>
+        <text class="label">{{ $t('pickupEdit.photoLabel') }}</text>
         <view class="media">
           <view v-for="(u, i) in photos" :key="i" class="mcell">
             <image class="mimg" :src="u" mode="aspectFill" @tap="preview(i)" />
@@ -96,7 +96,7 @@
           </view>
           <view class="madd" @tap="showPicker = true">＋</view>
         </view>
-        <view v-if="!photos.length" class="empty">暂无照片，点击 ＋ 从图片库选择或上传</view>
+        <view v-if="!photos.length" class="empty">{{ $t('pickupEdit.photoEmpty') }}</view>
       </view>
     </view>
 
@@ -104,8 +104,8 @@
     <view v-if="showPicker" class="sheet-mask" @tap="closePicker">
       <view class="sheet" @tap.stop>
         <view class="sheet-head">
-          <text class="st">选择/上传照片</text>
-          <text class="done" @tap="closePicker">完成</text>
+          <text class="st">{{ $t('pickupEdit.pickerTitle') }}</text>
+          <text class="done" @tap="closePicker">{{ $t('pickupEdit.done') }}</text>
         </view>
         <ImagePicker ref="pickerRef" :max="9" :value="[]" @change="onPickerAdd" />
       </view>
@@ -115,17 +115,17 @@
     <view v-if="mapVisible" class="sheet-mask" @tap="closeMap">
       <view class="sheet map-sheet" @tap.stop>
         <view class="sheet-head">
-          <text class="st">地图选点（点击地图取点）</text>
-          <text class="done" @tap="closeMap">关闭</text>
+          <text class="st">{{ $t('pickupEdit.mapTitle') }}</text>
+          <text class="done" @tap="closeMap">{{ $t('pickupEdit.close') }}</text>
         </view>
         <view id="amapContainer" class="amap" />
-        <text v-if="mapPicked" class="map-pos">已选：{{ mapPicked.lat.toFixed(6) }}, {{ mapPicked.lng.toFixed(6) }}</text>
+        <text v-if="mapPicked" class="map-pos">{{ $t('pickupEdit.picked') }}{{ mapPicked.lat.toFixed(6) }}, {{ mapPicked.lng.toFixed(6) }}</text>
       </view>
     </view>
 
     <view class="ops">
-      <button class="btn ghost" @tap="goBack">返回</button>
-      <button class="btn main" @tap="onSave">保存</button>
+      <button class="btn ghost" @tap="goBack">{{ $t('pickupEdit.back') }}</button>
+      <button class="btn main" @tap="onSave">{{ $t('pickupEdit.save') }}</button>
     </view>
   </view>
 </template>
@@ -139,14 +139,19 @@ import {
 import { fetchDistricts, reverseGeocode, fetchMapSdkConfig, DistrictNode } from '../../../apis/map';
 import ImagePicker from '../../../components/ImagePicker.vue';
 import { useAuthStore } from '../../../stores/authStore';
+import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
 
 const auth = useAuthStore();
+const locale = useLocaleStore();
 
 const id = ref<string | null>(null);
 const typeKeys: PickupLocationType[] = ['store', 'point', 'employee'];
-const typeLabels = ['门店', '自提点', '职工单位'];
-const mapTypeLabel = (t: string) => ({ store: '门店', point: '自提点', employee: '职工单位' }[t] || t);
+const typeLabelKeys: Record<string, string> = {
+  store: 'pickupPage.typeStore', point: 'pickupPage.typePoint', employee: 'pickupPage.typeEmployee',
+};
+const typeLabels = computed(() => typeKeys.map((k) => locale.t(typeLabelKeys[k])));
+const mapTypeLabel = (t: string) => (typeLabelKeys[t] ? locale.t(typeLabelKeys[t]) : t);
 
 const form = ref({
   name: '', type: 'point' as PickupLocationType, contactPerson: '', phoneNumber: '',
@@ -209,14 +214,14 @@ function loadAmap(): Promise<any> {
     if (w?.AMap) return resolve(w.AMap);
     fetchMapSdkConfig().then((cfg) => {
       if (!cfg.hasConfigured || !cfg.sdkUrl) {
-        mapErr.value = '未配置地图服务，请联系管理员在后台配置高德 key，或手动填写经纬度';
+        mapErr.value = locale.t('pickupEdit.mapNotConfigured');
         mapBusy.value = false;
         return reject(new Error('MAP_NOT_CONFIGURED'));
       }
       const s = document.createElement('script');
       s.src = cfg.sdkUrl;
       s.onload = () => resolve(w.AMap);
-      s.onerror = () => reject(new Error('加载地图 SDK 失败'));
+      s.onerror = () => reject(new Error(locale.t('pickupEdit.mapSdkFailed')));
       document.head.appendChild(s);
     }).catch((e) => reject(e));
   });
@@ -246,7 +251,7 @@ async function openMapPicker() {
       fillAddressFromMap(lat, lng);
     });
   } catch (e: any) {
-    if (!mapErr.value) mapErr.value = e?.message || '地图选点失败';
+    if (!mapErr.value) mapErr.value = e?.message || locale.t('pickupEdit.mapPickFailed');
   } finally {
     mapBusy.value = false;
   }
@@ -303,7 +308,7 @@ function preview(i: number) {
 }
 function removePhoto(i: number) {
   uni.showModal({
-    title: '移除照片', content: '确认移除这张照片？',
+    title: locale.t('pickupEdit.removePhotoTitle'), content: locale.t('pickupEdit.removePhotoContent'),
     success: (r) => { if (r.confirm) photos.value.splice(i, 1); },
   });
 }
@@ -367,7 +372,7 @@ async function hydrateRegionList() {
 function goBack() { backToHome(); }
 
 async function onSave() {
-  if (!form.value.name.trim()) { uni.showToast({ title: '请填写名称', icon: 'none' }); return; }
+  if (!form.value.name.trim()) { uni.showToast({ title: locale.t('pickupEdit.requireName'), icon: 'none' }); return; }
   const coordinates = form.value.lat && form.value.lng &&
     !isNaN(Number(form.value.lat)) && !isNaN(Number(form.value.lng))
     ? { lat: Number(form.value.lat), lng: Number(form.value.lng) }
@@ -397,10 +402,10 @@ async function onSave() {
       const savedId = await createPickupLocation(payload as any);
       uni.$emit('pickup-created', savedId);
     }
-    uni.showToast({ title: '保存成功' });
+    uni.showToast({ title: locale.t('pickupEdit.saveOk') });
     setTimeout(() => uni.navigateBack(), 600);
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: e?.message || locale.t('pickupEdit.saveFailed'), icon: 'none' });
   }
 }
 </script>

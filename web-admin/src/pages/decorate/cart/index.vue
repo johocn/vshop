@@ -36,7 +36,7 @@ import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
-const f = ref({ title: '购物车', showRecommend: true, checkoutStyle: 'classic' });
+const f = ref({ title: locale.t('decorateCart.titlePlaceholder'), showRecommend: true, checkoutStyle: 'classic' });
 const saving = ref(false);
 let channelId = '';
 

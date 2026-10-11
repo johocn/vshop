@@ -62,7 +62,7 @@
         <view class="field"><text class="label">{{ $t('platformRoomTemplates.longStayLabel') }}</text><textarea class="ta" v-model="form.longStayJson" placeholder='[{"minNights":3,"rate":0.9}]' /></view>
         <view class="field"><text class="label">{{ $t('platformRoomTemplates.ruleLabel') }}</text><textarea class="ta" v-model="form.ruleJson" placeholder='{"minNights":1,"maxNights":30,"advanceDays":30,"checkInTime":"14:00","checkOutTime":"12:00","cancelPolicy":{"type":"freeUntil","freeUntilHours":24},"depositType":"payAtHotel"}' /></view>
         <view v-if="showForm" class="guide">
-          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideSegments') }}</text> · 点选插入 priceCalendar</view>
+          <view class="gl"><text class="glk">{{ $t('platformRoomTemplates.guideSegments') }}</text> · {{ $t('platformRoomTemplates.guideSegmentsTip') }}</view>
           <view class="chips">
             <text v-for="p in PRICE_SEGMENT_PRESETS" :key="p.label" class="cdot" @tap="applyPresetSegment(p)">{{ p.label }}</text>
           </view>
@@ -342,15 +342,15 @@ async function submit() {
     uni.showToast({ title: locale.t('platformRoomTemplates.invalidBasePrice'), icon: 'none' }); return;
   }
 
-  const specs = tryParseJson(form.value.specsJson, '规格 specs');
+  const specs = tryParseJson(form.value.specsJson, locale.t('platformRoomTemplates.labelSpecs'));
   if (!specs.ok) return;
-  const defaultRooms = tryParseJson(form.value.defaultRoomsJson, '默认房间 defaultRooms');
+  const defaultRooms = tryParseJson(form.value.defaultRoomsJson, locale.t('platformRoomTemplates.labelDefaultRooms'));
   if (!defaultRooms.ok) return;
-  const priceCalendar = tryParseJson(form.value.priceCalendarJson, '日历价格段');
+  const priceCalendar = tryParseJson(form.value.priceCalendarJson, locale.t('platformRoomTemplates.labelPriceCalendar'));
   if (!priceCalendar.ok) return;
-  const longStay = tryParseJson(form.value.longStayJson, '连住优惠');
+  const longStay = tryParseJson(form.value.longStayJson, locale.t('platformRoomTemplates.labelLongStay'));
   if (!longStay.ok) return;
-  const rule = tryParseJson(form.value.ruleJson, '预订规则');
+  const rule = tryParseJson(form.value.ruleJson, locale.t('platformRoomTemplates.labelRule'));
   if (!rule.ok) return;
 
   const ruleObj = { ...DEFAULT_RULE, ...(rule.value ?? {}) };

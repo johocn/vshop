@@ -19,6 +19,9 @@
 import { ref, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchWechatFans } from '../../../apis/wechat';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 const openids = ref<string[]>([]);
 const total = ref(0);
@@ -38,7 +41,7 @@ async function load(reset: boolean) {
     hasMore.value = !!res?.next_openid && list.length > 0;
     openids.value = reset ? list : [...openids.value, ...list];
   } catch (e: any) {
-    toast('拉取失败：' + String(e?.message || e));
+    toast(locale.t('wechatOps.pullFailed') + String(e?.message || e));
   } finally { loading.value = false; }
 }
 function loadMore() { load(false); }
