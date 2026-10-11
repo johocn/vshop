@@ -12,7 +12,8 @@
     "view": "查看",
     "voiceOn": "语音播报 开",
     "voiceOff": "语音播报 关",
-    "goOrders": "前往订单列表"
+    "goOrders": "前往订单列表",
+    "ttsText": "您有新的订单，请及时处理"
   },
   "login": {
     "title": "youshop 管理后台",

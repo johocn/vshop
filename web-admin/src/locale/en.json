@@ -12,7 +12,8 @@
     "view": "View",
     "voiceOn": "Voice on",
     "voiceOff": "Voice off",
-    "goOrders": "Go to orders"
+    "goOrders": "Go to orders",
+    "ttsText": "You have a new order, please handle it promptly"
   },
   "login": {
     "title": "youshop Admin",
