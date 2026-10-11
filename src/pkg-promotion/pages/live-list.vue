@@ -7,33 +7,35 @@
       <image class="cover" :src="room.coverUrl" mode="aspectFill" />
       <view class="info">
         <text class="name">{{ room.name }}</text>
-        <text class="streamer">{{ room.streamerName || '主播' }} · {{ statusLabel(room) }}</text>
-        <text class="meta">{{ room.viewCount }} 观看 · {{ room.likeCount }} 赞</text>
+        <text class="streamer">{{ room.streamerName || t('liveList.streamerFallback') }} · {{ statusLabel(room) }}</text>
+        <text class="meta">{{ t('liveList.meta', { views: room.viewCount, likes: room.likeCount }) }}</text>
       </view>
     </view>
-    <view v-if="!rooms.length" class="empty">暂无直播</view>
+    <view v-if="!rooms.length" class="empty">{{ t('liveList.empty') }}</view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getLiveRooms } from '../../api/queries/live';
 import { useUIStore } from '../../stores/ui';
 
+const { t } = useI18n();
 const ui = useUIStore();
-const tabs = [
-  { key: '', label: '全部' },
-  { key: 'live', label: '直播中' },
-  { key: 'upcoming', label: '预告' },
-  { key: 'replay', label: '回放' },
-];
+const tabs = computed(() => [
+  { key: '', label: t('liveList.tabAll') },
+  { key: 'live', label: t('liveList.tabLive') },
+  { key: 'upcoming', label: t('liveList.tabUpcoming') },
+  { key: 'replay', label: t('liveList.tabReplay') },
+]);
 const active = ref('');
 const rooms = ref<any[]>([]);
 
 function statusLabel(room: any) {
-  if (room.status === 'live') return '直播中';
-  if (room.status === 'ended') return '回放';
-  return '预告';
+  if (room.status === 'live') return t('liveList.statusLive');
+  if (room.status === 'ended') return t('liveList.statusReplay');
+  return t('liveList.statusUpcoming');
 }
 
 async function switchTab(key: string) {
@@ -46,7 +48,7 @@ async function load() {
     const res: any = await getLiveRooms(active.value);
     rooms.value = res?.liveRooms || [];
   } catch (e: any) {
-    ui.showToast(e.message || '加载失败', 'error');
+    ui.showToast(e.message || t('liveList.loadFailed'), 'error');
   }
 }
 

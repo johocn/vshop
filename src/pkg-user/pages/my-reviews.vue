@@ -98,7 +98,7 @@ onMounted(async () => {
             .map((r: any) => ({ review: r, product: map.get(String(r.productId)) }))
             .filter((i: any) => !!i.product);
     } catch (e: any) {
-        uni.showToast({ title: e.message || '加载失败', icon: 'none' });
+        uni.showToast({ title: e.message || t('common.loadFailed'), icon: 'none' });
     }
     loading.value = false;
 });

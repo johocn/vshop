@@ -2,12 +2,12 @@
   <view class="faq-page">
     <scroll-view scroll-x class="faq-page__tabs">
       <view
-        v-for="t in tabs"
-        :key="t.key"
+        v-for="tab in tabs"
+        :key="tab.key"
         class="faq-page__tab"
-        :class="{ active: cur === t.key }"
-        @click="onTab(t.key)"
-      >{{ t.name }}</view>
+        :class="{ active: cur === tab.key }"
+        @click="onTab(tab.key)"
+      >{{ tab.name }}</view>
     </scroll-view>
 
     <view class="faq-page__list">
@@ -20,26 +20,29 @@
           <text>{{ f.content }}</text>
         </view>
       </view>
-      <EmptyState v-if="items.length === 0 && !loading" text="暂无常见问题" />
-      <view v-if="loading" class="faq-page__loading">加载中...</view>
+      <EmptyState v-if="items.length === 0 && !loading" :text="t('faq.empty')" />
+      <view v-if="loading" class="faq-page__loading">{{ t('common.loading') }}</view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getFaqs } from '../../api/queries/feedback';
 import EmptyState from '../../components/EmptyState.vue';
 
+const { t } = useI18n();
+
 // 分组 key 与后端 FaqEntry.type 对齐
-const tabs = [
-    { key: '', name: '全部' },
-    { key: 'register', name: '注册登录' },
-    { key: 'order', name: '订单' },
-    { key: 'pay', name: '支付' },
-    { key: 'afterSale', name: '售后' },
-    { key: 'account', name: '账户' },
-];
+const tabs = computed(() => [
+    { key: '', name: t('faq.tabAll') },
+    { key: 'register', name: t('faq.tabRegister') },
+    { key: 'order', name: t('faq.tabOrder') },
+    { key: 'pay', name: t('faq.tabPay') },
+    { key: 'afterSale', name: t('faq.tabAfterSale') },
+    { key: 'account', name: t('faq.tabAccount') },
+]);
 const cur = ref('');
 const items = ref<any[]>([]);
 const loading = ref(false);

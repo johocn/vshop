@@ -5,7 +5,7 @@
       <template v-if="canPlay">
         <!-- #ifdef H5 -->
         <video ref="videoRef" class="video" controls autoplay playsinline @error="h5PlayError = true"></video>
-        <view v-if="h5PlayError" class="retry" @click="setupH5Player"><text>加载失败，点击重试</text></view>
+        <view v-if="h5PlayError" class="retry" @click="setupH5Player"><text>{{ t('liveRoom.h5Retry') }}</text></view>
         <!-- #endif -->
         <!-- #ifndef H5 -->
         <video
@@ -21,9 +21,9 @@
       <view v-else class="no-live">
         <template v-if="platforms.length">
           <image v-if="room.coverUrl" class="no-live-cover" :src="room.coverUrl" mode="aspectFill" />
-          <text v-if="firstPlatform" class="go-btn" @click="onPlatformTap(firstPlatform)">前往{{ platformLabel(firstPlatform.platform) }}观看</text>
+          <text v-if="firstPlatform" class="go-btn" @click="onPlatformTap(firstPlatform)">{{ t('liveRoom.watchOn', { platform: platformLabel(firstPlatform.platform) }) }}</text>
         </template>
-        <text v-else>{{ room.status === 'ended' ? '直播已结束' : '直播未开始' }}</text>
+        <text v-else>{{ room.status === 'ended' ? t('liveRoom.liveEnded') : t('liveRoom.notStarted') }}</text>
       </view>
       <view v-if="platforms.length" class="pills">
         <text v-for="p in platforms" :key="p.platform" class="pill" :class="'p-' + p.platform" @click="onPlatformTap(p)">{{ platformLabel(p.platform) }}</text>
@@ -31,7 +31,7 @@
       <view class="head">
         <text class="h-name">{{ room.name }}</text>
         <view class="h-meta">
-          <text class="h-online">{{ onlineCount }} 人在看</text>
+          <text class="h-online">{{ t('liveRoom.onlineCount', { n: onlineCount }) }}</text>
           <text class="h-status">{{ statusLabel }}</text>
         </view>
       </view>
@@ -47,13 +47,13 @@
         </view>
       </scroll-view>
       <view class="actions">
-        <input v-model="inputText" class="input" placeholder="说点什么…" confirm-type="send" @confirm="sendDanmaku" />
-        <text class="btn" @click="sendDanmaku">发送</text>
+        <input v-model="inputText" class="input" :placeholder="t('liveRoom.inputPlaceholder')" confirm-type="send" @confirm="sendDanmaku" />
+        <text class="btn" @click="sendDanmaku">{{ t('liveRoom.send') }}</text>
         <view class="like-wrap">
-          <text class="btn" @click="sendLike">赞 {{ likeCount }}</text>
+          <text class="btn" @click="sendLike">{{ t('liveRoom.like') }} {{ likeCount }}</text>
           <text v-for="h in hearts" :key="h.id" class="heart" :style="{ left: (h.id % 3) * 24 + 'rpx' }">♥</text>
         </view>
-        <text class="btn" @click="sendFollow">关注</text>
+        <text class="btn" @click="sendFollow">{{ t('liveRoom.follow') }}</text>
       </view>
     </view>
 
@@ -70,16 +70,16 @@
     <view v-if="wxSheet" class="sheet-mask" @click="wxSheet = null">
       <view class="sheet" @click.stop>
         <view class="sheet-head">
-          <text class="sheet-title">观看视频号直播</text>
+          <text class="sheet-title">{{ t('liveRoom.sheetTitle') }}</text>
           <text class="sheet-x" @click="wxSheet = null">✕</text>
         </view>
         <text class="sheet-name">@{{ wxSheet.finder }}</text>
         <view class="sheet-steps">
-          <text>1. 点击下方复制视频号名</text>
-          <text>2. 打开微信 → 搜一搜</text>
-          <text>3. 进入视频号观看直播</text>
+          <text>{{ t('liveRoom.sheetStep1') }}</text>
+          <text>{{ t('liveRoom.sheetStep2') }}</text>
+          <text>{{ t('liveRoom.sheetStep3') }}</text>
         </view>
-        <view class="sheet-btn" @click="copyWxChannels"><text>复制视频号名</text></view>
+        <view class="sheet-btn" @click="copyWxChannels"><text>{{ t('liveRoom.copyChannel') }}</text></view>
       </view>
     </view>
   </view>
@@ -87,11 +87,13 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { io, Socket } from 'socket.io-client';
 import { getLiveRoom, enterLiveRoom, setOrderLiveRoom } from '../../api/queries/live';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { useUIStore } from '../../stores/ui';
 
+const { t } = useI18n();
 const ui = useUIStore();
 const roomId = ref<string>('');
 const room = ref<any>({});
@@ -111,16 +113,18 @@ let sysTimer: ReturnType<typeof setTimeout> | null = null;
 const products = computed(() => room.value?.products || []);
 const canPlay = computed(() => !!(playUrl.value && room.value.status === 'live'));
 const statusLabel = computed(() => {
-  if (room.value.status === 'live') return '直播中';
-  if (room.value.status === 'ended') return '已结束';
-  return '预告';
+  if (room.value.status === 'live') return t('liveRoom.statusLive');
+  if (room.value.status === 'ended') return t('liveRoom.statusEnded');
+  return t('liveRoom.statusUpcoming');
 });
 
 // ---- 平台分发（双形态 + 平台按钮组 + 视频号引导） ----
 const platforms = computed<any[]>(() => room.value?.platforms || []);
 const firstPlatform = computed(() => platforms.value[0]);
-const PLATFORM_LABELS: Record<string, string> = { douyin: '抖音', kuaishou: '快手', wechat_channels: '视频号' };
-function platformLabel(p: string) { return PLATFORM_LABELS[p] || p; }
+function platformLabel(p: string) {
+  const map: Record<string, string> = { douyin: 'douyin', kuaishou: 'kuaishou', wechat_channels: 'wechatChannels' };
+  return map[p] ? t('liveRoom.' + map[p]) : p;
+}
 
 const wxSheet = ref<{ finder: string } | null>(null);
 
@@ -155,13 +159,13 @@ function onPlatformTap(p: any) {
   if (p.platform === 'wechat_channels') { onWxChannelsTap(p); return; }
   // #ifdef H5
   if (isWeixinBrowser()) {
-    uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast('链接已复制，请在浏览器打开', 'success') });
+    uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast(t('liveRoom.linkCopiedBrowser'), 'success') });
   } else {
     window.location.href = p.externalUrl;
   }
   // #endif
   // #ifndef H5
-  uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast('链接已复制', 'success') });
+  uni.setClipboardData({ data: p.externalUrl, success: () => ui.showToast(t('liveRoom.linkCopied'), 'success') });
   // #endif
 }
 
@@ -181,14 +185,14 @@ function onWxChannelsTap(p: any) {
 
 function copyWxChannels() {
   if (!wxSheet.value) return;
-  uni.setClipboardData({ data: wxSheet.value.finder, success: () => ui.showToast('视频号名已复制', 'success') });
+  uni.setClipboardData({ data: wxSheet.value.finder, success: () => ui.showToast(t('liveRoom.channelCopied'), 'success') });
 }
 
 async function load() {
   const pages = getCurrentPages();
   const page = pages[pages.length - 1] as any;
   roomId.value = (page?.options?.id as string) || '';
-  if (!roomId.value) { ui.showToast('缺少直播间ID', 'error'); return; }
+  if (!roomId.value) { ui.showToast(t('liveRoom.missingRoomId'), 'error'); return; }
   try {
     const [r, e]: any[] = await Promise.all([getLiveRoom(roomId.value), enterLiveRoom(roomId.value)]);
     room.value = r?.liveRoom || {};
@@ -199,7 +203,7 @@ async function load() {
     likeCount.value = room.value.likeCount || 0;
     connectWs();
   } catch (err: any) {
-    ui.showToast(err.message || '加载失败', 'error');
+    ui.showToast(err.message || t('liveRoom.loadFailed'), 'error');
   }
 }
 
@@ -221,7 +225,7 @@ function connectWs() {
     if (sysTimer) clearTimeout(sysTimer);
     sysTimer = setTimeout(() => (sysTip.value = ''), 3000);
   });
-  socket.on('connect_error', () => { sysTip.value = '互动通道连接中…'; });
+  socket.on('connect_error', () => { sysTip.value = t('liveRoom.connecting'); });
 }
 
 function sendDanmaku() {
@@ -236,7 +240,7 @@ function sendLike() {
 }
 
 function sendFollow() {
-  ui.showToast('关注成功', 'success');
+  ui.showToast(t('liveRoom.followSuccess'), 'success');
 }
 
 function trimDanmaku() {
@@ -263,9 +267,9 @@ async function buy(p: any) {
   } catch { /* 归因失败不阻断购物 */ }
   try {
     await addItemToOrder(p.variantId, 1);
-    ui.showToast('已加入购物车', 'success');
+    ui.showToast(t('liveRoom.addedToCart'), 'success');
   } catch (e: any) {
-    ui.showToast(e.message || '加购失败', 'error');
+    ui.showToast(e.message || t('liveRoom.addToCartFailed'), 'error');
   }
 }
 

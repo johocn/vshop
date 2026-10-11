@@ -51,7 +51,7 @@ async function load() {
     info.value = mi?.myMemberInfo || {};
     templates.value = mall?.pointsMallTemplates || [];
   } catch (e: any) {
-    ui.showToast(e.message || '加载失败', 'error');
+    ui.showToast(e.message || t('common.loadFailed'), 'error');
   } finally {
     loading.value = false;
   }

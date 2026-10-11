@@ -1,58 +1,60 @@
 <template>
   <view class="profile-page">
     <view class="profile-page__header">
-      <text class="profile-page__name">{{ customer?.firstName || '用户' }} {{ customer?.lastName || '' }}</text>
+      <text class="profile-page__name">{{ customer?.firstName || t('profile.defaultName') }} {{ customer?.lastName || '' }}</text>
       <text class="profile-page__email">{{ customer?.emailAddress || '' }}</text>
     </view>
     <view class="profile-page__menu">
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')">
-        <text>我的订单</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.myOrders') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')">
-        <text>地址管理</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.addressManagement') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/recharge')">
-        <text>充值卡</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.recharge') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/balance-history')">
-        <text>余额明细</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.balanceHistory') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/withdraw')">
-        <text>余额提现</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.withdraw') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-after-sale/pages/list')">
-        <text>售后记录</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.afterSaleRecords') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')">
-        <text>优惠券</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.coupons') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')">
-        <text>分销中心</text><text class="menu-arrow">></text>
+        <text>{{ t('profile.distributionCenter') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-circle/pages/feed')">
-        <text>购物圈</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.circleFeed') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/lottery')">
-        <text>积分抽奖</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.lottery') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/faq')">
-        <text>常见问题</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.faq') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/feedback')">
-        <text>意见反馈</text><text class="menu-arrow">></text>
+        <text>{{ t('nav.feedback') }}</text><text class="menu-arrow">></text>
       </view>
     </view>
-    <button class="profile-page__logout" @click="doLogout">退出登录</button>
+    <button class="profile-page__logout" @click="doLogout">{{ t('profile.logout') }}</button>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const customer = ref<any>(null);

@@ -110,7 +110,7 @@ const tabs = computed(() => [
 ]);
 
 useShare({
-    title: '拼团 - 精选好物',
+    title: t('promotion.shareTitle'),
     path: '/pkg-promotion/pages/group-buy',
 });
 
