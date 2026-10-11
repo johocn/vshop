@@ -152,6 +152,11 @@
 
 ## 六、变更记录
 
+### 2026-10-11 时间本地化扫尾轮（前端）
+
+- **C 端 6 页时间显示本地化**：balance-history / points-history / distribution / logistics / lottery / withdraw 六页沿用「UTC 串直接截取」旧写法（显示慢 8 小时），统一替换为与 points-orders 相同的 Date 本地格式化（无效串回退原样）。线上空态截图证页面无回归（该渠道无存量流水/订单）。
+- **web-admin 积分商品有效期回显修正**：编辑卡 validFrom/validTo 由 UTC 串 `slice(0,10)` 改 `toLocalDate()` 本地日期，修掉本地零点时间戳回显差一天的偏差（配合此前 validTo 当日 23:59:59 语义修复）。见 `assets/points-orders-local-time-v2.png`（积分订单页无回归）。
+
 ### 2026-10-11 C 端退款状态展示
 
 9. **C 端积分订单退款标签**：shop 端 `myPointsOrders` 暴露聚合 `refundStatus`（vendure `59c31714d`，e2e 22/22）；vshop `points-mall.ts` 查询字段同步、`points-orders.vue` 混合价订单卡金额旁按态显示小标签（refunding 退款中 amber / refunded 已退款 green / failed 退款异常 red，点击 toast 联系客服语义），zh-CN/zh-TW/en/ja/ko 五语言补 `pointsGoods.refundTag*` 词条。见「五之一·C 端展示」与 `assets/points-c-orders-refund.png`。
