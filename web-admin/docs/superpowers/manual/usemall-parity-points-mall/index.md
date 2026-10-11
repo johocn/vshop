@@ -173,12 +173,20 @@
 | `assets/tabbar-i18n-en.png` | tabbar 标签 i18n：en 直载购物车页（导航标题 Cart + tabbar Home/Categories/Cart/My Account + 页体英文提示，chrome 层全量本地化证据） |
 | `assets/batch5-i18n-en.png` | i18n 批次 5 收尾：券商城 en 直载（localStorage `vshop-locale=en`）——标题/Tabs/按钮/门槛与标签全英文；券名与描述为后端 API 动态数据保留中文 |
 | `assets/lang-switcher.png` | profile 页应用内语言切换器 en 态（导航标题 My Account + 菜单全英文 + Language 行右侧值 English + tabbar 英文；切换后无需 reload，切回简体中文复原断言通过） |
+| `assets/webadmin-i18n-en.png` | web-admin 管理端 i18n 收口：编辑自提点页 en 态（desktop 1440×900，localStorage `wa_locale=en` 预置 + superadmin 登录，表单标签/占位/按钮/提示全英文生效） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 web-admin 管理端 i18n 收口（中英双语，存量页批次）
+
+- **批次口径**：扫描 16 个存量管理页约 119 行真 UI 硬编码文案；实改 **12 个 vue 页面 + 2 个语言包**（`src/locale/{zh-Hans,en}.json`）。尾部 10 文件逐条判断后 4 个跳过（shipping/method-config、coupon/sale-orders、order/list、points/goods——仅注释/业务数据如默认地区串，无真 UI 文案，按规矩不动）。
+- **新增词条**（两语言包 key 结构一致，共 127 key）：`pickupEdit` 48（编辑自提点页独立命名空间，含弹窗/toast/mapSdk 提示）、`wechatOps` +40（菜单类型 label/hint 与校验提示）、`platformTemplates` +17（App/页面/版式/积木枚举名）、`platformRoomTemplates` +6、`afterSale.list` +9（CSV 导出列头）、`dashboard` +7（工作台图标）；另复用既有 key（`pickupPage.type*`、`decorateCategory/decorateCart.titlePlaceholder`、`paymentMethod.wx_*`——payment/methods 的硬编码 fallback map 因此删除）。
+- **改动要点**：模板 label/placeholder/按钮/表格列/空态/弹窗确认/toast 全转 `locale.t()`；多选项数组与类型标签改 `computed` 保应用内语言切换即时响应；`{n}/{name}` 参数用 `.replace()` 插值；业务逻辑、正则、注释、console、API 动态文案未动。顺手修复 en.json 中 wechat* 三命名空间键序历史漂移（与 zh-Hans 对齐）。
+- **验证与部署**：`npm run build:h5` 通过；node 临时脚本校验双语包 JSON 合法 + 新命名空间子 key 两文件一致 + 既有命名空间无回归，ALL PASS 后删除；commit `2e26b92` 已推送并经 `deploy.mjs` 部署，`https://e.joho.cn/guanli/` 200；en 态截图见 `assets/webadmin-i18n-en.png`。
 
 ### 2026-10-11 profile 页应用内语言切换器（即时刷新 chrome 层）
 
