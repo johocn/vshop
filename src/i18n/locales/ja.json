@@ -86,11 +86,14 @@
         "coupons": "クーポン",
         "recharge": "チャージ",
         "recommend": "おすすめ商品",
-        "newArrival": "新着商品"
+        "newArrival": "新着商品",
+        "shareTitle": "厳選グッズ"
     },
     "category": {
         "title": "カテゴリー",
-        "all": "すべて"
+        "all": "すべて",
+        "noSubCategories": "サブカテゴリーがありません",
+        "noProducts": "商品がありません"
     },
     "cart": {
         "title": "カート",
@@ -99,7 +102,17 @@
         "selectAll": "すべて選択",
         "total": "合計",
         "checkout": "レジへ進む",
-        "quantity": "数量"
+        "quantity": "数量",
+        "guestTip": "未認証です。ログインするとカートを確認できます",
+        "goLogin": "ログインする",
+        "itemCount": "{n} 点",
+        "delisted": "販売終了",
+        "recommend": "おすすめ",
+        "checkoutCount": "会計 ({n})",
+        "restoreFail": "{n}点の商品が在庫切れのため復元できませんでした",
+        "delistedTip": "この商品は販売終了しました。削除してください",
+        "removeConfirm": "この商品を削除しますか？",
+        "removed": "削除しました"
     },
     "product": {
         "addToCart": "カートに追加",
@@ -110,6 +123,51 @@
         "sold": "販売済み",
         "stock": "在庫",
         "pointsReward": "獲得 {n} ポイント"
+    },
+    "productDetail": {
+        "flashBadge": "タイムセール",
+        "priceNote": "価格について",
+        "priceNoteBody": "取り消し線の価格は参考価格であり、本来の価格ではありません。実際の取引価格は注文精算ページに準じます。タイムセール価格は、期間中かつ注文にセールが適用されている場合のみ有効です。",
+        "gotIt": "了解",
+        "poster": "ポスター",
+        "addonTitle": "お得な追加購入",
+        "addonSub": "クーポン価格は注文と一緒に精算",
+        "percentOff": "{off}%オフ",
+        "addonTag": "追加購入",
+        "addonBuyAmount": "+{price}元",
+        "addonBuyText": "今すぐ追加",
+        "addonAttached": "追加済み",
+        "tapRemove": "タップで解除",
+        "barService": "サポート",
+        "favorite": "お気に入り",
+        "favorited": "お気に入り済み",
+        "cartLabel": "カート",
+        "memberDiscount": "会員{off}%オフ",
+        "memberRefPrice": "約¥{price}",
+        "addedToCart": "カートに追加しました",
+        "serviceComingSoon": "カスタマーサポートは準備中です",
+        "shareTip": "右上の共有ボタンをタップしてください",
+        "shareTitle": "Youshop - 厳選グッズ",
+        "shareDesc": "厳選商品のご紹介",
+        "cartFirst": "先に商品をカートに追加してください",
+        "addonAttachOk": "注文に追加しました。注文と一緒に精算されます",
+        "addonDetachOk": "追加購入クーポンを解除しました",
+        "freeShipping": "送料無料",
+        "freeDelivery": "配送費無料",
+        "noThreshold": "条件なし",
+        "spendThreshold": "{amount}以上で利用可能",
+        "validUntil": "有効期限：{date}",
+        "validDays": "受取後{days}日間有効"
+    },
+    "productEvaluate": {
+        "loadFailed": "読み込みに失敗しました"
+    },
+    "productList": {
+        "searchPlaceholder": "商品を検索",
+        "title": "商品一覧",
+        "waterfall": "ウォーターフォール",
+        "doubleColumn": "2列",
+        "noProducts": "商品がありません"
     },
     "order": {
         "title": "マイオーダー",
@@ -462,6 +520,13 @@
         "deleted": "削除しました",
         "defaultSet": "デフォルトに設定しました"
     },
+    "invite": {
+        "inviteTitle": "{name} があなたをお買い物に招待します",
+        "refCode": "紹介コード：{code}",
+        "defaultInviter": "友達",
+        "goShopping": "ショップへ行く",
+        "bindHint": "ログインすると紹介関係が紐付きます"
+    },
     "invoiceTitles": {
         "empty": "請求書宛名がありません。下から追加してください",
         "defaultTag": "デフォルト",
@@ -647,6 +712,26 @@
         "contentRequired": "問題の詳細を入力してください",
         "submitted": "フィードバックを送信しました。ご意見ありがとうございます",
         "failed": "送信に失敗しました"
+    },
+    "register": {
+        "phoneTab": "携帯電話で登録",
+        "emailTab": "メールアドレスで登録",
+        "emailPlaceholder": "メールアドレスを入力",
+        "passwordPlaceholder": "パスワードを設定（6〜20文字）",
+        "registering": "登録中...",
+        "submit": "登録",
+        "hasAccount": "アカウントをお持ちですか？ログイン",
+        "phoneInvalid": "電話番号の形式が正しくありません",
+        "sendFailed": "送信に失敗しました",
+        "fillAll": "すべての項目を入力してください",
+        "emailInvalid": "メールアドレスの形式が正しくありません",
+        "passwordLength": "パスワードは6〜20文字で入力してください",
+        "success": "登録に成功しました",
+        "failed": "登録に失敗しました",
+        "errMissingPassword": "パスワードを設定してください",
+        "errPasswordInvalid": "パスワードが要件を満たしていません",
+        "errAuthStrategy": "この登録方法は利用できません",
+        "errEmailConflict": "このメールアドレスは既に登録されています"
     },
     "logistics": {
         "empty": "物流情報はまだありません",

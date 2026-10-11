@@ -1,14 +1,14 @@
 <template>
   <view class="cart-page">
     <view v-if="!auth.isLoggedIn" class="cart-guest">
-      <text class="cart-guest__text">当前未授权，登录后查看购物车</text>
-      <button class="cart-guest__btn" @click="goLogin">去登录</button>
+      <text class="cart-guest__text">{{ t('cart.guestTip') }}</text>
+      <button class="cart-guest__btn" @click="goLogin">{{ t('cart.goLogin') }}</button>
     </view>
     <view v-if="auth.isLoggedIn && cartLines.length > 0" class="cart-list">
       <view v-for="group in cartGroups" :key="group.key" class="cart-group">
         <view class="cart-group__header">
           <text class="cart-group__name">{{ group.name }}</text>
-          <text class="cart-group__count">{{ group.lines.length }} 件</text>
+          <text class="cart-group__count">{{ t('cart.itemCount', { n: group.lines.length }) }}</text>
         </view>
         <view v-for="line in group.lines" :key="line.id" class="cart-item" :class="{ 'cart-item--invalid': lineState(line) === 'invalid' }">
           <view class="cart-item__check" @click="toggleSelect(line.id)">
@@ -19,7 +19,7 @@
             <text class="cart-item__name">{{ line.productVariant?.name }}</text>
             <text class="cart-item__spec">{{ line.productVariant?.options?.map((o:any)=>o.name).join(' ') }}</text>
             <view class="cart-item__tags" v-if="lineState(line) !== 'normal'">
-              <text v-if="lineState(line) === 'invalid'" class="tag tag--invalid">已下架</text>
+              <text v-if="lineState(line) === 'invalid'" class="tag tag--invalid">{{ t('cart.delisted') }}</text>
               <text v-else class="tag tag--warn">{{ lowStockText(line) }}</text>
             </view>
             <view class="cart-item__bottom">
@@ -35,10 +35,10 @@
         </view>
       </view>
     </view>
-    <EmptyState v-else-if="auth.isLoggedIn && !loading" text="购物车是空的" />
+    <EmptyState v-else-if="auth.isLoggedIn && !loading" :text="t('cart.empty')" />
 
     <view class="cart-reco" v-if="auth.isLoggedIn && reco.length > 0">
-      <text class="cart-reco__title">为你推荐</text>
+      <text class="cart-reco__title">{{ t('cart.recommend') }}</text>
       <view class="cart-reco__grid">
         <view v-for="p in reco" :key="p.productId" class="reco-card" @click="goDetail(p.slug)">
           <VImage :src="p.productAsset?.preview || ''" width="100%" height="260rpx" />
@@ -51,12 +51,12 @@
     <view class="cart-footer" v-if="auth.isLoggedIn && cartLines.length > 0">
       <view class="cart-footer__left" @click="toggleAll">
         <text class="check-icon">{{ allSelected ? '☑' : '☐' }}</text>
-        <text>全选</text>
+        <text>{{ t('cart.selectAll') }}</text>
       </view>
       <view class="cart-footer__right">
-        <text class="cart-footer__total">合计: <text class="price">¥{{ totalYuan }}</text></text>
+        <text class="cart-footer__total">{{ t('cart.total') }}: <text class="price">¥{{ totalYuan }}</text></text>
         <button class="cart-footer__btn" :disabled="selectedCount === 0" @click="goCheckout">
-          结算({{ selectedCount }})
+          {{ t('cart.checkoutCount', { n: selectedCount }) }}
         </button>
       </view>
     </view>
@@ -65,6 +65,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { useCartStore } from '../../stores/cart';
 import { useUIStore } from '../../stores/ui';
 import { useTenantStore } from '../../stores/tenant';
@@ -77,6 +78,7 @@ import { cartLineState, lowStockText } from '../../utils/flash-normalize';
 import { useAuthStore } from '../../stores/auth';
 import { searchProducts } from '../../api/queries/product';
 
+const { t } = useI18n();
 const cart = useCartStore();
 const ui = useUIStore();
 const auth = useAuthStore();
@@ -157,7 +159,7 @@ async function restorePending() {
         }
     }
     cart.setPendingLines(failed);
-    if (failed.length > 0) ui.showToast(`${failed.length} 件商品库存不足，未能恢复`);
+    if (failed.length > 0) ui.showToast(t('cart.restoreFail', { n: failed.length }));
     await loadCart();
 }
 
@@ -187,7 +189,7 @@ function lineState(line: any) {
 function toggleSelect(id: string) {
     const line = cartLines.value.find((l: any) => l.id === id);
     if (line && lineState(line) === 'invalid') {
-        ui.showToast('该商品已下架，请删除');
+        ui.showToast(t('cart.delistedTip'));
         return;
     }
     const s = new Set(selectedIds.value);
@@ -218,14 +220,14 @@ async function changeQty(line: any, delta: number) {
 
 async function removeLine(id: string) {
     uni.showModal({
-        title: '确认', content: '确定删除该商品?',
+        title: t('common.confirm'), content: t('cart.removeConfirm'),
         success: async (res: any) => {
             if (res.confirm) {
                 try {
                     await removeOrderLine(id);
                     selectedIds.value.delete(id);
                     await loadCart();
-                    ui.showToast('已删除', 'success');
+                    ui.showToast(t('cart.removed'), 'success');
                 } catch (e: any) { ui.showToast(e.message); }
             }
         }

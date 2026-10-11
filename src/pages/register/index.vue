@@ -2,15 +2,15 @@
     <view class="register-page">
         <view class="tabs">
             <view
-                :class="['tab', mode === 'phone' ? 'active' : '']"
-                @click="switchMode('phone')"
-                >手机注册</view
-            >
-            <view
-                :class="['tab', mode === 'email' ? 'active' : '']"
-                @click="switchMode('email')"
-                >邮箱注册</view
-            >
+            :class="['tab', mode === 'phone' ? 'active' : '']"
+            @click="switchMode('phone')"
+            >{{ t('register.phoneTab') }}</view
+        >
+        <view
+            :class="['tab', mode === 'email' ? 'active' : '']"
+            @click="switchMode('email')"
+            >{{ t('register.emailTab') }}</view
+        >
         </view>
 
         <!-- 手机号注册 -->
@@ -19,14 +19,14 @@
                 <input
                     v-model="form.phoneNumber"
                     type="number"
-                    placeholder="请输入手机号"
+                    :placeholder="t('auth.phonePlaceholder')"
                     maxlength="11"
                 />
             </view>
             <view class="form-group code-group">
-                <input v-model="form.code" type="number" placeholder="验证码" maxlength="6" />
+                <input v-model="form.code" type="number" :placeholder="t('auth.codePlaceholder')" maxlength="6" />
                 <button :disabled="countdown > 0" @click="sendCode" class="code-btn">
-                    {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+                    {{ countdown > 0 ? `${countdown}s` : t('auth.sendCode') }}
                 </button>
             </view>
         </template>
@@ -34,26 +34,28 @@
         <!-- 邮箱注册 -->
         <template v-else>
             <view class="form-group">
-                <input v-model="form.emailAddress" type="text" placeholder="请输入邮箱地址" />
+                <input v-model="form.emailAddress" type="text" :placeholder="t('register.emailPlaceholder')" />
             </view>
         </template>
 
         <view class="form-group">
-            <input v-model="form.password" type="password" placeholder="设置密码（6-20位）" />
+            <input v-model="form.password" type="password" :placeholder="t('register.passwordPlaceholder')" />
         </view>
         <button :disabled="loading" @click="handleRegister" class="register-btn">
-            {{ loading ? '注册中...' : '注册' }}
+            {{ loading ? t('register.registering') : t('register.submit') }}
         </button>
-        <view class="login-link" @click="goLogin">已有账号？去登录</view>
+        <view class="login-link" @click="goLogin">{{ t('register.hasAccount') }}</view>
     </view>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { sendPhoneVerificationCode, registerCustomer } from '@/api/mutations/auth';
 
 type RegisterMode = 'phone' | 'email';
 
+const { t } = useI18n();
 const mode = ref<RegisterMode>('phone');
 const form = reactive({
     phoneNumber: '',
@@ -70,53 +72,54 @@ function switchMode(m: RegisterMode) {
 
 async function sendCode() {
     if (!/^1\d{10}$/.test(form.phoneNumber)) {
-        uni.showToast({ title: '手机号格式错误', icon: 'none' });
+        uni.showToast({ title: t('register.phoneInvalid'), icon: 'none' });
         return;
     }
     try {
         await sendPhoneVerificationCode(form.phoneNumber);
-        uni.showToast({ title: '验证码已发送', icon: 'success' });
+        uni.showToast({ title: t('auth.codeSent'), icon: 'success' });
         countdown.value = 60;
         const timer = setInterval(() => {
             countdown.value--;
             if (countdown.value <= 0) clearInterval(timer);
         }, 1000);
     } catch (e) {
-        uni.showToast({ title: '发送失败', icon: 'none' });
+        uni.showToast({ title: t('register.sendFailed'), icon: 'none' });
     }
 }
 
-const ERROR_CODE_MAP: Record<string, string> = {
-    MISSING_PASSWORD_ERROR: '请设置密码',
-    PASSWORD_VALIDATION_ERROR: '密码不符合要求',
-    NATIVE_AUTH_STRATEGY_ERROR: '账号注册方式不可用',
+/** 后端错误 → register 命名空间文案 key（code / message 双路兜底） */
+const ERROR_CODE_KEY: Record<string, string> = {
+    MISSING_PASSWORD_ERROR: 'errMissingPassword',
+    PASSWORD_VALIDATION_ERROR: 'errPasswordInvalid',
+    NATIVE_AUTH_STRATEGY_ERROR: 'errAuthStrategy',
 };
 
-const ERROR_MSG_MAP: Record<string, string> = {
-    'EMAIL_ADDRESS_CONFLICT_ERROR': '该邮箱已注册',
-    'MISSING_PASSWORD_ERROR': '请设置密码',
-    'PASSWORD_VALIDATION_ERROR': '密码不符合要求',
-    'NATIVE_AUTH_STRATEGY_ERROR': '账号注册方式不可用',
+const ERROR_MSG_KEY: Record<string, string> = {
+    'EMAIL_ADDRESS_CONFLICT_ERROR': 'errEmailConflict',
+    'MISSING_PASSWORD_ERROR': 'errMissingPassword',
+    'PASSWORD_VALIDATION_ERROR': 'errPasswordInvalid',
+    'NATIVE_AUTH_STRATEGY_ERROR': 'errAuthStrategy',
 };
 
 async function handleRegister() {
     if (mode.value === 'phone') {
         if (!form.phoneNumber || !form.code || !form.password) {
-            uni.showToast({ title: '请填写完整信息', icon: 'none' });
+            uni.showToast({ title: t('register.fillAll'), icon: 'none' });
             return;
         }
     } else {
         if (!form.emailAddress || !form.password) {
-            uni.showToast({ title: '请填写完整信息', icon: 'none' });
+            uni.showToast({ title: t('register.fillAll'), icon: 'none' });
             return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.emailAddress)) {
-            uni.showToast({ title: '邮箱格式错误', icon: 'none' });
+            uni.showToast({ title: t('register.emailInvalid'), icon: 'none' });
             return;
         }
     }
     if (form.password.length < 6 || form.password.length > 20) {
-        uni.showToast({ title: '密码长度6-20位', icon: 'none' });
+        uni.showToast({ title: t('register.passwordLength'), icon: 'none' });
         return;
     }
     loading.value = true;
@@ -135,14 +138,16 @@ async function handleRegister() {
         const result = await registerCustomer(payload);
         const res = result?.registerCustomerAccount;
         if (res?.success) {
-            uni.showToast({ title: '注册成功', icon: 'success' });
+            uni.showToast({ title: t('register.success'), icon: 'success' });
             setTimeout(() => goLogin(), 1500);
         } else {
-            const msg = ERROR_CODE_MAP[res?.errorCode] || ERROR_MSG_MAP[res?.message] || res?.message || '注册失败';
+            const errKey = ERROR_CODE_KEY[res?.errorCode] || ERROR_MSG_KEY[res?.message];
+            const msg = errKey ? t('register.' + errKey) : res?.message || t('register.failed');
             uni.showToast({ title: msg, icon: 'none' });
         }
     } catch (e: any) {
-        const msg = ERROR_MSG_MAP[e?.message] || e?.message || '注册失败';
+        const errKey = ERROR_MSG_KEY[e?.message];
+        const msg = errKey ? t('register.' + errKey) : e?.message || t('register.failed');
         uni.showToast({ title: msg, icon: 'none' });
     } finally {
         loading.value = false;

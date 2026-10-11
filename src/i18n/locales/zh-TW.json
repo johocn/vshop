@@ -86,11 +86,14 @@
         "coupons": "優惠券",
         "recharge": "充值",
         "recommend": "推薦商品",
-        "newArrival": "新品上架"
+        "newArrival": "新品上架",
+        "shareTitle": "精選好物"
     },
     "category": {
         "title": "分類",
-        "all": "全部"
+        "all": "全部",
+        "noSubCategories": "暫無子分類",
+        "noProducts": "暫無商品"
     },
     "cart": {
         "title": "購物車",
@@ -99,7 +102,17 @@
         "selectAll": "全選",
         "total": "合計",
         "checkout": "去結算",
-        "quantity": "數量"
+        "quantity": "數量",
+        "guestTip": "當前未授權，登錄後查看購物車",
+        "goLogin": "去登錄",
+        "itemCount": "{n} 件",
+        "delisted": "已下架",
+        "recommend": "為你推薦",
+        "checkoutCount": "結算 ({n})",
+        "restoreFail": "{n} 件商品庫存不足，未能恢復",
+        "delistedTip": "該商品已下架，請刪除",
+        "removeConfirm": "確定刪除該商品?",
+        "removed": "已刪除"
     },
     "product": {
         "addToCart": "加入購物車",
@@ -110,6 +123,51 @@
         "sold": "已售",
         "stock": "庫存",
         "pointsReward": "可得 {n} 積分"
+    },
+    "productDetail": {
+        "flashBadge": "秒殺價",
+        "priceNote": "價格說明",
+        "priceNoteBody": "劃線價為商品參考價，非原價；實際成交價以訂單結算頁為準。秒殺價僅在活動期間且訂單已應用活動時生效。",
+        "gotIt": "知道了",
+        "poster": "海報",
+        "addonTitle": "超值加價購",
+        "addonSub": "券價隨訂單一起結算",
+        "percentOff": "{zhe}折",
+        "addonTag": "加價購",
+        "addonBuyAmount": "+{price}元",
+        "addonBuyText": "立即換購",
+        "addonAttached": "已換購",
+        "tapRemove": "點擊移除",
+        "barService": "客服",
+        "favorite": "收藏",
+        "favorited": "已收藏",
+        "cartLabel": "購物車",
+        "memberDiscount": "會員{zhe}折",
+        "memberRefPrice": "約¥{price}",
+        "addedToCart": "已加入購物車",
+        "serviceComingSoon": "客服功能敬請期待",
+        "shareTip": "請點擊右上角分享",
+        "shareTitle": "Youshop - 精選好物",
+        "shareDesc": "精選好物推薦",
+        "cartFirst": "請先將商品加入購物車",
+        "addonAttachOk": "已加入訂單，隨單結算",
+        "addonDetachOk": "已移除加價購券",
+        "freeShipping": "免郵",
+        "freeDelivery": "免配送費",
+        "noThreshold": "無門檻",
+        "spendThreshold": "滿{amount}可用",
+        "validUntil": "有效期至 {date}",
+        "validDays": "領取後{days}天有效"
+    },
+    "productEvaluate": {
+        "loadFailed": "加載失敗"
+    },
+    "productList": {
+        "searchPlaceholder": "搜索商品",
+        "title": "商品列表",
+        "waterfall": "瀑布流",
+        "doubleColumn": "雙列",
+        "noProducts": "暫無商品"
     },
     "order": {
         "title": "我的訂單",
@@ -462,6 +520,13 @@
         "deleted": "已刪除",
         "defaultSet": "已設為預設"
     },
+    "invite": {
+        "inviteTitle": "{name} 邀你一起逛商城",
+        "refCode": "推薦碼：{code}",
+        "defaultInviter": "好友",
+        "goShopping": "進商城逛逛",
+        "bindHint": "登錄後綁定推薦關係"
+    },
     "invoiceTitles": {
         "empty": "暫無抬頭，點下方新增",
         "defaultTag": "預設",
@@ -647,6 +712,26 @@
         "contentRequired": "請填寫問題描述",
         "submitted": "回饋已送出，感謝您的意見",
         "failed": "送出失敗"
+    },
+    "register": {
+        "phoneTab": "手機註冊",
+        "emailTab": "郵箱註冊",
+        "emailPlaceholder": "請輸入郵箱地址",
+        "passwordPlaceholder": "設置密碼（6-20位）",
+        "registering": "註冊中...",
+        "submit": "註冊",
+        "hasAccount": "已有賬號？去登錄",
+        "phoneInvalid": "手機號格式錯誤",
+        "sendFailed": "發送失敗",
+        "fillAll": "請填寫完整信息",
+        "emailInvalid": "郵箱格式錯誤",
+        "passwordLength": "密碼長度6-20位",
+        "success": "註冊成功",
+        "failed": "註冊失敗",
+        "errMissingPassword": "請設置密碼",
+        "errPasswordInvalid": "密碼不符合要求",
+        "errAuthStrategy": "賬號註冊方式不可用",
+        "errEmailConflict": "該郵箱已註冊"
     },
     "logistics": {
         "empty": "暫無物流資訊",

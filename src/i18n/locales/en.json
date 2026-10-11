@@ -86,11 +86,14 @@
         "coupons": "Coupons",
         "recharge": "Recharge",
         "recommend": "Recommended",
-        "newArrival": "New Arrivals"
+        "newArrival": "New Arrivals",
+        "shareTitle": "Curated Goods"
     },
     "category": {
         "title": "Categories",
-        "all": "All"
+        "all": "All",
+        "noSubCategories": "No subcategories",
+        "noProducts": "No products"
     },
     "cart": {
         "title": "Cart",
@@ -99,7 +102,17 @@
         "selectAll": "Select All",
         "total": "Total",
         "checkout": "Checkout",
-        "quantity": "Qty"
+        "quantity": "Qty",
+        "guestTip": "Not authorized yet. Log in to view your cart",
+        "goLogin": "Log in",
+        "itemCount": "{n} items",
+        "delisted": "Off shelf",
+        "recommend": "Recommended for you",
+        "checkoutCount": "Checkout ({n})",
+        "restoreFail": "{n} item(s) out of stock, failed to restore",
+        "delistedTip": "This item is off the shelf, please remove it",
+        "removeConfirm": "Remove this item?",
+        "removed": "Removed"
     },
     "product": {
         "addToCart": "Add to Cart",
@@ -110,6 +123,51 @@
         "sold": "Sold",
         "stock": "Stock",
         "pointsReward": "Earn {n} points"
+    },
+    "productDetail": {
+        "flashBadge": "Flash Sale",
+        "priceNote": "Price Note",
+        "priceNoteBody": "The strikethrough price is a reference price, not the original price. The actual transaction price is subject to the checkout page. The flash sale price applies only during the event when the promotion has been applied to the order.",
+        "gotIt": "Got it",
+        "poster": "Poster",
+        "addonTitle": "Add-on Deals",
+        "addonSub": "Coupon price settles with the order",
+        "percentOff": "{off}% off",
+        "addonTag": "Add-on",
+        "addonBuyAmount": "+{price} CNY",
+        "addonBuyText": "Buy with add-on",
+        "addonAttached": "Added",
+        "tapRemove": "Tap to remove",
+        "barService": "Support",
+        "favorite": "Favorite",
+        "favorited": "Favorited",
+        "cartLabel": "Cart",
+        "memberDiscount": "Member {off}% off",
+        "memberRefPrice": "approx. ¥{price}",
+        "addedToCart": "Added to cart",
+        "serviceComingSoon": "Customer service coming soon",
+        "shareTip": "Tap the share button at the top right",
+        "shareTitle": "Youshop - Curated Goods",
+        "shareDesc": "Curated product picks",
+        "cartFirst": "Please add the product to cart first",
+        "addonAttachOk": "Added to the order, settles with it",
+        "addonDetachOk": "Add-on coupon removed",
+        "freeShipping": "Free shipping",
+        "freeDelivery": "Free delivery",
+        "noThreshold": "No threshold",
+        "spendThreshold": "Spend {amount} to use",
+        "validUntil": "Valid until {date}",
+        "validDays": "Valid for {days} days after claim"
+    },
+    "productEvaluate": {
+        "loadFailed": "Failed to load"
+    },
+    "productList": {
+        "searchPlaceholder": "Search products",
+        "title": "Products",
+        "waterfall": "Waterfall",
+        "doubleColumn": "Two columns",
+        "noProducts": "No products"
     },
     "order": {
         "title": "My Orders",
@@ -462,6 +520,13 @@
         "deleted": "Deleted",
         "defaultSet": "Set as default"
     },
+    "invite": {
+        "inviteTitle": "{name} invites you to shop",
+        "refCode": "Referral code: {code}",
+        "defaultInviter": "Friend",
+        "goShopping": "Start shopping",
+        "bindHint": "Log in to link your referral"
+    },
     "invoiceTitles": {
         "empty": "No invoice titles yet. Add one below.",
         "defaultTag": "Default",
@@ -647,6 +712,26 @@
         "contentRequired": "Please enter the issue description",
         "submitted": "Feedback submitted. Thank you for your input",
         "failed": "Submission failed"
+    },
+    "register": {
+        "phoneTab": "Phone sign-up",
+        "emailTab": "Email sign-up",
+        "emailPlaceholder": "Enter email address",
+        "passwordPlaceholder": "Set password (6-20 characters)",
+        "registering": "Signing up...",
+        "submit": "Sign up",
+        "hasAccount": "Have an account? Log in",
+        "phoneInvalid": "Invalid phone number",
+        "sendFailed": "Failed to send",
+        "fillAll": "Please fill in all fields",
+        "emailInvalid": "Invalid email address",
+        "passwordLength": "Password must be 6-20 characters",
+        "success": "Sign-up successful",
+        "failed": "Sign-up failed",
+        "errMissingPassword": "Please set a password",
+        "errPasswordInvalid": "Password does not meet requirements",
+        "errAuthStrategy": "This sign-up method is unavailable",
+        "errEmailConflict": "This email is already registered"
     },
     "logistics": {
         "empty": "No logistics info",

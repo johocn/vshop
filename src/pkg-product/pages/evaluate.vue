@@ -124,7 +124,7 @@ async function loadData() {
         skip += items.length;
         hasMore.value = items.length > 0 && reviews.value.length < total;
     } catch (e: any) {
-        uni.showToast({ title: e.message || '加载失败', icon: 'none' });
+        uni.showToast({ title: e.message || t('productEvaluate.loadFailed'), icon: 'none' });
     }
     loading.value = false;
 }
