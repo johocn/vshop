@@ -145,12 +145,22 @@
 | `assets/points-goods-list-error-retry.png` | 积分商品列表加载失败错误态（拦截 /shop-api 返回 500，展示「加载失败 + 重试」） |
 | `assets/points-admin-orders-refund-column.png` | 后台积分订单列表（desktop 1440×900，`payments` 退款字段查询与渲染无回归；线上当前无退款单，退款标签不显示属预期） |
 | `assets/points-c-orders-refund.png` | C 端积分订单列表（390×844@2x，混合价单金额旁退款状态标签位；线上当前无退款单，标签不显示属预期，截图证明页面无回归） |
+| `assets/member-center-i18n.png` | 会员权益中心（i18n 专项后登录态渲染：等级/成长值/权益卡/快捷入口） |
+| `assets/distribution-i18n.png` | 分销中心（i18n 专项后未申请引导态：标题/描述/申请按钮） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 i18n 专项（C 端存量页）
+
+- **13 页约 230 处硬编码中文文案五语言化**（zh-CN/zh-TW/en/ja/ko，两批提交，五语言包 key 集合与顺序一致）：
+  - **批次 1（会员账户簇 5 页，commit `c2b8492`）**：member-center / profile / addresses / invoice-titles / change-password，新增 `memberCenter` / `addresses` / `invoiceTitles` / `changePassword` / `profile` 五个命名空间。
+  - **批次 2（分散簇 8 页，commit `2339c2c`）**：distribution / withdraw / recharge / feedback / logistics / lottery / balance-history / points-history，新增 `distribution`(62) / `withdraw`(24) / `recharge`(13) / `feedback`(17) / `logistics`(14) / `lottery`(17) / `balanceHistory`(10) / `pointsHistory`(8) 八个命名空间共 165 key。模板中文、placeholder、toast/modal、状态映射值全部转为函数内动态 `t()`（插值 `{n}`/`{code}`/`{amount}`/`{time}` 等），时间格式化函数与业务逻辑未动；lottery 奖品格「积分」单位复用共享词条 `pointsGoods.pointsUnit`。
+- **member-center 旧图不变**：手册截图清单内既有的 member-center 旧截图保持原样（默认中文渲染不变，zh-CN 词条值与原文案一致），仅新增两张验证截图。
+- 新增截图：`assets/member-center-i18n.png`（会员权益中心登录态渲染：等级/成长值/权益卡/快捷入口）、`assets/distribution-i18n.png`（分销中心未申请引导态：标题/描述/申请按钮）。
 
 ### 2026-10-11 时间本地化扫尾轮（前端）
 
