@@ -21,7 +21,7 @@
       <text class="sec-t">{{ locale.t('dashboard.frequentTitle') }} <text class="tag">{{ locale.t('dashboard.frequent') }}</text></text>
       <view class="grid">
         <view v-for="it in common" :key="it.label" class="act" @tap="go(it)">
-          <view class="ic" :style="tierStyle(it.color, it.grad, 1)">{{ it.ic }}</view>
+          <view class="ic" :style="tierStyle(it.color, it.grad, 1)">{{ locale.t(it.ic) }}</view>
           <text class="nm">{{ locale.t(it.label) }}</text>
         </view>
       </view>
@@ -91,14 +91,14 @@ async function loadKpis() {
   }
 }
 const common = [
-  { ic: '单', label: 'menu.order', url: '/pages/order/list/index', color: D.d2.main, grad: D.d2.grad },
-  { ic: '收', label: 'menu.posDesktop', action: 'posDesktop', color: D.d2.main, grad: D.d2.grad },
+  { ic: 'dashboard.icOrder', label: 'menu.order', url: '/pages/order/list/index', color: D.d2.main, grad: D.d2.grad },
+  { ic: 'dashboard.icPos', label: 'menu.posDesktop', action: 'posDesktop', color: D.d2.main, grad: D.d2.grad },
   { ic: '＋', label: 'menu.productAdd', url: '/pages/product/create/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '售', label: 'menu.afterSale', url: '/pages/after-sale/list/index', color: D.d2.main, grad: D.d2.grad },
-  { ic: '类', label: 'menu.category', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '库', label: 'menu.stock', url: '/pages/inventory/stock/index', color: D.d1.main, grad: D.d1.grad },
-  { ic: '装', label: 'menu.decorate', url: '/pages/decorate/home/index', color: D.d4.main, grad: D.d4.grad },
-  { ic: '书', label: 'menu.manual', action: 'manual', color: D.d6.main, grad: D.d6.grad },
+  { ic: 'dashboard.icSale', label: 'menu.afterSale', url: '/pages/after-sale/list/index', color: D.d2.main, grad: D.d2.grad },
+  { ic: 'dashboard.icCategory', label: 'menu.category', url: '/pages/product/categories/index', color: D.d1.main, grad: D.d1.grad },
+  { ic: 'dashboard.icStock', label: 'menu.stock', url: '/pages/inventory/stock/index', color: D.d1.main, grad: D.d1.grad },
+  { ic: 'dashboard.icDecorate', label: 'menu.decorate', url: '/pages/decorate/home/index', color: D.d4.main, grad: D.d4.grad },
+  { ic: 'dashboard.icManual', label: 'menu.manual', action: 'manual', color: D.d6.main, grad: D.d6.grad },
 ];
 // 全量功能目录（含平台组，按角色权限过滤），与右侧抽屉保持一致
 const groups = computed(() => visibleMenus(auth, showZone.value));

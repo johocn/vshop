@@ -434,7 +434,8 @@ async function onExport() {
     }
     if (!all.length) { toast(locale.t('afterSale.list.exportEmpty')); return; }
     if (all.length >= 500) toast(locale.t('afterSale.list.exportTruncated'));
-    const headers = ['售后单号', '订单号', '类型', '状态', '退款金额', '商品', '顾客', '手机', '申请时间'];
+    const headers = ['colId', 'colOrder', 'colType', 'colStatus', 'colRefund', 'colProduct', 'colCustomer', 'colPhone', 'colAppliedAt']
+      .map((k) => locale.t(`afterSale.list.${k}`));
     const rows = all.slice(0, 500).map((a) => [
       a.id,
       a.order?.code || a.orderId,

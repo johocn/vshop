@@ -127,13 +127,7 @@ function openEdit(p: any) {
 function go(url: string) { uni.navigateTo({ url }); }
 // 敏感/普通字段占位：已配置 →「留空保持不变」；未配置 → 提示输入
 function ph(name: string): string {
-  const labels: Record<string, string> = {
-    appId: 'appId（公众号/小程序 AppID）', mchId: '商户号 mchId', serialNo: '证书序列号 serialNo',
-    tradeType: '交易类型 tradeType', notifyUrl: '回调地址 notifyUrl', apiKey: 'APIv3 密钥（32 位）',
-    privateKey: '商户私钥 apiclient_key.pem（PEM 全文）', publicKey: '微信平台公钥（PEM 全文）',
-  };
-  const label = locale.t(`paymentMethod.wx_${name}`) !== `paymentMethod.wx_${name}`
-    ? locale.t(`paymentMethod.wx_${name}`) : (labels[name] || name);
+  const label = locale.t(`paymentMethod.wx_${name}`);
   return origArgs.value[name] ? `${label} · ${locale.t('paymentMethod.wxSecretConfigured')}` : label;
 }
 async function save() {

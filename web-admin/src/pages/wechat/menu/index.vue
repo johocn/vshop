@@ -71,27 +71,30 @@
 import { ref, computed, onMounted } from 'vue';
 import BottomBar from '../../../components/BottomBar.vue';
 import { fetchWechatMenu, publishWechatMenu } from '../../../apis/wechat';
+import { useLocaleStore } from '../../../stores/localeStore';
+
+const locale = useLocaleStore();
 
 function toast(title: string) {
   uni.showToast({ title, icon: 'none' });
 }
 
 // ============ 微信菜单类型字典 ============
-const MENU_TYPES: Record<string, { label: string; fields: string[]; hint: string }> = {
-  click: { label: '点击推事件', fields: ['key'], hint: '用户点击后推事件给服务器（自定义 key）' },
-  view: { label: '跳转链接', fields: ['url'], hint: '用户点击后跳转到指定网页' },
-  miniprogram: { label: '跳转小程序', fields: ['appid', 'pagepath'], hint: '点击跳转到关联的小程序页面' },
-  scancode_push: { label: '扫码推事件', fields: ['key'], hint: '点击弹出扫码，结果推给服务器' },
-  scancode_waitmsg: { label: '扫码带提示', fields: ['key'], hint: '点击弹出扫码，结果推给服务器并提示' },
-  pic_sysphoto: { label: '系统拍照发图', fields: ['key'], hint: '点击直接调用系统相机拍照' },
-  pic_photo_or_album: { label: '拍照或相册', fields: ['key'], hint: '点击弹出拍照/相册选择' },
-  pic_weixin: { label: '微信相册发图', fields: ['key'], hint: '点击从微信相册选择图片' },
-  location_select: { label: '发送位置', fields: ['key'], hint: '点击弹出地理位置选择' },
-  media_id: { label: '素材消息', fields: ['media_id'], hint: '发送永久素材（图片/音频/视频）' },
-  view_limited: { label: '图文素材', fields: ['media_id'], hint: '跳转图文消息（素材 media_id）' },
+const MENU_TYPES: Record<string, { labelKey: string; fields: string[]; hintKey: string }> = {
+  click: { labelKey: 'wechatOps.typeClick', fields: ['key'], hintKey: 'wechatOps.hintClick' },
+  view: { labelKey: 'wechatOps.typeView', fields: ['url'], hintKey: 'wechatOps.hintView' },
+  miniprogram: { labelKey: 'wechatOps.typeMiniprogram', fields: ['appid', 'pagepath'], hintKey: 'wechatOps.hintMiniprogram' },
+  scancode_push: { labelKey: 'wechatOps.typeScancodePush', fields: ['key'], hintKey: 'wechatOps.hintScancodePush' },
+  scancode_waitmsg: { labelKey: 'wechatOps.typeScancodeWaitmsg', fields: ['key'], hintKey: 'wechatOps.hintScancodeWaitmsg' },
+  pic_sysphoto: { labelKey: 'wechatOps.typePicSysphoto', fields: ['key'], hintKey: 'wechatOps.hintPicSysphoto' },
+  pic_photo_or_album: { labelKey: 'wechatOps.typePicPhotoOrAlbum', fields: ['key'], hintKey: 'wechatOps.hintPicPhotoOrAlbum' },
+  pic_weixin: { labelKey: 'wechatOps.typePicWeixin', fields: ['key'], hintKey: 'wechatOps.hintPicWeixin' },
+  location_select: { labelKey: 'wechatOps.typeLocationSelect', fields: ['key'], hintKey: 'wechatOps.hintLocationSelect' },
+  media_id: { labelKey: 'wechatOps.typeMediaId', fields: ['media_id'], hintKey: 'wechatOps.hintMediaId' },
+  view_limited: { labelKey: 'wechatOps.typeViewLimited', fields: ['media_id'], hintKey: 'wechatOps.hintViewLimited' },
 };
 const typeEntries = Object.keys(MENU_TYPES);
-const typeLabels = typeEntries.map((k) => MENU_TYPES[k].label);
+const typeLabels = computed(() => typeEntries.map((k) => locale.t(MENU_TYPES[k].labelKey)));
 
 interface MenuNode { name: string; type: string; key: string; url: string; appid: string; pagepath: string; mediaId: string; children: MenuNode[] }
 const buttons = ref<MenuNode[]>([]);
@@ -111,7 +114,10 @@ const selTypeIndex = computed(() => {
   return i < 0 ? 0 : i;
 });
 const curFields = computed(() => MENU_TYPES[selNode.value?.type || '']?.fields || []);
-const selHint = computed(() => MENU_TYPES[selNode.value?.type || '']?.hint || '');
+const selHint = computed(() => {
+  const m = MENU_TYPES[selNode.value?.type || ''];
+  return m ? locale.t(m.hintKey) : '';
+});
 
 function emptyItem(): MenuNode {
   return { name: '', type: 'view', key: '', url: '', appid: '', pagepath: '', mediaId: '', children: [] };
@@ -122,14 +128,14 @@ function clickTop(i: number) {
 }
 function clickSub(p: number, c: number) { sel.value = { level: 2, p, c }; }
 function addTop() {
-  if (buttons.value.length >= 3) { toast('一级菜单最多 3 个'); return; }
+  if (buttons.value.length >= 3) { toast(locale.t('wechatOps.menuTopLimit')); return; }
   buttons.value.push(emptyItem());
   sel.value = { level: 1, p: buttons.value.length - 1, c: -1 };
 }
 function addSub(p: number) {
   const top = buttons.value[p];
   if (!top) return;
-  if (top.children.length >= 5) { toast('子菜单最多 5 个'); return; }
+  if (top.children.length >= 5) { toast(locale.t('wechatOps.menuSubLimit')); return; }
   top.children.push(emptyItem());
   sel.value = { level: 2, p, c: top.children.length - 1 };
 }
@@ -209,26 +215,26 @@ async function pullRemote() {
     const list = res?.selfmenu_info?.button || [];
     buttons.value = fromRemote(list);
     sel.value = buttons.value.length ? { level: 1, p: 0, c: -1 } : { level: 0, p: -1, c: -1 };
-    toast(buttons.value.length ? '已拉取当前菜单' : '公众号菜单为空，请添加');
+    toast(buttons.value.length ? locale.t('wechatOps.menuPulled') : locale.t('wechatOps.menuEmpty'));
   } catch (e: any) {
-    toast('拉取失败：' + String(e.message || e));
+    toast(locale.t('wechatOps.pullFailed') + String(e.message || e));
   } finally { busy.value = false; }
 }
 function validate(): string {
   const tops = toWechat();
-  if (!tops.length) return '请至少添加一个一级菜单';
+  if (!tops.length) return locale.t('wechatOps.requireOneTop');
   for (const b of tops) {
     if (b.sub_button) continue; // 有子菜单的一级仅需名称
     const missing = MENU_TYPES[b.type]?.fields?.find((f) => {
       const v = f === 'media_id' ? b.media_id : (b as any)[f === 'media_id' ? 'media_id' : f];
       return !String(v || '').trim();
     });
-    if (missing) return `「${b.name}」缺少必填字段`;
+    if (missing) return locale.t('wechatOps.missingField').replace('{name}', b.name);
   }
   for (const b of tops) {
     for (const s of b.sub_button || []) {
       const missing = MENU_TYPES[s.type]?.fields?.find((f) => !String((s as any)[f] || '').trim());
-      if (missing) return `子菜单「${s.name}」缺少必填字段`;
+      if (missing) return locale.t('wechatOps.subMissingField').replace('{name}', s.name);
     }
   }
   return '';
@@ -239,9 +245,9 @@ async function publish() {
   busy.value = true;
   try {
     await publishWechatMenu(toWechat());
-    toast('发布成功，约 5 分钟后手机端生效');
+    toast(locale.t('wechatOps.publishOk'));
   } catch (e: any) {
-    toast('发布失败：' + String(e.message || e));
+    toast(locale.t('wechatOps.publishFailed') + String(e.message || e));
   } finally { busy.value = false; }
 }
 
@@ -252,19 +258,19 @@ function readDrafts(): Record<string, any> {
 }
 function saveDraft() {
   const name = draftName.value.trim();
-  if (!name) { toast('请填写草稿名称'); return; }
+  if (!name) { toast(locale.t('wechatOps.requireDraftName')); return; }
   const drafts = readDrafts();
   drafts[name] = { savedAt: Date.now(), buttons: buttons.value };
   localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
-  toast('草稿已保存');
+  toast(locale.t('wechatOps.draftSaved'));
 }
 function loadDraft() {
   const name = draftName.value.trim();
   const drafts = readDrafts();
   const d = name ? drafts[name] : null;
-  if (!d) { toast('未找到同名草稿'); return; }
+  if (!d) { toast(locale.t('wechatOps.draftNotFound')); return; }
   buttons.value = d.buttons || [];
-  toast('草稿已加载');
+  toast(locale.t('wechatOps.draftLoaded'));
 }
 
 onMounted(() => {

@@ -95,10 +95,10 @@ import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
 
-const APP_OPTS = [
-  { key: 'nshop', label: 'nshop 商城' },
-  { key: 'vshop', label: 'youshop 商城' },
-] as const;
+const APP_OPTS = computed(() => [
+  { key: 'nshop', label: locale.t('platformTemplates.appNshop') },
+  { key: 'vshop', label: locale.t('platformTemplates.appVshop') },
+]);
 
 const FIELDS = GLOBAL_CONFIG_FIELDS;
 const TOKEN_FIELDS = FIELDS.filter((f) => f.path.startsWith('themeTokens.'));
@@ -184,8 +184,8 @@ function syncFromJson() {
   fieldErrors.value = {};
 }
 
-function switchApp(a: 'nshop' | 'vshop') {
-  app.value = a;
+function switchApp(a: string) {
+  app.value = a as 'nshop' | 'vshop';
   load();
 }
 
