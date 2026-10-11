@@ -13,7 +13,16 @@
     <view class="card" v-for="o in page.items.value" :key="o.id">
       <view class="row">
         <text class="code">{{ o.code }}</text>
-        <text class="tag" :class="'tag--' + o.status">{{ locale.t('pointsOrders.status_' + o.status) }}</text>
+        <view class="tags">
+          <text
+            v-if="refundInfo(o)?.refundStatus === 'failed'"
+            class="tag tag--refund_failed"
+            @tap="onRefundError(refundInfo(o))"
+          >{{ locale.t('pointsOrders.refundFailed') }}</text>
+          <text v-else-if="refundInfo(o)?.refundStatus === 'refunding'" class="tag tag--refunding">{{ locale.t('pointsOrders.refunding') }}</text>
+          <text v-else-if="refundInfo(o)?.refundStatus === 'refunded'" class="tag tag--refunded">{{ locale.t('pointsOrders.refunded') }}</text>
+          <text class="tag" :class="'tag--' + o.status">{{ locale.t('pointsOrders.status_' + o.status) }}</text>
+        </view>
       </view>
       <text class="name">{{ snapName(o.productSnapshot) }} × {{ o.quantity }}</text>
       <text class="meta">{{ locale.t('pointsOrders.customer') }} #{{ o.customerId }} · {{ fmtTime(o.createdAt) }}</text>
@@ -22,6 +31,7 @@
         <text v-if="o.cashTotal > 0" class="cash">+ ¥{{ fmtMoney(o.cashTotal) }}</text>
       </view>
       <text v-if="o.trackingNo" class="meta">{{ locale.t('pointsOrders.tracking') }}：{{ o.trackingNo }}</text>
+      <text v-if="refundInfo(o)?.refundStatus === 'refunded'" class="meta">{{ locale.t('pointsOrders.refunded') }}：{{ fmtTime(refundInfo(o)?.refundedAt) }}</text>
       <text v-if="addrText(o.addressSnapshot)" class="addr">{{ addrText(o.addressSnapshot) }}</text>
 
       <view class="ops">
@@ -46,7 +56,7 @@
 import { ref } from 'vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
-import { fetchPointsOrdersAdmin, markPointsOrderPaid, markPointsOrderShipped, markPointsOrderCompleted, type PointsOrderRow } from '../../../apis/points-mall';
+import { fetchPointsOrdersAdmin, markPointsOrderPaid, markPointsOrderShipped, markPointsOrderCompleted, type PointsOrderRow, type PointsOrderPaymentRow } from '../../../apis/points-mall';
 
 const locale = useLocaleStore();
 
@@ -157,6 +167,22 @@ function onMarkCompleted(o: PointsOrderRow) {
 function toast(msg: string) {
   uni.showToast({ title: msg, icon: 'none' });
 }
+
+/** 取订单支付行中最新一条非 none 退款状态的支付行；无则返回 null（不展示退款元素） */
+function refundInfo(o: PointsOrderRow): PointsOrderPaymentRow | null {
+  const rows = (o.payments ?? []).filter((p) => p?.refundStatus && p.refundStatus !== 'none');
+  return rows.length ? rows[rows.length - 1] : null;
+}
+
+/** 退款失败：弹窗展示 refundError */
+function onRefundError(p?: PointsOrderPaymentRow | null) {
+  const msg = (p?.refundError || '').trim();
+  uni.showModal({
+    title: locale.t('pointsOrders.refundError'),
+    content: msg || '—',
+    showCancel: false,
+  });
+}
 </script>
 <style lang="scss" scoped>
 .page {
@@ -171,12 +197,16 @@ function toast(msg: string) {
     display: flex; flex-direction: column; gap: 12rpx;
     .row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
     .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tags { display: flex; align-items: center; gap: 8rpx; flex-shrink: 0; }
     .tag { flex-shrink: 0; font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 999rpx;
       &.tag--pending_payment { color: #c2410c; background: #ffedd5; }
       &.tag--pending_ship { color: #1d4ed8; background: #dbeafe; }
       &.tag--shipped { color: #0e7490; background: #cffafe; }
       &.tag--completed { color: #15803d; background: #dcfce7; }
-      &.tag--cancelled { color: #4b5563; background: #f3f4f6; } }
+      &.tag--cancelled { color: #4b5563; background: #f3f4f6; }
+      &.tag--refunding { color: #b45309; background: #fef3c7; }
+      &.tag--refunded { color: #15803d; background: #dcfce7; }
+      &.tag--refund_failed { color: #b91c1c; background: #fee2e2; } }
     .name { font-size: 28rpx; color: $wa-ink; }
     .meta { font-size: 24rpx; color: $wa-muted; }
     .amounts { display: flex; align-items: baseline; gap: 16rpx;

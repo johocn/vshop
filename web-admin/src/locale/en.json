@@ -3925,7 +3925,11 @@
     "empty": "No points orders yet",
     "loadMore": "Load more",
     "noMore": "No more",
-    "retry": "Retry"
+    "retry": "Retry",
+    "refunding": "Refunding",
+    "refunded": "Refunded",
+    "refundFailed": "Refund Failed",
+    "refundError": "Refund Failure Reason"
   },
   "hotelBookings": {
     "headTitle": "Hotel Bookings",

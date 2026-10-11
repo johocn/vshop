@@ -46,6 +46,22 @@ export interface PointsProductUpdateInput extends Partial<Omit<PointsProductInpu
   id: string;
 }
 
+export type PointsRefundStatus = 'none' | 'refunding' | 'refunded' | 'failed';
+
+/** 积分订单支付行（amount 单位分；refundStatus: none/refunding/refunded/failed） */
+export interface PointsOrderPaymentRow {
+  id: string;
+  amount: number;
+  status: string;
+  externalRef?: string | null;
+  transactionId?: string | null;
+  refundStatus: PointsRefundStatus | string;
+  refundNo?: string | null;
+  refundedAt?: string | null;
+  refundError?: string | null;
+  refundAttempts: number;
+}
+
 export interface PointsOrderRow {
   id: string;
   code: string;
@@ -62,10 +78,12 @@ export interface PointsOrderRow {
   shippedAt?: string | null;
   completedAt?: string | null;
   createdAt?: string | null;
+  payments?: PointsOrderPaymentRow[] | null;
 }
 
 const PRODUCT_FIELDS = `id productId variantId pointsPrice cashPrice deliveryType stock perUserLimit redeemedCount validFrom validTo status sortOrder`;
 const ORDER_FIELDS = `id code customerId quantity pointsTotal cashTotal deliveryType status productSnapshot addressSnapshot trackingNo paidAt shippedAt completedAt createdAt`;
+const ORDER_PAYMENTS_FIELDS = `payments { id amount status externalRef transactionId refundStatus refundNo refundedAt refundError refundAttempts }`;
 
 export async function fetchPointsProductsAdmin(options: { skip?: number; take?: number; keyword?: string | null } = {}): Promise<{ items: PointsProductRow[]; total: number }> {
   const skip = options.skip ?? 0;
@@ -127,7 +145,7 @@ export async function fetchPointsOrdersAdmin(options: { skip?: number; take?: nu
   try {
     const { pointsOrdersAdmin } = await getAdminClient().request<{ pointsOrdersAdmin: { items: PointsOrderRow[]; totalItems: number } }>(
       `query PointsOrdersAdmin($skip: Int, $take: Int, $status: String, $keyword: String) {
-        pointsOrdersAdmin(options: { skip: $skip, take: $take, status: $status, keyword: $keyword }) { items { ${ORDER_FIELDS} } totalItems }
+        pointsOrdersAdmin(options: { skip: $skip, take: $take, status: $status, keyword: $keyword }) { items { ${ORDER_FIELDS} ${ORDER_PAYMENTS_FIELDS} } totalItems }
       }`,
       { skip, take, status, keyword },
     );
