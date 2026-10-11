@@ -5,24 +5,24 @@
       <text class="status-header__sub">{{ statusHint }}</text>
     </view>
     <view class="section" v-if="order.shippingAddress">
-      <text class="section__title">收货地址</text>
+      <text class="section__title">{{ t('checkout.address') }}</text>
       <text>{{ order.shippingAddress.fullName }} {{ order.shippingAddress.phoneNumber }}</text>
       <text class="section__sub">{{ order.shippingAddress.province }} {{ order.shippingAddress.city }} {{ order.shippingAddress.streetLine1 }}</text>
     </view>
     <view class="section" v-if="order.shippingLines?.length">
-      <text class="section__title">物流信息</text>
+      <text class="section__title">{{ t('orderDetail.logisticsInfo') }}</text>
       <view class="logistics">
-        <text>{{ order.shippingLines[0]?.shippingMethod?.name || '邮寄' }}</text>
-        <text v-if="trackingNo" class="logistics__no">运单号: {{ trackingNo }}</text>
-        <text v-else class="logistics__empty">暂无物流信息</text>
+        <text>{{ order.shippingLines[0]?.shippingMethod?.name || t('orderDetail.shippingFallback') }}</text>
+        <text v-if="trackingNo" class="logistics__no">{{ t('logistics.trackingNo') }}: {{ trackingNo }}</text>
+        <text v-else class="logistics__empty">{{ t('logistics.empty') }}</text>
       </view>
       <view v-if="trackingNo || orderPackages.length" class="logistics-link" @tap="goLogistics">
-        <text class="logistics-link__text">查看物流</text>
+        <text class="logistics-link__text">{{ t('order.viewLogistics') }}</text>
         <text class="logistics-link__arrow">›</text>
       </view>
     </view>
     <view class="section">
-      <text class="section__title">商品信息</text>
+      <text class="section__title">{{ t('orderDetail.goodsInfo') }}</text>
       <view v-for="line in order.lines" :key="line.id" class="order-line">
         <VImage :src="line.featuredAsset?.preview || ''" width="140rpx" height="140rpx" />
         <view class="order-line__info">
@@ -36,26 +36,26 @@
       </view>
     </view>
     <view class="section summary">
-      <view class="summary__row"><text>商品总额</text><text>¥{{ (order.subTotalWithTax / 100).toFixed(2) }}</text></view>
-      <view class="summary__row"><text>运费</text><text>¥{{ (order.shippingWithTax / 100).toFixed(2) }}</text></view>
-      <view class="summary__row" v-if="order.discounts?.length"><text>优惠</text><text class="discount">-¥{{ (discountTotal / 100).toFixed(2) }}</text></view>
-      <view class="summary__row summary__row--total"><text>实付</text><text class="summary__total">¥{{ (order.totalWithTax / 100).toFixed(2) }}</text></view>
+      <view class="summary__row"><text>{{ t('checkout.goodsTotal') }}</text><text>¥{{ (order.subTotalWithTax / 100).toFixed(2) }}</text></view>
+      <view class="summary__row"><text>{{ t('checkout.shippingFee') }}</text><text>¥{{ (order.shippingWithTax / 100).toFixed(2) }}</text></view>
+      <view class="summary__row" v-if="order.discounts?.length"><text>{{ t('orderDetail.discountLabel') }}</text><text class="discount">-¥{{ (discountTotal / 100).toFixed(2) }}</text></view>
+      <view class="summary__row summary__row--total"><text>{{ t('orderDetail.actualPaid') }}</text><text class="summary__total">¥{{ (order.totalWithTax / 100).toFixed(2) }}</text></view>
     </view>
     <view class="section" v-if="order.couponCodes?.length">
-      <text class="section__title">优惠券</text>
+      <text class="section__title">{{ t('checkout.coupon') }}</text>
       <text v-for="c in order.couponCodes" :key="c" class="coupon-tag">{{ c }}</text>
     </view>
     <view class="section info">
-      <view class="info__row"><text>订单编号</text><text @click="copyCode">{{ order.code }}</text></view>
-      <view class="info__row"><text>下单时间</text><text>{{ formatTime(order.createdAt) }}</text></view>
-      <view class="info__row" v-if="order.payments?.length"><text>支付方式</text><text>{{ order.payments[0]?.method }}</text></view>
+      <view class="info__row"><text>{{ t('order.orderNo') }}</text><text @click="copyCode">{{ order.code }}</text></view>
+      <view class="info__row"><text>{{ t('order.createTime') }}</text><text>{{ formatTime(order.createdAt) }}</text></view>
+      <view class="info__row" v-if="order.payments?.length"><text>{{ t('checkout.payment') }}</text><text>{{ order.payments[0]?.method }}</text></view>
     </view>
     <view class="order-detail__actions">
-      <button v-if="canPay" class="action-btn action-btn--primary" @click="goPay">去支付</button>
-      <button v-if="canReceive" class="action-btn action-btn--primary" @click="confirmReceive">确认收货</button>
-      <button v-if="canAfterSale" class="action-btn" @click="applyAfterSale">申请售后</button>
-      <button v-if="canInvoice" class="action-btn" @click="applyInvoice">开发票</button>
-      <button v-if="canCancel" class="action-btn action-btn--ghost" @click="cancelOrder">取消订单</button>
+      <button v-if="canPay" class="action-btn action-btn--primary" @click="goPay">{{ t('order.payNow') }}</button>
+      <button v-if="canReceive" class="action-btn action-btn--primary" @click="confirmReceive">{{ t('order.confirmReceive') }}</button>
+      <button v-if="canAfterSale" class="action-btn" @click="applyAfterSale">{{ t('order.applyAfterSale') }}</button>
+      <button v-if="canInvoice" class="action-btn" @click="applyInvoice">{{ t('orderDetail.applyInvoice') }}</button>
+      <button v-if="canCancel" class="action-btn action-btn--ghost" @click="cancelOrder">{{ t('order.cancelOrder') }}</button>
       <button v-if="canReview" class="action-btn" @click="goEvaluate">{{ t('review.myOrderReviewBtn') }}</button>
       <text v-else-if="isFullyReviewed" class="action-btn action-btn--ghost">{{ t('review.reviewed') }}</text>
     </view>
@@ -77,10 +77,17 @@ const auth = useAuthStore();
 const reviewedLineIds = ref<Set<string>>(new Set());
 const trackingNo = ref('');
 const orderPackages = ref<any[]>([]);
-const statusMap: Record<string, string> = { Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', PartiallyDelivered:'待收货', Shipped:'待收货', Cancelled:'已取消', Modified:'已修改' };
-const statusHintMap: Record<string, string> = { Created:'请尽快完成支付', PaymentAuthorized:'商家正在处理', PaymentSettled:'商家正在处理', Delivered:'请确认收货', Shipped:'商品正在配送中' };
-const statusLabel = computed(() => statusMap[order.value?.state] || order.value?.state || '');
-const statusHint = computed(() => statusHintMap[order.value?.state] || '');
+// 订单状态 → i18n key（与 orders 列表页共用 order.* 状态文案；Modified 为详情页独有）
+const STATUS_KEY: Record<string, string> = { Created:'order.pending', PaymentAuthorized:'order.paid', PaymentSettled:'order.paid', Delivered:'order.shipped', PartiallyDelivered:'order.shipped', Shipped:'order.shipped', Cancelled:'order.cancelled', Modified:'order.modified' };
+const HINT_KEY: Record<string, string> = { Created:'orderDetail.hintPay', PaymentAuthorized:'orderDetail.hintProcessing', PaymentSettled:'orderDetail.hintProcessing', Delivered:'orderDetail.hintReceive', Shipped:'orderDetail.hintShipping' };
+const statusLabel = computed(() => {
+    const k = STATUS_KEY[order.value?.state];
+    return k ? t(k) : (order.value?.state || '');
+});
+const statusHint = computed(() => {
+    const k = HINT_KEY[order.value?.state];
+    return k ? t(k) : '';
+});
 const discountTotal = computed(() => order.value?.discounts?.reduce((s:number,d:any)=>s+d.amountWithTax,0) || 0);
 const canPay = computed(() => ['Created','AddingItems','ArrangingPayment'].includes(order.value?.state));
 const canReceive = computed(() => ['Delivered','PartiallyDelivered','Shipped'].includes(order.value?.state));
@@ -113,13 +120,13 @@ onMounted(async () => {
     await loadReviewedLines();
 });
 function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
-function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: '已复制', icon: 'success' }); }
+function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: t('orderDetail.copied'), icon: 'success' }); }
 function goPay() { uni.navigateTo({ url: '/pkg-order/pages/payment?code=' + order.value.code }); }
 function goLogistics() { uni.navigateTo({ url: '/pkg-user/pages/logistics?orderId=' + order.value.id }); }
-function confirmReceive() { uni.showModal({ title: '确认收货', content: '确认已收到商品?', success: async (r: any) => { if (r.confirm) { try { const res: any = await confirmOrderReceipt(String(order.value.id)); if (res?.confirmOrderReceipt === false) { uni.showToast({ title: '当前状态不可确认收货', icon: 'none' }); return; } uni.showToast({ title: '已确认收货' }); order.value.state = 'Completed'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
+function confirmReceive() { uni.showModal({ title: t('order.confirmReceive'), content: t('orderDetail.receiveConfirm'), confirmText: t('common.confirm'), cancelText: t('common.cancel'), success: async (r: any) => { if (r.confirm) { try { const res: any = await confirmOrderReceipt(String(order.value.id)); if (res?.confirmOrderReceipt === false) { uni.showToast({ title: t('orderDetail.receiveNotAllowed'), icon: 'none' }); return; } uni.showToast({ title: t('orderDetail.received') }); order.value.state = 'Completed'; } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 function applyAfterSale() { uni.navigateTo({ url: '/pkg-after-sale/pages/apply?orderId=' + order.value.id }); }
 function applyInvoice() { uni.navigateTo({ url: '/pkg-order/pages/invoice-apply?orderIds=' + order.value.id }); }
-function cancelOrder() { uni.showModal({ title: '取消订单', content: '确定取消该订单?', success: async (r: any) => { if (r.confirm) { try { const res: any = await cancelMyOrderApi(String(order.value.id)); if (res?.cancelMyOrder?.state) order.value.state = res.cancelMyOrder.state; else order.value.state = 'Cancelled'; uni.showToast({ title: '已取消' }); } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
+function cancelOrder() { uni.showModal({ title: t('order.cancelOrder'), content: t('orderDetail.cancelConfirm'), confirmText: t('common.confirm'), cancelText: t('common.cancel'), success: async (r: any) => { if (r.confirm) { try { const res: any = await cancelMyOrderApi(String(order.value.id)); if (res?.cancelMyOrder?.state) order.value.state = res.cancelMyOrder.state; else order.value.state = 'Cancelled'; uni.showToast({ title: t('order.cancelled') }); } catch (e: any) { uni.showToast({ title: e.message, icon: 'none' }); } } } }); }
 async function loadReviewedLines() {
     if (!auth.isLoggedIn) return;
     try {

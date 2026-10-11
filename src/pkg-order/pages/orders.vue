@@ -1,13 +1,13 @@
 <template>
   <view class="orders-page">
     <view class="orders-tabs">
-      <text v-for="t in tabs" :key="t.value" class="orders-tab" :class="{ active: activeTab === t.value }" @click="switchTab(t.value)">{{ t.label }}</text>
+      <text v-for="t in tabs" :key="t.value" class="orders-tab" :class="{ active: activeTab === t.value }" @click="switchTab(t.value)">{{ tabLabel(t.key) }}</text>
     </view>
     <scroll-view class="orders-page__scroll" scroll-y @scrolltolower="loadMore" refresher-enabled @refresherrefresh="onRefresh" :refresher-triggered="refreshing">
       <view v-for="order in orders" :key="order.id" class="order-card" @click="goDetail(order.code)">
         <view class="order-card__header">
           <text class="order-card__code">{{ order.code }}</text>
-          <text class="order-card__state">{{ statusMap[order.state] || order.state }}</text>
+          <text class="order-card__state">{{ statusLabel(order.state) }}</text>
         </view>
         <view v-for="line in order.lines?.slice(0, 3)" :key="line.id" class="order-card__line">
           <VImage :src="line.featuredAsset?.preview || ''" width="100rpx" height="100rpx" />
@@ -15,7 +15,7 @@
           <text class="order-card__qty">x{{ line.quantity }}</text>
         </view>
         <view class="order-card__footer">
-          <text>共{{ order.totalQuantity }}件</text>
+          <text>{{ t('order.totalQty', { n: order.totalQuantity }) }}</text>
           <PriceTag :price="order.totalWithTax" />
         </view>
         <view class="order-card__actions" v-if="canReview(order) || isFullyReviewed(order)">
@@ -25,8 +25,8 @@
       </view>
       <view class="orders-page__footer">
         <LoadingSkeleton v-if="loading" type="list" :count="3" />
-        <text v-else-if="!hasMore && orders.length > 0" class="footer-text">没有更多了</text>
-        <EmptyState v-if="!loading && orders.length === 0" text="暂无订单" />
+        <text v-else-if="!hasMore && orders.length > 0" class="footer-text">{{ t('common.noMore') }}</text>
+        <EmptyState v-if="!loading && orders.length === 0" :text="t('order.empty')" />
       </view>
     </scroll-view>
   </view>
@@ -50,12 +50,26 @@ const loading = ref(false);
 const hasMore = ref(true);
 const refreshing = ref(false);
 const activeTab = ref('');
+// Tab/状态 → i18n key（与 order-detail 共用 order.* 状态命名空间）
 const tabs = [
-    { value: '', label: '全部' }, { value: 'ArrangingPayment', label: '待付款' },
-    { value: 'PaymentAuthorized,PaymentSettled', label: '待发货' }, { value: 'Delivered', label: '待收货' },
-    { value: 'Cancelled', label: '已取消' },
+    { value: '', key: 'order.all' }, { value: 'ArrangingPayment', key: 'order.pending' },
+    { value: 'PaymentAuthorized,PaymentSettled', key: 'order.paid' }, { value: 'Delivered', key: 'order.shipped' },
+    { value: 'Cancelled', key: 'order.cancelled' },
 ];
-const statusMap: Record<string, string> = { ArrangingPayment:'待付款', Created:'待付款', PaymentAuthorized:'待发货', PaymentSettled:'待发货', Delivered:'待收货', Shipped:'待收货', Cancelled:'已取消' };
+// 订单状态 → i18n key（两页共享同一组 order.* 文案）
+const STATUS_KEY: Record<string, string> = {
+    ArrangingPayment: 'order.pending', Created: 'order.pending',
+    PaymentAuthorized: 'order.paid', PaymentSettled: 'order.paid',
+    Delivered: 'order.shipped', Shipped: 'order.shipped',
+    Cancelled: 'order.cancelled',
+};
+function tabLabel(key: string): string {
+    return t(key);
+}
+function statusLabel(state: string): string {
+    const k = STATUS_KEY[state];
+    return k ? t(k) : state;
+}
 let skip = 0;
 const take = 10;
 onShow(() => {

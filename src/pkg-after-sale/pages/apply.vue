@@ -1,49 +1,55 @@
 <template>
   <view class="apply-page">
     <view class="section">
-      <text class="section__title">售后类型</text>
+      <text class="section__title">{{ t('afterSaleApply.typeTitle') }}</text>
       <view class="type-row">
-        <view v-for="t in types" :key="t.value" class="type-btn" :class="{ active: form.type === t.value }" @click="form.type = t.value">{{ t.label }}</view>
+        <view v-for="ty in types" :key="ty.value" class="type-btn" :class="{ active: form.type === ty.value }" @click="form.type = ty.value">{{ typeLabel(ty.key) }}</view>
       </view>
     </view>
     <view class="section">
-      <text class="section__title">问题描述</text>
-      <input v-model="form.reason" placeholder="请简要描述问题(必填)" class="input" />
-      <textarea v-model="form.description" placeholder="补充说明(可选)" class="textarea" />
+      <text class="section__title">{{ t('afterSale.description') }}</text>
+      <input v-model="form.reason" :placeholder="t('afterSaleApply.reasonPh')" class="input" />
+      <textarea v-model="form.description" :placeholder="t('afterSaleApply.descriptionPh')" class="textarea" />
     </view>
     <view class="section">
-      <text class="section__title">退款金额(分)</text>
-      <input v-model.number="form.refundAmount" type="number" class="input" placeholder="请输入退款金额" />
+      <text class="section__title">{{ t('afterSaleApply.refundAmountFen') }}</text>
+      <input v-model.number="form.refundAmount" type="number" class="input" :placeholder="t('afterSaleApply.refundAmountPh')" />
     </view>
     <view class="section">
-      <text class="section__title">凭证图片</text>
+      <text class="section__title">{{ t('afterSale.evidence') }}</text>
       <ImageUpload v-model="form.evidenceImages" :max-count="6" />
     </view>
     <button class="apply-page__submit" :disabled="submitting" @click="submitApply">
-      {{ submitting ? '提交中...' : '提交申请' }}
+      {{ submitting ? t('afterSaleApply.submitting') : t('afterSaleApply.submitBtn') }}
     </button>
   </view>
 </template>
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { createAfterSalesRequest } from '../../api/mutations/after-sale';
 import { useUIStore } from '../../stores/ui';
 import ImageUpload from '../../components/ImageUpload.vue';
+const { t } = useI18n();
 const ui = useUIStore();
 const orderId = ref('');
 const submitting = ref(false);
 const pages = getCurrentPages();
 const page = pages[pages.length - 1] as any;
 orderId.value = page?.options?.orderId || '';
+// 售后类型 → i18n key
 const types = [
-    { value: 'return_refund', label: '退货退款' },
-    { value: 'refund_only', label: '仅退款' },
-    { value: 'exchange', label: '换货' },
+    { value: 'return_refund', key: 'afterSaleApply.typeReturn' },
+    { value: 'refund_only', key: 'afterSaleApply.typeRefundOnly' },
+    { value: 'exchange', key: 'afterSaleApply.typeExchange' },
 ];
+function typeLabel(key: string): string {
+    return t(key);
+}
 const form = ref({ type: 'return_refund', reason: '', description: '', refundAmount: 0, evidenceImages: [] as string[] });
 async function submitApply() {
-    if (!form.value.reason) { ui.showToast('请填写问题描述'); return; }
-    if (!form.value.refundAmount || form.value.refundAmount <= 0) { ui.showToast('请填写退款金额'); return; }
+    if (!form.value.reason) { ui.showToast(t('afterSaleApply.reasonRequired')); return; }
+    if (!form.value.refundAmount || form.value.refundAmount <= 0) { ui.showToast(t('afterSaleApply.refundRequired')); return; }
     submitting.value = true;
     try {
         await createAfterSalesRequest({
@@ -51,7 +57,7 @@ async function submitApply() {
             description: form.value.description, refundAmount: form.value.refundAmount,
             evidenceImages: form.value.evidenceImages,
         });
-        ui.showToast('申请成功', 'success');
+        ui.showToast(t('afterSaleApply.success'), 'success');
         setTimeout(() => uni.navigateBack(), 1500);
     } catch (e: any) { ui.showToast(e.message); }
     submitting.value = false;
