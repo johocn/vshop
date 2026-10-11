@@ -161,7 +161,13 @@ const stateClass = computed(() => {
   }
 });
 
-const timeLabel = (s?: string | null) => String(s || '').replace('T', ' ').slice(0, 16);
+// UTC 串直接截取会差 8 小时
+const timeLabel = (s?: string | null) => {
+  const d = new Date(s || '');
+  if (!s || Number.isNaN(d.getTime())) return String(s || '').replace('T', ' ').slice(0, 16);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 
 /** 盘次负责人是否就是当前登录人（服务端独占锁按 TenantMember.id 比对） */
 function isMine(w: StocktakeWave): boolean {

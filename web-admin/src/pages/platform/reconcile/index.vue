@@ -79,7 +79,9 @@ const batches = ref<ReconcileBatch[]>([]);
 const lines = ref<ReconcileLine[]>([]);
 const linesVisible = ref(false);
 const currentBatch = ref<ReconcileBatch | null>(null);
-const pickDate = ref(new Date().toISOString().slice(0, 10));
+// UTC 串直接截取会差 8 小时：toISOString 在早上 8 点前默认日期会落到昨天，改用本地当天
+const d = new Date();
+const pickDate = ref(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
 
 const totalOrders = computed(() => batches.value.reduce((s, b) => s + b.orderTotal, 0));
 const closedRate = computed(() => {

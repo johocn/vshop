@@ -216,12 +216,19 @@ const stateClass = computed(() => {
   }
 });
 
-const createdLabel = computed(() => String(batch.value?.createdAt || '').replace('T', ' ').slice(0, 16));
+// UTC 串直接截取会差 8 小时：ISO → 本地「YYYY-MM-DD HH:mm」（createdLabel 与 fmtAt 共用，统一口径）
+function toLocalMinute(v?: string | null): string {
+  const d = new Date(v || '');
+  if (!v || Number.isNaN(d.getTime())) return v ? String(v).replace('T', ' ').slice(0, 16) : '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
-/** 与同卡「创建时间」（createdLabel）统一口径：直接截 ISO 字符串。
- *  若此处改用 toLocaleString，会与 createdLabel 形成两种渲染，同一卡内两行时间看似相差 8 小时。 */
+const createdLabel = computed(() => toLocalMinute(batch.value?.createdAt));
+
+/** 与同卡「创建时间」（createdLabel）统一口径：同为本地化渲染，空值显示占位符。 */
 function fmtAt(v?: string | null): string {
-  return v ? String(v).replace('T', ' ').slice(0, 16) : '—';
+  return toLocalMinute(v) || '—';
 }
 
 // 拣货汇总分组：off 档不分组（无库位概念）；zone / bin 档按库区分组，排序沿用服务端 pathIndex（不重排）

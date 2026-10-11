@@ -359,6 +359,14 @@ function goBindProducts() {
   uni.navigateTo({ url: `/pages/coupon/pick-products/index?templateId=${id.value}` });
 }
 
+/** ISO → 本地 YYYY-MM-DD（UTC 串直接截取会差一天，早上 8 点前回显会落到昨天） */
+function toLocalDate(s?: string | null): string {
+  const d = new Date(s || '');
+  if (!s || Number.isNaN(d.getTime())) return s ? String(s).slice(0, 10) : '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 async function loadAll() {
   if (!id.value) return;
   const c = await fetchCouponTemplate(id.value);
@@ -372,8 +380,8 @@ async function loadAll() {
     salePriceYuan: c.salePrice ? String(c.salePrice / 100) : '',
     discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
     minSpendYuan: String((c.minSpend || 0) / 100),
-    startsAt: c.startsAt ? c.startsAt.slice(0, 10) : '',
-    endsAt: c.endsAt ? c.endsAt.slice(0, 10) : '',
+    startsAt: toLocalDate(c.startsAt),
+    endsAt: toLocalDate(c.endsAt),
     totalCount: String(c.totalCount ?? 0),
     perUserLimit: String(c.perUserLimit ?? 0),
     // 后台已按原值回传 zh_Hans/en，直接回显；无多语言时回退当前语言 name
