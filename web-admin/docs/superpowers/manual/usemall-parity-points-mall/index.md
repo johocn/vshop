@@ -78,6 +78,7 @@
   - **待支付 →「标记已收款」**：线下收款兜底（客户微信支付未完成、商家线下确认收款后使用），订单进入待发货。
   - **待发货 →「标记发货」**：可填物流单号，订单进入已发货。
   - **已发货 →「标记完成」**：订单完结。
+- **退款状态标签**：存在支付行且 `refundStatus ≠ none` 时，订单卡右上角（状态标签旁）展示退款标签——**退款中**（amber）/ **已退款**（green）/ **退款失败**（red）。状态机：`none → refunding → refunded / failed`（failed 由后端重试任务自动拉回 refunding 重试）。退款失败**点击标签**弹窗查看失败原因（refundError）；已退款在卡内展示退款完成时间（refundedAt 按本地时区格式化）。`refundStatus = none` 或无支付行不显示任何退款元素。
 - 客户积分余额调整在会员体系：客户列表 → 调整积分（增减 + 备注，写积分流水）。
 
 ---
@@ -140,12 +141,17 @@
 | `assets/points-mall-entry-i18n.png` | 积分兑换商城入口页（全部文案 i18n 化后渲染） |
 | `assets/points-orders-localtime.png` | 积分订单列表（兑换时间已按本地时区格式化） |
 | `assets/points-goods-list-error-retry.png` | 积分商品列表加载失败错误态（拦截 /shop-api 返回 500，展示「加载失败 + 重试」） |
+| `assets/points-admin-orders-refund-column.png` | 后台积分订单列表（desktop 1440×900，`payments` 退款字段查询与渲染无回归；线上当前无退款单，退款标签不显示属预期） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 web-admin 退款状态展示
+
+8. **积分订单页退款状态展示**：`pointsOrdersAdmin` 查询补 `payments { id amount status externalRef transactionId refundStatus refundNo refundedAt refundError refundAttempts }`（amount 单位分）；订单卡状态标签旁新增退款标签（refunding 退款中 amber / refunded 已退款 green / failed 退款失败 red），failed 点击弹窗看 `refundError`，refunded 展示 `refundedAt` 本地时间；zh-Hans/en 词条补 `pointsOrders.refunding/refunded/refundFailed/refundError`。见「3.2」与 `assets/points-admin-orders-refund-column.png`。
 
 ### 2026-10-11 自动退款轮（后端）
 
