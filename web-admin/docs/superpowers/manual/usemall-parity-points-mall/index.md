@@ -149,12 +149,21 @@
 | `assets/distribution-i18n.png` | 分销中心（i18n 专项后未申请引导态：标题/描述/申请按钮） |
 | `assets/nav-title-en.png` | 导航标题 i18n：购物车页 en 直载（localStorage `vshop-locale=en`，导航栏标题 Cart——tabbar 页直载为本轮修复覆盖场景） |
 | `assets/nav-title-zh.png` | 导航标题 i18n：购物车页 zh-CN 对照（默认中文「购物车」；页体文案属主包页面，待 i18n 下一批次） |
+| `assets/batch5-i18n-en.png` | i18n 批次 5 收尾：券商城 en 直载（localStorage `vshop-locale=en`）——标题/Tabs/按钮/门槛与标签全英文；券名与描述为后端 API 动态数据保留中文 |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 i18n 专项批次 3-5 收尾
+
+- **批次 3（主包+商品子包，commit `f031831`）**：cart / category / home / landing-invite / register 主包 5 页 + pkg-product 商品详情 / 评价 / 列表 3 页硬编码中文五语言化。
+- **批次 4（订单+售后子包，commit `ac96094`）**：pkg-order 结算 / 申请发票 / 我的发票 / 订单详情 / 订单列表 / 支付结果 / 支付 7 页 + pkg-after-sale 售后申请 / 列表 / 详情 3 页。
+- **批次 5（营销+社区子包，commit `2397575`，专项收尾）**：pkg-promotion 券码(81处)/券商城(118)/优惠券(65)/直播间(34)/直播列表(11)/限时秒杀(6)/拼团(5) + pkg-circle 发布(16)/帖子详情(12)/信息流(7) 共 10 页；新增 couponCode(31)/couponMall(69)/coupons(41)/liveRoom(29)/liveList(11)/flashSale(6)/circlePublish(15)/circleDetail(7)/circleFeed(3) 九个命名空间共 212 key，group-buy 复用既有 `promotion.*`，PERCENT 券「折」沿用 `promotion.percentOff` 双参模式（zh「{zhe}折」/ en·ja·ko「{off}% off」）；直播间弹幕/评论的用户昵称与内容、社区页正文与昵称为 API 动态数据保留原样。
+- **顺手修（同提交）**：`profile/index.vue` 接入既有 profile 词条（13 个菜单项 + 姓名兜底）；`pkg-user/faq.vue` 整页五语言化（新增 faq 命名空间 7 key，v-for 变量改名避免遮蔽 i18n t）；`points-mall.vue` / `my-reviews.vue` 加载失败 toast 兜底改 `common.loadFailed`（新增词条）。合计新增 220 key，五语言包 55 个顶级命名空间、子 key 顺序完全对齐。
+- **终验与部署**：临时 node 校验脚本（五包 JSON 合法、55 顶级命名空间集合与全部子 key 顺序一致、percentOff 参数齐全）ALL PASS 后删除；全量残留扫描（src/pages 排除 admin 3 页 + pkg-product/order/after-sale/circle/promotion/user）UI 硬编码清零，仅剩行尾注释、`endsWith('区')` 数据逻辑等预期项；`agreement.vue` 隐私政策/用户协议整页法律长文不做机翻，保留中文原文待单独处理。已部署 https://e.joho.cn/，截图 `assets/batch5-i18n-en.png`。
 
 ### 2026-10-11 导航标题集中式 i18n（54 页五语言）
 
