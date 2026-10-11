@@ -86,11 +86,14 @@
         "coupons": "쿠폰",
         "recharge": "충전",
         "recommend": "추천 상품",
-        "newArrival": "신상품"
+        "newArrival": "신상품",
+        "shareTitle": "엄선 상품"
     },
     "category": {
         "title": "카테고리",
-        "all": "전체"
+        "all": "전체",
+        "noSubCategories": "하위 카테고리가 없습니다",
+        "noProducts": "상품이 없습니다"
     },
     "cart": {
         "title": "장바구니",
@@ -99,7 +102,17 @@
         "selectAll": "전체 선택",
         "total": "합계",
         "checkout": "결제하기",
-        "quantity": "수량"
+        "quantity": "수량",
+        "guestTip": "아직 인증되지 않았습니다. 로그인하면 장바구니를 볼 수 있습니다",
+        "goLogin": "로그인하기",
+        "itemCount": "{n}개",
+        "delisted": "판매 중지",
+        "recommend": "추천 상품",
+        "checkoutCount": "결제 ({n})",
+        "restoreFail": "{n}개 상품의 재고가 부족하여 복원하지 못했습니다",
+        "delistedTip": "해당 상품은 판매가 중단되었습니다. 삭제해 주세요",
+        "removeConfirm": "이 상품을 삭제하시겠습니까?",
+        "removed": "삭제되었습니다"
     },
     "product": {
         "addToCart": "장바구니에 담기",
@@ -110,6 +123,51 @@
         "sold": "판매됨",
         "stock": "재고",
         "pointsReward": "{n} 포인트 적립"
+    },
+    "productDetail": {
+        "flashBadge": "번개세일",
+        "priceNote": "가격 안내",
+        "priceNoteBody": "취소선 가격은 참고 가격이며 원가가 아닙니다. 실제 거래 가격은 주문 결제 페이지 기준입니다. 번개세일 가격은 이벤트 기간 중 주문에 이벤트가 적용된 경우에만 유효합니다.",
+        "gotIt": "확인",
+        "poster": "포스터",
+        "addonTitle": "추가 구매 혜택",
+        "addonSub": "쿠폰 가격은 주문과 함께 결제됩니다",
+        "percentOff": "{off}% 할인",
+        "addonTag": "추가 구매",
+        "addonBuyAmount": "+{price}위안",
+        "addonBuyText": "지금 추가 구매",
+        "addonAttached": "추가됨",
+        "tapRemove": "탭하여 제거",
+        "barService": "고객센터",
+        "favorite": "찜하기",
+        "favorited": "찜 완료",
+        "cartLabel": "장바구니",
+        "memberDiscount": "회원 {off}% 할인",
+        "memberRefPrice": "약 ¥{price}",
+        "addedToCart": "장바구니에 담았습니다",
+        "serviceComingSoon": "고객센터 기능은 준비 중입니다",
+        "shareTip": "우측 상단의 공유 버튼을 눌러 주세요",
+        "shareTitle": "Youshop - 엄선 상품",
+        "shareDesc": "엄선 상품 추천",
+        "cartFirst": "먼저 상품을 장바구니에 담아 주세요",
+        "addonAttachOk": "주문에 추가되었습니다. 주문과 함께 결제됩니다",
+        "addonDetachOk": "추가 구매 쿠폰이 제거되었습니다",
+        "freeShipping": "무료 배송",
+        "freeDelivery": "배송비 무료",
+        "noThreshold": "조건 없음",
+        "spendThreshold": "{amount} 이상 사용 가능",
+        "validUntil": "{date}까지 유효",
+        "validDays": "수령 후 {days}일간 유효"
+    },
+    "productEvaluate": {
+        "loadFailed": "불러오기 실패"
+    },
+    "productList": {
+        "searchPlaceholder": "상품 검색",
+        "title": "상품 목록",
+        "waterfall": "워터폴",
+        "doubleColumn": "2열",
+        "noProducts": "상품이 없습니다"
     },
     "order": {
         "title": "내 주문",
@@ -462,6 +520,13 @@
         "deleted": "삭제되었습니다",
         "defaultSet": "기본으로 설정되었습니다"
     },
+    "invite": {
+        "inviteTitle": "{name}님이 쇼핑에 초대합니다",
+        "refCode": "추천 코드: {code}",
+        "defaultInviter": "친구",
+        "goShopping": "쇼핑하러 가기",
+        "bindHint": "로그인하면 추천 관계가 연결됩니다"
+    },
     "invoiceTitles": {
         "empty": "등록된 인보이스 정보가 없습니다. 아래에서 추가해 주세요",
         "defaultTag": "기본",
@@ -647,6 +712,26 @@
         "contentRequired": "문제 설명을 입력하세요",
         "submitted": "피드백이 제출되었습니다. 소중한 의견 감사합니다",
         "failed": "제출 실패"
+    },
+    "register": {
+        "phoneTab": "휴대폰 회원가입",
+        "emailTab": "이메일 회원가입",
+        "emailPlaceholder": "이메일 주소를 입력하세요",
+        "passwordPlaceholder": "비밀번호 설정 (6-20자)",
+        "registering": "가입 중...",
+        "submit": "가입하기",
+        "hasAccount": "계정이 있으신가요? 로그인",
+        "phoneInvalid": "휴대폰 번호 형식이 올바르지 않습니다",
+        "sendFailed": "전송 실패",
+        "fillAll": "모든 항목을 입력해 주세요",
+        "emailInvalid": "이메일 형식이 올바르지 않습니다",
+        "passwordLength": "비밀번호는 6-20자로 입력해 주세요",
+        "success": "회원가입 성공",
+        "failed": "회원가입 실패",
+        "errMissingPassword": "비밀번호를 설정해 주세요",
+        "errPasswordInvalid": "비밀번호가 요건을 충족하지 않습니다",
+        "errAuthStrategy": "이 가입 방식은 사용할 수 없습니다",
+        "errEmailConflict": "이 이메일은 이미 가입되어 있습니다"
     },
     "logistics": {
         "empty": "물류 정보가 없습니다",

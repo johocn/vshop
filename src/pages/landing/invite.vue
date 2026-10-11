@@ -3,13 +3,13 @@
     <view class="invite-hero">
       <image v-if="avatar" class="invite-avatar" :src="avatar" mode="aspectFill" />
       <view v-else class="invite-avatar invite-avatar--fallback">{{ inviterName.charAt(0) }}</view>
-      <text class="invite-title">{{ inviterName }} 邀你一起逛商城</text>
-      <text v-if="inviteCode" class="invite-code">推荐码：{{ inviteCode }}</text>
+      <text class="invite-title">{{ t('invite.inviteTitle', { name: inviterName }) }}</text>
+      <text v-if="inviteCode" class="invite-code">{{ t('invite.refCode', { code: inviteCode }) }}</text>
     </view>
 
     <view class="invite-actions">
-      <button class="invite-btn" @click="goShopping">进商城逛逛</button>
-      <text v-if="!isLoggedIn" class="invite-login" @click="goLogin">登录后绑定推荐关系</text>
+      <button class="invite-btn" @click="goShopping">{{ t('invite.goShopping') }}</button>
+      <text v-if="!isLoggedIn" class="invite-login" @click="goLogin">{{ t('invite.bindHint') }}</text>
     </view>
   </view>
 </template>
@@ -17,16 +17,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../../stores/auth';
 import { useTenantStore } from '../../stores/tenant';
 import { parseAndBindRef } from '../../utils/ref';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const inviteCode = ref('');
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 
-const inviterName = computed(() => tenantStore.tenantName || '好友');
+const inviterName = computed(() => tenantStore.tenantName || t('invite.defaultInviter'));
 const avatar = computed(() => ''); // 如需展示邀请人头像，可后续经 ref 反查；本期先用首字
 
 function goShopping() {

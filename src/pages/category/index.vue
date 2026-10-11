@@ -18,7 +18,7 @@
               <text class="sub-item__name">{{ sub.name }}</text>
             </view>
           </view>
-          <EmptyState v-if="!subCategories.length" text="暂无子分类" />
+          <EmptyState v-if="!subCategories.length" :text="t('category.noSubCategories')" />
         </view>
 
         <!-- mode=2：商品列表 -->
@@ -28,8 +28,8 @@
             <text class="product-mini__name">{{ p.productName }}</text>
             <PriceTag :price="getMinPrice(p.priceWithTax)" />
           </view>
-          <text v-if="!hasMore && products.length > 0" class="list-footer">没有更多了</text>
-          <EmptyState v-if="!loadingMore && products.length === 0" text="暂无商品" />
+          <text v-if="!hasMore && products.length > 0" class="list-footer">{{ t('common.noMore') }}</text>
+          <EmptyState v-if="!loadingMore && products.length === 0" :text="t('category.noProducts')" />
         </view>
       </scroll-view>
 
@@ -42,12 +42,14 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getGraphQLClient } from '../../api/client';
 import { searchProducts } from '../../api/queries/product';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
+const { t } = useI18n();
 const categories = ref<any[]>([]);
 const subCategories = ref<any[]>([]);
 const products = ref<any[]>([]);

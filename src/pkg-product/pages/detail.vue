@@ -9,12 +9,12 @@
       <view class="price-row">
         <PriceTag :price="displayPrice" :large="true" />
         <text class="price-row__origin" v-if="originPrice">¥{{ originPrice }}</text>
-        <text class="price-row__badge" v-if="isFlash">秒杀价</text>
+        <text class="price-row__badge" v-if="isFlash">{{ t('productDetail.flashBadge') }}</text>
         <text class="price-row__member" v-if="memberPriceLabel">{{ memberPriceLabel }}</text>
-        <text class="price-row__member-ref" v-if="memberRefPrice">约¥{{ memberRefPrice }}</text>
+        <text class="price-row__member-ref" v-if="memberRefPrice">{{ t('productDetail.memberRefPrice', { price: memberRefPrice }) }}</text>
       </view>
       <view class="price-note" @click="showPriceNote = true">
-        <text class="price-note__text">价格说明</text>
+        <text class="price-note__text">{{ t('productDetail.priceNote') }}</text>
         <text class="price-note__arrow">›</text>
       </view>
       <text class="product-detail__name">{{ product.name }}</text>
@@ -23,11 +23,11 @@
       <view class="meta-row">
         <view class="meta-row__share" @click="shareNow">
           <text class="meta-row__icon">↗</text>
-          <text class="meta-row__text">分享</text>
+          <text class="meta-row__text">{{ t('common.share') }}</text>
         </view>
         <view class="meta-row__share" @click="showPoster = true">
           <text class="meta-row__icon">▣</text>
-          <text class="meta-row__text">海报</text>
+          <text class="meta-row__text">{{ t('productDetail.poster') }}</text>
         </view>
         <view class="meta-row__item" v-if="salesCountText">
           <text class="meta-row__text">{{ t('product.sold') }} {{ salesCountText }}</text>
@@ -39,16 +39,16 @@
 
       <!-- 已选规格入口 -->
       <view class="sku-entry" @click="openSku()">
-        <text class="sku-entry__label">已选</text>
-        <text class="sku-entry__value">{{ pickedSummary }} · 1 件</text>
+        <text class="sku-entry__label">{{ t('sku.picked') }}</text>
+        <text class="sku-entry__value">{{ pickedSummary }} · 1 {{ t('sku.pieces') }}</text>
         <text class="sku-entry__arrow">›</text>
       </view>
     </view>
     <!-- 超值加价购：券价随主订单结算 -->
     <view v-if="addonCoupons.length" class="addon-block">
       <view class="addon-block__head">
-        <text class="addon-block__title">超值加价购</text>
-        <text class="addon-block__sub">券价随订单一起结算</text>
+        <text class="addon-block__title">{{ t('productDetail.addonTitle') }}</text>
+        <text class="addon-block__sub">{{ t('productDetail.addonSub') }}</text>
       </view>
       <view
         v-for="b in addonCoupons"
@@ -60,14 +60,14 @@
           <view class="addon-row__amount">
             <text v-if="addonType(b) === 'FIXED' || addonType(b) === 'FULL'" class="addon-row__cny">¥</text>
             <text class="addon-row__value">{{ addonAmount(b) }}</text>
-            <text v-if="addonType(b) === 'PERCENT'" class="addon-row__cny">折</text>
+            <text v-if="addonType(b) === 'PERCENT'" class="addon-row__cny">{{ percentOffText(b) }}</text>
           </view>
           <text class="addon-row__cond">{{ addonCondition(b) }}</text>
         </view>
         <view class="addon-row__mid">
           <view class="addon-row__name">
             <text>{{ b.promoTitle || b.template?.name }}</text>
-            <text class="addon-row__tag">加价购</text>
+            <text class="addon-row__tag">{{ t('productDetail.addonTag') }}</text>
           </view>
           <text class="addon-row__meta">{{ addonValidity(b) }}</text>
         </view>
@@ -77,8 +77,8 @@
           :disabled="!!attachingTplId"
           @click="isAddonAttached(b) ? detachAddon(b) : attachAddon(b)"
         >
-          <block v-if="isAddonAttached(b)">已换购<text class="addon-row__btn-sub">点击移除</text></block>
-          <block v-else>+{{ yuan(b.template?.salePrice) }}元<text class="addon-row__btn-sub">立即换购</text></block>
+          <block v-if="isAddonAttached(b)">{{ t('productDetail.addonAttached') }}<text class="addon-row__btn-sub">{{ t('productDetail.tapRemove') }}</text></block>
+          <block v-else>{{ t('productDetail.addonBuyAmount', { price: yuan(b.template?.salePrice) }) }}<text class="addon-row__btn-sub">{{ t('productDetail.addonBuyText') }}</text></block>
         </button>
       </view>
     </view>
@@ -109,11 +109,11 @@
       <MpHtml v-if="descHtml" :content="descHtml" class="rich__mp" />
     </view>
     <view class="product-detail__bar">
-      <view class="bar-ico" @click="contactService"><text class="bar-ico__g">☎</text><text class="bar-ico__t">客服</text></view>
-      <view class="bar-ico" @click="onFavorite"><text class="bar-ico__g" :class="{ 'bar-ico__g--fav': isFavorited }">{{ isFavorited ? '♥' : '♡' }}</text><text class="bar-ico__t">{{ isFavorited ? '已收藏' : '收藏' }}</text></view>
-      <view class="bar-ico" @click="goCart"><text class="bar-ico__g">🛒</text><text class="bar-ico__t">购物车</text></view>
-      <button class="product-detail__cart-btn" @click="openSku('cart')">加入购物车</button>
-      <button class="product-detail__buy-btn" @click="openSku('buy')">立即购买</button>
+      <view class="bar-ico" @click="contactService"><text class="bar-ico__g">☎</text><text class="bar-ico__t">{{ t('productDetail.barService') }}</text></view>
+      <view class="bar-ico" @click="onFavorite"><text class="bar-ico__g" :class="{ 'bar-ico__g--fav': isFavorited }">{{ isFavorited ? '♥' : '♡' }}</text><text class="bar-ico__t">{{ isFavorited ? t('productDetail.favorited') : t('productDetail.favorite') }}</text></view>
+      <view class="bar-ico" @click="goCart"><text class="bar-ico__g">🛒</text><text class="bar-ico__t">{{ t('productDetail.cartLabel') }}</text></view>
+      <button class="product-detail__cart-btn" @click="openSku('cart')">{{ t('product.addToCart') }}</button>
+      <button class="product-detail__buy-btn" @click="openSku('buy')">{{ t('product.buyNow') }}</button>
     </view>
 
     <SkuSheet
@@ -125,9 +125,9 @@
 
     <view v-if="showPriceNote" class="note-mask" @click.self="showPriceNote = false">
       <view class="note-sheet">
-        <text class="note-sheet__title">价格说明</text>
-        <text class="note-sheet__body">划线价为商品参考价，非原价；实际成交价以订单结算页为准。秒杀价仅在活动期间且订单已应用活动时生效。</text>
-        <text class="note-sheet__ok" @click="showPriceNote = false">知道了</text>
+        <text class="note-sheet__title">{{ t('productDetail.priceNote') }}</text>
+        <text class="note-sheet__body">{{ t('productDetail.priceNoteBody') }}</text>
+        <text class="note-sheet__ok" @click="showPriceNote = false">{{ t('productDetail.gotIt') }}</text>
       </view>
     </view>
 
@@ -218,13 +218,13 @@ const originPrice = computed(() => {
 // ── 会员价标签（仅展示）：登录后按等级×分类命中 MemberPriceRule；不改价格链路 ──
 const memberPrice = ref<{ applied: boolean; discountPercent: number | null } | null>(null);
 
-/** discountPercent 语义：95 = 95 折 → 展示「会员9.5折」 */
+/** discountPercent 语义：95 = 95 折 → zh 展示「会员9.5折」，其余语言用百分比 off */
 const memberPriceLabel = computed(() => {
     const dp = memberPrice.value;
     if (!dp?.applied || !dp.discountPercent || dp.discountPercent >= 100) return '';
     const zhe = dp.discountPercent / 10;
     const zheText = zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
-    return `会员${zheText}折`;
+    return t('productDetail.memberDiscount', { zhe: zheText, off: Math.round(100 - dp.discountPercent) });
 });
 
 /** 折后参考价（当前变体价 × 折扣，向下取整到分），仅参考、以结算页为准 */
@@ -266,8 +266,8 @@ const pickedSummary = computed(() => {
         .filter(Boolean);
     if (names.length) return names.join(' / ');
     // 单规格商品（无规格组）没有「未选」状态：与 SkuSheet.pickedText 同口径，取当前变体名
-    if (!(product.value?.optionGroups || []).length) return selectedVariant.value?.name || '请选择规格';
-    return '请选择规格';
+    if (!(product.value?.optionGroups || []).length) return selectedVariant.value?.name || t('sku.pleasePick');
+    return t('sku.pleasePick');
 });
 
 /** variantId → 规格文案（如「红色 / L」），供 ReviewItem 展示规格行 */
@@ -306,14 +306,14 @@ async function addVariant(variantId: string, quantity: number) {
         }
         const res: any = await getActiveOrder();
         if (res.activeOrder) cart.setOrder(res.activeOrder);
-        ui.showToast('已加入购物车', 'success');
+        ui.showToast(t('productDetail.addedToCart'), 'success');
     } catch (e: any) {
         ui.showToast(e.message);
     }
 }
 
 function contactService() {
-    ui.showToast('客服功能敬请期待');
+    ui.showToast(t('productDetail.serviceComingSoon'));
 }
 /** 收藏元信息（进入页面静默拉取，失败不阻塞商品主内容） */
 async function loadFavoriteMeta() {
@@ -329,7 +329,7 @@ async function loadFavoriteMeta() {
 async function onFavorite() {
     if (!product.value?.id) return;
     if (!auth.isLoggedIn) {
-        uni.showToast({ title: '请先登录', icon: 'none' });
+        uni.showToast({ title: t('pointsGoods.loginFirst'), icon: 'none' });
         uni.navigateTo({ url: '/pages/login/index' });
         return;
     }
@@ -342,18 +342,18 @@ async function onFavorite() {
         const r: any = await toggleProductFavorite(pid);
         isFavorited.value = !!r?.toggleProductFavorite?.favorited;
         favoriteCount.value = r?.toggleProductFavorite?.favoriteCount ?? favoriteCount.value;
-        uni.showToast({ title: next ? '收藏成功' : '已取消收藏', icon: 'none' });
+        uni.showToast({ title: next ? t('pointsGoods.favoriteSuccess') : t('pointsGoods.favoriteRemoved'), icon: 'none' });
     } catch (e: any) {
         isFavorited.value = !next;
         favoriteCount.value = Math.max(0, favoriteCount.value + (next ? -1 : 1));
-        uni.showToast({ title: e?.response?.errors?.[0]?.message || e?.message || '操作失败', icon: 'none' });
+        uni.showToast({ title: e?.response?.errors?.[0]?.message || e?.message || t('pointsGoods.operationFailed'), icon: 'none' });
     }
 }
 function goCart() {
     uni.switchTab({ url: '/pages/cart/index' });
 }
 function shareNow() {
-    ui.showToast('请点击右上角分享');
+    ui.showToast(t('productDetail.shareTip'));
 }
 
 onMounted(async () => {
@@ -388,8 +388,8 @@ onMounted(async () => {
         shopIntro: tenant.shopIntro || '',
         origin: window.location.origin,
         defaultImage: '/static/share-default.jpg',
-        defaultTitle: 'Youshop - 精选好物',
-        defaultDesc: '精选好物推荐',
+        defaultTitle: t('productDetail.shareTitle'),
+        defaultDesc: t('productDetail.shareDesc'),
       });
       useProductShare(meta.title, slug, meta.imgUrl, meta.desc);
     }
@@ -488,14 +488,14 @@ async function attachAddon(b: any) {
     try {
         const orderId = await ensureOrderId();
         if (!orderId) {
-            ui.showToast('请先将商品加入购物车');
+            ui.showToast(t('productDetail.cartFirst'));
             return;
         }
         await attachCouponToOrder(orderId, tplId);
         const next = new Set(attachedTplIds.value);
         next.add(tplId);
         attachedTplIds.value = next;
-        ui.showToast('已加入订单，随单结算', 'success');
+        ui.showToast(t('productDetail.addonAttachOk'), 'success');
     } catch (e: any) {
         ui.showToast(couponErrorMessage(e));
     }
@@ -512,7 +512,7 @@ async function detachAddon(b: any) {
         const next = new Set(attachedTplIds.value);
         next.delete(tplId);
         attachedTplIds.value = next;
-        ui.showToast('已移除加价购券', 'success');
+        ui.showToast(t('productDetail.addonDetachOk'), 'success');
     } catch (e: any) {
         ui.showToast(couponErrorMessage(e));
     }
@@ -530,7 +530,7 @@ function addonType(b: any): string {
 
 function addonAmount(b: any): string {
     const tpl = b.template || {};
-    if (tpl.type === 'FREE_SHIPPING') return '免邮';
+    if (tpl.type === 'FREE_SHIPPING') return t('productDetail.freeShipping');
     if (tpl.type === 'PERCENT') {
         const zhe = (tpl.discountValue || 0) / 10;
         return zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
@@ -538,12 +538,20 @@ function addonAmount(b: any): string {
     return ((tpl.discountValue || 0) / 100).toString();
 }
 
+/** PERCENT 型折扣展示：中文习惯「9.5折」，其余语言换算为百分比 off（95 折 → 5% off） */
+function percentOffText(b: any): string {
+    const dv = b.template?.discountValue || 0;
+    const zhe = dv / 10;
+    const zheText = zhe % 1 === 0 ? zhe.toString() : zhe.toFixed(1);
+    return t('productDetail.percentOff', { zhe: zheText, off: Math.round(100 - dv) });
+}
+
 function addonCondition(b: any): string {
     const tpl = b.template || {};
     const minSpend = tpl.minSpend ? tpl.minSpend / 100 : 0;
-    if (tpl.type === 'FREE_SHIPPING') return '免配送费';
-    if (!minSpend) return '无门槛';
-    return `满${minSpend}可用`;
+    if (tpl.type === 'FREE_SHIPPING') return t('productDetail.freeDelivery');
+    if (!minSpend) return t('productDetail.noThreshold');
+    return t('productDetail.spendThreshold', { amount: minSpend });
 }
 
 function addonValidity(b: any): string {
@@ -553,9 +561,9 @@ function addonValidity(b: any): string {
         const d = new Date(tpl.endsAt);
         const p = (n: number) => String(n).padStart(2, '0');
         const end = Number.isNaN(d.getTime()) ? String(tpl.endsAt).slice(0, 10) : `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-        return `有效期至 ${end}`;
+        return t('productDetail.validUntil', { date: end });
     }
-    if (tpl.validDays) return `领取后${tpl.validDays}天有效`;
+    if (tpl.validDays) return t('productDetail.validDays', { days: tpl.validDays });
     return '';
 }
 

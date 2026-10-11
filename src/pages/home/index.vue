@@ -12,6 +12,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { onPageScroll } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 import { useAuthStore } from '../../stores/auth';
 import { useShare } from '../../composables/useShare';
@@ -22,6 +23,7 @@ import DynamicHome from '../../templates/shared/DynamicHome.vue';
 import TenantBar from '../../components/TenantBar.vue';
 import BackTop from '../../components/BackTop.vue';
 
+const { t } = useI18n();
 const tenantStore = useTenantStore();
 const authStore = useAuthStore();
 const { templateCode } = tenantStore;
@@ -29,7 +31,7 @@ const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
 const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
 useShare({
-    title: `${channelName.value} - 精选好物`,
+    title: `${channelName.value} - ${t('home.shareTitle')}`,
     path: inviteCode.value ? `/?ref=${inviteCode.value}` : '/',
 });
 

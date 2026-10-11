@@ -1,10 +1,10 @@
 <template>
   <view class="product-list-page">
-    <SearchBar :model-value="searchTerm" @search="onSearch" placeholder="搜索商品" />
+    <SearchBar :model-value="searchTerm" @search="onSearch" :placeholder="t('productList.searchPlaceholder')" />
     <view class="list-toolbar">
-      <text class="list-toolbar__title">商品列表</text>
+      <text class="list-toolbar__title">{{ t('productList.title') }}</text>
       <view class="list-toolbar__toggle" @tap="toggleView">
-        <text>{{ viewMode === 'grid' ? '瀑布流' : '双列' }}</text>
+        <text>{{ viewMode === 'grid' ? t('productList.waterfall') : t('productList.doubleColumn') }}</text>
       </view>
     </view>
     <scroll-view class="product-list-page__scroll" scroll-y @scrolltolower="loadMore" refresher-enabled @refresherrefresh="onRefresh" :refresher-triggered="refreshing">
@@ -32,8 +32,8 @@
       </view>
       <view class="product-list-page__footer">
         <LoadingSkeleton v-if="loading" type="product" :count="4" />
-        <text v-else-if="!hasMore && products.length > 0" class="footer-text">没有更多了</text>
-        <EmptyState v-if="!loading && products.length === 0" text="暂无商品" />
+        <text v-else-if="!hasMore && products.length > 0" class="footer-text">{{ t('common.noMore') }}</text>
+        <EmptyState v-if="!loading && products.length === 0" :text="t('productList.noProducts')" />
       </view>
     </scroll-view>
   </view>
@@ -41,12 +41,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
+import { useI18n } from 'vue-i18n';
 import { searchProducts } from '../../api/queries/product';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 import SearchBar from '../../components/SearchBar.vue';
+const { t } = useI18n();
 const products = ref<any[]>([]);
 const loading = ref(false);
 const hasMore = ref(true);

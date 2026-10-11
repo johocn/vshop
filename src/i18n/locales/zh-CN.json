@@ -86,11 +86,14 @@
         "coupons": "优惠券",
         "recharge": "充值",
         "recommend": "推荐商品",
-        "newArrival": "新品上架"
+        "newArrival": "新品上架",
+        "shareTitle": "精选好物"
     },
     "category": {
         "title": "分类",
-        "all": "全部"
+        "all": "全部",
+        "noSubCategories": "暂无子分类",
+        "noProducts": "暂无商品"
     },
     "cart": {
         "title": "购物车",
@@ -99,7 +102,17 @@
         "selectAll": "全选",
         "total": "合计",
         "checkout": "去结算",
-        "quantity": "数量"
+        "quantity": "数量",
+        "guestTip": "当前未授权，登录后查看购物车",
+        "goLogin": "去登录",
+        "itemCount": "{n} 件",
+        "delisted": "已下架",
+        "recommend": "为你推荐",
+        "checkoutCount": "结算 ({n})",
+        "restoreFail": "{n} 件商品库存不足，未能恢复",
+        "delistedTip": "该商品已下架，请删除",
+        "removeConfirm": "确定删除该商品?",
+        "removed": "已删除"
     },
     "product": {
         "addToCart": "加入购物车",
@@ -110,6 +123,51 @@
         "sold": "已售",
         "stock": "库存",
         "pointsReward": "可得 {n} 积分"
+    },
+    "productDetail": {
+        "flashBadge": "秒杀价",
+        "priceNote": "价格说明",
+        "priceNoteBody": "划线价为商品参考价，非原价；实际成交价以订单结算页为准。秒杀价仅在活动期间且订单已应用活动时生效。",
+        "gotIt": "知道了",
+        "poster": "海报",
+        "addonTitle": "超值加价购",
+        "addonSub": "券价随订单一起结算",
+        "percentOff": "{zhe}折",
+        "addonTag": "加价购",
+        "addonBuyAmount": "+{price}元",
+        "addonBuyText": "立即换购",
+        "addonAttached": "已换购",
+        "tapRemove": "点击移除",
+        "barService": "客服",
+        "favorite": "收藏",
+        "favorited": "已收藏",
+        "cartLabel": "购物车",
+        "memberDiscount": "会员{zhe}折",
+        "memberRefPrice": "约¥{price}",
+        "addedToCart": "已加入购物车",
+        "serviceComingSoon": "客服功能敬请期待",
+        "shareTip": "请点击右上角分享",
+        "shareTitle": "Youshop - 精选好物",
+        "shareDesc": "精选好物推荐",
+        "cartFirst": "请先将商品加入购物车",
+        "addonAttachOk": "已加入订单，随单结算",
+        "addonDetachOk": "已移除加价购券",
+        "freeShipping": "免邮",
+        "freeDelivery": "免配送费",
+        "noThreshold": "无门槛",
+        "spendThreshold": "满{amount}可用",
+        "validUntil": "有效期至 {date}",
+        "validDays": "领取后{days}天有效"
+    },
+    "productEvaluate": {
+        "loadFailed": "加载失败"
+    },
+    "productList": {
+        "searchPlaceholder": "搜索商品",
+        "title": "商品列表",
+        "waterfall": "瀑布流",
+        "doubleColumn": "双列",
+        "noProducts": "暂无商品"
     },
     "order": {
         "title": "我的订单",
@@ -462,6 +520,13 @@
         "deleted": "已删除",
         "defaultSet": "已设为默认"
     },
+    "invite": {
+        "inviteTitle": "{name} 邀你一起逛商城",
+        "refCode": "推荐码：{code}",
+        "defaultInviter": "好友",
+        "goShopping": "进商城逛逛",
+        "bindHint": "登录后绑定推荐关系"
+    },
     "invoiceTitles": {
         "empty": "暂无抬头，点下方新增",
         "defaultTag": "默认",
@@ -647,6 +712,26 @@
         "contentRequired": "请填写问题描述",
         "submitted": "反馈已提交，感谢您的意见",
         "failed": "提交失败"
+    },
+    "register": {
+        "phoneTab": "手机注册",
+        "emailTab": "邮箱注册",
+        "emailPlaceholder": "请输入邮箱地址",
+        "passwordPlaceholder": "设置密码（6-20位）",
+        "registering": "注册中...",
+        "submit": "注册",
+        "hasAccount": "已有账号？去登录",
+        "phoneInvalid": "手机号格式错误",
+        "sendFailed": "发送失败",
+        "fillAll": "请填写完整信息",
+        "emailInvalid": "邮箱格式错误",
+        "passwordLength": "密码长度6-20位",
+        "success": "注册成功",
+        "failed": "注册失败",
+        "errMissingPassword": "请设置密码",
+        "errPasswordInvalid": "密码不符合要求",
+        "errAuthStrategy": "账号注册方式不可用",
+        "errEmailConflict": "该邮箱已注册"
     },
     "logistics": {
         "empty": "暂无物流信息",
