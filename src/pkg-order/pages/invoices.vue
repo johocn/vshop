@@ -2,24 +2,24 @@
   <view class="invoice-list">
     <view v-if="invoices.length === 0" class="empty">
       <text>A02</text>
-      <text class="empty__text">暂无发票记录，可在订单详情申请开票</text>
+      <text class="empty__text">{{ t('invoices.empty') }}</text>
     </view>
     <view v-else class="invoice-card" v-for="inv in invoices" :key="inv.id">
       <view class="invoice-card__head">
-        <text class="invoice-card__type">{{ inv.invoiceType === 'special' ? '专用发票' : '普通发票' }}</text>
+        <text class="invoice-card__type">{{ inv.invoiceType === 'special' ? t('invoiceApply.typeSpecial') : t('invoiceApply.typeOrdinary') }}</text>
         <text class="invoice-card__status" :class="'status--' + inv.status">{{ statusText(inv.status) }}</text>
       </view>
       <view class="invoice-card__body">
         <text class="invoice-card__title">{{ inv.title }}</text>
-        <text v-if="inv.taxNumber" class="invoice-card__tax">税号 {{ inv.taxNumber }}</text>
-        <text class="invoice-card__amount">价税合计 ¥{{ (inv.amount / 100).toFixed(2) }}</text>
+        <text v-if="inv.taxNumber" class="invoice-card__tax">{{ t('invoiceTitles.taxNoLabel') }} {{ inv.taxNumber }}</text>
+        <text class="invoice-card__amount">{{ t('invoices.totalAmount', { amount: (inv.amount / 100).toFixed(2) }) }}</text>
         <text v-if="inv.totals" class="invoice-card__split">
-          不含税 ¥{{ (inv.totals.totalExcludingTax / 100).toFixed(2) }} / 税额 ¥{{ (inv.totals.totalTax / 100).toFixed(2) }}
+          {{ t('invoices.taxSplit', { ex: (inv.totals.totalExcludingTax / 100).toFixed(2), tax: (inv.totals.totalTax / 100).toFixed(2) }) }}
         </text>
-        <text class="invoice-card__no" v-if="inv.invoiceNo || inv.providerInvoiceNo">发票号 {{ inv.invoiceNo || inv.providerInvoiceNo }}</text>
-        <text class="invoice-card__time">申请时间 {{ formatTime(inv.createdAt) }}</text>
+        <text class="invoice-card__no" v-if="inv.invoiceNo || inv.providerInvoiceNo">{{ t('invoices.invoiceNo', { no: inv.invoiceNo || inv.providerInvoiceNo }) }}</text>
+        <text class="invoice-card__time">{{ t('invoices.applyTime', { time: formatTime(inv.createdAt) }) }}</text>
         <view class="invoice-card__lines" v-if="inv.lines && inv.lines.length">
-          <view class="lines-toggle" @click="toggleLines(inv.id)">明细（{{ inv.lines.length }} 项）{{ openLines[inv.id] ? '收起' : '展开' }}</view>
+          <view class="lines-toggle" @click="toggleLines(inv.id)">{{ t('invoices.linesCount', { n: inv.lines.length }) }}{{ openLines[inv.id] ? t('review.collapse') : t('review.expand') }}</view>
           <view class="lines-body" v-if="openLines[inv.id]">
             <view class="line-row" v-for="(l, i) in inv.lines" :key="i">
               <view class="line-row__main">
@@ -28,28 +28,31 @@
               </view>
               <view class="line-row__amt">
                 <text>¥{{ (l.amountWithTax / 100).toFixed(2) }}</text>
-                <text class="line-row__tax">税率 {{ l.taxRate }}% / 税额 ¥{{ (l.taxAmount / 100).toFixed(2) }}</text>
+                <text class="line-row__tax">{{ t('invoices.taxRateAmount', { rate: l.taxRate, tax: (l.taxAmount / 100).toFixed(2) }) }}</text>
               </view>
             </view>
           </view>
         </view>
       </view>
       <view class="invoice-card__actions">
-        <button v-if="inv.pdfUrl && inv.status === 'issued'" class="card-btn card-btn--primary" @click="download(inv)">下载 PDF</button>
-        <text v-else-if="inv.status === 'pending'" class="card-btn-hint">待后台开票</text>
-        <text v-else-if="inv.status === 'reversed'" class="card-btn-hint">已冲红</text>
+        <button v-if="inv.pdfUrl && inv.status === 'issued'" class="card-btn card-btn--primary" @click="download(inv)">{{ t('invoices.downloadPdf') }}</button>
+        <text v-else-if="inv.status === 'pending'" class="card-btn-hint">{{ t('invoices.pendingIssue') }}</text>
+        <text v-else-if="inv.status === 'reversed'" class="card-btn-hint">{{ t('invoices.reversed') }}</text>
       </view>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getMyInvoices } from '../../api/queries/invoice';
 import { downloadInvoicePdf } from '../../api/mutations/invoice';
+const { t } = useI18n();
 const invoices = ref<any[]>([]);
 const openLines = ref<Record<string, boolean>>({});
-const statusMap: Record<string, string> = { pending: '待开票', issued: '已开票', reversed: '已冲红' };
-function statusText(s: string) { return statusMap[s] || s; }
+// 发票状态 → i18n key
+const STATUS_KEY: Record<string, string> = { pending: 'invoices.statusPending', issued: 'invoices.statusIssued', reversed: 'invoices.statusReversed' };
+function statusText(s: string) { const k = STATUS_KEY[s]; return k ? t(k) : s; }
 function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
 function toggleLines(id: string) { openLines.value[id] = !openLines.value[id]; }
 
@@ -61,21 +64,21 @@ async function download(inv: any) {
     try {
         const res: any = await downloadInvoicePdf(inv.id);
         const url = res?.downloadInvoicePdf?.pdfUrl;
-        if (!url) { uni.showToast({ title: '无可用PDF', icon: 'none' }); return; }
+        if (!url) { uni.showToast({ title: t('invoices.noPdf'), icon: 'none' }); return; }
         const apiBase = (import.meta.env?.VITE_API_URL || 'http://localhost:3000');
         const abs = url.startsWith('http') ? url : apiBase + '/' + url.replace(/^\/+/, '');
-        uni.showLoading({ title: '下载中' });
+        uni.showLoading({ title: t('invoices.downloading') });
         uni.downloadFile({
             url: abs,
             success: (r: any) => {
                 uni.hideLoading();
                 if (r.statusCode === 200) {
-                    uni.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => uni.showToast({ title: '暂无预览工具', icon: 'none' }) });
-                } else { uni.showToast({ title: '下载失败', icon: 'none' }); }
+                    uni.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => uni.showToast({ title: t('invoices.noPreview'), icon: 'none' }) });
+                } else { uni.showToast({ title: t('invoices.downloadFailed'), icon: 'none' }); }
             },
-            fail: () => { uni.hideLoading(); uni.showToast({ title: '下载失败', icon: 'none' }); },
+            fail: () => { uni.hideLoading(); uni.showToast({ title: t('invoices.downloadFailed'), icon: 'none' }); },
         });
-    } catch (e: any) { uni.showToast({ title: e?.message || '下载失败', icon: 'none' }); }
+    } catch (e: any) { uni.showToast({ title: e?.message || t('invoices.downloadFailed'), icon: 'none' }); }
 }
 </script>
 <style lang="scss" scoped>

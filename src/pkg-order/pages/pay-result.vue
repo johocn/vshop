@@ -6,30 +6,32 @@
       <text v-else style="font-size: 120rpx;">❌</text>
     </view>
     <text class="pay-result__title">{{ statusText }}</text>
-    <text v-if="status === 'pending'" class="pay-result__hint">支付确认中，如已扣款稍后自动到账</text>
-    <text v-if="orderCodes.length === 1" class="pay-result__code">订单号: {{ orderCodes[0] }}</text>
+    <text v-if="status === 'pending'" class="pay-result__hint">{{ t('payResult.confirmHint') }}</text>
+    <text v-if="orderCodes.length === 1" class="pay-result__code">{{ t('order.orderNo') }}: {{ orderCodes[0] }}</text>
     <view v-else class="pay-result__codes">
-      <text class="pay-result__codes-title">本次共生成 {{ orderCodes.length }} 笔订单</text>
+      <text class="pay-result__codes-title">{{ t('payResult.ordersCount', { n: orderCodes.length }) }}</text>
       <view v-for="code in orderCodes" :key="code" class="pay-result__code-item">
-        <text>订单号: {{ code }}</text>
+        <text>{{ t('order.orderNo') }}: {{ code }}</text>
         <text class="pay-result__code-state">{{ stateLabel(code) }}</text>
-        <text class="pay-result__code-link" @click="viewOrder(code)">查看</text>
+        <text class="pay-result__code-link" @click="viewOrder(code)">{{ t('payResult.view') }}</text>
       </view>
     </view>
     <view class="pay-result__actions">
       <button class="btn-primary" @click="viewOrder(orderCodes[0] || '')">{{ primaryLabel }}</button>
-      <button class="btn-secondary" @click="goHome">继续购物</button>
+      <button class="btn-secondary" @click="goHome">{{ t('payResult.continueShopping') }}</button>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app';
 import { useCartStore } from '../../stores/cart';
 import { addItemToOrder } from '../../api/mutations/cart';
 import { getOrderByCode } from '../../api/queries/order';
 
+const { t } = useI18n();
 const cart = useCartStore();
 
 const SETTLED_STATES = ['PaymentSettled', 'Complete', 'Delivered', 'Shipped'];
@@ -45,21 +47,21 @@ let attempts = 0;
 
 const statusText = computed(() => {
     switch (status.value) {
-        case 'success': return '支付成功';
-        case 'pending': return timedOut.value ? '支付确认中' : '等待支付确认';
-        default: return '支付失败';
+        case 'success': return t('payment.paySuccess');
+        case 'pending': return timedOut.value ? t('payResult.confirming') : t('payment.payPending');
+        default: return t('payment.payFailed');
     }
 });
 
 /** pending 态主按钮变「继续支付」：跳订单详情，详情页已有「去支付」按钮 */
-const primaryLabel = computed(() => (status.value === 'pending' ? '继续支付' : '查看订单'));
+const primaryLabel = computed(() => (status.value === 'pending' ? t('pointsGoods.continuePay') : t('payResult.viewOrder')));
 
 function stateLabel(code: string): string {
     const st = orderStates.value[code];
-    if (!st) return '查询中';
-    if (SETTLED_STATES.includes(st)) return '已支付';
-    if (st === 'Cancelled') return '已取消';
-    return '待支付';
+    if (!st) return t('payResult.querying');
+    if (SETTLED_STATES.includes(st)) return t('payResult.paid');
+    if (st === 'Cancelled') return t('order.cancelled');
+    return t('order.pending');
 }
 
 /** 全部结算 → success；任一取消 → fail；否则 false（继续轮询） */

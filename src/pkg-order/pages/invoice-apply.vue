@@ -1,54 +1,54 @@
 <template>
   <view class="invoice-apply">
     <view class="form-card">
-      <view class="form-title">抬头类型</view>
+      <view class="form-title">{{ t('invoiceApply.titleType') }}</view>
       <view class="type-tabs">
         <view
           class="type-tab"
           :class="{ 'type-tab--active': form.invoiceType === 'ordinary' }"
           @click="form.invoiceType = 'ordinary'"
-        >普通发票</view>
+        >{{ t('invoiceApply.typeOrdinary') }}</view>
         <view
           class="type-tab"
           :class="{ 'type-tab--active': form.invoiceType === 'special' }"
           @click="form.invoiceType = 'special'"
-        >专用发票</view>
+        >{{ t('invoiceApply.typeSpecial') }}</view>
       </view>
     </view>
 
     <view class="form-card" v-if="titles.length">
-      <view class="form-title">选择抬头</view>
+      <view class="form-title">{{ t('invoiceApply.selectTitle') }}</view>
       <view
-        v-for="t in titles"
-        :key="t.id"
+        v-for="tit in titles"
+        :key="tit.id"
         class="title-item"
-        :class="{ 'title-item--active': selectedTitleId === t.id }"
-        @click="selectTitle(t)"
+        :class="{ 'title-item--active': selectedTitleId === tit.id }"
+        @click="selectTitle(tit)"
       >
         <view class="title-item__main">
-          <text class="title-item__name">{{ t.title }}</text>
-          <text v-if="t.taxNumber" class="title-item__tax">税号 {{ t.taxNumber }}</text>
-          <text v-if="t.email" class="title-item__email">接收邮箱 {{ t.email }}</text>
+          <text class="title-item__name">{{ tit.title }}</text>
+          <text v-if="tit.taxNumber" class="title-item__tax">{{ t('invoiceTitles.taxNoLabel') }} {{ tit.taxNumber }}</text>
+          <text v-if="tit.email" class="title-item__email">{{ t('invoiceTitles.emailFieldLabel') }} {{ tit.email }}</text>
         </view>
-        <text v-if="t.isDefault" class="title-item__default">默认</text>
-        <text v-else class="title-item__check" :class="{ 'is-on': selectedTitleId === t.id }"></text>
+        <text v-if="tit.isDefault" class="title-item__default">{{ t('invoiceTitles.defaultTag') }}</text>
+        <text v-else class="title-item__check" :class="{ 'is-on': selectedTitleId === tit.id }"></text>
       </view>
-      <view class="title-add" @click="goManageTitles">管理抬头 +</view>
+      <view class="title-add" @click="goManageTitles">{{ t('invoiceApply.manageTitles') }}</view>
     </view>
 
     <view class="form-card" v-if="!selectedTitleId">
-      <view class="form-title">抬头信息</view>
-      <view class="field"><text class="field__label">抬头名称 *</text><input class="field__input" v-model="form.title" placeholder="个人 / 公司名称" /></view>
-      <view class="field"><text class="field__label">税号</text><input class="field__input" v-model="form.taxNumber" placeholder="企业税号" /></view>
-      <view class="field"><text class="field__label">接收邮箱</text><input class="field__input" v-model="form.email" placeholder="电子发票接收邮箱" type="text" /></view>
-      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">开户行</text><input class="field__input" v-model="form.bankName" placeholder="开户行" /></view>
-      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">银行账号</text><input class="field__input" v-model="form.bankAccount" placeholder="银行账号" /></view>
-      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">注册地址</text><input class="field__input" v-model="form.companyAddress" placeholder="注册地址" /></view>
-      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">注册电话</text><input class="field__input" v-model="form.companyPhone" placeholder="注册电话" /></view>
+      <view class="form-title">{{ t('invoiceApply.titleInfo') }}</view>
+      <view class="field"><text class="field__label">{{ t('invoiceTitles.titleLabel') }} *</text><input class="field__input" v-model="form.title" :placeholder="t('invoiceTitles.titlePlaceholder')" /></view>
+      <view class="field"><text class="field__label">{{ t('invoiceTitles.taxNumberLabel') }}</text><input class="field__input" v-model="form.taxNumber" :placeholder="t('invoiceTitles.taxNumberPlaceholder')" /></view>
+      <view class="field"><text class="field__label">{{ t('invoiceTitles.emailFieldLabel') }}</text><input class="field__input" v-model="form.email" :placeholder="t('invoiceTitles.emailPlaceholder')" type="text" /></view>
+      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">{{ t('invoiceApply.bankNameLabel') }}</text><input class="field__input" v-model="form.bankName" :placeholder="t('invoiceApply.bankNameLabel')" /></view>
+      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">{{ t('invoiceApply.bankAccountLabel') }}</text><input class="field__input" v-model="form.bankAccount" :placeholder="t('invoiceApply.bankAccountLabel')" /></view>
+      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">{{ t('invoiceApply.companyAddressLabel') }}</text><input class="field__input" v-model="form.companyAddress" :placeholder="t('invoiceApply.companyAddressLabel')" /></view>
+      <view class="field" v-if="form.invoiceType === 'special'"><text class="field__label">{{ t('invoiceApply.companyPhoneLabel') }}</text><input class="field__input" v-model="form.companyPhone" :placeholder="t('invoiceApply.companyPhoneLabel')" /></view>
     </view>
 
     <view class="form-card">
-      <view class="form-title">开票订单</view>
+      <view class="form-title">{{ t('invoiceApply.ordersTitle') }}</view>
       <view class="order-item" v-for="o in orders" :key="o.id">
         <text class="order-item__code">{{ o.code }}</text>
         <text class="order-item__amount">¥{{ (o.totalWithTax / 100).toFixed(2) }}</text>
@@ -56,14 +56,16 @@
     </view>
 
     <view class="submit-wrap">
-      <button class="submit-btn" :loading="submitting" :disabled="submitting" @click="submit">提交开票申请</button>
+      <button class="submit-btn" :loading="submitting" :disabled="submitting" @click="submit">{{ t('invoiceApply.submit') }}</button>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { createInvoice } from '../../api/mutations/invoice';
 import { getMyInvoiceTitles } from '../../api/queries/invoice';
+const { t } = useI18n();
 const form = ref<any>({ invoiceType: 'ordinary', title: '', taxNumber: '', email: '', bankName: '', bankAccount: '', companyAddress: '', companyPhone: '' });
 const titles = ref<any[]>([]);
 const selectedTitleId = ref<string>('');
@@ -91,8 +93,8 @@ onMounted(async () => {
 });
 
 async function submit() {
-    if (!form.value.title) { uni.showToast({ title: '请填写抬头名称', icon: 'none' }); return; }
-    if (!orders.value.length) { uni.showToast({ title: '请选择开票订单', icon: 'none' }); return; }
+    if (!form.value.title) { uni.showToast({ title: t('invoiceTitles.titleRequired'), icon: 'none' }); return; }
+    if (!orders.value.length) { uni.showToast({ title: t('invoiceApply.orderRequired'), icon: 'none' }); return; }
     submitting.value = true;
     try {
         const input: any = { ...form.value, orderIds: orders.value.map((o: any) => o.id) };
@@ -100,13 +102,13 @@ async function submit() {
         if (selectedTitleId.value) input.invoiceTitleId = selectedTitleId.value;
         const res: any = await createInvoice(input);
         if (res?.createInvoice) {
-            uni.showToast({ title: '申请成功', icon: 'success' });
+            uni.showToast({ title: t('invoiceApply.success'), icon: 'success' });
             setTimeout(() => uni.navigateBack(), 800);
         } else {
-            uni.showToast({ title: '申请失败', icon: 'none' });
+            uni.showToast({ title: t('invoiceApply.failed'), icon: 'none' });
         }
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '申请失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('invoiceApply.failed'), icon: 'none' });
     } finally {
         submitting.value = false;
     }

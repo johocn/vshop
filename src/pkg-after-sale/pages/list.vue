@@ -1,17 +1,19 @@
 <template>
   <view class="after-sale-list">
     <view v-for="item in list" :key="item.id" class="as-card" @click="goDetail(item.id)">
-      <view class="as-card__header"><text>订单: {{ item.orderId }}</text><text class="as-card__state">{{ item.state }}</text></view>
+      <view class="as-card__header"><text>{{ t('afterSaleList.orderLabel') }}: {{ item.orderId }}</text><text class="as-card__state">{{ item.state }}</text></view>
       <text class="as-card__reason">{{ item.reason }}</text>
-      <text class="as-card__amount">退款: ¥{{ (item.refundAmount / 100).toFixed(2) }}</text>
+      <text class="as-card__amount">{{ t('afterSaleList.refundLabel') }}: ¥{{ (item.refundAmount / 100).toFixed(2) }}</text>
     </view>
-    <EmptyState v-if="list.length === 0" text="暂无售后记录" />
+    <EmptyState v-if="list.length === 0" :text="t('afterSaleList.empty')" />
   </view>
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getGraphQLClient } from '../../api/client';
 import EmptyState from '../../components/EmptyState.vue';
+const { t } = useI18n();
 const list = ref<any[]>([]);
 onMounted(async () => {
     try {

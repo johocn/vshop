@@ -1,25 +1,25 @@
 <template>
   <view class="payment-page">
     <view v-if="loading" class="pay-block">
-      <text class="pay-hint">加载中…</text>
+      <text class="pay-hint">{{ t('common.loading') }}</text>
     </view>
 
     <view v-else-if="blockedReason" class="pay-block">
       <text class="pay-hint">{{ blockedReason }}</text>
-      <button class="pay-btn" @click="backToOrder">返回订单</button>
+      <button class="pay-btn" @click="backToOrder">{{ t('payment.backToOrder') }}</button>
     </view>
 
     <template v-else>
       <view class="pay-order">
-        <view class="pay-order__row"><text>订单号</text><text>{{ order.code }}</text></view>
+        <view class="pay-order__row"><text>{{ t('order.orderNo') }}</text><text>{{ order.code }}</text></view>
         <view class="pay-order__row pay-order__row--total">
-          <text>应付金额</text>
+          <text>{{ t('payment.payableAmount') }}</text>
           <text class="pay-order__total">¥{{ (order.totalWithTax / 100).toFixed(2) }}</text>
         </view>
       </view>
 
       <view class="pay-methods">
-        <text class="pay-methods__title">选择支付方式</text>
+        <text class="pay-methods__title">{{ t('payment.selectMethod') }}</text>
         <view
           v-for="m in methods"
           :key="m.code"
@@ -30,23 +30,26 @@
           <text class="pay-method__name">{{ m.name }}</text>
           <text v-if="m.description" class="pay-method__desc">{{ m.description }}</text>
         </view>
-        <EmptyState v-if="methods.length === 0" text="暂无可用支付方式" />
+        <EmptyState v-if="methods.length === 0" :text="t('payment.noMethods')" />
       </view>
 
       <button class="pay-btn pay-btn--primary" :disabled="!selected || submitting" @click="pay">
-        {{ submitting ? '支付中…' : '立即支付' }}
+        {{ submitting ? t('payment.paying') : t('payment.payNow') }}
       </button>
     </template>
   </view>
 </template>
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { onLoad } from '@dcloudio/uni-app';
 import { getOrderByCode, getActiveOrder } from '../../api/queries/order';
 import { getEligiblePaymentMethods } from '../../api/queries/user';
 import { addPaymentToOrder, transitionOrderToState } from '../../api/mutations/checkout';
 import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
 import EmptyState from '../../components/EmptyState.vue';
+
+const { t } = useI18n();
 
 const PAYABLE_STATES = ['Created', 'AddingItems', 'ArrangingPayment'];
 
@@ -73,19 +76,19 @@ async function init() {
     loading.value = true;
     blockedReason.value = '';
     try {
-        if (!orderCode) { blockedReason.value = '缺少订单号'; return; }
+        if (!orderCode) { blockedReason.value = t('payment.missingOrderCode'); return; }
         const res: any = await getOrderByCode(orderCode);
         const o = res?.orderByCode;
-        if (!o) { blockedReason.value = '订单不存在'; return; }
+        if (!o) { blockedReason.value = t('payment.orderNotFound'); return; }
         order.value = o;
         if (!PAYABLE_STATES.includes(o.state)) {
-            blockedReason.value = '该订单当前状态不可支付';
+            blockedReason.value = t('payment.stateNotPayable');
             return;
         }
         const activeRes: any = await getActiveOrder();
         const active = activeRes?.activeOrder;
         if (!active || String(active.code) !== String(o.code)) {
-            blockedReason.value = '该订单已不在当前会话，无法继续支付，请重新下单';
+            blockedReason.value = t('payment.notActiveOrder');
             return;
         }
         if (o.state !== 'ArrangingPayment') {
@@ -95,7 +98,7 @@ async function init() {
         methods.value = (payRes?.eligiblePaymentMethods || []).filter((m: any) => m.isEligible);
         selected.value = methods.value[0]?.code || '';
     } catch (e: any) {
-        blockedReason.value = e?.message || '加载失败';
+        blockedReason.value = e?.message || t('payment.loadFailed');
     } finally {
         loading.value = false;
     }
@@ -110,17 +113,17 @@ async function pay() {
         const metadata: Record<string, any> = {};
         const payRes: any = await addPaymentToOrder(method, metadata);
         const o = payRes?.addPaymentToOrder;
-        if (!o || o.errorCode) throw new Error(o?.message || '支付失败');
+        if (!o || o.errorCode) throw new Error(o?.message || t('payment.payFailed'));
         if (o.state === 'PaymentSettled' || o.state === 'PaymentAuthorized') {
             // 即时结算类（balance-pay）必须真正 Settled 才算成功
-            if (method === 'balance-pay' && o.state !== 'PaymentSettled') throw new Error('余额支付未完成，请重试');
+            if (method === 'balance-pay' && o.state !== 'PaymentSettled') throw new Error(t('payment.balancePayIncomplete'));
             uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + encodeURIComponent(o.code) });
             return;
         }
         const lastPayment = o.payments?.[o.payments.length - 1];
         if (method === 'balance-pay') {
             const declined = lastPayment?.state === 'Declined';
-            throw new Error(declined ? (lastPayment.errorMessage || '余额不足，支付未完成') : '余额支付未完成，请重试');
+            throw new Error(declined ? (lastPayment.errorMessage || t('payment.balanceInsufficientPay')) : t('payment.balancePayIncomplete'));
         }
         const result = await handlePayment(method, {
             ...lastPayment,
@@ -130,10 +133,10 @@ async function pay() {
         if (result.success) {
             uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + encodeURIComponent(o.code) });
         } else {
-            uni.showToast({ title: result.message || '支付未完成', icon: 'none' });
+            uni.showToast({ title: result.message || t('payment.payIncomplete'), icon: 'none' });
         }
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '支付失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('payment.payFailed'), icon: 'none' });
     } finally {
         submitting.value = false;
     }
