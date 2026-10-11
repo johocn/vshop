@@ -119,5 +119,26 @@
 | `assets/points-orders.png` / `assets/points-orders-bottom.png` | 积分订单列表（三态） |
 | `assets/points-goods-list-v2.png` | 积分商品列表（登录态余额数字正常展示） |
 | `assets/favorites-list.png` | 我的收藏列表 |
+| `assets/points-mall-entry-i18n.png` | 积分兑换商城入口页（全部文案 i18n 化后渲染） |
+| `assets/points-orders-localtime.png` | 积分订单列表（兑换时间已按本地时区格式化） |
+| `assets/points-goods-list-error-retry.png` | 积分商品列表加载失败错误态（拦截 /shop-api 返回 500，展示「加载失败 + 重试」） |
 
-复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。
+复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成。
+
+---
+
+## 六、变更记录
+
+### 2026-10-11 前端修复轮（6 处）
+
+**C 端（vshop）**
+
+1. **积分订单时间本地化**：`points-orders.vue` 原直接截取 ISO 字符串（UTC，差 8 小时），改 `new Date()` 本地格式化 `YYYY-MM-DD HH:mm`（见 `assets/points-orders-localtime.png`）。
+2. **列表加载失败可重试**：`usePagination.ts` 新增导出 `error` ref（catch 赋值、成功清空）；积分商品列表 / 积分订单 / 我的收藏三页加错误态 UI（「加载失败 + 重试」按钮调 `refresh`，见 `assets/points-goods-list-error-retry.png`）。
+3. **积分兑换商城入口页 i18n**：`points-mall.vue` 硬编码中文（我的积分/兑换/无门槛使用/满¥x可用/确认兑换弹窗等）全部走 `pointsMall.*` 词条，zh-CN/zh-TW/en/ja/ko 五语言补齐，带 `{n}`/`{points}`/`{name}` 参数插值（见 `assets/points-mall-entry-i18n.png`）。
+
+**web-admin**
+
+4. **积分商品列表分页**：原 `take: 100` 硬截断，改为分页条（上一页/下一页 + 页码 `i/n` + 每页条数 10/20/50，默认 20，展示总数），搜索/切页自动回第一页。
+5. **启用开关不再丢编辑**：`onToggleEnabled` 持久化成功后不再整行 `toRow(saved)` 覆盖，仅回写 `enabled` 与 `redeemedCount`，保留该行未保存的编辑。
+6. **有效期当日语义**：`validTo` 选当天按本地时区 **23:59:59.999** 转 ISO（当日有效），`validFrom` 按本地 **00:00:00**。
