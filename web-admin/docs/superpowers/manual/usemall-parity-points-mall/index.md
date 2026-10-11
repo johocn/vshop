@@ -88,7 +88,7 @@
 |------|--------|------|
 | 积分不足 | spendPoints 抛错 | 下单先扣积分，不足即中止 |
 | 库存不足 | `OUT_OF_STOCK` | 原子扣减（`stock >= quantity` 条件更新），防并发超卖 |
-| 超出每人限兑 | `PER_USER_LIMIT_EXCEEDED` | `perUserLimit > 0` 时按非取消订单计数 |
+| 超出每人限兑 | `PER_USER_LIMIT_EXCEEDED` | `perUserLimit > 0` 时按非取消订单**总件数**（SUM(quantity)）计数，与 C 端「剩余可兑额度」口径一致 |
 | 不在有效期 | `NOT_IN_VALIDITY` | validFrom/validTo 窗口外不可兑 |
 | 商品未上架 | 下单校验 | 仅 enabled 积分商品可兑换 |
 
@@ -101,6 +101,24 @@
 3. **线下收款兜底**：混合价现金部分若微信支付未完成，商家可后台「标记已收款」跳过在线支付（信任场景兜底），订单照常进入发货流程。
 4. **现金部分走微信支付**：混合价仅支持微信支付（复用 wechatpay 网关裸支付参数），无其他在线支付渠道。
 5. **积分无过期**：积分余额与流水由会员等级插件管理，本插件只消费（SPEND）与退回（EARN），不处理过期。
+6. **混合价现金自动退款**：用户已拉起微信支付但回调晚于 30 分钟关单时（订单已取消、积分已退、库存已回补），支付回调触发**现金自动原路退回**，无需人工介入（详见「五之一」）。
+
+---
+
+## 五之一、混合价现金自动退款（2026-10-11 新增）
+
+**触发场景**：混合价订单现金部分，用户已支付成功，但微信回调晚于 30 分钟超时关单——此时订单已 cancelled（积分已退、库存已回补），现金若无处理将滞留。本机制保证该场景**自动原路退款，无需人工介入**。
+
+**机制**（vendure `e4ac7a6ca` / wechatpay `e6c56891a`）：
+
+1. 微信支付回调到达时，若发现订单已被取消：不再报错，改为在事务内**原子认领**支付行（`refundStatus: none → refunding`，退款号固定 `PO-RF-<paymentId>`，微信同号幂等），提交后事务外调微信申请退款（`POST /v3/refund/domestic/refunds`）。
+2. 退款成功 → 支付行落 `refunded` + `refundedAt`；失败 → 落 `failed` + `refundError`，交由重试任务处理。
+3. **退款重试任务**（`points-order-refund-retry.task.ts`，每 5 分钟）：扫描 `failed` 行与卡在 `refunding` 超 10 分钟的行（`refundAttempts < 8`，指数退避 5min×2^n）。卡单行先调微信退款查询**对账**——微信侧已成功直接落 `refunded`，否则用同一退款号幂等重发。
+4. 相同回调重复到达自动幂等（认领条件不满足即直接返回），不会重复退款。
+
+**支付单退款状态机**：`none → refunding → refunded / failed`（failed 由重试任务拉回 refunding）。
+
+**配置开关**：`pointsRefundRetryEnabled`（默认开启）。排查后台积压时可查 `points_order_payment` 表的 `refundStatus / refundError / refundAttempts` 三列。
 
 ---
 
@@ -128,6 +146,10 @@
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 自动退款轮（后端）
+
+7. **混合价现金自动退款**：微信回调晚于超时关单时自动原路退现金（settle 取消分支：原子认领支付行 → 事务外调微信退款 → 落 refunded/failed），`PointsOrderPayment` 新增 refundStatus/refundNo/refundedAt/refundError/refundAttempts 五列；新增退款重试任务（每 5 分钟，对账+幂等重发，`pointsRefundRetryEnabled` 开关）。e2e 19/19（新增退款成功 / 重复回调幂等 / 失败进重试 3 例）。详见「五之一」。
 
 ### 2026-10-11 前端修复轮（6 处）
 
