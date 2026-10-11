@@ -5,44 +5,44 @@
         <view class="addr-card__top">
           <text class="addr-card__name">{{ addr.fullName }}</text>
           <text class="addr-card__phone">{{ addr.phoneNumber }}</text>
-          <text v-if="addr.defaultShippingAddress" class="addr-card__tag">默认</text>
+          <text v-if="addr.defaultShippingAddress" class="addr-card__tag">{{ t('addresses.defaultTag') }}</text>
         </view>
         <text class="addr-card__detail">{{ addr.province }} {{ addr.city }} {{ addr.streetLine1 }}{{ addr.streetLine2 ? ' ' + addr.streetLine2 : '' }}</text>
       </view>
       <view class="addr-card__actions">
-        <text class="addr-card__edit" @click="editAddress(addr)">编辑</text>
-        <text class="addr-card__del" @click="deleteAddr(addr.id)">删除</text>
-        <text v-if="!addr.defaultShippingAddress" class="addr-card__default" @click="setDefault(addr)">设为默认</text>
+        <text class="addr-card__edit" @click="editAddress(addr)">{{ t('common.edit') }}</text>
+        <text class="addr-card__del" @click="deleteAddr(addr.id)">{{ t('common.delete') }}</text>
+        <text v-if="!addr.defaultShippingAddress" class="addr-card__default" @click="setDefault(addr)">{{ t('addresses.setDefault') }}</text>
       </view>
     </view>
-    <EmptyState v-if="!loading && addresses.length === 0" text="暂无收货地址" />
+    <EmptyState v-if="!loading && addresses.length === 0" :text="t('addresses.empty')" />
 
     <!-- Add/Edit Form Modal -->
     <view v-if="showForm" class="modal-mask" @click.self="showForm = false">
       <view class="modal-content">
-        <text class="modal-title">{{ editingId ? '编辑地址' : '新增地址' }}</text>
-        <input v-model="form.fullName" placeholder="收货人姓名" class="input" />
-        <input v-model="form.phoneNumber" placeholder="手机号" type="number" class="input" />
+        <text class="modal-title">{{ editingId ? t('addresses.editTitle') : t('addresses.addTitle') }}</text>
+        <input v-model="form.fullName" :placeholder="t('addresses.namePlaceholder')" class="input" />
+        <input v-model="form.phoneNumber" :placeholder="t('addresses.phonePlaceholder')" type="number" class="input" />
         <view class="region-row" @click="showRegionPicker = true">
-          <text :class="{ 'region-row__placeholder': !regionText() }">{{ regionText() || '请选择省/市/区' }}</text>
+          <text :class="{ 'region-row__placeholder': !regionText() }">{{ regionText() || t('addresses.regionPlaceholder') }}</text>
           <text class="region-row__arrow">▸</text>
         </view>
-        <input v-model="form.streetLine1" placeholder="详细地址" class="input" />
-        <input v-model="form.streetLine2" placeholder="补充地址(可选)" class="input" />
-        <input v-model="form.postalCode" placeholder="邮编(可选)" class="input" />
+        <input v-model="form.streetLine1" :placeholder="t('addresses.detailPlaceholder')" class="input" />
+        <input v-model="form.streetLine2" :placeholder="t('addresses.detail2Placeholder')" class="input" />
+        <input v-model="form.postalCode" :placeholder="t('addresses.postalPlaceholder')" class="input" />
         <view class="modal-check">
-          <text>设为默认地址</text>
+          <text>{{ t('addresses.defaultAddress') }}</text>
           <switch :checked="form.defaultShippingAddress" @change="form.defaultShippingAddress = $event.detail.value" />
         </view>
         <view class="modal-actions">
-          <button class="btn-cancel" @click="showForm = false">取消</button>
-          <button class="btn-save" @click="saveAddress">保存</button>
+          <button class="btn-cancel" @click="showForm = false">{{ t('common.cancel') }}</button>
+          <button class="btn-save" @click="saveAddress">{{ t('common.save') }}</button>
         </view>
       </view>
     </view>
 
     <view class="addresses-page__fab" @click="addNew">
-      <text class="fab-text">+ 新增地址</text>
+      <text class="fab-text">+ {{ t('addresses.addNew') }}</text>
     </view>
 
     <!-- 省市区联动选择器 -->
@@ -58,12 +58,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { useUIStore } from '../../stores/ui';
 import EmptyState from '../../components/EmptyState.vue';
 import RegionPicker from '../../components/RegionPicker.vue';
 
+const { t } = useI18n();
 const ui = useUIStore();
 const addresses = ref<any[]>([]);
 const loading = ref(true);
@@ -142,7 +144,7 @@ function buildStreetLine1(): string {
 
 async function saveAddress() {
     if (!form.value.fullName || !form.value.phoneNumber || !form.value.streetLine1) {
-        ui.showToast('请填写必要信息');
+        ui.showToast(t('addresses.requiredMissing'));
         return;
     }
     try {
@@ -153,7 +155,7 @@ async function saveAddress() {
         } else {
             await createCustomerAddress(payload);
         }
-        ui.showToast('保存成功', 'success');
+        ui.showToast(t('addresses.saveSuccess'), 'success');
         showForm.value = false;
         await loadAddresses();
     } catch (e: any) { ui.showToast(e.message); }
@@ -161,13 +163,13 @@ async function saveAddress() {
 
 async function deleteAddr(id: string) {
     uni.showModal({
-        title: '确认',
-        content: '确定删除该地址?',
+        title: t('common.confirm'),
+        content: t('addresses.deleteConfirm'),
         success: async (res: any) => {
             if (res.confirm) {
                 try {
                     await deleteCustomerAddress(id);
-                    ui.showToast('已删除', 'success');
+                    ui.showToast(t('addresses.deleted'), 'success');
                     await loadAddresses();
                 } catch (e: any) { ui.showToast(e.message); }
             }
@@ -178,7 +180,7 @@ async function deleteAddr(id: string) {
 async function setDefault(addr: any) {
     try {
         await updateCustomerAddress({ id: addr.id, defaultShippingAddress: true });
-        ui.showToast('已设为默认', 'success');
+        ui.showToast(t('addresses.defaultSet'), 'success');
         await loadAddresses();
     } catch (e: any) { ui.showToast(e.message); }
 }

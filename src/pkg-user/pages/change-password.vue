@@ -2,26 +2,28 @@
     <view class="pwd-page">
         <view class="pwd-form">
             <view class="pwd-form__item">
-                <text class="label">当前密码</text>
-                <input v-model="current" class="input" type="password" placeholder="请输入当前密码" />
+                <text class="label">{{ t('changePassword.currentPassword') }}</text>
+                <input v-model="current" class="input" type="password" :placeholder="t('changePassword.currentPlaceholder')" />
             </view>
             <view class="pwd-form__item">
-                <text class="label">新密码</text>
-                <input v-model="next" class="input" type="password" placeholder="至少 4 位新密码" />
+                <text class="label">{{ t('changePassword.newPassword') }}</text>
+                <input v-model="next" class="input" type="password" :placeholder="t('changePassword.newPlaceholder')" />
             </view>
             <view class="pwd-form__item">
-                <text class="label">确认新密码</text>
-                <input v-model="confirm" class="input" type="password" placeholder="再次输入新密码" />
+                <text class="label">{{ t('changePassword.confirmPassword') }}</text>
+                <input v-model="confirm" class="input" type="password" :placeholder="t('changePassword.confirmPlaceholder')" />
             </view>
-            <button class="pwd-submit" :disabled="loading" @tap="submit">{{ loading ? '提交中…' : '确认修改' }}</button>
+            <button class="pwd-submit" :disabled="loading" @tap="submit">{{ loading ? t('changePassword.submitting') : t('changePassword.confirmChange') }}</button>
         </view>
     </view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { updateCustomerPassword } from '../../api/mutations/auth';
 
+const { t } = useI18n();
 const current = ref('');
 const next = ref('');
 const confirm = ref('');
@@ -29,28 +31,28 @@ const loading = ref(false);
 
 async function submit() {
     if (!current.value || !next.value) {
-        uni.showToast({ title: '请填写完整', icon: 'none' });
+        uni.showToast({ title: t('changePassword.fillRequired'), icon: 'none' });
         return;
     }
     if (next.value.length < 4) {
-        uni.showToast({ title: '新密码至少 4 位', icon: 'none' });
+        uni.showToast({ title: t('changePassword.tooShort'), icon: 'none' });
         return;
     }
     if (next.value !== confirm.value) {
-        uni.showToast({ title: '两次输入的新密码不一致', icon: 'none' });
+        uni.showToast({ title: t('changePassword.mismatch'), icon: 'none' });
         return;
     }
     loading.value = true;
     try {
         const res = await updateCustomerPassword(current.value, next.value);
         if (res.__typename === 'Success') {
-            uni.showToast({ title: '修改成功', icon: 'success' });
+            uni.showToast({ title: t('changePassword.changeSuccess'), icon: 'success' });
             setTimeout(() => uni.navigateBack(), 800);
         } else {
-            uni.showToast({ title: res.message || '修改失败', icon: 'none' });
+            uni.showToast({ title: res.message || t('changePassword.changeFailed'), icon: 'none' });
         }
     } catch (e: any) {
-        uni.showToast({ title: e?.message || '修改失败', icon: 'none' });
+        uni.showToast({ title: e?.message || t('changePassword.changeFailed'), icon: 'none' });
     } finally {
         loading.value = false;
     }
