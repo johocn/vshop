@@ -23,34 +23,27 @@ describe('resolveTimeWindow', () => {
     assert.equal(resolveTimeWindow({}, NOW), null);
     assert.equal(resolveTimeWindow({ key: '' }, NOW), null);
   });
-  it('今日 = [今日 00:00, 明日 00:00)', () => {
+  it('今日 = [今日 0 点字面, 次日 0 点字面]（本地日历字面挂 Z，非真实瞬时）', () => {
     const w = resolveTimeWindow({ key: 'today' }, NOW)!;
-    const s = H(w.start);
-    const e = H(w.end);
-    assert.equal(s.getDate(), 21);
-    assert.equal(s.getHours(), 0);
-    assert.equal(e.getDate(), 22);
-    assert.equal(e.getHours(), 0);
+    // NOW=本地 2026-09-21 15:30 → 字面窗 [2026-09-21T00:00Z, 2026-09-22T00:00Z)
+    // 若输出真实瞬时（东八区 16:00Z）则断言失败：列存本地字面，真实瞬时窗会整体偏 8h
+    assert.equal(w.start, '2026-09-21T00:00:00.000Z');
+    assert.equal(w.end, '2026-09-22T00:00:00.000Z');
   });
-  it('近7天 = [今日-6天 00:00, 明日 00:00)', () => {
+  it('近7天 = [今日-6天 0 点字面, 次日 0 点字面]', () => {
     const w = resolveTimeWindow({ key: '7d' }, NOW)!;
-    assert.equal(H(w.start).getDate(), 15);
-    assert.equal(H(w.start).getHours(), 0);
-    assert.equal(H(w.end).getDate(), 22);
+    assert.equal(w.start, '2026-09-15T00:00:00.000Z');
+    assert.equal(w.end, '2026-09-22T00:00:00.000Z');
   });
-  it('本月 = [本月1日 00:00, 下月1日 00:00)', () => {
+  it('本月 = [本月 1 日 0 点字面, 次月 1 日 0 点字面]', () => {
     const w = resolveTimeWindow({ key: 'month' }, NOW)!;
-    const s = H(w.start);
-    const e = H(w.end);
-    assert.equal(s.getMonth(), 8);
-    assert.equal(s.getDate(), 1);
-    assert.equal(e.getMonth(), 9);
-    assert.equal(e.getDate(), 1);
+    assert.equal(w.start, '2026-09-01T00:00:00.000Z');
+    assert.equal(w.end, '2026-10-01T00:00:00.000Z');
   });
-  it('自定义 = [起始日 00:00, 结束日次日 00:00)', () => {
+  it('自定义 = [起始日 0 点字面, 结束日次日 0 点字面]', () => {
     const w = resolveTimeWindow({ key: 'custom', from: '2026-09-01', to: '2026-09-03' }, NOW)!;
-    assert.equal(H(w.start).getDate(), 1);
-    assert.equal(H(w.end).getDate(), 4);
+    assert.equal(w.start, '2026-09-01T00:00:00.000Z');
+    assert.equal(w.end, '2026-09-04T00:00:00.000Z');
   });
   it('自定义起止颠倒 → 自动交换（不返回空结果）', () => {
     const w = resolveTimeWindow({ key: 'custom', from: '2026-09-03', to: '2026-09-01' }, NOW)!;
@@ -64,10 +57,7 @@ describe('resolveTimeWindow', () => {
   });
   it('跨年本月边界正确', () => {
     const w = resolveTimeWindow({ key: 'month' }, new Date(2026, 11, 31, 8, 0))!;
-    const e = H(w.end);
-    assert.equal(e.getFullYear(), 2027);
-    assert.equal(e.getMonth(), 0);
-    assert.equal(e.getDate(), 1);
+    assert.equal(w.end, '2027-01-01T00:00:00.000Z');
   });
 });
 
@@ -75,12 +65,21 @@ describe('inTimeWindow', () => {
   it('无时间条件 → 恒真', () => {
     assert.equal(inTimeWindow('2020-01-01T00:00:00Z', {}, NOW), true);
   });
-  it('窗口内 → true，窗口外/空值 → false', () => {
+  it('窗口内 → true，窗口外/空值 → false（本地日历语义，与运行机器时区无关）', () => {
     const f = { key: 'today', from: '', to: '' };
     assert.equal(inTimeWindow(new Date(2026, 8, 21, 9, 0).toISOString(), f, NOW), true);
     assert.equal(inTimeWindow(new Date(2026, 8, 20, 23, 0).toISOString(), f, NOW), false);
     assert.equal(inTimeWindow(null, f, NOW), false);
     assert.equal(inTimeWindow('not-a-date', f, NOW), false);
+  });
+  it('UTC 瞬时落在本地「今日」内 → true（窗口按本地日历还原，不按字面假瞬时比较）', () => {
+    // 本地 09-21 00:00~24:00 的窗口；ts=09-20T17:00Z = 本地 09-21 01:00 → 属于今日
+    const f = { key: 'today', from: '', to: '' };
+    assert.equal(inTimeWindow('2026-09-20T17:00:00.000Z', f, NOW), true);
+    // ts=09-21T15:00Z = 本地 09-21 23:00 → 属于今日
+    assert.equal(inTimeWindow('2026-09-21T15:00:00.000Z', f, NOW), true);
+    // ts=09-21T16:00Z = 本地 09-22 00:00 → 明日 → false
+    assert.equal(inTimeWindow('2026-09-21T16:00:00.000Z', f, NOW), false);
   });
 });
 
@@ -102,14 +101,11 @@ describe('buildOrderFilter', () => {
       { remark: { contains: '138' } },
     ]);
   });
-  it('时间 → createdAt.between（不用 orderPlacedAt：未下单的单该字段为 null）', () => {
+  it('时间 → createdAt.between（本地日历字面挂 Z；不用 orderPlacedAt：未下单的单该字段为 null）', () => {
     const f = buildOrderFilter({ time: { key: 'today' } }, NOW)!;
     assert.equal(f.orderPlacedAt, undefined);
-    const s = new Date(f.createdAt.between.start);
-    const e = new Date(f.createdAt.between.end);
-    assert.equal(s.getDate(), 21);
-    assert.equal(s.getHours(), 0);
-    assert.equal(e.getDate(), 22);
+    assert.equal(f.createdAt.between.start, '2026-09-21T00:00:00.000Z');
+    assert.equal(f.createdAt.between.end, '2026-09-22T00:00:00.000Z');
   });
   it('配送 → deliveryType.eq', () => {
     assert.deepEqual(buildOrderFilter({ delivery: 'pickup' }, NOW)!.deliveryType, { eq: 'pickup' });
