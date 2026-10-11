@@ -134,7 +134,7 @@
 1. **导航标题**：`NAV_TITLE_KEYS` 集中映射 route path → `nav.*` 词条（排除 pages/admin 内部工具页；pages.json 不改，中文为 fallback）。四类导航（navigateTo/redirectTo/reLaunch/switchTab）经 `uni.addInterceptor` 拦截，目标 url 在 `invoke` 钩子捕获（success 回调只有 errMsg），`applyNavTitle()` 查表 → `uni.setNavigationBarTitle`，页面 meta 未挂载时 fail 短重试。
 2. **tabbar 直载坑**：uni-app H5 对 tabbar 页直载是「先起首页再内部切 tab」，内部切换不走 uni.switchTab、拦截器拦不到 → `startNavTitleWatch()` 启动期 5 秒轮询栈顶路由，变化即应用标题。
 3. **tabbar 标签**：`applyTabbarLabels()` 复用 `nav.home/category/cart/profile` 词条 + `uni.setTabBarItem`（0-3 固定序）。**tabbar 挂载晚于 App onShow，首次 set 静默 fail** → success/fail 标记 `tabbarApplied`，观察循环内重试直至成功。
-4. **语言存储**：localStorage `vshop-locale`（i18n/index.ts 持久化）；当前无应用内切换器，直载生效。切换器落地后在切换处重调 `applyNavTitleForCurrentPage()` + `applyTabbarLabels()` 即可即时刷新。
+4. **语言存储与应用内切换器**：localStorage `vshop-locale`（i18n/index.ts 启动读取，uni storage 写入）。应用内切换器已落地（2026-10-11）：入口在 profile 页菜单「语言 / Language」行（右侧显示当前语言原生名），点击弹 `uni.showActionSheet`（五语言原生名：简体中文/繁體中文/English/日本語/한국어），选中后调 `setAppLocale(loc)`（nav-titles.ts）——校验合法 locale → 写 vue-i18n locale（**双模式兼容**：v11 `createI18n` 默认 legacy 实例，locale 为字符串 setter、委托底层 global composer，页面 t() 自动重渲染；legacy: false 时为 ref）→ uni storage 持久化 → 重调 `applyNavTitleForCurrentPage()` + `applyTabbarLabels()` 即时刷新 chrome 层。见 `assets/lang-switcher.png`（en 态：标题 My Account + tabbar 英文 + 菜单全英文）。
 
 **验证方法**（Playwright 或手测）：
 
@@ -172,12 +172,19 @@
 | `assets/nav-title-en.png` | 导航标题 i18n：购物车页 en 直载（localStorage `vshop-locale=en`，导航栏标题 Cart——tabbar 页直载为本轮修复覆盖场景） |
 | `assets/tabbar-i18n-en.png` | tabbar 标签 i18n：en 直载购物车页（导航标题 Cart + tabbar Home/Categories/Cart/My Account + 页体英文提示，chrome 层全量本地化证据） |
 | `assets/batch5-i18n-en.png` | i18n 批次 5 收尾：券商城 en 直载（localStorage `vshop-locale=en`）——标题/Tabs/按钮/门槛与标签全英文；券名与描述为后端 API 动态数据保留中文 |
+| `assets/lang-switcher.png` | profile 页应用内语言切换器 en 态（导航标题 My Account + 菜单全英文 + Language 行右侧值 English + tabbar 英文；切换后无需 reload，切回简体中文复原断言通过） |
 
 复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-11 profile 页应用内语言切换器（即时刷新 chrome 层）
+
+- **入口与交互**：profile 菜单新增「语言 / Language」行（右侧显示当前语言原生名，原生名各语言下展示一致不入语言包），点击 `uni.showActionSheet`（简体中文/繁體中文/English/日本語/한국어），选中且非当前语言时调 `setAppLocale()`（`src/i18n/nav-titles.ts`）：写 vue-i18n locale（页面 t() 自动重渲染）→ uni storage 持久化（`vshop-locale`）→ 重调 `applyNavTitleForCurrentPage()` + `applyTabbarLabels()` 即时刷新导航标题与 tabbar → toast 提示已切换。五语言包 profile 命名空间新增 `language` / `languageSwitched` 两 key（临时脚本校验 55 顶级命名空间、五文件全部子 key 顺序一致 ALL PASS 后删除）。
+- **关键坑**：vue-i18n v11 `createI18n` 默认 **legacy 实例**——`i18n.global.locale` 是字符串 getter/setter（setter 委托底层 global composer，与页面 `useI18n()` 同源），不是 ref；按 ref 写 `.value` 赋值会抛错（右侧值显示 undefined、切换无效）。`setAppLocale` 以 `typeof g.locale === 'string'` 双模式兼容。
+- **验证与部署**：Playwright 线上全链路（390×844@2x，points-probe 登录注入）：zh-CN 直载首页 → profile → ActionSheet 选 English → 断言 tabbar Home/Categories/Cart/My Account + `document.title` My Account + 菜单全英文 + `vshop-locale=en`（`assets/lang-switcher.png`）→ 切回简体中文全部复原。commit `f8424e4`（feat）+ `54f45cb`（fix），已部署 https://e.joho.cn/。
 
 ### 2026-10-11 i18n 专项批次 3-5 收尾
 
