@@ -308,7 +308,17 @@
         "notActiveOrder": "This order is no longer in the current session. Please place a new order",
         "balancePayIncomplete": "Balance payment not completed, please retry",
         "balanceInsufficientPay": "Insufficient balance, payment not completed",
-        "balanceInsufficientRecharge": "Insufficient balance, please recharge first"
+        "balanceInsufficientRecharge": "Insufficient balance, please recharge first",
+        "payCancelled": "Payment cancelled",
+        "wxH5Submitted": "Please complete the payment in WeChat",
+        "alipaySubmitted": "Please complete the payment in Alipay",
+        "noPayUrl": "No payment URL received",
+        "methodUnsupported": "Unsupported payment method",
+        "alipayParamsMissing": "Missing Alipay payment parameters",
+        "codHint": "Cash on delivery — pay when you receive the order",
+        "aggregatePayHint": "QR code scanned. Please confirm receipt before shipping",
+        "balancePaid": "Paid with account balance",
+        "unknownMethod": "Unknown payment method: {method}"
     },
     "payResult": {
         "confirming": "Confirming payment",
