@@ -9,6 +9,7 @@
     <view class="section">
       <text class="section__title">{{ t('withdraw.applyTitle') }}</text>
       <input v-model.trim="amount" type="digit" :placeholder="t('withdraw.amountPlaceholder')" class="input" />
+      <text class="section__hint">{{ t('withdraw.minHint', { amount: (minWithdrawalAmount / 100).toFixed(2) }) }}</text>
       <picker :range="methodNames" @change="onMethodChange">
         <view class="picker">
           <text>{{ t('withdraw.methodLabel', { name: methodNames[methodIndex] }) }}</text>
@@ -54,6 +55,8 @@ const ui = useUIStore();
 
 const balance = ref(0);
 const frozenBalance = ref(0);
+// 起提金额（分）：后端 myBalanceWithFrozen 返回渠道配置值，异常/未配置回退 ¥10
+const minWithdrawalAmount = ref(1000);
 const amount = ref('');
 const account = ref('');
 const submitting = ref(false);
@@ -108,6 +111,8 @@ async function loadBalance() {
         const r: any = await getMyBalanceWithFrozen();
         balance.value = r.myBalanceWithFrozen?.balance || 0;
         frozenBalance.value = r.myBalanceWithFrozen?.frozenBalance || 0;
+        const min = r.myBalanceWithFrozen?.minWithdrawalAmount;
+        if (Number.isFinite(min) && min > 0) minWithdrawalAmount.value = min;
     } catch (e) { ui.showToast(t('withdraw.balanceLoadFailed'), 'error'); }
 }
 
@@ -116,6 +121,10 @@ onMounted(() => loadBalance());
 async function doSubmit() {
     const yuan = Number(amount.value);
     if (!yuan || yuan <= 0) { ui.showToast(t('withdraw.invalidAmount'), 'error'); return; }
+    if (Math.round(yuan * 100) < minWithdrawalAmount.value) {
+        ui.showToast(t('withdraw.minHint', { amount: (minWithdrawalAmount.value / 100).toFixed(2) }), 'error');
+        return;
+    }
     if (!account.value) { ui.showToast(t('withdraw.accountRequired'), 'error'); return; }
     if (submitting.value) return;
     submitting.value = true;
@@ -149,6 +158,7 @@ async function doSubmit() {
 .section {
     background: #fff; padding: 20rpx; border-radius: $radius-md; margin-bottom: 20rpx;
     &__title { font-weight: bold; font-size: 28rpx; display: block; margin-bottom: 16rpx; }
+    &__hint { color: #999; font-size: 22rpx; display: block; margin-bottom: 12rpx; }
 }
 .input { height: 80rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx; margin-bottom: 16rpx; }
 .picker { display: flex; justify-content: space-between; align-items: center; height: 80rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx; margin-bottom: 16rpx; &__arrow { color: #ccc; } }

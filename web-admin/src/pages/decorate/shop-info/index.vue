@@ -113,6 +113,15 @@
       </view>
       <view class="hint">{{ $t('decorateShopInfo.layoutHint') }}</view>
       <view class="hint link" @tap="goDetailDecorate">{{ $t('decorateShopInfo.moreBlocks') }}</view>
+      <view class="cell">
+        <text class="lbl">{{ $t('decorateShopInfo.minWithdrawal') }}</text>
+        <input v-model="f.minWithdrawalYuan" type="digit" :placeholder="$t('decorateShopInfo.minWithdrawalPlaceholder')" />
+      </view>
+      <view class="cell">
+        <text class="lbl">{{ $t('decorateShopInfo.lotteryFixedCost') }}</text>
+        <input v-model="f.lotteryFixedCost" type="number" :placeholder="$t('decorateShopInfo.lotteryFixedCostPlaceholder')" />
+      </view>
+      <view class="hint">{{ $t('decorateShopInfo.bizConfigHint') }}</view>
     </view>
     <view class="card">
       <view class="img-title">{{ $t('decorateShopInfo.promoSchemesTitle') }}</view>
@@ -202,8 +211,8 @@ import { useLocaleStore } from '../../../stores/localeStore';
 import MediaPicker from '../../../components/MediaPicker.vue';
 
 const locale = useLocaleStore();
-const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; physicalStockEnabled: boolean; odooBaseUrl: string; odooApiKey: string }>({
-  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', physicalStockEnabled: false, odooBaseUrl: '', odooApiKey: '',
+const f = ref<{ shopName: string; shopLogo: string; shopIntro: string; servicePhone: string; taxMode: string; priceStyle: string; layout: string; inventoryMode: string; physicalStockEnabled: boolean; odooBaseUrl: string; odooApiKey: string; minWithdrawalYuan: string; lotteryFixedCost: string }>({
+  shopName: '', shopLogo: '', shopIntro: '', servicePhone: '', taxMode: 'inclusive', priceStyle: 'classic', layout: 'classic', inventoryMode: 'simple', physicalStockEnabled: false, odooBaseUrl: '', odooApiKey: '', minWithdrawalYuan: '', lotteryFixedCost: '',
 });
 // 系统仓落点（虚拟仓 / 默认物理仓编码）只读展示，来源为服务端派生，避免前后端各算一套
 const invOv = ref<TenantInventoryOverview | null>(null);
@@ -351,6 +360,9 @@ onMounted(async () => {
     physicalStockEnabled: cf.physicalStockEnabled === true,
     odooBaseUrl: cf.odooBaseUrl ?? '',
     odooApiKey: cf.odooApiKey ?? '',
+    // 起提金额（分→元展示）；抽奖固定消耗（积分）。null/无效值回显为空（=默认）
+    minWithdrawalYuan: Number.isFinite(cf.balanceMinWithdrawalAmount) && cf.balanceMinWithdrawalAmount > 0 ? String(cf.balanceMinWithdrawalAmount / 100) : '',
+    lotteryFixedCost: Number.isFinite(cf.lotteryFixedCost) && cf.lotteryFixedCost >= 0 ? String(cf.lotteryFixedCost) : '',
   };
   shareImageUrl.value = cf.shareImageUrl ?? '';
   logoPreview.value = cf.shopLogo ?? '';
@@ -365,6 +377,13 @@ async function save() {
   const payload = { ...f.value } as any;
   delete payload.priceStyle;
   delete payload.layout;
+  // 起提金额：元→分（>0 生效，否则置 null 回退后端默认 ¥10）；抽奖固定消耗：>=0 生效，空串/无效置 null 回退按奖品消耗
+  delete payload.minWithdrawalYuan;
+  delete payload.lotteryFixedCost;
+  const minYuan = parseFloat(f.value.minWithdrawalYuan);
+  payload.balanceMinWithdrawalAmount = Number.isFinite(minYuan) && minYuan > 0 ? Math.round(minYuan * 100) : null;
+  const fixedCostNum = Number(f.value.lotteryFixedCost);
+  payload.lotteryFixedCost = f.value.lotteryFixedCost !== '' && Number.isInteger(fixedCostNum) && fixedCostNum >= 0 ? fixedCostNum : null;
   const cfg = rawDetailConfig ? safeParse(rawDetailConfig) : { version: 2, layout: 'classic', blocks: {} };
   cfg.blocks = cfg.blocks || {};
   cfg.blocks.price = cfg.blocks.price || {};
