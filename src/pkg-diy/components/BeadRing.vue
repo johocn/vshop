@@ -20,18 +20,14 @@ export interface BeadRingBead {
     renderUrl?: string | null;
 }
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
     canvasId: string;
     /** 画布宽（rpx） */
     width: number;
     /** 画布高（rpx） */
     height: number;
     beads: BeadRingBead[];
-    /** mm → 逻辑 px 比例，默认 1.4（即 8mm 珠直径约 11px） */
-    mmPerPx?: number;
-}>(), {
-    mmPerPx: 1.4,
-});
+}>();
 
 const sys = uni.getSystemInfoSync();
 const cssW = computed(() => Math.max(1, Math.round((props.width / 750) * sys.windowWidth)));
@@ -90,6 +86,7 @@ function obtainCanvas(cb: (canvas: any, cssWidth: number, cssHeight: number) => 
         .exec();
 }
 
+/** 全貌自适应缩放：中心线半径由逐颗周长收敛，scale 保证整环+装饰外伸完整可见 */
 function render() {
     if (!ctx) return;
     const w = cssW.value;
@@ -97,17 +94,23 @@ function render() {
     ctx.clearRect(0, 0, w, h);
     const beads = props.beads || [];
     if (beads.length === 0) return;
-    const rs: RenderBead[] = beads.map(b => ({
-        x: 0,
-        y: 0,
-        r: Math.max(1, b.diameterMm / props.mmPerPx / 2),
+    const gapMm = 1;
+    const radiiMm = beads.map(b => Math.max(0.5, b.diameterMm) / 2);
+    const maxR = Math.max(...radiiMm);
+    // 珠心轨迹半径（mm）：Σ(珠径+间隙) / 2π，下限防 1-2 颗时退化
+    const centerR = Math.max(maxR + 4, (beads.length * (maxR * 2 + gapMm)) / (Math.PI * 2));
+    const pad = 6;
+    const scale = Math.min(6, Math.max(0.3, Math.min((w / 2 - pad) / (centerR + maxR), (h / 2 - pad) / (centerR + maxR))));
+    const ringR = centerR * scale;
+    const rs: RenderBead[] = beads.map((b, i) => ({
+        x: 0, y: 0,
+        r: Math.max(1, radiiMm[i] * scale),
         color: b.color,
         preset: b.preset ?? null,
         sprite: (b.renderUrl && spriteMap.value.get(b.renderUrl)) || null,
         seed: hashSeed(b.materialId || b.color),
     }));
-    const maxR = Math.max(...rs.map(rb => rb.r));
-    drawRing(ctx, rs, w / 2, h / 2, Math.max(4, w / 2 - maxR - 2), Math.max(4, h / 2 - maxR - 2));
+    drawRing(ctx, rs, w / 2, h / 2, ringR, ringR);
 }
 
 onMounted(async () => {
