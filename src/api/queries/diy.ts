@@ -134,6 +134,8 @@ export async function getDiyPublicPlan(id: string) {
                 totalAmount
                 totalCount
                 createdAt
+                thumb
+                bom
             }
         }
     `;
