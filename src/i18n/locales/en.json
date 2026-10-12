@@ -1248,7 +1248,8 @@
         "feedback": {
             "tight": "Too tight",
             "fit": "Just right",
-            "loose": "Loose"
+            "loose": "Loose",
+            "tooLoose": "Too loose"
         },
         "cord": "Cord",
         "knotTail": "incl. knot tail",
@@ -1267,6 +1268,24 @@
         "order": "Add to cart",
         "loginRequired": "Please sign in",
         "copyPlan": "Copy to my designs",
-        "perBead": "/pc"
+        "perBead": "/pc",
+        "gap": "Gap",
+        "clearance": "Clearance",
+        "qty": "Qty",
+        "weight": "Weight",
+        "every": "every N beads",
+        "pickMaterial": "Pick material",
+        "appendHint": "Tap a material to append",
+        "assignHint": "Tap a material to assign",
+        "countRequired": "Set bead count for every main slot",
+        "savedOk": "Saved",
+        "quoteMismatch": "Differs from local preview; server quote prevails",
+        "saveFailed": "Save failed",
+        "removeBeadQ": "Remove this bead?",
+        "needMain": "Pick a main bead first",
+        "emptyMaterials": "No materials available",
+        "dragHint": "Drag to reorder · tap to remove",
+        "reshuffle": "Reshuffle",
+        "totalCount": "Total beads"
     }
 }
