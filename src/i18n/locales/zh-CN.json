@@ -1196,5 +1196,18 @@
         "tabAfterSale": "售后",
         "tabAccount": "账户",
         "empty": "暂无常见问题"
+    },
+    "myFeedbacks": {
+        "title": "我的反馈",
+        "navFeedback": "意见反馈",
+        "replyLabel": "商家回复",
+        "repliedAt": "回复于",
+        "unreadAll": "全部已读",
+        "pending": "待处理",
+        "processing": "处理中",
+        "resolved": "已解决",
+        "empty": "暂无反馈",
+        "loading": "加载中",
+        "markRead": "进入后自动标记已读"
     }
 }
