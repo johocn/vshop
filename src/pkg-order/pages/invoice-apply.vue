@@ -89,7 +89,7 @@ onMounted(async () => {
     const ids = (page?.options?.orderIds || '').split(',').filter(Boolean);
     orders.value = ids.map((id: string) => ({ id, code: id, totalWithTax: 0 }));
     // 以后端为准，仅用于展示占位；真实金额可在订单列表传入
-    try { const res: any = await getMyInvoiceTitles(); titles.value = res.myInvoiceTitles || []; const def = titles.value.find((t: any) => t.isDefault); if (def) selectTitle(def); } catch (e) {}
+    try { const res: any = await getMyInvoiceTitles(); titles.value = res.myInvoiceTitles || []; const def = titles.value.find((t: any) => t.isDefault); if (def) selectTitle(def); } catch (e) { uni.showToast({ title: t('invoiceApply.titlesLoadFailed'), icon: 'none' }); }
 });
 
 async function submit() {

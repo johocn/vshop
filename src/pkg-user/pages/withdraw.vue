@@ -108,7 +108,7 @@ async function loadBalance() {
         const r: any = await getMyBalanceWithFrozen();
         balance.value = r.myBalanceWithFrozen?.balance || 0;
         frozenBalance.value = r.myBalanceWithFrozen?.frozenBalance || 0;
-    } catch (e) {}
+    } catch (e) { ui.showToast(t('withdraw.balanceLoadFailed'), 'error'); }
 }
 
 onMounted(() => loadBalance());

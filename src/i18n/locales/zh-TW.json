@@ -209,6 +209,7 @@
         "hintShipping": "商品正在配送中"
     },
     "checkout": {
+        "addressLoadFailed": "地址載入失敗，請手動選擇",
         "title": "確認訂單",
         "address": "收貨地址",
         "shipping": "配送方式",
@@ -669,6 +670,7 @@
         "bindHint": "登錄後綁定推薦關係"
     },
     "invoiceApply": {
+        "titlesLoadFailed": "發票抬頭載入失敗",
         "titleType": "抬頭類型",
         "typeOrdinary": "普通發票",
         "typeSpecial": "專用發票",
@@ -833,6 +835,7 @@
         "wdRejected": "已駁回"
     },
     "withdraw": {
+        "balanceLoadFailed": "餘額載入失敗",
         "available": "可提餘額",
         "frozen": "凍結中 ¥{amount}",
         "applyTitle": "申請提現",
@@ -859,6 +862,7 @@
         "failed": "送出失敗"
     },
     "recharge": {
+        "balanceLoadFailed": "餘額載入失敗",
         "currentBalance": "當前餘額",
         "onlineTitle": "線上儲值",
         "custom": "自訂",

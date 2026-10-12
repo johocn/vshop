@@ -209,6 +209,7 @@
         "hintShipping": "Your items are on the way"
     },
     "checkout": {
+        "addressLoadFailed": "Failed to load addresses. Please select manually",
         "title": "Checkout",
         "address": "Shipping Address",
         "shipping": "Shipping Method",
@@ -669,6 +670,7 @@
         "bindHint": "Log in to link your referral"
     },
     "invoiceApply": {
+        "titlesLoadFailed": "Failed to load invoice titles",
         "titleType": "Title Type",
         "typeOrdinary": "Ordinary Invoice",
         "typeSpecial": "Special VAT Invoice",
@@ -833,6 +835,7 @@
         "wdRejected": "Rejected"
     },
     "withdraw": {
+        "balanceLoadFailed": "Failed to load balance",
         "available": "Withdrawable Balance",
         "frozen": "Frozen: ¥{amount}",
         "applyTitle": "Request Withdrawal",
@@ -859,6 +862,7 @@
         "failed": "Submission failed"
     },
     "recharge": {
+        "balanceLoadFailed": "Failed to load balance",
         "currentBalance": "Current Balance",
         "onlineTitle": "Online Top-up",
         "custom": "Custom",

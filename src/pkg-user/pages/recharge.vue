@@ -64,11 +64,11 @@ const parsedAmount = computed(() => {
 });
 
 onMounted(async () => {
-    try { const r: any = await getMyBalance(); balance.value = r.myRechargeBalance || 0; } catch (e) {}
+    try { const r: any = await getMyBalance(); balance.value = r.myRechargeBalance || 0; } catch (e) { uni.showToast({ title: t('recharge.balanceLoadFailed'), icon: 'none' }); }
 });
 
 async function refreshBalance() {
-    try { const r: any = await getMyBalance(); balance.value = r.myRechargeBalance || 0; } catch (e) {}
+    try { const r: any = await getMyBalance(); balance.value = r.myRechargeBalance || 0; } catch (e) { uni.showToast({ title: t('recharge.balanceLoadFailed'), icon: 'none' }); }
 }
 
 async function doWechatRecharge() {

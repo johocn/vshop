@@ -209,6 +209,7 @@
         "hintShipping": "商品は配送中です"
     },
     "checkout": {
+        "addressLoadFailed": "住所の読み込みに失敗しました。手動で選択してください",
         "title": "注文確認",
         "address": "配送先住所",
         "shipping": "配送方法",
@@ -669,6 +670,7 @@
         "bindHint": "ログインすると紹介関係が紐付きます"
     },
     "invoiceApply": {
+        "titlesLoadFailed": "請求書タイトルの読み込みに失敗しました",
         "titleType": "宛名タイプ",
         "typeOrdinary": "普通発票",
         "typeSpecial": "専用発票",
@@ -833,6 +835,7 @@
         "wdRejected": "却下"
     },
     "withdraw": {
+        "balanceLoadFailed": "残高の読み込みに失敗しました",
         "available": "出金可能残高",
         "frozen": "凍結中 ¥{amount}",
         "applyTitle": "出金申請",
@@ -859,6 +862,7 @@
         "failed": "送信に失敗しました"
     },
     "recharge": {
+        "balanceLoadFailed": "残高の読み込みに失敗しました",
         "currentBalance": "現在の残高",
         "onlineTitle": "オンラインチャージ",
         "custom": "カスタム",
