@@ -41,7 +41,7 @@ import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchFaqPage, saveFaq, deleteFaq, type FaqEntryRow } from '../../../apis/feedback';
 import LocaleTabs from '../../../components/LocaleTabs.vue';
-import { cleanLocaleMap, type LocaleMap } from '../../../utils/i18n-map';
+import { parseLocaleMap, cleanLocaleMap, type LocaleMap } from '../../../utils/i18n-map';
 
 const locale = useLocaleStore();
 
@@ -68,8 +68,9 @@ const error = ref('');
 function toRow(f: FaqEntryRow): EditRow {
   return {
     key: keySeq++, id: f.id,
-    titleMap: cleanLocaleMap(f.titleI18n) || (f.title ? { 'zh-CN': f.title } : {}),
-    contentMap: cleanLocaleMap(f.contentI18n) || (f.content ? { 'zh-CN': f.content } : {}),
+    // admin-api 的 titleI18n/contentI18n 是 JSON 字符串（GraphQL String），需先解析
+    titleMap: parseLocaleMap(f.titleI18n) || (f.title ? { 'zh-CN': f.title } : {}),
+    contentMap: parseLocaleMap(f.contentI18n) || (f.content ? { 'zh-CN': f.content } : {}),
     type: f.type || 'general', sort: String(f.sort ?? 0), enabled: !!f.enabled, saving: false,
   };
 }
