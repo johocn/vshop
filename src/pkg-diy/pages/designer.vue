@@ -234,6 +234,10 @@ const hasSpacer = computed(() => d.slots.value.some(s => s.role === 'spacer'));
 
 onLoad(async () => {
     uni.setNavigationBarTitle({ title: t('diy.designer') });
+    if (!uni.getStorageSync('diy_guide_seen')) {
+        uni.setStorageSync('diy_guide_seen', '1');
+        uni.navigateTo({ url: '/pkg-diy/pages/guide' });
+    }
     try {
         const res: any = await getDiyMaterials();
         materials.value = (res?.diyMaterials?.items || []).map((m: any) => ({ ...m, id: String(m.id) }));

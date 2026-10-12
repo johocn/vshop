@@ -97,6 +97,12 @@
                     "style": {
                         "navigationBarTitleText": "方案详情"
                     }
+                },
+                {
+                    "path": "guide",
+                    "style": {
+                        "navigationBarTitleText": "串珠指南"
+                    }
                 }
             ]
         },
