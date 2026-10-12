@@ -308,7 +308,17 @@
         "notActiveOrder": "この注文は現在のセッションに存在しないため、支払いを続けられません。再度ご注文ください",
         "balancePayIncomplete": "残高支払いが完了していません。再試行してください",
         "balanceInsufficientPay": "残高不足のため、支払いが完了していません",
-        "balanceInsufficientRecharge": "残高不足です。先にチャージしてください"
+        "balanceInsufficientRecharge": "残高不足です。先にチャージしてください",
+        "payCancelled": "支払いがキャンセルされました",
+        "wxH5Submitted": "WeChatで支払いを完了してください",
+        "alipaySubmitted": "Alipayで支払いを完了してください",
+        "noPayUrl": "支払いリンクを取得できませんでした",
+        "methodUnsupported": "サポートされていない支払い方法です",
+        "alipayParamsMissing": "Alipayの支払いパラメータが不足しています",
+        "codHint": "代金引換 — お受け取り時にお支払いください",
+        "aggregatePayHint": "QRコードをスキャン済みです。入金確認後に出荷されます",
+        "balancePaid": "残高で支払いが完了しました",
+        "unknownMethod": "不明な支払い方法: {method}"
     },
     "payResult": {
         "confirming": "支払い確認中",

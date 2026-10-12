@@ -308,7 +308,17 @@
         "notActiveOrder": "該訂單已不在當前會話，無法繼續支付，請重新下單",
         "balancePayIncomplete": "餘額支付未完成，請重試",
         "balanceInsufficientPay": "餘額不足，支付未完成",
-        "balanceInsufficientRecharge": "餘額不足，請先充值"
+        "balanceInsufficientRecharge": "餘額不足，請先充值",
+        "payCancelled": "支付取消",
+        "wxH5Submitted": "請在微信中完成支付",
+        "alipaySubmitted": "請在支付寶中完成支付",
+        "noPayUrl": "未取得支付連結",
+        "methodUnsupported": "不支援的支付方式",
+        "alipayParamsMissing": "支付寶支付參數缺失",
+        "codHint": "貨到付款，請在收貨時支付",
+        "aggregatePayHint": "已掃碼聚合收款碼，請確認到帳後發貨",
+        "balancePaid": "餘額支付成功",
+        "unknownMethod": "未知支付方式: {method}"
     },
     "payResult": {
         "confirming": "支付確認中",

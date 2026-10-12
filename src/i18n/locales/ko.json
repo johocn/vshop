@@ -308,7 +308,17 @@
         "notActiveOrder": "이 주문은 현재 세션에 없어 결제를 계속할 수 없습니다. 다시 주문해 주세요",
         "balancePayIncomplete": "잔액 결제가 완료되지 않았습니다. 다시 시도해 주세요",
         "balanceInsufficientPay": "잔액 부족으로 결제가 완료되지 않았습니다",
-        "balanceInsufficientRecharge": "잔액이 부족합니다. 먼저 충전해 주세요"
+        "balanceInsufficientRecharge": "잔액이 부족합니다. 먼저 충전해 주세요",
+        "payCancelled": "결제가 취소되었습니다",
+        "wxH5Submitted": "WeChat에서 결제를 완료해 주세요",
+        "alipaySubmitted": "Alipay에서 결제를 완료해 주세요",
+        "noPayUrl": "결제 링크를 가져오지 못했습니다",
+        "methodUnsupported": "지원되지 않는 결제 수단입니다",
+        "alipayParamsMissing": "Alipay 결제 파라미터가 누락되었습니다",
+        "codHint": "착불 결제 — 상품 수령 시 결제해 주세요",
+        "aggregatePayHint": "QR코드가 스캔되었습니다. 입금 확인 후 발송됩니다",
+        "balancePaid": "잔액으로 결제가 완료되었습니다",
+        "unknownMethod": "알 수 없는 결제 수단: {method}"
     },
     "payResult": {
         "confirming": "결제 확인 중",
