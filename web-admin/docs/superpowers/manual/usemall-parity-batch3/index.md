@@ -263,4 +263,5 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 |--------|------|
 | `tsc --noEmit` | 仅 2 个存量告警（e2e-common 声明缺失/隐式 any，与本次无关） |
 | e2e | recharge-card-plugin 21/21 绿（新增「DB 存 enc: 密文、API 返回明文、存量明文兼容」用例） |
-| 生产存量 | 部署时检查 `balance_withdrawal_request.accountInfo` 明文行数（见下） |
+| 生产存量 | `balance_withdrawal_request` 当前 0 行，全部新数据密文落库 |
+| 生产密钥 | 服务器 `.env` 已配 `BALANCE_ACCOUNT_SECRET`（`openssl rand -hex 32` 强随机，权限 600，dotenv 验证可读）；生产表为空时配置，无旧密文解密风险 |
