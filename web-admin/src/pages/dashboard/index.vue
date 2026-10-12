@@ -109,10 +109,11 @@ function go(it: any) {
   if (it.action === 'logout') return confirmExit();
   if (it.url) uni.navigateTo({ url: it.url });
 }
-// 公开手册：独立新窗口打开，无需登录鉴权
+// 公开手册：独立新窗口打开，无需登录鉴权；按界面语言选中/英文版
 function openManual() {
   const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
-  const url = location.origin + base + '/static/manual/index.html';
+  const file = locale.locale === 'en' ? 'index-en.html' : 'index.html';
+  const url = location.origin + base + '/static/manual/' + file;
   window.open(url, '_blank');
 }
 // 桌面收银 POS：同域独立子应用，复用 web-admin 登录态，独立新窗口打开（动态 origin，禁硬编码域名）
