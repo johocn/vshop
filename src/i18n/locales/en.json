@@ -1235,10 +1235,10 @@
         "title": "Custom Jewelry",
         "designer": "Bead Designer",
         "mode": {
-            "byWrist": "By wrist",
-            "byCount": "By count",
-            "pattern": "Pattern",
-            "free": "Free drag"
+            "free": "Intuitive",
+            "byWrist": "By Wrist",
+            "byCount": "By Count",
+            "pattern": "Mix & Match"
         },
         "slot": {
             "main": "Main beads",
@@ -1330,6 +1330,52 @@
                 "daysAgo": "{n}d ago",
                 "weeksAgo": "{n}w ago",
                 "monthsAgo": "{n}mo ago"
+        },
+        "helpShort": "Help",
+        "action": {
+            "clear": "Clear",
+            "draft": "Save Draft",
+            "recommend": "Surprise Me",
+            "finish": "Finish Design"
+        },
+        "emptyHint": "Tap a material below to start",
+        "confirmClear": "Clear the current design?",
+        "cleared": "Cleared",
+        "draftSaved": "Draft saved, restored next visit",
+        "draftRestored": "Last draft restored",
+        "recommendDone": "Recommendation ready, keep tweaking",
+        "knot": {
+            "show": "Show knot",
+            "hide": "Hide knot",
+            "label": "Knot"
+        },
+        "decorRemoveQ": "Remove this charm?",
+        "searchPlaceholder": "Search materials",
+        "catAll": "All",
+        "longPressHint": "Long-press for details",
+        "detail": {
+            "title": "Material Detail",
+            "spec": "Spec",
+            "price": "Price",
+            "pick": "Use it"
+        },
+        "guide": {
+            "title": "Beading Guide",
+            "start": "Start Designing",
+            "s1t": "Three Steps",
+            "s1": "1. Tap a material card to add a bead; 2. Drag beads to reorder, drag out of the ring to delete; 3. Tap Finish Design to save and get a quote.",
+            "s2t": "Intuitive vs Pro Modes",
+            "s2": "Intuitive by default. Switch tags for pro modes: By Wrist auto-counts beads; By Count adjusts manually; Mix & Match arranges multiple beads.",
+            "s3t": "Measuring Wrist",
+            "s3": "Wrap a tape around the widest part of your four knuckles; or measure the inner diameter of a bracelet that fits.",
+            "s4t": "Fit Feedback",
+            "s4": "The capsule above shows live status: too tight / snug / fit / loose / too loose. Three ease levels with Comfortable as default.",
+            "s5t": "Mixed Diameters",
+            "s5": "6x7mm + 6x8mm + 6x9mm is fine: beads are summed one by one to converge the inner circumference and fit.",
+            "s6t": "Knot & Charms",
+            "s6": "The elastic knot sits at the top knot marker (hideable); cord includes knot allowance. Pendants/tassels are optional—skip freely; if added they render and drag on the bracelet. Metal spacers count as beads.",
+            "s7t": "FAQ",
+            "s7": "Price changes with every tweak. Find works under My Designs. Tap Use This Design in the gallery to replicate."
         }
     }
 }
