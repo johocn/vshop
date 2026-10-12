@@ -2,7 +2,8 @@ import { GraphQLClient } from 'graphql-request';
 import { useTenantStore } from '../stores/tenant';
 import { useAuthStore } from '../stores/auth';
 
-const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:3000') + '/shop-api';
+const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:3000';
+const API_URL = API_BASE + '/shop-api';
 const SESSION_TOKEN_KEY = 'vendure_session_token';
 const AUTH_TOKEN_HEADER = 'vendure-auth-token';
 
@@ -38,6 +39,11 @@ const inFlight = new Map<string, Promise<any>>();
 /** Shop API 端点（上传等非 graphql-request 通道复用，避免各处重复拼接） */
 export function getShopApiUrl(): string {
     return API_URL;
+}
+
+/** 后端 origin（发票 PDF 下载、支付跳转等非 /shop-api 路径复用） */
+export function getApiBase(): string {
+    return API_BASE;
 }
 
 /** 当前租户 + 会话的请求头（graphql-request 与 uni.uploadFile 共用） */

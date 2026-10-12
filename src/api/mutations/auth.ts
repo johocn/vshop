@@ -1,8 +1,6 @@
 import { useTenantStore } from '../../stores/tenant';
 import { useAuthStore } from '../../stores/auth';
-import { getSessionToken, setSessionToken } from '../client';
-
-const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:3000') + '/shop-api';
+import { setSessionToken, getShopApiUrl, getShopApiHeaders } from '../client';
 
 interface AuthResult {
     token: string;
@@ -15,31 +13,13 @@ interface GraphQLError {
     message: string;
 }
 
-function getAuthHeaders(): Record<string, string> {
-    const tenantStore = useTenantStore();
-    const authStore = useAuthStore();
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'vendure-token': tenantStore.token,
-    };
-    if (authStore.token) {
-        headers['Authorization'] = 'Bearer ' + authStore.token;
-    } else {
-        const sessionToken = getSessionToken();
-        if (sessionToken) {
-            headers['Authorization'] = 'Bearer ' + sessionToken;
-        }
-    }
-    return headers;
-}
-
 /** Execute a GraphQL mutation and extract vendure-auth-token from response header */
 function authRequest(query: string, variables?: Record<string, any>): Promise<{ data: any; authToken?: string }> {
     return new Promise((resolve, reject) => {
         uni.request({
-            url: API_URL,
+            url: getShopApiUrl(),
             method: 'POST',
-            header: getAuthHeaders(),
+            header: getShopApiHeaders(),
             data: { query, variables },
             success: (res: any) => {
                 const authToken = res.header['vendure-auth-token'] || res.header['Vendure-Auth-Token'] || '';

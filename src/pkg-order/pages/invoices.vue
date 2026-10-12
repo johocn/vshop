@@ -47,6 +47,7 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getMyInvoices } from '../../api/queries/invoice';
 import { downloadInvoicePdf } from '../../api/mutations/invoice';
+import { getApiBase } from '../../api/client';
 const { t } = useI18n();
 const invoices = ref<any[]>([]);
 const openLines = ref<Record<string, boolean>>({});
@@ -65,7 +66,7 @@ async function download(inv: any) {
         const res: any = await downloadInvoicePdf(inv.id);
         const url = res?.downloadInvoicePdf?.pdfUrl;
         if (!url) { uni.showToast({ title: t('invoices.noPdf'), icon: 'none' }); return; }
-        const apiBase = (import.meta.env?.VITE_API_URL || 'http://localhost:3000');
+        const apiBase = getApiBase();
         const abs = url.startsWith('http') ? url : apiBase + '/' + url.replace(/^\/+/, '');
         uni.showLoading({ title: t('invoices.downloading') });
         uni.downloadFile({

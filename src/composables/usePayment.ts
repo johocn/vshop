@@ -1,4 +1,6 @@
 import { wxRequestPayment, redirectPayment, getPlatform } from "../utils/platform";
+import { i18n } from "../i18n";
+import { getApiBase } from "../api/client";
 
 export type PaymentMethod =
     | "wechatpay" | "wechatpay-yourbao-h5" | "wechatpay-yourbao-mweb"
@@ -68,7 +70,7 @@ export async function handlePayment(
                     });
                     return { success: true, orderCode: paymentData.orderCode };
                 } catch (e: any) {
-                    return { success: false, message: e.errMsg || "支付取消" };
+                    return { success: false, message: e.errMsg || i18n.global.t('payment.payCancelled') };
                 }
             } else if (platform === "h5") {
                 // H5: Dev Bypass 返回相对 URL /wechatpay/dev-pay?orderCode=xxx
@@ -81,14 +83,14 @@ export async function handlePayment(
                     pub.payUrl ||
                     paymentData.payUrl;
                 if (rawUrl) {
-                    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                    const baseUrl = getApiBase();
                     const fullUrl = rawUrl.startsWith('http')
                         ? rawUrl
                         : `${baseUrl}${rawUrl}`;
                     redirectPayment(fullUrl);
-                    return { success: true, message: "请在微信中完成支付" };
+                    return { success: true, message: i18n.global.t('payment.wxH5Submitted') };
                 }
-                return { success: false, message: "未获取到支付链接" };
+                return { success: false, message: i18n.global.t('payment.noPayUrl') };
             } else {
                 // APP - native WeChat SDK
                 // #ifdef APP-PLUS
@@ -101,7 +103,7 @@ export async function handlePayment(
                     });
                 });
                 // #endif
-                return { success: false, message: "不支持的支付方式" };
+                return { success: false, message: i18n.global.t('payment.methodUnsupported') };
             }
     }
 
@@ -109,7 +111,7 @@ export async function handlePayment(
         case "alipay":
             if (paymentData.payUrl || paymentData.metadata?.payUrl) {
                 redirectPayment(paymentData.payUrl || paymentData.metadata.payUrl);
-                return { success: true, message: "请在支付宝中完成支付" };
+                return { success: true, message: i18n.global.t('payment.alipaySubmitted') };
             }
             // #ifdef APP-PLUS
             return new Promise((resolve) => {
@@ -121,19 +123,19 @@ export async function handlePayment(
                 });
             });
             // #endif
-            return { success: false, message: "支付宝支付参数缺失" };
+            return { success: false, message: i18n.global.t('payment.alipayParamsMissing') };
 
         case "cod":
-            return { success: true, message: "货到付款，请在收货时支付" };
+            return { success: true, message: i18n.global.t('payment.codHint') };
 
         case "aggregate-pay":
-            return { success: true, message: "已扫码聚合收款码，请确认到账后发货" };
+            return { success: true, message: i18n.global.t('payment.aggregatePayHint') };
 
         case "balance-pay":
-            return { success: true, message: "余额支付成功" };
+            return { success: true, message: i18n.global.t('payment.balancePaid') };
 
         default:
-            return { success: false, message: "未知支付方式: " + method };
+            return { success: false, message: i18n.global.t('payment.unknownMethod', { method }) };
     }
 }
 
