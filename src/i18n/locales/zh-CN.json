@@ -209,6 +209,7 @@
         "hintShipping": "商品正在配送中"
     },
     "checkout": {
+        "addressLoadFailed": "地址加载失败，请手动选择",
         "title": "确认订单",
         "address": "收货地址",
         "shipping": "配送方式",
@@ -669,6 +670,7 @@
         "bindHint": "登录后绑定推荐关系"
     },
     "invoiceApply": {
+        "titlesLoadFailed": "发票抬头加载失败",
         "titleType": "抬头类型",
         "typeOrdinary": "普通发票",
         "typeSpecial": "专用发票",
@@ -833,6 +835,7 @@
         "wdRejected": "已驳回"
     },
     "withdraw": {
+        "balanceLoadFailed": "余额加载失败",
         "available": "可提余额",
         "frozen": "冻结中 ¥{amount}",
         "applyTitle": "申请提现",
@@ -859,6 +862,7 @@
         "failed": "提交失败"
     },
     "recharge": {
+        "balanceLoadFailed": "余额加载失败",
         "currentBalance": "当前余额",
         "onlineTitle": "在线充值",
         "custom": "自定义",

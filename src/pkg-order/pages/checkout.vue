@@ -907,7 +907,7 @@ onMounted(async () => {
     // 加载会员等级权益（独立于下单初始化，用户已登录即展示，不与结算流程耦合）
     loadMemberInfo();
     // Load saved addresses
-    try { const custRes: any = await getActiveCustomer(); customerAddresses.value = custRes.activeCustomer?.addresses || []; if (customerAddresses.value.length > 0) { selectedAddress.value = customerAddresses.value.find((a: any) => a.defaultShippingAddress) || customerAddresses.value[0]; } } catch (e) {}
+    try { const custRes: any = await getActiveCustomer(); customerAddresses.value = custRes.activeCustomer?.addresses || []; if (customerAddresses.value.length > 0) { selectedAddress.value = customerAddresses.value.find((a: any) => a.defaultShippingAddress) || customerAddresses.value[0]; } } catch (e) { uni.showToast({ title: t('checkout.addressLoadFailed'), icon: 'none' }); }
     try {
         // 先加载 active order，提取商品的 Profile 约束
         const orderRes: any = await getActiveOrder();
