@@ -3356,7 +3356,17 @@
     "err_max": "超过允许上限",
     "err_select": "取值不合法",
     "err_boolean": "需为开关值",
-    "errFixFirst": "有 {n} 处需要修正"
+    "errFixFirst": "有 {n} 处需要修正",
+    "agreementSection": "协议文案（五语言）",
+    "agreementHint": "服务协议与隐私政策按 C 端界面语言展示；未填写语言回退简体中文。单个语言内容上限 32KB。",
+    "agreementService": "服务协议",
+    "agreementPrivacy": "隐私政策",
+    "agreementPlaceholder": "输入该语言的协议正文（支持换行）",
+    "agreementSave": "保存协议文案",
+    "agreementSaving": "保存中…",
+    "agreementSaved": "协议文案已保存",
+    "agreementUpdatedAt": "最近更新：{time}",
+    "errTooLarge": "单个语言内容超过 32KB，请精简后再保存"
   },
   "platformProductApproval": {
     "tabPending": "待审",
@@ -3460,6 +3470,15 @@
     "empty": "暂无提现申请",
     "emptyPending": "暂无待审核申请"
   },
+  "i18nEdit": {
+    "locale_zh-CN": "简体中文",
+    "locale_zh-TW": "繁體中文",
+    "locale_en": "English",
+    "locale_ja": "日本語",
+    "locale_ko": "한국어",
+    "fallbackHint": "未填写时，C 端该语言回退简体中文",
+    "errTooLarge": "内容超过 {n}KB 上限"
+  },
   "feedbackManage": {
     "tabPending": "待处理",
     "tabProcessing": "处理中",
@@ -3475,6 +3494,16 @@
     "contactLabel": "联系方式：",
     "createdAtLabel": "提交于 ",
     "handledAtLabel": "处理于 ",
+    "replyLabel": "商家回复",
+    "replyBtn": "回复",
+    "replyPlaceholder": "请输入回复内容",
+    "replyResolveToo": "同时标记为已解决",
+    "replySubmit": "提交回复",
+    "replyCancel": "取消",
+    "replySubmitting": "提交中…",
+    "replyRequired": "回复内容不能为空",
+    "replyOk": "回复成功",
+    "repliedAtLabel": "回复于 ",
     "processBtn": "处理中",
     "resolveBtn": "已解决",
     "statusTitle": "更新反馈状态",
