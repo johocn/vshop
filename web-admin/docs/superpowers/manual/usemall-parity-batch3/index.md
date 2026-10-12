@@ -295,3 +295,4 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 | 边界修复 | ① `Number(null)=0` 陷阱：costConfig 未配置时曾被误判为 fixed/0（免费抽），已改为先判 null；② 字段名冲突：分销插件已占用 `Channel.minWithdrawalAmount`（分销佣金提现，默认 10000），余额提现改用独立字段 `balanceMinWithdrawalAmount` |
 | 本地端到端 | admin 配置 lotteryFixedCost=50 + balanceMinWithdrawalAmount=5000 → shop 端 `lotteryCostConfig`=fixed/50、`myBalanceWithFrozen.minWithdrawalAmount`=5000；抽中 0 积分奖品实际扣 50、记录快照 consume=50；置 null 后回退 perPrize/默认 ¥10 |
 | C 端构建 | build:h5 通过 |
+| 生产验证 | vendure git pull+restart 后 `POST /shop-api` 返回 `lotteryCostConfig`=perPrize/0、`MyBalanceWithFrozen` 含 minWithdrawalAmount；e.joho.cn 200、e.joho.cn/guanli 200 |
