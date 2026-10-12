@@ -165,6 +165,9 @@
             v-model:show="showSheet"
             :materials="materials"
             :mode="d.mode.value"
+            :categories="categories"
+            :counts="pickCounts"
+            :free-mode="d.mode.value === 'free'"
             @pick="onPickMaterial"
         />
         <CalcDetailSheet v-model:show="showCalc" :result="d.result.value" />
@@ -180,7 +183,7 @@ import ModeChips from '../components/ModeChips.vue';
 import MaterialSheet from '../components/MaterialSheet.vue';
 import SequenceStrip from '../components/SequenceStrip.vue';
 import CalcDetailSheet from '../components/CalcDetailSheet.vue';
-import { getDiyMaterials } from '../../api/queries/diy';
+import { getDiyMaterials, getDiyCategories } from '../../api/queries/diy';
 import { createDiyPlan, quoteDiyPlan } from '../../api/mutations/diy';
 import { useAuthStore } from '../../stores/auth';
 import {
@@ -193,7 +196,16 @@ const { t, locale } = useI18n();
 const authStore = useAuthStore();
 
 const materials = ref<DiyMaterialRow[]>([]);
+const categories = ref<any[]>([]);
 const d = useDesigner(materials, locale);
+
+/** 各素材已选颗数（序列 + 配饰聚合），供选料面板角标 */
+const pickCounts = computed<Record<string, number>>(() => {
+    const c: Record<string, number> = {};
+    for (const id of d.sequence.value) c[id] = (c[id] ?? 0) + 1;
+    for (const x of d.decors.value) c[x.materialId] = (c[x.materialId] ?? 0) + 1;
+    return c;
+});
 
 const showSheet = ref(false);
 const showCalc = ref(false);
@@ -215,6 +227,10 @@ onLoad(async () => {
     } catch {
         materials.value = [];
     }
+    try {
+        const cres: any = await getDiyCategories();
+        categories.value = (cres?.diyCategories ?? []).filter((c: any) => c.enabled !== false);
+    } catch { categories.value = []; }
 });
 
 function slotColor(id: string): string {
