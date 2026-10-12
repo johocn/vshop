@@ -7,10 +7,21 @@
                 :width="690"
                 :height="620"
                 :beads="d.previewBeads.value"
+                :decors="d.decors.value"
+                :knot-visible="d.knotVisible.value"
+                :decor-rows="materials"
                 @bead-tap="onBeadTap"
                 @bead-move="onBeadMove"
                 @bead-remove="onBeadRemove"
+                @decor-tap="onDecorTap"
+                @decor-move="onDecorMove"
+                @decor-remove="onDecorRemove"
             />
+            <view class="designer__knot-row">
+                <text class="designer__knot-toggle" @tap="d.knotVisible.value = !d.knotVisible.value">
+                    {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
+                </text>
+            </view>
             <view class="designer__preview-meta">
                 <text class="designer__price">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
                 <text class="designer__fit" @tap="showCalc = true">
@@ -222,6 +233,15 @@ function onBeadTap(i: number) {
     });
 }
 
+function onDecorMove(decorId: string, slot: number) { d.moveDecor(decorId, slot); }
+function onDecorRemove(decorId: string) { d.removeDecor(decorId); }
+function onDecorTap(decorId: string) {
+    uni.showModal({
+        title: t('diy.decorRemoveQ'),
+        success: (res: UniApp.ShowModalRes) => { if (res.confirm) d.removeDecor(decorId); },
+    });
+}
+
 function onModeChange(m: DesignerMode) {
     if (m === 'free') {
         if (!d.sequence.value.length) d.enterFree();
@@ -335,6 +355,20 @@ async function onSave() {
         align-items: baseline;
         gap: 16rpx;
         padding: 8rpx 8rpx 16rpx;
+    }
+
+    &__knot-row {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0 8rpx 8rpx;
+    }
+
+    &__knot-toggle {
+        font-size: 22rpx;
+        color: $brand-color;
+        padding: 4rpx 16rpx;
+        border-radius: 24rpx;
+        background: $bg-color;
     }
 
     &__price {

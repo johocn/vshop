@@ -12,6 +12,9 @@
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { drawRing, drawBead, loadSprites } from '../utils/bead-render';
 import type { RenderBead } from '../utils/bead-render';
+import { materialColor } from '../composables/useDesigner';
+import type { DecorPlacement } from '../composables/useDesigner';
+import type { DiyMaterialRow } from '../composables/useDesigner';
 
 export interface BeadRingBead {
     materialId: string;
@@ -28,6 +31,11 @@ const props = defineProps<{
     /** 画布高（rpx） */
     height: number;
     beads: BeadRingBead[];
+    /** 配饰挂位（slot=-1 结位；空数组不渲染任何挂点——配饰可选可跳过） */
+    decors?: DecorPlacement[];
+    knotVisible?: boolean;
+    /** 配饰素材行（渲染 decor 用：color/preset/renderUrl） */
+    decorRows?: DiyMaterialRow[];
 }>();
 
 const sys = uni.getSystemInfoSync();
@@ -101,7 +109,11 @@ function render() {
     // 珠心轨迹半径（mm）：Σ(珠径+间隙) / 2π，下限防 1-2 颗时退化
     const centerR = Math.max(maxR + 4, (beads.length * (maxR * 2 + gapMm)) / (Math.PI * 2));
     const pad = 6;
-    const scale = Math.min(6, Math.max(0.3, Math.min((w / 2 - pad) / (centerR + maxR), (h / 2 - pad) / (centerR + maxR))));
+    const decorExt = (props.decors?.length ?? 0) > 0 || props.knotVisible !== false ? 18 : 0;
+    const scale = Math.min(6, Math.max(0.3, Math.min(
+        (w / 2 - pad) / (centerR + maxR),
+        (h / 2 - pad) / (centerR + maxR + decorExt),
+    )));
     const ringR = centerR * scale;
     geo = { cx: w / 2, cy: h / 2, ringR, scale, radii: radiiMm, n: beads.length };
     const rs: RenderBead[] = beads.map((b, i) => ({
@@ -113,6 +125,40 @@ function render() {
         seed: hashSeed(b.materialId || b.color),
     }));
     drawRing(ctx, rs, w / 2, h / 2, ringR, ringR);
+    // 结位（12 点位）：结点 + 双线尾；隐藏时仅留小刻度点
+    decorPos = new Map();
+    const knotY = h / 2 - ringR - maxR * scale - 8;
+    knotPos = { x: w / 2, y: knotY - 12 };
+    if (props.knotVisible !== false) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(w / 2, knotY, 3.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w / 2 - 5, knotY + 2); ctx.lineTo(w / 2 - 11, knotY + 12); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w / 2 + 5, knotY + 2); ctx.lineTo(w / 2 + 11, knotY + 12); ctx.stroke();
+    } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath(); ctx.arc(w / 2, knotY, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    // 配饰挂点：间隙 k 中点角向外偏移；拖拽中的 decor 画 ghost 位
+    for (const d0 of props.decors ?? []) {
+        let ax: number, ay: number;
+        if (dragDecor && dragDecor.decorId === d0.decorId && decorMoved) {
+            ax = dragDecor.x; ay = dragDecor.y;
+        } else if (d0.slot < 0) {
+            ax = knotPos.x; ay = knotPos.y;
+        } else {
+            const a = -Math.PI / 2 + (Math.PI * 2 * (d0.slot + 0.5)) / geo.n;
+            ax = w / 2 + (ringR + maxR * scale) * Math.cos(a);
+            ay = h / 2 + (ringR + maxR * scale) * Math.sin(a);
+        }
+        decorPos.set(d0.decorId, { x: ax, y: ay });
+        drawDecorAt(ax, ay, d0);
+        if (dragDecor && dragDecor.decorId === d0.decorId && decorMoved && dragDecorPhase === 'delete') {
+            ctx.strokeStyle = '#E8463A'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(ax, ay, 14, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#E8463A'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('✕', ax, ay + 4);
+        }
+    }
     if (drag && moved) {
         const i = drag.index;
         // 原位半透明
@@ -136,6 +182,9 @@ const emit = defineEmits<{
     (e: 'bead-tap', index: number): void;
     (e: 'bead-move', from: number, to: number): void;
     (e: 'bead-remove', index: number): void;
+    (e: 'decor-tap', decorId: string): void;
+    (e: 'decor-move', decorId: string, slot: number): void;
+    (e: 'decor-remove', decorId: string): void;
 }>();
 
 /** 拖拽运行时：ghost 跟手；phase=delete 时画红圈吸附态 */
@@ -144,6 +193,27 @@ let drag: DragState | null = null;
 let startX = 0, startY = 0, moved = false;
 /** 命中结果缓存（几何参数 render 与 touch 共享） */
 let geo = { cx: 0, cy: 0, ringR: 0, scale: 1, radii: [] as number[], n: 0 };
+
+/** decor 拖拽运行时 */
+let dragDecor: { decorId: string; x: number; y: number } | null = null;
+let decorMoved = false;
+let dragDecorPhase: 'move' | 'delete' = 'move';
+
+/** 配饰绘制锚点缓存：decorId → 画布坐标（touch 命中用） */
+let decorPos = new Map<string, { x: number; y: number }>();
+let knotPos = { x: 0, y: 0 };
+
+function drawDecorAt(x: number, y: number, d0: DecorPlacement) {
+    if (!ctx) return;
+    const row = (props.decorRows ?? []).find(r0 => r0.id === d0.materialId);
+    const r = 9 * Math.max(0.7, geo.scale);
+    const sprite = row?.renderUrl ? spriteMap.value.get(row.renderUrl) ?? null : null;
+    if (sprite) ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+    else drawBead(ctx, { x, y, r, color: materialColor(row), preset: row?.renderPreset ?? null, seed: hashSeed(d0.decorId) });
+    // 挂环
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y - r - 3, 2.5, 0, Math.PI * 2); ctx.stroke();
+}
 
 function hitBead(x: number, y: number): number {
     // 极坐标最近珠：角距+径距综合评分，且落点距珠心 ≤ 珠半径*1.6
@@ -170,6 +240,22 @@ function insertIndexAt(x: number, y: number): number {
     return Math.round(rel) % geo.n;
 }
 
+function hitDecor(x: number, y: number): string | null {
+    for (const [decorId, p] of decorPos) {
+        if (Math.hypot(x - p.x, y - p.y) <= 16) return decorId;
+    }
+    return null;
+}
+
+/** 落点 → 挂位：靠结位吸附 -1，否则最近间隙 floor */
+function hitDecorSlot(x: number, y: number): number {
+    const ang = Math.atan2(y - geo.cy, x - geo.cx);
+    const rel = ((ang + Math.PI / 2) / (Math.PI * 2) * geo.n + geo.n) % geo.n;
+    const dist = Math.hypot(x - geo.cx, y - geo.cy);
+    if ((dist > geo.ringR * 1.35 && (rel < 0.5 || rel > geo.n - 0.5))) return -1;
+    return Math.max(0, Math.min(geo.n - 1, Math.floor(rel)));
+}
+
 function toLocal(e: any): { x: number; y: number } | null {
     const t = e.touches?.[0] ?? e.changedTouches?.[0];
     if (!t) return null;
@@ -183,12 +269,24 @@ function toLocal(e: any): { x: number; y: number } | null {
 
 function onTouchStart(e: any) {
     const p = toLocal(e);
-    if (!p || !props.beads.length) return;
-    startX = p.x; startY = p.y; moved = false;
+    if (!p) return;
+    startX = p.x; startY = p.y; moved = false; decorMoved = false;
+    const did = hitDecor(p.x, p.y);
+    if (did) { dragDecor = { decorId: did, x: p.x, y: p.y }; drag = null; return; }
+    dragDecor = null;
+    if (!props.beads.length) return;
     const i = hitBead(p.x, p.y);
     if (i >= 0) drag = { index: i, x: p.x, y: p.y, phase: 'move', overRing: true };
 }
 function onTouchMove(e: any) {
+    if (dragDecor) {
+        const p = toLocal(e); if (!p) return;
+        if (!moved && Math.hypot(p.x - startX, p.y - startY) < 6) return;
+        moved = true; decorMoved = true;
+        dragDecor.x = p.x; dragDecor.y = p.y;
+        dragDecorPhase = Math.hypot(p.x - geo.cx, p.y - geo.cy) > geo.ringR * 1.6 ? 'delete' : 'move';
+        render(); return;
+    }
     if (!drag) return;
     const p = toLocal(e);
     if (!p) return;
@@ -200,6 +298,14 @@ function onTouchMove(e: any) {
     render();
 }
 function onTouchEnd() {
+    if (dragDecor) {
+        if (moved) {
+            if (dragDecorPhase === 'delete') emit('decor-remove', dragDecor.decorId);
+            else emit('decor-move', dragDecor.decorId, hitDecorSlot(dragDecor.x, dragDecor.y));
+        } else emit('decor-tap', dragDecor.decorId);
+        dragDecor = null; decorMoved = false; moved = false;
+        render(); return;
+    }
     if (drag && moved) {
         if (drag.phase === 'delete') emit('bead-remove', drag.index);
         else emit('bead-move', drag.index, insertIndexAt(drag.x, drag.y));
@@ -218,8 +324,8 @@ onMounted(async () => {
         ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
         ctx.scale(dpr, dpr);
         render();
-        // 贴图预加载一次；beads 变化只重绘
-        const urls = (props.beads || []).map(b => b.renderUrl || null);
+        // 贴图预加载一次；beads/decors 变化只重绘
+        const urls = [...(props.beads || []).map(b => b.renderUrl || null), ...(props.decorRows ?? []).map(r0 => r0.renderUrl || null)];
         loadSprites(urls, imageLoader).then(map => {
             spriteMap.value = map;
             render();
@@ -227,5 +333,5 @@ onMounted(async () => {
     });
 });
 
-watch(() => props.beads, () => render(), { deep: true });
+watch(() => [props.beads, props.decors, props.decorRows, props.knotVisible], () => render(), { deep: true });
 </script>
