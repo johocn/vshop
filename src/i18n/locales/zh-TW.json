@@ -1211,4 +1211,10 @@
         "loading": "加載中",
         "markRead": "進入後自動標記已讀"
     }
+,
+    "agreementPage": {
+            "serviceTitle": "用戶協議",
+            "privacyTitle": "隱私政策",
+            "updatedAtLabel": "更新日期："
+    }
 }
