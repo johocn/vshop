@@ -3490,6 +3490,7 @@
     "type_bug": "功能异常",
     "type_experience": "体验问题",
     "type_other": "其他",
+    "type_suggest": "功能建议",
     "customerLabel": "客户 ",
     "contactLabel": "联系方式：",
     "createdAtLabel": "提交于 ",

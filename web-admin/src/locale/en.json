@@ -3490,6 +3490,7 @@
     "type_bug": "Bug",
     "type_experience": "Experience",
     "type_other": "Other",
+    "type_suggest": "Suggestion",
     "customerLabel": "Customer ",
     "contactLabel": "Contact: ",
     "createdAtLabel": "Submitted at ",
