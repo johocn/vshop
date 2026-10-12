@@ -129,7 +129,7 @@ img:fullscreen{object-fit:contain;background:#fff}
   <div class="header-inner">
     <span class="back" id="btnBack" hidden>‹</span>
     <h1 id="appTitle">youshop 使用手册</h1>
-    <span class="ibtn" id="btnSearch" title="搜索">🔍</span>
+    <span class="ibtn" id="btnLang" title="Switch to English">EN</span><span class="ibtn" id="btnSearch" title="搜索">🔍</span>
     <span class="ibtn" id="btnMenu" title="目录">≡</span>
   </div>
 </header>
@@ -1920,6 +1920,7 @@ function hl(t,q){ var rq=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); var re=new Reg
 function bind(){
   $id('goSearchHome').onclick = function(){ state.q=''; $id('searchInput').value=''; doSearch(); showView('search'); $id('searchInput').focus(); };
   $id('btnSearch').onclick = function(){ state.q=''; $id('searchInput').value=''; doSearch(); showView('search'); $id('searchInput').focus(); };
+  $id('btnLang').onclick = function(){ location.href='index-en.html'; };
   $id('btnBack').onclick = function(){ showView('home'); };
   $id('btnMenu').onclick = function(){ renderToc(); $id('tocOverlay').hidden=false; };
   $id('btnPrev').onclick = function(){ var list=chaptersOf(state.book); var i=idxOf(); if(i>0)openChapter(list[i-1].id); };

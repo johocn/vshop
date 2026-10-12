@@ -54,10 +54,11 @@ function toggleLang() {
   applyNavTitleForCurrentPage();
   uni.showToast({ title: next === 'en' ? locale.t('login.en') : locale.t('login.zh'), icon: 'none' });
 }
-// 公开手册：独立新窗口打开，无需登录鉴权
+// 公开手册：独立新窗口打开，无需登录鉴权；按界面语言选中/英文版
 function openManual() {
   const base = (location.pathname.match(/^.*\/guanli\/?/) || ['/guanli/'])[0].replace(/\/$/, '');
-  const url = location.origin + base + '/static/manual/index.html';
+  const file = locale.locale === 'en' ? 'index-en.html' : 'index.html';
+  const url = location.origin + base + '/static/manual/' + file;
   window.open(url, '_blank');
 }
 function go(it: any) {
