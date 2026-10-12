@@ -177,12 +177,28 @@
 | `assets/lang-switcher.png` | profile 页应用内语言切换器 en 态（导航标题 My Account + 菜单全英文 + Language 行右侧值 English + tabbar 英文；切换后无需 reload，切回简体中文复原断言通过） |
 | `assets/webadmin-i18n-en.png` | web-admin 管理端 i18n 收口：编辑自提点页 en 态（desktop 1440×900，localStorage `wa_locale=en` 预置 + superadmin 登录，表单标签/占位/按钮/提示全英文生效） |
 | `assets/webadmin-navtitle-en.png` | web-admin 导航标题集中本地化：自提点编辑页 en 直载（desktop 1440×900，`wa_locale=en` + superadmin/admin-api 注入，原生导航栏标题 Pickup Point Edit，与页体英文一致） |
+| `assets/c-profile-badge.png` | 内容多语言与反馈闭环：profile 页意见反馈未读角标「1」（390×844@2x，冷启动直进「我的」登录态） |
+| `assets/c-my-feedbacks.png` | 我的反馈页（待处理/处理中 tab + 商家回复面板展开；onShow 即 markFeedbacksRead 清角标） |
+| `assets/c-agreement-en.png` | 用户协议页 en 态（后台配置五语言协议渲染 + Updated date 标签本地化） |
+| `assets/c-agreement-privacy-en.png` | 隐私政策页 en 态（Privacy Policy 全文英文） |
+| `assets/c-faq-en.png` | FAQ 列表页 en 态（seed 六条 FAQ 英文标题/答案） |
+| `assets/wa-faq-edit.png` | web-admin FAQ 管理：五语言 LocaleTabs 编辑卡（zh-CN 基线回填；admin-api `titleI18n` 为 JSON 串已由 `parseLocaleMap` 解析） |
+| `assets/wa-feedback-reply.png` | web-admin 意见反馈管理：回复编辑器（已填回复 + 「同时标记为已解决」勾选，仅展示未提交） |
+| `assets/wa-agreement-card.png` | web-admin 平台全局配置：协议文案（五语言）卡（服务协议 + 隐私政策 zh-CN 基线 + 最近更新 2026-10-12） |
 
-复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。
+复现：`node web-admin/scripts/_vshop_points_mall_shots.mjs`（可选 `--only list,detail`；环境变量 `SITE_URL` / `SHOT_USER` / `SHOT_PWD`）。前置需测试客户 + 积分商品 + 订单造数。本轮三张验证截图由 `node web-admin/scripts/_vshop_points_fix2_shots.mjs` 生成；C 端退款标签截图由 `node web-admin/scripts/_vshop_points_refund_shots.mjs` 生成。内容多语言与反馈闭环的 8 张截图（`c-*` / `wa-*`）由临时 Playwright 脚本对线上 https://e.joho.cn/ 直拍生成（C 端 390×844 dpr=2、web-admin 1440×900），脚本为一次性产物未入库。
 
 ---
 
 ## 六、变更记录
+
+### 2026-10-12 内容多语言与反馈闭环（FAQ 五语言 + 反馈回复闭环 + 协议文案五语言 seed）
+
+- **FAQ 多语言**：`FaqEntry` 新增 `titleI18n`/`contentI18n` text 列（JSON 字符串，五语言 `CONTENT_LOCALES` = zh-CN/zh-TW/en/ja/ko）；shop 端 `faqs(type, lang)` 按语言合并回退（当前 lang → zh-CN 基线 → 首个非空）；admin 端 `saveFaq` 接收 JSON 对象入参（SaveFaqInput `titleI18n: JSON`）落库为串。web-admin FAQ 管理页每卡两张 `LocaleTabs` 五语言编辑卡（zh-CN 为必填基线）。
+- **反馈回复闭环**：`Feedback` 新增 `reply`/`repliedAt`/`repliedBy`/`readAt` 列；admin `replyFeedback`（可同时置 resolved）/`markFeedbacksRead`；shop 端 `unreadFeedbackCount` + 反馈查询扩展回复字段。C 端新增「我的反馈」页（回复面板展示）+ profile 未读角标（onShow 拉取、进入我的反馈即已读清零）；web-admin 反馈列表加状态操作（处理中/回复/已解决）与回复编辑器。
+- **协议文案五语言**：`shopGlobalConfig.defaults.agreement = { service, privacy, updatedAt }`（LocalizedText，五语言）；C 端 agreement 页按当前语言渲染（缺失语言回退 zh-CN → 首个非空），未配置时保留内建静态兜底；web-admin 全局配置页新增「协议文案（五语言）」卡（单语言 32KB 上限）。seed：双 app（vshop/nshop）协议全文五语言 + 6 条 FAQ（general/order/pay/afterSale/account/register，各五语言标题/答案）幂等写入线上。
+- **计划外修复**：① web-admin FAQ 编辑卡回显空白——admin-api `FaqEntry.titleI18n` 输出为 JSON **字符串**（GraphQL String），`cleanLocaleMap` 直接 Object.entries 按字符索引拆成脏 map；新增 `parseLocaleMap`（兼容对象/JSON 串）修复回填（`wa-faq-edit.png` 验证）。② profile 未读角标冷启动竞态——uni-app 不等 async App.onLaunch 完成就触发页面 onShow，未登录态先行返回且不再重拉；`watch(isLoggedIn)` 补拉（commit `d53d0e5`）。③ 协议页标题/「更新日期：」标签接入 `agreementPage` 五语言词条（commit `d332ae9`，词条语言包随本轮补提交）。
+- **验证与部署**：feedback-plugin / points-mall-plugin e2e 全绿（14 项，含超时关单日期格式修正）；shop 线上验证 `faqs(lang:"en")` 返回英文、无 lang 返回中文基线；C 端截图 5 张（`c-*`，390×844 dpr=2）+ web-admin 截图 3 张（`wa-*`，1440×900）见附录；vendure 5 笔提交（8c8b7abf1/e309d699e/4cc94f3e2/d4e38f98d/95731edf7）已部署（服务器 git pull + pm2 restart）；vshop H5 与 web-admin 已构建部署 https://e.joho.cn/。
 
 ### 2026-10-12 web-admin 导航标题集中本地化（平移 C 端机制）
 
