@@ -1248,7 +1248,8 @@
         "feedback": {
             "tight": "締すぎ",
             "fit": "ちょうど良い",
-            "loose": "ゆるい"
+            "loose": "ゆるい",
+            "tooLoose": "ゆるすぎる"
         },
         "cord": "コード",
         "knotTail": "結び余り含む",
@@ -1267,6 +1268,24 @@
         "order": "カートへ",
         "loginRequired": "ログインしてください",
         "copyPlan": "マイデザインへ複製",
-        "perBead": "/個"
+        "perBead": "/個",
+        "gap": "すき間",
+        "clearance": "ゆとり",
+        "qty": "数量",
+        "weight": "配分",
+        "every": "N個ごと",
+        "pickMaterial": "素材を選択",
+        "appendHint": "タップで末尾に追加",
+        "assignHint": "タップでスロットに割当",
+        "countRequired": "各メインスロットの数量を入力してください",
+        "savedOk": "保存しました",
+        "quoteMismatch": "ローカル予覧と異なります。サーバー見積が基準",
+        "saveFailed": "保存に失敗しました",
+        "removeBeadQ": "このビーズを削除しますか？",
+        "needMain": "まずメインビーズを選択",
+        "emptyMaterials": "素材がありません",
+        "dragHint": "長押しで並べ替え・タップで削除",
+        "reshuffle": "混ぜ直す",
+        "totalCount": "総数"
     }
 }

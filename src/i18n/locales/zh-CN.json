@@ -1248,7 +1248,8 @@
         "feedback": {
             "tight": "过紧",
             "fit": "合适",
-            "loose": "宽松"
+            "loose": "宽松",
+            "tooLoose": "过松"
         },
         "cord": "配线",
         "knotTail": "含打结留量",
@@ -1267,6 +1268,24 @@
         "order": "加入购物车",
         "loginRequired": "请先登录",
         "copyPlan": "复制到我的方案",
-        "perBead": "/颗"
+        "perBead": "/颗",
+        "gap": "间距",
+        "clearance": "手围余量",
+        "qty": "数量",
+        "weight": "权重",
+        "every": "每隔N颗",
+        "pickMaterial": "选择素材",
+        "appendHint": "点击素材追加到序列",
+        "assignHint": "点击素材指派到槽位",
+        "countRequired": "请为每个主珠槽位填写颗数",
+        "savedOk": "已保存",
+        "quoteMismatch": "与本地预览不一致，以服务端报价为准",
+        "saveFailed": "保存失败",
+        "removeBeadQ": "移除这颗珠？",
+        "needMain": "请先选择主珠",
+        "emptyMaterials": "暂无素材",
+        "dragHint": "按住拖动调序 · 点按移除",
+        "reshuffle": "重新混编",
+        "totalCount": "总颗数"
     }
 }

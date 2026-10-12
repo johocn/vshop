@@ -1248,7 +1248,8 @@
         "feedback": {
             "tight": "너무 타이트함",
             "fit": "딱 맞음",
-            "loose": "헐거움"
+            "loose": "헐거움",
+            "tooLoose": "너무 헐거움"
         },
         "cord": "코드",
         "knotTail": "매듭 여유 포함",
@@ -1267,6 +1268,24 @@
         "order": "장바구니",
         "loginRequired": "로그인 필요",
         "copyPlan": "내 디자인으로 복사",
-        "perBead": "/개"
+        "perBead": "/개",
+        "gap": "간격",
+        "clearance": "여유",
+        "qty": "수량",
+        "weight": "가중치",
+        "every": "N개마다",
+        "pickMaterial": "소재 선택",
+        "appendHint": "탭하면 시퀀스에 추가",
+        "assignHint": "탭하면 슬롯에 지정",
+        "countRequired": "각 메인 슬롯에 수량을 입력하세요",
+        "savedOk": "저장 완료",
+        "quoteMismatch": "로컬 미리보기와 다름, 서버 견적 기준",
+        "saveFailed": "저장 실패",
+        "removeBeadQ": "이 구슬을 삭제할까요?",
+        "needMain": "먼저 메인 비드를 선택하세요",
+        "emptyMaterials": "소재가 없습니다",
+        "dragHint": "길게 눌러 순서 변경 · 탭하여 삭제",
+        "reshuffle": "다시 섞기",
+        "totalCount": "총 구슬 수"
     }
 }
