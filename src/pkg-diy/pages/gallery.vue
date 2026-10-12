@@ -25,7 +25,7 @@
                 </view>
                 <view class="gallery__card-foot">
                     <text class="gallery__card-author">{{ it.authorName || t('diy.gallery.anonymous') }}</text>
-                    <text class="gallery__card-date">{{ relativeDate(it.createdAt) }}</text>
+                    <text class="gallery__card-date">{{ relativeDate(it.createdAt, t) }}</text>
                 </view>
             </view>
         </view>
