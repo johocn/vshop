@@ -2,15 +2,15 @@
     <view class="agree-page">
         <scroll-view scroll-y class="agree-page__scroll">
             <view class="agree-page__doc">
-                <text class="h1">{{ isPrivacy ? '隐私政策' : '用户协议' }}</text>
+                <text class="h1">{{ isPrivacy ? t('agreementPage.privacyTitle') : t('agreementPage.serviceTitle') }}</text>
                 <!-- 后台配置了协议文案：按语言渲染（缺失语言回退 zh-CN → 首个非空） -->
                 <template v-if="docText">
                     <text class="p pre">{{ docText }}</text>
-                    <text v-if="updatedAt" class="meta">更新日期：{{ updatedAt }}</text>
+                    <text v-if="updatedAt" class="meta">{{ t('agreementPage.updatedAtLabel') }}{{ updatedAt }}</text>
                 </template>
                 <!-- 未配置：内建静态兜底文案 -->
                 <template v-else>
-                    <text class="p">更新日期：2026-10-09</text>
+                    <text class="p">{{ t('agreementPage.updatedAtLabel') }}2026-10-09</text>
                     <template v-if="isPrivacy">
                         <text class="h2">一、我们收集的信息</text>
                         <text class="p">为完成注册与下单，我们会收集您的手机号、收货人姓名、收货地址与联系方式；微信/抖音等第三方登录时收集您授权的头像与昵称。</text>
@@ -43,12 +43,12 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 const tenant = useTenantStore();
 const isPrivacy = ref(false);
 onLoad((opts) => {
     isPrivacy.value = opts?.type === 'privacy';
-    uni.setNavigationBarTitle({ title: isPrivacy.value ? '隐私政策' : '用户协议' });
+    uni.setNavigationBarTitle({ title: t(isPrivacy ? 'agreementPage.privacyTitle' : 'agreementPage.serviceTitle') });
 });
 
 /** 全局配置 defaults.agreement：{ service: Record<locale,string>, privacy: …, updatedAt } */
