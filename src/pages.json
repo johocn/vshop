@@ -71,6 +71,36 @@
     ],
     "subPackages": [
         {
+            "root": "pkg-diy/pages",
+            "pages": [
+                {
+                    "path": "gallery",
+                    "style": {
+                        "navigationBarTitleText": "作品广场"
+                    }
+                },
+                {
+                    "path": "designer",
+                    "style": {
+                        "navigationBarTitleText": "串珠设计器"
+                    }
+                },
+                {
+                    "path": "my-plans",
+                    "style": {
+                        "navigationBarTitleText": "我的作品",
+                        "enablePullDownRefresh": true
+                    }
+                },
+                {
+                    "path": "plan-detail",
+                    "style": {
+                        "navigationBarTitleText": "方案详情"
+                    }
+                }
+            ]
+        },
+        {
             "root": "pkg-product",
             "pages": [
                 {

@@ -8,6 +8,7 @@
       <view class="nav-item" @click="navTo('/pkg-promotion/pages/group-buy')"><text class="nav-icon">👥</text><text>拼团</text></view>
       <view class="nav-item" @click="navTo('/pkg-promotion/pages/coupons')"><text class="nav-icon">🎫</text><text>优惠券</text></view>
       <view class="nav-item" @click="navTo('/pkg-user/pages/recharge')"><text class="nav-icon">💳</text><text>充值</text></view>
+      <view class="nav-item" @click="navTo('/pkg-diy/pages/gallery')"><text class="nav-icon">📿</text><text>{{ t('diy.gallery.title') }}</text></view>
     </view>
     <FloorSection
       v-for="floor in floors"
@@ -34,6 +35,7 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { searchProducts } from '../../../api/queries/product';
 import { getEnabledFloors, filterActiveFloors, type FloorCollection } from '../../../api/queries/collection';
 import { addItemToOrder } from '../../../api/mutations/cart';
@@ -50,6 +52,7 @@ const floors = ref<FloorCollection[]>([]);
 const cart = useCartStore();
 const auth = useAuthStore();
 const ui = useUIStore();
+const { t } = useI18n();
 
 let pendingAddCart: { variantId: string } | null = null;
 let offLogin: (() => void) | null = null;
