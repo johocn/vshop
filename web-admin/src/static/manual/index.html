@@ -981,7 +981,12 @@ var CHAPTERS = [
 <h3>3. JSON 高级编辑（兜底）</h3>
 <p>下方「JSON 高级编辑」是<mark class="mark">完整编辑态</mark>的逃生口：内容形如 <code>{ "themeTokens": {...}, "defaults": {...} }</code>，<mark class="mark">与上方结构化表单双向同步</mark>——改表单会立即反映到 JSON，改 JSON 失焦后也会并回表单。其它页面的默认配置（首页 / 分类 / 购物车 / 我的）只能在 JSON 里维护。</p>
 <div class="shot-box"><img class="img" src="shots/gap4_op36_config_json.png" alt="全局配置-JSON双根"><div class="imgcap">图 G4 · JSON 高级编辑（themeTokens + defaults 两个根，与表单双向同步）</div></div>
-<div class="shot-box"><img class="img" src="shots/b3_global_config.png" alt="全局配置-L1底层"><div class="imgcap">图 G1 · 全局配置（L1 底层回退值）</div></div>`},
+<div class="shot-box"><img class="img" src="shots/b3_global_config.png" alt="全局配置-L1底层"><div class="imgcap">图 G1 · 全局配置（L1 底层回退值）</div></div>
+<h3>4. 热门城市管理（营销位下发）</h3>
+<p>「热门城市」摘要卡展示当前下发的城市数与前 5 城预览，点「<mark class="mark">管理</mark>」打开底部弹层维护列表：<mark class="mark">↑↓ 调整展示顺序</mark>、点城市名修改区划码（adcode）与坐标、<code>✕</code> 删除；「快速添加」从内置城市库点选（坐标自动带出），也可「＋ 自定义城市」手工录入。点「<mark class="mark">完成</mark>」统一校验（坐标范围 / 去重 / 上限）并保存。</p>
+<p>数据下发至 C 端 <code>defaults.hotCities</code>（L1 全局配置）：C 端城市面板<mark class="mark">始终展示热门城市区块</mark>——可用配送城市显示在上方；热门城市若暂未开通配送则<mark class="mark">置灰并提示</mark>，避免用户选中后走完流程才发现不可达。清空列表则回退 C 端内置城市。</p>
+<div class="shot-box"><img class="img" src="shots/op36_hotcity_card.png" alt="热门城市-摘要卡"><div class="imgcap">图 G5 · 热门城市摘要卡（已配 N 城 + 前 5 城预览 + 管理入口）</div></div>
+<div class="shot-box"><img class="img" src="shots/op36_hotcity_sheet.png" alt="热门城市-管理弹层"><div class="imgcap">图 G6 · 管理弹层（排序 / 改坐标 / 快速添加 / 自定义城市）</div></div>`},
 {book:'op', id:'op-37', title:'装修子页详解', html:`
 <p class="lead">除首页外，多个子页面也有独立的装修入口，可单独配置版式与视觉。</p>
 <table>
