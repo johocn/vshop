@@ -19,6 +19,15 @@ export type DesignerMode = 'byWrist' | 'byCount' | 'pattern' | 'free';
 export type DesignerFit = 'snug' | 'comfortable' | 'loose';
 export type ArrangeMode = 'alternate' | 'random' | 'zoned';
 
+/** 配饰挂位（纯前端展示状态；保存时按 materialId 聚合回 slotList decor 槽位） */
+export interface DecorPlacement {
+    /** 实例 id：`${materialId}#${n}`（同素材多件可区分） */
+    decorId: string;
+    materialId: string;
+    /** 间隙索引（第 k 与 k+1 颗珠之间，k 从 0 起）；-1 = 结位（流苏） */
+    slot: number;
+}
+
 /**
  * 设计器产出的 spec（对齐服务端 calc-bridge v2 契约）：
  * slots 为 Record<slotKey, { materialId, qtyOverride?, every? }>（v1 形式，满足模板 required 校验）；
@@ -118,12 +127,15 @@ export function relativeDate(iso: string | number | Date | null | undefined, t: 
 }
 
 export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string>) {
-    const mode = ref<DesignerMode>('byWrist');
+    const mode = ref<DesignerMode>('free');
     const wristSize = ref(155);
     const fit = ref<DesignerFit>('comfortable');
     const gap = ref(1);
     const slots = ref<DiySpecSlot[]>([{ role: 'main' }]);
     const sequence = ref<string[]>([]);
+    const decors = ref<DecorPlacement[]>([]);
+    const knotVisible = ref(true);
+    let decorSeq = 0;
     const arrange = ref<ArrangeMode>('alternate');
     /** pattern 展示/保存共用的混编种子（改 arrange 或点重新混编时换） */
     const patternSeed = ref(Date.now() % 2147483647);
@@ -221,6 +233,45 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
         sequence.value = next;
     }
 
+    /** 直觉流：拖拽换位（from → to，splice 语义） */
+    function moveBead(from: number, to: number) {
+        if (from === to || from < 0 || to < 0 || from >= sequence.value.length || to >= sequence.value.length) return;
+        const next = [...sequence.value];
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item);
+        sequence.value = next;
+    }
+
+    /** 加配饰：吊坠默认挂序列中点间隙；流苏（attrs.decor === 'tassel'）默认挂结位（-1）。空序列记 0 待吸附 */
+    function addDecor(materialId: string) {
+        const row = materialsById.value.get(materialId);
+        const kind = (row?.attrs as any)?.decor === 'tassel' ? -1
+            : (sequence.value.length >= 2 ? Math.floor(sequence.value.length / 2) - 1 : 0);
+        decorSeq += 1;
+        decors.value = [...decors.value, { decorId: `${materialId}#${decorSeq}`, materialId, slot: kind }];
+    }
+    function moveDecor(decorId: string, slot: number) {
+        decors.value = decors.value.map(d0 => (d0.decorId === decorId ? { ...d0, slot } : d0));
+    }
+    function removeDecor(decorId: string) {
+        decors.value = decors.value.filter(d0 => d0.decorId !== decorId);
+    }
+
+    /** 清空全部（确认由 UI 层做） */
+    function clearAll() {
+        sequence.value = [];
+        decors.value = [];
+        slots.value = [{ role: 'main' }];
+        patternSeed.value = Date.now() % 2147483647;
+        mode.value = 'free';
+    }
+
+    /** 一键推荐：seeded 序列填充（直觉流） */
+    function applyRecommend(seq: string[]) {
+        sequence.value = [...seq];
+        mode.value = 'free';
+    }
+
     /** 保存校验：返回 null 表示可保存，否则为提示 i18n 键 */
     const validationKey = computed<string | null>(() => {
         if (mode.value === 'free') {
@@ -247,7 +298,7 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
             fit: fit.value,
             gap: gap.value,
         };
-        const filled = filledSlots.value;
+        const filled = [...filledSlots.value];
         const decorIds = new Set(filled.filter(s => s.role === 'decor').map(s => s.materialId));
 
         const slotsRecord: Record<string, { materialId: string; qtyOverride?: number; every?: number }> = {};
@@ -277,6 +328,14 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
             params,
             slots: slotsRecord,
         };
+        // 配饰挂位 → slotList decor 槽位（按 materialId 聚合 qty；slot 为前端展示状态不落库）
+        const decorAgg = new Map<string, number>();
+        for (const d0 of decors.value) decorAgg.set(d0.materialId, (decorAgg.get(d0.materialId) ?? 0) + 1);
+        for (const [materialId, qty] of decorAgg) {
+            if (!filled.some(s => s.role === 'decor' && s.materialId === materialId)) {
+                filled.push({ role: 'decor', materialId, qtyOverride: qty } as DiySpecSlot);
+            }
+        }
         if (filled.length) {
             spec.slotList = filled.map(s =>
                 mode.value === 'pattern' ? { ...s, arrange: arrange.value } : { ...s },
@@ -308,9 +367,20 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
         next[i] = { ...next[i], ...patch };
         slots.value = next;
     }
-    /** 切回结构模式时清空自由序列 */
+    /** 序列 → 槽位（按 materialId 聚合，qtyOverride=颗数；decor 不在序列中无涉及） */
+    function slotsFromSequence(seq: string[]): DiySpecSlot[] {
+        const counts = new Map<string, number>();
+        for (const id of seq) counts.set(id, (counts.get(id) ?? 0) + 1);
+        return [...counts.entries()].map(([materialId, n]) =>
+            ({ role: 'main', materialId, qtyOverride: n }) as DiySpecSlot,
+        );
+    }
+
+    /** 切模式：直觉流 → 专业模式时由当前序列反推槽位（颗数带入，byWrist 作收敛权重、byCount 直接命中校验） */
     function setMode(m: DesignerMode) {
-        if (mode.value === 'free' && m !== 'free') sequence.value = [];
+        if (mode.value === 'free' && m !== 'free' && sequence.value.length >= 2) {
+            slots.value = slotsFromSequence(sequence.value);
+        }
         if (m === 'pattern' && arrange.value === 'random') {
             patternSeed.value = Date.now() % 2147483647;
         }
@@ -325,7 +395,44 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
         filledSlots, mainSlots, hasMain, byCountOk, calcCount,
         result, previewSequence, previewBeads, calcMaterials, materialsById,
         validationKey, canSave,
+        decors, knotVisible, moveBead, addDecor, moveDecor, removeDecor, clearAll, applyRecommend,
         enterFree, appendBead, removeBeadAt, reorderSequence, buildSpec,
         addSlot, removeSlotAt, assignSlot, patchSlot, setMode, reshuffle,
     };
+}
+
+const DRAFT_KEY = 'diy_designer_draft';
+
+/** 暂存直觉流草稿（sequence/decors/参数） */
+export function useDesignerDraft(d: {
+    sequence: Ref<string[]>; decors: Ref<DecorPlacement[]>;
+    wristSize: Ref<number>; fit: Ref<DesignerFit>; gap: Ref<number>;
+}) {
+    function saveDraft(): void {
+        uni.setStorageSync(DRAFT_KEY, JSON.stringify({
+            sequence: d.sequence.value, decors: d.decors.value,
+            wristSize: d.wristSize.value, fit: d.fit.value, gap: d.gap.value,
+        }));
+    }
+    /** 恢复草稿：有内容返回 true */
+    function loadDraft(): boolean {
+        try {
+            const raw = uni.getStorageSync(DRAFT_KEY);
+            if (!raw) return false;
+            const dft = JSON.parse(raw) as {
+                sequence?: string[]; decors?: DecorPlacement[];
+                wristSize?: number; fit?: DesignerFit; gap?: number;
+            };
+            if (!dft.sequence?.length) return false;
+            d.sequence.value = dft.sequence;
+            d.decors.value = (dft.decors ?? []).filter(x => x && x.decorId && x.materialId);
+            if (dft.wristSize) d.wristSize.value = dft.wristSize;
+            if (dft.fit) d.fit.value = dft.fit;
+            if (dft.gap != null) d.gap.value = dft.gap;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+    return { saveDraft, loadDraft };
 }
