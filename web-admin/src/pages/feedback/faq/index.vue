@@ -68,9 +68,10 @@ const error = ref('');
 function toRow(f: FaqEntryRow): EditRow {
   return {
     key: keySeq++, id: f.id,
-    // admin-api 的 titleI18n/contentI18n 是 JSON 字符串（GraphQL String），需先解析
-    titleMap: parseLocaleMap(f.titleI18n) || (f.title ? { 'zh-CN': f.title } : {}),
-    contentMap: parseLocaleMap(f.contentI18n) || (f.content ? { 'zh-CN': f.content } : {}),
+    // admin-api 的 titleI18n/contentI18n 是 JSON 字符串（GraphQL String），需先解析；
+    // parseLocaleMap 对 null/坏 JSON 返回 {}（truthy），不能直接 ||，需判空后回退 zh-CN 基线
+    titleMap: { ...(f.title ? { 'zh-CN': f.title } : {}), ...parseLocaleMap(f.titleI18n) },
+    contentMap: { ...(f.content ? { 'zh-CN': f.content } : {}), ...parseLocaleMap(f.contentI18n) },
     type: f.type || 'general', sort: String(f.sort ?? 0), enabled: !!f.enabled, saving: false,
   };
 }
