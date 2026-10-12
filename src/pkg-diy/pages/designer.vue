@@ -2,7 +2,7 @@
     <view class="designer">
         <!-- 预览区 -->
         <view class="designer__preview">
-            <BeadRing canvas-id="designerRing" :width="690" :height="420" :beads="d.previewBeads.value" :mm-per-px="ringMmPerPx" />
+            <BeadRing canvas-id="designerRing" :width="690" :height="620" :beads="d.previewBeads.value" />
             <view class="designer__preview-meta">
                 <text class="designer__price">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
                 <text class="designer__fit" @tap="showCalc = true">
@@ -196,16 +196,6 @@ onLoad(async () => {
     } catch {
         materials.value = [];
     }
-});
-
-/** mmPerPx 随颗数自适应：让珠环恰好铺满画布 */
-const ringMmPerPx = computed(() => {
-    const beads = d.previewBeads.value;
-    if (!beads.length) return 1.4;
-    const avgD = beads.reduce((s, b) => s + b.diameterMm, 0) / beads.length;
-    const radiusRpx = 690 / 2 - avgD / 2 - 4;
-    const circRpx = 2 * Math.PI * Math.max(40, radiusRpx);
-    return Math.min(2.2, Math.max(0.7, (beads.length * avgD) / circRpx));
 });
 
 function slotColor(id: string): string {
