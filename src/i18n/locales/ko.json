@@ -1296,6 +1296,23 @@
         "emptyMaterials": "소재가 없습니다",
         "dragHint": "길게 눌러 순서 변경 · 탭하여 삭제",
         "reshuffle": "다시 섞기",
-        "totalCount": "총 구슬 수"
+        "totalCount": "총 구슬 수",
+        "orderNow": "지금 주문",
+        "orderSuccess": "주문 완료, 결제하러 가기",
+        "quoteDone": "견적이 업데이트되었습니다",
+        "copySuccess": "내 디자인으로 복사되었습니다",
+        "actionFailed": "작업 실패",
+        "status": {
+                "draft": "초안",
+                "quoted": "견적 완료",
+                "ordered": "주문 완료",
+                "public": "공개 중",
+                "private": "비공개"
+        },
+        "planDetail": {
+                "title": "플랜 상세",
+                "shareTitle": "비드 플랜",
+                "notFound": "플랜을 찾을 수 없거나 볼 수 없습니다"
+        }
     }
 }
