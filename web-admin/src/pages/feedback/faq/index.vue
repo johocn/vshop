@@ -14,8 +14,8 @@
           <switch :checked="row.enabled" color="#2563eb" style="transform: scale(0.8)" @change="(e: any) => onToggleEnabled(idx, e)" />
         </view>
       </view>
-      <input v-model="row.title" class="fld" :placeholder="$t('feedbackManage.faqPhTitle')" :maxlength="100" />
-      <textarea v-model="row.content" class="fld area" :placeholder="$t('feedbackManage.faqPhContent')" />
+      <LocaleTabs v-model="row.titleMap" :placeholder="$t('feedbackManage.faqPhTitle')" :maxlength="100" />
+      <LocaleTabs v-model="row.contentMap" :placeholder="$t('feedbackManage.faqPhContent')" multiline :rows="4" />
       <view class="row">
         <text class="sort-label">{{ $t('feedbackManage.faqSortLabel') }}</text>
         <input v-model="row.sort" type="number" class="fld sort" />
@@ -40,6 +40,8 @@ import { ref } from 'vue';
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fetchFaqPage, saveFaq, deleteFaq, type FaqEntryRow } from '../../../apis/feedback';
+import LocaleTabs from '../../../components/LocaleTabs.vue';
+import { cleanLocaleMap, type LocaleMap } from '../../../utils/i18n-map';
 
 const locale = useLocaleStore();
 
@@ -49,8 +51,9 @@ const typeNameList = FAQ_TYPES.map((t) => locale.t('feedbackManage.faqType_' + t
 interface EditRow {
   key: number;
   id: string;
-  title: string;
-  content: string;
+  /** 五语言标题/正文；zh-CN 为必填基线（同步写入后端 title/content 列） */
+  titleMap: LocaleMap;
+  contentMap: LocaleMap;
   type: string;
   sort: string;
   enabled: boolean;
@@ -63,7 +66,12 @@ const loading = ref(false);
 const error = ref('');
 
 function toRow(f: FaqEntryRow): EditRow {
-  return { key: keySeq++, id: f.id, title: f.title, content: f.content, type: f.type || 'general', sort: String(f.sort ?? 0), enabled: !!f.enabled, saving: false };
+  return {
+    key: keySeq++, id: f.id,
+    titleMap: cleanLocaleMap(f.titleI18n) || (f.title ? { 'zh-CN': f.title } : {}),
+    contentMap: cleanLocaleMap(f.contentI18n) || (f.content ? { 'zh-CN': f.content } : {}),
+    type: f.type || 'general', sort: String(f.sort ?? 0), enabled: !!f.enabled, saving: false,
+  };
 }
 
 function typeName(t: string): string {
@@ -84,7 +92,7 @@ async function load() {
 }
 
 function onAdd() {
-  rows.value.unshift({ key: keySeq++, id: '', title: '', content: '', type: 'general', sort: '0', enabled: true, saving: false });
+  rows.value.unshift({ key: keySeq++, id: '', titleMap: {}, contentMap: {}, type: 'general', sort: '0', enabled: true, saving: false });
 }
 
 function onTypeChange(idx: number, e: any) {
@@ -101,8 +109,8 @@ function onToggleEnabled(idx: number, e: any) {
 
 async function doSave(idx: number): Promise<boolean> {
   const row = rows.value[idx];
-  const title = row.title.trim();
-  const content = row.content.trim();
+  const title = (row.titleMap['zh-CN'] || '').trim();
+  const content = (row.contentMap['zh-CN'] || '').trim();
   if (!title) { toast(locale.t('feedbackManage.faqTitleRequired')); return false; }
   if (!content) { toast(locale.t('feedbackManage.faqContentRequired')); return false; }
   row.saving = true;
@@ -114,6 +122,9 @@ async function doSave(idx: number): Promise<boolean> {
       type: row.type,
       sort: Number(row.sort) || 0,
       enabled: row.enabled,
+      // 五语言整卡提交：其余语言为用户所填，zh-CN 恒为基线
+      titleI18n: { ...cleanLocaleMap(row.titleMap), 'zh-CN': title },
+      contentI18n: { ...cleanLocaleMap(row.contentMap), 'zh-CN': content },
     });
     const i = rows.value.findIndex((r) => r.key === row.key);
     if (i >= 0) rows.value[i] = toRow(saved);

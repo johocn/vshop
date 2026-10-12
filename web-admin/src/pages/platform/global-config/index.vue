@@ -64,6 +64,22 @@
     </view>
 
     <view class="card">
+      <text class="sec">{{ $t('platformGlobalConfig.agreementSection') }}</text>
+      <text class="muted">{{ $t('platformGlobalConfig.agreementHint') }}</text>
+      <text v-if="agreementUpdatedAt" class="muted">{{ $t('platformGlobalConfig.agreementUpdatedAt').replace('{time}', agreementUpdatedAt) }}</text>
+      <view class="ag-block">
+        <text class="label">{{ $t('platformGlobalConfig.agreementService') }}</text>
+        <LocaleTabs v-model="agreementService" multiline :rows="8" :max-bytes="32768" :placeholder="$t('platformGlobalConfig.agreementPlaceholder')" />
+      </view>
+      <view class="ag-block">
+        <text class="label">{{ $t('platformGlobalConfig.agreementPrivacy') }}</text>
+        <LocaleTabs v-model="agreementPrivacy" multiline :rows="8" :max-bytes="32768" :placeholder="$t('platformGlobalConfig.agreementPlaceholder')" />
+      </view>
+      <view v-if="agreementErr" class="err">{{ agreementErr }}</view>
+      <button class="btn" :disabled="agreementSaving" @tap="saveAgreement">{{ agreementSaving ? $t('platformGlobalConfig.agreementSaving') : $t('platformGlobalConfig.agreementSave') }}</button>
+    </view>
+
+    <view class="card">
       <text class="sec">{{ $t('platformGlobalConfig.mergedPreview') }}</text>
       <text class="muted">{{ $t('platformGlobalConfig.mergedHint') }}</text>
       <view class="chips">
@@ -91,6 +107,8 @@ import { templateApi } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { GLOBAL_CONFIG_FIELDS, validateField, type ConfigField } from '../../../constants/config-schema';
 import { getByPath, setByPath } from '../../../utils/config-path';
+import { cleanLocaleMap, localeMapBytes, type LocaleMap } from '../../../utils/i18n-map';
+import LocaleTabs from '../../../components/LocaleTabs.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -189,6 +207,50 @@ function switchApp(a: string) {
   load();
 }
 
+// 协议文案卡：五语言编辑，保存合并进 defaults.agreement（C 端按语言读取，未填语言回退 zh-CN）
+const AGREEMENT_MAX_BYTES = 32 * 1024;
+const agreementService = ref<LocaleMap>({});
+const agreementPrivacy = ref<LocaleMap>({});
+const agreementSaving = ref(false);
+const agreementErr = ref('');
+const agreementUpdatedAt = computed(() => {
+  const t = (defs.value?.agreement as any)?.updatedAt;
+  return typeof t === 'string' ? t.slice(0, 10) : '';
+});
+
+async function saveAgreement() {
+  agreementErr.value = '';
+  if (localeMapBytes(agreementService.value) > AGREEMENT_MAX_BYTES || localeMapBytes(agreementPrivacy.value) > AGREEMENT_MAX_BYTES) {
+    agreementErr.value = locale.t('platformGlobalConfig.errTooLarge');
+    return;
+  }
+  agreementSaving.value = true;
+  try {
+    const prevAgreement = (defs.value?.agreement && typeof defs.value.agreement === 'object' ? defs.value.agreement : {}) as Record<string, any>;
+    const agreement = {
+      ...prevAgreement,
+      service: cleanLocaleMap(agreementService.value),
+      privacy: cleanLocaleMap(agreementPrivacy.value),
+      updatedAt: new Date().toISOString(),
+    };
+    await templateApi.updateGlobalConfig({
+      app: app.value,
+      themeTokens: {
+        primaryColor: String(tokens.value.primaryColor ?? '').trim(),
+        accentColor: String(tokens.value.accentColor ?? '').trim(),
+        radius: Number(tokens.value.radius) || 8,
+      },
+      defaults: { ...defs.value, agreement },
+    });
+    defs.value = { ...defs.value, agreement };
+    uni.showToast({ title: locale.t('platformGlobalConfig.agreementSaved'), icon: 'success' });
+  } catch (e: any) {
+    agreementErr.value = graphQlErrorMsg(e, locale.t('platformGlobalConfig.saveFailed'));
+  } finally {
+    agreementSaving.value = false;
+  }
+}
+
 onLoad(load);
 async function load() {
   try {
@@ -201,6 +263,9 @@ async function load() {
       };
     }
     defs.value = cfg?.defaults && typeof cfg.defaults === 'object' ? cfg.defaults : {};
+    const ag = (defs.value.agreement && typeof defs.value.agreement === 'object' ? defs.value.agreement : null) as Record<string, any> | null;
+    agreementService.value = cleanLocaleMap(ag?.service as LocaleMap | null);
+    agreementPrivacy.value = cleanLocaleMap(ag?.privacy as LocaleMap | null);
     syncToJson();
     fieldErrors.value = {};
   } catch (e: any) {
@@ -312,6 +377,7 @@ async function genPreview() {
 .blk-name { font-size: 26rpx; color: #333; }
 .label { display: block; font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
 .field { margin-bottom: 24rpx; }
+.ag-block { margin-bottom: 24rpx; }
 .err { color: #e64340; font-size: 24rpx; margin-bottom: 16rpx; }
 .btn { border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; margin-top: 8rpx; }
 .btn[disabled] { opacity: .6; }
