@@ -64,6 +64,22 @@
     </view>
 
     <view class="card">
+      <view class="row head">
+        <text class="sec hot-sec">{{ $t('platformGlobalConfig.hotCitySection') }}</text>
+        <text class="hot-badge">{{ $t('platformGlobalConfig.hotCityConfigured').replace('{n}', String(hotCities.length)) }}</text>
+        <text class="hot-mgmt" @tap="openHotSheet">{{ $t('platformGlobalConfig.hotCityManage') }}</text>
+      </view>
+      <text class="muted">{{ $t('platformGlobalConfig.hotCityHint') }}</text>
+      <view class="hot-pv" v-if="hotCities.length">
+        <template v-for="(c, i) in hotPreview" :key="c.name">
+          <text v-if="i" class="hot-pv-a">→</text>
+          <text class="hot-pv-c">{{ c.name }}</text>
+        </template>
+        <text v-if="hotMore > 0" class="hot-pv-more">+{{ hotMore }}</text>
+      </view>
+    </view>
+
+    <view class="card">
       <text class="sec">{{ $t('platformGlobalConfig.agreementSection') }}</text>
       <text class="muted">{{ $t('platformGlobalConfig.agreementHint') }}</text>
       <text v-if="agreementUpdatedAt" class="muted">{{ $t('platformGlobalConfig.agreementUpdatedAt').replace('{time}', agreementUpdatedAt) }}</text>
@@ -97,6 +113,49 @@
         </view>
       </view>
     </view>
+
+    <view class="mask" v-if="showHotSheet" @tap="closeHotSheet">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-grip"></view>
+        <view class="row head">
+          <text class="sec hot-sec">{{ $t('platformGlobalConfig.hotCityManageTitle') }}</text>
+          <text class="sheet-done" :class="{ off: hotSaving }" @tap="doneHotSheet">{{ hotSaving ? $t('platformGlobalConfig.saving') : $t('platformGlobalConfig.hotCityDone') }}</text>
+        </view>
+        <scroll-view scroll-y class="hot-rows">
+          <view class="hot-row" v-for="(c, i) in hotCities" :key="c.name">
+            <view class="hot-line">
+              <text class="hot-name" @tap="toggleHotEdit(i)">{{ c.name }}</text>
+              <text class="hot-meta">{{ hotMeta(c) }}</text>
+              <view class="hot-ops">
+                <text class="hot-op" @tap="moveHot(i, -1)">↑</text>
+                <text class="hot-op" @tap="moveHot(i, 1)">↓</text>
+                <text class="hot-op" @tap="removeHot(i)">✕</text>
+              </view>
+            </view>
+            <view v-if="editingHotIdx === i" class="hot-edit">
+              <input class="in sm" type="text" :value="hotDraft.adcode" :placeholder="$t('platformGlobalConfig.hotCityAdcode')" @input="hotDraft.adcode = ($event as any).detail.value" />
+              <input class="in sm" type="digit" :value="hotDraft.lat" :placeholder="$t('platformGlobalConfig.hotCityLat')" @input="hotDraft.lat = ($event as any).detail.value" />
+              <input class="in sm" type="digit" :value="hotDraft.lng" :placeholder="$t('platformGlobalConfig.hotCityLng')" @input="hotDraft.lng = ($event as any).detail.value" />
+            </view>
+          </view>
+        </scroll-view>
+        <text class="muted hot-tip">{{ $t('platformGlobalConfig.hotCityExpandHint') }}</text>
+        <text class="sec hot-sub">{{ $t('platformGlobalConfig.hotCityQuickAdd') }}</text>
+        <view class="chips">
+          <text v-for="c in hotLibraryLeft" :key="c.name" class="chip" @tap="addQuick(c)">{{ c.name }}</text>
+        </view>
+        <view class="chips" style="margin-top: 12rpx;">
+          <text class="chip" :class="{ on: hotCustomOpen }" @tap="hotCustomOpen = !hotCustomOpen">{{ $t('platformGlobalConfig.hotCityCustom') }}</text>
+        </view>
+        <view v-if="hotCustomOpen" class="hot-cform">
+          <input class="in sm" type="text" :value="hotCustom.name" :placeholder="$t('platformGlobalConfig.hotCityNameLabel')" @input="hotCustom.name = ($event as any).detail.value" />
+          <input class="in sm" type="text" :value="hotCustom.adcode" :placeholder="$t('platformGlobalConfig.hotCityAdcode')" @input="hotCustom.adcode = ($event as any).detail.value" />
+          <input class="in sm" type="digit" :value="hotCustom.lat" :placeholder="$t('platformGlobalConfig.hotCityLat')" @input="hotCustom.lat = ($event as any).detail.value" />
+          <input class="in sm" type="digit" :value="hotCustom.lng" :placeholder="$t('platformGlobalConfig.hotCityLng')" @input="hotCustom.lng = ($event as any).detail.value" />
+          <text class="hot-cadd" @tap="addCustom">{{ $t('platformGlobalConfig.hotCityAdd') }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -106,6 +165,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { templateApi } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { GLOBAL_CONFIG_FIELDS, validateField, type ConfigField } from '../../../constants/config-schema';
+import { HOT_CITY_LIBRARY, HOT_CITY_LIMIT, normalizeHotCities, coordError, type HotCity } from '../../../constants/hot-cities';
 import { getByPath, setByPath } from '../../../utils/config-path';
 import { cleanLocaleMap, localeMapBytes, type LocaleMap } from '../../../utils/i18n-map';
 import LocaleTabs from '../../../components/LocaleTabs.vue';
@@ -130,6 +190,25 @@ const draftJson = ref('{}');
 const err = ref('');
 const saving = ref(false);
 const fieldErrors = ref<Record<string, string>>({});
+
+/* ---------------- 热门城市（defaults.hotCities，独立编辑态，保存时并入 defaults） ---------------- */
+const hotCities = ref<HotCity[]>([]);
+const showHotSheet = ref(false);
+const editingHotIdx = ref(-1);
+const hotDraft = ref({ adcode: '', lat: '', lng: '' });
+const hotCustomOpen = ref(false);
+const hotCustom = ref({ name: '', adcode: '', lat: '', lng: '' });
+const hotSaving = ref(false);
+const hotLibraryLeft = computed(() => HOT_CITY_LIBRARY.filter((c) => !hotCities.value.some((h) => h.name === c.name)));
+const hotPreview = computed(() => hotCities.value.slice(0, 5));
+const hotMore = computed(() => hotCities.value.length - hotPreview.value.length);
+
+const hotMeta = (c: HotCity) => {
+  const parts: string[] = [];
+  if (c.adcode) parts.push(c.adcode);
+  if (typeof c.lat === 'number' && typeof c.lng === 'number') parts.push(`${c.lat}, ${c.lng}`);
+  return parts.join(' · ');
+};
 
 /**
  * 设计口径：themeTokens 与 defaults 合成同一份编辑态（draft），结构化表单与 JSON 框
@@ -240,7 +319,7 @@ async function saveAgreement() {
         accentColor: String(tokens.value.accentColor ?? '').trim(),
         radius: Number(tokens.value.radius) || 8,
       },
-      defaults: { ...defs.value, agreement },
+      defaults: { ...defs.value, agreement, hotCities: hotCities.value },
     });
     defs.value = { ...defs.value, agreement };
     uni.showToast({ title: locale.t('platformGlobalConfig.agreementSaved'), icon: 'success' });
@@ -263,6 +342,9 @@ async function load() {
       };
     }
     defs.value = cfg?.defaults && typeof cfg.defaults === 'object' ? cfg.defaults : {};
+    // 热门城市走独立编辑态（弹层），从 defs 剥离使 JSON 高级框保持精简；保存时再并入 defaults
+    hotCities.value = normalizeHotCities(defs.value.hotCities);
+    if (defs.value.hotCities !== undefined) delete defs.value.hotCities;
     const ag = (defs.value.agreement && typeof defs.value.agreement === 'object' ? defs.value.agreement : null) as Record<string, any> | null;
     agreementService.value = cleanLocaleMap(ag?.service as LocaleMap | null);
     agreementPrivacy.value = cleanLocaleMap(ag?.privacy as LocaleMap | null);
@@ -320,13 +402,144 @@ async function save() {
         accentColor: String(tokens.value.accentColor ?? '').trim(),
         radius: Number(tokens.value.radius) || 8,
       },
-      defaults: { ...defs.value },
+      defaults: { ...defs.value, hotCities: hotCities.value },
     });
     uni.showToast({ title: locale.t('platformGlobalConfig.saved'), icon: 'success' });
   } catch (e: any) {
     uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.saveFailed')), icon: 'none' });
   } finally {
     saving.value = false;
+  }
+}
+
+/* ---------------- 热门城市弹层（方案 C：编辑即时生效于编辑态，「完成」统一校验并保存） ---------------- */
+
+function openHotSheet() {
+  editingHotIdx.value = -1;
+  hotCustomOpen.value = false;
+  showHotSheet.value = true;
+}
+
+function closeHotSheet() {
+  applyHotEdit(); // 尽力应用展开行草稿；未过校验的输入不生效（与 JSON 逃生口「坏值不并入」口径一致）
+  showHotSheet.value = false;
+}
+
+/** 应用当前展开行的坐标草稿；失败 toast 并返回 false */
+function applyHotEdit(): boolean {
+  const i = editingHotIdx.value;
+  if (i < 0 || !hotCities.value[i]) {
+    editingHotIdx.value = -1;
+    return true;
+  }
+  const code = coordError(hotDraft.value.lat, hotDraft.value.lng);
+  if (code) {
+    uni.showToast({ title: locale.t('platformGlobalConfig.hotCityErr_' + code), icon: 'none' });
+    return false;
+  }
+  const adcode = hotDraft.value.adcode.trim();
+  const lat = hotDraft.value.lat.trim() === '' ? undefined : Number(hotDraft.value.lat);
+  const lng = hotDraft.value.lng.trim() === '' ? undefined : Number(hotDraft.value.lng);
+  hotCities.value = hotCities.value.map((h, idx) =>
+    idx === i ? { ...h, adcode: adcode || undefined, lat, lng } : h,
+  );
+  editingHotIdx.value = -1;
+  return true;
+}
+
+function toggleHotEdit(i: number) {
+  if (editingHotIdx.value === i) {
+    applyHotEdit();
+    return;
+  }
+  if (!applyHotEdit()) return; // 当前行校验未过，先修正再切换
+  const c = hotCities.value[i];
+  hotDraft.value = {
+    adcode: c.adcode ?? '',
+    lat: c.lat == null ? '' : String(c.lat),
+    lng: c.lng == null ? '' : String(c.lng),
+  };
+  editingHotIdx.value = i;
+}
+
+/** 追加城市：去重 + 上限；成功返回 true */
+function pushHot(item: HotCity): boolean {
+  if (hotCities.value.some((h) => h.name === item.name)) {
+    uni.showToast({ title: locale.t('platformGlobalConfig.hotCityErrDup'), icon: 'none' });
+    return false;
+  }
+  if (hotCities.value.length >= HOT_CITY_LIMIT) {
+    uni.showToast({
+      title: locale.t('platformGlobalConfig.hotCityErrMax').replace('{n}', String(HOT_CITY_LIMIT)),
+      icon: 'none',
+    });
+    return false;
+  }
+  hotCities.value = [...hotCities.value, { ...item }];
+  return true;
+}
+
+function addQuick(item: HotCity) {
+  if (!pushHot(item)) return;
+  editingHotIdx.value = -1;
+}
+
+function addCustom() {
+  const name = hotCustom.value.name.trim();
+  if (!name) {
+    uni.showToast({ title: locale.t('platformGlobalConfig.hotCityErrName'), icon: 'none' });
+    return;
+  }
+  const code = coordError(hotCustom.value.lat, hotCustom.value.lng);
+  if (code) {
+    uni.showToast({ title: locale.t('platformGlobalConfig.hotCityErr_' + code), icon: 'none' });
+    return;
+  }
+  const adcode = hotCustom.value.adcode.trim();
+  const lat = hotCustom.value.lat.trim() === '' ? undefined : Number(hotCustom.value.lat);
+  const lng = hotCustom.value.lng.trim() === '' ? undefined : Number(hotCustom.value.lng);
+  if (!pushHot({ name, adcode: adcode || undefined, lat, lng })) return;
+  hotCustom.value = { name: '', adcode: '', lat: '', lng: '' };
+  hotCustomOpen.value = false;
+}
+
+function removeHot(i: number) {
+  hotCities.value = hotCities.value.filter((_, idx) => idx !== i);
+  if (editingHotIdx.value === i) editingHotIdx.value = -1;
+  else if (editingHotIdx.value > i) editingHotIdx.value -= 1;
+}
+
+function moveHot(i: number, dir: -1 | 1) {
+  const j = i + dir;
+  if (j < 0 || j >= hotCities.value.length) return;
+  if (editingHotIdx.value === i && !applyHotEdit()) return;
+  const next = [...hotCities.value];
+  [next[i], next[j]] = [next[j], next[i]];
+  hotCities.value = next;
+  if (editingHotIdx.value === i) editingHotIdx.value = j;
+  else if (editingHotIdx.value === j) editingHotIdx.value = i;
+}
+
+/** 弹层「完成」：应用行草稿 → 保存到后端（defaults 全量合并，含其他未保存编辑，与协议卡独立保存口径一致） */
+async function doneHotSheet() {
+  if (!applyHotEdit()) return;
+  hotSaving.value = true;
+  try {
+    await templateApi.updateGlobalConfig({
+      app: app.value,
+      themeTokens: {
+        primaryColor: String(tokens.value.primaryColor ?? '').trim(),
+        accentColor: String(tokens.value.accentColor ?? '').trim(),
+        radius: Number(tokens.value.radius) || 8,
+      },
+      defaults: { ...defs.value, hotCities: hotCities.value },
+    });
+    showHotSheet.value = false;
+    uni.showToast({ title: locale.t('platformGlobalConfig.hotCitySaved'), icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('platformGlobalConfig.saveFailed')), icon: 'none' });
+  } finally {
+    hotSaving.value = false;
   }
 }
 
@@ -343,7 +556,7 @@ async function genPreview() {
   try {
     const overrides = {
       themeTokens: tokens.value,
-      defaults: defs.value,
+      defaults: { ...defs.value, hotCities: hotCities.value },
     };
     const r = await templateApi.mergedPreview(app.value, undefined, overrides);
     previewText.value = JSON.stringify(r.merged, null, 2);
@@ -392,4 +605,33 @@ async function genPreview() {
 .src-L1 { background: #4f8cff; }
 .src-L2 { background: #f0a020; }
 .src-L3 { background: #52c41a; }
+
+/* 热门城市（摘要卡 + 底部弹层） */
+.hot-sec { margin-bottom: 0; }
+.hot-badge { flex: 0 0 auto; padding: 2rpx 18rpx; background: #eaf2ff; color: #1d5fd6; border-radius: 999rpx; font-size: 22rpx; }
+.hot-mgmt { margin-left: auto; padding: 8rpx 26rpx; background: #4f8cff; color: #fff; border-radius: 999rpx; font-size: 24rpx; }
+.hot-pv { display: flex; flex-wrap: wrap; align-items: center; gap: 8rpx; margin-top: 12rpx; }
+.hot-pv-c { padding: 4rpx 18rpx; background: #f2f3f7; border-radius: 999rpx; font-size: 24rpx; color: #333; }
+.hot-pv-a { font-size: 22rpx; color: #999; }
+.hot-pv-more { font-size: 24rpx; color: #1d5fd6; font-weight: 600; }
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); z-index: 99; display: flex; align-items: flex-end; }
+.sheet { width: 100%; max-height: 84vh; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 20rpx 24rpx 40rpx; box-sizing: border-box; display: flex; flex-direction: column; }
+.sheet-grip { width: 64rpx; height: 8rpx; border-radius: 999rpx; background: #e5e6eb; margin: 0 auto 16rpx; }
+.sheet-done { margin-left: auto; padding: 8rpx 30rpx; background: #4f8cff; color: #fff; border-radius: 999rpx; font-size: 26rpx; }
+.sheet-done.off { opacity: .6; }
+.hot-rows { max-height: 42vh; }
+.hot-row { padding: 14rpx 0; border-bottom: 1px solid #f2f2f2; }
+.hot-row:last-child { border-bottom: none; }
+.hot-line { display: flex; align-items: center; gap: 12rpx; }
+.hot-name { font-size: 26rpx; font-weight: 600; color: #1d5fd6; }
+.hot-meta { margin-left: auto; font-family: Consolas, Monaco, monospace; font-size: 22rpx; color: #999; word-break: break-all; text-align: right; }
+.hot-ops { display: flex; gap: 8rpx; flex: 0 0 auto; }
+.hot-op { width: 44rpx; height: 44rpx; border-radius: 12rpx; background: #f5f6f8; color: #666; display: flex; align-items: center; justify-content: center; font-size: 24rpx; }
+.hot-edit { display: flex; gap: 12rpx; margin-top: 12rpx; }
+.hot-tip { margin-top: 8rpx; }
+.hot-sub { padding: 16rpx 0 8rpx; }
+.hot-cform { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
+.in.sm { box-sizing: border-box; width: calc((100% - 24rpx) / 3); border: 1px solid #eee; border-radius: 12rpx; padding: 10rpx 18rpx; font-size: 24rpx; }
+.hot-cform .in.sm { width: calc((100% - 36rpx) / 2); }
+.hot-cadd { padding: 10rpx 30rpx; background: #eaf2ff; border: 1px solid #4f8cff; color: #1d5fd6; border-radius: 999rpx; font-size: 24rpx; }
 </style>
