@@ -1296,6 +1296,23 @@
         "emptyMaterials": "No materials available",
         "dragHint": "Drag to reorder · tap to remove",
         "reshuffle": "Reshuffle",
-        "totalCount": "Total beads"
+        "totalCount": "Total beads",
+        "orderNow": "Order now",
+        "orderSuccess": "Ordered — go to pay",
+        "quoteDone": "Quote updated",
+        "copySuccess": "Copied to my designs",
+        "actionFailed": "Action failed",
+        "status": {
+                "draft": "Draft",
+                "quoted": "Quoted",
+                "ordered": "Ordered",
+                "public": "Public",
+                "private": "Private"
+        },
+        "planDetail": {
+                "title": "Plan detail",
+                "shareTitle": "Bead design",
+                "notFound": "Plan not found or inaccessible"
+        }
     }
 }

@@ -1296,6 +1296,23 @@
         "emptyMaterials": "素材がありません",
         "dragHint": "長押しで並べ替え・タップで削除",
         "reshuffle": "混ぜ直す",
-        "totalCount": "総数"
+        "totalCount": "総数",
+        "orderNow": "今すぐ発注",
+        "orderSuccess": "発注完了、お支払いへ",
+        "quoteDone": "見積を更新しました",
+        "copySuccess": "マイデザインへ複製しました",
+        "actionFailed": "操作に失敗しました",
+        "status": {
+                "draft": "下書き",
+                "quoted": "見積済",
+                "ordered": "発注済",
+                "public": "公開中",
+                "private": "非公開"
+        },
+        "planDetail": {
+                "title": "プラン詳細",
+                "shareTitle": "ビーズデザイン",
+                "notFound": "プランが見つからないか閲覧できません"
+        }
     }
 }

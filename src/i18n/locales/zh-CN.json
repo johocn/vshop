@@ -1296,6 +1296,23 @@
         "emptyMaterials": "暂无素材",
         "dragHint": "按住拖动调序 · 点按移除",
         "reshuffle": "重新混编",
-        "totalCount": "总颗数"
+        "totalCount": "总颗数",
+        "orderNow": "立即下单",
+        "orderSuccess": "下单成功，去支付",
+        "quoteDone": "报价已更新",
+        "copySuccess": "已复制到我的方案",
+        "actionFailed": "操作失败",
+        "status": {
+                "draft": "草稿",
+                "quoted": "已报价",
+                "ordered": "已下单",
+                "public": "公开中",
+                "private": "未公开"
+        },
+        "planDetail": {
+                "title": "方案详情",
+                "shareTitle": "串珠方案",
+                "notFound": "方案不存在或不可见"
+        }
     }
 }

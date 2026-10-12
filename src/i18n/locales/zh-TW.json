@@ -1296,6 +1296,23 @@
         "emptyMaterials": "暫無素材",
         "dragHint": "按住拖動調序 · 點按移除",
         "reshuffle": "重新混編",
-        "totalCount": "總顆數"
+        "totalCount": "總顆數",
+        "orderNow": "立即下單",
+        "orderSuccess": "下單成功，去支付",
+        "quoteDone": "報價已更新",
+        "copySuccess": "已復製到我的方案",
+        "actionFailed": "操作失敗",
+        "status": {
+                "draft": "草稿",
+                "quoted": "已報價",
+                "ordered": "已下單",
+                "public": "公開中",
+                "private": "未公開"
+        },
+        "planDetail": {
+                "title": "方案詳情",
+                "shareTitle": "串珠方案",
+                "notFound": "方案不存在或不可見"
+        }
     }
 }
