@@ -14,10 +14,22 @@ export interface LotteryPrizeInfo {
     consume: number;
 }
 
+export interface LotteryCostConfig {
+    /** fixed=每次固定扣 fixedCost（0=免费）；perPrize=按所中奖品 consume */
+    mode: 'fixed' | 'perPrize';
+    fixedCost: number;
+}
+
 /** 九宫格奖品列表（未登录可看；顺序与开奖 prizeIndex 同源） */
 export async function getMyLotteryPrizes() {
     const client = getGraphQLClient();
     return client.request(`query MyLotteryPrizes { myLotteryPrizes { id name image consume } }`);
+}
+
+/** 抽奖消耗配置（未登录可看；fixed=渠道固定消耗，perPrize=按所中奖品） */
+export async function getLotteryCostConfig() {
+    const client = getGraphQLClient();
+    return client.request(`query LotteryCostConfig { lotteryCostConfig { mode fixedCost } }`);
 }
 
 /** 抽奖（登录；服务端加权开奖，返回 prizeIndex + 中奖奖品） */

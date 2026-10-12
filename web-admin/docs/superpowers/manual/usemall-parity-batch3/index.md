@@ -265,3 +265,33 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 | e2e | recharge-card-plugin 21/21 绿（新增「DB 存 enc: 密文、API 返回明文、存量明文兼容」用例） |
 | 生产存量 | `balance_withdrawal_request` 当前 0 行，全部新数据密文落库 |
 | 生产密钥 | 服务器 `.env` 已配 `BALANCE_ACCOUNT_SECRET`（`openssl rand -hex 32` 强随机，权限 600，dotenv 验证可读）；生产表为空时配置，无旧密文解密风险 |
+
+## 十、已知边界批次 C 处理记录（2026-10-12）
+
+> 处理「五、已知边界」#3a（提现起提金额配置化）+ #7（抽奖固定消耗，定稿为可选增强，经确认取「方案 A 渠道配置共存」）。计划文档：`docs/superpowers/plans/2026-10-12-boundary-batch-c.md`。
+
+### 10.1 改动内容
+
+- **Channel customFields 新增两字段**（vendure `dev-config.ts`，租户配置通用）：
+  - `minWithdrawalAmount`（int nullable，分）：提现起提金额，null/<=0 回退后端默认 1000（¥10）。
+  - `lotteryFixedCost`（int nullable，积分）：抽奖每次固定消耗，null = 按所中奖品 consume（现状）；>=0 = 每次固定扣该值（0 = 免费抽奖）。两模式可随时切换，存量数据天然兼容。
+- **recharge-card-plugin**：`balance-withdrawal.service.ts` 起提校验改读 `resolveMinWithdrawalAmount(ctx)`（渠道配置 >0 生效否则回退 1000）；`myBalanceWithFrozen` 返回新增 `minWithdrawalAmount`。
+- **lottery-plugin**：`lottery.service.ts` 新增 `costConfig(ctx)`（fixed/perPrize 两模式），`draw()` 扣积分与记录快照按模式取值；shop schema 新增 `lotteryCostConfig { mode fixedCost }` 查询（未登录可访问，九宫格展示用）。
+- **C 端**：`withdraw.vue` 输入框下动态提示起提金额 + 提交前本地校验（后端校验兜底）；`lottery.vue` fixed 模式隐藏每格「消耗积分」、顶部统一显示「每次抽奖消耗 N 积分/免费抽奖」，结果弹窗文案跟随模式；perPrize 模式渲染完全不变。五语言词条同步（`withdraw.minHint`、`lottery.fixedCostHint/freeHint/resultConsumeFixed`；原 `withdraw.amountPlaceholder` 硬编码「最低 ¥10」参数化）。
+- **web-admin**：店铺信息（装修 → 店铺信息）新增「提现起提(元)」「抽奖固定消耗」两个输入项（留空 = 走默认/按奖品），保存经 `myUpdateChannelCustomFields` 写入。
+
+### 10.2 配置入口（后台操作）
+
+1. 登录 web-admin → 装修 → 店铺信息，页面底部新增两项：
+   - **提现起提(元)**：填 `50` = 单笔提现不低于 ¥50；留空 = 默认 ¥10。
+   - **抽奖固定消耗**：填 `50` = 每次抽奖固定扣 50 积分；填 `0` = 免费抽奖；留空 = 按所中奖品「消耗积分」扣减（原有行为）。
+2. 保存后 C 端即时生效（提现页提示与校验、抽奖页展示与扣费均跟随配置）。
+
+### 10.3 验证记录
+
+| 验证项 | 结果 |
+|--------|------|
+| e2e | recharge-card 8/8 绿（新增「配置 5000：2000 拒/5000 过 + myBalanceWithFrozen 返回 + 置 null 回退」用例）；lottery 7/7 绿（新增「默认 perPrize → fixed=50 固定扣 50 含记录快照 → 置 null 回退」用例） |
+| 边界修复 | ① `Number(null)=0` 陷阱：costConfig 未配置时曾被误判为 fixed/0（免费抽），已改为先判 null；② 字段名冲突：分销插件已占用 `Channel.minWithdrawalAmount`（分销佣金提现，默认 10000），余额提现改用独立字段 `balanceMinWithdrawalAmount` |
+| 本地端到端 | admin 配置 lotteryFixedCost=50 + balanceMinWithdrawalAmount=5000 → shop 端 `lotteryCostConfig`=fixed/50、`myBalanceWithFrozen.minWithdrawalAmount`=5000；抽中 0 积分奖品实际扣 50、记录快照 consume=50；置 null 后回退 perPrize/默认 ¥10 |
+| C 端构建 | build:h5 通过 |

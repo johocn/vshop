@@ -1,10 +1,10 @@
 import { getGraphQLClient } from '../client';
 
-/** 我的余额（含冻结）：可提余额 = balance，冻结中 = frozenBalance（SDL: myBalanceWithFrozen） */
+/** 我的余额（含冻结）：可提余额 = balance，冻结中 = frozenBalance，起提金额 = minWithdrawalAmount（分，渠道配置） */
 export async function getMyBalanceWithFrozen() {
     const client = getGraphQLClient();
     return client.request(`query MyBalanceWithFrozen {
-        myBalanceWithFrozen { balance frozenBalance }
+        myBalanceWithFrozen { balance frozenBalance minWithdrawalAmount }
     }`);
 }
 

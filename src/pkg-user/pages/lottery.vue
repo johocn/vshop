@@ -9,6 +9,9 @@
     </view>
 
     <view class="wheel-card">
+      <text v-if="cost.mode === 'fixed'" class="wheel-card__cost" :class="{ 'wheel-card__cost--free': !cost.fixedCost }">
+        {{ cost.fixedCost > 0 ? t('lottery.fixedCostHint', { n: cost.fixedCost }) : t('lottery.freeHint') }}
+      </text>
       <view class="wheel">
         <template v-for="(cell, gi) in cells" :key="gi">
           <view v-if="gi === 4" class="wheel__slot wheel__slot--center">
@@ -21,7 +24,7 @@
               <image v-if="cell.prize.image" class="wheel__img" :src="cell.prize.image" mode="aspectFill" />
               <view v-else class="wheel__img wheel__img--ph" />
               <text class="wheel__name">{{ cell.prize.name }}</text>
-              <text class="wheel__consume" :class="{ 'wheel__consume--free': !cell.prize.consume }">
+              <text v-if="cost.mode !== 'fixed'" class="wheel__consume" :class="{ 'wheel__consume--free': !cell.prize.consume }">
                 {{ consumeText(cell.prize.consume) }}
               </text>
             </view>
@@ -37,7 +40,7 @@
         <text class="result__badge">{{ t('lottery.resultBadge') }}</text>
         <image v-if="result.prize.image" class="result__img" :src="result.prize.image" mode="aspectFit" />
         <text class="result__title">{{ t('lottery.congrats', { name: result.prize.name }) }}</text>
-        <text class="result__consume">{{ result.prize.consume > 0 ? t('lottery.resultConsume', { n: result.prize.consume }) : t('lottery.resultFree') }}</text>
+        <text class="result__consume">{{ resultConsumeText }}</text>
         <button class="result__btn" @tap="closeResult">{{ t('lottery.okBtn') }}</button>
       </view>
     </view>
@@ -65,7 +68,7 @@
 import { ref, computed } from 'vue';
 import { onReachBottom, onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
-import { getMyLotteryPrizes, drawLottery, getMyLotteryRecords, type LotteryPrizeInfo } from '../../api/queries/lottery';
+import { getMyLotteryPrizes, drawLottery, getMyLotteryRecords, getLotteryCostConfig, type LotteryPrizeInfo, type LotteryCostConfig } from '../../api/queries/lottery';
 import { getMyMemberInfo } from '../../api/queries/member';
 import { useAuthStore } from '../../stores/auth';
 import { usePagination } from '../../composables/usePagination';
@@ -77,6 +80,8 @@ const authStore = useAuthStore();
 const prizes = ref<LotteryPrizeInfo[]>([]);
 const prizesLoading = ref(false);
 const points = ref<number | null>(null);
+// 消耗模式：fixed=渠道固定消耗（0=免费），perPrize=按所中奖品 consume（后端 lotteryCostConfig）
+const cost = ref<LotteryCostConfig>({ mode: 'perPrize', fixedCost: 0 });
 
 const spinning = ref(false);
 const highlight = ref(-1);
@@ -125,6 +130,15 @@ async function loadPrizes() {
     // 未登录也可看；失败展示空态即可
   }
   prizesLoading.value = false;
+}
+
+async function loadCostConfig() {
+  try {
+    const r: any = await getLotteryCostConfig();
+    if (r?.lotteryCostConfig?.mode) cost.value = r.lotteryCostConfig;
+  } catch (e) {
+    // 静默：失败保持 perPrize 默认展示
+  }
 }
 
 async function loadPoints() {
@@ -196,8 +210,19 @@ function closeResult() {
   highlight.value = -1;
 }
 
+// 结果弹窗消耗文案：fixed 模式按固定消耗，perPrize 按奖品 consume
+const resultConsumeText = computed(() => {
+  const r = result.value;
+  if (!r) return '';
+  if (cost.value.mode === 'fixed') {
+    return cost.value.fixedCost > 0 ? t('lottery.resultConsumeFixed', { n: cost.value.fixedCost }) : t('lottery.resultFree');
+  }
+  return r.prize.consume > 0 ? t('lottery.resultConsume', { n: r.prize.consume }) : t('lottery.resultFree');
+});
+
 onShow(() => {
   void loadPrizes();
+  void loadCostConfig();
   void loadPoints();
   if (authStore.token) void refreshRecords();
 });
@@ -223,6 +248,7 @@ onPullDownRefresh(async () => {
 }
 .wheel-card {
   background: #fff; border-radius: $radius-md; padding: 20rpx; margin-bottom: 20rpx;
+  &__cost { display: block; text-align: center; font-size: 24rpx; color: $brand-color; padding-bottom: 12rpx; &--free { color: $success-color; } }
   &__empty { display: block; text-align: center; color: #999; font-size: 24rpx; padding: 20rpx 0; }
 }
 .wheel { display: flex; flex-wrap: wrap; }

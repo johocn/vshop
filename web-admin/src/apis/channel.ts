@@ -48,6 +48,11 @@ export interface ChannelCustomFields {
   pageProfileConfig?: string;
   // 库位三档开关：off=关闭库位 / zone=只用库区 / bin=完整库位（默认 off）
   binMode?: string;
+  // 余额提现起提金额（分，int nullable）：null/<=0 回退后端默认 1000（¥10）
+  // 注意：分销插件已占用 Channel.minWithdrawalAmount（分销佣金提现），余额提现用独立名 balanceMinWithdrawalAmount
+  balanceMinWithdrawalAmount?: number | null;
+  // 抽奖每次固定消耗（积分，int nullable）：null=按所中奖品 consume；>=0=每次固定扣该值（0=免费）
+  lotteryFixedCost?: number | null;
 }
 
 export interface ActiveChannelInfo {
@@ -61,7 +66,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost }
       }
     }`,
   );
