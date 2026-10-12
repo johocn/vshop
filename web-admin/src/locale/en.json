@@ -3356,7 +3356,17 @@
     "err_max": "Above the allowed maximum",
     "err_select": "Invalid value",
     "err_boolean": "Must be a boolean",
-    "errFixFirst": "{n} field(s) need fixing"
+    "errFixFirst": "{n} field(s) need fixing",
+    "agreementSection": "Agreements (5 languages)",
+    "agreementHint": "Terms of service and privacy policy are shown in the app UI language; missing languages fall back to Simplified Chinese. Up to 32KB per language.",
+    "agreementService": "Terms of Service",
+    "agreementPrivacy": "Privacy Policy",
+    "agreementPlaceholder": "Enter the agreement text for this language (line breaks supported)",
+    "agreementSave": "Save Agreements",
+    "agreementSaving": "Saving…",
+    "agreementSaved": "Agreements saved",
+    "agreementUpdatedAt": "Last updated: {time}",
+    "errTooLarge": "A single language exceeds the 32KB limit. Please shorten it."
   },
   "platformProductApproval": {
     "tabPending": "Pending",
@@ -3460,6 +3470,15 @@
     "empty": "No withdrawal requests",
     "emptyPending": "No pending requests"
   },
+  "i18nEdit": {
+    "locale_zh-CN": "简体中文",
+    "locale_zh-TW": "繁體中文",
+    "locale_en": "English",
+    "locale_ja": "日本語",
+    "locale_ko": "한국어",
+    "fallbackHint": "Falls back to Simplified Chinese in the app when empty",
+    "errTooLarge": "Exceeds the {n}KB limit"
+  },
   "feedbackManage": {
     "tabPending": "Pending",
     "tabProcessing": "Processing",
@@ -3475,6 +3494,16 @@
     "contactLabel": "Contact: ",
     "createdAtLabel": "Submitted at ",
     "handledAtLabel": "Handled at ",
+    "replyLabel": "Merchant reply",
+    "replyBtn": "Reply",
+    "replyPlaceholder": "Write your reply",
+    "replyResolveToo": "Also mark as resolved",
+    "replySubmit": "Submit reply",
+    "replyCancel": "Cancel",
+    "replySubmitting": "Submitting…",
+    "replyRequired": "Reply is required",
+    "replyOk": "Reply sent",
+    "repliedAtLabel": "Replied at ",
     "processBtn": "Processing",
     "resolveBtn": "Resolved",
     "statusTitle": "Update Feedback Status",
