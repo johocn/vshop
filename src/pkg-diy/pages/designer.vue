@@ -17,17 +17,21 @@
                 @decor-move="onDecorMove"
                 @decor-remove="onDecorRemove"
             />
+            <view v-if="!d.previewBeads.value.length" class="designer__empty">
+                <text>{{ t('diy.emptyHint') }}</text>
+            </view>
             <view class="designer__knot-row">
                 <text class="designer__knot-toggle" @tap="d.knotVisible.value = !d.knotVisible.value">
                     {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
                 </text>
             </view>
-            <view class="designer__preview-meta">
-                <text class="designer__price">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
-                <text class="designer__fit" @tap="showCalc = true">
-                    {{ t('diy.innerCirc') }} {{ cm(d.result.value?.bom?.geometry?.innerCircumference) }} · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
+            <view class="designer__capsules">
+                <text class="designer__caps designer__caps--state" @tap="showCalc = true">
+                    {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
+                    · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
                 </text>
-                <text class="designer__detail-link" @tap="showCalc = true">{{ t('diy.calcDetail') }}</text>
+                <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
+                <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
             </view>
         </view>
 
@@ -37,6 +41,13 @@
             :count="d.calcCount.value"
             @update:model-value="onModeChange"
         />
+
+        <!-- 操作行 -->
+        <view class="designer__actions">
+            <text class="designer__act" @tap="onClear">{{ t('diy.action.clear') }}</text>
+            <text class="designer__act" @tap="onDraft">{{ t('diy.action.draft') }}</text>
+            <text class="designer__act" @tap="onRecommend">{{ t('diy.action.recommend') }}</text>
+        </view>
 
         <!-- 参数区（free 模式以序列为准，无参数） -->
         <view v-if="d.mode.value !== 'free'" class="designer__params">
@@ -187,10 +198,11 @@ import { getDiyMaterials, getDiyCategories } from '../../api/queries/diy';
 import { createDiyPlan, quoteDiyPlan } from '../../api/mutations/diy';
 import { useAuthStore } from '../../stores/auth';
 import {
-    useDesigner, yuan, cm, feedbackI18nKey, materialColor, materialName,
+    useDesigner, useDesignerDraft, yuan, cm, feedbackI18nKey, materialColor, materialName, easeOf,
     WRIST_MIN, WRIST_MAX,
     type DesignerMode, type DesignerFit, type ArrangeMode, type DiyMaterialRow,
 } from '../composables/useDesigner';
+import { recommendSequence } from '../utils/recommend';
 
 const { t, locale } = useI18n();
 const authStore = useAuthStore();
@@ -198,6 +210,7 @@ const authStore = useAuthStore();
 const materials = ref<DiyMaterialRow[]>([]);
 const categories = ref<any[]>([]);
 const d = useDesigner(materials, locale);
+const draft = useDesignerDraft(d);
 
 /** 各素材已选颗数（序列 + 配饰聚合），供选料面板角标 */
 const pickCounts = computed<Record<string, number>>(() => {
@@ -231,6 +244,7 @@ onLoad(async () => {
         const cres: any = await getDiyCategories();
         categories.value = (cres?.diyCategories ?? []).filter((c: any) => c.enabled !== false);
     } catch { categories.value = []; }
+    if (draft.loadDraft()) uni.showToast({ title: t('diy.draftRestored'), icon: 'none' });
 });
 
 function slotColor(id: string): string {
@@ -287,6 +301,21 @@ function onPickMaterial(id: string) {
     if (editingSlotIdx.value >= 0) d.assignSlot(editingSlotIdx.value, id);
 }
 
+function onClear() {
+    uni.showModal({
+        title: t('diy.confirmClear'),
+        success: r => {
+            if (r.confirm) { d.clearAll(); uni.showToast({ title: t('diy.cleared'), icon: 'none' }); }
+        },
+    });
+}
+function onDraft() { draft.saveDraft(); uni.showToast({ title: t('diy.draftSaved'), icon: 'none' }); }
+function onRecommend() {
+    d.applyRecommend(recommendSequence(materials.value, d.wristSize.value, easeOf(d.fit.value), Date.now() % 2147483647));
+    uni.showToast({ title: t('diy.recommendDone'), icon: 'none' });
+}
+function goGuide() { uni.navigateTo({ url: '/pkg-diy/pages/guide' }); }
+
 function onQtyInput(i: number, e: any) {
     const v = Math.max(0, Math.floor(Number(e.detail?.value) || 0));
     d.patchSlot(i, { qtyOverride: v > 0 ? v : undefined });
@@ -299,7 +328,7 @@ function onEveryInput(i: number, e: any) {
 const ctaLabel = computed(() => {
     if (d.mode.value === 'byCount' && !d.byCountOk.value) return t('diy.countRequired');
     if (d.mode.value !== 'free' && !d.hasMain.value) return t('diy.needMain');
-    return t('diy.save') + ' · ¥' + yuan(d.result.value?.bom?.totalAmount);
+    return t('diy.action.finish') + ' · ¥' + yuan(d.result.value?.bom?.totalAmount);
 });
 
 /** BeadRing 导出缩略图；失败降级空串 */
@@ -362,8 +391,61 @@ async function onSave() {
     padding-bottom: 180rpx;
 
     &__preview {
+        position: relative;
         background: #fff;
         padding: 24rpx 20rpx 8rpx;
+    }
+
+    &__empty {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 45%;
+        text-align: center;
+        font-size: 26rpx;
+        color: $text-color-placeholder;
+    }
+
+    &__capsules {
+        display: flex;
+        align-items: center;
+        gap: 12rpx;
+        padding: 8rpx 8rpx 16rpx;
+    }
+
+    &__caps {
+        padding: 8rpx 20rpx;
+        border-radius: 28rpx;
+        font-size: 22rpx;
+        background: $bg-color;
+        border: 2rpx solid $border-color;
+        color: $text-color-secondary;
+
+        &--state {
+            color: $brand-color;
+            background: $brand-color-light;
+            border-color: $brand-color-light;
+        }
+
+        &--link {
+            margin-left: auto;
+            color: $brand-color;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 16rpx;
+        margin: 0 20rpx 16rpx;
+    }
+
+    &__act {
+        padding: 10rpx 28rpx;
+        border-radius: 28rpx;
+        font-size: 24rpx;
+        color: $text-color-secondary;
+        background: #fff;
+        border: 2rpx solid $border-color;
     }
 
     &__preview-meta {
@@ -385,23 +467,6 @@ async function onSave() {
         padding: 4rpx 16rpx;
         border-radius: 24rpx;
         background: $bg-color;
-    }
-
-    &__price {
-        font-size: 36rpx;
-        font-weight: 600;
-        color: $price-color;
-    }
-
-    &__fit {
-        font-size: 24rpx;
-        color: $text-color-secondary;
-    }
-
-    &__detail-link {
-        margin-left: auto;
-        font-size: 24rpx;
-        color: $brand-color;
     }
 
     &__params {
