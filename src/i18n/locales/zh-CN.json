@@ -1216,5 +1216,57 @@
             "serviceTitle": "用户协议",
             "privacyTitle": "隐私政策",
             "updatedAtLabel": "更新日期："
+    },
+"diy": {
+        "title": "珠宝定制",
+        "designer": "串珠设计师",
+        "mode": {
+            "byWrist": "定手围·算颗数",
+            "byCount": "定颗数·看内孔",
+            "pattern": "混搭排列",
+            "free": "自由拖拽"
+        },
+        "slot": {
+            "main": "主珠",
+            "spacer": "隔片",
+            "focal": "焦点珠",
+            "decor": "装饰"
+        },
+        "arrange": {
+            "alternate": "均匀交替",
+            "random": "随机混编",
+            "zoned": "分区排列"
+        },
+        "fit": {
+            "snug": "贴合",
+            "comfortable": "舒适",
+            "loose": "宽松"
+        },
+        "wristSize": "手围",
+        "beadCount": "颗数",
+        "innerCirc": "内孔周长",
+        "feedback": {
+            "tight": "过紧",
+            "fit": "合适",
+            "loose": "宽松"
+        },
+        "cord": "配线",
+        "knotTail": "含打结留量",
+        "calcDetail": "计算明细",
+        "bom": "BOM 明细",
+        "total": "合计",
+        "save": "保存方案",
+        "publish": "公开到作品广场",
+        "unpublish": "取消公开",
+        "gallery": {
+            "title": "作品广场",
+            "useThis": "用这个方案"
+        },
+        "myPlans": "我的作品",
+        "quote": "生成报价单",
+        "order": "加入购物车",
+        "loginRequired": "请先登录",
+        "copyPlan": "复制到我的方案",
+        "perBead": "/颗"
     }
 }

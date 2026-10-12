@@ -1216,5 +1216,57 @@
             "serviceTitle": "Terms of Service",
             "privacyTitle": "Privacy Policy",
             "updatedAtLabel": "Last updated: "
+    },
+"diy": {
+        "title": "Custom Jewelry",
+        "designer": "Bead Designer",
+        "mode": {
+            "byWrist": "By wrist",
+            "byCount": "By count",
+            "pattern": "Pattern",
+            "free": "Free drag"
+        },
+        "slot": {
+            "main": "Main beads",
+            "spacer": "Spacers",
+            "focal": "Focal",
+            "decor": "Charms"
+        },
+        "arrange": {
+            "alternate": "Alternate",
+            "random": "Random",
+            "zoned": "Zoned"
+        },
+        "fit": {
+            "snug": "Snug",
+            "comfortable": "Comfortable",
+            "loose": "Loose"
+        },
+        "wristSize": "Wrist size",
+        "beadCount": "Bead count",
+        "innerCirc": "Inner circumference",
+        "feedback": {
+            "tight": "Too tight",
+            "fit": "Just right",
+            "loose": "Loose"
+        },
+        "cord": "Cord",
+        "knotTail": "incl. knot tail",
+        "calcDetail": "Calc details",
+        "bom": "BOM details",
+        "total": "Total",
+        "save": "Save design",
+        "publish": "Publish to Gallery",
+        "unpublish": "Unpublish",
+        "gallery": {
+            "title": "Gallery",
+            "useThis": "Use this design"
+        },
+        "myPlans": "My designs",
+        "quote": "Get quote",
+        "order": "Add to cart",
+        "loginRequired": "Please sign in",
+        "copyPlan": "Copy to my designs",
+        "perBead": "/pc"
     }
 }
