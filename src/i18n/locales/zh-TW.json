@@ -1185,6 +1185,12 @@
         "publishing": "發布中…",
         "publish": "發布",
         "searchFailed": "搜尋失敗",
+        "srcSearch": "搜尋",
+        "srcOrders": "我的訂單",
+        "srcFavorites": "我的收藏",
+        "ordersEmpty": "暫無訂單商品",
+        "favoritesEmpty": "暫無收藏商品",
+        "loadFailed": "載入失敗",
         "contentRequired": "請填寫內文",
         "publishSuccess": "發布成功",
         "publishFailed": "發布失敗"
@@ -1205,11 +1211,13 @@
     },
     "faq": {
         "tabAll": "全部",
-        "tabRegister": "註冊登入",
-        "tabOrder": "訂單",
-        "tabPay": "支付",
-        "tabAfterSale": "售後",
-        "tabAccount": "帳戶",
+        "typeOrder": ["register", "order", "pay", "afterSale", "account", "general"],
+        "type_register": "註冊登入",
+        "type_order": "訂單",
+        "type_pay": "支付",
+        "type_afterSale": "售後",
+        "type_account": "帳戶",
+        "type_general": "其他",
         "empty": "暫無常見問題"
     },
     "myFeedbacks": {

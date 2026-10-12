@@ -35,34 +35,65 @@
           <text class="publish-page__product-remove" @tap="clearProduct">{{ t('circlePublish.remove') }}</text>
         </view>
         <view v-else class="publish-page__picker">
-          <view class="publish-page__search">
-            <input
-              v-model="keyword"
-              class="publish-page__search-input"
-              :maxlength="50"
-              confirm-type="search"
-              :placeholder="t('circlePublish.searchPlaceholder')"
-              placeholder-class="publish-page__placeholder"
-              @confirm="doSearch"
-            />
-            <text class="publish-page__search-btn" @tap="doSearch">{{ t('circlePublish.searchBtn') }}</text>
+          <view class="publish-page__src-tabs">
+            <text
+              v-for="src in srcTabs"
+              :key="src.key"
+              class="publish-page__src-tab"
+              :class="{ on: srcTab === src.key }"
+              @tap="switchSrc(src.key)"
+            >{{ src.name }}</text>
           </view>
-          <view v-if="searching" class="publish-page__hint">{{ t('circlePublish.searching') }}</view>
-          <view v-else-if="candidates.length" class="publish-page__candidates">
-            <view
-              v-for="item in candidates"
-              :key="item.productId"
-              class="publish-page__candidate"
-              @tap="pickProduct(item)"
-            >
-              <image class="publish-page__candidate-img" :src="item.preview" mode="aspectFill" />
-              <view class="publish-page__candidate-info">
-                <text class="publish-page__candidate-name">{{ item.name }}</text>
-                <PriceTag :price="item.price" />
+          <template v-if="srcTab === 'search'">
+            <view class="publish-page__search">
+              <input
+                v-model="keyword"
+                class="publish-page__search-input"
+                :maxlength="50"
+                confirm-type="search"
+                :placeholder="t('circlePublish.searchPlaceholder')"
+                placeholder-class="publish-page__placeholder"
+                @confirm="doSearch"
+              />
+              <text class="publish-page__search-btn" @tap="doSearch">{{ t('circlePublish.searchBtn') }}</text>
+            </view>
+            <view v-if="searching" class="publish-page__hint">{{ t('circlePublish.searching') }}</view>
+            <view v-else-if="candidates.length" class="publish-page__candidates">
+              <view
+                v-for="item in candidates"
+                :key="item.productId"
+                class="publish-page__candidate"
+                @tap="pickProduct(item)"
+              >
+                <image class="publish-page__candidate-img" :src="item.preview" mode="aspectFill" />
+                <view class="publish-page__candidate-info">
+                  <text class="publish-page__candidate-name">{{ item.name }}</text>
+                  <PriceTag :price="item.price" />
+                </view>
               </view>
             </view>
-          </view>
-          <view v-else-if="searched" class="publish-page__hint">{{ t('circlePublish.noResults') }}</view>
+            <view v-else-if="searched" class="publish-page__hint">{{ t('circlePublish.noResults') }}</view>
+          </template>
+          <template v-else>
+            <view v-if="srcLoading" class="publish-page__hint">{{ t('common.loading') }}</view>
+            <view v-else-if="!listCandidates.length" class="publish-page__hint">
+              {{ srcTab === 'orders' ? t('circlePublish.ordersEmpty') : t('circlePublish.favoritesEmpty') }}
+            </view>
+            <view v-else class="publish-page__candidates">
+              <view
+                v-for="item in listCandidates"
+                :key="item.productId"
+                class="publish-page__candidate"
+                @tap="pickProduct(item)"
+              >
+                <image class="publish-page__candidate-img" :src="item.preview" mode="aspectFill" />
+                <view class="publish-page__candidate-info">
+                  <text class="publish-page__candidate-name">{{ item.name }}</text>
+                  <PriceTag :price="item.price" />
+                </view>
+              </view>
+            </view>
+          </template>
         </view>
       </view>
     </view>
@@ -73,10 +104,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { createCirclePost } from '../../api/queries/circle';
 import { searchProducts } from '../../api/queries/product';
+import { getOrders } from '../../api/queries/order';
+import { getMyFavorites } from '../../api/queries/points-mall';
 import { useAuthStore } from '../../stores/auth';
 import ImageUpload from '../../components/ImageUpload.vue';
 import PriceTag from '../../components/PriceTag.vue';
@@ -132,6 +165,63 @@ function clearProduct() {
     product.value = null;
 }
 
+// 关联商品三入口（搜索/我的订单/我的收藏）：订单与收藏各加载一次并缓存，
+// 选中统一进已选卡片态，仍只透传 productId
+type SrcKey = 'search' | 'orders' | 'favorites';
+const srcTabs = computed(() => [
+    { key: 'search' as SrcKey, name: t('circlePublish.srcSearch') },
+    { key: 'orders' as SrcKey, name: t('circlePublish.srcOrders') },
+    { key: 'favorites' as SrcKey, name: t('circlePublish.srcFavorites') },
+]);
+const srcTab = ref<SrcKey>('search');
+const srcLoading = ref(false);
+const srcLoaded = ref<Record<'orders' | 'favorites', boolean>>({ orders: false, favorites: false });
+const srcCache = ref<Record<'orders' | 'favorites', ProductCandidate[]>>({ orders: [], favorites: [] });
+const listCandidates = computed(() => (srcTab.value === 'search' ? [] : srcCache.value[srcTab.value as 'orders' | 'favorites']));
+
+async function switchSrc(key: SrcKey) {
+    if (srcTab.value === key) return;
+    srcTab.value = key;
+    if (key === 'search' || srcLoaded.value[key]) return;
+    srcLoaded.value[key] = true;
+    srcLoading.value = true;
+    try {
+        if (key === 'orders') {
+            const res: any = await getOrders({ take: 10 });
+            const seen = new Set<string>();
+            const list: ProductCandidate[] = [];
+            for (const o of res?.myOrders?.items || []) {
+                for (const line of o.lines || []) {
+                    const pid = String(line.productVariant?.productId ?? '');
+                    if (!pid || seen.has(pid)) continue;
+                    seen.add(pid);
+                    list.push({
+                        productId: pid,
+                        name: line.productVariant?.name || '',
+                        preview: line.featuredAsset?.preview || '',
+                        price: line.unitPriceWithTax ?? 0,
+                    });
+                    if (list.length >= 10) break;
+                }
+                if (list.length >= 10) break;
+            }
+            srcCache.value.orders = list;
+        } else {
+            const res: any = await getMyFavorites({ skip: 0, take: 10 });
+            srcCache.value.favorites = (res?.myFavorites?.items || []).map((it: any) => ({
+                productId: String(it.productId),
+                name: it.name || '',
+                preview: it.image || '',
+                price: it.priceWithTax ?? 0,
+            }));
+        }
+    } catch (e) {
+        uni.showToast({ title: t('circlePublish.loadFailed'), icon: 'none' });
+    } finally {
+        srcLoading.value = false;
+    }
+}
+
 async function doSubmit() {
     if (!content.value.trim()) {
         uni.showToast({ title: t('circlePublish.contentRequired'), icon: 'none' });
@@ -171,6 +261,14 @@ async function doSubmit() {
     }
     &__label { display: block; font-size: 26rpx; color: #666; margin-bottom: 16rpx; }
     &__placeholder { color: #bbb; }
+    &__src-tabs {
+        display: flex; gap: 8rpx; margin-bottom: 16rpx;
+        background: $bg-color; border-radius: $radius-md; padding: 6rpx;
+    }
+    &__src-tab {
+        flex: 1; text-align: center; padding: 12rpx 0; font-size: 24rpx; color: #666; border-radius: $radius-sm;
+        &.on { background: #fff; color: $brand-color; font-weight: bold; }
+    }
     &__search { display: flex; align-items: center; }
     &__search-input {
         flex: 1; height: 72rpx; background: $bg-color; border-radius: $radius-md;

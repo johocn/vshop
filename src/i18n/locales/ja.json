@@ -1185,6 +1185,12 @@
         "publishing": "投稿中…",
         "publish": "投稿",
         "searchFailed": "検索に失敗しました",
+        "srcSearch": "検索",
+        "srcOrders": "注文履歴",
+        "srcFavorites": "お気に入り",
+        "ordersEmpty": "注文に商品がありません",
+        "favoritesEmpty": "お気に入りの商品はありません",
+        "loadFailed": "読み込みに失敗しました",
         "contentRequired": "本文を入力してください",
         "publishSuccess": "投稿しました",
         "publishFailed": "投稿に失敗しました"
@@ -1205,11 +1211,13 @@
     },
     "faq": {
         "tabAll": "すべて",
-        "tabRegister": "登録・ログイン",
-        "tabOrder": "注文",
-        "tabPay": "決済",
-        "tabAfterSale": "アフターサービス",
-        "tabAccount": "アカウント",
+        "typeOrder": ["register", "order", "pay", "afterSale", "account", "general"],
+        "type_register": "登録・ログイン",
+        "type_order": "注文",
+        "type_pay": "決済",
+        "type_afterSale": "アフターサービス",
+        "type_account": "アカウント",
+        "type_general": "その他",
         "empty": "よくある質問はありません"
     },
     "myFeedbacks": {

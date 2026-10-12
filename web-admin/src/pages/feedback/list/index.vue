@@ -12,7 +12,7 @@
         <text class="st" :class="'st-' + r.status">{{ $t('feedbackManage.status_' + r.status) }}</text>
       </view>
       <view class="badges">
-        <text class="type-badge">{{ $t('feedbackManage.type_' + r.type) }}</text>
+        <text class="type-badge">{{ typeName(r.type) }}</text>
         <text class="meta">{{ $t('feedbackManage.customerLabel') }}#{{ r.customerId }}</text>
       </view>
       <text class="content">{{ short(r.content) }}</text>
@@ -103,6 +103,13 @@ function onTab(key: string) {
 
 function short(s: string, n = 60): string {
   return s && s.length > n ? s.slice(0, n) + '…' : s || '';
+}
+
+// 类型徽标兜底：未知 key（词条缺失）原样显示 type 文本，不显示 vue-i18n key 路径
+function typeName(type: string): string {
+  const key = 'feedbackManage.type_' + type;
+  const translated = locale.t(key);
+  return translated === key ? type : translated;
 }
 
 function imgsOf(r: FeedbackRow): string[] {

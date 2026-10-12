@@ -1185,6 +1185,12 @@
         "publishing": "发布中…",
         "publish": "发布",
         "searchFailed": "搜索失败",
+        "srcSearch": "搜索",
+        "srcOrders": "我的订单",
+        "srcFavorites": "我的收藏",
+        "ordersEmpty": "暂无订单商品",
+        "favoritesEmpty": "暂无收藏商品",
+        "loadFailed": "加载失败",
         "contentRequired": "请填写正文",
         "publishSuccess": "发布成功",
         "publishFailed": "发布失败"
@@ -1205,11 +1211,13 @@
     },
     "faq": {
         "tabAll": "全部",
-        "tabRegister": "注册登录",
-        "tabOrder": "订单",
-        "tabPay": "支付",
-        "tabAfterSale": "售后",
-        "tabAccount": "账户",
+        "typeOrder": ["register", "order", "pay", "afterSale", "account", "general"],
+        "type_register": "注册登录",
+        "type_order": "订单",
+        "type_pay": "支付",
+        "type_afterSale": "售后",
+        "type_account": "账户",
+        "type_general": "其他",
         "empty": "暂无常见问题"
     },
     "myFeedbacks": {

@@ -1185,6 +1185,12 @@
         "publishing": "Publishing…",
         "publish": "Post",
         "searchFailed": "Search failed",
+        "srcSearch": "Search",
+        "srcOrders": "My Orders",
+        "srcFavorites": "My Favorites",
+        "ordersEmpty": "No products in your orders",
+        "favoritesEmpty": "No favorite products",
+        "loadFailed": "Failed to load",
         "contentRequired": "Please write the content",
         "publishSuccess": "Published",
         "publishFailed": "Failed to publish"
@@ -1205,11 +1211,13 @@
     },
     "faq": {
         "tabAll": "All",
-        "tabRegister": "Registration & Login",
-        "tabOrder": "Orders",
-        "tabPay": "Payment",
-        "tabAfterSale": "After-Sale",
-        "tabAccount": "Account",
+        "typeOrder": ["register", "order", "pay", "afterSale", "account", "general"],
+        "type_register": "Registration & Login",
+        "type_order": "Orders",
+        "type_pay": "Payment",
+        "type_afterSale": "After-Sale",
+        "type_account": "Account",
+        "type_general": "Other",
         "empty": "No FAQs available"
     },
     "myFeedbacks": {
