@@ -1211,4 +1211,10 @@
         "loading": "Loading",
         "markRead": "Auto-marked as read"
     }
+,
+    "agreementPage": {
+            "serviceTitle": "Terms of Service",
+            "privacyTitle": "Privacy Policy",
+            "updatedAtLabel": "Last updated: "
+    }
 }

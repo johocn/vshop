@@ -1211,4 +1211,10 @@
         "loading": "読み込み中",
         "markRead": "入室後に既読にします"
     }
+,
+    "agreementPage": {
+            "serviceTitle": "利用規約",
+            "privacyTitle": "プライバシーポリシー",
+            "updatedAtLabel": "更新日："
+    }
 }

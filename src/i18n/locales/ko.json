@@ -1211,4 +1211,10 @@
         "loading": "불러오는 중",
         "markRead": "진입 시 자동으로 읽음 처리"
     }
+,
+    "agreementPage": {
+            "serviceTitle": "이용약관",
+            "privacyTitle": "개인정보 처리방침",
+            "updatedAtLabel": "업데이트 날짜: "
+    }
 }
