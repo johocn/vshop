@@ -1216,5 +1216,57 @@
             "serviceTitle": "이용약관",
             "privacyTitle": "개인정보 처리방침",
             "updatedAtLabel": "업데이트 날짜: "
+    },
+"diy": {
+        "title": "주얼리 커스텀",
+        "designer": "비드 디자이너",
+        "mode": {
+            "byWrist": "손목 기준",
+            "byCount": "수 기준",
+            "pattern": "패턴",
+            "free": "자유 배치"
+        },
+        "slot": {
+            "main": "메인 비드",
+            "spacer": "스페이서",
+            "focal": "포커스",
+            "decor": "장식"
+        },
+        "arrange": {
+            "alternate": "교대",
+            "random": "랜덤",
+            "zoned": "구역"
+        },
+        "fit": {
+            "snug": "타이트",
+            "comfortable": "편안함",
+            "loose": "여유"
+        },
+        "wristSize": "손목 둘레",
+        "beadCount": "구슬 수",
+        "innerCirc": "안둘레",
+        "feedback": {
+            "tight": "너무 타이트함",
+            "fit": "딱 맞음",
+            "loose": "헐거움"
+        },
+        "cord": "코드",
+        "knotTail": "매듭 여유 포함",
+        "calcDetail": "계산 상세",
+        "bom": "BOM 상세",
+        "total": "합계",
+        "save": "디자인 저장",
+        "publish": "갤러리에 공개",
+        "unpublish": "공개 취소",
+        "gallery": {
+            "title": "갤러리",
+            "useThis": "이 디자인 사용"
+        },
+        "myPlans": "내 디자인",
+        "quote": "견적 생성",
+        "order": "장바구니",
+        "loginRequired": "로그인 필요",
+        "copyPlan": "내 디자인으로 복사",
+        "perBead": "/개"
     }
 }

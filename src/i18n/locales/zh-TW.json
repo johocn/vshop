@@ -1216,5 +1216,57 @@
             "serviceTitle": "用戶協議",
             "privacyTitle": "隱私政策",
             "updatedAtLabel": "更新日期："
+    },
+"diy": {
+        "title": "珠寶定製",
+        "designer": "串珠設計師",
+        "mode": {
+            "byWrist": "定手圍·算顆數",
+            "byCount": "定顆數·看內孔",
+            "pattern": "混搭排列",
+            "free": "自由拖拽"
+        },
+        "slot": {
+            "main": "主珠",
+            "spacer": "隔片",
+            "focal": "焦點珠",
+            "decor": "裝飾"
+        },
+        "arrange": {
+            "alternate": "均勻交替",
+            "random": "隨機混編",
+            "zoned": "分區排列"
+        },
+        "fit": {
+            "snug": "貼合",
+            "comfortable": "舒適",
+            "loose": "寬鬆"
+        },
+        "wristSize": "手圍",
+        "beadCount": "顆數",
+        "innerCirc": "內孔周長",
+        "feedback": {
+            "tight": "過緊",
+            "fit": "合適",
+            "loose": "寬鬆"
+        },
+        "cord": "配線",
+        "knotTail": "含打結留量",
+        "calcDetail": "計算明細",
+        "bom": "BOM 明細",
+        "total": "合計",
+        "save": "保存方案",
+        "publish": "公開到作品廣場",
+        "unpublish": "取消公開",
+        "gallery": {
+            "title": "作品廣場",
+            "useThis": "用這個方案"
+        },
+        "myPlans": "我的作品",
+        "quote": "生成報價單",
+        "order": "加入購物車",
+        "loginRequired": "請先登錄",
+        "copyPlan": "復製到我的方案",
+        "perBead": "/顆"
     }
 }

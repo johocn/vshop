@@ -1216,5 +1216,57 @@
             "serviceTitle": "利用規約",
             "privacyTitle": "プライバシーポリシー",
             "updatedAtLabel": "更新日："
+    },
+"diy": {
+        "title": "ジュエリー定制",
+        "designer": "ビーズデザイナー",
+        "mode": {
+            "byWrist": "手首回りから",
+            "byCount": "顆数から",
+            "pattern": "パターン",
+            "free": "フリードラッグ"
+        },
+        "slot": {
+            "main": "メインビーズ",
+            "spacer": "スペーサー",
+            "focal": "フォーカル",
+            "decor": "装飾"
+        },
+        "arrange": {
+            "alternate": "均等交互",
+            "random": "ランダム",
+            "zoned": "ゾーン"
+        },
+        "fit": {
+            "snug": "タイト",
+            "comfortable": "快適",
+            "loose": "ゆったり"
+        },
+        "wristSize": "手首回り",
+        "beadCount": "顆数",
+        "innerCirc": "内周",
+        "feedback": {
+            "tight": "締すぎ",
+            "fit": "ちょうど良い",
+            "loose": "ゆるい"
+        },
+        "cord": "コード",
+        "knotTail": "結び余り含む",
+        "calcDetail": "計算詳細",
+        "bom": "BOM 詳細",
+        "total": "合計",
+        "save": "デザイン保存",
+        "publish": "ギャラリーへ公開",
+        "unpublish": "公開取消",
+        "gallery": {
+            "title": "ギャラリー",
+            "useThis": "このデザインを使う"
+        },
+        "myPlans": "マイデザイン",
+        "quote": "見積取得",
+        "order": "カートへ",
+        "loginRequired": "ログインしてください",
+        "copyPlan": "マイデザインへ複製",
+        "perBead": "/個"
     }
 }
