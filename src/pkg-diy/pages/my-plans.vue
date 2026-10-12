@@ -39,7 +39,7 @@
                     </view>
                     <view class="my-plans__meta">
                         <text class="my-plans__price">¥{{ yuan(it.bom?.totalAmount) }}</text>
-                        <text class="my-plans__date">{{ relativeDate(it.createdAt) }}</text>
+                        <text class="my-plans__date">{{ relativeDate(it.createdAt, t) }}</text>
                     </view>
                 </view>
             </view>

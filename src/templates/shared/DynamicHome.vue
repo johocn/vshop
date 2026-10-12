@@ -1,5 +1,13 @@
 <template>
   <view class="dynamic-home">
+    <view class="dynamic-home__diy-entry" @click="navTo('/pkg-diy/pages/gallery')">
+      <text class="diy-entry__icon">📿</text>
+      <view class="diy-entry__text">
+        <text class="diy-entry__title">{{ t('diy.gallery.title') }}</text>
+        <text class="diy-entry__subtitle">{{ t('diy.gallery.subtitle') }}</text>
+      </view>
+      <text class="diy-entry__arrow">›</text>
+    </view>
     <template v-for="(sec, i) in sections" :key="i">
       <BannerSection v-if="sec.type === 'banner'" :section="sec" />
       <NoticeSection v-else-if="sec.type === 'notice'" :section="sec" />
@@ -13,6 +21,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 import BannerSection from './sections/BannerSection.vue';
 import NoticeSection from './sections/NoticeSection.vue';
@@ -21,10 +30,33 @@ import GoodsSection from './sections/GoodsSection.vue';
 import RichTextSection from './sections/RichTextSection.vue';
 import FlashSection from './sections/FlashSection.vue';
 
+const { t } = useI18n();
 const tenantStore = useTenantStore();
 const sections = computed(() => tenantStore.mergedShopContent?.sections || tenantStore.shopContent?.sections || []);
+
+function navTo(url: string) { uni.navigateTo({ url }); }
 </script>
 
 <style lang="scss" scoped>
-.dynamic-home { min-height: 100vh; background: $bg-color; }
+.dynamic-home {
+    min-height: 100vh;
+    background: $bg-color;
+
+    &__diy-entry {
+        display: flex;
+        align-items: center;
+        gap: 16rpx;
+        background: #fff;
+        padding: 20rpx 24rpx;
+        margin-bottom: 16rpx;
+    }
+}
+
+.diy-entry {
+    &__icon { font-size: 44rpx; }
+    &__text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    &__title { font-size: 28rpx; font-weight: 600; color: $text-color; }
+    &__subtitle { font-size: 22rpx; color: $text-color-placeholder; margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__arrow { font-size: 40rpx; color: $text-color-placeholder; }
+}
 </style>
