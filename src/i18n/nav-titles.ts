@@ -58,6 +58,7 @@ export const NAV_TITLE_KEYS: Record<string, string> = {
     'pkg-user/pages/my-reviews': 'nav.myReviews',
     'pkg-user/pages/change-password': 'nav.changePassword',
     'pkg-user/pages/agreement': 'nav.agreement',
+    'pkg-user/pages/my-feedbacks': 'nav.myFeedbacks',
     'pkg-user/pages/points-goods-list': 'nav.pointsGoodsList',
     'pkg-user/pages/points-goods-detail': 'nav.pointsGoodsDetail',
     'pkg-user/pages/points-goods-confirm': 'nav.pointsGoodsConfirm',
