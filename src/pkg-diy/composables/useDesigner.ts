@@ -1,13 +1,14 @@
 /**
  * 设计器状态与逻辑核心（4 模式：byWrist/byCount/pattern/free）。
  * - 本地预览：free → sequenceGeometry（逐颗求和）；其余 → braceletCalculator（v2 多槽位）
- * - spec 产出对齐服务端 calc-bridge 契约（diy-plugin/src/calc-bridge.ts）：
- *   spec.slots 为 Record<slotKey, { materialId, qtyOverride?, every? }>，key 限模板 config（main/focal/spacer）；
- *   mode/templateCode/slotList/sequence/seed 为 v2 扩展字段，服务端原样落库、当前复算忽略；
+ * - spec 产出对齐服务端 calc-bridge v2 契约（diy-plugin/src/calc-bridge.ts）：
+ *   spec.slots 为 Record<slotKey, { materialId, qtyOverride?, every? }>（v1 形式，满足模板 required 校验）；
+ *   slotList（数组槽位，多 main/decor）+ sequence（free/pattern）由服务端 v2 路径消费复算；
  *   pattern/random 的 sequence 一律由前端生成（seeded rng，可复现），服务端不引入 Math.random。
  */
 import { computed, ref, type Ref } from 'vue';
 import { braceletCalculator } from '../vendor/diy-calc/bracelet-calculator';
+import { easeOf } from '../vendor/diy-calc/bracelet';
 import { generateSequence, sequenceGeometry } from '../vendor/diy-calc/sequence';
 import { mulberry32 } from '../vendor/diy-calc/prng';
 import { PRESETS } from '../utils/bead-render';
@@ -19,10 +20,10 @@ export type DesignerFit = 'snug' | 'comfortable' | 'loose';
 export type ArrangeMode = 'alternate' | 'random' | 'zoned';
 
 /**
- * 设计器产出的 spec（对齐服务端 calc-bridge 契约）：
- * slots 为 Record<slotKey, { materialId, qtyOverride?, every? }>（服务端 runDiyCalc 按 Object.entries 解析，
- * key 限模板 config：main/focal/spacer）；sequence/slotList/seed 为 v2 扩展字段（服务端落库复现）。
- * 注意：T6 定义的 DiyPlanSpecV2.slots 为数组，与服务端解析不符，保存时按此契约产出。
+ * 设计器产出的 spec（对齐服务端 calc-bridge v2 契约）：
+ * slots 为 Record<slotKey, { materialId, qtyOverride?, every? }>（v1 形式，满足模板 required 校验）；
+ * sequence/slotList/seed 为 v2 扩展字段，由服务端 calc-bridge v2 路径消费复算。
+ * 注意：T6 定义的 DiyPlanSpecV2.slots 为数组，保存时以 slotList 承载数组槽位。
  */
 export interface DiyDesignerSpec {
     templateCode: string;
@@ -53,12 +54,8 @@ export interface DiyMaterialRow {
     price: number;
 }
 
-/** fit → 体感松量 ease（mm）。全站唯一定义处 */
-export function easeOf(fit: DesignerFit): number {
-    if (fit === 'snug') return 5;
-    if (fit === 'loose') return 25;
-    return 15;
-}
+/** fit → 体感松量 ease（mm）。单一来源 = vendor @diy/calc easeOf（贴手 4 / 舒适 10 / 宽松 20，与服务端同构） */
+export { easeOf } from '../vendor/diy-calc/bracelet';
 
 /** 分 → 元（一位小数） */
 export function yuan(fen: number | null | undefined): string {
