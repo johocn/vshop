@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
@@ -71,18 +71,27 @@ const customer = ref<any>(null);
 /** 意见反馈未读数（登录态 onShow 拉取；未登录/失败静默 0） */
 const fbUnread = ref(0);
 
-onShow(async () => {
-  if (!authStore.isLoggedIn) {
-    fbUnread.value = 0;
-    return;
-  }
-  try {
-    const r: any = await getUnreadFeedbackCount();
-    fbUnread.value = r?.unreadFeedbackCount || 0;
-  } catch (e) {
-    fbUnread.value = 0;
-  }
+/** 拉取意见反馈未读数（失败/未登录静默 0） */
+async function fetchUnread() {
+    try {
+        const r: any = await getUnreadFeedbackCount();
+        fbUnread.value = r?.unreadFeedbackCount || 0;
+    } catch (e) {
+        fbUnread.value = 0;
+    }
+}
+
+onShow(() => {
+    if (authStore.isLoggedIn) {
+        fetchUnread();
+    } else {
+        fbUnread.value = 0;
+    }
 });
+
+// 冷启动竞态兜底：uni-app 不等 App.onLaunch（async initTenant+restoreSession）结束就触发页面 onShow，
+// onShow 可能先以未登录态返回；登录态就绪翻转时补拉一次，保证冷启动直进「我的」也能看到角标
+watch(() => authStore.isLoggedIn, (v) => { if (v) fetchUnread(); });
 
 // 语言原生名（各语言下展示一致，不随界面语言翻译，故不入语言包）
 const LOCALE_OPTIONS = [
