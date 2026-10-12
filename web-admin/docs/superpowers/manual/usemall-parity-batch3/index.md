@@ -150,7 +150,7 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 1. **会员价规则仍不参与 shop-api 下单计价（口径更新）**：按行改价的 MemberPriceRule 引擎仍只在 admin/POS 侧；C 端通过只读 `myMemberPrice` 查询**仅展示**会员价标签（见「暂缓项补齐」4.3），下单优惠以 `tier_discount` 订单级促销为准——不把规则计算器注册进全局价格策略链。
 2. **购物圈发布页选商品已补齐（2026-10-10）**：发布时按关键词搜索全店商品选中关联（见「暂缓项补齐」4.1）；「从我的订单/收藏快捷选商品」已于批次 A 补齐（见「八」）。
 3. **提现额度与打款离线**：起提 ¥10 为后端常量（暂未开放渠道级配置）；「标记已打款」仅做状态记账，实际打款（微信商家转账/支付宝转账）线下完成，无支付通道对接。
-4. **收款账号明文存储**：`accountInfo` 按业务需要明文展示于后台审核页（打款要用）；如需合规加固另立任务。
+4. **收款账号已静态加密（2026-10-12 批次 B）**：`accountInfo` 曾明文存储；现已 aes-256-gcm 密文落库（复用 distribution-plugin account-crypto 模式，env `BALANCE_ACCOUNT_SECRET`），API 读取时解密、后台审核页展示明文不变，存量明文行读取天然兼容无需迁移（见「九」）。
 5. **FAQ 分组固定（已于批次 A 动态化）**：tab 原为前端硬编码映射；批次 A 后由后端返回数据 distinct type 动态渲染，语言包 `faq.typeOrder` 定固定序，未知 type 显示原文（见「八」）。
 6. **反馈类型为英文 key（已于批次 A 加白名单）**：C 端提交 bug/experience/other，批次 A 起 shop-api `createFeedback` 对 type 做枚举白名单校验（非法值 UserInputError），后台徽标对未知 key 原样兜底（见「八」）。
 7. **抽奖消耗为「所中奖品」的 consume**：不是固定每次消耗——奖品可分别定价（0=免费）；weight=0 仅展示。抽奖记录/库存由后端维护，后台奖品卡库存会随抽取递减。
@@ -244,3 +244,23 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 | `c-feedback-type.png` | C 端意见反馈表单 | 类型 picker（bug/experience/other 英文 key 提交） |
 
 > 注：本地 dev 库商品未配置主图，订单/收藏候选图显示 VImage 占位块；生产环境商品主图与 asset URL 正常。
+
+---
+
+## 九、已知边界批次 B 处理记录（2026-10-12）
+
+> 处理「五、已知边界」#4：余额提现收款账号静态加密。计划文档：`docs/superpowers/plans/2026-10-12-boundary-batch-b.md`。仅改 vendure recharge-card-plugin，C 端与后台零改动、零感知。
+
+### 9.1 改动内容
+
+- 新增 `packages/recharge-card-plugin/src/account-crypto.ts`：aes-256-gcm（`enc:iv:tag:data` 格式），密钥取 env `BALANCE_ACCOUNT_SECRET`（缺省 dev 兜底值；**生产建议配置独立强密钥**），模式与 distribution-plugin 分销提现加密一致。
+- `balance-withdrawal.service.ts` 四处读写点：`request` 落库前 `encryptAccount`；`findMyRequests`（C 端记录）/`findAll`（后台审核列表）/`transition`（approve/reject/markPaid 返回）读取后 `decryptAccount`，API 与后台展示明文不变。
+- 存量明文行：`decryptAccount` 对非 `enc:` 前缀原样返回 → 兼容无需迁移；生产部署后新数据全部密文落库。
+
+### 9.2 验证记录
+
+| 验证项 | 结果 |
+|--------|------|
+| `tsc --noEmit` | 仅 2 个存量告警（e2e-common 声明缺失/隐式 any，与本次无关） |
+| e2e | recharge-card-plugin 21/21 绿（新增「DB 存 enc: 密文、API 返回明文、存量明文兼容」用例） |
+| 生产存量 | 部署时检查 `balance_withdrawal_request.accountInfo` 明文行数（见下） |
