@@ -32,17 +32,27 @@ import { useI18n } from 'vue-i18n';
 import { getFaqs } from '../../api/queries/feedback';
 import EmptyState from '../../components/EmptyState.vue';
 
-const { t, locale } = useI18n();
+const { t, tm, locale } = useI18n();
 
-// 分组 key 与后端 FaqEntry.type 对齐
-const tabs = computed(() => [
-    { key: '', name: t('faq.tabAll') },
-    { key: 'register', name: t('faq.tabRegister') },
-    { key: 'order', name: t('faq.tabOrder') },
-    { key: 'pay', name: t('faq.tabPay') },
-    { key: 'afterSale', name: t('faq.tabAfterSale') },
-    { key: 'account', name: t('faq.tabAccount') },
-]);
+// 分组 key 与后端 FaqEntry.type 对齐：tab 由全量数据 distinct type 动态生成，
+// 顺序按语言包 typeOrder 固定序（tm() 取数组词条），未知 type 排最后、显示 key 原文
+const FIXED_ORDER = (tm('faq.typeOrder') as string[]) || [];
+const allTypes = ref<string[]>([]);
+const tabs = computed(() => {
+    const known = allTypes.value
+        .filter(tp => FIXED_ORDER.includes(tp))
+        .sort((a, b) => FIXED_ORDER.indexOf(a) - FIXED_ORDER.indexOf(b));
+    const unknown = allTypes.value.filter(tp => !FIXED_ORDER.includes(tp));
+    const nameOf = (tp: string) => {
+        const key = `faq.type_${tp}`;
+        const translated = t(key);
+        return translated === key ? tp : translated;
+    };
+    return [
+        { key: '', name: t('faq.tabAll') },
+        ...[...known, ...unknown].map(tp => ({ key: tp, name: nameOf(tp) })),
+    ];
+});
 const cur = ref('');
 const items = ref<any[]>([]);
 const loading = ref(false);
@@ -64,6 +74,10 @@ async function loadFaqs() {
         const r: any = await getFaqs(cur.value || undefined, locale.value);
         items.value = r?.faqs || [];
         expandedId.value = null;
+        // 全量拉取（未按 type 过滤）时提取 distinct type 驱动动态 tab
+        if (!cur.value) {
+            allTypes.value = [...new Set(items.value.map((f: any) => f.type).filter(Boolean))] as string[];
+        }
     } catch (e) {
         items.value = [];
     } finally {

@@ -148,11 +148,11 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 ## 五、已知边界（暂缓项与口径）
 
 1. **会员价规则仍不参与 shop-api 下单计价（口径更新）**：按行改价的 MemberPriceRule 引擎仍只在 admin/POS 侧；C 端通过只读 `myMemberPrice` 查询**仅展示**会员价标签（见「暂缓项补齐」4.3），下单优惠以 `tier_discount` 订单级促销为准——不把规则计算器注册进全局价格策略链。
-2. **购物圈发布页选商品已补齐（2026-10-10）**：发布时按关键词搜索全店商品选中关联（见「暂缓项补齐」4.1）；「从我的订单/收藏快捷选商品」增强另立任务。
+2. **购物圈发布页选商品已补齐（2026-10-10）**：发布时按关键词搜索全店商品选中关联（见「暂缓项补齐」4.1）；「从我的订单/收藏快捷选商品」已于批次 A 补齐（见「八」）。
 3. **提现额度与打款离线**：起提 ¥10 为后端常量（暂未开放渠道级配置）；「标记已打款」仅做状态记账，实际打款（微信商家转账/支付宝转账）线下完成，无支付通道对接。
 4. **收款账号明文存储**：`accountInfo` 按业务需要明文展示于后台审核页（打款要用）；如需合规加固另立任务。
-5. **FAQ 分组固定**：C 端 tab（注册登录/订单/支付/售后/账户）为前端硬编码映射，后端 type 新增值需同步前端 tab。
-6. **反馈类型为英文 key**：C 端提交 bug/experience/other，后台徽标经 locale（`feedbackManage.type_*`）转义；直接改库为中文值会在后台露出原始 key。
+5. **FAQ 分组固定（已于批次 A 动态化）**：tab 原为前端硬编码映射；批次 A 后由后端返回数据 distinct type 动态渲染，语言包 `faq.typeOrder` 定固定序，未知 type 显示原文（见「八」）。
+6. **反馈类型为英文 key（已于批次 A 加白名单）**：C 端提交 bug/experience/other，批次 A 起 shop-api `createFeedback` 对 type 做枚举白名单校验（非法值 UserInputError），后台徽标对未知 key 原样兜底（见「八」）。
 7. **抽奖消耗为「所中奖品」的 consume**：不是固定每次消耗——奖品可分别定价（0=免费）；weight=0 仅展示。抽奖记录/库存由后端维护，后台奖品卡库存会随抽取递减。
 8. **购物圈分享 = 复制链接**：H5 无原生分享面板，详情页「分享」复制帖子链接到剪贴板。
 9. **截图数据为本地造数**：本手册截图使用 dev-server 播种库 + 手工造数（见下），生产环境页面结构一致、数据不同。
@@ -200,3 +200,47 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 | `admin-lottery-prizes.png` | 后台抽奖奖品配置 | 7 张奖项卡（#8-14：图/名称/权重/消耗积分/库存/排序/启用）、0 权重与 0 消耗文案说明 |
 | `admin-lottery-records.png` | 后台抽奖记录 tab（暂缓项补齐新增） | 双 tab 激活「抽奖记录」、5 条记录（奖品图/名称/消耗积分/用户/时间倒序） |
 | `c-detail.png` | C 端商品详情（**会员价标签态**，暂缓项补齐新增） | 价格区 ¥2.26 +「会员9.5折」徽标 + 约¥2.14 参考价、价格说明入口 |
+
+---
+
+## 八、已知边界批次 A 处理记录（2026-10-12）
+
+> 处理「五、已知边界」中 3 条：#5 FAQ 分组动态化 / #6 反馈类型 key 治理 / #2 发布页订单收藏快捷选商品。计划文档：`docs/superpowers/plans/2026-10-12-boundary-batch-a.md`。
+
+### 8.1 #5 FAQ 分组动态化（纯前端）
+
+- C 端 FAQ tab 不再硬编码：进入页面全量拉取 `faqs` 后提取 distinct type 动态渲染；顺序按语言包 `faq.typeOrder` 数组（`tm()` 取）固定序，未知 type 排最后且显示 key 原文（`faq.type_*` 词条缺失时兜底）。
+- 五语言（zh-CN/zh-TW/en/ja/ko）同步新增 `faq.typeOrder` + `faq.type_register/order/pay/afterSale/account/general` 词条，删除旧 `tabRegister` 等硬编码词条（保留 `tabAll`）。
+- 后端 type 新增/减少值时 tab 自动跟随，无需改前端代码。
+
+### 8.2 #6 反馈类型 key 治理
+
+- vendure feedback-plugin `createFeedback`：type 枚举白名单 `bug/experience/other`（`FEEDBACK_TYPES`），非法值（含中文值）抛 `UserInputError`；e2e 补用例（非法中文/`suggest` 拒绝、合法三值通过）。
+- web-admin 反馈列表类型徽标改 `typeName()` 兜底渲染：locale 词条缺失（未知 key）时显示 type 原文，不再露出 `feedbackManage.type_xxx` key 路径。
+- 生产库存量检查：`SELECT type, COUNT(*) FROM feedback GROUP BY type`，如发现中文/非法值需 SQL 清洗回 key（本次执行时检查）。
+
+### 8.3 #2 发布页订单/收藏快捷选商品（纯前端）
+
+- 发布帖「关联商品」区新增三入口 tab「搜索 / 我的订单 / 我的收藏」：搜索沿用原逻辑；「我的订单」拉最近 10 单按 productId 去重取行商品（图取 `featuredAsset`，价取 `unitPriceWithTax`）；「我的收藏」拉前 10 条收藏（图取 `image`，价取 `priceWithTax`）。
+- 三入口选中后统一进原「已选卡片态」，仍只透传 `productId`，详情页「买同款」逻辑不变；订单/收藏各只加载一次并缓存。
+- 五语言同步新增 `circlePublish.srcSearch/srcOrders/srcFavorites/ordersEmpty/favoritesEmpty/loadFailed` 词条。
+
+### 8.4 验证记录（2026-10-12）
+
+| 验证项 | 结果 |
+|--------|------|
+| vendure feedback-plugin | `tsc --noEmit` 0 error；e2e 6/6 绿（含新增 type 白名单用例） |
+| 截图 | 6 张（390×844 @2x，本目录）：FAQ 动态 tab（本地库仅 order/pay/afterSale 三类 → tab 只渲染 3+全部）、发布页三入口、收藏选中卡片态、反馈表单 |
+
+### 批次 A 截图索引
+
+| 文件 | 内容 | 目检要点 |
+|---|---|---|
+| `c-faq-dynamic-tabs.png` | C 端 FAQ 动态 tab | tab 由数据动态生成（全部/订单/支付/售后），非固定 6 组 |
+| `c-publish-search.png` | 发布页关联商品·搜索 tab | 三入口 tab（搜索/我的订单/我的收藏），默认搜索态 |
+| `c-publish-orders.png` | 发布页关联商品·我的订单 tab | 订单行商品去重列表（标准版 ¥179.67 / 5kg ¥49.72） |
+| `c-publish-favorites.png` | 发布页关联商品·我的收藏 tab | 收藏商品列表（三只松鼠坚果礼盒 / 农夫山泉天然水） |
+| `c-publish-picked.png` | 发布页已选卡片态（收藏入口选中） | 「农夫山泉天然水 ¥2.26」+ 移除钮，仍透传 productId |
+| `c-feedback-type.png` | C 端意见反馈表单 | 类型 picker（bug/experience/other 英文 key 提交） |
+
+> 注：本地 dev 库商品未配置主图，订单/收藏候选图显示 VImage 占位块；生产环境商品主图与 asset URL 正常。

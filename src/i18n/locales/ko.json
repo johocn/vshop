@@ -1185,6 +1185,12 @@
         "publishing": "게시 중…",
         "publish": "게시",
         "searchFailed": "검색 실패",
+        "srcSearch": "검색",
+        "srcOrders": "주문 내역",
+        "srcFavorites": "찜 목록",
+        "ordersEmpty": "주문에 상품이 없습니다",
+        "favoritesEmpty": "찜한 상품이 없습니다",
+        "loadFailed": "불러오기 실패",
         "contentRequired": "본문을 입력하세요",
         "publishSuccess": "게시 완료",
         "publishFailed": "게시 실패"
@@ -1205,11 +1211,13 @@
     },
     "faq": {
         "tabAll": "전체",
-        "tabRegister": "회원가입·로그인",
-        "tabOrder": "주문",
-        "tabPay": "결제",
-        "tabAfterSale": "A/S",
-        "tabAccount": "계정",
+        "typeOrder": ["register", "order", "pay", "afterSale", "account", "general"],
+        "type_register": "회원가입·로그인",
+        "type_order": "주문",
+        "type_pay": "결제",
+        "type_afterSale": "A/S",
+        "type_account": "계정",
+        "type_general": "기타",
         "empty": "자주 묻는 질문이 없습니다"
     },
     "myFeedbacks": {
