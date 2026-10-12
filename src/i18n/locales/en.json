@@ -1271,7 +1271,12 @@
         "unpublish": "Unpublish",
         "gallery": {
             "title": "Gallery",
-            "useThis": "Use this design"
+            "useThis": "Use this design",
+            "subtitle": "Community designs you can remix",
+            "empty": "No public designs yet",
+            "loading": "Loading…",
+            "noMore": "No more",
+            "anonymous": "Anonymous"
         },
         "myPlans": "My designs",
         "quote": "Get quote",
@@ -1313,6 +1318,14 @@
                 "title": "Plan detail",
                 "shareTitle": "Bead design",
                 "notFound": "Plan not found or inaccessible"
+        },
+        "myPlansAll": "All",
+        "myPlansEmpty": "No designs yet — create one!",
+        "time": {
+                "justNow": "Just now",
+                "daysAgo": "{n}d ago",
+                "weeksAgo": "{n}w ago",
+                "monthsAgo": "{n}mo ago"
         }
     }
 }

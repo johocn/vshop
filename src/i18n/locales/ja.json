@@ -1271,7 +1271,12 @@
         "unpublish": "公開取消",
         "gallery": {
             "title": "ギャラリー",
-            "useThis": "このデザインを使う"
+            "useThis": "このデザインを使う",
+            "subtitle": "みんなのデザインをそのまま再現",
+            "empty": "公開作品はまだありません",
+            "loading": "読み込み中…",
+            "noMore": "これ以上ありません",
+            "anonymous": "匿名デザイナー"
         },
         "myPlans": "マイデザイン",
         "quote": "見積取得",
@@ -1313,6 +1318,14 @@
                 "title": "プラン詳細",
                 "shareTitle": "ビーズデザイン",
                 "notFound": "プランが見つからないか閲覧できません"
+        },
+        "myPlansAll": "すべて",
+        "myPlansEmpty": "まだプランがありません。作ってみましょう",
+        "time": {
+                "justNow": "たった今",
+                "daysAgo": "{n}日前",
+                "weeksAgo": "{n}週間前",
+                "monthsAgo": "{n}ヶ月前"
         }
     }
 }

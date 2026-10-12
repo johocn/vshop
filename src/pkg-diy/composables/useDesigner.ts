@@ -105,6 +105,18 @@ export function feedbackI18nKey(f: FitFeedback | undefined): string {
     }
 }
 
+/** ISO 时间 → 相对日期文案（刚刚 / n 天前 / n 周前 / n 个月前 / 超过一年按月数），翻译键带 {n} 插值 */
+export function relativeDate(iso: string | number | Date | null | undefined, t: (k: string, v?: any) => string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days < 1) return t('diy.time.justNow');
+    if (days < 7) return t('diy.time.daysAgo', { n: days });
+    if (days < 30) return t('diy.time.weeksAgo', { n: Math.floor(days / 7) });
+    return t('diy.time.monthsAgo', { n: Math.floor(days / 30) });
+}
+
 export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string>) {
     const mode = ref<DesignerMode>('byWrist');
     const wristSize = ref(155);
