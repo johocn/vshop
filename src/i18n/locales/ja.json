@@ -1196,5 +1196,18 @@
         "tabAfterSale": "アフターサービス",
         "tabAccount": "アカウント",
         "empty": "よくある質問はありません"
+    },
+    "myFeedbacks": {
+        "title": "マイフィードバック",
+        "navFeedback": "お問い合わせ",
+        "replyLabel": "商家の返信",
+        "repliedAt": "返信日時",
+        "unreadAll": "すべて既読",
+        "pending": "処理待ち",
+        "processing": "処理中",
+        "resolved": "解決済み",
+        "empty": "フィードバックはありません",
+        "loading": "読み込み中",
+        "markRead": "入室後に既読にします"
     }
 }

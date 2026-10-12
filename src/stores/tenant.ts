@@ -39,6 +39,8 @@ export const useTenantStore = defineStore('tenant', () => {
     const tenantReady = ref(false);
     const shopContent = ref<ShopContent | null>(null);
     const rawShopContent = ref<string | null>(null);
+    /** 全局配置原文（含 defaults.agreement 协议文案等）；loadTemplateConfig 失败时置 null */
+    const rawGlobalConfig = ref<any>(null);
     const themeTokens = ref<ThemeTokens>({});
     const rawThemeOverride = ref<string | null>(null);
     const mergedShopContent = ref<ShopContent | null>(null);
@@ -160,6 +162,7 @@ export const useTenantStore = defineStore('tenant', () => {
         templateCode.value = 'default';
         shopContent.value = null;
         rawShopContent.value = null;
+        rawGlobalConfig.value = null;
         themeTokens.value = {};
         rawThemeOverride.value = null;
         mergedShopContent.value = null;
@@ -180,6 +183,7 @@ export const useTenantStore = defineStore('tenant', () => {
             ]);
             const template: any = tplRes?.shopTemplate ?? null;
             const globalConfig: any = cfgRes?.shopGlobalConfig ?? null;
+            rawGlobalConfig.value = globalConfig;
             themeTokens.value = mergeThemeTokens(
                 globalConfig,
                 template,
@@ -260,7 +264,7 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, shopContent, rawShopContent, themeTokens, rawThemeOverride, mergedShopContent,
+        tenantReady, shopContent, rawShopContent, rawGlobalConfig, themeTokens, rawThemeOverride, mergedShopContent,
         shopName, shopLogo, shopIntro, servicePhone, shareImageUrl, tenantInvalid,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,

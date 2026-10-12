@@ -1196,5 +1196,18 @@
         "tabAfterSale": "After-Sale",
         "tabAccount": "Account",
         "empty": "No FAQs available"
+    },
+    "myFeedbacks": {
+        "title": "My Feedback",
+        "navFeedback": "Feedback",
+        "replyLabel": "Seller Reply",
+        "repliedAt": "Replied",
+        "unreadAll": "All read",
+        "pending": "Pending",
+        "processing": "Processing",
+        "resolved": "Resolved",
+        "empty": "No feedback yet",
+        "loading": "Loading",
+        "markRead": "Auto-marked as read"
     }
 }

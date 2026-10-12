@@ -32,7 +32,7 @@ import { useI18n } from 'vue-i18n';
 import { getFaqs } from '../../api/queries/feedback';
 import EmptyState from '../../components/EmptyState.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 // 分组 key 与后端 FaqEntry.type 对齐
 const tabs = computed(() => [
@@ -61,7 +61,7 @@ function onTab(key: string) {
 async function loadFaqs() {
     loading.value = true;
     try {
-        const r: any = await getFaqs(cur.value || undefined);
+        const r: any = await getFaqs(cur.value || undefined, locale.value);
         items.value = r?.faqs || [];
         expandedId.value = null;
     } catch (e) {

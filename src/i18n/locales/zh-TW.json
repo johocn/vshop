@@ -1196,5 +1196,18 @@
         "tabAfterSale": "售後",
         "tabAccount": "帳戶",
         "empty": "暫無常見問題"
+    },
+    "myFeedbacks": {
+        "title": "我的反饋",
+        "navFeedback": "意見反饋",
+        "replyLabel": "商家回覆",
+        "repliedAt": "回覆於",
+        "unreadAll": "全部已讀",
+        "pending": "待處理",
+        "processing": "處理中",
+        "resolved": "已解決",
+        "empty": "暫無反饋",
+        "loading": "加載中",
+        "markRead": "進入後自動標記已讀"
     }
 }

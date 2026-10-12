@@ -1196,5 +1196,18 @@
         "tabAfterSale": "A/S",
         "tabAccount": "계정",
         "empty": "자주 묻는 질문이 없습니다"
+    },
+    "myFeedbacks": {
+        "title": "내 피드백",
+        "navFeedback": "의견 피드백",
+        "replyLabel": "판매자 답변",
+        "repliedAt": "답변일",
+        "unreadAll": "모두 읽음",
+        "pending": "대기 중",
+        "processing": "처리 중",
+        "resolved": "해결됨",
+        "empty": "피드백이 없습니다",
+        "loading": "불러오는 중",
+        "markRead": "진입 시 자동으로 읽음 처리"
     }
 }
