@@ -2,7 +2,15 @@
     <view class="designer">
         <!-- 预览区 -->
         <view class="designer__preview">
-            <BeadRing canvas-id="designerRing" :width="690" :height="620" :beads="d.previewBeads.value" />
+            <BeadRing
+                canvas-id="designerRing"
+                :width="690"
+                :height="620"
+                :beads="d.previewBeads.value"
+                @bead-tap="onBeadTap"
+                @bead-move="onBeadMove"
+                @bead-remove="onBeadRemove"
+            />
             <view class="designer__preview-meta">
                 <text class="designer__price">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
                 <text class="designer__fit" @tap="showCalc = true">
@@ -203,6 +211,15 @@ function slotColor(id: string): string {
 }
 function slotName(id: string): string {
     return materialName(materials.value.find(m => m.id === id), locale.value);
+}
+
+function onBeadMove(from: number, to: number) { d.moveBead(from, to); }
+function onBeadRemove(i: number) { d.removeBeadAt(i); }
+function onBeadTap(i: number) {
+    uni.showModal({
+        title: t('diy.removeBeadQ'),
+        success: (res: UniApp.ShowModalRes) => { if (res.confirm) d.removeBeadAt(i); },
+    });
 }
 
 function onModeChange(m: DesignerMode) {
