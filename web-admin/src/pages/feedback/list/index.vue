@@ -30,9 +30,31 @@
       <text class="meta">{{ $t('feedbackManage.createdAtLabel') }}{{ fmtTime(r.createdAt) }}</text>
       <text class="meta" v-if="r.handledAt">{{ $t('feedbackManage.handledAtLabel') }}{{ fmtTime(r.handledAt) }}</text>
 
+      <view v-if="r.reply" class="reply">
+        <text class="reply-label">{{ $t('feedbackManage.replyLabel') }}</text>
+        <text class="reply-text">{{ short(r.reply, 40) }}</text>
+        <text class="meta" v-if="r.repliedAt">{{ $t('feedbackManage.repliedAtLabel') }}{{ fmtTime(r.repliedAt) }}</text>
+      </view>
+
       <view class="ops" v-if="r.status === 'pending'">
         <button class="op" @tap="onSetStatus(r, 'processing')">{{ $t('feedbackManage.processBtn') }}</button>
+        <button class="op" @tap="openReply(r)">{{ $t('feedbackManage.replyBtn') }}</button>
         <button class="op main" @tap="onSetStatus(r, 'resolved')">{{ $t('feedbackManage.resolveBtn') }}</button>
+      </view>
+      <view class="ops" v-else-if="r.status === 'processing'">
+        <button class="op main" @tap="openReply(r)">{{ $t('feedbackManage.replyBtn') }}</button>
+      </view>
+
+      <view v-if="replyFor && replyFor.id === r.id" class="reply-editor">
+        <textarea class="ta" v-model="replyFor.text" :placeholder="$t('feedbackManage.replyPlaceholder')" :maxlength="2000" />
+        <view class="chk" @tap="replyFor.resolve = !replyFor.resolve">
+          <view class="box" :class="{ on: replyFor.resolve }"><text v-if="replyFor.resolve" class="tick">✓</text></view>
+          <text class="chk-label">{{ $t('feedbackManage.replyResolveToo') }}</text>
+        </view>
+        <view class="ops">
+          <button class="op" @tap="replyFor = null">{{ $t('feedbackManage.replyCancel') }}</button>
+          <button class="op main" :disabled="replySaving" @tap="onReplySubmit(r)">{{ replySaving ? $t('feedbackManage.replySubmitting') : $t('feedbackManage.replySubmit') }}</button>
+        </view>
       </view>
     </view>
 
@@ -54,7 +76,7 @@ import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
-import { fetchFeedbackPage, updateFeedbackStatus, parseFeedbackImgs, type FeedbackRow } from '../../../apis/feedback';
+import { fetchFeedbackPage, updateFeedbackStatus, replyFeedback, parseFeedbackImgs, type FeedbackRow } from '../../../apis/feedback';
 
 const locale = useLocaleStore();
 
@@ -79,8 +101,8 @@ function onTab(key: string) {
   void page.refresh();
 }
 
-function short(s: string): string {
-  return s && s.length > 60 ? s.slice(0, 60) + '…' : s || '';
+function short(s: string, n = 60): string {
+  return s && s.length > n ? s.slice(0, n) + '…' : s || '';
 }
 
 function imgsOf(r: FeedbackRow): string[] {
@@ -101,6 +123,31 @@ function fmtTime(t?: string | null): string {
 
 function toast(msg: string) {
   uni.showToast({ title: msg, icon: 'none' });
+}
+
+// 回复闭环：pending/processing 行展开编辑器，提交后刷新（新回复会重开 C 端未读角标）
+const replyFor = ref<{ id: string; text: string; resolve: boolean } | null>(null);
+const replySaving = ref(false);
+
+function openReply(r: FeedbackRow) {
+  replyFor.value = { id: r.id, text: '', resolve: r.status === 'pending' };
+}
+
+async function onReplySubmit(r: FeedbackRow) {
+  if (!replyFor.value) return;
+  const reply = replyFor.value.text.trim();
+  if (!reply) { toast(locale.t('feedbackManage.replyRequired')); return; }
+  replySaving.value = true;
+  try {
+    await replyFeedback(r.id, reply, replyFor.value.resolve);
+    replyFor.value = null;
+    toast(locale.t('feedbackManage.replyOk'));
+    void page.refresh();
+  } catch (e: any) {
+    toast(e?.message || locale.t('feedbackManage.opFailed'));
+  } finally {
+    replySaving.value = false;
+  }
 }
 
 function onSetStatus(r: FeedbackRow, status: string) {
@@ -146,6 +193,16 @@ onLoad(() => {
     .imgs { display: flex; flex-wrap: wrap; gap: 12rpx;
       .thumb { width: 120rpx; height: 120rpx; border-radius: $wa-radius; } }
     .meta { font-size: 24rpx; color: $wa-muted; }
+    .reply { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; display: flex; flex-direction: column; gap: 8rpx;
+      .reply-label { font-size: 24rpx; color: #2563eb; font-weight: 600; }
+      .reply-text { font-size: 26rpx; color: $wa-ink; line-height: 1.6; } }
+    .reply-editor { display: flex; flex-direction: column; gap: 16rpx; padding-top: 16rpx; border-top: 1px dashed #e5e7eb;
+      .ta { box-sizing: border-box; width: 100%; height: 180rpx; background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 26rpx; color: $wa-ink; line-height: 1.5; }
+      .chk { display: flex; align-items: center; gap: 12rpx;
+        .box { width: 32rpx; height: 32rpx; border: 2rpx solid #d1d5db; border-radius: 8rpx; display: flex; align-items: center; justify-content: center;
+          &.on { background: $wa-accent; border-color: $wa-accent; } }
+        .tick { color: #fff; font-size: 22rpx; line-height: 1; }
+        .chk-label { font-size: 24rpx; color: $wa-muted; } } }
     .ops { display: flex; gap: 12rpx; margin-top: 8rpx;
       .op { min-width: 160rpx; margin: 0; padding: 0 20rpx; height: 56rpx; line-height: 56rpx;
         font-size: 24rpx; border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;

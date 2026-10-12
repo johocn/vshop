@@ -10,6 +10,9 @@ export interface FaqEntryRow {
   id: string;
   title: string;
   content: string;
+  /** 多语言标题/正文（Record<locale, string>，zh-CN 为基线）；null 表示未配置 */
+  titleI18n?: Record<string, string> | null;
+  contentI18n?: Record<string, string> | null;
   type: string;
   sort: number;
   enabled: boolean;
@@ -27,6 +30,10 @@ export interface FeedbackRow {
   imgs?: string | null;
   contactWay?: string | null;
   status: 'pending' | 'processing' | 'resolved' | string;
+  /** 商家回复（replyFeedback 写入） */
+  reply?: string | null;
+  repliedAt?: string | null;
+  repliedBy?: string | null;
   handledAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -36,13 +43,15 @@ export interface SaveFaqInput {
   id?: string;
   title: string;
   content: string;
+  titleI18n?: Record<string, string> | null;
+  contentI18n?: Record<string, string> | null;
   type?: string;
   sort?: number;
   enabled?: boolean;
 }
 
-const FAQ_FIELDS = `id title content type sort enabled createdAt updatedAt`;
-const FEEDBACK_FIELDS = `id customerId type title content imgs contactWay status handledAt createdAt updatedAt`;
+const FAQ_FIELDS = `id title content type sort enabled createdAt updatedAt titleI18n contentI18n`;
+const FEEDBACK_FIELDS = `id customerId type title content imgs contactWay status reply repliedAt repliedBy handledAt createdAt updatedAt`;
 
 export async function fetchFaqPage(take = 50, skip = 0): Promise<{ items: FaqEntryRow[]; total: number }> {
   try {
@@ -104,6 +113,19 @@ export async function updateFeedbackStatus(id: string, status: string): Promise<
     return updateFeedbackStatus;
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '操作失败'));
+  }
+}
+
+/** 回复用户反馈；resolve=true 同时标记为已解决 */
+export async function replyFeedback(id: string, reply: string, resolve: boolean): Promise<FeedbackRow> {
+  try {
+    const { replyFeedback } = await getAdminClient().request<{ replyFeedback: FeedbackRow }>(
+      `mutation ReplyFeedback($id: ID!, $reply: String!, $resolve: Boolean) { replyFeedback(id: $id, reply: $reply, resolve: $resolve) { ${FEEDBACK_FIELDS} } }`,
+      { id, reply, resolve },
+    );
+    return replyFeedback;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '回复失败'));
   }
 }
 
