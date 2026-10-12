@@ -53,6 +53,7 @@ export interface DiyMaterialRow {
     id: string;
     code: string;
     name: string | Record<string, string> | null;
+    categoryId: string | null;
     shape: string;
     diameter: number | null;
     axialLength: number | null;
