@@ -331,6 +331,12 @@
                     }
                 },
                 {
+                    "path": "pages/my-feedbacks",
+                    "style": {
+                        "navigationBarTitleText": "我的反馈"
+                    }
+                },
+                {
                     "path": "pages/points-goods-list",
                     "style": {
                         "navigationBarTitleText": "积分商品"

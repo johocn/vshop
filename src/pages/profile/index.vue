@@ -39,7 +39,11 @@
         <text>{{ t('nav.faq') }}</text><text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/feedback')">
-        <text>{{ t('nav.feedback') }}</text><text class="menu-arrow">></text>
+        <view class="menu-item__label">
+          <text>{{ t('nav.feedback') }}</text>
+          <view v-if="fbUnread > 0" class="fb-badge">{{ fbUnread > 99 ? '99+' : fbUnread }}</view>
+        </view>
+        <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @click="chooseLanguage">
         <text>{{ t('profile.language') }}</text><text class="menu-lang">{{ currentLangLabel }}</text>
@@ -51,8 +55,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { getActiveCustomer } from '../../api/queries/user';
+import { getUnreadFeedbackCount } from '../../api/queries/feedback';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
 import { logout } from '../../api/mutations/auth';
@@ -62,6 +68,21 @@ const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const customer = ref<any>(null);
+/** 意见反馈未读数（登录态 onShow 拉取；未登录/失败静默 0） */
+const fbUnread = ref(0);
+
+onShow(async () => {
+  if (!authStore.isLoggedIn) {
+    fbUnread.value = 0;
+    return;
+  }
+  try {
+    const r: any = await getUnreadFeedbackCount();
+    fbUnread.value = r?.unreadFeedbackCount || 0;
+  } catch (e) {
+    fbUnread.value = 0;
+  }
+});
 
 // 语言原生名（各语言下展示一致，不随界面语言翻译，故不入语言包）
 const LOCALE_OPTIONS = [
@@ -117,6 +138,13 @@ async function doLogout() {
 .menu-item {
     display: flex; justify-content: space-between; align-items: center;
     padding: 30rpx; border-bottom: 1rpx solid $border-color; font-size: 28rpx;
+}
+.menu-item__label { position: relative; display: inline-flex; align-items: center; }
+.fb-badge {
+    position: absolute; top: -14rpx; right: -26rpx;
+    min-width: 32rpx; height: 32rpx; border-radius: 999rpx;
+    background: #e5484d; color: #fff; font-size: 20rpx; line-height: 32rpx;
+    text-align: center; padding: 0 6rpx;
 }
 .menu-arrow { color: #ccc; }
 .menu-lang { color: #999; }
