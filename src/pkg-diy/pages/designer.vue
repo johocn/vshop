@@ -1,186 +1,214 @@
 <template>
     <view class="designer">
-        <!-- 预览区 -->
-        <view class="designer__preview">
-            <BeadRing
-                canvas-id="designerRing"
-                :width="690"
-                :height="620"
-                :beads="d.previewBeads.value"
-                :decors="d.decors.value"
-                :knot-visible="d.knotVisible.value"
-                :decor-rows="materials"
-                @bead-tap="onBeadTap"
-                @bead-move="onBeadMove"
-                @bead-remove="onBeadRemove"
-                @decor-tap="onDecorTap"
-                @decor-move="onDecorMove"
-                @decor-remove="onDecorRemove"
-            />
-            <view v-if="!d.previewBeads.value.length" class="designer__empty">
-                <text>{{ t('diy.emptyHint') }}</text>
-            </view>
-            <view class="designer__knot-row">
-                <text class="designer__knot-toggle" @tap="d.knotVisible.value = !d.knotVisible.value">
-                    {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
-                </text>
-            </view>
-            <view class="designer__capsules">
-                <text class="designer__caps designer__caps--state" @tap="showCalc = true">
-                    {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
-                    · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
-                </text>
-                <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
-                <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
-            </view>
-        </view>
-
-        <!-- 模式切换 -->
-        <ModeChips
-            :model-value="d.mode.value"
-            :count="d.calcCount.value"
-            @update:model-value="onModeChange"
-        />
-
-        <!-- 操作行 -->
-        <view class="designer__actions">
-            <text class="designer__act" @tap="onClear">{{ t('diy.action.clear') }}</text>
-            <text class="designer__act" @tap="onDraft">{{ t('diy.action.draft') }}</text>
-            <text class="designer__act" @tap="onRecommend">{{ t('diy.action.recommend') }}</text>
-        </view>
-
-        <!-- 参数区（free 模式以序列为准，无参数） -->
-        <view v-if="d.mode.value !== 'free'" class="designer__params">
-            <view class="designer__param-row">
-                <text class="designer__param-label">{{ t('diy.wristSize') }}</text>
-                <text class="designer__param-value">{{ (d.wristSize.value / 10).toFixed(1) }}cm</text>
-            </view>
-            <slider
-                class="designer__slider"
-                :min="WRIST_MIN"
-                :max="WRIST_MAX"
-                :step="1"
-                :value="d.wristSize.value"
-                activeColor="#ff6600"
-                block-size="20"
-                @change="onWristChange"
-            />
-            <view class="designer__chips">
-                <text
-                    v-for="f in fits"
-                    :key="f"
-                    class="designer__chip"
-                    :class="{ 'designer__chip--on': d.fit.value === f }"
-                    @tap="d.fit.value = f"
-                >{{ t('diy.fit.' + f) }}</text>
-            </view>
-            <view class="designer__param-row designer__param-row--gap">
-                <text class="designer__param-label">{{ t('diy.gap') }}</text>
-                <text class="designer__param-value">{{ d.gap.value }}mm</text>
-            </view>
-            <slider
-                class="designer__slider"
-                :min="0"
-                :max="2"
-                :step="0.1"
-                :value="d.gap.value"
-                activeColor="#ff6600"
-                block-size="20"
-                @change="onGapChange"
-            />
-        </view>
-
-        <!-- pattern 排布 -->
-        <view v-if="d.mode.value === 'pattern'" class="designer__params">
-            <view class="designer__chips">
-                <text
-                    v-for="a in arranges"
-                    :key="a"
-                    class="designer__chip"
-                    :class="{ 'designer__chip--on': d.arrange.value === a }"
-                    @tap="d.arrange.value = a"
-                >{{ t('diy.arrange.' + a) }}</text>
-                <text v-if="d.arrange.value === 'random'" class="designer__chip designer__chip--action" @tap="d.reshuffle()">{{ t('diy.reshuffle') }}</text>
-            </view>
-        </view>
-
-        <!-- 槽位选料（非 free） -->
-        <view v-if="d.mode.value !== 'free'" class="designer__slots">
-            <view v-for="(s, i) in d.slots.value" :key="i" class="designer__slot">
-                <text class="designer__slot-role">{{ t('diy.slot.' + s.role) }}</text>
-                <view class="designer__slot-bead" @tap="openMaterial(i)">
-                    <view
-                        v-if="s.materialId"
-                        class="designer__slot-dot"
-                        :style="{ background: slotColor(s.materialId) }"
-                    />
-                    <text class="designer__slot-name">{{ s.materialId ? slotName(s.materialId) : t('diy.pickMaterial') }}</text>
+        <view class="designer__top">
+            <!-- 预览区 -->
+            <view class="designer__preview">
+                <BeadRing
+                    canvas-id="designerRing"
+                    :width="690"
+                    :height="660"
+                    :beads="d.previewBeads.value"
+                    :decors="d.decors.value"
+                    :knot-visible="d.knotVisible.value"
+                    :decor-rows="materials"
+                    :brand-watermark="brandWatermark"
+                    :brand-slogan="brandSlogan"
+                    @bead-tap="onBeadTap"
+                    @bead-move="onBeadMove"
+                    @bead-swap="onBeadSwap"
+                    @bead-remove="onBeadRemove"
+                    @decor-tap="onDecorTap"
+                    @decor-move="onDecorMove"
+                    @decor-remove="onDecorRemove"
+                />
+                <view v-if="!d.previewBeads.value.length" class="designer__empty">
+                    <text>{{ t('diy.emptyHint') }}</text>
                 </view>
-                <input
-                    v-if="s.role === 'main'"
-                    class="designer__slot-input"
-                    type="number"
-                    :value="s.qtyOverride != null ? String(s.qtyOverride) : ''"
-                    :placeholder="d.mode.value === 'byCount' ? t('diy.qty') : t('diy.weight')"
-                    @input="onQtyInput(i, $event)"
-                />
-                <input
-                    v-else-if="s.role === 'spacer'"
-                    class="designer__slot-input"
-                    type="number"
-                    :value="s.every != null ? String(s.every) : '2'"
-                    :placeholder="t('diy.every')"
-                    @input="onEveryInput(i, $event)"
-                />
-                <input
-                    v-else-if="s.role === 'decor'"
-                    class="designer__slot-input"
-                    type="number"
-                    :value="s.qtyOverride != null ? String(s.qtyOverride) : '1'"
-                    :placeholder="t('diy.qty')"
-                    @input="onQtyInput(i, $event)"
-                />
-                <text
-                    v-if="s.role !== 'main' || d.mainSlots.value.length > 1 || !s.materialId"
-                    class="designer__slot-remove"
-                    @tap="d.removeSlotAt(i)"
-                >×</text>
+                <view class="designer__knot-row">
+                    <text class="designer__knot-toggle" @tap="d.knotVisible.value = !d.knotVisible.value">
+                        {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
+                    </text>
+                </view>
+                <view class="designer__capsules">
+                    <text class="designer__caps designer__caps--state" @tap="showCalc = true">
+                        {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
+                        · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
+                    </text>
+                    <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
+                    <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
+                </view>
             </view>
-            <view class="designer__slot-actions">
-                <text class="designer__slot-add" @tap="d.addSlot('main')">＋ {{ t('diy.slot.main') }}</text>
-                <text v-if="!hasFocal" class="designer__slot-add" @tap="d.addSlot('focal')">＋ {{ t('diy.slot.focal') }}</text>
-                <text v-if="!hasSpacer" class="designer__slot-add" @tap="d.addSlot('spacer')">＋ {{ t('diy.slot.spacer') }}</text>
-                <text class="designer__slot-add" @tap="d.addSlot('decor')">＋ {{ t('diy.slot.decor') }}</text>
+
+            <!-- 操作行：图标化 + 完成设计主按钮右置 -->
+            <view class="designer__actions">
+                <view class="designer__act" @tap="onClear">
+                    <text class="designer__act-ico">🗑</text>
+                    <text class="designer__act-txt">{{ t('diy.action.clear') }}</text>
+                </view>
+                <view class="designer__act" @tap="onDraft">
+                    <text class="designer__act-ico">✓</text>
+                    <text class="designer__act-txt">{{ t('diy.action.draft') }}</text>
+                </view>
+                <view class="designer__act" @tap="onRecommend">
+                    <text class="designer__act-ico">↻</text>
+                    <text class="designer__act-txt">{{ t('diy.action.recommend') }}</text>
+                </view>
+                <view
+                    class="designer__cta"
+                    :class="{ 'designer__cta--disabled': !d.canSave.value || saving }"
+                    @tap="onSave"
+                >{{ ctaLabel }}</view>
+            </view>
+
+            <!-- 模式切换 -->
+            <ModeChips
+                :model-value="d.mode.value"
+                :count="d.calcCount.value"
+                @update:model-value="onModeChange"
+            />
+
+            <!-- free 序列条 / 非 free 参数摘要条 -->
+            <SequenceStrip
+                v-if="d.mode.value === 'free'"
+                v-model:sequence="d.sequence.value"
+                :materials="materials"
+                @remove="d.removeBeadAt"
+                @append="onAppendTap"
+            />
+            <view v-else class="designer__summary" @tap="paramsOpen = true">
+                <text class="designer__summary-label">{{ t('diy.paramSummary') }}</text>
+                <text class="designer__summary-text">{{ (d.wristSize.value / 10).toFixed(1) }}cm · {{ t('diy.fit.' + d.fit.value) }} · {{ d.gap.value }}mm</text>
+                <text class="designer__summary-arrow">▾</text>
             </view>
         </view>
 
-        <!-- free 序列条（拖拽调序/点按移除/＋追加） -->
-        <SequenceStrip
-            v-if="d.mode.value === 'free'"
-            v-model:sequence="d.sequence.value"
-            :materials="materials"
-            @remove="d.removeBeadAt"
-            @append="openMaterial(-1)"
-        />
-
-        <!-- CTA -->
-        <view class="designer__cta-wrap">
-            <view
-                class="designer__cta"
-                :class="{ 'designer__cta--disabled': !d.canSave.value || saving }"
-                @tap="onSave"
-            >{{ ctaLabel }}</view>
+        <!-- 常驻选料面板 -->
+        <view class="designer__panel">
+            <MaterialPanel
+                :materials="materials"
+                :mode="d.mode.value"
+                :categories="categories"
+                :counts="pickCounts"
+                @pick="onPickMaterial"
+            />
         </view>
 
-        <MaterialSheet
-            v-model:show="showSheet"
-            :materials="materials"
-            :mode="d.mode.value"
-            :categories="categories"
-            :counts="pickCounts"
-            :free-mode="d.mode.value === 'free'"
-            @pick="onPickMaterial"
-        />
+        <!-- 非 free 参数/槽位浮层（覆盖面板上方） -->
+        <view v-if="paramsOpen" class="designer__sheet" @touchmove.stop.prevent>
+            <view class="designer__sheet-mask" @tap="paramsOpen = false" />
+            <view class="designer__sheet-panel">
+                <view class="designer__sheet-head">
+                    <text class="designer__sheet-title">{{ t('diy.paramSummary') }}</text>
+                    <text class="designer__sheet-close" @tap="paramsOpen = false">×</text>
+                </view>
+                <scroll-view scroll-y class="designer__sheet-body">
+                    <view class="designer__params">
+                        <view class="designer__param-row">
+                            <text class="designer__param-label">{{ t('diy.wristSize') }}</text>
+                            <text class="designer__param-value">{{ (d.wristSize.value / 10).toFixed(1) }}cm</text>
+                        </view>
+                        <slider
+                            class="designer__slider"
+                            :min="WRIST_MIN"
+                            :max="WRIST_MAX"
+                            :step="1"
+                            :value="d.wristSize.value"
+                            activeColor="#ff6600"
+                            block-size="20"
+                            @change="onWristChange"
+                        />
+                        <view class="designer__chips">
+                            <text
+                                v-for="f in fits"
+                                :key="f"
+                                class="designer__chip"
+                                :class="{ 'designer__chip--on': d.fit.value === f }"
+                                @tap="d.fit.value = f"
+                            >{{ t('diy.fit.' + f) }}</text>
+                        </view>
+                        <view class="designer__param-row designer__param-row--gap">
+                            <text class="designer__param-label">{{ t('diy.gap') }}</text>
+                            <text class="designer__param-value">{{ d.gap.value }}mm</text>
+                        </view>
+                        <slider
+                            class="designer__slider"
+                            :min="0"
+                            :max="2"
+                            :step="0.1"
+                            :value="d.gap.value"
+                            activeColor="#ff6600"
+                            block-size="20"
+                            @change="onGapChange"
+                        />
+                        <view v-if="d.mode.value === 'pattern'" class="designer__chips">
+                            <text
+                                v-for="a in arranges"
+                                :key="a"
+                                class="designer__chip"
+                                :class="{ 'designer__chip--on': d.arrange.value === a }"
+                                @tap="d.arrange.value = a"
+                            >{{ t('diy.arrange.' + a) }}</text>
+                            <text v-if="d.arrange.value === 'random'" class="designer__chip designer__chip--action" @tap="d.reshuffle()">{{ t('diy.reshuffle') }}</text>
+                        </view>
+                    </view>
+                    <view class="designer__slots">
+                        <view
+                            v-for="(s, i) in d.slots.value"
+                            :key="i"
+                            class="designer__slot"
+                            :class="{ 'designer__slot--on': editingSlotIdx === i }"
+                            @tap="selectSlot(i)"
+                        >
+                            <text class="designer__slot-role">{{ t('diy.slot.' + s.role) }}</text>
+                            <view class="designer__slot-bead">
+                                <view
+                                    v-if="s.materialId"
+                                    class="designer__slot-dot"
+                                    :style="{ background: slotColor(s.materialId) }"
+                                />
+                                <text class="designer__slot-name">{{ s.materialId ? slotName(s.materialId) : t('diy.pickMaterial') }}</text>
+                            </view>
+                            <input
+                                v-if="s.role === 'main'"
+                                class="designer__slot-input"
+                                type="number"
+                                :value="s.qtyOverride != null ? String(s.qtyOverride) : ''"
+                                :placeholder="d.mode.value === 'byCount' ? t('diy.qty') : t('diy.weight')"
+                                @input="onQtyInput(i, $event)"
+                            />
+                            <input
+                                v-else-if="s.role === 'spacer'"
+                                class="designer__slot-input"
+                                type="number"
+                                :value="s.every != null ? String(s.every) : '2'"
+                                :placeholder="t('diy.every')"
+                                @input="onEveryInput(i, $event)"
+                            />
+                            <input
+                                v-else-if="s.role === 'decor'"
+                                class="designer__slot-input"
+                                type="number"
+                                :value="s.qtyOverride != null ? String(s.qtyOverride) : '1'"
+                                :placeholder="t('diy.qty')"
+                                @input="onQtyInput(i, $event)"
+                            />
+                            <text
+                                v-if="s.role !== 'main' || d.mainSlots.value.length > 1 || !s.materialId"
+                                class="designer__slot-remove"
+                                @tap.stop="d.removeSlotAt(i)"
+                            >×</text>
+                        </view>
+                        <view class="designer__slot-actions">
+                            <text class="designer__slot-add" @tap="d.addSlot('main')">＋ {{ t('diy.slot.main') }}</text>
+                            <text v-if="!hasFocal" class="designer__slot-add" @tap="d.addSlot('focal')">＋ {{ t('diy.slot.focal') }}</text>
+                            <text v-if="!hasSpacer" class="designer__slot-add" @tap="d.addSlot('spacer')">＋ {{ t('diy.slot.spacer') }}</text>
+                            <text class="designer__slot-add" @tap="d.addSlot('decor')">＋ {{ t('diy.slot.decor') }}</text>
+                        </view>
+                    </view>
+                </scroll-view>
+            </view>
+        </view>
+
         <CalcDetailSheet v-model:show="showCalc" :result="d.result.value" />
     </view>
 </template>
@@ -191,12 +219,13 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import BeadRing from '../components/BeadRing.vue';
 import ModeChips from '../components/ModeChips.vue';
-import MaterialSheet from '../components/MaterialSheet.vue';
+import MaterialPanel from '../components/MaterialPanel.vue';
 import SequenceStrip from '../components/SequenceStrip.vue';
 import CalcDetailSheet from '../components/CalcDetailSheet.vue';
 import { getDiyMaterials, getDiyCategories } from '../../api/queries/diy';
 import { createDiyPlan, quoteDiyPlan } from '../../api/mutations/diy';
 import { useAuthStore } from '../../stores/auth';
+import { useTenantStore } from '../../stores/tenant';
 import {
     useDesigner, useDesignerDraft, yuan, cm, feedbackI18nKey, materialColor, materialName, easeOf,
     WRIST_MIN, WRIST_MAX,
@@ -206,6 +235,7 @@ import { recommendSequence } from '../utils/recommend';
 
 const { t, locale } = useI18n();
 const authStore = useAuthStore();
+const tenantStore = useTenantStore();
 
 const materials = ref<DiyMaterialRow[]>([]);
 const categories = ref<any[]>([]);
@@ -220,11 +250,22 @@ const pickCounts = computed<Record<string, number>>(() => {
     return c;
 });
 
-const showSheet = ref(false);
 const showCalc = ref(false);
 const saving = ref(false);
 /** 当前指派目标槽位下标；-1 表示 free 追加 */
 const editingSlotIdx = ref(-1);
+/** 非 free 参数/槽位浮层显隐 */
+const paramsOpen = ref(false);
+
+/** 环心水印文案：rawGlobalConfig.defaults 品牌字段 → 渠道 shopName → i18n 兜底 */
+const brandWatermark = computed(() => {
+    const cf: any = tenantStore.rawGlobalConfig?.defaults ?? {};
+    return String(cf.brandName || tenantStore.shopName || t('diy.brandWatermark'));
+});
+const brandSlogan = computed(() => {
+    const cf: any = tenantStore.rawGlobalConfig?.defaults ?? {};
+    return String(cf.brandSlogan || t('diy.brandSlogan'));
+});
 
 const fits: DesignerFit[] = ['snug', 'comfortable', 'loose'];
 const arranges: ArrangeMode[] = ['alternate', 'random', 'zoned'];
@@ -263,6 +304,7 @@ function slotName(id: string): string {
 }
 
 function onBeadMove(from: number, to: number) { d.moveBead(from, to); }
+function onBeadSwap(from: number, to: number) { d.swapBead(from, to); }
 function onBeadRemove(i: number) { d.removeBeadAt(i); }
 function onBeadTap(i: number) {
     uni.showModal({
@@ -296,9 +338,10 @@ function onGapChange(e: any) {
     d.gap.value = Math.min(2, Math.max(0, Number(e.detail?.value) || 0));
 }
 
-function openMaterial(slotIdx: number) {
-    editingSlotIdx.value = slotIdx;
-    showSheet.value = true;
+/** 非 free：点槽位选中指派目标并收起浮层（随后点面板卡即指派） */
+function selectSlot(i: number) {
+    editingSlotIdx.value = i;
+    paramsOpen.value = false;
 }
 
 function onPickMaterial(id: string) {
@@ -308,6 +351,8 @@ function onPickMaterial(id: string) {
     }
     if (editingSlotIdx.value >= 0) d.assignSlot(editingSlotIdx.value, id);
 }
+
+function onAppendTap() { uni.showToast({ title: t('diy.appendHint'), icon: 'none' }); }
 
 function onClear() {
     uni.showModal({
@@ -394,9 +439,17 @@ async function onSave() {
 
 <style lang="scss" scoped>
 .designer {
-    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: $bg-color;
-    padding-bottom: 180rpx;
+
+    &__top {
+        flex: 0 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
 
     &__preview {
         position: relative;
@@ -441,28 +494,6 @@ async function onSave() {
         }
     }
 
-    &__actions {
-        display: flex;
-        gap: 16rpx;
-        margin: 0 20rpx 16rpx;
-    }
-
-    &__act {
-        padding: 10rpx 28rpx;
-        border-radius: 28rpx;
-        font-size: 24rpx;
-        color: $text-color-secondary;
-        background: #fff;
-        border: 2rpx solid $border-color;
-    }
-
-    &__preview-meta {
-        display: flex;
-        align-items: baseline;
-        gap: 16rpx;
-        padding: 8rpx 8rpx 16rpx;
-    }
-
     &__knot-row {
         display: flex;
         justify-content: flex-end;
@@ -477,11 +508,148 @@ async function onSave() {
         background: $bg-color;
     }
 
-    &__params {
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 12rpx;
+        margin: 0 20rpx 12rpx;
+    }
+
+    &__act {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rpx;
+        padding: 8rpx 18rpx;
+        border-radius: $radius-md;
+        background: #fff;
+        border: 2rpx solid $border-color;
+        flex-shrink: 0;
+    }
+
+    &__act-ico {
+        font-size: 30rpx;
+        line-height: 1.1;
+    }
+
+    &__act-txt {
+        font-size: 20rpx;
+        color: $text-color-secondary;
+    }
+
+    &__cta {
+        margin-left: auto;
+        height: 72rpx;
+        line-height: 72rpx;
+        padding: 0 28rpx;
+        border-radius: 36rpx;
+        background: $brand-color;
+        color: #fff;
+        font-size: 26rpx;
+        white-space: nowrap;
+        flex-shrink: 0;
+
+        &--disabled {
+            opacity: 0.5;
+        }
+    }
+
+    &__summary {
+        display: flex;
+        align-items: center;
+        gap: 12rpx;
         background: #fff;
         border-radius: $radius-md;
-        margin: 16rpx 20rpx;
-        padding: 20rpx 24rpx;
+        margin: 0 20rpx 16rpx;
+        padding: 16rpx 24rpx;
+    }
+
+    &__summary-label {
+        font-size: 24rpx;
+        font-weight: 600;
+        color: $text-color;
+        flex-shrink: 0;
+    }
+
+    &__summary-text {
+        font-size: 24rpx;
+        color: $text-color-secondary;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__summary-arrow {
+        margin-left: auto;
+        font-size: 24rpx;
+        color: $text-color-placeholder;
+    }
+
+    &__panel {
+        flex: 1;
+        min-height: 0;
+        background: #fff;
+        border-radius: $radius-lg $radius-lg 0 0;
+        margin-top: 8rpx;
+        padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* 非 free 参数/槽位浮层 */
+    &__sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+    }
+
+    &__sheet-mask {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    &__sheet-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-height: 72vh;
+        background: #fff;
+        border-radius: $radius-lg $radius-lg 0 0;
+        padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+    }
+
+    &__sheet-title {
+        font-size: 30rpx;
+        font-weight: 600;
+        color: $text-color;
+    }
+
+    &__sheet-close {
+        font-size: 44rpx;
+        color: $text-color-placeholder;
+        padding: 0 12rpx;
+    }
+
+    &__sheet-body {
+        flex: 1;
+        min-height: 0;
+    }
+
+    &__params {
+        margin: 0;
+        padding: 8rpx 0 20rpx;
     }
 
     &__param-row {
@@ -538,9 +706,8 @@ async function onSave() {
     }
 
     &__slots {
-        background: #fff;
+        background: $bg-color;
         border-radius: $radius-md;
-        margin: 16rpx 20rpx;
         padding: 8rpx 24rpx;
     }
 
@@ -548,8 +715,18 @@ async function onSave() {
         display: flex;
         align-items: center;
         gap: 16rpx;
-        padding: 16rpx 0;
+        padding: 16rpx 12rpx;
         border-bottom: 2rpx solid $border-color;
+
+        &--on {
+            background: $brand-color-light;
+            border-radius: $radius-sm;
+
+            .designer__slot-role {
+                color: $brand-color;
+                font-weight: 600;
+            }
+        }
     }
 
     &__slot-role {
@@ -586,7 +763,7 @@ async function onSave() {
     &__slot-input {
         width: 120rpx;
         height: 60rpx;
-        background: $bg-color;
+        background: #fff;
         border-radius: $radius-sm;
         text-align: center;
         font-size: 24rpx;
@@ -613,30 +790,6 @@ async function onSave() {
         background: $brand-color-light;
         border-radius: 28rpx;
         padding: 10rpx 24rpx;
-    }
-
-    &__cta-wrap {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
-        background: #fff;
-        box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
-    }
-
-    &__cta {
-        height: 88rpx;
-        line-height: 88rpx;
-        text-align: center;
-        border-radius: $radius-md;
-        background: $brand-color;
-        color: #fff;
-        font-size: 30rpx;
-
-        &--disabled {
-            opacity: 0.5;
-        }
     }
 }
 </style>

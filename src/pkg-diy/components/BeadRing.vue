@@ -3,7 +3,7 @@
         type="2d"
         :id="canvasId"
         :canvas-id="canvasId"
-        :style="{ width: cssW + 'px', height: cssH + 'px' }"
+        :style="{ width: cssW + 'px', height: cssH + 'px', display: 'block', margin: '0 auto' }"
         @touchstart="onTouchStart" @touchmove.stop.prevent="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd"
     />
 </template>
@@ -36,6 +36,10 @@ const props = defineProps<{
     knotVisible?: boolean;
     /** 配饰素材行（渲染 decor 用：color/preset/renderUrl） */
     decorRows?: DiyMaterialRow[];
+    /** 环心品牌水印主文案（tenant shopName；空串不绘制） */
+    brandWatermark?: string;
+    /** 环心水印副文案（品牌标语） */
+    brandSlogan?: string;
 }>();
 
 const sys = uni.getSystemInfoSync();
@@ -116,6 +120,28 @@ function render() {
     )));
     const ringR = centerR * scale;
     geo = { cx: w / 2, cy: h / 2, ringR, scale, radii: radiiMm, n: beads.length };
+    // 细轨道圆（珠心轨迹，先于珠子绘制；H5 单位矩阵铁律：禁 scale(dpr)）
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(w / 2, h / 2, ringR, 0, Math.PI * 2); ctx.stroke();
+    // 环心水印：品牌名 + 标语（透明度 0.10~0.12）
+    const wm = props.brandWatermark || '';
+    const slogan = props.brandSlogan || '';
+    if (wm || slogan) {
+        ctx.textAlign = 'center';
+        const fs1 = Math.max(14, ringR * 0.34);
+        const fs2 = Math.max(9, ringR * 0.17);
+        if (wm) {
+            ctx.fillStyle = 'rgba(0,0,0,0.11)';
+            ctx.font = `600 ${fs1}px sans-serif`;
+            ctx.fillText(wm, w / 2, h / 2 - (slogan ? fs1 * 0.15 : fs1 * 0.35));
+        }
+        if (slogan) {
+            ctx.fillStyle = 'rgba(0,0,0,0.10)';
+            ctx.font = `${fs2}px sans-serif`;
+            ctx.fillText(slogan, w / 2, h / 2 + fs1 * 0.75);
+        }
+    }
     const rs: RenderBead[] = beads.map((b, i) => ({
         x: 0, y: 0,
         r: Math.max(1, radiiMm[i] * scale),
@@ -174,6 +200,30 @@ function render() {
             ctx.fillStyle = '#E8463A';
             ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
             ctx.fillText('✕', drag.x, drag.y + 4);
+        } else if (drag.phase === 'swap') {
+            // 压珠预览：目标珠 brand 色虚线圈（半径 +4）
+            const hit = hitBead(drag.x, drag.y);
+            if (hit >= 0 && hit !== i) {
+                ctx.setLineDash([5, 4]);
+                ctx.strokeStyle = '#ff6600';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(rs[hit].x, rs[hit].y, rs[hit].r + 4, 0, Math.PI * 2); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        } else {
+            // 落隙预览：目标间隙小虚线圈（splice 语义落点 = 原布局 from<to ? 间隙(to+0.5) : 间隙(to-0.5)）
+            const to = insertIndexAt(drag.x, drag.y);
+            if (to !== i) {
+                const rel = (drag.index < to ? to + 0.5 : to - 0.5 + geo.n) % geo.n;
+                const a = -Math.PI / 2 + (Math.PI * 2 * rel) / geo.n;
+                const gx = geo.cx + geo.ringR * Math.cos(a);
+                const gy = geo.cy + geo.ringR * Math.sin(a);
+                ctx.setLineDash([4, 3]);
+                ctx.strokeStyle = 'rgba(255,102,0,0.85)';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(gx, gy, 7, 0, Math.PI * 2); ctx.stroke();
+                ctx.setLineDash([]);
+            }
         }
     }
 }
@@ -181,14 +231,15 @@ function render() {
 const emit = defineEmits<{
     (e: 'bead-tap', index: number): void;
     (e: 'bead-move', from: number, to: number): void;
+    (e: 'bead-swap', from: number, to: number): void;
     (e: 'bead-remove', index: number): void;
     (e: 'decor-tap', decorId: string): void;
     (e: 'decor-move', decorId: string, slot: number): void;
     (e: 'decor-remove', decorId: string): void;
 }>();
 
-/** 拖拽运行时：ghost 跟手；phase=delete 时画红圈吸附态 */
-interface DragState { index: number; x: number; y: number; phase: 'move' | 'delete'; overRing: boolean }
+/** 拖拽运行时：ghost 跟手；phase 三态（swap 压珠/insert 落隙/delete 出环）驱动实时预览 */
+interface DragState { index: number; x: number; y: number; phase: 'swap' | 'insert' | 'delete'; overRing: boolean }
 let drag: DragState | null = null;
 let startX = 0, startY = 0, moved = false;
 /** 命中结果缓存（几何参数 render 与 touch 共享） */
@@ -223,13 +274,14 @@ function hitBead(x: number, y: number): number {
     let best = -1, bestScore = Infinity;
     for (let i = 0; i < geo.n; i++) {
         const a = -Math.PI / 2 + (Math.PI * 2 * i) / geo.n;
-        const d = Math.PI - Math.abs(((ang - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        // 真实角距 0..π（ang=a 时为 0；勿再加 π- 前缀导致选中对侧珠）
+        const d = Math.abs(((ang - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
         const radial = Math.abs(dist - geo.ringR);
         const score = d * geo.ringR + radial;
         if (score < bestScore) { bestScore = score; best = i; }
     }
     if (best < 0) return -1;
-    const r = geo.radii[best] ?? 6;
+    const r = (geo.radii[best] ?? 6) * geo.scale;   // mm → px
     return Math.hypot(dx - geo.ringR * Math.cos(ang), dy - geo.ringR * Math.sin(ang)) <= r * 1.6 ? best : -1;
 }
 
@@ -276,7 +328,7 @@ function onTouchStart(e: any) {
     dragDecor = null;
     if (!props.beads.length) return;
     const i = hitBead(p.x, p.y);
-    if (i >= 0) drag = { index: i, x: p.x, y: p.y, phase: 'move', overRing: true };
+    if (i >= 0) drag = { index: i, x: p.x, y: p.y, phase: 'insert', overRing: true };
 }
 function onTouchMove(e: any) {
     if (dragDecor) {
@@ -294,7 +346,12 @@ function onTouchMove(e: any) {
     moved = true;
     drag.x = p.x; drag.y = p.y;
     drag.overRing = Math.hypot(p.x - geo.cx, p.y - geo.cy) <= geo.ringR * 1.6;
-    drag.phase = drag.overRing ? 'move' : 'delete';
+    if (!drag.overRing) {
+        drag.phase = 'delete';
+    } else {
+        const hit = hitBead(p.x, p.y);
+        drag.phase = hit >= 0 && hit !== drag.index ? 'swap' : 'insert';
+    }
     render();
 }
 function onTouchEnd() {
@@ -307,8 +364,13 @@ function onTouchEnd() {
         render(); return;
     }
     if (drag && moved) {
-        if (drag.phase === 'delete') emit('bead-remove', drag.index);
-        else emit('bead-move', drag.index, insertIndexAt(drag.x, drag.y));
+        if (drag.phase === 'delete') {
+            emit('bead-remove', drag.index);
+        } else {
+            const hit = hitBead(drag.x, drag.y);
+            if (hit >= 0 && hit !== drag.index) emit('bead-swap', drag.index, hit);
+            else emit('bead-move', drag.index, insertIndexAt(drag.x, drag.y));
+        }
     } else if (drag) {
         emit('bead-tap', drag.index);
     }

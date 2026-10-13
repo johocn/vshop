@@ -1365,6 +1365,12 @@
         "searchPlaceholder": "Search materials",
         "catAll": "All",
         "longPressHint": "Long-press for details",
+        "tabBeads": "Beads",
+        "tabDecors": "Charms",
+        "materialCount": "{n} items",
+        "paramSummary": "Parameters & Slots",
+        "brandWatermark": "Artisan Craft",
+        "brandSlogan": "Handmade Bracelets",
         "detail": {
             "title": "Material Detail",
             "spec": "Spec",

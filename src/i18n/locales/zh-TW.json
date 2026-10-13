@@ -1365,6 +1365,12 @@
         "searchPlaceholder": "搜尋素材",
         "catAll": "全部",
         "longPressHint": "長按查看素材詳情",
+        "tabBeads": "珠子",
+        "tabDecors": "配飾",
+        "materialCount": "共 {n} 款",
+        "paramSummary": "參數與槽位",
+        "brandWatermark": "匠心手作",
+        "brandSlogan": "手作串珠",
         "detail": {
             "title": "素材詳情",
             "spec": "規格",
