@@ -136,10 +136,11 @@ def main():
             cv_el().screenshot(path=tmp)
             img = Image.open(tmp).convert('RGB')
             s = img.width / b['width']
-            bg = img.getpixel((4, 4))
+            yc, xc = img.height // 2, img.width // 2
+            # 背景采样避开四角悬浮按钮及其阴影（角落已被 fab 覆盖），取顶部中央纯画布区
+            bg = img.getpixel((xc, 4))
             def diff(p, q):
                 return max(abs(a - b2) for a, b2 in zip(p, q))
-            yc, xc = img.height // 2, img.width // 2
             xr = xl = None
             for x in range(img.width - 3, xc, -1):
                 if diff(img.getpixel((x, yc)), bg) > 25:
@@ -147,15 +148,25 @@ def main():
             for x in range(3, xc):
                 if diff(img.getpixel((x, yc)), bg) > 25:
                     xl = x; break
-            yd = None
-            for yy in range(yc + int(12 * s), img.height - 2):
+            # 底部向上列扫描（x=xc）：90° 位恒有珠（n4 idx2 / n8 idx4），第一个连续非 bg run = 底珠，
+            # run 上下缘给出 ring±bead；免疫环心水印/slogan（浅色且与珠间有 bg 间隔）与 12 点位绳结
+            ye = yb = None
+            for yy in range(img.height - 3, yc, -1):
                 if diff(img.getpixel((xc, yy)), bg) > 32:
-                    yd = yy; break
-            assert xr and xl and yd, f'scan fail xr={xr} xl={xl} yd={yd}'
-            r_out = (xr - xl) / 2 / s          # ring + bead
-            u = (yd - img.height / 2) / s      # ring - bead
-            ring, bead = (r_out + u) / 2, (r_out - u) / 2
-            print(f'  [cal {tag}] ring={ring:.1f} bead={bead:.1f} (R_out={r_out:.1f} u={u:.1f})')
+                    ye = yy
+                    break
+            if ye:
+                yy = ye
+                while yy > yc and diff(img.getpixel((xc, yy)), bg) > 32:
+                    yy -= 1
+                yb = yy + 1
+            assert xr and xl and ye and yb, f'scan fail xr={xr} xl={xl} ye={ye} yb={yb}'
+            r_out = (xr - xl) / 2 / s                       # 水平：ring + bead
+            ring_v = ((ye + yb) / 2 - img.height / 2) / s   # 环心到底珠中心 = ring
+            bead_v = (ye - yb) / 2 / s                      # run 半高 = bead
+            assert abs(r_out - (ring_v + bead_v)) < 4, f'geo mismatch h={r_out:.1f} v={ring_v + bead_v:.1f}'
+            ring, bead = ring_v, bead_v
+            print(f'  [cal {tag}] ring={ring:.1f} bead={bead:.1f} (R_out={r_out:.1f})')
             return b['x'] + b['width'] / 2, b['y'] + b['height'] / 2, ring, bead
 
         cx, cy, ring4, bead4 = calibrate('n4')
@@ -275,7 +286,7 @@ def main():
         check('remove-after-preview', len(strip_colors()) == 7, f"8->{len(strip_colors())}")
 
         # ---------- 附加：非 free 摘要条 + 浮层 ----------
-        page.tap('.mode-chips__chip >> nth=0')  # 定手围
+        page.tap('.mode-chips__chip >> nth=1')  # 定手围（自由已置顶为 nth=0）
         page.wait_for_timeout(450)
         summary = page.query_selector('.designer__summary')
         check('summary-bar', summary is not None and summary.is_visible())
@@ -286,7 +297,7 @@ def main():
             page.screenshot(path=os.path.join(SHOTS, 'p72-summary-sheet.png'))
             page.tap('.designer__sheet-mask')
             page.wait_for_timeout(300)
-        page.tap('.mode-chips__chip >> nth=3')  # 回直觉流
+        page.tap('.mode-chips__chip >> nth=0')  # 回自由（free 置顶）
         page.wait_for_timeout(350)
 
         # ---------- 截图（全景） ----------

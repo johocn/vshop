@@ -14,12 +14,12 @@
                 <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
             </view>
 
-            <!-- 预览区 -->
+            <!-- 预览区（四角悬浮操作：暂存左上/清空右上/推荐左下/完成设计右下） -->
             <view class="designer__preview">
                 <BeadRing
                     canvas-id="designerRing"
                     :width="690"
-                    :height="660"
+                    :height="480"
                     :beads="d.previewBeads.value"
                     :decors="d.decors.value"
                     :knot-visible="d.knotVisible.value"
@@ -34,33 +34,20 @@
                     @decor-move="onDecorMove"
                     @decor-remove="onDecorRemove"
                 />
+                <view class="designer__fab designer__fab--tl" @tap="onDraft">{{ t('diy.action.draft') }}</view>
+                <view class="designer__fab designer__fab--tr" @tap="onClear">{{ t('diy.action.clear') }}</view>
+                <view class="designer__fab designer__fab--bl" @tap="onRecommend">{{ t('diy.action.recommend') }}</view>
+                <view
+                    class="designer__fab designer__fab--br designer__fab--cta"
+                    :class="{ 'designer__fab--disabled': !d.canSave.value || saving }"
+                    @tap="onSave"
+                >{{ ctaLabel }}</view>
                 <view v-if="!d.previewBeads.value.length" class="designer__empty">
                     <text>{{ t('diy.emptyHint') }}</text>
                 </view>
             </view>
 
-            <!-- 操作行：图标化 + 完成设计主按钮右置 -->
-            <view class="designer__actions">
-                <view class="designer__act" @tap="onClear">
-                    <text class="designer__act-ico">🗑</text>
-                    <text class="designer__act-txt">{{ t('diy.action.clear') }}</text>
-                </view>
-                <view class="designer__act" @tap="onDraft">
-                    <text class="designer__act-ico">✓</text>
-                    <text class="designer__act-txt">{{ t('diy.action.draft') }}</text>
-                </view>
-                <view class="designer__act" @tap="onRecommend">
-                    <text class="designer__act-ico">↻</text>
-                    <text class="designer__act-txt">{{ t('diy.action.recommend') }}</text>
-                </view>
-                <view
-                    class="designer__cta"
-                    :class="{ 'designer__cta--disabled': !d.canSave.value || saving }"
-                    @tap="onSave"
-                >{{ ctaLabel }}</view>
-            </view>
-
-            <!-- 模式切换 -->
+            <!-- 模式切换（自由置顶） -->
             <ModeChips
                 :model-value="d.mode.value"
                 :count="d.calcCount.value"
@@ -453,7 +440,8 @@ async function onSave() {
 
 <style lang="scss" scoped>
 .designer {
-    height: 100vh;
+    /* H5 原生导航栏占 --window-top（44px），100vh 会整体顶出视口、面板底部被裁（「下面珠子显示不全」根因） */
+    height: calc(100vh - var(--window-top, 0px));
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -468,7 +456,38 @@ async function onSave() {
     &__preview {
         position: relative;
         background: #fff;
-        padding: 24rpx 20rpx 8rpx;
+        padding: 10rpx 20rpx 4rpx;
+    }
+
+    /** 四角悬浮操作：暂存左上/清空右上/推荐左下/完成设计右下（省一行按钮区，给素材面板留空间） */
+    &__fab {
+        position: absolute;
+        z-index: 5;
+        padding: 8rpx 22rpx;
+        border-radius: 999rpx;
+        background: rgba(255, 255, 255, 0.92);
+        border: 2rpx solid $border-color;
+        font-size: 24rpx;
+        color: $text-color;
+        box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.08);
+
+        &--tl { top: 14rpx; left: 16rpx; }
+        &--tr { top: 14rpx; right: 16rpx; }
+        &--bl { bottom: 14rpx; left: 16rpx; }
+        &--br { bottom: 14rpx; right: 16rpx; }
+
+        &--cta {
+            background: $brand-color;
+            border-color: $brand-color;
+            color: #fff;
+            font-weight: 600;
+            padding: 12rpx 26rpx;
+            white-space: nowrap;
+        }
+
+        &--disabled {
+            opacity: 0.5;
+        }
     }
 
     &__empty {
@@ -485,7 +504,7 @@ async function onSave() {
         display: flex;
         align-items: center;
         gap: 12rpx;
-        padding: 16rpx 20rpx 8rpx;
+        padding: 10rpx 20rpx 4rpx;
     }
 
     &__caps {
@@ -508,60 +527,14 @@ async function onSave() {
         }
     }
 
-    &__actions {
-        display: flex;
-        align-items: center;
-        gap: 12rpx;
-        margin: 0 20rpx 12rpx;
-    }
-
-    &__act {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2rpx;
-        padding: 8rpx 18rpx;
-        border-radius: $radius-md;
-        background: #fff;
-        border: 2rpx solid $border-color;
-        flex-shrink: 0;
-    }
-
-    &__act-ico {
-        font-size: 30rpx;
-        line-height: 1.1;
-    }
-
-    &__act-txt {
-        font-size: 20rpx;
-        color: $text-color-secondary;
-    }
-
-    &__cta {
-        margin-left: auto;
-        height: 72rpx;
-        line-height: 72rpx;
-        padding: 0 28rpx;
-        border-radius: 36rpx;
-        background: $brand-color;
-        color: #fff;
-        font-size: 26rpx;
-        white-space: nowrap;
-        flex-shrink: 0;
-
-        &--disabled {
-            opacity: 0.5;
-        }
-    }
-
     &__summary {
         display: flex;
         align-items: center;
         gap: 12rpx;
         background: #fff;
         border-radius: $radius-md;
-        margin: 0 20rpx 16rpx;
-        padding: 16rpx 24rpx;
+        margin: 0 20rpx 10rpx;
+        padding: 14rpx 24rpx;
     }
 
     &__summary-label {

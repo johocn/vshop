@@ -1247,7 +1247,7 @@
         "title": "Custom Jewelry",
         "designer": "Bead Designer",
         "mode": {
-            "free": "Intuitive",
+            "free": "Free",
             "byWrist": "By Wrist",
             "byCount": "By Count",
             "pattern": "Mix & Match"
@@ -1387,8 +1387,8 @@
             "start": "Start Designing",
             "s1t": "Three Steps",
             "s1": "1. Tap a material card to add a bead; 2. Drag beads to reorder, drag out of the ring to delete; 3. Tap Finish Design to save and get a quote.",
-            "s2t": "Intuitive vs Pro Modes",
-            "s2": "Intuitive by default. Switch tags for pro modes: By Wrist auto-counts beads; By Count adjusts manually; Mix & Match arranges multiple beads.",
+            "s2t": "Free vs Pro Modes",
+            "s2": "Free mode by default. Switch tags for pro modes: By Wrist auto-counts beads; By Count adjusts manually; Mix & Match arranges multiple beads.",
             "s3t": "Measuring Wrist",
             "s3": "Wrap a tape around the widest part of your four knuckles; or measure the inner diameter of a bracelet that fits.",
             "s4t": "Fit Feedback",
