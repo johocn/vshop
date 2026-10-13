@@ -244,6 +244,14 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
         sequence.value = next;
     }
 
+    /** 直觉流：拖拽互换（from ↔ to，swap 语义，其余珠子位置不动；越界/from=to 早退） */
+    function swapBead(from: number, to: number) {
+        if (from === to || from < 0 || to < 0 || from >= sequence.value.length || to >= sequence.value.length) return;
+        const next = [...sequence.value];
+        [next[from], next[to]] = [next[to], next[from]];
+        sequence.value = next;
+    }
+
     /** 加配饰：吊坠默认挂序列中点间隙；流苏（attrs.decor === 'tassel'）默认挂结位（-1）。空序列记 0 待吸附 */
     function addDecor(materialId: string) {
         const row = materialsById.value.get(materialId);
@@ -397,7 +405,7 @@ export function useDesigner(materials: Ref<DiyMaterialRow[]>, locale: Ref<string
         filledSlots, mainSlots, hasMain, byCountOk, calcCount,
         result, previewSequence, previewBeads, calcMaterials, materialsById,
         validationKey, canSave,
-        decors, knotVisible, moveBead, addDecor, moveDecor, removeDecor, clearAll, applyRecommend,
+        decors, knotVisible, moveBead, swapBead, addDecor, moveDecor, removeDecor, clearAll, applyRecommend,
         enterFree, appendBead, removeBeadAt, reorderSequence, buildSpec,
         addSlot, removeSlotAt, assignSlot, patchSlot, setMode, reshuffle,
     };

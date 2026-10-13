@@ -1365,6 +1365,12 @@
         "searchPlaceholder": "素材を検索",
         "catAll": "すべて",
         "longPressHint": "長押しで詳細",
+        "tabBeads": "ビーズ",
+        "tabDecors": "パーツ",
+        "materialCount": "全{n}点",
+        "paramSummary": "パラメータとスロット",
+        "brandWatermark": "匠の技",
+        "brandSlogan": "ハンドメイドブレスレット",
         "detail": {
             "title": "素材詳細",
             "spec": "規格",

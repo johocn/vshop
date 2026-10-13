@@ -1365,6 +1365,12 @@
         "searchPlaceholder": "소재 검색",
         "catAll": "전체",
         "longPressHint": "길게 눌러 상세 보기",
+        "tabBeads": "비즈",
+        "tabDecors": "장식",
+        "materialCount": "{n}종",
+        "paramSummary": "파라미터·슬롯",
+        "brandWatermark": "장인정신",
+        "brandSlogan": "핸드메이드 브레이슬릿",
         "detail": {
             "title": "소재 상세",
             "spec": "규격",
