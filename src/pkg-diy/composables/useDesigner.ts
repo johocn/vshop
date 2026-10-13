@@ -11,7 +11,7 @@ import { braceletCalculator } from '../vendor/diy-calc/bracelet-calculator';
 import { easeOf } from '../vendor/diy-calc/bracelet';
 import { generateSequence, sequenceGeometry } from '../vendor/diy-calc/sequence';
 import { mulberry32 } from '../vendor/diy-calc/prng';
-import { PRESETS } from '../utils/bead-render';
+import { PRESETS, GROUP_COLORS } from '../utils/bead-render';
 import type { CalculatorOutput, CalcMaterial, FitFeedback, SlotSelection } from '../vendor/diy-calc/types';
 import type { DiySpecSlot } from '../../api/mutations/diy';
 
@@ -94,12 +94,13 @@ export function materialName(row: DiyMaterialRow | undefined, locale = 'zh-CN'):
     return row.code;
 }
 
-/** 素材主色：attrs.color → attrs.hex → preset 底色 → matte 兜底 */
+/** 素材主色：attrs.color → attrs.hex → attrs.group 色板 → preset 底色 → matte 兜底 */
 export function materialColor(row: DiyMaterialRow | undefined): string {
     if (!row) return PRESETS.matte.base;
     const attrs = row.attrs || {};
     if (typeof attrs.color === 'string' && attrs.color) return attrs.color;
     if (typeof attrs.hex === 'string' && attrs.hex) return attrs.hex;
+    if (typeof attrs.group === 'string' && GROUP_COLORS[attrs.group]) return GROUP_COLORS[attrs.group];
     return (row.renderPreset && PRESETS[row.renderPreset]?.base) || PRESETS.matte.base;
 }
 
