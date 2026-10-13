@@ -276,7 +276,7 @@ const hasSpacer = computed(() => d.slots.value.some(s => s.role === 'spacer'));
 onLoad(async () => {
     uni.setNavigationBarTitle({ title: t('diy.designer') });
     try {
-        const res: any = await getDiyMaterials();
+        const res: any = await getDiyMaterials({ take: 200 });
         materials.value = (res?.diyMaterials?.items || []).map((m: any) => ({ ...m, id: String(m.id) }));
     } catch {
         materials.value = [];
@@ -344,9 +344,14 @@ function selectSlot(i: number) {
     paramsOpen.value = false;
 }
 
-/** 面板点卡：配饰 tab → addDecor（free）或指派 decor 槽（非 free 已选槽）；珠子 tab → free 追加 / 槽位指派 */
+/** 面板点卡：配饰 tab → 隔片串入环上（appendBead）/ 挂坠装饰珠挂环外（addDecor，free）或指派 decor 槽（非 free 已选槽）；珠子 tab → free 追加 / 槽位指派 */
 function onPickMaterial(id: string, tab: 'beads' | 'decors' = 'beads') {
     if (tab === 'decors') {
+        const row = materials.value.find(m => m.id === id);
+        if (row?.attrs && (row.attrs as any).kind === 'spacer') {
+            d.appendBead(id);
+            return;
+        }
         if (d.mode.value !== 'free' && editingSlotIdx.value >= 0) {
             d.assignSlot(editingSlotIdx.value, id);
             return;

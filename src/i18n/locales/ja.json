@@ -1377,7 +1377,10 @@
             "title": "素材詳細",
             "spec": "規格",
             "price": "単価",
-            "pick": "使う"
+            "pick": "使う",
+            "meaning": "意味",
+            "origin": "産地",
+            "hardness": "モース硬度"
         },
         "guide": {
             "title": "ビーズガイド",

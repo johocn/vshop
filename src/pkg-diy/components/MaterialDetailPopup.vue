@@ -6,11 +6,15 @@
             <text class="mdp__name">{{ materialName(material, locale) }}</text>
             <view class="mdp__row"><text class="mdp__k">{{ t('diy.detail.spec') }}</text><text>{{ material.diameter ?? material.axialLength ?? 0 }}mm</text></view>
             <view class="mdp__row"><text class="mdp__k">{{ t('diy.detail.price') }}</text><text class="mdp__price">¥{{ yuan(material.price) }}{{ t('diy.perBead') }}</text></view>
+            <view v-if="materialDetail.meaning" class="mdp__row"><text class="mdp__k">{{ t('diy.detail.meaning') }}</text><text>{{ materialDetail.meaning }}</text></view>
+            <view v-if="materialDetail.origin" class="mdp__row"><text class="mdp__k">{{ t('diy.detail.origin') }}</text><text>{{ materialDetail.origin }}</text></view>
+            <view v-if="materialDetail.hardness" class="mdp__row"><text class="mdp__k">{{ t('diy.detail.hardness') }}</text><text>{{ materialDetail.hardness }}</text></view>
             <view class="mdp__btn" @tap="onPick">{{ t('diy.detail.pick') }}</view>
         </view>
     </view>
 </template>
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { materialColor, materialName, yuan, type DiyMaterialRow } from '../composables/useDesigner';
 
@@ -22,6 +26,17 @@ const emit = defineEmits<{
 const { t, locale } = useI18n();
 function close() { emit('update:material', null); }
 function onPick() { if (props.material) emit('pick', props.material.id); close(); }
+
+/** attrs 详情（meaning/origin 多语言；缺省跳行） */
+const materialDetail = computed(() => {
+    const a: any = (props.material as any)?.attrs || {};
+    const loc = (v: any): string => {
+        if (!v) return '';
+        if (typeof v === 'string') return v;
+        return v[locale.value] || v['zh-CN'] || Object.values(v)[0] || '';
+    };
+    return { meaning: loc(a.meaning), origin: loc(a.origin), hardness: a.hardness ? String(a.hardness) : '' };
+});
 </script>
 <style lang="scss" scoped>
 .mdp {

@@ -1377,7 +1377,10 @@
             "title": "素材详情",
             "spec": "规格",
             "price": "单价",
-            "pick": "选它"
+            "pick": "选它",
+            "meaning": "寓意",
+            "origin": "产地",
+            "hardness": "莫氏硬度"
         },
         "guide": {
             "title": "串珠指南",

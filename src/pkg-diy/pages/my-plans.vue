@@ -91,7 +91,7 @@ onShow(() => {
 
 async function loadMaterials() {
     try {
-        const res: any = await getDiyMaterials();
+        const res: any = await getDiyMaterials({ take: 200 });
         materials.value = (res?.diyMaterials?.items || []).map((m: any) => ({ ...m, id: String(m.id) }));
     } catch {
         materials.value = [];

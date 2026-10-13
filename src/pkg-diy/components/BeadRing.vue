@@ -257,7 +257,8 @@ let knotPos = { x: 0, y: 0 };
 function drawDecorAt(x: number, y: number, d0: DecorPlacement) {
     if (!ctx) return;
     const row = (props.decorRows ?? []).find(r0 => r0.id === d0.materialId);
-    const r = 9 * Math.max(0.7, geo.scale);
+    // 按素材直径渲染（mm → px；下限 6*scale 保证小配饰可辨）
+    const r = Math.max(6 * geo.scale, ((row?.diameter ?? row?.axialLength ?? 8) / 2) * geo.scale);
     const sprite = row?.renderUrl ? spriteMap.value.get(row.renderUrl) ?? null : null;
     if (sprite) ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
     else drawBead(ctx, { x, y, r, color: materialColor(row), preset: row?.renderPreset ?? null, seed: hashSeed(d0.decorId) });

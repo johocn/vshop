@@ -15,7 +15,7 @@
 
 数据侧实况：68 条素材全部 `shape=round`，集中在 cat1–5 五个分类；`金属配件`/`天然宝石` 分类空置；无 `shape=spacer` 素材。后端 `calc-bridge` 已支持 spacer/decor 角色，`bracelet-classic` 模板隔片槽位 filter `shapes:['spacer']` 就绪——纯缺数据。
 
-## 2. 设计：配饰素材清单（14 款，价格尺码齐全）
+## 2. 设计：配饰素材清单（15 款，价格尺码齐全）
 
 ### 2.1 隔片 ×6（shape=spacer，配饰 tab，点击串入环上）
 

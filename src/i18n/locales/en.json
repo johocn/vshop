@@ -1377,7 +1377,10 @@
             "title": "Material Detail",
             "spec": "Spec",
             "price": "Price",
-            "pick": "Use it"
+            "pick": "Use it",
+            "meaning": "Meaning",
+            "origin": "Origin",
+            "hardness": "Mohs hardness"
         },
         "guide": {
             "title": "Beading Guide",
