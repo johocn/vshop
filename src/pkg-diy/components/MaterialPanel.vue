@@ -21,9 +21,9 @@
                 >{{ catName(c) }}</view>
             </scroll-view>
             <scroll-view scroll-y class="mat-panel__list">
-                <view class="mat-panel__grid">
+                <view class="mat-panel__grid" :key="tab + '-' + activeCat + '-' + page">
                     <view
-                        v-for="m in filtered"
+                        v-for="m in paged"
                         :key="m.id"
                         class="mat-panel__item"
                         @tap="onPick(m.id)"
@@ -45,12 +45,21 @@
                 <view v-if="!filtered.length" class="mat-panel__empty">{{ t('diy.emptyMaterials') }}</view>
             </scroll-view>
         </view>
+        <!-- 分页条（素材超出单页自动出现；与 tab/分类/搜索联动） -->
+        <view v-if="pageTotal > 1" class="mat-panel__pager">
+            <text class="mat-panel__pg" :class="{ 'mat-panel__pg--off': page === 1 }" @tap="goPage(page - 1)">‹</text>
+            <template v-for="(p, i) in pageList(page, pageTotal)" :key="i">
+                <text v-if="p === '…'" class="mat-panel__pg mat-panel__pg--ell">…</text>
+                <text v-else class="mat-panel__pg" :class="{ 'mat-panel__pg--on': p === page }" @tap="goPage(p)">{{ p }}</text>
+            </template>
+            <text class="mat-panel__pg" :class="{ 'mat-panel__pg--off': page === pageTotal }" @tap="goPage(page + 1)">›</text>
+        </view>
         <MaterialDetailPopup v-model:material="detailRow" @pick="onPick" />
     </view>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { materialColor, materialName, yuan, type DiyMaterialRow } from '../composables/useDesigner';
 import MaterialDetailPopup from './MaterialDetailPopup.vue';
@@ -85,6 +94,26 @@ const filtered = computed(() => props.materials.filter(m => {
     const k = keyword.value.toLowerCase();
     return materialName(m, locale.value).toLowerCase().includes(k) || m.code.toLowerCase().includes(k);
 }));
+
+/** 分页：单页 9 款（3 列 × 3 行），素材超出单页自动出现页码条；翻页/过滤纯前端即时完成 */
+const PAGE_SIZE = 9;
+const page = ref(1);
+const pageTotal = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
+const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+// 过滤联动：切 tab/分类/搜索条件时回到第 1 页；总页数收缩时收敛当前页
+watch([activeCat, keyword, tab], () => { page.value = 1; });
+watch(pageTotal, t => { if (page.value > t) page.value = t; });
+
+/** 页码条：≤7 页全显，否则首尾 + 当前±1 + 省略号折叠 */
+function pageList(cur: number, total: number): (number | '…')[] {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const s = [...new Set([1, 2, cur - 1, cur, cur + 1, total - 1, total].filter(x => x >= 1 && x <= total))].sort((a, b) => a - b);
+    const out: (number | '…')[] = [];
+    let prev = 0;
+    for (const x of s) { if (x - prev > 1) out.push('…'); out.push(x); prev = x; }
+    return out;
+}
+function goPage(p: number) { page.value = Math.max(1, Math.min(pageTotal.value, p)); }
 
 function catName(c: any): string {
     const n = c?.name;
@@ -202,6 +231,50 @@ function dotRpx(m: DiyMaterialRow): number {
         flex-wrap: wrap;
         gap: 16rpx;
         padding-bottom: 16rpx;
+        /* 翻页/切分类淡入过渡（key 变化重挂载自动播放） */
+        animation: mat-fade 0.16s ease;
+    }
+
+    &__pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10rpx;
+        padding: 14rpx 0 2rpx;
+        flex-shrink: 0;
+    }
+
+    &__pg {
+        min-width: 48rpx;
+        height: 48rpx;
+        padding: 0 10rpx;
+        border-radius: 12rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2rpx solid $border-color;
+        background: #fff;
+        color: $text-color-secondary;
+        font-size: 22rpx;
+        transition: opacity 0.12s ease;
+
+        &--on {
+            background: $brand-color;
+            border-color: $brand-color;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        &--off {
+            opacity: 0.35;
+        }
+
+        &--ell {
+            border: none;
+            background: transparent;
+            color: $text-color-placeholder;
+            padding: 0 2rpx;
+        }
     }
 
     &__item {
@@ -271,4 +344,31 @@ function dotRpx(m: DiyMaterialRow): number {
         color: $text-color-placeholder;
     }
 }
+
+@keyframes mat-fade {
+    from { opacity: 0; transform: translateY(4rpx); }
+    to { opacity: 1; transform: none; }
+}
+
+/* 自定义滚动条（H5）：5px 品牌橙细条，覆盖 uni scroll-view 默认隐藏 */
+/* #ifdef H5 */
+:deep(.uni-scroll-view) {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 102, 0, 0.35) transparent;
+}
+:deep(.uni-scroll-view::-webkit-scrollbar) {
+    display: block !important;
+    width: 5px;
+}
+:deep(.uni-scroll-view::-webkit-scrollbar-thumb) {
+    background: rgba(255, 102, 0, 0.3);
+    border-radius: 4px;
+}
+:deep(.uni-scroll-view::-webkit-scrollbar-thumb:hover) {
+    background: rgba(255, 102, 0, 0.55);
+}
+:deep(.uni-scroll-view::-webkit-scrollbar-track) {
+    background: transparent;
+}
+/* #endif */
 </style>
