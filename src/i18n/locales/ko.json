@@ -1295,6 +1295,8 @@
             "anonymous": "익명 디자이너"
         },
         "myPlans": "내 디자인",
+        "startDesign": "디자인 시작",
+        "beadCountUnit": "알",
         "quote": "견적 생성",
         "order": "장바구니",
         "loginRequired": "로그인 필요",

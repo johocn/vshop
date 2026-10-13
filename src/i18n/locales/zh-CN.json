@@ -1295,6 +1295,8 @@
             "anonymous": "匿名设计师"
         },
         "myPlans": "我的作品",
+        "startDesign": "开始设计",
+        "beadCountUnit": "颗",
         "quote": "生成报价单",
         "order": "加入购物车",
         "loginRequired": "请先登录",

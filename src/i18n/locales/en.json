@@ -1295,6 +1295,8 @@
             "anonymous": "Anonymous"
         },
         "myPlans": "My designs",
+        "startDesign": "Start design",
+        "beadCountUnit": " beads",
         "quote": "Get quote",
         "order": "Add to cart",
         "loginRequired": "Please sign in",

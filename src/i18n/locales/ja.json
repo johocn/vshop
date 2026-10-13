@@ -1295,6 +1295,8 @@
             "anonymous": "匿名デザイナー"
         },
         "myPlans": "マイデザイン",
+        "startDesign": "デザインを始める",
+        "beadCountUnit": "珠",
         "quote": "見積取得",
         "order": "カートへ",
         "loginRequired": "ログインしてください",

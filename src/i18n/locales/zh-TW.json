@@ -1295,6 +1295,8 @@
             "anonymous": "匿名設計師"
         },
         "myPlans": "我的作品",
+        "startDesign": "開始設計",
+        "beadCountUnit": "顆",
         "quote": "生成報價單",
         "order": "加入購物車",
         "loginRequired": "請先登錄",
