@@ -75,17 +75,21 @@ def main():
         dt2 = page.evaluate(JS_LATENCY, '.mat-panel__body')
         on1 = page.query_selector('.mat-panel__pg--on')
         n_cat_items = page.eval_on_selector_all('.mat-panel__item', 'els => els.length')
-        # 素材 ≤ 单页时分页条自动隐藏（on1 is None）；否则必须回第 1 页
+        # 分类过滤必须命中有素材（dev 68 款已归属分类）；素材 ≤ 单页时分页条自动隐藏（on1 None）
+        check('filter-cat-hit', n_cat_items > 0, f'切分类后 items={n_cat_items}（0=过滤恒空 bug）')
         check('filter-reset-page', n_cat_items <= 9 and (on1 is None or on1.text_content().strip() == '1'),
-              f'切分类后 items={n_cat_items} on={None if on1 is None else on1.text_content().strip()}')
+              f'items={n_cat_items} on={None if on1 is None else on1.text_content().strip()}')
         check('latency-filter', dt2 < 100, f'{dt2:.1f}ms')
 
-        # 5) 搜索联动
+        # 5) 搜索联动（回全部分类下搜「紫」，必须命中有素材）
+        page.tap('.mat-panel__cat >> nth=0')
+        page.wait_for_timeout(300)
         page.fill('.mat-panel__search input', '紫')
         page.wait_for_timeout(400)
         on2 = page.query_selector('.mat-panel__pg--on')
         n_items = page.eval_on_selector_all('.mat-panel__item', 'els => els.length')
-        check('search-linkage', on2 is None or on2.eval_on_selector(':scope', 'e => e.textContent') == '1', f'搜索后 items={n_items}')
+        check('search-linkage', n_items > 0 and (on2 is None or on2.text_content().strip() == '1'),
+              f'搜索后 items={n_items} on={None if on2 is None else on2.text_content().strip()}')
 
         # 6) 自定义滚动条样式生效
         sb = page.evaluate("""() => {
