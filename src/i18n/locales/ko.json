@@ -1377,7 +1377,10 @@
             "title": "소재 상세",
             "spec": "규격",
             "price": "단가",
-            "pick": "사용"
+            "pick": "사용",
+            "meaning": "의미",
+            "origin": "산지",
+            "hardness": "모스 경도"
         },
         "guide": {
             "title": "비즈 가이드",
