@@ -89,7 +89,8 @@ const detailRow = ref<DiyMaterialRow | null>(null);
 const filtered = computed(() => props.materials.filter(m => {
     const isDecor = !!(m.attrs && (m.attrs as any).decor);
     if ((tab.value === 'decors') !== isDecor) return false;
-    if (activeCat.value && m.categoryId !== activeCat.value) return false;
+    // 统一字符串比较：素材 categoryId（后端数值）与分类 id（字符串）类型不一致会导致恒空过滤
+    if (activeCat.value && String(m.categoryId ?? '') !== String(activeCat.value)) return false;
     if (!keyword.value) return true;
     const k = keyword.value.toLowerCase();
     return materialName(m, locale.value).toLowerCase().includes(k) || m.code.toLowerCase().includes(k);
