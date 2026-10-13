@@ -234,10 +234,6 @@ const hasSpacer = computed(() => d.slots.value.some(s => s.role === 'spacer'));
 
 onLoad(async () => {
     uni.setNavigationBarTitle({ title: t('diy.designer') });
-    if (!uni.getStorageSync('diy_guide_seen')) {
-        uni.setStorageSync('diy_guide_seen', '1');
-        uni.navigateTo({ url: '/pkg-diy/pages/guide' });
-    }
     try {
         const res: any = await getDiyMaterials();
         materials.value = (res?.diyMaterials?.items || []).map((m: any) => ({ ...m, id: String(m.id) }));
@@ -249,6 +245,14 @@ onLoad(async () => {
         categories.value = (cres?.diyCategories ?? []).filter((c: any) => c.enabled !== false);
     } catch { categories.value = []; }
     if (draft.loadDraft()) uni.showToast({ title: t('diy.draftRestored'), icon: 'none' });
+    // 首次进入自动跳引导页：H5 启动页 onLoad 阶段 uni.navigateTo 未就绪（抛 TypeError 会中断 onLoad），
+    // 延迟到启动完成后再跳；数据加载已前置，即便跳转失败也不影响设计器功能
+    if (!uni.getStorageSync('diy_guide_seen')) {
+        uni.setStorageSync('diy_guide_seen', '1');
+        setTimeout(() => {
+            try { uni.navigateTo({ url: '/pkg-diy/pages/guide' }); } catch { /* 用户可从帮助?进入 */ }
+        }, 300);
+    }
 });
 
 function slotColor(id: string): string {
