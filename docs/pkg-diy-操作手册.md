@@ -52,13 +52,14 @@
 4. **复刻**：广场他人方案 →「用这个方案」→ `copyDiyPlan` 复制到自己名下 → 跳设计器编辑。
 5. **分享**：方案详情右上角微信转发（`onShareAppMessage`，卡片带方案标题与封面）。
 
-## 5. 渲染效果说明（三级回退）
+## 5. 渲染效果说明（多级回退）
 
-素材渲染按 **贴图 → 材质预设 → 纯色** 三级回退：
+素材渲染按 **贴图 → 材质预设 → 组色板 → 纯色** 多级回退：
 - L1 `renderUrl`：后台配置的透明底实拍贴图（静态目录 oss）。
 - L2 `renderPreset`：玻璃(气泡)/和田玉(棉点)/翡翠(飘花)/蜜蜡/珍珠/金属(双高光)/木质/哑光 8 类 CSS 多层合成。
-- L3 素材主色纯色兜底。
-后台在 diy 素材管理中为素材补 renderUrl / renderPreset 字段即可升级渲染。
+- L3 `attrs.group` 组色板（前端内建）：crystal-white 白 / crystal-purple 紫 / crystal-yellow 黄 / crystal-pink 粉 / wood 木 / silver 银，同组素材在无数据色时仍可区分。
+- L4 素材主色纯色兜底（attrs.color → attrs.hex → matte）。
+后台在 diy 素材管理中为素材补 renderUrl / renderPreset / color 字段即可升级渲染（数据优先级高于前端组色板）。
 
 ## 6. 测试截图（390×844 dpr=2）
 
@@ -71,6 +72,11 @@
 | ![计算明细](screenshots/pkg-diy/05-calc-detail.png) | 计算明细/BOM 抽屉 |
 | ![方案详情](screenshots/pkg-diy/06-plan-detail.png) | 方案详情（报价/公开/下单） |
 | ![我的作品](screenshots/pkg-diy/07-my-plans.png) | 我的作品列表 |
+| ![全貌预览混搭三色](screenshots/pkg-diy/08-designer-ring-18beads.png) | 18 颗混搭整环居中完整可见（白/紫/黄水晶区分） |
+| ![拖动换位](screenshots/pkg-diy/09-drag-move.png) | 珠子拖拽换位后序列条同步 |
+| ![拖出删除](screenshots/pkg-diy/10-drag-out-delete.png) | 珠子拖出环即删除 |
+| ![点选删除](screenshots/pkg-diy/11-tap-modal.png) | 点珠子弹确认删除弹窗 |
+| ![混搭模式](screenshots/pkg-diy/12-pattern-mix.png) | 混搭模式双主珠自动铺排 |
 
 ## 7. 测试用例清单
 
@@ -92,6 +98,10 @@
 | 14 | 复制他人方案 | 新草稿入本人名下 | ✅ |
 | 15 | 微信转发卡片 | 标题/封面正确，落地 plan-detail | ✅ |
 | 16 | 五语言切换 | diy.* 词条无缺漏 key | ✅ |
+| 17 | 全貌预览（P7.1 回归） | 画布内容 bbox 居中不触边（边距 ≥4px） | ✅ |
+| 18 | 珠子拖拽换位（P7.1 回归） | 拖拽后序列条顺序变化并重算 | ✅ |
+| 19 | 珠子拖出删除/点选删除（P7.1 回归） | 拖出环即删；点珠子弹确认框 | ✅ |
+| 20 | 混搭颜色区分（P7.1 回归） | 白/紫/黄水晶三色区分（group 色板兜底） | ✅ |
 
 ## 8. 已知边界
 

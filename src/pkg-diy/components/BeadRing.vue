@@ -316,13 +316,30 @@ function onTouchEnd() {
     render();
 }
 
+let canvasInited = false;
 onMounted(async () => {
-    obtainCanvas((canvas, w, h) => {
+    obtainCanvas((canvas) => {
+        // 幂等保护：重复回调不重复初始化（避免 ctx 缩放叠加）
+        if (canvasInited || !canvas) return;
+        canvasInited = true;
+        // 尺寸以 cssW/cssH 为准（与 :style、render() 同源），不用 client 实测值
+        const w = cssW.value;
+        const h = cssH.value;
         const dpr = sys.pixelRatio || 1;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
+        // #ifdef H5
+        // H5 兜底路径的 inner canvas 无 CSS 尺寸约束，buffer 会被当显示尺寸导致视觉错位 dpr 倍
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        // #endif
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
         ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-        ctx.scale(dpr, dpr);
+        // #ifndef H5
+        // 小程序 canvas 2d：手动 dpr 缩放。
+        // 注意 H5 端必须保持单位矩阵：uni-h5 hidpi polyfill 会把 fillRect/arc/drawImage 等
+        // 绘制坐标自动乘 pixelRatio（__hidpi__），再手动 scale 会叠加成 4x 导致内容溢出右下象限。
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // #endif
         render();
         // 贴图预加载一次；beads/decors 变化只重绘
         const urls = [...(props.beads || []).map(b => b.renderUrl || null), ...(props.decorRows ?? []).map(r0 => r0.renderUrl || null)];

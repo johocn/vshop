@@ -18,6 +18,19 @@ export const PRESETS: Record<string, RenderPreset> = {
   matte:         { base: '#B5451F', sheen: 0,    highlight: 0.75, bubbles: false, inclusions: false },
 };
 
+/**
+ * 素材组色板：attrs.group → 区分色（数据侧 color/hex/renderPreset 缺失时的前端兜底层）。
+ * 未知 group 返回 null，继续走下一级回退。
+ */
+export const GROUP_COLORS: Record<string, string> = {
+  'crystal-white': '#E8E4DC',   // 白水晶类
+  'crystal-purple': '#8B6BAE',  // 紫水晶类
+  'crystal-yellow': '#D9A441',  // 黄水晶类
+  'crystal-pink': '#D98BA0',    // 粉水晶类
+  'wood': '#A0714F',            // 木质类
+  'silver': '#C0C4CC',          // 金属银类
+};
+
 export interface RenderBead {
   x: number; y: number; r: number;  // 圆心与半径 px
   color: string;                    // 素材主色（无 preset 无贴图时兜底）
