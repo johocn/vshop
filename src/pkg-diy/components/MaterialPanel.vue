@@ -66,7 +66,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    (e: 'pick', materialId: string): void;
+    (e: 'pick', materialId: string, tab: 'beads' | 'decors'): void;
 }>();
 
 const { t, locale } = useI18n();
@@ -94,7 +94,7 @@ function catName(c: any): string {
 }
 
 function onPick(id: string) {
-    emit('pick', id);
+    emit('pick', id, tab.value);
 }
 
 /** 预览小圆直径：直径 mm 线性映射到 48~92rpx */

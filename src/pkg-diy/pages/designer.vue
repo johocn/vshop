@@ -1,6 +1,19 @@
 <template>
     <view class="designer">
         <view class="designer__top">
+            <!-- 状态胶囊行（spec 布局 B：置顶于画布上方） -->
+            <view class="designer__capsules">
+                <text class="designer__caps designer__caps--state" @tap="showCalc = true">
+                    {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
+                    · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
+                </text>
+                <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
+                <text class="designer__caps" @tap="d.knotVisible.value = !d.knotVisible.value">
+                    {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
+                </text>
+                <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
+            </view>
+
             <!-- 预览区 -->
             <view class="designer__preview">
                 <BeadRing
@@ -23,19 +36,6 @@
                 />
                 <view v-if="!d.previewBeads.value.length" class="designer__empty">
                     <text>{{ t('diy.emptyHint') }}</text>
-                </view>
-                <view class="designer__knot-row">
-                    <text class="designer__knot-toggle" @tap="d.knotVisible.value = !d.knotVisible.value">
-                        {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
-                    </text>
-                </view>
-                <view class="designer__capsules">
-                    <text class="designer__caps designer__caps--state" @tap="showCalc = true">
-                        {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
-                        · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
-                    </text>
-                    <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
-                    <text class="designer__caps designer__caps--link" @tap="goGuide">{{ t('diy.helpShort') }} ?</text>
                 </view>
             </view>
 
@@ -344,7 +344,16 @@ function selectSlot(i: number) {
     paramsOpen.value = false;
 }
 
-function onPickMaterial(id: string) {
+/** 面板点卡：配饰 tab → addDecor（free）或指派 decor 槽（非 free 已选槽）；珠子 tab → free 追加 / 槽位指派 */
+function onPickMaterial(id: string, tab: 'beads' | 'decors' = 'beads') {
+    if (tab === 'decors') {
+        if (d.mode.value !== 'free' && editingSlotIdx.value >= 0) {
+            d.assignSlot(editingSlotIdx.value, id);
+            return;
+        }
+        d.addDecor(id);
+        return;
+    }
     if (d.mode.value === 'free') {
         d.appendBead(id);
         return;
@@ -471,7 +480,7 @@ async function onSave() {
         display: flex;
         align-items: center;
         gap: 12rpx;
-        padding: 8rpx 8rpx 16rpx;
+        padding: 16rpx 20rpx 8rpx;
     }
 
     &__caps {
@@ -492,20 +501,6 @@ async function onSave() {
             margin-left: auto;
             color: $brand-color;
         }
-    }
-
-    &__knot-row {
-        display: flex;
-        justify-content: flex-end;
-        padding: 0 8rpx 8rpx;
-    }
-
-    &__knot-toggle {
-        font-size: 22rpx;
-        color: $brand-color;
-        padding: 4rpx 16rpx;
-        border-radius: 24rpx;
-        background: $bg-color;
     }
 
     &__actions {
