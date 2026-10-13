@@ -28,7 +28,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const modes: DesignerMode[] = ['byWrist', 'byCount', 'pattern', 'free'];
+const modes: DesignerMode[] = ['free', 'byWrist', 'byCount', 'pattern'];
 
 function onPick(m: DesignerMode) {
     if (m !== props.modelValue) emit('update:modelValue', m);
