@@ -1,9 +1,15 @@
 <template>
     <view class="gallery">
-        <!-- 顶部标题栏 + 副文案 -->
+        <!-- 顶部标题栏 + 副文案 + 右上入口（我的作品 / 开始设计） -->
         <view class="gallery__head">
-            <text class="gallery__title">{{ t('diy.gallery.title') }}</text>
-            <text class="gallery__subtitle">{{ t('diy.gallery.subtitle') }}</text>
+            <view class="gallery__head-text">
+                <text class="gallery__title">{{ t('diy.gallery.title') }}</text>
+                <text class="gallery__subtitle">{{ t('diy.gallery.subtitle') }}</text>
+            </view>
+            <view class="gallery__head-actions">
+                <text class="gallery__head-btn" @tap="goMyPlans">{{ t('diy.myPlans') }}</text>
+                <text class="gallery__head-btn gallery__head-btn--primary" @tap="goDesigner">{{ t('diy.startDesign') }}</text>
+            </view>
         </view>
 
         <!-- 卡片流 -->
@@ -27,6 +33,7 @@
                     <text class="gallery__card-author">{{ it.authorName || t('diy.gallery.anonymous') }}</text>
                     <text class="gallery__card-date">{{ relativeDate(it.createdAt, t) }}</text>
                 </view>
+                <view class="gallery__card-use" @tap.stop="onQuickCopy(it.id)">{{ t('diy.gallery.useThis') }}</view>
             </view>
         </view>
 
@@ -43,11 +50,14 @@ import { onLoad, onReachBottom, onShareAppMessage } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import EmptyState from '../../components/EmptyState.vue';
 import { getDiyGalleryPlans, getDiyMaterials } from '../../api/queries/diy';
+import { copyDiyPlan } from '../../api/mutations/diy';
+import { useAuthStore } from '../../stores/auth';
 import { materialColor, relativeDate, yuan, type DiyMaterialRow } from '../composables/useDesigner';
 
 const TAKE = 12;
 
 const { t, locale } = useI18n();
+const authStore = useAuthStore();
 
 const items = ref<any[]>([]);
 const total = ref(0);
@@ -99,6 +109,28 @@ function goDetail(id: string) {
     uni.navigateTo({ url: '/pkg-diy/pages/plan-detail?id=' + id });
 }
 
+function goMyPlans() {
+    uni.navigateTo({ url: '/pkg-diy/pages/my-plans' });
+}
+
+function goDesigner() {
+    uni.navigateTo({ url: '/pkg-diy/pages/designer' });
+}
+
+/** 广场卡片快捷复刻：登录拦截 → copyDiyPlan → 跳新方案详情 */
+async function onQuickCopy(id: string) {
+    if (!authStore.requireLogin('/pkg-diy/pages/gallery')) return;
+    try {
+        const res: any = await copyDiyPlan(id);
+        const newId = res?.copyDiyPlan?.id != null ? String(res.copyDiyPlan.id) : '';
+        if (!newId) throw new Error('no id');
+        uni.showToast({ title: t('diy.copySuccess'), icon: 'none' });
+        setTimeout(() => uni.navigateTo({ url: '/pkg-diy/pages/plan-detail?id=' + newId }), 500);
+    } catch {
+        uni.showToast({ title: t('diy.actionFailed'), icon: 'none' });
+    }
+}
+
 /** 封面珠串：coverMaterialIds ≤3 → 素材色小圆相切排列 */
 function coverIds(it: any): string[] {
     return (it.coverMaterialIds || []).slice(0, 3).map(String).filter((id: string) => materialsMap.value.has(id));
@@ -128,7 +160,38 @@ onShareAppMessage(() => ({
     padding: 0 20rpx 40rpx;
 
     &__head {
+        display: flex;
+        align-items: center;
+        gap: 16rpx;
         padding: 24rpx 8rpx 20rpx;
+    }
+
+    &__head-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__head-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12rpx;
+        flex-shrink: 0;
+    }
+
+    &__head-btn {
+        padding: 10rpx 24rpx;
+        border-radius: 28rpx;
+        font-size: 24rpx;
+        color: $brand-color;
+        background: #fff;
+        border: 2rpx solid $brand-color;
+        text-align: center;
+
+        &--primary {
+            color: #fff;
+            background: $brand-color;
+            border-color: $brand-color;
+        }
     }
 
     &__title {
@@ -228,6 +291,17 @@ onShareAppMessage(() => ({
     &__card-date {
         font-size: 20rpx;
         color: $text-color-placeholder;
+    }
+
+    &__card-use {
+        margin-top: 16rpx;
+        height: 56rpx;
+        line-height: 56rpx;
+        text-align: center;
+        border-radius: 28rpx;
+        background: $brand-color-light;
+        color: $brand-color;
+        font-size: 24rpx;
     }
 
     &__loading,
