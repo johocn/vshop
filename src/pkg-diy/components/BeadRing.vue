@@ -113,17 +113,33 @@ function render() {
     // 珠心轨迹半径（mm）：Σ(珠径+间隙) / 2π，下限防 1-2 颗时退化
     const centerR = Math.max(maxR + 4, (beads.length * (maxR * 2 + gapMm)) / (Math.PI * 2));
     const pad = 6;
-    const decorExt = (props.decors?.length ?? 0) > 0 || props.knotVisible !== false ? 18 : 0;
-    const scale = Math.min(6, Math.max(0.3, Math.min(
-        (w / 2 - pad) / (centerR + maxR),
-        (h / 2 - pad) / (centerR + maxR + decorExt),
-    )));
+    // 绳结顶置·环贴底（方案 A）：顶部固定预留绳结带，环在剩余空间垂直居中，
+    // scale 不再被 decorExt 上下对称压缩；有配饰挂坠时按挂坠实际外伸上下追加预留（迭代收敛）
+    const hasDecor = (props.decors?.length ?? 0) > 0;
+    const knotSpace = props.knotVisible !== false ? 26 : 0;
+    const decorMm = hasDecor
+        ? Math.max(0, ...(props.decors ?? []).map(d => {
+            const r0 = (props.decorRows ?? []).find(x => x.id === d.materialId);
+            return (r0?.diameter ?? r0?.axialLength ?? 8) / 2;
+        }))
+        : 0;
+    const scaleH = (w / 2 - pad) / (centerR + maxR);
+    let decorPx = decorMm > 0 ? decorMm * scaleH + 6 : 0;   // 挂钩外伸 ≈ 坠半径 + 6px
+    let scale = 1;
+    for (let it = 0; it < 3; it++) {
+        const avail = h - knotSpace - 2 * decorPx - 2 * pad;
+        scale = Math.min(6, Math.max(0.3, Math.min(scaleH, avail / 2 / (centerR + maxR))));
+        const next = decorMm > 0 ? decorMm * scale + 6 : 0;
+        if (Math.abs(next - decorPx) < 0.5) { decorPx = next; break; }
+        decorPx = next;
+    }
+    const cy = pad + knotSpace + decorPx + (h - knotSpace - 2 * decorPx - 2 * pad) / 2;
     const ringR = centerR * scale;
-    geo = { cx: w / 2, cy: h / 2, ringR, scale, radii: radiiMm, n: beads.length };
+    geo = { cx: w / 2, cy, ringR, scale, radii: radiiMm, n: beads.length };
     // 细轨道圆（珠心轨迹，先于珠子绘制；H5 单位矩阵铁律：禁 scale(dpr)）
     ctx.strokeStyle = 'rgba(0,0,0,0.08)';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(w / 2, h / 2, ringR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(w / 2, cy, ringR, 0, Math.PI * 2); ctx.stroke();
     // 环心水印：品牌名 + 标语（透明度 0.10~0.12）
     const wm = props.brandWatermark || '';
     const slogan = props.brandSlogan || '';
@@ -134,12 +150,12 @@ function render() {
         if (wm) {
             ctx.fillStyle = 'rgba(0,0,0,0.11)';
             ctx.font = `600 ${fs1}px sans-serif`;
-            ctx.fillText(wm, w / 2, h / 2 - (slogan ? fs1 * 0.15 : fs1 * 0.35));
+            ctx.fillText(wm, w / 2, cy - (slogan ? fs1 * 0.15 : fs1 * 0.35));
         }
         if (slogan) {
             ctx.fillStyle = 'rgba(0,0,0,0.10)';
             ctx.font = `${fs2}px sans-serif`;
-            ctx.fillText(slogan, w / 2, h / 2 + fs1 * 0.75);
+            ctx.fillText(slogan, w / 2, cy + fs1 * 0.75);
         }
     }
     const rs: RenderBead[] = beads.map((b, i) => ({
@@ -150,10 +166,10 @@ function render() {
         sprite: (b.renderUrl && spriteMap.value.get(b.renderUrl)) || null,
         seed: hashSeed(b.materialId || b.color),
     }));
-    drawRing(ctx, rs, w / 2, h / 2, ringR, ringR);
+    drawRing(ctx, rs, w / 2, cy, ringR, ringR);
     // 结位（12 点位）：结点 + 双线尾；隐藏时仅留小刻度点
     decorPos = new Map();
-    const knotY = h / 2 - ringR - maxR * scale - 8;
+    const knotY = cy - ringR - maxR * scale - 8;
     knotPos = { x: w / 2, y: knotY - 12 };
     if (props.knotVisible !== false) {
         ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5;
@@ -174,7 +190,7 @@ function render() {
         } else {
             const a = -Math.PI / 2 + (Math.PI * 2 * (d0.slot + 0.5)) / geo.n;
             ax = w / 2 + (ringR + maxR * scale) * Math.cos(a);
-            ay = h / 2 + (ringR + maxR * scale) * Math.sin(a);
+            ay = cy + (ringR + maxR * scale) * Math.sin(a);
         }
         decorPos.set(d0.decorId, { x: ax, y: ay });
         drawDecorAt(ax, ay, d0);
