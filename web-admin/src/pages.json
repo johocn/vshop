@@ -28,6 +28,7 @@
     { "path": "pages/order/payment-timeout/index", "style": { "navigationBarTitleText": "支付超时观测", "enablePullDownRefresh": true } },
     { "path": "pages/after-sale/list/index", "style": { "navigationBarTitleText": "售后处理", "enablePullDownRefresh": true } },
     { "path": "pages/review/list/index", "style": { "navigationBarTitleText": "评价管理", "enablePullDownRefresh": true } },
+    { "path": "pages/kb/index/index", "style": { "navigationBarTitleText": "知识库索引" } },
     { "path": "pages/rider/withdraw/index", "style": { "navigationBarTitleText": "骑手提现审核", "enablePullDownRefresh": true } },
     { "path": "pages/rider/audit/index", "style": { "navigationBarTitleText": "骑手入驻审核", "enablePullDownRefresh": true } },
     { "path": "pages/after-sale/detail/index", "style": { "navigationBarTitleText": "售后详情" } },
