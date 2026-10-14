@@ -100,6 +100,7 @@
 - **槽位输入修复**：byCount / pattern 参数浮层中「数量 / 权重」输入框此前点击即被槽位行 tap 冒泡关闭浮层导致无法输入，已修复（`@tap.stop` 阻断冒泡），支持正常数值录入、编辑、删除（探针实测：清空→校验恢复、输入 12→CTA 实时 ¥16.8/¥19.8 联动）。
 - **free 挂饰计价口径修复**：挂坠/装饰珠此前只加颗不加价，现经聚合入 BOM 计价行（只计价、不进几何颗数），统计胶囊与 CTA 同步（实测 ¥3.6 → ¥6.6）。
 - 多语言：`diy.statsTitle / statsScope / statsEmpty / statsTotal / beadUnit` 五语言词条同步（zh-CN / zh-TW / en / ja / ko）。
+- **单元测试**：`src/pkg-diy/composables/useDesigner.test.ts`（vitest，`pnpm test`）14 用例覆盖步进器 −/＋ 全分支（序列优先→挂饰回退→no-op→减到 0 校验恢复）、BOM 聚合计价口径（×N 徽标/统计胶囊/CTA 同源）、分模式素材桶隔离（virgin 一次性拷贝/零带入/往返保留/clearAll 全重置）。
 
 ## 6. 渲染效果说明（多级回退）
 
@@ -190,6 +191,7 @@
 | 38 | free 挂饰计价（P8） | 挂坠/装饰珠入 BOM 计价（不进颗数），胶囊与 CTA 同步上涨 | ✅ |
 
 > P7.2 回归以 Playwright 合成触摸事件驱动（CDP touch 在本环境不送达 canvas），脚本 `scripts/_verify_diy_p72.py` 共 15 项判据全部通过。
+> P8 单元测试：`pnpm test`（vitest）——useDesigner 步进器/统计口径/模式隔离 14 用例全过。
 
 ## 9. 已知边界
 
