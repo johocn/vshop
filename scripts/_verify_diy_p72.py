@@ -136,11 +136,32 @@ def main():
             cv_el().screenshot(path=tmp)
             img = Image.open(tmp).convert('RGB')
             s = img.width / b['width']
-            yc, xc = img.height // 2, img.width // 2
+            xc = img.width // 2
             # 背景采样避开四角悬浮按钮及其阴影（角落已被 fab 覆盖），取顶部中央纯画布区
             bg = img.getpixel((xc, 4))
             def diff(p, q):
                 return max(abs(a - b2) for a, b2 in zip(p, q))
+            # 环贴底（方案 A）：环心不再等于画布中心。x=xc 整列 runs 扫描，最长两段 = 底珠/顶珠
+            # （水印笔画/绳结 run 均短于珠 run），珠心均值 = 环心、珠心距/2 = ring，对布局自适应
+            runs = []
+            yy = img.height - 3
+            while yy > 2:
+                if diff(img.getpixel((xc, yy)), bg) > 32:
+                    y_end = yy
+                    while yy > 2 and diff(img.getpixel((xc, yy)), bg) > 32:
+                        yy -= 1
+                    runs.append((yy + 1, y_end))
+                yy -= 1
+            assert len(runs) >= 2, f'col runs fail {runs}'
+            runs.sort(key=lambda r0: r0[1] - r0[0], reverse=True)
+            (t1, e1), (t2, e2) = runs[0], runs[1]
+            y_bot = max(t1 + e1, t2 + e2) / 2
+            y_top = min(t1 + e1, t2 + e2) / 2
+            bead = min(e1 - t1, e2 - t2) / 2 / s
+            ring = (y_bot - y_top) / 2 / s
+            cy_img = (y_bot + y_top) / 2
+            # 过环心水平行交叉验证：左右珠外缘 = ring + bead（n4/n8 布局 0°/180° 恒有珠）
+            yc = int(cy_img)
             xr = xl = None
             for x in range(img.width - 3, xc, -1):
                 if diff(img.getpixel((x, yc)), bg) > 25:
@@ -148,26 +169,11 @@ def main():
             for x in range(3, xc):
                 if diff(img.getpixel((x, yc)), bg) > 25:
                     xl = x; break
-            # 底部向上列扫描（x=xc）：90° 位恒有珠（n4 idx2 / n8 idx4），第一个连续非 bg run = 底珠，
-            # run 上下缘给出 ring±bead；免疫环心水印/slogan（浅色且与珠间有 bg 间隔）与 12 点位绳结
-            ye = yb = None
-            for yy in range(img.height - 3, yc, -1):
-                if diff(img.getpixel((xc, yy)), bg) > 32:
-                    ye = yy
-                    break
-            if ye:
-                yy = ye
-                while yy > yc and diff(img.getpixel((xc, yy)), bg) > 32:
-                    yy -= 1
-                yb = yy + 1
-            assert xr and xl and ye and yb, f'scan fail xr={xr} xl={xl} ye={ye} yb={yb}'
+            assert xr and xl, f'h-scan fail xr={xr} xl={xl}'
             r_out = (xr - xl) / 2 / s                       # 水平：ring + bead
-            ring_v = ((ye + yb) / 2 - img.height / 2) / s   # 环心到底珠中心 = ring
-            bead_v = (ye - yb) / 2 / s                      # run 半高 = bead
-            assert abs(r_out - (ring_v + bead_v)) < 4, f'geo mismatch h={r_out:.1f} v={ring_v + bead_v:.1f}'
-            ring, bead = ring_v, bead_v
+            assert abs(r_out - (ring + bead)) < 4, f'geo mismatch h={r_out:.1f} v={ring + bead:.1f}'
             print(f'  [cal {tag}] ring={ring:.1f} bead={bead:.1f} (R_out={r_out:.1f})')
-            return b['x'] + b['width'] / 2, b['y'] + b['height'] / 2, ring, bead
+            return b['x'] + b['width'] / 2, b['y'] + cy_img / s, ring, bead
 
         cx, cy, ring4, bead4 = calibrate('n4')
 
@@ -186,8 +192,8 @@ def main():
         seq2 = strip_colors()
         check('swap-2', seq2 == [color_a, color_b, color_b, color_a], f'seq={seq2}')
 
-        # ---------- 判据 3：出环删除（底部珠 i2 → 下方出环） ----------
-        drag(line(cx, cy + ring4, cx, cy + ring4 * 1.9))
+        # ---------- 判据 3：出环删除（底部珠 i2 → 右侧出环；环贴底后下方无环外空间） ----------
+        drag(line(cx, cy + ring4, cx + ring4 * 1.9, cy))
         seq3 = strip_colors()
         check('remove', len(seq3) == 3, f'{len(seq0)}->{len(seq3)} seq={seq3}')
 
@@ -247,7 +253,7 @@ def main():
         s8 = img.width / b8['width']
         bg8 = img.getpixel((4, 4))
         bg_lum = sum(bg8) / 3
-        ex, ey = b8['width'] / 2, b8['height'] / 2   # 画布中心（元素坐标）
+        ex, ey = b8['width'] / 2, cy - b8['y']   # 环心（calibrate 自适应；环贴底后 ≠ 画布中心）
         def px(x, y):
             return img.getpixel((min(max(int(x * s8), 0), img.width - 1),
                                  min(max(int(y * s8), 0), img.height - 1)))
@@ -274,10 +280,10 @@ def main():
                     cnt += 1
         check('watermark', cnt > 20, f'dark={cnt}')
 
-        # ---------- 判据 4b：delete 红圈预览（hold 截图）+ 8→7 ----------
+        # ---------- 判据 4b：delete 红圈预览（hold 截图）+ 8→7（右侧出环，环贴底后下方无空间） ----------
         b4 = (cx, cy + ring8)
-        drop_y = cy + min(ring8 * 1.9, b8['height'] / 2 - 6)
-        drag(line(b4[0], b4[1], b4[0], drop_y), hold=True)
+        drop_x = cx + min(ring8 * 1.9, b8['width'] / 2 - 6)
+        drag(line(b4[0], b4[1], drop_x, cy), hold=True)
         page.wait_for_timeout(150)
         shot_del = os.path.join(SHOTS, 'p72-delete-preview.png')
         cv_el().screenshot(path=shot_del)
