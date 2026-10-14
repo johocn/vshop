@@ -7,7 +7,10 @@
                     {{ d.mode.value === 'free' ? t('diy.innerCirc') + ' ' + cm(d.result.value?.bom?.geometry?.innerCircumference) : t('diy.wristSize') + ' ' + (d.wristSize.value / 10).toFixed(1) + 'cm' }}
                     · {{ t(feedbackI18nKey(d.result.value?.bom?.geometry?.feedback)) }}
                 </text>
-                <text class="designer__caps">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
+                <!-- 统计胶囊：N颗 · 金额，点开统计明细浮层（口径与 CTA 同源 BOM，随模式独立） -->
+                <text class="designer__caps designer__caps--link" @tap="showStats = true">
+                    {{ d.result.value?.bom?.totalCount ?? 0 }}{{ t('diy.beadUnit') }} · ¥{{ yuan(d.result.value?.bom?.totalAmount) }}
+                </text>
                 <text class="designer__caps" @tap="d.knotVisible.value = !d.knotVisible.value">
                     {{ d.knotVisible.value ? t('diy.knot.hide') : t('diy.knot.show') }}
                 </text>
@@ -77,6 +80,7 @@
                 :categories="categories"
                 :counts="pickCounts"
                 @pick="onPickMaterial"
+                @dec="onDecMaterial"
             />
         </view>
 
@@ -155,12 +159,14 @@
                                 />
                                 <text class="designer__slot-name">{{ s.materialId ? slotName(s.materialId) : t('diy.pickMaterial') }}</text>
                             </view>
+                            <!-- @tap.stop：阻断冒泡到槽位行 selectSlot（否则点输入框会关掉整个参数浮层，无法输入） -->
                             <input
                                 v-if="s.role === 'main'"
                                 class="designer__slot-input"
                                 type="number"
                                 :value="s.qtyOverride != null ? String(s.qtyOverride) : ''"
                                 :placeholder="d.mode.value === 'byCount' ? t('diy.qty') : t('diy.weight')"
+                                @tap.stop
                                 @input="onQtyInput(i, $event)"
                             />
                             <input
@@ -169,6 +175,7 @@
                                 type="number"
                                 :value="s.every != null ? String(s.every) : '2'"
                                 :placeholder="t('diy.every')"
+                                @tap.stop
                                 @input="onEveryInput(i, $event)"
                             />
                             <input
@@ -177,6 +184,7 @@
                                 type="number"
                                 :value="s.qtyOverride != null ? String(s.qtyOverride) : '1'"
                                 :placeholder="t('diy.qty')"
+                                @tap.stop
                                 @input="onQtyInput(i, $event)"
                             />
                             <text
@@ -191,6 +199,34 @@
                             <text v-if="!hasSpacer" class="designer__slot-add" @tap="d.addSlot('spacer')">＋ {{ t('diy.slot.spacer') }}</text>
                             <text class="designer__slot-add" @tap="d.addSlot('decor')">＋ {{ t('diy.slot.decor') }}</text>
                         </view>
+                    </view>
+                </scroll-view>
+            </view>
+        </view>
+
+        <!-- 素材统计浮层（明细/合计与 CTA 同源 BOM，随模式独立） -->
+        <view v-if="showStats" class="designer__sheet" @touchmove.stop.prevent>
+            <view class="designer__sheet-mask" @tap="showStats = false" />
+            <view class="designer__sheet-panel">
+                <view class="designer__sheet-head">
+                    <text class="designer__sheet-title">{{ t('diy.statsTitle') }}</text>
+                    <text class="designer__sheet-close" @tap="showStats = false">×</text>
+                </view>
+                <scroll-view scroll-y class="designer__sheet-body">
+                    <text class="designer__stat-scope">{{ t('diy.statsScope') }}</text>
+                    <view v-for="it in statItems" :key="it.id" class="designer__stat-row">
+                        <view class="designer__stat-dot" :style="{ background: it.color }" />
+                        <view class="designer__stat-main">
+                            <text class="designer__stat-name">{{ it.name }}</text>
+                            <text class="designer__stat-spec">{{ it.spec }} · {{ it.typeLabel }}</text>
+                        </view>
+                        <text class="designer__stat-qty">×{{ it.qty }}</text>
+                        <text class="designer__stat-amt">¥{{ yuan(it.subtotal) }}</text>
+                    </view>
+                    <view v-if="!statItems.length" class="designer__stat-empty">{{ t('diy.statsEmpty') }}</view>
+                    <view v-else class="designer__stat-foot">
+                        <text>{{ t('diy.statsTotal', { n: d.result.value?.bom?.totalCount ?? 0, k: statItems.length }) }}</text>
+                        <text class="designer__stat-sum">¥{{ yuan(d.result.value?.bom?.totalAmount) }}</text>
                     </view>
                 </scroll-view>
             </view>
@@ -229,15 +265,22 @@ const categories = ref<any[]>([]);
 const d = useDesigner(materials, locale);
 const draft = useDesignerDraft(d);
 
-/** 各素材已选颗数（序列 + 配饰聚合），供选料面板角标 */
+/** 各素材已选颗数（按模式取数：free=序列；专业模式=计算器 BOM 收敛颗数；挂饰恒按实例聚合），供选料面板角标 */
 const pickCounts = computed<Record<string, number>>(() => {
     const c: Record<string, number> = {};
-    for (const id of d.sequence.value) c[id] = (c[id] ?? 0) + 1;
+    if (d.mode.value === 'free') {
+        for (const id of d.sequence.value) c[id] = (c[id] ?? 0) + 1;
+    } else {
+        for (const it of d.result.value?.bom?.items ?? []) {
+            c[it.materialId] = (c[it.materialId] ?? 0) + it.qty;
+        }
+    }
     for (const x of d.decors.value) c[x.materialId] = (c[x.materialId] ?? 0) + 1;
     return c;
 });
 
 const showCalc = ref(false);
+const showStats = ref(false);
 const saving = ref(false);
 /** 当前指派目标槽位下标；-1 表示 free 追加 */
 const editingSlotIdx = ref(-1);
@@ -378,6 +421,30 @@ function onEveryInput(i: number, e: any) {
     const v = Math.max(1, Math.floor(Number(e.detail?.value) || 2));
     d.patchSlot(i, { every: v });
 }
+
+/** 步进器「−」：free 模式减少一颗该素材（序列优先，其次挂饰） */
+function onDecMaterial(id: string) {
+    d.removeOneMaterial(id);
+}
+
+/** 统计明细行：BOM（与 CTA 总价同源）+ 素材渲染色/规格/类型标签 */
+const statItems = computed(() => {
+    const items = d.result.value?.bom?.items ?? [];
+    return items.map(it => {
+        const row = materials.value.find(m => m.id === it.materialId);
+        const attrs: any = row?.attrs ?? {};
+        const role = attrs.decor ? 'decor' : attrs.kind === 'spacer' ? 'spacer' : 'main';
+        return {
+            id: it.materialId,
+            name: it.name || (row ? materialName(row, locale.value) : it.code),
+            spec: (row?.diameter ?? row?.axialLength ?? 0) + 'mm',
+            typeLabel: t('diy.slot.' + role),
+            color: materialColor(row),
+            qty: it.qty,
+            subtotal: it.subtotal,
+        };
+    });
+});
 
 const ctaLabel = computed(() => {
     if (d.mode.value === 'byCount' && !d.byCountOk.value) return t('diy.countRequired');
@@ -748,6 +815,87 @@ async function onSave() {
         color: $text-color-placeholder;
         padding: 0 8rpx;
         flex-shrink: 0;
+    }
+
+    /* 统计明细浮层内容 */
+    &__stat-scope {
+        display: block;
+        font-size: 22rpx;
+        color: $text-color-placeholder;
+        padding: 4rpx 0 16rpx;
+    }
+
+    &__stat-row {
+        display: flex;
+        align-items: center;
+        gap: 16rpx;
+        padding: 18rpx 0;
+        border-bottom: 2rpx dashed $border-color;
+    }
+
+    &__stat-dot {
+        width: 40rpx;
+        height: 40rpx;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: inset -4rpx -6rpx 10rpx rgba(0, 0, 0, 0.18), inset 4rpx 6rpx 10rpx rgba(255, 255, 255, 0.5);
+    }
+
+    &__stat-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4rpx;
+    }
+
+    &__stat-name {
+        font-size: 26rpx;
+        color: $text-color;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__stat-spec {
+        font-size: 20rpx;
+        color: $text-color-placeholder;
+    }
+
+    &__stat-qty {
+        font-size: 24rpx;
+        color: $text-color-secondary;
+        flex-shrink: 0;
+    }
+
+    &__stat-amt {
+        font-size: 26rpx;
+        color: $price-color;
+        font-weight: 600;
+        flex-shrink: 0;
+        min-width: 110rpx;
+        text-align: right;
+    }
+
+    &__stat-empty {
+        padding: 80rpx 0;
+        text-align: center;
+        font-size: 26rpx;
+        color: $text-color-placeholder;
+    }
+
+    &__stat-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24rpx 0 8rpx;
+        font-size: 26rpx;
+        color: $text-color;
+        font-weight: 600;
+    }
+
+    &__stat-sum {
+        color: $price-color;
     }
 
     &__slot-actions {

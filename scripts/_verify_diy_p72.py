@@ -205,8 +205,11 @@ def main():
         len_before = len(strip_colors())
         card_tap(0)
         check('panel-append', len(strip_colors()) == len_before + 1)
+        # free 模式角标已升级为步进器（mat-panel__step-n），兼容两种形态断言
+        qn = page.eval_on_selector_all('.mat-panel__step-n', "els => els.map(e => e.textContent.trim())")
         qx = page.eval_on_selector_all('.mat-panel__qx', "els => els.map(e => e.textContent.trim())")
-        check('panel-badge', any(q.startswith('×') and q != '×1' for q in qx), f'qx={qx}')
+        check('panel-badge', any(q.startswith('×') and q != '×1' for q in qx) or any(q.isdigit() and int(q) >= 2 for q in qn),
+              f'qx={qx} step={qn}')
         n_all = page.eval_on_selector_all('.mat-panel__item', 'els => els.length')
         cats = page.query_selector_all('.mat-panel__cat')
         if len(cats) > 1:

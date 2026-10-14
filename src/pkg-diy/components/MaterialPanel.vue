@@ -36,7 +36,13 @@
                                 class="mat-panel__dot"
                                 :style="{ background: materialColor(m), width: dotRpx(m) + 'rpx', height: dotRpx(m) + 'rpx' }"
                             />
-                            <view v-if="(counts?.[m.id] ?? 0) > 0" class="mat-panel__qx">×{{ counts?.[m.id] }}</view>
+                            <!-- free：步进器（− 减少 / ＋ 追加，一目了然）；非 free：只读 ×N 角标（数量来自槽位 BOM 收敛） -->
+                            <view v-if="isFree && (counts?.[m.id] ?? 0) > 0" class="mat-panel__step" @tap.stop>
+                                <text class="mat-panel__step-btn" @tap.stop="emit('dec', m.id)">−</text>
+                                <text class="mat-panel__step-n">{{ counts?.[m.id] }}</text>
+                                <text class="mat-panel__step-btn" @tap.stop="onPick(m.id)">＋</text>
+                            </view>
+                            <view v-else-if="(counts?.[m.id] ?? 0) > 0" class="mat-panel__qx">×{{ counts?.[m.id] }}</view>
                         </view>
                         <text class="mat-panel__name">{{ materialName(m, locale) }}</text>
                         <text class="mat-panel__meta">{{ m.diameter ?? m.axialLength ?? 0 }}mm · ¥{{ yuan(m.price) }}</text>
@@ -76,6 +82,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'pick', materialId: string, tab: 'beads' | 'decors'): void;
+    (e: 'dec', materialId: string): void;
 }>();
 
 const { t, locale } = useI18n();
@@ -320,6 +327,40 @@ function dotRpx(m: DiyMaterialRow): number {
         border-radius: 24rpx;
         font-size: 20rpx;
         padding: 2rpx 12rpx;
+    }
+
+    /* free 模式步进器：− ×N ＋ 白底胶囊，右上角浮层 */
+    &__step {
+        position: absolute;
+        top: -10rpx;
+        right: -6rpx;
+        display: flex;
+        align-items: center;
+        background: #fff;
+        border-radius: 999rpx;
+        box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.16);
+        overflow: hidden;
+    }
+
+    &__step-btn {
+        min-width: 42rpx;
+        height: 42rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: $brand-color;
+        font-size: 28rpx;
+        font-weight: 600;
+        line-height: 1;
+    }
+
+    &__step-n {
+        min-width: 34rpx;
+        text-align: center;
+        color: $brand-color;
+        font-size: 22rpx;
+        font-weight: 600;
+        line-height: 42rpx;
     }
 
     &__name {
