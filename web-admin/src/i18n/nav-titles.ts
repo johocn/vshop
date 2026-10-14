@@ -29,6 +29,7 @@ export const NAV_TITLE_KEYS: Record<string, string> = {
     'pages/order/payment-timeout/index': 'nav.orderPaymentTimeout',
     'pages/after-sale/list/index': 'nav.afterSaleList',
     'pages/review/list/index': 'nav.reviewList',
+    'pages/kb/index/index': 'nav.kbIndex',
     'pages/rider/withdraw/index': 'nav.riderWithdraw',
     'pages/rider/audit/index': 'nav.riderAudit',
     'pages/after-sale/detail/index': 'nav.afterSaleDetail',

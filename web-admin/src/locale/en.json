@@ -27,6 +27,7 @@
     "orderPaymentTimeout": "Payment Timeout Monitor",
     "afterSaleList": "After-sale Handling",
     "reviewList": "Review Management",
+    "kbIndex": "Knowledge Base Index",
     "riderWithdraw": "Rider Withdrawal Review",
     "riderAudit": "Rider Onboarding Review",
     "afterSaleDetail": "After-sale Detail",
@@ -1202,6 +1203,24 @@
       "retry": "Retry",
       "empty": "No reviews yet",
       "emptyPending": "No pending reviews"
+    }
+  },
+  "kb": {
+    "index": {
+      "loading": "Loading…",
+      "retry": "Retry",
+      "empty": "No index stats yet",
+      "loadFailed": "Failed to load index stats",
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy",
+      "documents": "Documents: {n}",
+      "reindexTip": "Reindexing runs in the background: once queued, the server executes it and refreshed counts appear shortly. Content-domain rebuilds are coordinated with Strapi.",
+      "reindexProductsBtn": "Rebuild Products",
+      "reindexContentsBtn": "Rebuild Contents",
+      "reindexAllBtn": "Rebuild All",
+      "submitting": "Submitting…",
+      "requeued": "Reindex queued",
+      "opFailed": "Operation failed"
     }
   },
   "rider": {

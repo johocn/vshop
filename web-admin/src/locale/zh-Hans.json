@@ -27,6 +27,7 @@
     "orderPaymentTimeout": "支付超时观测",
     "afterSaleList": "售后处理",
     "reviewList": "评价管理",
+    "kbIndex": "知识库索引",
     "riderWithdraw": "骑手提现审核",
     "riderAudit": "骑手入驻审核",
     "afterSaleDetail": "售后详情",
@@ -1202,6 +1203,24 @@
       "retry": "重试",
       "empty": "暂无评价",
       "emptyPending": "暂无待审核评价"
+    }
+  },
+  "kb": {
+    "index": {
+      "loading": "加载中…",
+      "retry": "重试",
+      "empty": "暂无索引数据",
+      "loadFailed": "加载索引状态失败",
+      "healthy": "健康",
+      "unhealthy": "异常",
+      "documents": "文档数：{n}",
+      "reindexTip": "重建为异步任务：提交后由服务端入队执行，稍候刷新可见最新文档数；内容域重建由 Strapi 侧协同完成。",
+      "reindexProductsBtn": "重建商品域",
+      "reindexContentsBtn": "重建内容域",
+      "reindexAllBtn": "全部重建",
+      "submitting": "提交中…",
+      "requeued": "已提交重建",
+      "opFailed": "操作失败"
     }
   },
   "rider": {
