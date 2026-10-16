@@ -43,7 +43,7 @@ onMounted(async () => {
             id: p.productId,
             name: p.productName,
             slug: p.slug,
-            price: Math.min(...(p.priceWithTax || [0])),
+            price: getMinPrice(p.priceWithTax),
             image: p.productAsset?.preview || '',
         }));
     } catch (e) {
@@ -58,6 +58,9 @@ function clampLimit(n?: number): number {
     if (v < 1) return 6;
     return Math.min(20, v);
 }
+
+// searchProducts 返回 SearchResult.priceWithTax 为 SinglePrice{value} / PriceRange{min,max} 对象
+function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
 
 function goDetail(slug: string) {
     if (slug) uni.navigateTo({ url: `/pkg-product/pages/detail?slug=${slug}` });
