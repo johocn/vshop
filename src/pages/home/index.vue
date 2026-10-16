@@ -6,7 +6,8 @@
     <!-- #endif -->
     <!-- #ifndef H5 -->
     <!-- 小程序端不支持 <component :is>，回退 v-if 硬编码链；与 templates/layouts.ts 注册表同步维护 -->
-    <DynamicHome v-if="hasShopContent" />
+    <UsemallHome v-if="hasShopContent && layoutKey === 'usemall'" />
+    <DynamicHome v-else-if="hasShopContent" />
     <FreshHome v-else-if="layoutKey === 'fresh'" />
     <MarketplaceHome v-else-if="layoutKey === 'marketplace'" />
     <DefaultHome v-else />
@@ -29,6 +30,7 @@ import { LAYOUT_COMPONENTS } from '../../templates/layouts';
 // #ifndef H5
 // 小程序端 v-if 链直接静态引入（无运行时动态组件能力）
 import DynamicHome from '../../templates/shared/DynamicHome.vue';
+import UsemallHome from '../../templates/usemall/pages/HomeContent.vue';
 import FreshHome from '../../templates/fresh/pages/HomeContent.vue';
 import MarketplaceHome from '../../templates/marketplace/pages/HomeContent.vue';
 import DefaultHome from '../../templates/default/pages/HomeContent.vue';
@@ -43,8 +45,10 @@ const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
 const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
 const layoutKey = computed(() => {
-    if (hasShopContent.value) return 'dynamic'; // sections 优先（原体系行为）
     const k = tenantStore.homeLayout || 'default';
+    // usemall 骨架自带楼层消费（consumesSections），模板声明 usemall 时优先于 sections→dynamic 短路
+    if (hasShopContent.value && k === 'usemall') return 'usemall';
+    if (hasShopContent.value) return 'dynamic'; // sections 优先（原体系行为）
     return KNOWN_LAYOUTS.includes(k as any) ? k : 'default';
 });
 // #ifdef H5

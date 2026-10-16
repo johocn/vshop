@@ -13,6 +13,7 @@ export const LAYOUT_COMPONENTS: Record<string, Component> = {
   fresh: defineAsyncComponent(() => import('./fresh/pages/HomeContent.vue')),
   marketplace: defineAsyncComponent(() => import('./marketplace/pages/HomeContent.vue')),
   dynamic: defineAsyncComponent(() => import('./shared/DynamicHome.vue')),
+  usemall: defineAsyncComponent(() => import('./usemall/pages/HomeContent.vue')),
 };
 // #endif
 
@@ -21,10 +22,12 @@ import DefaultHome from './default/pages/HomeContent.vue';
 import FreshHome from './fresh/pages/HomeContent.vue';
 import MarketplaceHome from './marketplace/pages/HomeContent.vue';
 import DynamicHome from './shared/DynamicHome.vue';
+import UsemallHome from './usemall/pages/HomeContent.vue';
 export const LAYOUT_COMPONENTS: Record<string, Component> = {
   default: DefaultHome,
   fresh: FreshHome,
   marketplace: MarketplaceHome,
   dynamic: DynamicHome,
+  usemall: UsemallHome,
 };
 // #endif
