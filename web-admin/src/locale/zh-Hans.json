@@ -2483,7 +2483,7 @@
     "typeLatest": "最新商品",
     "brandFloorHint": "复用顶部分类封面图作为品牌墙，无需额外配置",
     "plazaHint": "展示店铺分类专区卡片，无需额外配置",
-    "couponLimit": "最多显示张数（1-30）",
+    "couponLimit": "最多显示张数（1-20）",
     "couponHint": "仅展示「可领取且未过期未抢完」的券；无券时该楼层自动隐藏",
     "newCollection": "新品集合 slug",
     "latestHint": "用「新品集合」出楼（不是按上架时间排序）；未填集合则整层隐藏",
@@ -2506,7 +2506,16 @@
     "slotGoods": "分类商品楼层",
     "slotHot": "热门商品",
     "slotRecommend": "推荐商品",
-    "slotLatest": "最新商品"
+    "slotLatest": "最新商品",
+    "addVideo": "+ 视频楼层",
+    "typeVideo": "视频楼层",
+    "videoPoster": "封面图",
+    "videoUrl": "视频地址",
+    "videoUrlPlaceholder": "请输入视频地址",
+    "addPointsGoods": "+ 积分楼层",
+    "typePointsGoods": "积分楼层",
+    "limitLabel": "展示数量（1-20）",
+    "sectionsFirstTip": "楼层内容优先：已配置的装修楼层将优先渲染，版式仅作无楼层时的兜底"
   },
   "decorateProduct": {
     "title": "详情页装修",
@@ -2629,7 +2638,8 @@
     "saving": "保存中…",
     "save": "保存主题",
     "saved": "主题已保存",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "homeLayoutLabel": "首页版式"
   },
   "decorateShopInfo": {
     "shopName": "店铺名",

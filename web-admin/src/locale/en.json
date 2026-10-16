@@ -2483,7 +2483,7 @@
     "typeLatest": "New Arrivals",
     "brandFloorHint": "Reuses top-level collection covers as the brand wall; no extra config needed",
     "plazaHint": "Shows collection zone cards; no extra config needed",
-    "couponLimit": "Max coupons (1-30)",
+    "couponLimit": "Max coupons (1-20)",
     "couponHint": "Only claimable, unexpired and in-stock coupons are shown; the floor hides itself when empty",
     "newCollection": "New-arrivals collection slug",
     "latestHint": "Powered by a new-arrivals collection (not sorted by creation time); hidden when empty",
@@ -2506,7 +2506,16 @@
     "slotGoods": "Category goods",
     "slotHot": "Hot goods",
     "slotRecommend": "Recommended",
-    "slotLatest": "New Arrivals"
+    "slotLatest": "New Arrivals",
+    "addVideo": "+ Video floor",
+    "typeVideo": "Video floor",
+    "videoPoster": "Poster image",
+    "videoUrl": "Video URL",
+    "videoUrlPlaceholder": "Enter the video URL",
+    "addPointsGoods": "+ Points goods floor",
+    "typePointsGoods": "Points goods floor",
+    "limitLabel": "Items to show (1-20)",
+    "sectionsFirstTip": "Sections take priority: configured floors render first; the layout is only a fallback when no floors are configured"
   },
   "decorateProduct": {
     "title": "Product Page Design",
@@ -2629,7 +2638,8 @@
     "saving": "Saving…",
     "save": "Save theme",
     "saved": "Theme saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "homeLayoutLabel": "Home layout"
   },
   "decorateShopInfo": {
     "shopName": "Shop name",
