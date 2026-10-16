@@ -132,3 +132,22 @@ export function mergePageConfig(
   );
   return Object.keys(merged).length ? merged : null;
 }
+
+/** 版式注册白名单（与 src/templates/layouts.ts LAYOUT_COMPONENTS 同步；'dynamic' = 积木装修渲染器） */
+export const KNOWN_LAYOUTS = ['default', 'fresh', 'marketplace', 'dynamic'] as const;
+export type HomeLayout = (typeof KNOWN_LAYOUTS)[number];
+
+/** layout 五级解析：L0 'default' ← L1 defaults.home.layout ← L2 pages.home.layout ← L3 displayTemplate；
+ *  坏值/未知值回 'default'（纯函数，SSR/双端安全） */
+export function resolveHomeLayout(
+  globalConfig: ShopGlobalConfigData | null,
+  template: ShopTemplateData | null,
+  channelCfs: Record<string, any> | null,
+): HomeLayout {
+  const pick = (v: unknown): string | null =>
+    typeof v === 'string' && v && KNOWN_LAYOUTS.includes(v as HomeLayout) ? v : null;
+  const l1 = pick((globalConfig?.defaults as any)?.home?.layout);
+  const l2 = pick(template?.pages?.home?.layout);
+  const l3 = pick(channelCfs?.displayTemplate);
+  return (l3 ?? l2 ?? l1 ?? 'default') as HomeLayout;
+}
