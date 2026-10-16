@@ -28,7 +28,7 @@ const titleText = computed(() => {
 });
 
 function onError() {
-    uni.showToast({ title: locale.value.startsWith('zh') ? '视频加载失败' : 'Video failed to load', icon: 'none' });
+    uni.showToast({ title: t('homeSections.video.loadFail'), icon: 'none' });
 }
 </script>
 <style lang="scss" scoped>
