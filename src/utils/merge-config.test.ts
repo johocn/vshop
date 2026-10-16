@@ -24,3 +24,15 @@ describe('resolveHomeLayout（五级解析链）', () => {
     expect(resolveHomeLayout(null, { pages: { home: { layout: 123 } } } as any, null)).toBe('default');
   });
 });
+
+describe('usemall 版式解析', () => {
+  it('L2 模板 pages.home.layout=usemall 解析为 usemall', () => {
+    expect(resolveHomeLayout(null, { pages: { home: { layout: 'usemall' } } } as any, null)).toBe('usemall');
+  });
+  it('L3 displayTemplate=usemall 覆盖 L2', () => {
+    expect(resolveHomeLayout(null, { pages: { home: { layout: 'default' } } } as any, { displayTemplate: 'usemall' })).toBe('usemall');
+  });
+  it('未知 layout 值仍回退 default', () => {
+    expect(resolveHomeLayout(null, { pages: { home: { layout: 'usemallX' } } } as any, null)).toBe('default');
+  });
+});

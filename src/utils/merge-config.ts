@@ -134,7 +134,7 @@ export function mergePageConfig(
 }
 
 /** 版式注册白名单（与 src/templates/layouts.ts LAYOUT_COMPONENTS 同步；'dynamic' = 积木装修渲染器） */
-export const KNOWN_LAYOUTS = ['default', 'fresh', 'marketplace', 'dynamic'] as const;
+export const KNOWN_LAYOUTS = ['default', 'fresh', 'marketplace', 'dynamic', 'usemall'] as const;
 export type HomeLayout = (typeof KNOWN_LAYOUTS)[number];
 
 /** layout 五级解析：L0 'default' ← L1 defaults.home.layout ← L2 pages.home.layout ← L3 displayTemplate；
