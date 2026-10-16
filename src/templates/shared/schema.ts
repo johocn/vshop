@@ -63,7 +63,29 @@ export interface RichTextSection {
     html: string;
 }
 
-export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection;
+export interface VideoSection {
+    type: 'video';
+    /** 标题；字符串或 locale 字典（LocalizedText） */
+    title?: string | Record<string, string>;
+    poster?: string;
+    videoUrl: string;
+}
+
+export interface CouponSection {
+    type: 'coupon';
+    title?: string | Record<string, string>;
+    /** 最多展示张数，默认 6，范围 1..20 */
+    limit?: number;
+}
+
+export interface PointsGoodsSection {
+    type: 'pointsGoods';
+    title?: string | Record<string, string>;
+    /** 最多展示件数，默认 6，范围 1..20 */
+    limit?: number;
+}
+
+export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection | VideoSection | CouponSection | PointsGoodsSection;
 
 export interface ShopContent {
     version: number;
@@ -71,7 +93,7 @@ export interface ShopContent {
     sections: ShopSection[];
 }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash', 'video', 'coupon', 'pointsGoods'];
 
 export function parseShopContent(raw: string | null | undefined): ShopContent | null {
     if (!raw) return null;
@@ -103,6 +125,15 @@ export function isValidShopContent(data: any): data is ShopContent {
             if (sec.source !== 'flashSale') return false;
             if (sec.layout != null && sec.layout !== 'row' && sec.layout !== 'grid2') return false;
             if (sec.limit != null && typeof sec.limit !== 'number') return false;
+            if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+        }
+        if (sec.type === 'video') {
+            if (typeof sec.videoUrl !== 'string' || !sec.videoUrl) return false;
+            if (sec.poster != null && typeof sec.poster !== 'string') return false;
+            if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+        }
+        if (sec.type === 'coupon' || sec.type === 'pointsGoods') {
+            if (sec.limit != null && (typeof sec.limit !== 'number' || sec.limit < 1 || sec.limit > 20)) return false;
             if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
         }
     }
