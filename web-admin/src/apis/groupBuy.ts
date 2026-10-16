@@ -76,7 +76,7 @@ export async function fetchGroupBuyActivities(take = 20, skip = 0): Promise<{ it
       `query GroupBuyActivities($options: GroupBuyActivityListOptions) {
         groupBuyActivities(options: $options) { items { ${FIELDS} } totalItems }
       }`,
-      { options: { take, skip } },
+      { options: { take, skip, sort: { createdAt: 'DESC' as const } } },
     );
     return { items: groupBuyActivities?.items ?? [], totalItems: groupBuyActivities?.totalItems ?? 0 };
   } catch (e: any) {

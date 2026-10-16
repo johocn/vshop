@@ -64,6 +64,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { fetchPickupLocations, updatePickupLocation, deletePickupLocation, assignToChannel, removeFromChannel, promoteToListPublic, PickupLocationItem } from '../../apis/pickup-location';
@@ -86,6 +87,13 @@ async function switchTab(t: 'mine' | 'pool') {
   if (t === 'mine') await reload();
   if (t === 'pool') pool.value = await fetchPickupLocations(true);
 }
+// 新建/编辑自提点返回本页时自动刷新（本店列表 + 全局池）；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
+let pickupListShown = false;
+onShow(() => {
+  if (!pickupListShown) { pickupListShown = true; return; }
+  reload();
+  fetchPickupLocations(true).then((p) => { pool.value = p; });
+});
 onMounted(async () => { await reload(); pool.value = await fetchPickupLocations(true); });
 
 function onCreate() { uni.navigateTo({ url: '/pages/pickup/edit/index' }); }

@@ -896,7 +896,7 @@ export async function fetchProductList(
     products: { totalItems: number; items: any[] };
   }>(
     `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
-      products(options: { take: $take, skip: $skip, filter: $filter }) {
+      products(options: { take: $take, skip: $skip, filter: $filter, sort: { createdAt: DESC } }) {
         totalItems
         items { id name slug enabled featuredAsset { preview } variants { id price priceWithTax stockOnHand } customFields { marketplaceStatus } }
       }

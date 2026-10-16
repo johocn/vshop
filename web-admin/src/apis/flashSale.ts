@@ -60,7 +60,7 @@ export async function fetchFlashSaleActivities(take = 20, skip = 0): Promise<{ i
       `query FlashSaleActivities($options: FlashSaleActivityListOptions) {
         flashSaleActivities(options: $options) { items { ${FIELDS} } totalItems }
       }`,
-      { options: { take, skip } },
+      { options: { take, skip, sort: { createdAt: 'DESC' as const } } },
     );
     return { items: flashSaleActivities?.items ?? [], totalItems: flashSaleActivities?.totalItems ?? 0 };
   } catch (e: any) {

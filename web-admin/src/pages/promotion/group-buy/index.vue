@@ -59,7 +59,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
   fetchGroupBuyActivities, deleteGroupBuyActivity, GroupBuyActivity, GroupBuyStatus, GroupBuyLeaderRewardType,
 } from '../../../apis/groupBuy';
@@ -145,6 +145,9 @@ function onDelete(c: GroupBuyActivity) {
   });
 }
 
+// 新建/编辑保存返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
+let groupBuyListShown = false;
+onShow(() => { if (groupBuyListShown) load(); groupBuyListShown = true; });
 onMounted(load);
 onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
 onReachBottom(loadMore);
