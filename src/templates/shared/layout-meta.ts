@@ -17,4 +17,8 @@ export const LAYOUT_META: LayoutMeta[] = [
     code: 'dynamic', labelZh: '积木装修', labelEn: 'Dynamic', consumesSections: true,
     sectionTypes: ['banner', 'notice', 'nav', 'goods', 'richText', 'flash', 'video', 'coupon', 'pointsGoods'],
   },
+  {
+    code: 'usemall', labelZh: '用云商城模板', labelEn: 'Usemall', consumesSections: true,
+    sectionTypes: ['banner', 'notice', 'nav', 'goods', 'richText', 'flash', 'video', 'coupon', 'pointsGoods', 'limitGoods', 'hotGoods'],
+  },
 ];
