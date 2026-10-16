@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { onPageScroll } from '@dcloudio/uni-app';
+import { onPageScroll, onReachBottom } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 import { useAuthStore } from '../../stores/auth';
@@ -59,6 +59,7 @@ function broadcastScroll(e: any) {
     uni.$emit('page-scroll', e);
 }
 onPageScroll((e: any) => broadcastScroll(e));
+onReachBottom(() => uni.$emit('home-reach-bottom'));
 </script>
 
 <style lang="scss" scoped>
