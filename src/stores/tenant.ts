@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getActiveChannelConfig, getAuthMethods, getSsoProviders, resolveChannelByDomain, resolveChannelByCode, listShopChannels, getShopTemplate, getShopGlobalConfig } from '../api/queries/channel';
 import { parseShopContent, ShopContent } from '../templates/shared/schema';
-import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, ThemeTokens } from '../utils/merge-config';
+import { mergeThemeTokens, mergePageConfig, parseThemeTokensOverride, resolveHomeLayout, ThemeTokens, type HomeLayout } from '../utils/merge-config';
 
 interface SsoProviderInfo {
     name: string;
@@ -49,6 +49,10 @@ export const useTenantStore = defineStore('tenant', () => {
     const shopIntro = ref('');
     const servicePhone = ref('');
     const shareImageUrl = ref('');
+    /** 渠道 customFields 原文（layout 五级解析的 L3 数据源）；loadTenantDetails 失败时置 null */
+    const rawChannelCfs = ref<Record<string, any> | null>(null);
+    /** 首页版式解析结果：L0 'default' ← L1 defaults.home.layout ← L2 pages.home.layout ← L3 displayTemplate */
+    const homeLayout = ref<HomeLayout>('default');
 
     /** 请求的租户不存在/已停用：记下原始 code 供 UI 明示（不再静默回退） */
     const tenantInvalid = ref<string | null>(null);
@@ -143,6 +147,7 @@ export const useTenantStore = defineStore('tenant', () => {
                 servicePhone.value = cf.servicePhone || '';
                 shareImageUrl.value = cf.shareImageUrl || '';
                 templateCode.value = cf.displayTemplate || 'default';
+                rawChannelCfs.value = (cf && typeof cf === 'object') ? cf : null;
                 rawShopContent.value = cf.shopContent || null;
                 shopContent.value = parseShopContent(cf.shopContent);
                 // L3 店铺覆盖令牌（channel customFields.themeTokensOverride）走 activeChannel 读取，
@@ -160,6 +165,8 @@ export const useTenantStore = defineStore('tenant', () => {
         // 而未知 token 会让后续所有请求报 ChannelNotFound，导致无法再回退到默认店。
         token.value = '';
         templateCode.value = 'default';
+        rawChannelCfs.value = null;
+        homeLayout.value = 'default';
         shopContent.value = null;
         rawShopContent.value = null;
         rawGlobalConfig.value = null;
@@ -200,6 +207,7 @@ export const useTenantStore = defineStore('tenant', () => {
                 Array.isArray(sections) && sections.length
                     ? { version: 1, sections: sections as any[] }
                     : null;
+            homeLayout.value = resolveHomeLayout(globalConfig, template, rawChannelCfs.value);
         } catch (e) {
             console.warn('[tenant] loadTemplateConfig failed', e);
         }
@@ -264,7 +272,8 @@ export const useTenantStore = defineStore('tenant', () => {
     return {
         token, tenantCode, templateCode, tenantName, paymentMethods, shippingMethods,
         employeePickupMode, defaultLocation, authMethods, wechatAppId, ssoProviders,
-        tenantReady, shopContent, rawShopContent, rawGlobalConfig, themeTokens, rawThemeOverride, mergedShopContent,
+        tenantReady, shopContent, rawShopContent, rawChannelCfs, rawGlobalConfig, themeTokens, rawThemeOverride, mergedShopContent,
+        homeLayout,
         shopName, shopLogo, shopIntro, servicePhone, shareImageUrl, tenantInvalid,
         initTenant, switchTenant, listTenants,
         setPaymentMethods, setShippingMethods, loadChannelConfig, loadAuthMethods, loadSsoProviders,
