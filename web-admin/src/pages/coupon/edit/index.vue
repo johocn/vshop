@@ -37,11 +37,21 @@
         <text class="tip">{{ $t('couponEdit.channelsTip') }}</text>
       </view>
 
-      <!-- 商品专享券绑定：勾选「商品页领券」渠道时管理绑定商品 -->
+      <!-- 商品专享券绑定：勾选「商品页领券」渠道时内联展示已绑商品（解绑入口） -->
       <view class="field" v-if="form.channels.includes('PRODUCT')">
         <text class="label">{{ $t('couponBinding.title') }}</text>
-        <CouponBindingCard v-if="id" :template-id="id || ''" @changed="loadBound" />
+        <CouponBindingCard v-if="id" ref="bindCardRef" :template-id="id || ''" @changed="loadBound" />
         <text v-else class="tip">{{ $t('couponBinding.saveFirst') }}</text>
+      </view>
+
+      <!-- 适用商品：批量选品入口（上移至折扣前，搜索绑品功能统一走批量选品页） -->
+      <view class="field">
+        <text class="label">{{ $t('couponEdit.bindSection') }}</text>
+        <view class="bind-row">
+          <text class="bind-cnt">{{ boundCountText }}</text>
+          <text class="btn-mini" @tap="goBindProducts">{{ $t('couponEdit.batchPick') }}</text>
+        </view>
+        <text class="tip">{{ $t('couponEdit.bindTip') }}</text>
       </view>
 
       <!-- 出售价：仅「券商城」渠道可售 -->
@@ -135,16 +145,6 @@
         <input class="ipt" v-model="form.memberLevel" :placeholder="$t('couponEdit.phMemberLevel')" />
       </view>
 
-      <text class="lang-hd">{{ $t('couponEdit.bindSection') }}</text>
-      <view class="field">
-        <text class="label">{{ $t('couponEdit.boundLabel') }}</text>
-        <view class="bind-row">
-          <text class="bind-cnt">{{ boundCountText }}</text>
-          <text class="btn-mini" @tap="goBindProducts">{{ $t('couponEdit.batchPick') }}</text>
-        </view>
-        <text class="tip">{{ $t('couponEdit.bindTip') }}</text>
-      </view>
-
       <view class="field">
         <text class="label">{{ $t('couponEdit.enabledLabel') }}</text>
         <switch :checked="form.enabled" @change="form.enabled = $event.detail.value" color="#2563eb" />
@@ -170,6 +170,9 @@ import { backToHome } from '../../../utils/h5Nav';
 import CouponBindingCard from '../../../components/coupon/CouponBindingCard.vue';
 
 const locale = useLocaleStore();
+
+// 内联已绑列表（商品页领券渠道）：从批量选品页返回时主动刷新
+const bindCardRef = ref<InstanceType<typeof CouponBindingCard> | null>(null);
 
 const id = ref<string | null>(null);
 // 支持「商品页快捷建券」：带 productId 时，新建的模板自动绑定到该商品
@@ -400,8 +403,12 @@ async function loadAll() {
 }
 
 onMounted(loadAll);
-// 从选品页返回时仅刷新「已绑商品」计数（首次显示时 formLoaded=false，由 onMounted 统一加载）
-onShow(() => { if (formLoaded.value) loadBound(); });
+// 从选品页返回时刷新「已绑商品」计数与内联已绑列表（首次显示时 formLoaded=false，由 onMounted 统一加载）
+onShow(() => {
+  if (!formLoaded.value) return;
+  loadBound();
+  bindCardRef.value?.reload();
+});
 
   // 后端 field resolver 返回的 name 为按会话语言本地化后的纯字符串，仅作 zh 兜底
   function plainName(name: string): string { return name || ''; }
