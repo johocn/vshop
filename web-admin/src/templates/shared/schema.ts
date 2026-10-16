@@ -38,11 +38,15 @@ export interface BrandFloorSection { type: 'brandFloor'; title?: string; }
 export interface PlazaSection { type: 'plaza'; title?: string; }
 export interface CouponSection { type: 'coupon'; title?: string; limit?: number; }
 export interface LatestSection { type: 'latest'; title?: string; collectionId?: string; limit?: number; layout?: GoodsLayout; }
+// 五级积木三新楼层（与前台 youshop schema 对齐；本工程无 LocalizedText，标题用 string）
+export interface VideoSection { type: 'video'; title?: string; poster?: string; videoUrl: string; }
+export interface PointsGoodsSection { type: 'pointsGoods'; title?: string; limit?: number; }
 
 export type ShopSection =
   | BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection
   | HotGoodsSection | RecommendGoodsSection
-  | BrandFloorSection | PlazaSection | CouponSection | LatestSection;
+  | BrandFloorSection | PlazaSection | CouponSection | LatestSection
+  | VideoSection | PointsGoodsSection;
 
 export interface ShopContent {
   version: number;
@@ -52,7 +56,7 @@ export interface ShopContent {
   hiddenSlots?: string[];
 }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest', 'flash'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest', 'flash', 'video', 'pointsGoods'];
 const GOODS_SOURCES = {
   hot: ['auto', 'collection'],
   recommend: ['auto', 'collection', 'slugs'],
@@ -101,9 +105,15 @@ export function isValidShopContent(data: any): data is ShopContent {
     if (sec.type === 'brandFloor' || sec.type === 'plaza') {
       if (sec.title != null && typeof sec.title !== 'string') return false;
     }
-    if (sec.type === 'coupon') {
+    if (sec.type === 'coupon' || sec.type === 'pointsGoods') {
       if (sec.title != null && typeof sec.title !== 'string') return false;
-      if (sec.limit != null && (!Number.isInteger(sec.limit) || sec.limit < 1 || sec.limit > 30)) return false;
+      // limit：正整数且 ≤ 20（与前台 CouponSection / PointsGoodsSection 一致）
+      if (sec.limit != null && (!Number.isInteger(sec.limit) || sec.limit < 1 || sec.limit > 20)) return false;
+    }
+    if (sec.type === 'video') {
+      if (typeof sec.videoUrl !== 'string' || !sec.videoUrl) return false;
+      if (sec.poster != null && typeof sec.poster !== 'string') return false;
+      if (sec.title != null && typeof sec.title !== 'string') return false;
     }
     if (sec.type === 'latest') {
       if (sec.title != null && typeof sec.title !== 'string') return false;
