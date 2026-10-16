@@ -107,6 +107,19 @@
               <switch :checked="pagesObj.product?.blocks?.[b.key]?.show !== false" color="#4f8cff" @change="togglePageBlock(b.key, ($event as any).detail.value)" />
             </view>
           </view>
+          <view class="field" v-if="curPage === 'home'">
+            <text class="label">{{ $t('decorateTheme.homeLayoutLabel') }}</text>
+            <view class="chips">
+              <text
+                v-for="l in HOME_LAYOUT_OPTS"
+                :key="l.key"
+                class="chip"
+                :class="{ on: (pagesObj.home?.layout || 'default') === l.key }"
+                @tap="setHomeLayout(l.key)"
+              >{{ l.label }}</text>
+            </view>
+            <text v-if="hasHomeSections" class="tip">{{ $t('decorateHome.sectionsFirstTip') }}</text>
+          </view>
           <view class="field"><text class="label">{{ $t('platformTemplates.pagesLabel') }}</text><textarea class="ta tall" v-model="form.pagesJson" placeholder='{"product":{"layout":"classic","blocks":{}},"home":{"sections":[]}}' /></view>
           <view class="guide">
             <view class="gl"><text class="glk">{{ $t('platformTemplates.pagesKey') }}</text> · product / home / category / cart / profile</view>
@@ -189,6 +202,8 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { templateApi, type ShopTemplate, type TemplateVersion, type TemplateReference } from '../../../apis/template';
 import { graphQlErrorMsg } from '../../../apis/client';
+// 跨端共用版式注册元数据（与 C 端 templates/shared 同源；若 vite 限制项目外读取，见 src/constants/layout-meta.ts fallback 方案）
+import { LAYOUT_META } from '../../../../../src/templates/shared/layout-meta';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -219,6 +234,12 @@ const BLOCK_OPTS = computed(() => [
   { key: 'reviews', label: locale.t('platformTemplates.blockReviews') },
   { key: 'description', label: locale.t('platformTemplates.blockDescription') },
 ]);
+// 首页版式选项：直接取跨端 LAYOUT_META，label 按 web-admin 当前语言显示
+const HOME_LAYOUT_OPTS = computed(() =>
+  LAYOUT_META.map((m) => ({ key: m.code, label: locale.locale === 'en' ? m.labelEn : m.labelZh })),
+);
+// 已配置积木楼层时提示「楼层优先，版式仅兜底」
+const hasHomeSections = computed(() => Array.isArray(pagesObj.value.home?.sections) && pagesObj.value.home.sections.length > 0);
 
 const paletteList = ref<Record<string, { name: string; tokens: Record<string, any> }>>({});
 const paletteScheme = ref('');
@@ -279,6 +300,13 @@ function fillPagesForm(pages: Record<string, any> | null) {
 function setPageLayout(key: string) {
   pagesObj.value.product = pagesObj.value.product ?? {};
   pagesObj.value.product.layout = key;
+  syncPagesJson();
+}
+
+/** 首页版式写入 pages.home.layout（C 端无楼层时的兜底版式） */
+function setHomeLayout(key: string) {
+  pagesObj.value.home = pagesObj.value.home ?? {};
+  pagesObj.value.home.layout = key;
   syncPagesJson();
 }
 
