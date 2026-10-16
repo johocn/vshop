@@ -1,7 +1,7 @@
 // 装修 JSON schema（web-admin 独立工程，无法 import 主 youshop 的 schema.ts，本地复制一份）
 export interface ShopTheme { primaryColor?: string; accentColor?: string; }
 export interface BannerImage { image: string; link?: string; }
-export interface BannerSection { type: 'banner'; images: BannerImage[]; }
+export interface BannerSection { type: 'banner'; images: BannerImage[]; style?: 'edgeScale'; }
 export interface NoticeSection { type: 'notice'; text: string; }
 export interface NavItem { label: string; icon?: string; image?: string; link?: string; }
 export type NavShape = 'square' | 'round';
@@ -41,12 +41,17 @@ export interface LatestSection { type: 'latest'; title?: string; collectionId?: 
 // 五级积木三新楼层（与前台 youshop schema 对齐；本工程无 LocalizedText，标题用 string）
 export interface VideoSection { type: 'video'; title?: string; poster?: string; videoUrl: string; }
 export interface PointsGoodsSection { type: 'pointsGoods'; title?: string; limit?: number; }
+// usemall 版式签名楼层（与前台 shop-content schema 对齐；title 支持字符串或 locale 字典）
+// 注意：hotGoods 与上方 type:'hot' 的 HotGoodsSection 不同，接口名用 HotPicksSection 避免重名
+export interface LimitGoodsSection { type: 'limitGoods'; title?: string | Record<string, string>; collectionSlug?: string; limit?: number; }
+export interface HotPicksSection { type: 'hotGoods'; title?: string | Record<string, string>; collectionSlug?: string; pageSize?: number; }
 
 export type ShopSection =
   | BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection
   | HotGoodsSection | RecommendGoodsSection
   | BrandFloorSection | PlazaSection | CouponSection | LatestSection
-  | VideoSection | PointsGoodsSection;
+  | VideoSection | PointsGoodsSection
+  | LimitGoodsSection | HotPicksSection;
 
 export interface ShopContent {
   version: number;
@@ -56,7 +61,7 @@ export interface ShopContent {
   hiddenSlots?: string[];
 }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest', 'flash', 'video', 'pointsGoods'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'hot', 'recommend', 'brandFloor', 'plaza', 'coupon', 'latest', 'flash', 'video', 'pointsGoods', 'limitGoods', 'hotGoods'];
 const GOODS_SOURCES = {
   hot: ['auto', 'collection'],
   recommend: ['auto', 'collection', 'slugs'],
@@ -80,6 +85,7 @@ export function isValidShopContent(data: any): data is ShopContent {
     if (!sec || typeof sec !== 'object') return false;
     if (!VALID_TYPES.includes(sec.type)) return false;
     if (sec.type === 'banner' && (!Array.isArray(sec.images) || sec.images.length === 0)) return false;
+    if (sec.type === 'banner' && sec.style != null && sec.style !== 'edgeScale') return false;
     if (sec.type === 'notice' && typeof sec.text !== 'string') return false;
     if (sec.type === 'nav' && (!Array.isArray(sec.items) || sec.items.length === 0)) return false;
     if (sec.type === 'goods' && sec.collectionId != null && typeof sec.collectionId !== 'string') return false;
@@ -114,6 +120,13 @@ export function isValidShopContent(data: any): data is ShopContent {
       if (typeof sec.videoUrl !== 'string' || !sec.videoUrl) return false;
       if (sec.poster != null && typeof sec.poster !== 'string') return false;
       if (sec.title != null && typeof sec.title !== 'string') return false;
+    }
+    // usemall 签名楼层：collectionSlug 可选字符串；title 字符串或 locale 字典；limit/pageSize 正整数 1..20
+    if (sec.type === 'limitGoods' || sec.type === 'hotGoods') {
+      if (sec.collectionSlug != null && typeof sec.collectionSlug !== 'string') return false;
+      if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+      if (sec.type === 'limitGoods' && sec.limit != null && (typeof sec.limit !== 'number' || sec.limit < 1 || sec.limit > 20)) return false;
+      if (sec.type === 'hotGoods' && sec.pageSize != null && (typeof sec.pageSize !== 'number' || sec.pageSize < 1 || sec.pageSize > 20)) return false;
     }
     if (sec.type === 'latest') {
       if (sec.title != null && typeof sec.title !== 'string') return false;
