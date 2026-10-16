@@ -23,6 +23,7 @@
       <RichTextSection v-else-if="sec.type === 'richText'" :section="sec" />
       <FlashSection v-else-if="sec.type === 'flash'" :section="sec" />
       <VideoSection v-else-if="sec.type === 'video'" :section="sec" />
+      <CouponSection v-else-if="sec.type === 'coupon'" :section="sec" />
     </template>
     <!-- #endif -->
   </view>
@@ -42,6 +43,7 @@ import GoodsSection from './sections/GoodsSection.vue';
 import RichTextSection from './sections/RichTextSection.vue';
 import FlashSection from './sections/FlashSection.vue';
 import VideoSection from './sections/VideoSection.vue';
+import CouponSection from './sections/CouponSection.vue';
 
 const { t } = useI18n();
 const tenantStore = useTenantStore();
