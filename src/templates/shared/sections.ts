@@ -9,6 +9,8 @@ import FlashSection from './sections/FlashSection.vue';
 import VideoSection from './sections/VideoSection.vue';
 import CouponSection from './sections/CouponSection.vue';
 import PointsGoodsSection from './sections/PointsGoodsSection.vue';
+import LimitGoodsSection from './sections/LimitGoodsSection.vue';
+import HotGoodsSection from './sections/HotGoodsSection.vue';
 
 export const SECTION_COMPONENTS: Record<string, Component> = {
   banner: BannerSection,
@@ -20,4 +22,6 @@ export const SECTION_COMPONENTS: Record<string, Component> = {
   video: VideoSection,
   coupon: CouponSection,
   pointsGoods: PointsGoodsSection,
+  limitGoods: LimitGoodsSection,
+  hotGoods: HotGoodsSection,
 };
