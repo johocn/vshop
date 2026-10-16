@@ -105,11 +105,13 @@ export function plainName(zh: string): string {
 }
 
 export async function fetchCouponTemplates(options: { skip: number; take: number }): Promise<{ items: CouponTemplateItem[]; totalItems: number }> {
+  // 后加的券最先显示：固定 createdAt 倒序
+  const merged = { ...options, sort: { createdAt: 'DESC' as const } };
   const { couponTemplates } = await getAdminClient().request<{ couponTemplates: { items: CouponTemplateItem[]; totalItems: number } }>(
     `query CouponTemplates($options: CouponTemplateListOptions) {
       couponTemplates(options: $options) { items { ${FIELDS} } totalItems }
     }`,
-    { options },
+    { options: merged },
   );
   return { items: couponTemplates?.items ?? [], totalItems: couponTemplates?.totalItems ?? 0 };
 }
@@ -466,7 +468,7 @@ export async function fetchCouponBundles(
       `query CouponBundles($options: CouponBundleListOptions) {
         couponBundles(options: $options) { items { ${BUNDLE_FIELDS} } totalItems }
       }`,
-      { options },
+      { options: { ...options, sort: { createdAt: 'DESC' as const } } },
     );
     return { items: couponBundles?.items ?? [], totalItems: couponBundles?.totalItems ?? 0 };
   } catch (e: any) {

@@ -56,7 +56,7 @@ export async function fetchPickupLocations(isPublic?: boolean): Promise<PickupLo
   const { pickupLocations } = await getAdminClient().request<{
     pickupLocations: { items: PickupLocationItem[]; totalItems: number };
   }>(`query PickupLocations {
-    pickupLocations(options: { take: 100, skip: 0${filter} }) {
+    pickupLocations(options: { take: 100, skip: 0, sort: { createdAt: DESC }${filter} }) {
       items { ${FIELDS} }
       totalItems
     }

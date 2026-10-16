@@ -49,7 +49,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
   fetchFlashSaleActivities, deleteFlashSaleActivity, FlashSaleActivity, FlashSaleStatus,
 } from '../../../apis/flashSale';
@@ -128,6 +128,9 @@ function onDelete(c: FlashSaleActivity) {
   });
 }
 
+// 新建/编辑保存返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
+let flashSaleListShown = false;
+onShow(() => { if (flashSaleListShown) load(); flashSaleListShown = true; });
 onMounted(load);
 onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
 onReachBottom(loadMore);

@@ -80,7 +80,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, reactive, computed, onMounted } from 'vue';
-import { onPullDownRefresh } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import {
@@ -149,6 +149,9 @@ function switchFilter(v: 'all' | 'on' | 'off') {
   load(0);
 }
 
+// 新建/编辑商品返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
+let productListShown = false;
+onShow(() => { if (productListShown) load(true); productListShown = true; });
 onMounted(() => load(0));
 
 // 页面开启了 enablePullDownRefresh，但此前未实现 onPullDownRefresh，

@@ -86,7 +86,7 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue';
-import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplates, deleteCouponTemplate, setCouponTemplateEnabled,
   couponTypeLabel, fmtCNY, CouponTemplateItem,
@@ -235,6 +235,9 @@ function onDelete(c: CouponTemplateItem) {
   });
 }
 
+// 新建/编辑保存返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
+let couponListShown = false;
+onShow(() => { if (couponListShown) load(); couponListShown = true; });
 onMounted(load);
 onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
 onReachBottom(loadMore);
