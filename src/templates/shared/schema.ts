@@ -8,9 +8,13 @@ export interface BannerImage {
     link?: string;
 }
 
+export type BannerStyle = 'edgeScale';
+
 export interface BannerSection {
     type: 'banner';
     images: BannerImage[];
+    /** usemall 版式露边缩放轮播样式（可选，缺省为普通轮播） */
+    style?: BannerStyle;
 }
 
 export interface NoticeSection {
@@ -85,7 +89,27 @@ export interface PointsGoodsSection {
     limit?: number;
 }
 
-export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection | VideoSection | CouponSection | PointsGoodsSection;
+export interface LimitGoodsSection {
+    type: 'limitGoods';
+    /** 标题；字符串或 locale 字典（LocalizedText） */
+    title?: string | Record<string, string>;
+    /** 商品集合 slug（searchProducts 分页取数） */
+    collectionSlug?: string;
+    /** 楼层最多取几件，默认 6，范围 1..20 */
+    limit?: number;
+}
+
+export interface HotGoodsSection {
+    type: 'hotGoods';
+    /** 标题；字符串或 locale 字典（LocalizedText） */
+    title?: string | Record<string, string>;
+    /** 商品集合 slug（searchProducts 分页加载） */
+    collectionSlug?: string;
+    /** 每页条数，默认 10，范围 1..20 */
+    pageSize?: number;
+}
+
+export type ShopSection = BannerSection | NoticeSection | NavSection | GoodsSection | RichTextSection | FlashSection | VideoSection | CouponSection | PointsGoodsSection | LimitGoodsSection | HotGoodsSection;
 
 export interface ShopContent {
     version: number;
@@ -93,7 +117,7 @@ export interface ShopContent {
     sections: ShopSection[];
 }
 
-const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash', 'video', 'coupon', 'pointsGoods'];
+const VALID_TYPES = ['banner', 'notice', 'nav', 'goods', 'richText', 'flash', 'video', 'coupon', 'pointsGoods', 'limitGoods', 'hotGoods'];
 
 export function parseShopContent(raw: string | null | undefined): ShopContent | null {
     if (!raw) return null;
@@ -117,6 +141,7 @@ export function isValidShopContent(data: any): data is ShopContent {
         if (!sec || typeof sec !== 'object') return false;
         if (!VALID_TYPES.includes(sec.type)) return false;
         if (sec.type === 'banner' && (!Array.isArray(sec.images) || sec.images.length === 0)) return false;
+        if (sec.type === 'banner' && sec.style != null && sec.style !== 'edgeScale') return false;
         if (sec.type === 'notice' && typeof sec.text !== 'string') return false;
         if (sec.type === 'nav' && (!Array.isArray(sec.items) || sec.items.length === 0)) return false;
         if (sec.type === 'goods' && sec.collectionId != null && typeof sec.collectionId !== 'string') return false;
@@ -135,6 +160,12 @@ export function isValidShopContent(data: any): data is ShopContent {
         if (sec.type === 'coupon' || sec.type === 'pointsGoods') {
             if (sec.limit != null && (typeof sec.limit !== 'number' || sec.limit < 1 || sec.limit > 20)) return false;
             if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+        }
+        if (sec.type === 'limitGoods' || sec.type === 'hotGoods') {
+            if (sec.collectionSlug != null && typeof sec.collectionSlug !== 'string') return false;
+            if (sec.title != null && typeof sec.title !== 'string' && typeof sec.title !== 'object') return false;
+            if (sec.type === 'limitGoods' && sec.limit != null && (typeof sec.limit !== 'number' || sec.limit < 1 || sec.limit > 20)) return false;
+            if (sec.type === 'hotGoods' && sec.pageSize != null && (typeof sec.pageSize !== 'number' || sec.pageSize < 1 || sec.pageSize > 20)) return false;
         }
     }
     return true;
