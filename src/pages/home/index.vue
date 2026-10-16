@@ -1,10 +1,7 @@
 <template>
   <view class="home-page" @scroll="broadcastScroll">
     <TenantBar />
-    <DynamicHome v-if="hasShopContent" />
-    <FreshHome v-else-if="templateCode === 'fresh'" />
-    <MarketplaceHome v-else-if="templateCode === 'marketplace'" />
-    <DefaultHome v-else />
+    <component :is="layoutComponent" />
     <BackTop />
   </view>
 </template>
@@ -16,20 +13,23 @@ import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 import { useAuthStore } from '../../stores/auth';
 import { useShare } from '../../composables/useShare';
-import DefaultHome from '../../templates/default/pages/HomeContent.vue';
-import FreshHome from '../../templates/fresh/pages/HomeContent.vue';
-import MarketplaceHome from '../../templates/marketplace/pages/HomeContent.vue';
-import DynamicHome from '../../templates/shared/DynamicHome.vue';
+import { LAYOUT_COMPONENTS, FALLBACK_LAYOUT } from '../../templates/layouts';
 import TenantBar from '../../components/TenantBar.vue';
 import BackTop from '../../components/BackTop.vue';
 
 const { t } = useI18n();
 const tenantStore = useTenantStore();
 const authStore = useAuthStore();
-const { templateCode } = tenantStore;
 const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
 const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
+// 本任务临时用 templateCode，Task 4 将切换为 store.homeLayout
+const layoutKey = computed(() => {
+    if (hasShopContent.value) return 'dynamic'; // sections 优先（原体系行为）
+    const k = tenantStore.templateCode || 'default';
+    return LAYOUT_COMPONENTS[k] ? k : FALLBACK_LAYOUT;
+});
+const layoutComponent = computed(() => LAYOUT_COMPONENTS[layoutKey.value]);
 useShare({
     title: `${channelName.value} - ${t('home.shareTitle')}`,
     path: inviteCode.value ? `/?ref=${inviteCode.value}` : '/',
