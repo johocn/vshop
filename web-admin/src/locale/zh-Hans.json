@@ -2515,7 +2515,20 @@
     "addPointsGoods": "+ 积分楼层",
     "typePointsGoods": "积分楼层",
     "limitLabel": "展示数量（1-20）",
-    "sectionsFirstTip": "楼层内容优先：已配置的装修楼层将优先渲染，版式仅作无楼层时的兜底"
+    "sectionsFirstTip": "楼层内容优先：已配置的装修楼层将优先渲染，版式仅作无楼层时的兜底",
+    "addLimitGoods": "+ 限时精选",
+    "addHotGoods": "+ 热门推荐",
+    "typeLimitGoods": "限时精选",
+    "typeHotGoods": "热门推荐",
+    "limitGoodsTitle": "楼层标题（留空用默认「限时精选」）",
+    "hotGoodsTitle": "楼层标题（留空用默认「热门推荐」）",
+    "titlePh": "楼层标题",
+    "collectionSlug": "商品集合 slug",
+    "collectionSlugPh": "如 limited，留空则展示全部商品",
+    "pageSize": "每页条数（1-20，默认 10）",
+    "bannerStyle": "轮播样式",
+    "bannerStyleNormal": "普通",
+    "bannerStyleEdge": "露边缩放"
   },
   "decorateProduct": {
     "title": "详情页装修",
