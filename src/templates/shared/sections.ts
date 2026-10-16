@@ -8,6 +8,7 @@ import RichTextSection from './sections/RichTextSection.vue';
 import FlashSection from './sections/FlashSection.vue';
 import VideoSection from './sections/VideoSection.vue';
 import CouponSection from './sections/CouponSection.vue';
+import PointsGoodsSection from './sections/PointsGoodsSection.vue';
 
 export const SECTION_COMPONENTS: Record<string, Component> = {
   banner: BannerSection,
@@ -18,5 +19,5 @@ export const SECTION_COMPONENTS: Record<string, Component> = {
   flash: FlashSection,
   video: VideoSection,
   coupon: CouponSection,
-  // pointsGoods：Task 9 创建后在此注册
+  pointsGoods: PointsGoodsSection,
 };
