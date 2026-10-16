@@ -23,10 +23,9 @@ const authStore = useAuthStore();
 const channelName = computed(() => tenantStore.tenantName);
 const inviteCode = computed(() => authStore.inviteCode);
 const hasShopContent = computed(() => !!tenantStore.mergedShopContent?.sections?.length);
-// 本任务临时用 templateCode，Task 4 将切换为 store.homeLayout
 const layoutKey = computed(() => {
     if (hasShopContent.value) return 'dynamic'; // sections 优先（原体系行为）
-    const k = tenantStore.templateCode || 'default';
+    const k = tenantStore.homeLayout;
     return LAYOUT_COMPONENTS[k] ? k : FALLBACK_LAYOUT;
 });
 const layoutComponent = computed(() => LAYOUT_COMPONENTS[layoutKey.value]);
