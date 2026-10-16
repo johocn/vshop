@@ -228,9 +228,38 @@
         </view>
         <view class="field">
           <text class="lbl">{{ $t('decorateHome.couponLimit') }}</text>
-          <input type="number" v-model.number="sec.limit" />
+          <input type="number" v-model.number="sec.limit" @blur="clampLimit(sec)" />
         </view>
         <view class="muted hint">{{ $t('decorateHome.couponHint') }}</view>
+      </template>
+
+      <!-- video：视频楼层 -->
+      <template v-else-if="sec.type === 'video'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.videoPoster') }}</text>
+          <input v-model="sec.poster" :placeholder="$t('decorateHome.optional')" />
+          <text class="pick" @tap="openPosterPicker(si)">{{ $t('mediaPicker.addImage') }}</text>
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.videoUrl') }}</text>
+          <input v-model="sec.videoUrl" :placeholder="$t('decorateHome.videoUrlPlaceholder')" />
+        </view>
+      </template>
+
+      <!-- pointsGoods：积分楼层 -->
+      <template v-else-if="sec.type === 'pointsGoods'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.title') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePlaceholder')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limitLabel') }}</text>
+          <input type="number" v-model.number="sec.limit" @blur="clampLimit(sec)" />
+        </view>
       </template>
 
       <!-- latest：最新商品 -->
@@ -275,12 +304,17 @@
       <button class="mini" @tap="addRecommend">{{ $t('decorateHome.addRecommend') }}</button>
       <button class="mini" @tap="addBrandFloor">{{ $t('decorateHome.addBrandFloor') }}</button>
       <button class="mini" @tap="addPlaza">{{ $t('decorateHome.addPlaza') }}</button>
+      <button class="mini" @tap="addVideo">{{ $t('decorateHome.addVideo') }}</button>
       <button class="mini" @tap="addCoupon">{{ $t('decorateHome.addCoupon') }}</button>
+      <button class="mini" @tap="addPointsGoods">{{ $t('decorateHome.addPointsGoods') }}</button>
       <button class="mini" @tap="addLatest">{{ $t('decorateHome.addLatest') }}</button>
       <button class="mini" @tap="addRichText">{{ $t('decorateHome.addRichText') }}</button>
     </view>
 
     <button class="save" @tap="save" :disabled="saving">{{ $t('decorateHome.save') }}</button>
+
+    <!-- video 封面图选择（媒体库单选，确认后回填 URL） -->
+    <MediaLibraryModal v-model:visible="posterModalVisible" :max="1" media-type="image" :value="[]" @confirm="onPosterConfirm" />
   </view>
 </template>
 
@@ -288,6 +322,8 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { parseShopContent, isValidShopContent, ShopSection, ShopContent } from '../../../templates/shared/schema';
+import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
+import type { AssetItem } from '../../../apis/asset';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 // 编辑态视图模型：可选字段覆盖所有 section type，便于模板直接访问（vue-tsc 不会在模板内做联合类型收窄）
@@ -305,6 +341,9 @@ interface SectionVM {
   source?: string;
   limit?: number;
   dedupe?: boolean;
+  // video 专属
+  poster?: string;
+  videoUrl?: string;
   // recommend source=slugs 的编辑态原文（落库时拆成 slugs: string[]）
   slugsText?: string;
 }
@@ -376,6 +415,8 @@ function typeLabel(t: string): string {
     case 'brandFloor': return locale.t('decorateHome.typeBrandFloor');
     case 'plaza': return locale.t('decorateHome.typePlaza');
     case 'coupon': return locale.t('decorateHome.typeCoupon');
+    case 'video': return locale.t('decorateHome.typeVideo');
+    case 'pointsGoods': return locale.t('decorateHome.typePointsGoods');
     case 'latest': return locale.t('decorateHome.typeLatest');
     case 'richText': return locale.t('decorateHome.typeRichText');
     default: return t;
@@ -392,7 +433,9 @@ function addHot() { sections.value.push({ type: 'hot', source: 'auto', limit: 10
 function addRecommend() { sections.value.push({ type: 'recommend', source: 'auto', limit: 10, layout: 'compact', dedupe: true }); }
 function addBrandFloor() { sections.value.push({ type: 'brandFloor', title: '' }); }
 function addPlaza() { sections.value.push({ type: 'plaza', title: '' }); }
+function addVideo() { sections.value.push({ type: 'video', title: '', poster: '', videoUrl: '' }); }
 function addCoupon() { sections.value.push({ type: 'coupon', title: '', limit: 6 }); }
+function addPointsGoods() { sections.value.push({ type: 'pointsGoods', title: '', limit: 6 }); }
 function addLatest() { sections.value.push({ type: 'latest', title: '', collectionId: '', limit: 10, layout: 'compact' }); }
 function addRichText() { sections.value.push({ type: 'richText', html: '' }); }
 
@@ -409,15 +452,45 @@ function toSection(vm: SectionVM): any {
   const sec: any = { ...vm };
   delete sec.slugsText;
   if (typeof sec.title === 'string' && !sec.title.trim()) delete sec.title;
+  if (sec.type === 'video' && typeof sec.poster === 'string' && !sec.poster.trim()) delete sec.poster;
   if (sec.type === 'latest' && typeof sec.collectionId === 'string' && !sec.collectionId.trim()) delete sec.collectionId;
-  if (sec.type === 'latest' || sec.type === 'coupon') {
+  if (sec.type === 'latest') {
     if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
       sec.limit = Math.min(30, Math.max(1, Math.round(sec.limit)));
     } else {
       delete sec.limit;
     }
   }
+  if (sec.type === 'coupon' || sec.type === 'pointsGoods') {
+    if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
+      // 与前台 schema 对齐：范围 1..20
+      sec.limit = Math.min(20, Math.max(1, Math.round(sec.limit)));
+    } else {
+      delete sec.limit;
+    }
+  }
   return sec;
+}
+
+// coupon / pointsGoods 展示数量 blur 时即钳制到 1..20
+function clampLimit(sec: SectionVM) {
+  if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
+    sec.limit = Math.min(20, Math.max(1, Math.round(sec.limit)));
+  }
+}
+
+// video 封面图：从媒体库选图回填 URL
+const posterModalVisible = ref(false);
+let posterTargetIndex = -1;
+function openPosterPicker(sectionIndex: number) {
+  posterTargetIndex = sectionIndex;
+  posterModalVisible.value = true;
+}
+function onPosterConfirm(assets: AssetItem[]) {
+  const asset = assets[0];
+  if (!asset) return;
+  const sec = sections.value[posterTargetIndex];
+  if (sec) sec.poster = asset.source || asset.preview || '';
 }
 
 function toCuratedSection(vm: SectionVM): any {
@@ -519,6 +592,7 @@ function buildContent(): ShopContent | null {
       .lbl { font-size: 24rpx; color: $wa-muted; display: block; margin-bottom: 8rpx; }
       input, textarea { background: $wa-card; border: 1rpx solid $wa-rule; border-radius: $wa-radius;
         padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; width: 100%; box-sizing: border-box; }
+      .pick { display: block; margin-top: 8rpx; font-size: 22rpx; color: $wa-accent; }
     }
     .btns { display: flex; flex-wrap: wrap; gap: 12rpx;
       .btn { flex: 1 1 30%; text-align: center; font-size: 24rpx; color: $wa-ink;
