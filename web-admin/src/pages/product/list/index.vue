@@ -4,7 +4,7 @@
       <input
         v-model="term"
         class="search"
-        placeholder="{{ locale.t('productList.searchPlaceholder') }}"
+        :placeholder="locale.t('productList.searchPlaceholder')"
         confirm-type="search"
         @confirm="load(0)"
       />
