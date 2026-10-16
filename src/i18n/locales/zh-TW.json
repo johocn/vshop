@@ -9,6 +9,17 @@
         "badge": "秒殺價",
         "fallbackName": "限時好物"
     },
+    "usemall": {
+        "searchTip": "搜尋商品"
+    },
+    "limitGoods": {
+        "title": "限時精選",
+        "more": "更多"
+    },
+    "hotGoods": {
+        "title": "熱門推薦",
+        "more": "更多"
+    },
     "homeSections": {
         "video": {
             "loadFail": "影片載入失敗"

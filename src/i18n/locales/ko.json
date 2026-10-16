@@ -9,6 +9,17 @@
         "badge": "특가",
         "fallbackName": "한정 상품"
     },
+    "usemall": {
+        "searchTip": "상품 검색"
+    },
+    "limitGoods": {
+        "title": "한정 특선",
+        "more": "더보기"
+    },
+    "hotGoods": {
+        "title": "인기 추천",
+        "more": "더보기"
+    },
     "homeSections": {
         "video": {
             "loadFail": "동영상을 불러오지 못했습니다"
