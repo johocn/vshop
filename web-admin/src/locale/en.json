@@ -2515,7 +2515,20 @@
     "addPointsGoods": "+ Points goods floor",
     "typePointsGoods": "Points goods floor",
     "limitLabel": "Items to show (1-20)",
-    "sectionsFirstTip": "Sections take priority: configured floors render first; the layout is only a fallback when no floors are configured"
+    "sectionsFirstTip": "Sections take priority: configured floors render first; the layout is only a fallback when no floors are configured",
+    "addLimitGoods": "+ Limited Picks",
+    "addHotGoods": "+ Hot Picks",
+    "typeLimitGoods": "Limited Picks",
+    "typeHotGoods": "Hot Picks",
+    "limitGoodsTitle": "Floor title (empty = default)",
+    "hotGoodsTitle": "Floor title (empty = default)",
+    "titlePh": "Floor title",
+    "collectionSlug": "Collection slug",
+    "collectionSlugPh": "e.g. limited; empty = all products",
+    "pageSize": "Page size (1-20, default 10)",
+    "bannerStyle": "Carousel style",
+    "bannerStyleNormal": "Normal",
+    "bannerStyleEdge": "Edge scale"
   },
   "decorateProduct": {
     "title": "Product Page Design",
