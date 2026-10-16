@@ -9,6 +9,18 @@
         "badge": "Flash price",
         "fallbackName": "Flash deal"
     },
+    "homeSections": {
+        "video": {
+            "loadFail": "Video failed to load"
+        },
+        "coupon": {
+            "claim": "Claim",
+            "empty": "No coupons available yet"
+        },
+        "pointsGoods": {
+            "empty": "No points goods yet"
+        }
+    },
     "common": {
         "confirm": "Confirm",
         "cancel": "Cancel",

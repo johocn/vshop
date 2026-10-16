@@ -9,6 +9,18 @@
         "badge": "セール価格",
         "fallbackName": "限定商品"
     },
+    "homeSections": {
+        "video": {
+            "loadFail": "動画の読み込みに失敗しました"
+        },
+        "coupon": {
+            "claim": "受け取る",
+            "empty": "受け取れるクーポンはありません"
+        },
+        "pointsGoods": {
+            "empty": "ポイント商品はありません"
+        }
+    },
     "common": {
         "confirm": "確認",
         "cancel": "キャンセル",

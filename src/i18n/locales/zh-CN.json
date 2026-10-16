@@ -9,6 +9,18 @@
         "badge": "秒杀价",
         "fallbackName": "限时好物"
     },
+    "homeSections": {
+        "video": {
+            "loadFail": "视频加载失败"
+        },
+        "coupon": {
+            "claim": "去领取",
+            "empty": "暂无可领优惠券"
+        },
+        "pointsGoods": {
+            "empty": "暂无积分商品"
+        }
+    },
     "common": {
         "confirm": "确认",
         "cancel": "取消",

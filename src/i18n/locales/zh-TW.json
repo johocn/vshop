@@ -9,6 +9,18 @@
         "badge": "秒殺價",
         "fallbackName": "限時好物"
     },
+    "homeSections": {
+        "video": {
+            "loadFail": "影片載入失敗"
+        },
+        "coupon": {
+            "claim": "去領取",
+            "empty": "暫無可領優惠券"
+        },
+        "pointsGoods": {
+            "empty": "暫無積分商品"
+        }
+    },
     "common": {
         "confirm": "確認",
         "cancel": "取消",
