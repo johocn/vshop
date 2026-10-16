@@ -9,6 +9,18 @@
         "badge": "특가",
         "fallbackName": "한정 상품"
     },
+    "homeSections": {
+        "video": {
+            "loadFail": "동영상을 불러오지 못했습니다"
+        },
+        "coupon": {
+            "claim": "받기",
+            "empty": "받을 수 있는 쿠폰이 없습니다"
+        },
+        "pointsGoods": {
+            "empty": "포인트 상품이 없습니다"
+        }
+    },
     "common": {
         "confirm": "확인",
         "cancel": "취소",
