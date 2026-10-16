@@ -39,6 +39,13 @@
           </view>
         </view>
         <view class="add" @tap="addBannerItem(sec)">{{ $t('decorateHome.addBanner') }}</view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.bannerStyle') }}</text>
+          <view class="btns">
+            <text class="btn" :class="{ active: !sec.style }" @tap="sec.style = ''">{{ $t('decorateHome.bannerStyleNormal') }}</text>
+            <text class="btn" :class="{ active: sec.style === 'edgeScale' }" @tap="sec.style = 'edgeScale'">{{ $t('decorateHome.bannerStyleEdge') }}</text>
+          </view>
+        </view>
       </template>
 
       <!-- notice：公告 -->
@@ -287,6 +294,38 @@
         <view class="muted hint">{{ $t('decorateHome.latestHint') }}</view>
       </template>
 
+      <!-- limitGoods：限时精选（usemall 签名楼层） -->
+      <template v-else-if="sec.type === 'limitGoods'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limitGoodsTitle') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePh')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.collectionSlug') }}</text>
+          <input v-model="sec.collectionSlug" :placeholder="$t('decorateHome.collectionSlugPh')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.limitLabel') }}</text>
+          <input type="number" v-model.number="sec.limit" placeholder="6" @blur="clampLimit(sec)" />
+        </view>
+      </template>
+
+      <!-- hotGoods：热门推荐（usemall 签名楼层） -->
+      <template v-else-if="sec.type === 'hotGoods'">
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.hotGoodsTitle') }}</text>
+          <input v-model="sec.title" :placeholder="$t('decorateHome.titlePh')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.collectionSlug') }}</text>
+          <input v-model="sec.collectionSlug" :placeholder="$t('decorateHome.collectionSlugPh')" />
+        </view>
+        <view class="field">
+          <text class="lbl">{{ $t('decorateHome.pageSize') }}</text>
+          <input type="number" v-model.number="sec.pageSize" placeholder="10" @blur="clampPageSize(sec)" />
+        </view>
+      </template>
+
       <!-- richText：富文本 -->
       <view v-else-if="sec.type === 'richText'" class="field">
         <text class="lbl">{{ $t('decorateHome.richText') }}</text>
@@ -305,6 +344,8 @@
       <button class="mini" @tap="addBrandFloor">{{ $t('decorateHome.addBrandFloor') }}</button>
       <button class="mini" @tap="addPlaza">{{ $t('decorateHome.addPlaza') }}</button>
       <button class="mini" @tap="addVideo">{{ $t('decorateHome.addVideo') }}</button>
+      <button class="mini" @tap="addLimitGoods">{{ $t('decorateHome.addLimitGoods') }}</button>
+      <button class="mini" @tap="addHotGoods">{{ $t('decorateHome.addHotGoods') }}</button>
       <button class="mini" @tap="addCoupon">{{ $t('decorateHome.addCoupon') }}</button>
       <button class="mini" @tap="addPointsGoods">{{ $t('decorateHome.addPointsGoods') }}</button>
       <button class="mini" @tap="addLatest">{{ $t('decorateHome.addLatest') }}</button>
@@ -344,6 +385,11 @@ interface SectionVM {
   // video 专属
   poster?: string;
   videoUrl?: string;
+  // limitGoods / hotGoods 专属
+  collectionSlug?: string;
+  pageSize?: number;
+  // banner 增强样式（'' = 普通轮播，落库前清除）
+  style?: string;
   // recommend source=slugs 的编辑态原文（落库时拆成 slugs: string[]）
   slugsText?: string;
 }
@@ -417,6 +463,8 @@ function typeLabel(t: string): string {
     case 'coupon': return locale.t('decorateHome.typeCoupon');
     case 'video': return locale.t('decorateHome.typeVideo');
     case 'pointsGoods': return locale.t('decorateHome.typePointsGoods');
+    case 'limitGoods': return locale.t('decorateHome.typeLimitGoods');
+    case 'hotGoods': return locale.t('decorateHome.typeHotGoods');
     case 'latest': return locale.t('decorateHome.typeLatest');
     case 'richText': return locale.t('decorateHome.typeRichText');
     default: return t;
@@ -434,6 +482,8 @@ function addRecommend() { sections.value.push({ type: 'recommend', source: 'auto
 function addBrandFloor() { sections.value.push({ type: 'brandFloor', title: '' }); }
 function addPlaza() { sections.value.push({ type: 'plaza', title: '' }); }
 function addVideo() { sections.value.push({ type: 'video', title: '', poster: '', videoUrl: '' }); }
+function addLimitGoods() { sections.value.push({ type: 'limitGoods', title: '', collectionSlug: '', limit: 6 }); }
+function addHotGoods() { sections.value.push({ type: 'hotGoods', title: '', collectionSlug: '', pageSize: 10 }); }
 function addCoupon() { sections.value.push({ type: 'coupon', title: '', limit: 6 }); }
 function addPointsGoods() { sections.value.push({ type: 'pointsGoods', title: '', limit: 6 }); }
 function addLatest() { sections.value.push({ type: 'latest', title: '', collectionId: '', limit: 10, layout: 'compact' }); }
@@ -453,7 +503,27 @@ function toSection(vm: SectionVM): any {
   delete sec.slugsText;
   if (typeof sec.title === 'string' && !sec.title.trim()) delete sec.title;
   if (sec.type === 'video' && typeof sec.poster === 'string' && !sec.poster.trim()) delete sec.poster;
+  if (sec.type === 'banner' && typeof sec.style === 'string' && !sec.style.trim()) delete sec.style;
   if (sec.type === 'latest' && typeof sec.collectionId === 'string' && !sec.collectionId.trim()) delete sec.collectionId;
+  if (sec.type === 'limitGoods' || sec.type === 'hotGoods') {
+    if (typeof sec.collectionSlug === 'string' && !sec.collectionSlug.trim()) delete sec.collectionSlug;
+  }
+  if (sec.type === 'limitGoods') {
+    if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
+      // 与前台 schema 对齐：范围 1..20
+      sec.limit = Math.min(20, Math.max(1, Math.round(sec.limit)));
+    } else {
+      delete sec.limit;
+    }
+  }
+  if (sec.type === 'hotGoods') {
+    if (typeof sec.pageSize === 'number' && Number.isFinite(sec.pageSize)) {
+      // 与前台 schema 对齐：范围 1..20
+      sec.pageSize = Math.min(20, Math.max(1, Math.round(sec.pageSize)));
+    } else {
+      delete sec.pageSize;
+    }
+  }
   if (sec.type === 'latest') {
     if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
       sec.limit = Math.min(30, Math.max(1, Math.round(sec.limit)));
@@ -476,6 +546,13 @@ function toSection(vm: SectionVM): any {
 function clampLimit(sec: SectionVM) {
   if (typeof sec.limit === 'number' && Number.isFinite(sec.limit)) {
     sec.limit = Math.min(20, Math.max(1, Math.round(sec.limit)));
+  }
+}
+
+// hotGoods 每页条数 blur 时即钳制到 1..20
+function clampPageSize(sec: SectionVM) {
+  if (typeof sec.pageSize === 'number' && Number.isFinite(sec.pageSize)) {
+    sec.pageSize = Math.min(20, Math.max(1, Math.round(sec.pageSize)));
   }
 }
 
