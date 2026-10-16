@@ -8,9 +8,22 @@
       </view>
       <text class="diy-entry__arrow">›</text>
     </view>
+    <!-- #ifdef H5 -->
     <template v-for="(sec, i) in visibleSections" :key="i">
       <component :is="SECTION_COMPONENTS[sec.type]" :section="sec" />
     </template>
+    <!-- #endif -->
+    <!-- #ifndef H5 -->
+    <!-- 小程序端不支持 <component :is>，v-if 链与 shared/sections.ts 注册表需同步维护：新增楼层类型两处都要加 -->
+    <template v-for="(sec, i) in visibleSections" :key="i">
+      <BannerSection v-if="sec.type === 'banner'" :section="sec" />
+      <NoticeSection v-else-if="sec.type === 'notice'" :section="sec" />
+      <NavSection v-else-if="sec.type === 'nav'" :section="sec" />
+      <GoodsSection v-else-if="sec.type === 'goods'" :section="sec" />
+      <RichTextSection v-else-if="sec.type === 'richText'" :section="sec" />
+      <FlashSection v-else-if="sec.type === 'flash'" :section="sec" />
+    </template>
+    <!-- #endif -->
   </view>
 </template>
 
@@ -19,6 +32,14 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
 import { SECTION_COMPONENTS } from './sections';
+// 楼层组件直接 import：MP 端模板 v-if 链使用；H5 端模板分支未引用（多打进包一点，可接受）。
+// 同步提醒：新增楼层类型时，上方 MP v-if 链与 shared/sections.ts 注册表两处都要加。
+import BannerSection from './sections/BannerSection.vue';
+import NoticeSection from './sections/NoticeSection.vue';
+import NavSection from './sections/NavSection.vue';
+import GoodsSection from './sections/GoodsSection.vue';
+import RichTextSection from './sections/RichTextSection.vue';
+import FlashSection from './sections/FlashSection.vue';
 
 const { t } = useI18n();
 const tenantStore = useTenantStore();
