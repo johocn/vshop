@@ -8,13 +8,8 @@
       </view>
       <text class="diy-entry__arrow">›</text>
     </view>
-    <template v-for="(sec, i) in sections" :key="i">
-      <BannerSection v-if="sec.type === 'banner'" :section="sec" />
-      <NoticeSection v-else-if="sec.type === 'notice'" :section="sec" />
-      <NavSection v-else-if="sec.type === 'nav'" :section="sec" />
-      <GoodsSection v-else-if="sec.type === 'goods'" :section="sec" />
-      <RichTextSection v-else-if="sec.type === 'richText'" :section="sec" />
-      <FlashSection v-else-if="sec.type === 'flash'" :section="sec" />
+    <template v-for="(sec, i) in visibleSections" :key="i">
+      <component :is="SECTION_COMPONENTS[sec.type]" :section="sec" />
     </template>
   </view>
 </template>
@@ -23,16 +18,14 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
-import BannerSection from './sections/BannerSection.vue';
-import NoticeSection from './sections/NoticeSection.vue';
-import NavSection from './sections/NavSection.vue';
-import GoodsSection from './sections/GoodsSection.vue';
-import RichTextSection from './sections/RichTextSection.vue';
-import FlashSection from './sections/FlashSection.vue';
+import { SECTION_COMPONENTS } from './sections';
 
 const { t } = useI18n();
 const tenantStore = useTenantStore();
 const sections = computed(() => tenantStore.mergedShopContent?.sections || tenantStore.shopContent?.sections || []);
+const visibleSections = computed(() =>
+  sections.value.filter((s: any) => s && typeof s === 'object' && SECTION_COMPONENTS[s.type]),
+);
 
 function navTo(url: string) { uni.navigateTo({ url }); }
 </script>
