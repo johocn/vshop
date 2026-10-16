@@ -9,6 +9,17 @@
         "badge": "秒杀价",
         "fallbackName": "限时好物"
     },
+    "usemall": {
+        "searchTip": "搜索商品"
+    },
+    "limitGoods": {
+        "title": "限时精选",
+        "more": "更多"
+    },
+    "hotGoods": {
+        "title": "热门推荐",
+        "more": "更多"
+    },
     "homeSections": {
         "video": {
             "loadFail": "视频加载失败"

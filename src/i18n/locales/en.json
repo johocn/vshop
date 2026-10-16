@@ -9,6 +9,17 @@
         "badge": "Flash price",
         "fallbackName": "Flash deal"
     },
+    "usemall": {
+        "searchTip": "Search products"
+    },
+    "limitGoods": {
+        "title": "Limited Picks",
+        "more": "More"
+    },
+    "hotGoods": {
+        "title": "Hot Picks",
+        "more": "More"
+    },
     "homeSections": {
         "video": {
             "loadFail": "Video failed to load"

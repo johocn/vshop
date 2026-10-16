@@ -9,6 +9,17 @@
         "badge": "セール価格",
         "fallbackName": "限定商品"
     },
+    "usemall": {
+        "searchTip": "商品を検索"
+    },
+    "limitGoods": {
+        "title": "期間限定セレクト",
+        "more": "もっと見る"
+    },
+    "hotGoods": {
+        "title": "人気おすすめ",
+        "more": "もっと見る"
+    },
     "homeSections": {
         "video": {
             "loadFail": "動画の読み込みに失敗しました"
