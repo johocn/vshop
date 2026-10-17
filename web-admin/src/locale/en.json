@@ -881,7 +881,7 @@
     "sceneOnline": "Online orders only",
     "sceneInStore": "In-store payment only",
     "sceneAll": "Online + in-store",
-    "sceneInStoreTip": "In-store coupon: customer shows the code, merchant redeems and collects offline at the discount (8 off by default)",
+    "sceneInStoreTip": "In-store coupon: customer shows the code, merchant redeems and collects offline at the discount (8 off by default); with the \"Coupon Center\" channel enabled, customers can self-claim it under the \"In-Store\" tab of the coupon center",
     "channelsLabel": "Distribution channels *",
     "channelsTip": "Multiple allowed; if none selected, channels are derived from legacy fields (claim/points/code/product binding)",
     "channelCentre": "Coupon centre",

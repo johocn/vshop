@@ -11,15 +11,15 @@ const COUPON_TEMPLATE_FIELDS = `
     distributionChannels salePrice
 `;
 
-/** 领券中心：当前可领取的优惠券模板列表 */
-export async function getCouponCentre() {
+/** 领券中心：当前可领取的优惠券模板列表；scene: ONLINE（默认）| IN_STORE（到店券）| ALL */
+export async function getCouponCentre(scene?: string) {
     const client = getGraphQLClient();
-    const query = `query CouponCentre {
-        couponCentre {
+    const query = `query CouponCentre($scene: CouponUsageScene) {
+        couponCentre(scene: $scene) {
             ${COUPON_TEMPLATE_FIELDS}
         }
     }`;
-    return client.request(query);
+    return client.request(query, { scene: scene ?? null });
 }
 
 /** 我的卡包（已领取的券），可按状态过滤：UNUSED / USED / RETURNED / EXPIRED / INVALID */
