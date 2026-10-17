@@ -20,6 +20,65 @@
         "title": "Hot Picks",
         "more": "More"
     },
+    "search": {
+        "placeholder": "Search products",
+        "btn": "Search",
+        "history": "Recent searches",
+        "clearHistory": "Clear",
+        "hot": "Trending searches",
+        "noResult": "No matching products found",
+        "hotWords": ["Fall jackets", "Hoodies", "Air fryer", "Wireless earbuds", "Mugs"]
+    },
+    "browsing": {
+        "clear": "Clear",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "earlier": "Earlier",
+        "empty": "No browsing history yet",
+        "localTip": "History is stored on this device only · up to 100 items"
+    },
+    "sign": {
+        "myPoints": "My Points",
+        "streak": "{n}-day streak",
+        "checkinBtn": "Check In Now",
+        "checked": "Checked in today",
+        "weekTip": "This week's record is stored on your device",
+        "pointsDetail": "Points History",
+        "rules": "Check-in Rules",
+        "rulesBody": "Earn 10 points for your first check-in each day. The longer your streak, the higher your member-level benefits multiplier."
+    },
+    "forgot": {
+        "step1": "Verify Identity",
+        "step2": "Set New Password",
+        "phone": "Phone Number",
+        "code": "SMS Code",
+        "codePlaceholder": "Enter verification code",
+        "getCode": "Get Code",
+        "resend": "Resend in {s}s",
+        "newPassword": "New Password",
+        "newPasswordPlaceholder": "8-20 characters, letters and numbers",
+        "next": "Next",
+        "submit": "Reset Password",
+        "success": "Password reset. Please log in again",
+        "invalidPhone": "Invalid phone number",
+        "sendFail": "Failed to send the code. Please try again later"
+    },
+    "groupJoin": {
+        "ongoing": "Group in progress",
+        "success": "Group succeeded",
+        "failed": "Timed out — refund issued automatically",
+        "timeLeft": "{t} left",
+        "needMore": "{n} more to form the group · ships automatically once formed",
+        "joined": "{m}/{n} joined",
+        "join": "Join the Group",
+        "invite": "Invite Friends",
+        "strategy": "How Group Buy Works",
+        "strategyBody": "1. The leader or a friend pays to start the group; 2. Invite friends to join the same group deal; 3. When enough people join, the group forms and ships automatically; 4. If time runs out, the group is cancelled and refunded automatically.",
+        "notFound": "This group deal doesn't exist or has ended"
+    },
+    "login": {
+        "forgotPassword": "Forgot password?"
+    },
     "homeSections": {
         "video": {
             "loadFail": "Video failed to load"
@@ -365,6 +424,9 @@
         "returnShipping": "Return Shipping",
         "trackingNo": "Tracking No.",
         "carrier": "Carrier",
+        "carrierLabel": "Carrier",
+        "carrierPlaceholder": "Select a carrier",
+        "submitExpress": "Submit Shipping Info",
         "status": {
             "pending": "Pending",
             "approved": "Approved",
@@ -778,6 +840,7 @@
         "pointsExchange": "Redeem Points",
         "pointsHistory": "Points History",
         "myOrders": "My Orders",
+        "footprints": "My Footprints",
         "myReviews": "My Reviews",
         "myInvoices": "My Invoices",
         "invoiceTitles": "Invoice Titles",

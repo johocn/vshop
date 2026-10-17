@@ -20,6 +20,65 @@
         "title": "熱門推薦",
         "more": "更多"
     },
+    "search": {
+        "placeholder": "搜尋商品",
+        "btn": "搜尋",
+        "history": "搜尋紀錄",
+        "clearHistory": "清空",
+        "hot": "熱門搜尋",
+        "noResult": "沒有找到相關商品",
+        "hotWords": ["秋冬外套", "衛衣", "氣炸鍋", "藍牙耳機", "馬克杯"]
+    },
+    "browsing": {
+        "clear": "清空",
+        "today": "今天",
+        "yesterday": "昨天",
+        "earlier": "更早",
+        "empty": "還沒有瀏覽紀錄",
+        "localTip": "足跡僅保存在本機 · 最多保留 100 筆"
+    },
+    "sign": {
+        "myPoints": "我的積分",
+        "streak": "連續簽到 {n} 天",
+        "checkinBtn": "立即簽到",
+        "checked": "今日已簽到",
+        "weekTip": "本週紀錄保存在本機",
+        "pointsDetail": "積分明細",
+        "rules": "簽到規則",
+        "rulesBody": "每日首次簽到得 10 積分，連續簽到越多，會員等級權益倍率越高。"
+    },
+    "forgot": {
+        "step1": "驗證身分",
+        "step2": "設定新密碼",
+        "phone": "手機號",
+        "code": "簡訊驗證碼",
+        "codePlaceholder": "請輸入驗證碼",
+        "getCode": "取得驗證碼",
+        "resend": "重新取得 {s}s",
+        "newPassword": "新密碼",
+        "newPasswordPlaceholder": "8-20 位，含字母和數字",
+        "next": "下一步",
+        "submit": "重設密碼",
+        "success": "密碼已重設，請重新登入",
+        "invalidPhone": "手機號格式不正確",
+        "sendFail": "驗證碼發送失敗，請稍後再試"
+    },
+    "groupJoin": {
+        "ongoing": "拼團中",
+        "success": "拼團成功",
+        "failed": "超時未成團，將自動退款",
+        "timeLeft": "剩餘 {t}",
+        "needMore": "還差 {n} 人成團 · 成團後自動出貨",
+        "joined": "已參團 {m}/{n} 人",
+        "join": "參與拼單",
+        "invite": "邀請好友拼單",
+        "strategy": "拼團攻略",
+        "strategyBody": "1. 發起人或好友支付開團；2. 邀請好友參與同一拼團活動；3. 人數達標自動成團出貨；4. 超時未成團自動取消並退款。",
+        "notFound": "拼團活動不存在或已結束"
+    },
+    "login": {
+        "forgotPassword": "忘記密碼？"
+    },
     "homeSections": {
         "video": {
             "loadFail": "影片載入失敗"
@@ -365,6 +424,9 @@
         "returnShipping": "退貨物流",
         "trackingNo": "快遞單號",
         "carrier": "快遞公司",
+        "carrierLabel": "快遞公司",
+        "carrierPlaceholder": "選擇快遞公司",
+        "submitExpress": "提交物流資訊",
         "status": {
             "pending": "待處理",
             "approved": "已批准",
@@ -778,6 +840,7 @@
         "pointsExchange": "積分兌換",
         "pointsHistory": "積分明細",
         "myOrders": "我的訂單",
+        "footprints": "我的足跡",
         "myReviews": "我的評價",
         "myInvoices": "我的發票",
         "invoiceTitles": "發票抬頭管理",

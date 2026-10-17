@@ -1,5 +1,7 @@
 <template>
   <view class="category-page">
+    <SearchBar :placeholder="t('search.placeholder')" @search="goSearchPage" />
+    <view class="category-page__body">
     <view class="category-page__left">
       <scroll-view scroll-y class="category-page__nav">
         <view v-for="cat in categories" :key="cat.id"
@@ -38,6 +40,7 @@
         <view class="fab" @click="toTop">↑</view>
       </view>
     </view>
+    </view>
   </view>
 </template>
 <script setup lang="ts">
@@ -48,6 +51,7 @@ import { searchProducts } from '../../api/queries/product';
 import VImage from '../../components/VImage.vue';
 import PriceTag from '../../components/PriceTag.vue';
 import EmptyState from '../../components/EmptyState.vue';
+import SearchBar from '../../components/SearchBar.vue';
 
 const { t } = useI18n();
 const categories = ref<any[]>([]);
@@ -121,15 +125,20 @@ function toTop() {
 }
 
 function getMinPrice(price: any): number { return price?.value ?? price?.min ?? 0; }
+function goSearchPage(q?: string) {
+    const term = (q || '').trim();
+    uni.navigateTo({ url: '/pkg-product/pages/search/index' + (term ? '?q=' + encodeURIComponent(term) : '') });
+}
 function goList(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/list?collectionSlug=' + slug }); }
 function goDetail(slug: string) { uni.navigateTo({ url: '/pkg-product/pages/detail?slug=' + slug }); }
 </script>
 <style lang="scss" scoped>
-.category-page { display: flex; height: 100vh; background: #f5f5f5;
+.category-page { display: flex; flex-direction: column; height: 100vh; background: #f5f5f5;
+    &__body { flex: 1; display: flex; min-height: 0; }
     &__left { width: 180rpx; background: #fff; flex-shrink: 0; }
-    &__nav { height: 100vh; }
-    &__right { flex: 1; }
-    &__content { height: 100vh; padding: 20rpx; box-sizing: border-box; }
+    &__nav { height: 100%; }
+    &__right { flex: 1; min-width: 0; }
+    &__content { height: 100%; padding: 20rpx; box-sizing: border-box; }
 }
 .nav-item { padding: 30rpx 20rpx; font-size: 26rpx; text-align: center; border-left: 4rpx solid transparent;
     &.active { background: #f5f5f5; color: $brand-color; border-left-color: $brand-color; font-weight: bold; }

@@ -13,6 +13,7 @@
         </button>
       </view>
       <button class="login-page__submit" :disabled="!phone || !code" @click="loginWithPhone">{{ t('auth.login') }}</button>
+      <text class="forgot-link" @click="goForgot">{{ t('login.forgotPassword') }}</text>
     </view>
     <view class="login-page__form" v-if="mode === 'local'">
       <input class="login-page__input" v-model="username" type="text" :placeholder="t('auth.usernamePlaceholder')" />
@@ -534,6 +535,10 @@ function goRegister() {
     uni.navigateTo({ url: '/pages/register/index' });
 }
 
+function goForgot() {
+    uni.navigateTo({ url: '/pages/login/forgot-password' });
+}
+
 function goAgreement(type: 'user' | 'privacy') {
     uni.navigateTo({ url: `/pkg-user/pages/agreement?type=${type}` });
 }
@@ -561,6 +566,7 @@ function goAgreement(type: 'user' | 'privacy') {
     &--sso { background: #fff; color: $text-color; border: 1rpx solid $border-color; }
 }
 .register-link { font-size: 26rpx; color: $brand-color; text-align: center; margin-top: 20rpx; }
+.forgot-link { display: block; font-size: 26rpx; color: $brand-color; text-align: center; margin-top: 24rpx; }
 .agreement-text { font-size: 22rpx; color: #999; }
 .agreement-link { font-size: 22rpx; color: $brand-color; }
 </style>
