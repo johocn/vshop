@@ -7,6 +7,11 @@ describe('hasDetail', () => {
         expect(hasDetail({ 'zh-CN': ' ' }, 'zh-CN')).toBe(false);
         expect(hasDetail(null, 'zh-CN')).toBe(false);
     });
+
+    it('字符串 description：有内容 true / 空串 false', () => {
+        expect(hasDetail('介绍', 'zh-CN')).toBe(true);
+        expect(hasDetail('', 'zh-CN')).toBe(false);
+    });
 });
 
 describe('parseDetailParagraphs', () => {
