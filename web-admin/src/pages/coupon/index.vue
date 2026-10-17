@@ -28,6 +28,7 @@
           <text class="badge tag" v-if="c.claimCode">{{ $t('couponList.badgeClaimCode') }}</text>
           <text class="badge tag" v-if="c.newCustomerOnly">{{ $t('couponList.badgeNewCustomer') }}</text>
           <text class="badge tag" v-if="c.scope === 'SKU'">{{ $t('couponList.badgeSku') }}</text>
+          <text class="badge tag" v-if="hasDetail(c)">{{ $t('couponEdit.hasDetail') }}</text>
           <text class="badge off" v-if="!c.enabled">{{ $t('couponList.disabled') }}</text>
         </view>
         <view class="value">{{ valueText(c) }}</view>
@@ -111,6 +112,10 @@ function openDetail(c: CouponTemplateItem) {
 }
 
 const typeLabel = (t: string) => couponTypeLabel(t);
+// description（任意语言）非空即视为有详情，列表展示「有详情」标记
+function hasDetail(c: CouponTemplateItem): boolean {
+  return !!(c.descZh?.trim() || c.descEn?.trim() || c.description?.trim());
+}
 const shopText = (id?: string | null) => (id ? locale.t('couponList.storeShop').replace('{id}', id) : locale.t('couponList.platform'));
 
 const valueText = (c: CouponTemplateItem): string => {

@@ -920,6 +920,8 @@
     "phDescZh": "选填",
     "descEnLabel": "券说明（English）",
     "phDescEn": "选填",
+    "insertImageHint": "选图后在介绍末尾插入（支持多张，逐张插入）",
+    "hasDetail": "有详情",
     "claimSection": "领取设置",
     "claimableLabel": "允许用户自行领取",
     "claimCodeLabel": "凭码领券",

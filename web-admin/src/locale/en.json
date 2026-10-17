@@ -920,6 +920,8 @@
     "phDescZh": "Optional",
     "descEnLabel": "Coupon description (English)",
     "phDescEn": "Optional",
+    "insertImageHint": "Pick an image to append to the detail (repeatable)",
+    "hasDetail": "Has detail",
     "claimSection": "Claim settings",
     "claimableLabel": "Allow self-claim",
     "claimCodeLabel": "Claim by code",
