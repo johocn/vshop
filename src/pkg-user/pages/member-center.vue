@@ -46,7 +46,7 @@
         <text class="card__num">{{ couponCount }}</text>
         <text class="card__label">{{ t('memberCenter.coupons') }}</text>
       </view>
-      <view class="card" @click="doCheckin">
+      <view class="card" @click="navTo('/pkg-user/pages/sign/index')">
         <text class="card__num" :class="{ 'card__num--done': checkedIn }">{{ checkedIn ? t('memberCenter.checkedIn') : t('memberCenter.checkin') }}</text>
         <text class="card__label">{{ t('memberCenter.streakDays', { n: streak }) }}</text>
       </view>
@@ -62,13 +62,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getMyTier, getCheckinToday, doCheckin as doCheckinMutation } from '../../api/queries/member';
+import { getMyTier, getCheckinToday } from '../../api/queries/member';
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyCoupons } from '../../api/queries/coupon';
-import { useUIStore } from '../../stores/ui';
 
 const { t } = useI18n();
-const ui = useUIStore();
 const info = ref<any>({});
 const balance = ref(0);
 const myCoupons = ref<any[]>([]);
@@ -113,22 +111,6 @@ async function refresh() {
     myCoupons.value = cp?.myCoupons || [];
     checkedIn.value = ct?.checkinToday?.checkedIn || false;
     streak.value = ct?.checkinToday?.streak || 0;
-}
-
-async function doCheckin() {
-    if (checkedIn.value) return;
-    try {
-        ui.showLoading();
-        const res: any = await doCheckinMutation();
-        const r = res?.checkin;
-        ui.hideLoading();
-        if (r?.success) {
-            ui.showToast(t('memberCenter.checkinSuccess', { n: r.points ?? 0 }), 'success');
-            await refresh();
-        } else {
-            ui.showToast(r?.reason || t('memberCenter.alreadyCheckedIn'), 'error');
-        }
-    } catch (e: any) { ui.hideLoading(); ui.showToast(e.message || t('memberCenter.checkinFailed'), 'error'); }
 }
 
 onMounted(async () => {

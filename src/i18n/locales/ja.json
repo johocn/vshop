@@ -20,6 +20,65 @@
         "title": "人気おすすめ",
         "more": "もっと見る"
     },
+    "search": {
+        "placeholder": "商品を検索",
+        "btn": "検索",
+        "history": "検索履歴",
+        "clearHistory": "クリア",
+        "hot": "人気の検索ワード",
+        "noResult": "関連する商品が見つかりません",
+        "hotWords": ["秋冬アウター", "パーカー", "電気フライヤー", "ワイヤレスイヤホン", "マグカップ"]
+    },
+    "browsing": {
+        "clear": "クリア",
+        "today": "今日",
+        "yesterday": "昨日",
+        "earlier": "さらに前",
+        "empty": "閲覧履歴はまだありません",
+        "localTip": "閲覧履歴はこの端末にのみ保存されます · 最大100件"
+    },
+    "sign": {
+        "myPoints": "マイポイント",
+        "streak": "{n}日連続チェックイン",
+        "checkinBtn": "今すぐチェックイン",
+        "checked": "本日チェックイン済み",
+        "weekTip": "今週の記録は端末内に保存されます",
+        "pointsDetail": "ポイント履歴",
+        "rules": "チェックイン規則",
+        "rulesBody": "毎日最初のチェックインで10ポイント獲得。連続日数が多いほど、会員ランク特典の倍率がアップします。"
+    },
+    "forgot": {
+        "step1": "本人確認",
+        "step2": "新しいパスワードを設定",
+        "phone": "電話番号",
+        "code": "SMS認証コード",
+        "codePlaceholder": "認証コードを入力してください",
+        "getCode": "認証コードを取得",
+        "resend": "{s}秒後に再取得",
+        "newPassword": "新しいパスワード",
+        "newPasswordPlaceholder": "8〜20桁、英数字を含む",
+        "next": "次へ",
+        "submit": "パスワードをリセット",
+        "success": "パスワードをリセットしました。再度ログインしてください",
+        "invalidPhone": "電話番号の形式が正しくありません",
+        "sendFail": "認証コードの送信に失敗しました。しばらくしてからもう一度お試しください"
+    },
+    "groupJoin": {
+        "ongoing": "グループ購入 進行中",
+        "success": "グループ購入 成立",
+        "failed": "時間切れで不成立 — 自動返金されます",
+        "timeLeft": "残り {t}",
+        "needMore": "あと{n}人で成立 · 成立後すぐ出荷",
+        "joined": "{m}/{n}人参加済み",
+        "join": "グループに参加",
+        "invite": "友だちを招待して共同購入",
+        "strategy": "グループ購入ガイド",
+        "strategyBody": "1. オーナーまたは友だちが支払ってグループを開始；2. 友だちを同じグループ購入に招待；3. 人数が揃うと自動的に成立して出荷；4. 時間切れの場合は自動キャンセル・返金されます。",
+        "notFound": "このグループ購入は存在しないか、終了しました"
+    },
+    "login": {
+        "forgotPassword": "パスワードをお忘れですか？"
+    },
     "homeSections": {
         "video": {
             "loadFail": "動画の読み込みに失敗しました"
@@ -365,6 +424,9 @@
         "returnShipping": "返品物流",
         "trackingNo": "追跡番号",
         "carrier": "配送業者",
+        "carrierLabel": "配送業者",
+        "carrierPlaceholder": "配送業者を選択",
+        "submitExpress": "配送情報を送信",
         "status": {
             "pending": "処理待ち",
             "approved": "承認済み",
@@ -778,6 +840,7 @@
         "pointsExchange": "ポイント交換",
         "pointsHistory": "ポイント履歴",
         "myOrders": "注文履歴",
+        "footprints": "閲覧履歴",
         "myReviews": "マイ評価",
         "myInvoices": "請求書一覧",
         "invoiceTitles": "宛名管理",

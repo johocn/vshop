@@ -1,6 +1,6 @@
 <template>
   <view class="usemall-home">
-    <!-- usemall 签名：灰底白胶囊搜索条（独立搜索页属子项目 1，本期占位跳分类页） -->
+    <!-- usemall 签名：灰底白胶囊搜索条 -->
     <view class="usemall-home__search" @tap="goSearch">
       <text class="usemall-home__search-tip">{{ t('usemall.searchTip') }}</text>
       <svg class="usemall-home__search-ic" viewBox="0 0 24 24" width="15" height="15">
@@ -59,8 +59,7 @@ const visibleSections = computed(() =>
 );
 
 function goSearch() {
-  // 独立搜索页未上线（子项目 1），占位跳分类页
-  uni.switchTab({ url: '/pages/category/index' });
+  uni.navigateTo({ url: '/pkg-product/pages/search/index' });
 }
 </script>
 

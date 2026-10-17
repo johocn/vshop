@@ -20,6 +20,65 @@
         "title": "인기 추천",
         "more": "더보기"
     },
+    "search": {
+        "placeholder": "상품 검색",
+        "btn": "검색",
+        "history": "검색 기록",
+        "clearHistory": "지우기",
+        "hot": "인기 검색어",
+        "noResult": "관련 상품을 찾을 수 없습니다",
+        "hotWords": ["가을 겉옷", "후드티", "에어프라이어", "무선 이어폰", "머그컵"]
+    },
+    "browsing": {
+        "clear": "지우기",
+        "today": "오늘",
+        "yesterday": "어제",
+        "earlier": "이전 기록",
+        "empty": "아직 열람 기록이 없습니다",
+        "localTip": "열람 기록은 이 기기에만 저장됩니다 · 최대 100개"
+    },
+    "sign": {
+        "myPoints": "내 포인트",
+        "streak": "{n}일 연속 출석",
+        "checkinBtn": "지금 출석하기",
+        "checked": "오늘 출석 완료",
+        "weekTip": "이번 주 기록은 기기에 저장됩니다",
+        "pointsDetail": "포인트 내역",
+        "rules": "출석 규칙",
+        "rulesBody": "매일 첫 출석 시 10포인트를 드립니다. 연속 출석일수가 길수록 멤버십 등급 혜택 배율이 높아집니다."
+    },
+    "forgot": {
+        "step1": "본인 확인",
+        "step2": "새 비밀번호 설정",
+        "phone": "휴대폰 번호",
+        "code": "SMS 인증번호",
+        "codePlaceholder": "인증번호를 입력하세요",
+        "getCode": "인증번호 받기",
+        "resend": "{s}초 후 재전송",
+        "newPassword": "새 비밀번호",
+        "newPasswordPlaceholder": "8-20자, 영문과 숫자 포함",
+        "next": "다음",
+        "submit": "비밀번호 재설정",
+        "success": "비밀번호가 재설정되었습니다. 다시 로그인해 주세요",
+        "invalidPhone": "휴대폰 번호 형식이 올바르지 않습니다",
+        "sendFail": "인증번호 전송에 실패했습니다. 잠시 후 다시 시도해 주세요"
+    },
+    "groupJoin": {
+        "ongoing": "공동구매 진행 중",
+        "success": "공동구매 성공",
+        "failed": "시간 초과 미성사 — 자동 환불됩니다",
+        "timeLeft": "남은 시간 {t}",
+        "needMore": "{n}명 더 모이면 성공 · 성공 후 자동 발송",
+        "joined": "{m}/{n}명 참여 완료",
+        "join": "공동구매 참여",
+        "invite": "친구 초대하고 함께 구매",
+        "strategy": "공동구매 안내",
+        "strategyBody": "1. 리더 또는 친구가 결제하여 공동구매를 시작합니다; 2. 친구를 같은 공동구매에 초대합니다; 3. 인원이 모이면 자동으로 성사되어 발송됩니다; 4. 시간 초과 시 자동 취소 및 환불됩니다.",
+        "notFound": "존재하지 않거나 종료된 공동구매입니다"
+    },
+    "login": {
+        "forgotPassword": "비밀번호를 잊으셨나요?"
+    },
     "homeSections": {
         "video": {
             "loadFail": "동영상을 불러오지 못했습니다"
@@ -365,6 +424,9 @@
         "returnShipping": "반품 배송",
         "trackingNo": "운송장 번호",
         "carrier": "택배사",
+        "carrierLabel": "택배사",
+        "carrierPlaceholder": "택배사 선택",
+        "submitExpress": "배송 정보 제출",
         "status": {
             "pending": "처리 대기",
             "approved": "승인됨",
@@ -778,6 +840,7 @@
         "pointsExchange": "포인트 교환",
         "pointsHistory": "포인트 내역",
         "myOrders": "주문 내역",
+        "footprints": "열람 기록",
         "myReviews": "내 평가",
         "myInvoices": "내 인보이스",
         "invoiceTitles": "인보이스 정보 관리",

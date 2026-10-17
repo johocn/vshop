@@ -20,6 +20,65 @@
         "title": "热门推荐",
         "more": "更多"
     },
+    "search": {
+        "placeholder": "搜索商品",
+        "btn": "搜索",
+        "history": "搜索历史",
+        "clearHistory": "清空",
+        "hot": "热门搜索",
+        "noResult": "没有找到相关商品",
+        "hotWords": ["秋冬外套", "卫衣", "空气炸锅", "蓝牙耳机", "马克杯"]
+    },
+    "browsing": {
+        "clear": "清空",
+        "today": "今天",
+        "yesterday": "昨天",
+        "earlier": "更早",
+        "empty": "还没有浏览记录",
+        "localTip": "足迹仅保存在本机 · 最多保留 100 条"
+    },
+    "sign": {
+        "myPoints": "我的积分",
+        "streak": "连续签到 {n} 天",
+        "checkinBtn": "立即签到",
+        "checked": "今日已签到",
+        "weekTip": "本周记录保存在本机",
+        "pointsDetail": "积分明细",
+        "rules": "签到规则",
+        "rulesBody": "每日首次签到得 10 积分，连续签到越多，会员等级权益倍率越高。"
+    },
+    "forgot": {
+        "step1": "验证身份",
+        "step2": "设置新密码",
+        "phone": "手机号",
+        "code": "短信验证码",
+        "codePlaceholder": "请输入验证码",
+        "getCode": "获取验证码",
+        "resend": "重新获取 {s}s",
+        "newPassword": "新密码",
+        "newPasswordPlaceholder": "8-20 位，含字母和数字",
+        "next": "下一步",
+        "submit": "重置密码",
+        "success": "密码已重置，请重新登录",
+        "invalidPhone": "手机号格式不正确",
+        "sendFail": "验证码发送失败，请稍后再试"
+    },
+    "groupJoin": {
+        "ongoing": "拼团中",
+        "success": "拼团成功",
+        "failed": "超时未成团，将自动退款",
+        "timeLeft": "剩余 {t}",
+        "needMore": "还差 {n} 人成团 · 成团后自动发货",
+        "joined": "已参团 {m}/{n} 人",
+        "join": "参与拼单",
+        "invite": "邀请好友拼单",
+        "strategy": "拼团攻略",
+        "strategyBody": "1. 发起人或好友支付开团；2. 邀请好友参与同一拼团活动；3. 人数达标自动成团发货；4. 超时未成团自动取消并退款。",
+        "notFound": "拼团活动不存在或已结束"
+    },
+    "login": {
+        "forgotPassword": "忘记密码？"
+    },
     "homeSections": {
         "video": {
             "loadFail": "视频加载失败"
@@ -365,6 +424,9 @@
         "returnShipping": "退货物流",
         "trackingNo": "快递单号",
         "carrier": "快递公司",
+        "carrierLabel": "快递公司",
+        "carrierPlaceholder": "选择快递公司",
+        "submitExpress": "提交物流信息",
         "status": {
             "pending": "待处理",
             "approved": "已批准",
@@ -778,6 +840,7 @@
         "pointsExchange": "积分兑换",
         "pointsHistory": "积分明细",
         "myOrders": "我的订单",
+        "footprints": "我的足迹",
         "myReviews": "我的评价",
         "myInvoices": "我的发票",
         "invoiceTitles": "发票抬头管理",

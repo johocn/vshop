@@ -183,6 +183,16 @@ export async function registerCustomer(input: {
     return data;
 }
 
+export async function resetPasswordWithPhoneCode(phoneNumber: string, code: string, newPassword: string): Promise<boolean> {
+    const { data } = await authRequest(
+        `mutation ResetPwd($phoneNumber: String!, $code: String!, $newPassword: String!) {
+            resetPasswordWithPhoneCode(phoneNumber: $phoneNumber, code: $code, newPassword: $newPassword)
+        }`,
+        { phoneNumber, code, newPassword }
+    );
+    return data?.resetPasswordWithPhoneCode ?? false;
+}
+
 export async function logout(): Promise<void> {
     const { data } = await authRequest(`mutation { logout { success } }`);
 }

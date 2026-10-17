@@ -32,7 +32,8 @@
         <view class="gb-card__foot">
           <text class="gb-card__tag">{{ t('promotion.groupUnit', { n: item.targetCount }) }} · {{ t('promotion.remainPrefix') }} {{ countdownOf(item) }}</text>
         </view>
-        <button class="gb-card__action" @click="joinGroup(item, false)">{{ t('promotion.goGroupBuy') }}</button>
+        <button class="gb-card__action gb-card__action--invite" @click="goGroupJoin(item)">{{ t('groupJoin.invite') }}</button>
+        <button class="gb-card__action gb-card__action--join" @click="joinGroup(item, false)">{{ t('promotion.goGroupBuy') }}</button>
       </view>
       <EmptyState v-if="activities.length === 0" :text="t('promotion.emptyActivities')" />
     </template>
@@ -207,6 +208,10 @@ function goLogin() {
     uni.navigateTo({ url: '/pages/login/index?redirect=' + encodeURIComponent('/pkg-promotion/pages/group-buy') });
 }
 
+function goGroupJoin(activity: any) {
+    uni.navigateTo({ url: '/pkg-promotion/pages/group-join?activityId=' + activity.id });
+}
+
 function onPrimary(order: any) {
     if (order.status === 'failed') {
         const slug = productMap.value[String(order.activity?.productId)]?.slug;
@@ -285,7 +290,10 @@ async function joinGroup(activity: any, isLeader: boolean) {
     &__lack { font-size: 22rpx; color: $text-color-secondary; }
     &__foot { display: flex; flex-direction: column; align-items: flex-start; margin-top: 12rpx; }
     &__tag { font-size: 22rpx; color: #fff; background: $price-color; border-radius: 8rpx; padding: 2rpx 10rpx; }
-    &__action { width: 100%; margin-top: 16rpx; background: $brand-color; color: #fff; border-radius: $radius-md; border: none; height: 72rpx; line-height: 72rpx; font-size: 28rpx; }
+    &__action { width: 100%; margin-top: 16rpx; background: $brand-color; color: #fff; border-radius: $radius-md; border: none; height: 72rpx; line-height: 72rpx; font-size: 28rpx;
+        &--invite { background: #fff; color: $brand-color; border: 1rpx solid $brand-color; }
+        &--join { margin-top: 12rpx; }
+    }
 }
 .gb-gate { display: flex; flex-direction: column; align-items: center; gap: 24rpx; background: #fff; border-radius: $radius-md; padding: 80rpx 20rpx;
     &__text { font-size: 26rpx; color: $text-color-secondary; }

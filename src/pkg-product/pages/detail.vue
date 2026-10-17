@@ -136,8 +136,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useProductShare } from '../../composables/useShare';
+import { useBrowsingHistory } from '../../composables/useBrowsingHistory';
 import { getProduct } from '../../api/queries/product';
 import { getMyMemberPrice } from '../../api/queries/member-price';
 import { toggleProductFavorite, getProductFavoriteMeta } from '../../api/queries/points-mall';
@@ -355,6 +356,19 @@ function goCart() {
 function shareNow() {
     ui.showToast(t('productDetail.shareTip'));
 }
+
+// ── 足迹：商品数据加载完成后写入本地浏览历史（同 slug 去重置顶，见 useBrowsingHistory） ──
+const browsing = useBrowsingHistory();
+watch(product, (p) => {
+    if (!p) return;
+    browsing.add({
+        slug: String(p.slug || ''),
+        id: String(p.id || ''),
+        name: String(p.name || ''),
+        price: Number(displayPrice.value) || 0,
+        image: String(p.featuredAsset?.preview || ''),
+    });
+}, { once: true });
 
 onMounted(async () => {
     const pages = getCurrentPages();

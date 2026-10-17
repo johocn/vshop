@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        include: ['src/pkg-diy/**/*.test.ts', 'src/utils/**/*.test.ts', 'src/templates/**/*.test.ts'],
+        include: ['src/pkg-diy/**/*.test.ts', 'src/utils/**/*.test.ts', 'src/templates/**/*.test.ts', 'src/composables/**/*.spec.ts', 'src/pkg-promotion/pages/group-join/**/*.spec.ts', 'src/pkg-user/**/*.spec.ts'],
         // html.test.ts 基于 node:test（node --test 运行），vitest 无法收集其用例
         exclude: ['**/node_modules/**', '**/dist/**', 'src/utils/html.test.ts'],
         environment: 'node',

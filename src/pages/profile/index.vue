@@ -8,6 +8,9 @@
       <view class="menu-item" @click="navTo('/pkg-order/pages/orders')">
         <text>{{ t('profile.myOrders') }}</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="navTo('/pkg-user/pages/browsing/index')">
+        <text>{{ t('profile.footprints') }}</text><text class="menu-arrow">></text>
+      </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/addresses')">
         <text>{{ t('profile.addressManagement') }}</text><text class="menu-arrow">></text>
       </view>
