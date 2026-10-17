@@ -116,10 +116,19 @@
       <view class="field">
         <text class="label">{{ $t('couponEdit.descZhLabel') }}</text>
         <textarea class="area" v-model="form.descZh" :placeholder="$t('couponEdit.phDescZh')"></textarea>
+        <!-- 图库插图：选图后解析预览地址，以 Markdown 整行追加到中文说明末尾 -->
+        <view class="img-row">
+          <MediaPicker :max="1" media-type="image" :value="descImgIdsZh" @change="onInsertImgZh" />
+          <text class="hint-inline">{{ $t('couponEdit.insertImageHint') }}</text>
+        </view>
       </view>
       <view class="field">
         <text class="label">{{ $t('couponEdit.descEnLabel') }}</text>
         <textarea class="area" v-model="form.descEn" :placeholder="$t('couponEdit.phDescEn')"></textarea>
+        <view class="img-row">
+          <MediaPicker :max="1" media-type="image" :value="descImgIdsEn" @change="onInsertImgEn" />
+          <text class="hint-inline">{{ $t('couponEdit.insertImageHint') }}</text>
+        </view>
       </view>
 
       <text class="lang-hd">{{ $t('couponEdit.claimSection') }}</text>
@@ -159,15 +168,18 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue';
+import type { Ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplate, createCouponTemplate, updateCouponTemplate, createProductCouponBinding,
   couponTypeLabel, CouponType, CouponTemplateInput, CouponUsageScene,
   COUPON_CHANNEL_OPTIONS, parseChannels, joinChannels, fetchCouponBoundProducts,
 } from '../../../apis/coupon';
+import { fetchAssets } from '../../../apis/asset';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
 import CouponBindingCard from '../../../components/coupon/CouponBindingCard.vue';
+import MediaPicker from '../../../components/MediaPicker.vue';
 
 const locale = useLocaleStore();
 
@@ -240,6 +252,21 @@ const form = ref({
   memberLevel: '',
   enabled: true,
 });
+
+// ---- 图库插图：选图后按 media id 解析预览地址，以 Markdown 整行追加到对应语言说明末尾 ----
+const descImgIdsZh = ref<string[]>([]);
+const descImgIdsEn = ref<string[]>([]);
+async function insertMarker(formKey: 'descZh' | 'descEn', ids: string[], idsRef: Ref<string[]>) {
+  idsRef.value = ids;
+  if (!ids.length) return;
+  try {
+    const r = await fetchAssets(1, 0, undefined, ids);
+    const url = r.items[0]?.preview;
+    if (url) form.value[formKey] = `${form.value[formKey] || ''}\n![图](${url})`.trim();
+  } catch { /* 选择器侧错误自行提示，插入失败静默 */ }
+}
+const onInsertImgZh = (ids: string[]) => insertMarker('descZh', ids, descImgIdsZh);
+const onInsertImgEn = (ids: string[]) => insertMarker('descEn', ids, descImgIdsEn);
 
 function onTypeChange(e: any) {
   const t = typeKeys[e.detail.value];
@@ -427,6 +454,8 @@ function goBack() { backToHome(); }
       .caret { color: $wa-muted; font-size: 24rpx; }
       .tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: $wa-muted; }
       .area { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; width: 100%; height: 120rpx; box-sizing: border-box; }
+      .img-row { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx; }
+      .hint-inline { flex: 1; font-size: 22rpx; color: $wa-muted; }
     }
     .pair { display: flex; gap: 12rpx;
       .field { flex: 1; margin-bottom: 0; }
