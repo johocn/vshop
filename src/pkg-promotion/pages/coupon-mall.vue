@@ -92,8 +92,8 @@
               @click="startBuy({ kind: 'bundle', id: b.id, name: b.name, amount: b.salePrice })"
             >{{ buyingId === b.id ? t('couponMall.buying') : t('couponMall.buyNow') }}</button>
           </view>
-          <!-- 单券卡 -->
-          <view v-for="c in saleTemplates" :key="'t-' + c.id" class="coupon-card">
+          <!-- 单券卡（点击卡片看详情，售罄置灰） -->
+          <view v-for="c in saleTemplates" :key="'t-' + c.id" class="coupon-card" @click="openDetail(c)">
             <view class="coupon-card__left">
               <view class="coupon-card__amount-row">
                 <text v-if="c.type === 'FIXED' || c.type === 'FULL'" class="coupon-card__symbol">¥</text>
@@ -109,12 +109,19 @@
                   <text class="coupon-card__scene-tag">{{ usageTag(c.usageScene) }}</text>
                 </view>
                 <text class="coupon-card__cond">{{ formatCondition(c) }} · {{ formatDateRange(c) }}</text>
+                <view v-if="c.totalCount > 0" class="coupon-card__progress">
+                  <view class="coupon-card__progress-bar">
+                    <view class="coupon-card__progress-inner" :style="{ width: progressPercent(c) + '%' }" />
+                  </view>
+                  <text class="coupon-card__progress-text">{{ t('couponMall.claimedPct', { p: progressPercent(c) }) }}</text>
+                </view>
               </view>
               <button
                 class="coupon-card__btn"
-                :disabled="!!buyingId"
-                @click="startBuy({ kind: 'template', id: c.id, name: c.name, amount: c.salePrice })"
-              >{{ buyingId === c.id ? t('couponMall.buying') : t('couponMall.buyFor', { price: yuan(c.salePrice) }) }}</button>
+                :class="{ 'coupon-card__btn--disabled': isSoldOut(c) }"
+                :disabled="isSoldOut(c) || !!buyingId"
+                @click.stop="startBuy({ kind: 'template', id: c.id, name: c.name, amount: c.salePrice })"
+              >{{ saleBtnText(c) }}</button>
             </view>
           </view>
         </template>
@@ -276,6 +283,16 @@
         </view>
       </view>
     </view>
+
+    <!-- 券详情弹层 -->
+    <CouponDetailSheet
+      :visible="detailVisible"
+      :tpl="detailTpl"
+      :amount-text="detailTpl ? sheetAmount(detailTpl) : ''"
+      :cond-text="detailTpl ? formatCondition(detailTpl) : ''"
+      @close="detailVisible = false"
+      @buy="buyFromDetail"
+    />
   </view>
 </template>
 
@@ -304,6 +321,7 @@ import { useAuthStore } from '../../stores/auth';
 import { handlePayment } from '../../composables/usePayment';
 import { getPlatform } from '../../utils/platform';
 import EmptyState from '../../components/EmptyState.vue';
+import CouponDetailSheet from '../components/CouponDetailSheet.vue';
 import { useShare } from '../../composables/useShare';
 
 const { t } = useI18n();
@@ -713,6 +731,43 @@ async function closePaySheet() {
             // 已支付/已取消时取消会失败，忽略
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 券详情弹层
+// ─────────────────────────────────────────────────────────────
+
+const detailVisible = ref(false);
+const detailTpl = ref<any>(null);
+
+function openDetail(tpl: any) {
+    detailTpl.value = tpl;
+    detailVisible.value = true;
+}
+
+function buyFromDetail() {
+    const tpl = detailTpl.value;
+    if (!tpl) return;
+    detailVisible.value = false;
+    startBuy({ kind: 'template', id: tpl.id, name: tpl.name, amount: tpl.salePrice });
+}
+
+/** 详情弹层左侧面额（复用卡片格式化，FIXED/FULL 带 ¥ 符号） */
+function sheetAmount(c: any): string {
+    if (c.type === 'FIXED' || c.type === 'FULL') return '¥' + formatAmount(c);
+    return formatAmount(c);
+}
+
+/** 售罄判定：claimable=false 或限量已抢完 */
+function isSoldOut(c: any): boolean {
+    return c.claimable === false || (!!c.totalCount && (c.claimedCount || 0) >= c.totalCount);
+}
+
+/** 购券按钮文案：售罄 / 下单中 / 显示价格 */
+function saleBtnText(c: any): string {
+    if (isSoldOut(c)) return t('couponMall.soldOut');
+    if (buyingId.value === c.id) return t('couponMall.buying');
+    return t('couponMall.buyFor', { price: yuan(c.salePrice) });
 }
 
 // ─────────────────────────────────────────────────────────────
