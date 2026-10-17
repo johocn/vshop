@@ -97,6 +97,8 @@ const locale = useLocaleStore();
 const PREVIEW_KEYS = ['primaryColor', 'accentColor', 'radius'];
 
 const app = ref<'nshop' | 'vshop'>('nshop');
+/** 渠道归属端（channel.customFields.shopApp，缺省 nshop）：模板库据此锁定，防跨端引用 */
+const channelShopApp = ref<'nshop' | 'vshop'>('nshop');
 const channelId = ref('');
 const themeId = ref('');
 const templateId = ref('');
@@ -123,6 +125,8 @@ onMounted(async () => {
     const ch = await fetchActiveChannel();
     channelId.value = ch.id;
     const cf = ch.customFields as any;
+    channelShopApp.value = (cf.shopApp as 'nshop' | 'vshop') || 'nshop';
+    app.value = channelShopApp.value;
     themeId.value = cf.themeId || '';
     templateId.value = cf.templateId || '';
     const parsed = parseOverride(cf.themeTokensOverride);
@@ -161,6 +165,14 @@ async function loadTemplates() {
 }
 
 function switchApp(a: 'nshop' | 'vshop') {
+  // 渠道归属端锁定：跨端模板引用会导致 C 端静默回退默认主题（t2 事故 2026-10-18）
+  if (a !== channelShopApp.value) {
+    uni.showToast({
+      title: locale.t('decorateTheme.appLocked').replace('{app}', channelShopApp.value === 'nshop' ? locale.t('decorateTheme.appNshop') : locale.t('decorateTheme.appVshop')),
+      icon: 'none',
+    });
+    return;
+  }
   app.value = a;
   templateId.value = '';
   mergedTokens.value = {};
@@ -248,6 +260,14 @@ async function onMigrate() {
 async function save() {
   if (saving.value) return;
   if (!validateTokens()) return;
+  // 兜底：拦截跨端模板引用（历史遗留值也会被拦，引导用户改选或清空）
+  if (templateId.value) {
+    const sel = templates.value.find((t) => t.id === templateId.value);
+    if (sel && sel.app !== channelShopApp.value) {
+      uni.showToast({ title: locale.t('decorateTheme.errCrossApp'), icon: 'none', duration: 3000 });
+      return;
+    }
+  }
   saving.value = true;
   const payload = buildOverridePayload();
   try {
