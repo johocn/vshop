@@ -138,7 +138,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <section id="viewHome" class="page">
   <div class="cover">
     <img src="cover.jpg" alt="youshop 使用手册">
-    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）；二批：酒店预订管理（op-17 扩节）、成员启停移除与核销档案（op-16 扩节）、公众号三件套 / 平台角色 / 拾光达校园配送（op-53～op-55）</p></div>
+    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）；二批：酒店预订管理（op-17 扩节）、成员启停移除与核销档案（op-16 扩节）、公众号三件套 / 平台角色 / 拾光达校园配送（op-53～op-55）；2026-10-17 · 到店买单核销（op-56）：待核销券默认列表 / 角色边界 / 防复核</p></div>
   </div>
   <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
   <div id="bookList"></div>
@@ -1567,6 +1567,33 @@ var CHAPTERS = [
 <img class="img" src="shots/op55-rider-withdraw-390.png" alt="骑手提现审核页">
 <div class="imgcap">图 X6 · 骑手提现审核（390 视口）：审核中申请 + 通过打款 / 驳回</div>
 <details><summary>骑手端入口在哪</summary><p>骑手在 C 端小程序 / H5 的骑手入口提交入驻资料、抢单与发起提现；后台只负责审核、调度与打款留痕，两侧数据实时同步。</p></details>
+`},
+{book:'op', id:'op-56', title:'到店买单核销（券码 · 待核销券列表）', html:`
+<p class="lead">到店买单是<mark class="mark">平台不收款</mark>的线下结算：顾客领「到店券」→ 到店出示券码 → 门店在「买单核销」页扫码 / 输码，按券折扣算出<mark class="mark">顾客实付</mark>，门店线下收款并留痕。核销记录进「买单流水」与汇总。</p>
+<h3>谁能核销</h3>
+<table>
+  <thead><tr><th>角色</th><th>能否核销</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>平台超管</td><td>可</td><td>不受限，全量流水</td></tr>
+    <tr><td>租户管理员（店主）</td><td>可</td><td>本租户全量核销与流水</td></tr>
+    <tr><td>收银员</td><td>可</td><td>与店主同权（不受配送档案限制）</td></tr>
+    <tr><td>销售（受限核销员）</td><td>有条件</td><td>需店主在人员管理配置配送档案白名单（空白名单 = 一律拒绝）；只能核销「模板关联商品档案命中白名单」的券，通用券不可核销；流水只看自己经手</td></tr>
+  </tbody>
+</table>
+<h3>待核销券列表（打开即见）</h3>
+<p>核销页输入卡下方默认列出<mark class="mark">本店待核销券</mark>：当前渠道内未使用、未过期的到店券（含 ALL 通用场景），<mark class="mark">临期优先</mark>排序，3 天内到期的券带红色「N 天后到期」角标。点任意券卡，<mark class="mark">券码自动带入输入框</mark>并完成试算——无需顾客报码。核销成功后该券即刻移出列表。</p>
+<img class="img" src="shots/op56-instore-redeem-390.png" alt="买单核销页-待核销券列表">
+<div class="imgcap">图 Y1 · 买单核销页（390 视口）：输入卡 + 待核销券列表（临期角标）</div>
+<h3>核销流程</h3>
+<ol>
+<li><b>带入券码</b>：点待核销券卡，或扫顾客券包「出示券码」二维码 / 手动输入。</li>
+<li><b>输原价试算</b>：填消费原价（元），系统按券规则算「优惠 / 顾客实付」。</li>
+<li><b>确认核销</b>：弹窗二次确认后核销成功，<mark class="mark">按「顾客实付」线下收款</mark>，平台不参与收款。</li>
+</ol>
+<div class="warn"><b>重复核销防护：</b>券状态机原子占用，同一券码并发 / 重复核销会被拒绝（「该优惠券已使用或当前不可用」），不存在一码多核。</div>
+<h3>受限核销员边界</h3>
+<p>受限核销员打开本页：未被授权任何配送档案时列表空并提示「你尚未被授权核销任何配送档案范围」；授权范围内只能看到<mark class="mark">模板关联商品命中白名单</mark>的券，扫码 / 输码越界券一律按「查不到」处理。核销后的「买单流水」只显示自己经手的记录；店主 / 超管看本租户全量。</p>
+<details><summary>核销记录在哪看</summary><p>「买单流水」页：按券码 / 日期筛选，顶部汇总笔数 / 实收合计 / 优惠合计；每笔含券快照、顾客快照与核销人。</p></details>
 `},
 {book:'mp', id:'mp-1', title:'概述', html:`
 <p>本手册演示「<mark class="mark">商户创建 → 商品提交 → 平台审批 → 上架生效 → 真实下单拆单</mark>」的完整闭环流程。整个流程涉及两类角色，通过 4 个阶段协同完成：</p>
