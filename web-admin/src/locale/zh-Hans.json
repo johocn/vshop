@@ -1103,7 +1103,15 @@
     "errType": "该券类型不支持到店买单",
     "errMinSpend": "未达到该券使用门槛",
     "errAmount": "请输入有效的消费金额",
-    "errScope": "该券不在你的核销范围内，请联系店主配置可核销配送档案"
+    "errScope": "该券不在你的核销范围内，请联系店主配置可核销配送档案",
+    "pendingTitle": "待核销券",
+    "pendingHint": "点击带入券码",
+    "pendingEmpty": "暂无待核销券",
+    "pendingRestricted": "你尚未被授权核销任何配送档案范围，请联系店主配置",
+    "loadMore": "加载更多",
+    "loading": "加载中…",
+    "expiresOn": "{date} 到期",
+    "expiresSoon": "{n} 天后到期"
   },
   "inStoreBills": {
     "headTitle": "到店买单流水",

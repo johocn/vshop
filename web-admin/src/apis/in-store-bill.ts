@@ -47,6 +47,21 @@ export interface InStoreBillSummary {
   finalTotal: number;
 }
 
+/** 待核销券行（核销页默认列表）：当前渠道未使用/未过期/IN_STORE 场景券 */
+export interface PendingInStoreCoupon {
+  id: string;
+  couponCode: string;
+  couponName?: string | null;
+  discountType: string;
+  discountValue: number;
+  minSpend?: number | null;
+  customerId: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  issuedAt?: string | null;
+  expiredAt?: string | null;
+}
+
 export interface InStoreBillQueryOptions {
   skip?: number;
   take?: number;
@@ -126,6 +141,26 @@ export async function fetchInStoreBills(options: InStoreBillQueryOptions = {}): 
     return { items: inStoreBills?.items ?? [], totalItems: inStoreBills?.totalItems ?? 0 };
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '加载买单流水失败'));
+  }
+}
+
+/** 待核销券分页（核销页默认列表；隔离口径与核销一致：渠道 + 属店 + 受限核销员档案范围） */
+export async function fetchPendingInStoreCoupons(options: { skip?: number; take?: number } = {}): Promise<{ items: PendingInStoreCoupon[]; totalItems: number }> {
+  try {
+    const { inStorePendingCoupons } = await getAdminClient().request<{
+      inStorePendingCoupons: { items: PendingInStoreCoupon[]; totalItems: number };
+    }>(
+      `query InStorePendingCoupons($options: InStorePendingCouponListOptions) {
+        inStorePendingCoupons(options: $options) {
+          items { id couponCode couponName discountType discountValue minSpend customerId customerName customerPhone issuedAt expiredAt }
+          totalItems
+        }
+      }`,
+      { options: { skip: options.skip ?? 0, take: options.take ?? 20 } },
+    );
+    return { items: inStorePendingCoupons?.items ?? [], totalItems: inStorePendingCoupons?.totalItems ?? 0 };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载待核销券失败'));
   }
 }
 

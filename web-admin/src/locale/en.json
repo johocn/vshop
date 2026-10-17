@@ -1103,7 +1103,15 @@
     "errType": "This coupon type is not supported in store",
     "errMinSpend": "Minimum spend not reached",
     "errAmount": "Please enter a valid amount",
-    "errScope": "This coupon is outside your redemption scope. Ask the shop owner to configure your shipping profiles."
+    "errScope": "This coupon is outside your redemption scope. Ask the shop owner to configure your shipping profiles.",
+    "pendingTitle": "Pending vouchers",
+    "pendingHint": "Tap to fill the code",
+    "pendingEmpty": "No pending vouchers",
+    "pendingRestricted": "You are not authorized to redeem any shipping profile scope. Ask the shop owner to configure it.",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "expiresOn": "Expires {date}",
+    "expiresSoon": "Expires in {n}d"
   },
   "inStoreBills": {
     "headTitle": "In-store bills",
