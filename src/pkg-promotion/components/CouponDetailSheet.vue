@@ -64,11 +64,13 @@ const { t, locale } = useI18n();
 const imgFail = ref(false);
 watch(() => props.visible, () => { imgFail.value = false; });
 
-/** description（LocalizedText）按当前语言取值后图文分段，缺当前语言回退任一语言 */
+/** description（本地化字符串或 LocalizedText 映射）按当前语言取值后图文分段，映射缺当前语言回退任一语言 */
 const paragraphs = computed(() => {
-    const desc = props.tpl?.description as Record<string, string> | undefined;
+    const desc = props.tpl?.description as string | Record<string, string> | undefined;
     if (!desc) return [];
-    const raw = desc[String(locale.value)] || Object.values(desc)[0] || '';
+    const raw = typeof desc === 'string'
+        ? desc
+        : desc[String(locale.value)] || Object.values(desc)[0] || '';
     return raw ? parseDetailParagraphs(String(raw)) : [];
 });
 
