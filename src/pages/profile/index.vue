@@ -29,6 +29,9 @@
       <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupons')">
         <text>{{ t('profile.coupons') }}</text><text class="menu-arrow">></text>
       </view>
+      <view class="menu-item" @click="navTo('/pkg-promotion/pages/coupon-mall')">
+        <text>{{ t('nav.couponMall') }}</text><text class="menu-arrow">></text>
+      </view>
       <view class="menu-item" @click="navTo('/pkg-user/pages/distribution')">
         <text>{{ t('profile.distributionCenter') }}</text><text class="menu-arrow">></text>
       </view>
