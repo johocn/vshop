@@ -40,6 +40,8 @@ export interface ChannelCustomFields {
   serviceSchemes?: string;
   // 店铺引用的风格模板 id（模板库 shop-template-plugin 的 ShopTemplate）
   templateId?: string;
+  // 渠道归属端（nshop/vshop）：主题页据此锁定模板库，防跨端引用
+  shopApp?: string;
   // L3 店铺令牌覆盖（JSON 字符串，形如 {"primaryColor":"#E1251B","radius":8}）
   themeTokensOverride?: string;
   // 分类/购物车/我的 页面装修 JSON 字符串（web-admin 装修表单写入）
@@ -66,7 +68,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost }
       }
     }`,
   );
