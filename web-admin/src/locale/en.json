@@ -2630,6 +2630,8 @@
     "tip": "Theme (L3 shop override): a template swaps the whole palette and page layout; tokens override only this shop's primary/accent/radius.",
     "appNshop": "nshop store",
     "appVshop": "youshop store",
+    "appLocked": "This shop belongs to the \"{app}\" app; the template library is locked to it",
+    "errCrossApp": "The referenced template belongs to another app (the C-end would silently fall back to the default theme). Pick a template from this app or clear the reference before saving",
     "noTemplate": "No template",
     "effectivePrimary": "Effective primary",
     "tplSection": "Style templates",

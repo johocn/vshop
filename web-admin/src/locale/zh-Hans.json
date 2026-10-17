@@ -2630,6 +2630,8 @@
     "tip": "主题风格（L3 店铺覆盖）：选模板 = 换整套配色与页面版式；令牌覆盖 = 只改本店主色/辅色/圆角。",
     "appNshop": "nshop 商城",
     "appVshop": "youshop 商城",
+    "appLocked": "本店归属「{app}」端，模板库已锁定为该端",
+    "errCrossApp": "引用的模板属于其他商城端（C 端会静默回退默认主题），请改选本端模板或清除引用后再保存",
     "noTemplate": "未引用模板",
     "effectivePrimary": "生效主色",
     "tplSection": "风格模板",
