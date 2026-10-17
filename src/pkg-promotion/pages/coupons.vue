@@ -9,6 +9,7 @@
     </view>
     <view class="coupons-tabs">
       <text class="tab" :class="{ active: tab === 'center' }" @click="switchTab('center')">{{ t('coupons.tabCenter') }}</text>
+      <text class="tab" :class="{ active: tab === 'store' }" @click="switchTab('store')">{{ t('coupons.tabStore') }}</text>
       <text class="tab" :class="{ active: tab === 'wallet' }" @click="switchTab('wallet')">{{ t('coupons.tabWallet') }}</text>
       <text class="tab" :class="{ active: tab === 'code' }" @click="switchTab('code')">{{ t('coupons.tabCode') }}</text>
     </view>
@@ -43,6 +44,42 @@
         </view>
       </view>
       <EmptyState v-else-if="!loadingCenter" :text="t('coupons.emptyCenter')" />
+    </view>
+
+    <!-- 到店券：IN_STORE 场景券自助领取，到店买单出示券码核销 -->
+    <view v-else-if="tab === 'store'">
+      <view class="store-hint">
+        <text class="store-hint__dot">店</text>
+        <text>{{ t('coupons.storeHint') }}</text>
+      </view>
+      <view v-if="storeCoupons.length > 0">
+        <view v-for="c in storeCoupons" :key="c.id" class="coupon-card">
+          <view class="coupon-card__left" :class="{ 'coupon-card__left--disabled': !canClaim(c) }">
+            <view class="coupon-card__amount-row">
+              <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
+              <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
+              <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
+            </view>
+            <text class="coupon-card__left-tip">{{ couponTypeTip(c.type) }}</text>
+          </view>
+          <view class="coupon-card__right">
+            <view class="coupon-card__info">
+              <text class="coupon-card__name">{{ c.name }}</text>
+              <text class="coupon-card__cond">{{ formatCondition(c) }} · {{ t('coupons.storeUseTip') }}</text>
+              <text class="coupon-card__date">{{ formatDateRange(c) }}</text>
+            </view>
+            <button
+              class="coupon-card__btn"
+              :class="{ 'coupon-card__btn--disabled': !canClaim(c) }"
+              :disabled="!canClaim(c) || claiming"
+              @click="claim(c)"
+            >
+              {{ claimBtnText(c) }}
+            </button>
+          </view>
+        </view>
+      </view>
+      <EmptyState v-else-if="!loadingStore" :text="t('coupons.emptyStore')" />
     </view>
 
     <!-- 我的卡包 -->
@@ -139,18 +176,20 @@ useShare({
 
 const isLoggedIn = computed(() => !!auth.token);
 
-type TabKey = 'center' | 'wallet' | 'code';
+type TabKey = 'center' | 'store' | 'wallet' | 'code';
 type WalletKey = 'unused' | 'used' | 'expired';
 
 const tab = ref<TabKey>('center');
 const walletTab = ref<WalletKey>('unused');
 const availableCoupons = ref<any[]>([]);
+const storeCoupons = ref<any[]>([]);
 const myCoupons = ref<any[]>([]);
 const couponCode = ref('');
 const activeCouponCode = ref('');
 const claiming = ref(false);
 const applying = ref(false);
 const loadingCenter = ref(false);
+const loadingStore = ref(false);
 const loadingWallet = ref(false);
 
 const STATUS_MAP: Record<WalletKey, string> = {
@@ -195,6 +234,7 @@ function isAuthError(e: any): boolean {
 function switchTab(t: TabKey) {
     tab.value = t;
     if (t === 'center' && availableCoupons.value.length === 0) loadAvailable();
+    if (t === 'store' && storeCoupons.value.length === 0) loadStoreCoupons();
     if (t === 'wallet' && isLoggedIn.value && myCoupons.value.length === 0) loadMy();
     if (t === 'code' && isLoggedIn.value) loadActive();
 }
@@ -206,6 +246,16 @@ async function loadAvailable() {
         availableCoupons.value = res.couponCentre || [];
     } catch (e: any) { ui.showToast(couponErrorMessage(e)); }
     loadingCenter.value = false;
+}
+
+/** 到店券（IN_STORE 场景）：到店买单出示券码核销 */
+async function loadStoreCoupons() {
+    loadingStore.value = true;
+    try {
+        const res: any = await getCouponCentre('IN_STORE');
+        storeCoupons.value = res.couponCentre || [];
+    } catch (e: any) { ui.showToast(couponErrorMessage(e)); }
+    loadingStore.value = false;
 }
 
 async function loadMy() {
@@ -287,7 +337,8 @@ async function checkPendingClaim() {
     try {
         await claimCoupon(pendingId);
         ui.showToast(t('coupons.claimSuccess'), 'success');
-        const target = availableCoupons.value.find((c: any) => c.id === pendingId);
+        const target = availableCoupons.value.find((c: any) => c.id === pendingId)
+            || storeCoupons.value.find((c: any) => c.id === pendingId);
         if (target) target._claimed = true;
     } catch (e: any) {
         ui.showToast(couponErrorMessage(e));
@@ -431,6 +482,17 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .coupons-page { padding: 20rpx; padding-bottom: 40rpx; }
+
+.store-hint {
+    display: flex; align-items: center; gap: 12rpx;
+    background: #eef4ff; border-radius: $radius-md; padding: 18rpx 24rpx; margin-bottom: 20rpx;
+    font-size: 24rpx; color: #2f6fed;
+    &__dot {
+        width: 36rpx; height: 36rpx; border-radius: 8rpx; flex-shrink: 0;
+        background: #2f6fed; color: #fff; font-size: 22rpx;
+        display: flex; align-items: center; justify-content: center;
+    }
+}
 
 .mall-entry {
     display: flex; align-items: center; justify-content: space-between;
