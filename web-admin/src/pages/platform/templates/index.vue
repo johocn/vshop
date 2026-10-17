@@ -107,7 +107,8 @@
               <switch :checked="pagesObj.product?.blocks?.[b.key]?.show !== false" color="#4f8cff" @change="togglePageBlock(b.key, ($event as any).detail.value)" />
             </view>
           </view>
-          <view class="field" v-if="curPage === 'home'">
+          <!-- 首页版式下拉仅 vshop 端显示：layout 仅被 vshop C 端消费（nshop 首页为 usemall 骨架，不读该字段） -->
+          <view class="field" v-if="curPage === 'home' && app === 'vshop'">
             <text class="label">{{ $t('decorateTheme.homeLayoutLabel') }}</text>
             <view class="chips">
               <text
