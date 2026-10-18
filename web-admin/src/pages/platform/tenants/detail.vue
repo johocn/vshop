@@ -40,6 +40,19 @@
         </view>
         <text class="tip">{{ $t('platformTenantsDetail.industryTip') }}</text>
       </view>
+      <view class="field" style="margin-bottom: 0;">
+        <text class="label">{{ $t('platformTenantsDetail.storefrontLabel') }}</text>
+        <view class="save-row">
+          <picker :range="storefrontModeLabels" :value="storefrontModeIndex" @change="onStorefrontModeChange">
+            <view class="input picker-val">{{ storefrontModeLabel }}</view>
+          </picker>
+          <picker v-if="tenantStorefrontMode === 'coupon'" :range="storefrontLayoutLabels" :value="storefrontLayoutIndex" @change="onStorefrontLayoutChange">
+            <view class="input picker-val">{{ storefrontLayoutLabel }}</view>
+          </picker>
+          <button class="btn save-btn" @tap="saveStorefront">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.storefrontTip') }}</text>
+      </view>
     </view>
 
     <view class="tabs">
@@ -210,6 +223,41 @@ async function saveIndustry() {
   }
 }
 
+// 店面模式（仅平台管理员可改；coupon=整店只卖买单券，见设计文档 2026-10-18）
+const STOREFRONT_MODE_OPTIONS = ['normal', 'coupon'] as const;
+const STOREFRONT_LAYOUT_OPTIONS = ['floors', 'grid'] as const;
+const tenantStorefrontMode = ref<string | null>(null);
+const tenantStorefrontLayout = ref<string | null>(null);
+const storefrontModeLabels = computed(() => STOREFRONT_MODE_OPTIONS.map(v => locale.t(`platformTenantsDetail.storefrontMode_${v}`)));
+const storefrontModeIndex = computed(() => Math.max(0, STOREFRONT_MODE_OPTIONS.indexOf((tenantStorefrontMode.value || 'normal') as any)));
+const storefrontModeLabel = computed(() => {
+  const i = STOREFRONT_MODE_OPTIONS.indexOf((tenantStorefrontMode.value || 'normal') as any);
+  return i >= 0 ? locale.t(`platformTenantsDetail.storefrontMode_${STOREFRONT_MODE_OPTIONS[i]}`) : '';
+});
+const storefrontLayoutLabels = computed(() => STOREFRONT_LAYOUT_OPTIONS.map(v => locale.t(`platformTenantsDetail.storefrontLayout_${v}`)));
+const storefrontLayoutIndex = computed(() => Math.max(0, STOREFRONT_LAYOUT_OPTIONS.indexOf((tenantStorefrontLayout.value || 'floors') as any)));
+const storefrontLayoutLabel = computed(() => {
+  const i = STOREFRONT_LAYOUT_OPTIONS.indexOf((tenantStorefrontLayout.value || 'floors') as any);
+  return i >= 0 ? locale.t(`platformTenantsDetail.storefrontLayout_${STOREFRONT_LAYOUT_OPTIONS[i]}`) : '';
+});
+function onStorefrontModeChange(e: any) {
+  tenantStorefrontMode.value = STOREFRONT_MODE_OPTIONS[Number(e.detail.value)];
+}
+function onStorefrontLayoutChange(e: any) {
+  tenantStorefrontLayout.value = STOREFRONT_LAYOUT_OPTIONS[Number(e.detail.value)];
+}
+async function saveStorefront() {
+  try {
+    await updateTenant(channelId.value, {
+      storefrontMode: tenantStorefrontMode.value || 'normal',
+      storefrontHomeLayout: tenantStorefrontMode.value === 'coupon' ? (tenantStorefrontLayout.value || 'floors') : undefined,
+    });
+    uni.showToast({ title: locale.t('platformTenantsDetail.storefrontUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
 onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
 onShow(() => { if (channelId.value) loadAll(); });
 
@@ -224,6 +272,8 @@ async function loadTenant() {
     tenantCode.value = t.code;
     tenantNo.value = t.tenantNo ?? null;
     tenantIndustry.value = t.industryType ?? null;
+    tenantStorefrontMode.value = t.storefrontMode ?? 'normal';
+    tenantStorefrontLayout.value = t.storefrontHomeLayout ?? 'floors';
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
   }

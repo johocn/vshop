@@ -12,6 +12,8 @@ export interface TenantItem {
   merchantStatus?: string | null;
   domain?: string | null;
   industryType?: string | null;
+  storefrontMode?: string | null;
+  storefrontHomeLayout?: string | null;
 }
 
 export interface TenantMemberItem {
@@ -76,10 +78,12 @@ function mapTenant(t: any): TenantItem {
     merchantStatus: t.customFields?.merchantStatus ?? null,
     domain: t.customFields?.domain ?? null,
     industryType: t.customFields?.industryType ?? null,
+    storefrontMode: t.customFields?.storefrontMode ?? null,
+    storefrontHomeLayout: t.customFields?.storefrontHomeLayout ?? null,
   };
 }
 
-const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus domain industryType }`;
+const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus domain industryType storefrontMode storefrontHomeLayout }`;
 
 export async function fetchTenant(id: string): Promise<TenantItem> {
   const res = await getAdminClient().request<{ tenant: any }>(
@@ -110,7 +114,7 @@ export async function createTenant(input: { name: string; isOfficial?: boolean }
   return mapTenant(res.createTenant);
 }
 
-export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean; domain?: string; industryType?: string }): Promise<TenantItem> {
+export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean; domain?: string; industryType?: string; storefrontMode?: string; storefrontHomeLayout?: string }): Promise<TenantItem> {
   const res = await getAdminClient().request<{ updateTenant: any }>(
     `mutation UpdateTenant($id: ID!, $input: UpdateTenantInput!) { updateTenant(id: $id, input: $input) { ${TENANT_FIELDS} } }`,
     { id, input },
