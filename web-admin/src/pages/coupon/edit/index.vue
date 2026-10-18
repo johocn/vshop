@@ -75,6 +75,13 @@
         <text class="tip">{{ $t('couponEdit.marketingLabelTip') }}</text>
       </view>
 
+      <!-- 学生价：仅「券商城」渠道，可选；仅认证学生生效，与首购立减取低不叠加 -->
+      <view class="field" v-if="form.channels.includes('SALE')">
+        <text class="label">{{ $t('couponEdit.studentPriceLabel') }} <text class="opt">{{ $t('couponEdit.optional') }}</text></text>
+        <input class="ipt" v-model="form.studentPriceYuan" type="digit" :placeholder="$t('couponEdit.phStudentPrice')" />
+        <text class="tip">{{ $t('couponEdit.studentPriceTip') }}</text>
+      </view>
+
       <!-- 满减 / 直减 面额 -->
       <view class="field" v-if="form.type === 'FIXED' || form.type === 'FULL'">
         <text class="label">{{ form.type === 'FIXED' ? $t('couponEdit.discountLabel') : $t('couponEdit.fullLabel') }}</text>
@@ -251,6 +258,7 @@ const form = ref({
   salePriceYuan: '',
   anchorPriceYuan: '',
   marketingLabel: '',
+  studentPriceYuan: '',
   discountYuan: '',
   minSpendYuan: '',
   startsAt: '',
@@ -321,6 +329,8 @@ function buildInput(): CouponTemplateInput {
     const ap = Math.round((Number(f.anchorPriceYuan) || 0) * 100);
     model.anchorPrice = ap > 0 ? ap : null;
     model.label = f.marketingLabel.trim() ? f.marketingLabel.trim().slice(0, 30) : null;
+    const sp = Math.round((Number(f.studentPriceYuan) || 0) * 100);
+    model.studentPrice = sp > 0 ? sp : null;
   }
   if (f.descZh.trim()) model.description = f.descZh.trim();
   if (f.descZh.trim()) model.descZh = f.descZh.trim();
@@ -432,6 +442,7 @@ async function loadAll() {
     salePriceYuan: c.salePrice ? String(c.salePrice / 100) : '',
     anchorPriceYuan: c.anchorPrice ? String(c.anchorPrice / 100) : '',
     marketingLabel: c.label || '',
+    studentPriceYuan: c.studentPrice ? String(c.studentPrice / 100) : '',
     discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
     minSpendYuan: String((c.minSpend || 0) / 100),
     startsAt: toLocalDate(c.startsAt),

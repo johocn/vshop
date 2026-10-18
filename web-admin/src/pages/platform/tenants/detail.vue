@@ -53,6 +53,14 @@
         </view>
         <text class="tip">{{ $t('platformTenantsDetail.storefrontTip') }}</text>
       </view>
+      <view class="field" style="margin-bottom: 0;">
+        <text class="label">{{ $t('platformTenantsDetail.firstBuyLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="firstBuyYuan" type="digit" :placeholder="$t('platformTenantsDetail.phFirstBuy')" />
+          <button class="btn save-btn" @tap="saveFirstBuy">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.firstBuyTip') }}</text>
+      </view>
     </view>
 
     <view class="tabs">
@@ -258,6 +266,22 @@ async function saveStorefront() {
   }
 }
 
+// 首购立减（元）：写 Channel customFields.firstBuyDiscount（分），0/空 = 关闭
+const firstBuyYuan = ref('');
+async function saveFirstBuy() {
+  const fen = Math.round((Number(firstBuyYuan.value) || 0) * 100);
+  if (fen < 0) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.firstBuyInvalid'), icon: 'none' });
+    return;
+  }
+  try {
+    await updateTenant(channelId.value, { firstBuyDiscount: fen });
+    uni.showToast({ title: locale.t('platformTenantsDetail.firstBuyUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
 onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
 onShow(() => { if (channelId.value) loadAll(); });
 
@@ -274,6 +298,7 @@ async function loadTenant() {
     tenantIndustry.value = t.industryType ?? null;
     tenantStorefrontMode.value = t.storefrontMode ?? 'normal';
     tenantStorefrontLayout.value = t.storefrontHomeLayout ?? 'floors';
+    firstBuyYuan.value = t.firstBuyDiscount ? String(t.firstBuyDiscount / 100) : '';
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
   }
