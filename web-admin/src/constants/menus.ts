@@ -101,6 +101,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.couponIssue', url: '/pages/coupon/index', tier: 1 },
       { label: 'menu.couponBundle', url: '/pages/coupon/bundle/index', tier: 2 },
       { label: 'menu.couponSaleOrders', url: '/pages/coupon/sale-orders/index', tier: 2 },
+      { label: 'menu.studentVerify', url: '/pages/coupon/student-verify/index', tier: 2 },
       { label: 'menu.couponTargeted', url: '/pages/coupon/issue/index', tier: 3 },
       { label: 'menu.flashSale', url: '/pages/promotion/flash-sale/index', tier: 2 },
       { label: 'menu.groupBuy', url: '/pages/promotion/group-buy/index', tier: 2 },
@@ -121,6 +122,16 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.distributionRelations', url: '/pages/distribution/relations/index', tier: 2 },
       { label: 'menu.distributionSettle', url: '/pages/distribution/settle/index', tier: 2 },
       { label: 'menu.balanceWithdraw', url: '/pages/balance/withdraw/index', tier: 2 },
+    ],
+  },
+  {
+    // t3 代买单工作台（bill-pay-plugin）：仅持 BillPayManage 权限者可见（超管放行）
+    domain: 'menu.domain.billpay',
+    color: D.d2.main,
+    grad: D.d2.grad,
+    items: [
+      { label: 'menu.billpayOrders', url: '/pages/billpay/orders/index', tier: 1, perm: 'BillPayManage' },
+      { label: 'menu.billpayMerchants', url: '/pages/billpay/merchants/index', tier: 2, perm: 'BillPayManage' },
     ],
   },
   {

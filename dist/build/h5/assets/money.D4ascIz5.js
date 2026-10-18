@@ -1,0 +1,1 @@
+function t(t){if(null==t)return"";return(t/100).toFixed(2).replace(/\.0+$/,"").replace(/(\.\d*?)0+$/,"$1")}function n(t){return((t??0)/100).toFixed(2)}function r(t){const n=(t??"").trim();return n&&/^\d+(\.\d{1,2})?$/.test(n)?Math.round(100*parseFloat(n)):null}export{t as a,n as f,r as y};

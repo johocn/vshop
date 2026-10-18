@@ -52,6 +52,8 @@ export interface CouponTemplateItem {
   anchorPrice?: number | null;
   /** 营销标签（如「热卖TOP」）；空=不展示 */
   label?: string | null;
+  /** 学生价（分）；null/0=无学生价 */
+  studentPrice?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -89,9 +91,11 @@ export interface CouponTemplateInput {
   anchorPrice?: number | null;
   /** 营销标签（如「热卖TOP」）；空=不展示 */
   label?: string | null;
+  /** 学生价（分）；null/0=无学生价 */
+  studentPrice?: number | null;
 }
 
-const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene distributionChannels salePrice anchorPrice label createdAt updatedAt`;
+const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene distributionChannels salePrice anchorPrice label studentPrice createdAt updatedAt`;
 
 const TYPE_LABEL: Record<CouponType, string> = {
   FIXED: '满减',
