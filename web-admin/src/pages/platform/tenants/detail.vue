@@ -495,7 +495,7 @@ function onEditRole(r: RoleItem) {
 .save-row .input { flex: 1; }
 .save-btn { flex: 0 0 auto; padding: 0 30rpx; line-height: 2.4; border-radius: 12rpx; background: $pm-info; }
 .save-row picker { flex: 1; min-width: 0; }
-.picker-val { min-width: 320rpx; }
+.picker-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: #bbb; }
 .warn-link { color: #e64340; flex: 0 0 auto; }
 .row { display: flex; align-items: center; }
