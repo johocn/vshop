@@ -63,6 +63,76 @@
       </view>
     </view>
 
+    <!-- 倒计时活动位（单场；写 Channel customFields.couponCampaign JSON，券店首页展示） -->
+    <view class="card" style="margin-bottom: 20rpx;">
+      <view class="row head">
+        <text class="title">{{ $t('platformTenantsDetail.campTitle') }}</text>
+        <switch :checked="campEnabled" color="#4f8cff" @change="onCampEnabled" />
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.campNameLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="campNameZh" :placeholder="$t('platformTenantsDetail.campNamePh')" />
+        </view>
+        <view class="save-row">
+          <input class="input" v-model="campNameEn" :placeholder="$t('platformTenantsDetail.campNameEnPh')" />
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.campSubtitleLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="campSubZh" :placeholder="$t('platformTenantsDetail.campNamePh')" />
+        </view>
+        <view class="save-row">
+          <input class="input" v-model="campSubEn" :placeholder="$t('platformTenantsDetail.campNameEnPh')" />
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.campWindowLabel') }}</text>
+        <view class="save-row wrap">
+          <picker mode="date" :value="campStartDate" @change="onCampStartDate">
+            <view class="input picker-val">{{ campStartDate || $t('platformTenantsDetail.campPickDate') }}</view>
+          </picker>
+          <picker mode="time" :value="campStartTime" @change="onCampStartTime">
+            <view class="input picker-val">{{ campStartTime || '--:--' }}</view>
+          </picker>
+          <text class="arrow-sep">→</text>
+          <picker mode="date" :value="campEndDate" @change="onCampEndDate">
+            <view class="input picker-val">{{ campEndDate || $t('platformTenantsDetail.campPickDate') }}</view>
+          </picker>
+          <picker mode="time" :value="campEndTime" @change="onCampEndTime">
+            <view class="input picker-val">{{ campEndTime || '--:--' }}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.campTemplatesLabel') }}</text>
+        <view class="pick-trigger" @tap="openCampTplPick">
+          <text v-if="!campTplIds.length" class="ph">{{ $t('platformTenantsDetail.campTplPh') }}</text>
+          <view v-else class="pick-tags">
+            <text v-for="(id, i) in campTplIds" :key="id" class="pick-tag">{{ i + 1 }}. {{ campTplName(id) }}</text>
+          </view>
+          <text class="arrow">▾</text>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.campTplTip') }}</text>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.campRulesLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="campRulesZh" :placeholder="$t('platformTenantsDetail.campNamePh')" />
+        </view>
+        <view class="save-row">
+          <input class="input" v-model="campRulesEn" :placeholder="$t('platformTenantsDetail.campNameEnPh')" />
+        </view>
+      </view>
+      <view class="field" style="margin-bottom: 0;">
+        <view class="save-row">
+          <button class="btn save-btn" @tap="saveCampaign">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.campTip') }}</text>
+      </view>
+    </view>
+
     <view class="tabs">
       <text class="tab" :class="{ on: tab === 'admin' }" @tap="tab = 'admin'">{{ $t('platformTenantsDetail.tabAdmin') }}</text>
       <text class="tab" :class="{ on: tab === 'role' }" @tap="tab = 'role'">{{ $t('platformTenantsDetail.tabRole') }}</text>
@@ -103,8 +173,27 @@
   </view>
 
   <!-- 添加管理员表单弹层 -->
-  <view class="mask" v-if="showAdd" @tap="showAdd = false">
-    <view class="pop" @tap.stop>
+  <view class="mask" v-if="showAdd || showCampTplPick" @tap="showAdd = false; showCampTplPick = false">
+    <!-- 关联券多选弹层（倒计时活动位） -->
+    <view class="pop" v-if="showCampTplPick" @tap.stop>
+      <text class="pop-title">{{ $t('platformTenantsDetail.campTplPickTitle') }}</text>
+      <view class="pick-list">
+        <view class="cand-item" v-for="c in campTplOptions" :key="c.id" @tap="toggleCampTpl(c.id)">
+          <view class="cand-info">
+            <text class="name">{{ c.nameZh || c.name }}</text>
+            <text class="sub">¥{{ fmtCNY(c.salePrice) }} · {{ $t('platformTenantsDetail.soldCount').replace('{n}', String(c.soldCount ?? 0)) }}</text>
+          </view>
+          <text class="check" :class="{ on: campTplIds.includes(c.id) }">{{ campTplIds.includes(c.id) ? '✓' : '' }}</text>
+        </view>
+        <view v-if="!campTplOptions.length" class="empty hint">{{ campTplLoading ? $t('platformTenantsDetail.loading') : $t('platformTenantsDetail.noCampTpl') }}</view>
+      </view>
+      <view class="actions">
+        <button class="btn ghost" @tap="showCampTplPick = false">{{ $t('platformTenantsDetail.cancel') }}</button>
+        <button class="btn" @tap="showCampTplPick = false">{{ $t('platformTenantsDetail.confirm') }}</button>
+      </view>
+    </view>
+
+    <view class="pop" v-else @tap.stop>
       <text class="pop-title">{{ $t('platformTenantsDetail.addAdminTitle') }}</text>
       <view class="mode-tabs">
         <text class="mode-tab" :class="{ on: addMode === 'create' }" @tap="switchMode('create')">{{ $t('platformTenantsDetail.modeCreate') }}</text>
@@ -193,6 +282,7 @@ import {
   type TenantMemberItem, type RoleItem, type AdminSearchCandidate,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
+import { fetchCouponTemplates, fmtCNY, type CouponTemplateItem } from '../../../apis/coupon';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 
@@ -282,6 +372,126 @@ async function saveFirstBuy() {
   }
 }
 
+// 倒计时活动位（单场；写 Channel customFields.couponCampaign JSON，券店首页展示，到点自动上下线）
+const campEnabled = ref(false);
+const campNameZh = ref('');
+const campNameEn = ref('');
+const campSubZh = ref('');
+const campSubEn = ref('');
+const campRulesZh = ref('');
+const campRulesEn = ref('');
+const campStartDate = ref('');
+const campStartTime = ref('');
+const campEndDate = ref('');
+const campEndTime = ref('');
+const campTplIds = ref<string[]>([]);
+const campTplOptions = ref<CouponTemplateItem[]>([]);
+const campTplLoading = ref(false);
+const showCampTplPick = ref(false);
+
+function onCampEnabled(e: any) { campEnabled.value = !!e.detail.value; }
+function onCampStartDate(e: any) { campStartDate.value = e.detail.value; }
+function onCampStartTime(e: any) { campStartTime.value = e.detail.value; }
+function onCampEndDate(e: any) { campEndDate.value = e.detail.value; }
+function onCampEndTime(e: any) { campEndTime.value = e.detail.value; }
+
+function campTplName(id: string): string {
+  const c = campTplOptions.value.find(x => x.id === id);
+  return c ? (c.nameZh || c.name) : `#${id}`;
+}
+
+async function openCampTplPick() {
+  showCampTplPick.value = true;
+  if (campTplOptions.value.length) return;
+  campTplLoading.value = true;
+  try {
+    const { items } = await fetchCouponTemplates({ skip: 0, take: 100 });
+    campTplOptions.value = items;
+    // 回显的 templateIds 可能早于本次拉取（券已删等），保留 id 以便运营看到并修正
+  } catch { /* 打开弹层失败不阻断，重开再拉 */ } finally {
+    campTplLoading.value = false;
+  }
+}
+
+function toggleCampTpl(id: string) {
+  const i = campTplIds.value.indexOf(id);
+  if (i >= 0) campTplIds.value.splice(i, 1);
+  else campTplIds.value.push(id);
+}
+
+/** 活动文案 LocalizedText：中/英至少填一栏，否则 null */
+function campText(zh: string, en: string): Record<string, string> | null {
+  const o: Record<string, string> = {};
+  if (zh.trim()) o.zh = zh.trim();
+  if (en.trim()) o.en = en.trim();
+  return Object.keys(o).length ? o : null;
+}
+
+/** 日期 + 时间（本地时区）→ ISO 字符串；日期为空返回 null */
+function campIso(date: string, time: string, endOfDay = false): string | null {
+  if (!date) return null;
+  const d = new Date(`${date}T${time || (endOfDay ? '23:59:59' : '00:00:00')}`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+async function saveCampaign() {
+  if (campEnabled.value && !campText(campNameZh.value, campNameEn.value)) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.campNameRequired'), icon: 'none' });
+    return;
+  }
+  if (campEnabled.value && !campTplIds.value.length) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.campTplRequired'), icon: 'none' });
+    return;
+  }
+  if (campEnabled.value && !campEndDate.value) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.campEndRequired'), icon: 'none' });
+    return;
+  }
+  try {
+    await updateTenant(channelId.value, {
+      couponCampaign: JSON.stringify({
+        enabled: campEnabled.value,
+        name: campText(campNameZh.value, campNameEn.value),
+        subtitle: campText(campSubZh.value, campSubEn.value),
+        rules: campText(campRulesZh.value, campRulesEn.value),
+        startsAt: campIso(campStartDate.value, campStartTime.value),
+        endsAt: campIso(campEndDate.value, campEndTime.value, true),
+        templateIds: campTplIds.value.map(Number),
+      }),
+    });
+    uni.showToast({ title: locale.t('platformTenantsDetail.campUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
+/** couponCampaign JSON → 表单回显（坏 JSON 静默忽略，保持空表单） */
+function hydrateCampaign(raw: string | null | undefined) {
+  if (!raw) return;
+  let cfg: any = null;
+  try { cfg = JSON.parse(raw); } catch { return; }
+  if (!cfg || typeof cfg !== 'object') return;
+  campEnabled.value = cfg.enabled !== false;
+  const pickText = (v: any, lang: 'zh' | 'en') =>
+    (typeof v === 'string' ? (lang === 'zh' ? v : '') : (v?.[lang] ?? ''));
+  campNameZh.value = pickText(cfg.name, 'zh');
+  campNameEn.value = pickText(cfg.name, 'en');
+  campSubZh.value = pickText(cfg.subtitle, 'zh');
+  campSubEn.value = pickText(cfg.subtitle, 'en');
+  campRulesZh.value = pickText(cfg.rules, 'zh');
+  campRulesEn.value = pickText(cfg.rules, 'en');
+  const split = (iso: string | null | undefined) => {
+    if (!iso) return ['', ''];
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return ['', ''];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return [`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, `${pad(d.getHours())}:${pad(d.getMinutes())}`];
+  };
+  [campStartDate.value, campStartTime.value] = split(cfg.startsAt);
+  [campEndDate.value, campEndTime.value] = split(cfg.endsAt);
+  campTplIds.value = Array.isArray(cfg.templateIds) ? cfg.templateIds.map(String) : [];
+}
+
 onLoad((q: any) => { channelId.value = q.id ?? q.name ?? ''; });
 onShow(() => { if (channelId.value) loadAll(); });
 
@@ -299,6 +509,7 @@ async function loadTenant() {
     tenantStorefrontMode.value = t.storefrontMode ?? 'normal';
     tenantStorefrontLayout.value = t.storefrontHomeLayout ?? 'floors';
     firstBuyYuan.value = t.firstBuyDiscount ? String(t.firstBuyDiscount / 100) : '';
+    hydrateCampaign(t.couponCampaign);
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
   }
@@ -565,6 +776,10 @@ function onEditRole(r: RoleItem) {
 .pick-item-name.on { color: $pm-info; font-weight: 600; }
 .check { width: 36rpx; height: 36rpx; border-radius: 50%; border: 1px solid #ddd; color: #fff; font-size: 22rpx; text-align: center; line-height: 36rpx; }
 .check.on { background: $pm-info; border-color: $pm-info; }
+/* 倒计时活动位：时间窗 picker 行 */
+.save-row.wrap { flex-wrap: wrap; }
+.save-row .picker-val { min-width: 170rpx; text-align: center; font-size: 26rpx; white-space: nowrap; }
+.save-row .arrow-sep { color: #999; font-size: 26rpx; align-self: center; }
 .actions { display: flex; gap: 24rpx; margin-top: 8rpx; }
 .btn { flex: 1; border-radius: 40rpx; font-size: 28rpx; background: #4f8cff; color: #fff; line-height: 2.4; }
 .ghost { background: #f2f2f2; color: #666; }
