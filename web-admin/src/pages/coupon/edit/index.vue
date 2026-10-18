@@ -61,6 +61,20 @@
         <text class="tip">{{ $t('couponEdit.salePriceTip') }}</text>
       </view>
 
+      <!-- 营销划线价：仅「券商城」渠道，可选；填了才在 C 端展示划线「原价」 -->
+      <view class="field" v-if="form.channels.includes('SALE')">
+        <text class="label">{{ $t('couponEdit.anchorPriceLabel') }} <text class="opt">{{ $t('couponEdit.optional') }}</text></text>
+        <input class="ipt" v-model="form.anchorPriceYuan" type="digit" :placeholder="$t('couponEdit.phAnchorPrice')" />
+        <text class="tip">{{ $t('couponEdit.anchorPriceTip') }}</text>
+      </view>
+
+      <!-- 营销标签：仅「券商城」渠道，可选；建议 6 字内，如「热卖TOP」 -->
+      <view class="field" v-if="form.channels.includes('SALE')">
+        <text class="label">{{ $t('couponEdit.marketingLabel') }} <text class="opt">{{ $t('couponEdit.optional') }}</text></text>
+        <input class="ipt" v-model="form.marketingLabel" :placeholder="$t('couponEdit.phMarketingLabel')" />
+        <text class="tip">{{ $t('couponEdit.marketingLabelTip') }}</text>
+      </view>
+
       <!-- 满减 / 直减 面额 -->
       <view class="field" v-if="form.type === 'FIXED' || form.type === 'FULL'">
         <text class="label">{{ form.type === 'FIXED' ? $t('couponEdit.discountLabel') : $t('couponEdit.fullLabel') }}</text>
@@ -235,6 +249,8 @@ const form = ref({
   usageScene: 'ONLINE' as CouponUsageScene,
   channels: [] as string[],
   salePriceYuan: '',
+  anchorPriceYuan: '',
+  marketingLabel: '',
   discountYuan: '',
   minSpendYuan: '',
   startsAt: '',
@@ -300,6 +316,12 @@ function buildInput(): CouponTemplateInput {
     // 出售价：仅「券商城」渠道可售，元→分；非 SALE 渠道置 0 = 不可售
     salePrice: f.channels.includes('SALE') ? Math.max(0, Math.round((Number(f.salePriceYuan) || 0) * 100)) : 0,
   };
+  // 营销字段：仅 SALE 渠道写入；划线价空/0 → null（不展示），标签空串 → null
+  if (f.channels.includes('SALE')) {
+    const ap = Math.round((Number(f.anchorPriceYuan) || 0) * 100);
+    model.anchorPrice = ap > 0 ? ap : null;
+    model.label = f.marketingLabel.trim() ? f.marketingLabel.trim().slice(0, 30) : null;
+  }
   if (f.descZh.trim()) model.description = f.descZh.trim();
   if (f.descZh.trim()) model.descZh = f.descZh.trim();
   if (f.descEn.trim()) model.descEn = f.descEn.trim();
@@ -408,6 +430,8 @@ async function loadAll() {
     usageScene: (c.usageScene || 'ONLINE') as CouponUsageScene,
     channels: explicit.length ? explicit : deriveLegacyChannels(c as any, bound),
     salePriceYuan: c.salePrice ? String(c.salePrice / 100) : '',
+    anchorPriceYuan: c.anchorPrice ? String(c.anchorPrice / 100) : '',
+    marketingLabel: c.label || '',
     discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
     minSpendYuan: String((c.minSpend || 0) / 100),
     startsAt: toLocalDate(c.startsAt),
