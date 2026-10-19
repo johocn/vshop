@@ -14,9 +14,20 @@
         <text class="kpi-label">{{ $t('couponList.kpiUsed') }}</text>
       </view>
       <view class="kpi-item">
-        <text class="kpi-num">{{ kpiAvailable }}</text>
-        <text class="kpi-label">{{ $t('couponList.kpiAvailable') }}</text>
+        <text class="kpi-num">{{ kpiRedemptionRate }}</text>
+        <text class="kpi-label">{{ $t('couponList.kpiRedemptionRate') }}</text>
       </view>
+      <view class="kpi-item">
+        <text class="kpi-num">{{ kpiExpiredRate }}</text>
+        <text class="kpi-label">{{ $t('couponList.kpiExpiredRate') }}</text>
+      </view>
+    </view>
+    <view class="kpi-range">
+      <text
+        v-for="r in statRanges" :key="r.key"
+        class="range-chip" :class="{ active: statRange === r.key }"
+        @tap="setStatRange(r.key)"
+      >{{ r.label }}</text>
     </view>
 
     <view class="card" v-for="c in items" :key="c.id">
@@ -57,11 +68,11 @@
         <view class="row ops-row">
           <view class="kv">
             <text class="k">{{ $t('couponList.opsIssued') }}</text>
-            <text class="v">{{ c.claimedCount ?? '−' }}</text>
+            <text class="v">{{ statFor(c.id)?.claimed ?? c.claimedCount ?? '−' }}</text>
           </view>
           <view class="kv">
             <text class="k">{{ $t('couponList.opsUsed') }}</text>
-            <text class="v">−</text>
+            <text class="v">{{ statFor(c.id) ? `${statFor(c.id)!.used}（${statFor(c.id)!.redemptionRate}%）` : '−' }}</text>
           </view>
           <view class="kv">
             <text class="k">{{ $t('couponList.opsAvailable') }}</text>
@@ -91,6 +102,7 @@ import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
   fetchCouponTemplates, deleteCouponTemplate, setCouponTemplateEnabled,
   couponTypeLabel, fmtCNY, CouponTemplateItem,
+  fetchCouponRedemptionStats, CouponRedemptionStat,
 } from '../../apis/coupon';
 import CouponDetailModal from './CouponDetailModal.vue';
 import { useLocaleStore } from '../../stores/localeStore';
@@ -182,19 +194,59 @@ function availableText(c: CouponTemplateItem): string {
   return rest > 0 ? String(rest) : '−';
 }
 
-/** 顶部 KPI 汇总 */
-const kpiIssued = computed(() => items.value.reduce((s, c) => s + (c.claimedCount || 0), 0));
-// 后端暂无已核销/used 统计字段，整体显示 −
-const kpiUsed = computed(() => '−');
-const kpiAvailable = computed(() => {
-  let total = 0, any = false;
-  for (const c of items.value) {
-    if (c.totalCount == null || c.claimedCount == null) continue;
-    if (c.totalCount === 0) { any = true; continue; }
-    const rest = c.totalCount - c.claimedCount;
-    if (rest > 0) { total += rest; any = true; }
+/* ── 核销看板（FR-A3）：四指标 + 时间筛选，基于 couponRedemptionStats（仅状态聚合，无埋点） ── */
+
+const stats = ref<CouponRedemptionStat[]>([]);
+// 四卡统一走 couponRedemptionStats 口径：superadmin 全平台 / 店主本店，避免与核销卡口径混用
+const kpiIssued = computed(() => stats.value.reduce((s, r) => s + r.claimed, 0));
+const statRange = ref<'all' | 'today' | '7d' | '30d'>('all');
+const statRanges = computed(() => [
+  { key: 'all' as const, label: locale.t('couponList.rangeAll') },
+  { key: 'today' as const, label: locale.t('couponList.rangeToday') },
+  { key: '7d' as const, label: locale.t('couponList.range7d') },
+  { key: '30d' as const, label: locale.t('couponList.range30d') },
+]);
+
+/** 时间窗起点（领取时间口径）：all 无窗口 */
+function rangeFrom(key: string): string | undefined {
+  if (key === 'all') return undefined;
+  const now = new Date();
+  if (key === 'today') {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return d.toISOString();
   }
-  return any ? total : '−';
+  const days = key === '7d' ? 7 : 30;
+  return new Date(now.getTime() - days * 86400000).toISOString();
+}
+
+async function loadStats() {
+  try {
+    stats.value = await fetchCouponRedemptionStats({ from: rangeFrom(statRange.value) });
+  } catch {
+    stats.value = [];
+  }
+}
+
+function setStatRange(key: 'all' | 'today' | '7d' | '30d') {
+  if (statRange.value === key) return;
+  statRange.value = key;
+  loadStats();
+}
+
+function statFor(templateId: string): CouponRedemptionStat | null {
+  return stats.value.find((s) => String(s.templateId) === String(templateId)) ?? null;
+}
+
+const kpiUsed = computed(() => stats.value.reduce((s, r) => s + r.used, 0));
+const kpiRedemptionRate = computed(() => {
+  const claimed = stats.value.reduce((s, r) => s + r.claimed, 0);
+  const used = stats.value.reduce((s, r) => s + r.used, 0);
+  return claimed > 0 ? `${Math.round((used / claimed) * 100)}%` : '−';
+});
+const kpiExpiredRate = computed(() => {
+  const claimed = stats.value.reduce((s, r) => s + r.claimed, 0);
+  const expired = stats.value.reduce((s, r) => s + r.expired, 0);
+  return claimed > 0 ? `${Math.round((expired / claimed) * 100)}%` : '−';
 });
 
 const toggling = ref(false);
@@ -242,18 +294,23 @@ function onDelete(c: CouponTemplateItem) {
 
 // 新建/编辑保存返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
 let couponListShown = false;
-onShow(() => { if (couponListShown) load(); couponListShown = true; });
-onMounted(load);
-onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
+onShow(() => { if (couponListShown) { load(); loadStats(); } couponListShown = true; });
+onMounted(() => { load(); loadStats(); });
+onPullDownRefresh(async () => { await Promise.all([load(), loadStats()]); uni.stopPullDownRefresh(); });
 onReachBottom(loadMore);
 </script>
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
   .toolbar .add { width: 300rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
-  .kpi { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 24rpx 0; margin-bottom: 24rpx;
+  .kpi { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 24rpx 0; margin-bottom: 16rpx;
     .kpi-item { flex: 1; display: flex; flex-direction: column; align-items: center;
       .kpi-num { font-size: 40rpx; color: $wa-ink; font-weight: 700; }
       .kpi-label { font-size: 22rpx; color: $wa-muted; margin-top: 6rpx; }
+    }
+  }
+  .kpi-range { display: flex; gap: 16rpx; margin-bottom: 24rpx;
+    .range-chip { font-size: 24rpx; color: $wa-muted; background: $wa-card; border-radius: 999rpx; padding: 8rpx 28rpx;
+      &.active { color: #fff; background: $wa-accent; font-weight: 600; }
     }
   }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;

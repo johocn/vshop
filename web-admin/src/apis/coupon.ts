@@ -132,6 +132,37 @@ export async function fetchCouponTemplates(options: { skip: number; take: number
   return { items: couponTemplates?.items ?? [], totalItems: couponTemplates?.totalItems ?? 0 };
 }
 
+/** 核销看板单行统计（FR-A3）：按模板聚合，率字段为 0-100 百分比 */
+export interface CouponRedemptionStat {
+  templateId: string;
+  name: string | null;
+  claimed: number;
+  used: number;
+  expired: number;
+  unused: number;
+  returned: number;
+  invalid: number;
+  redemptionRate: number;
+  expiredRate: number;
+}
+
+/** 核销看板四指标查询（时间筛选按领取时间闭区间，from/to 为 ISO 字符串，可选） */
+export async function fetchCouponRedemptionStats(options: { templateId?: string; from?: string; to?: string } = {}): Promise<CouponRedemptionStat[]> {
+  const vars: Record<string, unknown> = {};
+  if (options.templateId) vars.templateId = options.templateId;
+  if (options.from) vars.from = options.from;
+  if (options.to) vars.to = options.to;
+  const { couponRedemptionStats } = await getAdminClient().request<{ couponRedemptionStats: CouponRedemptionStat[] }>(
+    `query CouponRedemptionStats($templateId: ID, $from: String, $to: String) {
+      couponRedemptionStats(templateId: $templateId, from: $from, to: $to) {
+        templateId name claimed used expired unused returned invalid redemptionRate expiredRate
+      }
+    }`,
+    vars,
+  );
+  return couponRedemptionStats ?? [];
+}
+
 export async function fetchCouponTemplate(id: string): Promise<CouponTemplateItem | null> {
   try {
     const { couponTemplate } = await getAdminClient().request<{ couponTemplate: CouponTemplateItem | null }>(

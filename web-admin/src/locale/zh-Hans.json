@@ -880,7 +880,13 @@
     "goIssue": "去发行",
     "kpiIssued": "发放总数",
     "kpiUsed": "核销总数",
-    "kpiAvailable": "可用券"
+    "kpiAvailable": "可用券",
+    "kpiRedemptionRate": "核销率",
+    "kpiExpiredRate": "过期率",
+    "rangeAll": "全部",
+    "rangeToday": "今日",
+    "range7d": "近7天",
+    "range30d": "近30天"
   },
   "couponEdit": {
     "typeLabel": "券类型 *",

@@ -882,7 +882,13 @@
     "goIssue": "Issue",
     "kpiIssued": "Total issued",
     "kpiUsed": "Total used",
-    "kpiAvailable": "Available"
+    "kpiAvailable": "Available",
+    "kpiRedemptionRate": "Redemption rate",
+    "kpiExpiredRate": "Expired rate",
+    "rangeAll": "All",
+    "rangeToday": "Today",
+    "range7d": "7 days",
+    "range30d": "30 days"
   },
   "couponEdit": {
     "typeLabel": "Coupon type *",
