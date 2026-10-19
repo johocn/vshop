@@ -194,3 +194,48 @@ export async function saveMerchantAgreement(input: {
     throw new Error(graphQlErrorMsg(e, '保存商家协议失败'));
   }
 }
+
+// ── 渠道配置（billPayChannelConfig，BillPayManage 权限；服务端 parseBillPayConfig 逐字段兜底）──
+
+export interface BillPayChannelConfig {
+  autoQuote: boolean;
+  quoteExpireMinutes: number;
+  couponEnabled: boolean;
+  /** 凭证容忍度百分数整数（10 = ±10%） */
+  tolerancePercent: number;
+  /** 金额单位：分 */
+  dailyLimitAmount: number;
+  minAmount: number;
+  maxAmount: number;
+  memberDiscount?: { percent: number; label?: unknown } | null;
+  thresholds: { minSpend: number; reduce: number; label?: unknown }[];
+}
+
+const CONFIG_FIELDS = `autoQuote quoteExpireMinutes couponEnabled tolerancePercent dailyLimitAmount
+  minAmount maxAmount memberDiscount { percent label } thresholds { minSpend reduce label }`;
+
+export async function fetchBillPayChannelConfig(): Promise<BillPayChannelConfig> {
+  try {
+    const { billPayChannelConfig } = await getAdminClient().request<{ billPayChannelConfig: BillPayChannelConfig }>(
+      `query BillPayChannelConfig { billPayChannelConfig { ${CONFIG_FIELDS} } }`,
+    );
+    return { ...billPayChannelConfig, thresholds: billPayChannelConfig?.thresholds ?? [] };
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载代买单配置失败'));
+  }
+}
+
+/** 保存渠道配置（幂等 upsert，即时生效）；须传完整配置对象，label 原样透传 */
+export async function saveBillPayChannelConfig(config: BillPayChannelConfig): Promise<BillPayChannelConfig> {
+  try {
+    const { saveBillPayChannelConfig } = await getAdminClient().request<{
+      saveBillPayChannelConfig: BillPayChannelConfig;
+    }>(
+      `mutation SaveBillPayChannelConfig($config: JSON!) { saveBillPayChannelConfig(config: $config) { ${CONFIG_FIELDS} } }`,
+      { config },
+    );
+    return saveBillPayChannelConfig;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '保存代买单配置失败'));
+  }
+}
