@@ -53,6 +53,14 @@
         </view>
         <text class="tip">{{ $t('platformTenantsDetail.storefrontTip') }}</text>
       </view>
+      <view class="field" v-if="tenantStorefrontMode === 'coupon'" style="margin-bottom: 0;">
+        <text class="label">{{ $t('platformTenantsDetail.floorGroupsLabel') }}</text>
+        <view class="save-row">
+          <textarea class="input floor-groups-input" v-model="tenantFloorGroups" :placeholder="$t('platformTenantsDetail.phFloorGroups')" auto-height />
+          <button class="btn save-btn" @tap="saveFloorGroups">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.floorGroupsTip') }}</text>
+      </view>
       <view class="field" style="margin-bottom: 0;">
         <text class="label">{{ $t('platformTenantsDetail.firstBuyLabel') }}</text>
         <view class="save-row">
@@ -396,6 +404,40 @@ async function saveStorefront() {
   }
 }
 
+// 券店楼层分组：JSON 数组字符串（key + 多语言 title），仅 coupon 模式生效；
+// 券超 20 张且模板已配 category 时按此配置分组楼层（顺序=配置顺序，未命中归「更多」）
+const tenantFloorGroups = ref('');
+function normalizeFloorGroups(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null; // 清空 = 回退按券类型自动分组
+  let arr: any;
+  try { arr = JSON.parse(s); } catch { return undefined; }
+  if (!Array.isArray(arr) || !arr.length) return undefined;
+  const keys = new Set<string>();
+  for (const it of arr) {
+    if (typeof it !== 'object' || it === null || typeof it.key !== 'string' || !it.key.trim()) return undefined;
+    const k = it.key.trim();
+    if (keys.has(k)) return undefined;
+    keys.add(k);
+    if (it.title !== undefined && it.title !== null && typeof it.title !== 'string' && typeof it.title !== 'object') return undefined;
+  }
+  return JSON.stringify(arr.map((it: any) => ({ key: it.key.trim(), title: it.title ?? null })));
+}
+async function saveFloorGroups() {
+  const normalized = normalizeFloorGroups(tenantFloorGroups.value);
+  if (normalized === undefined) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.floorGroupsInvalid'), icon: 'none' });
+    return;
+  }
+  try {
+    await updateTenant(channelId.value, { couponFloorGroups: normalized });
+    tenantFloorGroups.value = normalized ?? '';
+    uni.showToast({ title: locale.t('platformTenantsDetail.floorGroupsUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
 // 首购立减（元）：写 Channel customFields.firstBuyDiscount（分），0/空 = 关闭
 const firstBuyYuan = ref('');
 async function saveFirstBuy() {
@@ -599,6 +641,7 @@ async function loadTenant() {
     tenantIndustry.value = t.industryType ?? null;
     tenantStorefrontMode.value = t.storefrontMode ?? 'normal';
     tenantStorefrontLayout.value = t.storefrontHomeLayout ?? 'floors';
+    tenantFloorGroups.value = t.couponFloorGroups ?? '';
     firstBuyYuan.value = t.firstBuyDiscount ? String(t.firstBuyDiscount / 100) : '';
     hydrateBillpay(t);
     hydrateCampaign(t.couponCampaign);
@@ -870,6 +913,8 @@ function onEditRole(r: RoleItem) {
 .check.on { background: $pm-info; border-color: $pm-info; }
 /* 倒计时活动位：时间窗 picker 行 */
 .save-row.wrap { flex-wrap: wrap; }
+/* 券店楼层分组 JSON 文本域：等宽小字号 + 最小高度，长 JSON 可读可编辑 */
+.floor-groups-input { flex: 1; min-height: 110rpx; font-size: 24rpx; line-height: 1.5; font-family: monospace; word-break: break-all; }
 .save-row .picker-val { min-width: 170rpx; text-align: center; font-size: 26rpx; white-space: nowrap; }
 .save-row .arrow-sep { color: #999; font-size: 26rpx; align-self: center; }
 .actions { display: flex; gap: 24rpx; margin-top: 8rpx; }
