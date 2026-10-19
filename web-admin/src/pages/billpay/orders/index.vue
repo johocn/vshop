@@ -1,5 +1,51 @@
 <template>
   <view class="page">
+    <!-- 代买单渠道配置（折叠卡，版式 A） -->
+    <view class="cfg card">
+      <view class="cfg-head" @tap="toggleConfig">
+        <text class="cfg-title">{{ $t('billpay.cfgTitle') }}</text>
+        <text class="cfg-tag">{{ tenant.name || tenant.code || '—' }}</text>
+        <text class="cfg-arrow" :class="{ open: cfgOpen }">▾</text>
+      </view>
+      <view v-if="cfgOpen" class="cfg-body">
+        <view v-if="cfgLoading" class="cfg-loading">{{ $t('billpay.loading') }}</view>
+        <template v-else>
+          <text class="cfg-sec">{{ $t('billpay.cfgSecLimit') }}</text>
+          <view class="cfg-grid">
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgMin') }}</text><input class="f-input" type="digit" v-model="cfg.minAmount" /></view>
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgMax') }}</text><input class="f-input" type="digit" v-model="cfg.maxAmount" /></view>
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgDaily') }}</text><input class="f-input" type="digit" v-model="cfg.dailyLimitAmount" /></view>
+          </view>
+
+          <text class="cfg-sec">{{ $t('billpay.cfgSecQuote') }}</text>
+          <view class="cfg-grid">
+            <view class="f-row f-row-switch">
+              <text class="k">{{ $t('billpay.cfgAutoQuote') }}</text>
+              <switch class="f-switch" :checked="cfg.autoQuote" @change="onAutoQuoteChange" />
+            </view>
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgExpire') }}</text><input class="f-input" type="number" v-model="cfg.quoteExpireMinutes" /></view>
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgTol') }}</text><input class="f-input" type="number" v-model="cfg.tolerancePercent" /></view>
+            <view class="f-row"><text class="k">{{ $t('billpay.cfgMember') }}</text><input class="f-input" type="number" v-model="cfg.memberPercent" :placeholder="$t('billpay.cfgMemberOff')" /></view>
+            <view class="f-row f-row-switch">
+              <text class="k">{{ $t('billpay.cfgCoupon') }}</text>
+              <switch class="f-switch" :checked="cfg.couponEnabled" @change="onCouponChange" />
+            </view>
+          </view>
+
+          <text class="cfg-sec">{{ $t('billpay.cfgSecThreshold') }}</text>
+          <view class="th-row" v-for="(r, i) in cfg.thresholds" :key="i">
+            <input class="f-input" type="digit" v-model="r.minSpend" :placeholder="$t('billpay.cfgThSpend')" />
+            <text class="th-sep">−</text>
+            <input class="f-input" type="digit" v-model="r.reduce" :placeholder="$t('billpay.cfgThReduce')" />
+            <text class="th-del" @tap="cfg.thresholds.splice(i, 1)">{{ $t('billpay.cfgThDel') }}</text>
+          </view>
+          <text class="th-add" @tap="cfg.thresholds.push({ minSpend: '', reduce: '' })">{{ $t('billpay.cfgThAdd') }}</text>
+
+          <button class="cfg-save" :disabled="cfgSaving" @tap="saveConfig">{{ $t('billpay.cfgSave') }}</button>
+        </template>
+      </view>
+    </view>
+
     <view class="chips">
       <text
         v-for="t in tabs"
@@ -131,14 +177,110 @@ import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app';
 import {
   fetchBillPayOrders, updateBillPayQuote, acceptBillPayOrder,
   completeBillPayOrder, settleBillPayOrder, refundBillPayOrder,
+  fetchBillPayChannelConfig, saveBillPayChannelConfig,
   BILLPAY_STATUS_LABELS, type BillPayOrderRow,
 } from '../../../apis/billpay';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useTenantStore } from '../../../stores/tenantStore';
 import { fenToYuanFixed, yuanToFen } from '../../../utils/money';
 import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
 
 const locale = useLocaleStore();
 const t = (k: string) => locale.t(k);
+const tenant = useTenantStore();
+
+// ── 渠道配置卡（展开时拉取；保存幂等 upsert 即时生效）──
+const cfgOpen = ref(false);
+const cfgLoading = ref(false);
+const cfgSaving = ref(false);
+const cfgLoaded = ref(false);
+const cfg = ref({
+  minAmount: '',
+  maxAmount: '',
+  dailyLimitAmount: '',
+  autoQuote: true,
+  quoteExpireMinutes: '',
+  tolerancePercent: '',
+  memberPercent: '',
+  couponEnabled: false,
+  thresholds: [] as { minSpend: string; reduce: string; label?: unknown }[],
+});
+const cfgMemberLabel = ref<unknown>(null);
+
+function onAutoQuoteChange(e: any) { cfg.value.autoQuote = !!e?.detail?.value; }
+function onCouponChange(e: any) { cfg.value.couponEnabled = !!e?.detail?.value; }
+
+async function loadConfig() {
+  cfgLoading.value = true;
+  try {
+    const c = await fetchBillPayChannelConfig();
+    cfg.value = {
+      minAmount: fenToYuanFixed(c.minAmount),
+      maxAmount: fenToYuanFixed(c.maxAmount),
+      dailyLimitAmount: fenToYuanFixed(c.dailyLimitAmount),
+      autoQuote: !!c.autoQuote,
+      quoteExpireMinutes: String(c.quoteExpireMinutes ?? ''),
+      tolerancePercent: String(c.tolerancePercent ?? ''),
+      memberPercent: c.memberDiscount?.percent != null ? String(c.memberDiscount.percent) : '',
+      couponEnabled: !!c.couponEnabled,
+      thresholds: (c.thresholds ?? []).map((r) => ({
+        minSpend: fenToYuanFixed(r.minSpend),
+        reduce: fenToYuanFixed(r.reduce),
+        label: r.label,
+      })),
+    };
+    cfgMemberLabel.value = c.memberDiscount?.label ?? null;
+    cfgLoaded.value = true;
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || t('billpay.cfgLoadFailed'), icon: 'none' });
+  } finally {
+    cfgLoading.value = false;
+  }
+}
+
+function toggleConfig() {
+  cfgOpen.value = !cfgOpen.value;
+  if (cfgOpen.value && !cfgLoaded.value) loadConfig();
+}
+
+async function saveConfig() {
+  const minC = yuanToFen(cfg.value.minAmount);
+  const maxC = yuanToFen(cfg.value.maxAmount);
+  const dailyC = yuanToFen(cfg.value.dailyLimitAmount);
+  if (!minC || !maxC || !dailyC) return uni.showToast({ title: t('billpay.cfgToastAmount'), icon: 'none' });
+  if (minC > maxC) return uni.showToast({ title: t('billpay.cfgToastMinMax'), icon: 'none' });
+  const expire = Number(cfg.value.quoteExpireMinutes);
+  if (!Number.isFinite(expire) || expire <= 0) return uni.showToast({ title: t('billpay.cfgToastExpire'), icon: 'none' });
+  const tol = Number(cfg.value.tolerancePercent);
+  if (!Number.isFinite(tol) || tol < 0 || tol > 100) return uni.showToast({ title: t('billpay.cfgToastTol'), icon: 'none' });
+  const mpStr = String(cfg.value.memberPercent ?? '').trim();
+  const mp = mpStr === '' ? null : Number(mpStr);
+  if (mp != null && (!Number.isFinite(mp) || mp <= 0 || mp >= 100)) {
+    return uni.showToast({ title: t('billpay.cfgToastMember'), icon: 'none' });
+  }
+  const thresholds = cfg.value.thresholds
+    .map((r) => ({ minSpend: yuanToFen(r.minSpend) || 0, reduce: yuanToFen(r.reduce) || 0, label: r.label }))
+    .filter((r) => r.minSpend > 0 && r.reduce > 0);
+  cfgSaving.value = true;
+  try {
+    await saveBillPayChannelConfig({
+      autoQuote: cfg.value.autoQuote,
+      quoteExpireMinutes: Math.round(expire),
+      couponEnabled: cfg.value.couponEnabled,
+      tolerancePercent: Math.round(tol),
+      dailyLimitAmount: dailyC,
+      minAmount: minC,
+      maxAmount: maxC,
+      memberDiscount: mp != null ? { percent: Math.round(mp), label: cfgMemberLabel.value } : null,
+      thresholds,
+    });
+    uni.showToast({ title: t('billpay.cfgToastSaved'), icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || t('billpay.cfgSaveFailed'), icon: 'none' });
+  } finally {
+    cfgSaving.value = false;
+  }
+}
 
 const tabs = [
   { key: '', labelKey: 'billpay.tabAll' },
@@ -359,6 +501,29 @@ onReachBottom(loadMore);
 
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
+  .cfg { margin-bottom: 20rpx;
+    .cfg-head { display: flex; align-items: center; gap: 12rpx;
+      .cfg-title { font-size: 28rpx; color: $wa-ink; font-weight: 600; flex: 1; }
+      .cfg-tag { font-size: 20rpx; color: $wa-accent; background: rgba(47, 111, 237, .08); border-radius: 999rpx; padding: 4rpx 16rpx; max-width: 240rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cfg-arrow { font-size: 24rpx; color: $wa-muted; transition: transform .2s; transform: rotate(0deg);
+        &.open { transform: rotate(180deg); } } }
+    .cfg-body { margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid $wa-rule;
+      .cfg-loading { text-align: center; color: $wa-muted; font-size: 24rpx; padding: 24rpx 0; }
+      .cfg-sec { display: block; font-size: 24rpx; color: $wa-ink; font-weight: 600; margin: 18rpx 0 10rpx;
+        &:first-child { margin-top: 0; } }
+      .cfg-grid { display: flex; flex-direction: column; gap: 14rpx; }
+      .f-row { display: flex; flex-direction: column; gap: 6rpx;
+        .k { font-size: 22rpx; color: $wa-muted; }
+        .f-input { background: $wa-bg; border: 1rpx solid $wa-rule; border-radius: 12rpx; padding: 12rpx 20rpx; font-size: 26rpx; color: $wa-ink; } }
+      .f-row-switch { flex-direction: row; align-items: center; justify-content: space-between;
+        .f-switch { transform: scale(.8); transform-origin: right center; } }
+      .th-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx;
+        .f-input { flex: 1; background: $wa-bg; border: 1rpx solid $wa-rule; border-radius: 12rpx; padding: 12rpx 20rpx; font-size: 26rpx; color: $wa-ink; }
+        .th-sep { font-size: 26rpx; color: $wa-muted; flex-shrink: 0; }
+        .th-del { font-size: 24rpx; color: #e64340; flex-shrink: 0; } }
+      .th-add { display: inline-block; font-size: 24rpx; color: $wa-accent; margin-bottom: 6rpx; }
+      .cfg-save { margin-top: 20rpx; background: $wa-accent; color: #fff; border-radius: 12rpx; font-size: 28rpx;
+        &[disabled] { opacity: .5; } } } }
   .chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx;
     .chip { font-size: 24rpx; color: $wa-ink; background: $wa-card; border: 1rpx solid $wa-rule; border-radius: 999rpx; padding: 8rpx 24rpx;
       &.on { background: $wa-accent; border-color: $wa-accent; color: #fff; } } }
