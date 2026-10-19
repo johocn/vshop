@@ -2,6 +2,10 @@
   <view class="page">
     <view class="toolbar">
       <button class="add" @tap="onCreate">＋ {{ $t('couponList.createNew') }}</button>
+      <view class="toolbar-row">
+        <button class="ghost" @tap="marketingVisible = true">{{ $t('couponList.marketingBtn') }}</button>
+        <button class="ghost" @tap="winbackVisible = true">{{ $t('couponList.winbackBtn') }}</button>
+      </view>
     </view>
 
     <view class="kpi">
@@ -94,6 +98,8 @@
     <view v-if="loadingMore" class="empty">{{ $t('couponList.loadingMore') }}</view>
 
     <CouponDetailModal v-model:visible="detailVisible" :template="detailTemplate" />
+    <MarketingModal v-model:visible="marketingVisible" />
+    <WinBackModal v-model:visible="winbackVisible" />
   </view>
 </template>
 <script lang="ts" setup>
@@ -105,6 +111,8 @@ import {
   fetchCouponRedemptionStats, CouponRedemptionStat,
 } from '../../apis/coupon';
 import CouponDetailModal from './CouponDetailModal.vue';
+import MarketingModal from './MarketingModal.vue';
+import WinBackModal from './WinBackModal.vue';
 import { useLocaleStore } from '../../stores/localeStore';
 
 const locale = useLocaleStore();
@@ -117,6 +125,10 @@ const PAGE = 20;
 
 const detailVisible = ref(false);
 const detailTemplate = ref<CouponTemplateItem | null>(null);
+
+/* P1：营销活动配置（FR-C 裂变 / FR-D 新客 1 元购位）+ 沉睡召回批量发放（FR-E1） */
+const marketingVisible = ref(false);
+const winbackVisible = ref(false);
 
 function openDetail(c: CouponTemplateItem) {
   detailTemplate.value = c;
@@ -302,6 +314,9 @@ onReachBottom(loadMore);
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 160rpx;
   .toolbar .add { width: 300rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
+  .toolbar-row { display: flex; gap: 16rpx; margin-bottom: 24rpx;
+    .ghost { flex: 1; background: $wa-card; color: $wa-accent; font-size: 26rpx; border-radius: $wa-radius; }
+  }
   .kpi { display: flex; background: $wa-card; border-radius: $wa-radius; padding: 24rpx 0; margin-bottom: 16rpx;
     .kpi-item { flex: 1; display: flex; flex-direction: column; align-items: center;
       .kpi-num { font-size: 40rpx; color: $wa-ink; font-weight: 700; }
