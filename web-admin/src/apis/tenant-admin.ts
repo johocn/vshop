@@ -17,6 +17,12 @@ export interface TenantItem {
   firstBuyDiscount?: number | null;
   /** 倒计时活动位配置（JSON 字符串，单场；null=无活动） */
   couponCampaign?: string | null;
+  /** 买单券监管参数组（T4）：null/0 = 未配置（宽松默认，不校验） */
+  billpayMaxSalePrice?: number | null;
+  billpayMaxFaceValue?: number | null;
+  billpayMaxBundleTotal?: number | null;
+  billpayMinValidDays?: number | null;
+  billpayExpireRefundPolicy?: string | null;
 }
 
 export interface TenantMemberItem {
@@ -85,10 +91,15 @@ function mapTenant(t: any): TenantItem {
     storefrontHomeLayout: t.customFields?.storefrontHomeLayout ?? null,
     firstBuyDiscount: t.customFields?.firstBuyDiscount ?? null,
     couponCampaign: t.customFields?.couponCampaign ?? null,
+    billpayMaxSalePrice: t.customFields?.billpayMaxSalePrice ?? null,
+    billpayMaxFaceValue: t.customFields?.billpayMaxFaceValue ?? null,
+    billpayMaxBundleTotal: t.customFields?.billpayMaxBundleTotal ?? null,
+    billpayMinValidDays: t.customFields?.billpayMinValidDays ?? null,
+    billpayExpireRefundPolicy: t.customFields?.billpayExpireRefundPolicy ?? null,
   };
 }
 
-const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus domain industryType storefrontMode storefrontHomeLayout firstBuyDiscount couponCampaign }`;
+const TENANT_FIELDS = `id code token customFields { shopName enabled tenantNo isOfficial merchantStatus domain industryType storefrontMode storefrontHomeLayout firstBuyDiscount couponCampaign billpayMaxSalePrice billpayMaxFaceValue billpayMaxBundleTotal billpayMinValidDays billpayExpireRefundPolicy }`;
 
 export async function fetchTenant(id: string): Promise<TenantItem> {
   const res = await getAdminClient().request<{ tenant: any }>(
@@ -119,7 +130,7 @@ export async function createTenant(input: { name: string; isOfficial?: boolean }
   return mapTenant(res.createTenant);
 }
 
-export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean; domain?: string; industryType?: string; storefrontMode?: string; storefrontHomeLayout?: string; firstBuyDiscount?: number; couponCampaign?: string }): Promise<TenantItem> {
+export async function updateTenant(id: string, input: { name?: string; tenantNo?: number; isOfficial?: boolean; domain?: string; industryType?: string; storefrontMode?: string; storefrontHomeLayout?: string; firstBuyDiscount?: number; couponCampaign?: string; billpayMaxSalePrice?: number | null; billpayMaxFaceValue?: number | null; billpayMaxBundleTotal?: number | null; billpayMinValidDays?: number | null; billpayExpireRefundPolicy?: string | null }): Promise<TenantItem> {
   const res = await getAdminClient().request<{ updateTenant: any }>(
     `mutation UpdateTenant($id: ID!, $input: UpdateTenantInput!) { updateTenant(id: $id, input: $input) { ${TENANT_FIELDS} } }`,
     { id, input },

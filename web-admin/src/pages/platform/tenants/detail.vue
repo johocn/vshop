@@ -63,6 +63,46 @@
       </view>
     </view>
 
+    <!-- 买单券监管参数组（T4；写 Channel customFields.billpay*，空 = 不限制） -->
+    <view class="card" style="margin-bottom: 20rpx;">
+      <view class="row head">
+        <text class="title">{{ $t('platformTenantsDetail.billpayTitle') }}</text>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.billpayMaxSalePriceLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="bpMaxSaleYuan" type="digit" :placeholder="$t('platformTenantsDetail.billpayUnsetPh')" />
+          <button class="btn save-btn" @tap="saveBillpay">{{ $t('platformTenantsDetail.save') }}</button>
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.billpayMaxFaceLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="bpMaxFaceYuan" type="digit" :placeholder="$t('platformTenantsDetail.billpayUnsetPh')" />
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.billpayMaxFaceTip') }}</text>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.billpayMaxBundleLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="bpMaxBundleYuan" type="digit" :placeholder="$t('platformTenantsDetail.billpayUnsetPh')" />
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">{{ $t('platformTenantsDetail.billpayMinDaysLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="bpMinDays" type="number" :placeholder="$t('platformTenantsDetail.billpayUnsetPh')" />
+        </view>
+      </view>
+      <view class="field" style="margin-bottom: 0;">
+        <text class="label">{{ $t('platformTenantsDetail.billpayRefundLabel') }}</text>
+        <view class="save-row">
+          <input class="input" v-model="bpRefundPolicy" :placeholder="$t('platformTenantsDetail.billpayRefundPh')" />
+        </view>
+        <text class="tip">{{ $t('platformTenantsDetail.billpayRefundTip') }}</text>
+      </view>
+    </view>
+
     <!-- 倒计时活动位（单场；写 Channel customFields.couponCampaign JSON，券店首页展示） -->
     <view class="card" style="margin-bottom: 20rpx;">
       <view class="row head">
@@ -279,7 +319,7 @@ import {
   fetchTenantRoles, deleteTenantRole,
   searchTenantAdmins, linkTenantMember,
   clearTenantProducts,
-  type TenantMemberItem, type RoleItem, type AdminSearchCandidate,
+  type TenantMemberItem, type RoleItem, type AdminSearchCandidate, type TenantItem,
 } from '../../../apis/tenant-admin';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { fetchCouponTemplates, fmtCNY, type CouponTemplateItem } from '../../../apis/coupon';
@@ -370,6 +410,57 @@ async function saveFirstBuy() {
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
   }
+}
+
+// 买单券监管参数组（T4）：元 ↔ 分 换算；空 = 未配置（宽松默认，购买链路不校验）
+const bpMaxSaleYuan = ref('');
+const bpMaxFaceYuan = ref('');
+const bpMaxBundleYuan = ref('');
+const bpMinDays = ref('');
+const bpRefundPolicy = ref('');
+
+function yuanToFenOrClear(v: string): number | null {
+  const s = String(v ?? '').trim();
+  if (!s) return null; // 空 = 清除限制
+  const fen = Math.round(Number(s) * 100);
+  return Number.isFinite(fen) && fen > 0 ? fen : null;
+}
+
+async function saveBillpay() {
+  const maxSale = yuanToFenOrClear(bpMaxSaleYuan.value);
+  const maxFace = yuanToFenOrClear(bpMaxFaceYuan.value);
+  const maxBundle = yuanToFenOrClear(bpMaxBundleYuan.value);
+  const daysRaw = String(bpMinDays.value ?? '').trim();
+  const minDays = daysRaw ? Math.floor(Number(daysRaw)) : null;
+  if ((maxSale == null && bpMaxSaleYuan.value.trim()) || (maxFace == null && bpMaxFaceYuan.value.trim()) || (maxBundle == null && bpMaxBundleYuan.value.trim())) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.billpayInvalid'), icon: 'none' });
+    return;
+  }
+  if (minDays != null && (!Number.isFinite(minDays) || minDays <= 0)) {
+    uni.showToast({ title: locale.t('platformTenantsDetail.billpayInvalid'), icon: 'none' });
+    return;
+  }
+  try {
+    await updateTenant(channelId.value, {
+      billpayMaxSalePrice: maxSale,
+      billpayMaxFaceValue: maxFace,
+      billpayMaxBundleTotal: maxBundle,
+      billpayMinValidDays: minDays,
+      billpayExpireRefundPolicy: bpRefundPolicy.value.trim() || null,
+    });
+    uni.showToast({ title: locale.t('platformTenantsDetail.billpayUpdated'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.saveFailed')), icon: 'none' });
+  }
+}
+
+function hydrateBillpay(t: TenantItem) {
+  const fenToYuan = (v: number | null | undefined) => (v ? String(v / 100) : '');
+  bpMaxSaleYuan.value = fenToYuan(t.billpayMaxSalePrice);
+  bpMaxFaceYuan.value = fenToYuan(t.billpayMaxFaceValue);
+  bpMaxBundleYuan.value = fenToYuan(t.billpayMaxBundleTotal);
+  bpMinDays.value = t.billpayMinValidDays ? String(t.billpayMinValidDays) : '';
+  bpRefundPolicy.value = t.billpayExpireRefundPolicy ?? '';
 }
 
 // 倒计时活动位（单场；写 Channel customFields.couponCampaign JSON，券店首页展示，到点自动上下线）
@@ -509,6 +600,7 @@ async function loadTenant() {
     tenantStorefrontMode.value = t.storefrontMode ?? 'normal';
     tenantStorefrontLayout.value = t.storefrontHomeLayout ?? 'floors';
     firstBuyYuan.value = t.firstBuyDiscount ? String(t.firstBuyDiscount / 100) : '';
+    hydrateBillpay(t);
     hydrateCampaign(t.couponCampaign);
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('platformTenantsDetail.loadFailed')), icon: 'none' });
