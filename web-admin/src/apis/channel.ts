@@ -55,6 +55,10 @@ export interface ChannelCustomFields {
   balanceMinWithdrawalAmount?: number | null;
   // 抽奖每次固定消耗（积分，int nullable）：null=按所中奖品 consume；>=0=每次固定扣该值（0=免费）
   lotteryFixedCost?: number | null;
+  // 倒计时活动位 JSON（coupon-plugin couponCampaign；FR-D 新客 1 元购位在此配 newCustomerOnly）
+  couponCampaign?: string;
+  // 分享裂变活动 JSON（coupon-plugin couponFission，FR-C）
+  couponFission?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -68,7 +72,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost couponCampaign couponFission }
       }
     }`,
   );

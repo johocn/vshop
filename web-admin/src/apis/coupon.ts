@@ -407,6 +407,8 @@ export const COUPON_ISSUED_BY_LABELS: Record<string, string> = {
   ADMIN: '定向发放',
   EXCHANGE: '兑换',
   SALE: '购买',
+  FISSION: '裂变',
+  RECALL: '召回',
 };
 
 /** 某券模板的领取明细（分页；status 为空取全部） */
@@ -473,6 +475,89 @@ export function joinChannels(codes: string[]): string {
   return COUPON_CHANNEL_OPTIONS.filter((c) => set.has(c.code))
     .map((c) => c.code)
     .join(',');
+}
+
+/* ------------------------- 沉睡召回批量发放（FR-E1） / 裂变记录（FR-C） ------------------------- */
+
+export interface CouponGrantBatchRow {
+  id: string;
+  channelId: string;
+  templateId: string;
+  days: number;
+  totalSelected: number;
+  issuedCount: number;
+  skippedCount: number;
+  resultsJson: string | null;
+  operator: string | null;
+  notified: boolean;
+  createdAt: string;
+}
+
+/** E1 圈人预览（只数不发） */
+export async function fetchWinBackPreviewCount(days: number): Promise<number> {
+  try {
+    const r = await getAdminClient().request<{ couponWinBackPreviewCount: number }>(
+      `query ($days: Int!) { couponWinBackPreviewCount(days: $days) }`,
+      { days },
+    );
+    return r.couponWinBackPreviewCount ?? 0;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '圈人失败'));
+  }
+}
+
+/** E1 批量发放：圈 N 天未消费客户批量发券（RECALL 留痕 + R4 七日防骚扰），返回批次 */
+export async function grantCouponWinBack(templateId: string, days: number, notify: boolean): Promise<CouponGrantBatchRow> {
+  try {
+    const r = await getAdminClient().request<{ couponWinBackGrant: CouponGrantBatchRow }>(
+      `mutation ($templateId: ID!, $days: Int!, $notify: Boolean!) {
+        couponWinBackGrant(templateId: $templateId, days: $days, notify: $notify) {
+          id templateId days totalSelected issuedCount skippedCount resultsJson operator notified createdAt
+        }
+      }`,
+      { templateId, days, notify },
+    );
+    return r.couponWinBackGrant;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '批量发放失败'));
+  }
+}
+
+/** E1 批次留痕列表（结果可查询） */
+export async function fetchCouponGrantBatches(take = 20): Promise<CouponGrantBatchRow[]> {
+  try {
+    const r = await getAdminClient().request<{ couponGrantBatches: CouponGrantBatchRow[] }>(
+      `query ($take: Int) { couponGrantBatches(take: $take) { id channelId templateId days totalSelected issuedCount skippedCount resultsJson operator notified createdAt } }`,
+      { take },
+    );
+    return r.couponGrantBatches ?? [];
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载批次失败'));
+  }
+}
+
+/** FR-C 裂变发放留痕（R1 渠道留痕核对） */
+export interface CouponFissionRecordRow {
+  id: string;
+  inviterCustomerId: string;
+  inviteeCustomerId: string;
+  inviteeCouponId: string | null;
+  inviterCouponId: string | null;
+  status: string;
+  sharedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchCouponFissionRecords(take = 50): Promise<CouponFissionRecordRow[]> {
+  try {
+    const r = await getAdminClient().request<{ couponFissionRecords: CouponFissionRecordRow[] }>(
+      `query ($take: Int) { couponFissionRecords(take: $take) { id inviterCustomerId inviteeCustomerId inviteeCouponId inviterCouponId status sharedAt createdAt } }`,
+      { take },
+    );
+    return r.couponFissionRecords ?? [];
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '加载裂变记录失败'));
+  }
 }
 
 /* ------------------------- 券包（CouponBundle） ------------------------- */
