@@ -59,6 +59,12 @@ export interface ChannelCustomFields {
   couponCampaign?: string;
   // 分享裂变活动 JSON（coupon-plugin couponFission，FR-C）
   couponFission?: string;
+  // 每日领券活动 JSON（coupon-plugin couponDailyClaim，FR-F1）
+  couponDailyClaim?: string;
+  // 神券日限量抢活动 JSON（coupon-plugin couponFlashSale，FR-F2）
+  couponFlashSale?: string;
+  // 支付有礼配置 JSON（coupon-plugin couponPayGift，FR-F3）
+  couponPayGift?: string;
 }
 
 export interface ActiveChannelInfo {
@@ -72,7 +78,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost couponCampaign couponFission }
+        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost couponCampaign couponFission couponDailyClaim couponFlashSale couponPayGift }
       }
     }`,
   );
