@@ -101,6 +101,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.couponIssue', url: '/pages/coupon/index', tier: 1 },
       { label: 'menu.couponBundle', url: '/pages/coupon/bundle/index', tier: 2 },
       { label: 'menu.couponSaleOrders', url: '/pages/coupon/sale-orders/index', tier: 2 },
+      { label: 'menu.couponSettle', url: '/pages/coupon/settlements/index', tier: 2 },
       { label: 'menu.studentVerify', url: '/pages/coupon/student-verify/index', tier: 2 },
       { label: 'menu.couponTargeted', url: '/pages/coupon/issue/index', tier: 3 },
       { label: 'menu.flashSale', url: '/pages/promotion/flash-sale/index', tier: 2 },
