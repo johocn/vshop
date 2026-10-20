@@ -55,6 +55,23 @@
 
     <!-- 结算单 tab -->
     <template v-else>
+      <view class="config-bar" :class="splitConfig?.splitMode">
+        <text class="ci">{{ $t('couponSettle.cfgMode') }}</text>
+        <text class="cv">{{ $t('couponSettle.mode_' + (splitConfig?.splitMode || 'unknown')) }}</text>
+        <text class="ci">{{ $t('couponSettle.cfgOnboard') }}</text>
+        <text class="cv" :class="{ ok: splitConfig?.onboardingStatus === 'APPROVED' }">{{ $t('couponSettle.ob_' + (splitConfig?.onboardingStatus || 'NONE')) }}</text>
+      </view>
+      <view class="kpi">
+        <view class="k1">
+          <view class="kp"><text class="kn">{{ summary?.total ?? '—' }}</text><text class="kl">{{ $t('couponSettle.kpiTotal') }}</text></view>
+          <view class="kp"><text class="kn warn">{{ summary?.pending ?? '—' }}</text><text class="kl">{{ $t('couponSettle.kpiPending') }}</text></view>
+          <view class="kp"><text class="kn ok">{{ summary?.paidOut ?? '—' }}</text><text class="kl">{{ $t('couponSettle.kpiPaid') }}</text></view>
+        </view>
+        <view class="k2">
+          <view class="kp"><text class="kv2">¥{{ money(summary?.totalNet ?? 0) }}</text><text class="kl">{{ $t('couponSettle.kpiNet') }}</text></view>
+          <view class="kp"><text class="kv2">¥{{ money(summary?.totalCommission ?? 0) }}</text><text class="kl">{{ $t('couponSettle.kpiCommission') }}</text></view>
+        </view>
+      </view>
       <view class="chips sub">
         <text v-for="t in settleTabs" :key="t.key" class="chip" :class="{ on: settleTab === t.key }" @tap="switchSettleTab(t.key)">{{ $t(t.labelKey) }}</text>
       </view>
@@ -91,12 +108,15 @@
           <view class="row">
             <view class="kv">
               <text class="k">{{ $t('couponSettle.mode') }}</text>
-              <text class="v">{{ s.splitMode || '—' }}</text>
+              <text class="v">{{ s.splitMode || '—' }}<text v-if="s.voucherType" class="vt"> · {{ $t('couponSettle.vt_' + s.voucherType) }}</text></text>
             </view>
             <view class="kv">
               <text class="k">{{ $t('couponSettle.time') }}</text>
               <text class="v">{{ fmtDT(s.paidOutAt || s.settledAt || s.createdAt) }}</text>
             </view>
+          </view>
+          <view class="row" v-if="s.status === 'REVERSED'">
+            <text class="err rev">{{ $t('couponSettle.reversedTag') }}</text>
           </view>
           <view class="row" v-if="s.lastError">
             <text class="err">{{ s.lastError }}</text>
@@ -117,12 +137,16 @@ import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
   fetchCouponReconcileDiffs,
   fetchCouponSettlementOrders,
+  fetchCouponSettlementSummary,
+  fetchCouponSplitConfig,
   resolveCouponReconcileDiff,
   runCouponReconcile,
   RECONCILE_DIFF_LABELS,
   SETTLE_STATUS_LABELS,
   type CouponReconcileDiffRow,
   type CouponSettlementRow,
+  type CouponSettlementSummary,
+  type CouponSplitConfig,
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
@@ -233,6 +257,8 @@ const settleTabs = [
 const settleTab = ref('');
 const settlements = ref<CouponSettlementRow[]>([]);
 const settleTotal = ref(0);
+const summary = ref<CouponSettlementSummary | null>(null);
+const splitConfig = ref<CouponSplitConfig | null>(null);
 
 const money = fenToYuanFixed;
 const settleLabel = (s: string) => SETTLE_STATUS_LABELS[s] || s;
@@ -243,6 +269,9 @@ async function loadSettlements() {
     const res = await fetchCouponSettlementOrders({ skip: 0, take: PAGE, status: settleTab.value });
     settlements.value = res.items;
     settleTotal.value = res.totalItems;
+    // KPI 与分账配置态并行加载（失败静默：不阻断列表）
+    fetchCouponSettlementSummary().then(s => (summary.value = s)).catch(() => undefined);
+    fetchCouponSplitConfig().then(c => (splitConfig.value = c)).catch(() => undefined);
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('couponSettle.loadFailed'), icon: 'none' });
   } finally {
@@ -317,6 +346,22 @@ onReachBottom(async () => {
 
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 24rpx 32rpx 60rpx;
+  .config-bar { display: flex; align-items: center; gap: 12rpx; background: $wa-card; border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 16rpx; border-left: 6rpx solid #f0821f;
+    &.stub { border-left-color: #2563eb; }
+    &.wechat { border-left-color: #0a9c6e; }
+    .ci { font-size: 22rpx; color: $wa-muted; flex-shrink: 0; }
+    .cv { font-size: 24rpx; color: $wa-ink; font-weight: 600; margin-right: 8rpx;
+      &.ok { color: #0a9c6e; } } }
+  .kpi { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
+    .k1, .k2 { display: flex;
+      .kp { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4rpx; }
+      .kp + .kp { border-left: 1rpx solid $wa-rule; } }
+    .k2 { margin-top: 20rpx; padding-top: 20rpx; border-top: 1rpx solid $wa-rule; }
+    .kn { font-size: 36rpx; font-weight: 700; color: $wa-ink;
+      &.warn { color: #f0821f; }
+      &.ok { color: #0a9c6e; } }
+    .kv2 { font-size: 28rpx; font-weight: 700; color: $wa-ink; }
+    .kl { font-size: 20rpx; color: $wa-muted; } }
   .chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx;
     &.sub { margin-top: 4rpx; }
     .chip { font-size: 24rpx; color: $wa-ink; background: $wa-card; border: 1rpx solid $wa-rule; border-radius: 999rpx; padding: 8rpx 24rpx;
@@ -350,8 +395,10 @@ onReachBottom(async () => {
       .row { display: flex; margin-bottom: 10rpx;
         .kv { flex: 1; display: flex; align-items: center; margin-right: 12rpx;
           .k { font-size: 22rpx; color: $wa-muted; margin-right: 12rpx; flex-shrink: 0; }
-          .v { font-size: 24rpx; color: $wa-ink; word-break: break-all; } }
-        .err { font-size: 22rpx; color: #d92d20; word-break: break-all; } } }
+          .v { font-size: 24rpx; color: $wa-ink; word-break: break-all;
+            .vt { color: $wa-muted; font-size: 22rpx; } } }
+        .err { font-size: 22rpx; color: #d92d20; word-break: break-all;
+          &.rev { color: #7c3aed; } } } }
     .detail { margin-top: 14rpx; font-size: 22rpx; color: $wa-muted; background: $wa-bg; border-radius: 12rpx; padding: 12rpx 16rpx; word-break: break-all; }
     .ops { margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid $wa-rule;
       .resolve { font-size: 26rpx; color: $wa-accent; } }
