@@ -9,6 +9,9 @@
       <view class="tabs">
         <text :class="{ on: tab === 'campaign' }" @tap="tab = 'campaign'">{{ $t('couponMarketing.tabCampaign') }}</text>
         <text :class="{ on: tab === 'fission' }" @tap="tab = 'fission'">{{ $t('couponMarketing.tabFission') }}</text>
+        <text :class="{ on: tab === 'daily' }" @tap="tab = 'daily'">{{ $t('couponMarketing.tabDaily') }}</text>
+        <text :class="{ on: tab === 'flash' }" @tap="tab = 'flash'">{{ $t('couponMarketing.tabFlash') }}</text>
+        <text :class="{ on: tab === 'paygift' }" @tap="tab = 'paygift'">{{ $t('couponMarketing.tabPaygift') }}</text>
       </view>
 
       <scroll-view scroll-y class="body">
@@ -49,7 +52,7 @@
         </template>
 
         <!-- 分享裂变（FR-C） -->
-        <template v-else>
+        <template v-else-if="tab === 'fission'">
           <view class="row-switch">
             <text class="lbl">{{ $t('couponMarketing.enabled') }}</text>
             <switch :checked="fission.enabled" color="#e1251b" @change="(e: any) => (fission.enabled = e.detail.value)" />
@@ -102,6 +105,128 @@
             <switch :checked="fission.newCustomerOnly" color="#e1251b" @change="(e: any) => (fission.newCustomerOnly = e.detail.value)" />
           </view>
         </template>
+
+        <!-- 每日领券（FR-F1） -->
+        <template v-else-if="tab === 'daily'">
+          <view class="row-switch">
+            <text class="lbl">{{ $t('couponMarketing.enabled') }}</text>
+            <switch :checked="daily.enabled" color="#e1251b" @change="(e: any) => (daily.enabled = e.detail.value)" />
+          </view>
+          <view class="hint">{{ $t('couponMarketing.dailyHint') }}</view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldName') }}</text>
+            <input class="ipt" v-model="daily.name" :placeholder="$t('couponMarketing.phDailyName')" />
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldSubtitle') }}</text>
+            <input class="ipt" v-model="daily.subtitle" :placeholder="$t('couponMarketing.phSubtitle')" />
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldRules') }}</text>
+            <textarea class="ipt area" v-model="daily.rules" :placeholder="$t('couponMarketing.phDailyRules')" />
+          </view>
+          <view class="field half">
+            <view class="col">
+              <text class="lbl">{{ $t('couponMarketing.fieldStartsAt') }}（{{ $t('couponMarketing.optional') }}）</text>
+              <picker mode="date" :value="daily.startsAt" @change="(e: any) => (daily.startsAt = e.detail.value)">
+                <view class="ipt">{{ daily.startsAt || $t('couponMarketing.pickDate') }}</view>
+              </picker>
+            </view>
+            <view class="col">
+              <text class="lbl">{{ $t('couponMarketing.fieldEndsAt') }}（{{ $t('couponMarketing.optional') }}）</text>
+              <picker mode="date" :value="daily.endsAt" @change="(e: any) => (daily.endsAt = e.detail.value)">
+                <view class="ipt">{{ daily.endsAt || $t('couponMarketing.pickLong') }}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldDailyTemplates') }}</text>
+            <view class="tpl-list">
+              <text
+                v-for="t in grantCandidates" :key="t.id"
+                class="tpl-chip" :class="{ on: daily.templateIds.includes(t.id) }"
+                @tap="toggleDailyTemplate(t.id)"
+              >{{ t.name }}</text>
+              <text v-if="!grantCandidates.length" class="empty">{{ $t('couponMarketing.noGrantTemplates') }}</text>
+            </view>
+          </view>
+        </template>
+
+        <!-- 神券日限量抢（FR-F2） -->
+        <template v-else-if="tab === 'flash'">
+          <view class="row-switch">
+            <text class="lbl">{{ $t('couponMarketing.enabled') }}</text>
+            <switch :checked="flash.enabled" color="#e1251b" @change="(e: any) => (flash.enabled = e.detail.value)" />
+          </view>
+          <view class="hint">{{ $t('couponMarketing.flashHint') }}</view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldName') }}</text>
+            <input class="ipt" v-model="flash.name" :placeholder="$t('couponMarketing.phFlashName')" />
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldSubtitle') }}</text>
+            <input class="ipt" v-model="flash.subtitle" :placeholder="$t('couponMarketing.phSubtitle')" />
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldRules') }}</text>
+            <textarea class="ipt area" v-model="flash.rules" :placeholder="$t('couponMarketing.phFlashRules')" />
+          </view>
+          <view class="field half">
+            <view class="col">
+              <text class="lbl">{{ $t('couponMarketing.fieldStartsAt') }}</text>
+              <picker mode="date" :value="flash.startsAt" @change="(e: any) => (flash.startsAt = e.detail.value)">
+                <view class="ipt">{{ flash.startsAt || $t('couponMarketing.pickDate') }}</view>
+              </picker>
+            </view>
+            <view class="col">
+              <text class="lbl">{{ $t('couponMarketing.fieldEndsAt') }}</text>
+              <picker mode="date" :value="flash.endsAt" @change="(e: any) => (flash.endsAt = e.detail.value)">
+                <view class="ipt">{{ flash.endsAt || $t('couponMarketing.pickDate') }}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldFlashTemplates') }}</text>
+            <view class="tpl-list">
+              <text
+                v-for="t in grantCandidates" :key="t.id"
+                class="tpl-chip" :class="{ on: flash.templateIds.includes(t.id) }"
+                @tap="toggleFlashTemplate(t.id)"
+              >{{ t.name }}</text>
+              <text v-if="!grantCandidates.length" class="empty">{{ $t('couponMarketing.noGrantTemplates') }}</text>
+            </view>
+            <view class="hint">{{ $t('couponMarketing.flashTemplatesHint') }}</view>
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldPerUserLimit') }}</text>
+            <input class="ipt" type="number" v-model="flash.perUserLimit" />
+          </view>
+        </template>
+
+        <!-- 支付有礼（FR-F3） -->
+        <template v-else-if="tab === 'paygift'">
+          <view class="row-switch">
+            <text class="lbl">{{ $t('couponMarketing.enabled') }}</text>
+            <switch :checked="paygift.enabled" color="#e1251b" @change="(e: any) => (paygift.enabled = e.detail.value)" />
+          </view>
+          <view class="hint">{{ $t('couponMarketing.paygiftHint') }}</view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldGiftTemplate') }}</text>
+            <picker :range="grantCandidates.map(t => t.name)" @change="(e: any) => (paygift.templateId = grantCandidates[Number(e.detail.value)]?.id ?? 0)">
+              <view class="ipt">{{ templateName(paygift.templateId) || $t('couponMarketing.pickTemplate') }}</view>
+            </picker>
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldMinAmount') }}</text>
+            <input class="ipt" type="digit" v-model="paygift.minAmountYuan" :placeholder="$t('couponMarketing.phMinAmount')" />
+            <view class="hint">{{ $t('couponMarketing.minAmountHint') }}</view>
+          </view>
+          <view class="field">
+            <text class="lbl">{{ $t('couponMarketing.fieldCooldown') }}</text>
+            <input class="ipt" type="number" v-model="paygift.cooldownDays" />
+            <view class="hint">{{ $t('couponMarketing.cooldownHint') }}</view>
+          </view>
+        </template>
       </scroll-view>
 
       <view class="foot">
@@ -122,7 +247,7 @@ const locale = useLocaleStore();
 const props = defineProps<{ visible: boolean }>();
 const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>();
 
-const tab = ref<'campaign' | 'fission'>('campaign');
+const tab = ref<'campaign' | 'fission' | 'daily' | 'flash' | 'paygift'>('campaign');
 const saving = ref(false);
 const templates = ref<CouponTemplateItem[]>([]);
 
@@ -131,6 +256,10 @@ const fission = reactive({
   enabled: false, name: '', subtitle: '', rules: '', startsAt: '', endsAt: '',
   inviteeTemplateId: 0, inviterTemplateId: 0, inviterRewardLimit: 1, newCustomerOnly: false,
 });
+// FR-F：每日领券（时间可选=长期）/ 神券日限量抢（窗口必填）/ 支付有礼
+const daily = reactive({ enabled: false, name: '', subtitle: '', rules: '', startsAt: '', endsAt: '', templateIds: [] as number[] });
+const flash = reactive({ enabled: false, name: '', subtitle: '', rules: '', startsAt: '', endsAt: '', templateIds: [] as number[], perUserLimit: 1 });
+const paygift = reactive({ enabled: false, templateId: 0, minAmountYuan: '', cooldownDays: 1 });
 
 const campaignCandidates = ref<CouponTemplateItem[]>([]);
 const grantCandidates = ref<CouponTemplateItem[]>([]);
@@ -143,6 +272,22 @@ function toggleCampaignTemplate(id: number) {
   const i = campaign.templateIds.indexOf(id);
   if (i >= 0) campaign.templateIds.splice(i, 1);
   else campaign.templateIds.push(id);
+}
+
+function toggleDailyTemplate(id: number) {
+  const i = daily.templateIds.indexOf(id);
+  if (i >= 0) daily.templateIds.splice(i, 1);
+  else daily.templateIds.push(id);
+}
+
+function toggleFlashTemplate(id: number) {
+  const i = flash.templateIds.indexOf(id);
+  if (i >= 0) flash.templateIds.splice(i, 1);
+  else flash.templateIds.push(id);
+}
+
+function pickText(v: any): string {
+  return typeof v === 'string' ? v : v?.zh_Hans || '';
 }
 
 async function load() {
@@ -181,6 +326,40 @@ async function load() {
         fission.newCustomerOnly = f.newCustomerOnly === true;
       }
     } catch { /* 坏 JSON 按空处理 */ }
+    try {
+      const d = ch?.customFields?.couponDailyClaim ? JSON.parse(ch.customFields.couponDailyClaim) : null;
+      if (d) {
+        daily.enabled = d.enabled !== false;
+        daily.name = pickText(d.name);
+        daily.subtitle = pickText(d.subtitle);
+        daily.rules = pickText(d.rules);
+        daily.startsAt = d.startsAt ? String(d.startsAt).slice(0, 10) : '';
+        daily.endsAt = d.endsAt ? String(d.endsAt).slice(0, 10) : '';
+        daily.templateIds = Array.isArray(d.templateIds) ? d.templateIds.map(Number) : [];
+      }
+    } catch { /* 坏 JSON 按空处理 */ }
+    try {
+      const fl = ch?.customFields?.couponFlashSale ? JSON.parse(ch.customFields.couponFlashSale) : null;
+      if (fl) {
+        flash.enabled = fl.enabled !== false;
+        flash.name = pickText(fl.name);
+        flash.subtitle = pickText(fl.subtitle);
+        flash.rules = pickText(fl.rules);
+        flash.startsAt = fl.startsAt ? String(fl.startsAt).slice(0, 10) : '';
+        flash.endsAt = fl.endsAt ? String(fl.endsAt).slice(0, 10) : '';
+        flash.templateIds = Array.isArray(fl.templateIds) ? fl.templateIds.map(Number) : [];
+        flash.perUserLimit = Math.max(1, Number(fl.perUserLimit) || 1);
+      }
+    } catch { /* 坏 JSON 按空处理 */ }
+    try {
+      const pg = ch?.customFields?.couponPayGift ? JSON.parse(ch.customFields.couponPayGift) : null;
+      if (pg) {
+        paygift.enabled = pg.enabled !== false;
+        paygift.templateId = Number(pg.templateId) || 0;
+        paygift.minAmountYuan = Number(pg.minAmount) > 0 ? String(Number(pg.minAmount) / 100) : '';
+        paygift.cooldownDays = Math.max(1, Number(pg.cooldownDays) || 1);
+      }
+    } catch { /* 坏 JSON 按空处理 */ }
   } catch (e: any) {
     uni.showToast({ title: e?.message || locale.t('couponList.opFailed'), icon: 'none' });
   }
@@ -206,6 +385,19 @@ async function save() {
   }
   if (fission.enabled && (!fission.name.trim() || !fission.endsAt || !fission.inviteeTemplateId)) {
     uni.showToast({ title: locale.t('couponMarketing.fissionInvalid'), icon: 'none' });
+    return;
+  }
+  // FR-F 校验：每日领券（名称+券）；神券日（名称+起止+券）；支付有礼（券+冷却≥1）
+  if (daily.enabled && (!daily.name.trim() || !daily.templateIds.length)) {
+    uni.showToast({ title: locale.t('couponMarketing.dailyInvalid'), icon: 'none' });
+    return;
+  }
+  if (flash.enabled && (!flash.name.trim() || !flash.startsAt || !flash.endsAt || !flash.templateIds.length)) {
+    uni.showToast({ title: locale.t('couponMarketing.flashInvalid'), icon: 'none' });
+    return;
+  }
+  if (paygift.enabled && (!paygift.templateId || (Number(paygift.cooldownDays) || 0) < 1)) {
+    uni.showToast({ title: locale.t('couponMarketing.paygiftInvalid'), icon: 'none' });
     return;
   }
   saving.value = true;
@@ -239,9 +431,44 @@ async function save() {
       inviterRewardLimit: Number(fission.inviterRewardLimit) || 0,
       newCustomerOnly: fission.newCustomerOnly,
     };
+    const dailyPrev = ch?.customFields?.couponDailyClaim ? JSON.parse(ch.customFields.couponDailyClaim) : {};
+    const dailyPayload = {
+      ...dailyPrev,
+      enabled: daily.enabled,
+      name: keepText(dailyPrev.name, daily.name.trim()),
+      subtitle: daily.subtitle.trim() ? keepText(dailyPrev.subtitle, daily.subtitle.trim()) : null,
+      rules: daily.rules.trim() ? keepText(dailyPrev.rules, daily.rules.trim()) : null,
+      startsAt: startOfDay(daily.startsAt),
+      endsAt: endOfDay(daily.endsAt),
+      templateIds: daily.templateIds,
+    };
+    const flashPrev = ch?.customFields?.couponFlashSale ? JSON.parse(ch.customFields.couponFlashSale) : {};
+    const flashPayload = {
+      ...flashPrev,
+      enabled: flash.enabled,
+      name: keepText(flashPrev.name, flash.name.trim()),
+      subtitle: flash.subtitle.trim() ? keepText(flashPrev.subtitle, flash.subtitle.trim()) : null,
+      rules: flash.rules.trim() ? keepText(flashPrev.rules, flash.rules.trim()) : null,
+      startsAt: startOfDay(flash.startsAt),
+      endsAt: endOfDay(flash.endsAt),
+      templateIds: flash.templateIds,
+      perUserLimit: Math.max(1, Number(flash.perUserLimit) || 1),
+    };
+    const pgPrev = ch?.customFields?.couponPayGift ? JSON.parse(ch.customFields.couponPayGift) : {};
+    const paygiftPayload = {
+      ...pgPrev,
+      enabled: paygift.enabled,
+      templateId: paygift.templateId,
+      // 元 → 分（Vendure Money 单位）
+      minAmount: Math.max(0, Math.round((Number(paygift.minAmountYuan) || 0) * 100)),
+      cooldownDays: Math.max(1, Number(paygift.cooldownDays) || 1),
+    };
     await updateChannelCustomFields(String(ch.id), {
       couponCampaign: JSON.stringify(campaignPayload),
       couponFission: JSON.stringify(fissionPayload),
+      couponDailyClaim: JSON.stringify(dailyPayload),
+      couponFlashSale: JSON.stringify(flashPayload),
+      couponPayGift: JSON.stringify(paygiftPayload),
     });
     uni.showToast({ title: locale.t('couponMarketing.saved'), icon: 'success' });
     close();
