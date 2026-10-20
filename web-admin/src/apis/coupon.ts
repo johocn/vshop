@@ -784,3 +784,148 @@ export async function unbindProductFromCoupon(templateId: string, productId: str
     throw new Error(graphQlErrorMsg(e, '解绑商品失败'));
   }
 }
+
+// ---- 结算单 / 对账（买单券资金流 T1-T5，admin-api，渠道隔离在后端） ----
+
+export interface CouponSettlementRow {
+  id: string;
+  settlementNo: string;
+  customerCouponId: string;
+  templateId?: string | null;
+  redeemRef: string;
+  inStoreBillId?: string | null;
+  faceAmount: number;
+  commissionRateBp: number;
+  commissionAmount: number;
+  netAmount: number;
+  status: string;
+  splitMode?: string | null;
+  splitReceiptNo?: string | null;
+  attempts: number;
+  lastError?: string | null;
+  settledAt?: string | null;
+  paidOutAt?: string | null;
+  createdAt: string;
+}
+
+export const SETTLE_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待结算',
+  SETTLED: '已受理',
+  PAID_OUT: '已分账',
+  REVERSED: '已追偿',
+  CANCELLED: '已作废',
+};
+
+export async function fetchCouponSettlementOrders(
+  options: { skip: number; take: number; status?: string },
+): Promise<{ items: CouponSettlementRow[]; totalItems: number }> {
+  try {
+    const { couponSettlementOrders } = await getAdminClient().request<{
+      couponSettlementOrders: { items: CouponSettlementRow[]; totalItems: number };
+    }>(
+      `query CouponSettlementOrders($skip: Int, $take: Int, $status: String) {
+        couponSettlementOrders(options: { skip: $skip, take: $take, status: $status }) {
+          items {
+            id settlementNo customerCouponId templateId redeemRef inStoreBillId
+            faceAmount commissionRateBp commissionAmount netAmount status
+            splitMode splitReceiptNo attempts lastError settledAt paidOutAt createdAt
+          }
+          totalItems
+        }
+      }`,
+      { skip: options.skip, take: options.take, status: options.status || undefined },
+    );
+    return couponSettlementOrders;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询结算单失败'));
+  }
+}
+
+export interface CouponReconcileDiffRow {
+  id: string;
+  runId: string;
+  settlementOrderId?: string | null;
+  settlementNo?: string | null;
+  diffType: string;
+  severity: string;
+  detail?: string | null;
+  resolvedAt?: string | null;
+  remark?: string | null;
+  createdAt: string;
+}
+
+export const RECONCILE_DIFF_LABELS: Record<string, string> = {
+  AMOUNT_MISMATCH: '金额不平',
+  MISSING_RECEIPT: '回执缺失',
+  RECEIPT_STATE_MISMATCH: '回执状态不符',
+  RECEIPT_QUERY_FAILED: '回执查询失败',
+  SETTLE_STUCK: '结算卡单',
+  MISSING_SETTLEMENT: '缺结算单',
+  MISSING_BILL: '缺核销流水',
+};
+
+export interface CouponReconcileRunResult {
+  runId: string;
+  checked: number;
+  diffs: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export async function fetchCouponReconcileDiffs(
+  options: { skip: number; take: number; severity?: string; includeResolved?: boolean },
+): Promise<{ items: CouponReconcileDiffRow[]; totalItems: number }> {
+  try {
+    const { couponReconcileDiffs } = await getAdminClient().request<{
+      couponReconcileDiffs: { items: CouponReconcileDiffRow[]; totalItems: number };
+    }>(
+      `query CouponReconcileDiffs($skip: Int, $take: Int, $severity: String, $includeResolved: Boolean) {
+        couponReconcileDiffs(options: { skip: $skip, take: $take, severity: $severity, includeResolved: $includeResolved }) {
+          items { id runId settlementOrderId settlementNo diffType severity detail resolvedAt remark createdAt }
+          totalItems
+        }
+      }`,
+      {
+        skip: options.skip,
+        take: options.take,
+        severity: options.severity || undefined,
+        includeResolved: options.includeResolved || undefined,
+      },
+    );
+    return couponReconcileDiffs;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询对账差异失败'));
+  }
+}
+
+/** 手动跑一轮对账（结算单 ↔ 分账回单 ↔ 商户核销流水） */
+export async function runCouponReconcile(): Promise<CouponReconcileRunResult> {
+  try {
+    const { runCouponReconcile } = await getAdminClient().request<{ runCouponReconcile: CouponReconcileRunResult }>(
+      `mutation RunCouponReconcile {
+        runCouponReconcile { runId checked diffs high medium low }
+      }`,
+    );
+    return runCouponReconcile;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '对账执行失败'));
+  }
+}
+
+/** 标记差异已处理（保留审计） */
+export async function resolveCouponReconcileDiff(id: string, remark?: string): Promise<boolean> {
+  try {
+    const { resolveCouponReconcileDiff } = await getAdminClient().request<{
+      resolveCouponReconcileDiff: boolean;
+    }>(
+      `mutation ResolveCouponReconcileDiff($id: ID!, $remark: String) {
+        resolveCouponReconcileDiff(id: $id, remark: $remark)
+      }`,
+      { id, remark: remark || undefined },
+    );
+    return !!resolveCouponReconcileDiff;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '标记差异失败'));
+  }
+}

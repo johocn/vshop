@@ -73,6 +73,7 @@
     { "path": "pages/coupon/bundle/index", "style": { "navigationBarTitleText": "券包管理", "enablePullDownRefresh": true } },
     { "path": "pages/coupon/bundle/edit/index", "style": { "navigationBarTitleText": "券包" } },
     { "path": "pages/coupon/sale-orders/index", "style": { "navigationBarTitleText": "出售单流水", "enablePullDownRefresh": true } },
+    { "path": "pages/coupon/settlements/index", "style": { "navigationBarTitleText": "结算对账", "enablePullDownRefresh": true } },
     { "path": "pages/coupon/student-verify/index", "style": { "navigationBarTitleText": "学生认证审核", "enablePullDownRefresh": true } },
     { "path": "pages/billpay/orders/index", "style": { "navigationBarTitleText": "代买单委托单", "enablePullDownRefresh": true } },
     { "path": "pages/billpay/merchants/index", "style": { "navigationBarTitleText": "代买单商家协议", "enablePullDownRefresh": true } },

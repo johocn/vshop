@@ -74,6 +74,7 @@ export const NAV_TITLE_KEYS: Record<string, string> = {
     'pages/coupon/bundle/index': 'nav.couponBundle',
     'pages/coupon/bundle/edit/index': 'nav.couponBundleEdit',
     'pages/coupon/sale-orders/index': 'nav.couponSaleOrders',
+    'pages/coupon/settlements/index': 'nav.couponSettle',
     'pages/coupon/student-verify/index': 'nav.studentVerify',
     'pages/billpay/orders/index': 'nav.billpayOrders',
     'pages/billpay/merchants/index': 'nav.billpayMerchants',
