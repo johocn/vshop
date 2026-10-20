@@ -799,6 +799,7 @@ export interface CouponSettlementRow {
   commissionAmount: number;
   netAmount: number;
   status: string;
+  voucherType?: string | null;
   splitMode?: string | null;
   splitReceiptNo?: string | null;
   attempts: number;
@@ -827,7 +828,7 @@ export async function fetchCouponSettlementOrders(
         couponSettlementOrders(options: { skip: $skip, take: $take, status: $status }) {
           items {
             id settlementNo customerCouponId templateId redeemRef inStoreBillId
-            faceAmount commissionRateBp commissionAmount netAmount status
+            faceAmount commissionRateBp commissionAmount netAmount status voucherType
             splitMode splitReceiptNo attempts lastError settledAt paidOutAt createdAt
           }
           totalItems
@@ -871,6 +872,51 @@ export interface CouponReconcileRunResult {
   high: number;
   medium: number;
   low: number;
+}
+
+export interface CouponSettlementSummary {
+  total: number;
+  pending: number;
+  settled: number;
+  paidOut: number;
+  reversed: number;
+  cancelled: number;
+  totalFace: number;
+  totalCommission: number;
+  totalNet: number;
+}
+
+export interface CouponSplitConfig {
+  splitMode: string;
+  onboardingStatus: string;
+}
+
+export async function fetchCouponSettlementSummary(): Promise<CouponSettlementSummary> {
+  try {
+    const { couponSettlementSummary } = await getAdminClient().request<{ couponSettlementSummary: CouponSettlementSummary }>(
+      `query CouponSettlementSummary {
+        couponSettlementSummary {
+          total pending settled paidOut reversed cancelled totalFace totalCommission totalNet
+        }
+      }`,
+    );
+    return couponSettlementSummary;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询结算汇总失败'));
+  }
+}
+
+export async function fetchCouponSplitConfig(): Promise<CouponSplitConfig> {
+  try {
+    const { couponSplitConfig } = await getAdminClient().request<{ couponSplitConfig: CouponSplitConfig }>(
+      `query CouponSplitConfig {
+        couponSplitConfig { splitMode onboardingStatus }
+      }`,
+    );
+    return couponSplitConfig;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '查询分账配置失败'));
+  }
 }
 
 export async function fetchCouponReconcileDiffs(
