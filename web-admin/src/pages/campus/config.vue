@@ -101,6 +101,17 @@
           <input v-model="card.form.h5BaseUrl" :placeholder="$t('campusConfig.h5BaseUrlPh')" />
         </view>
         <view class="notify-tip">{{ $t('campusConfig.notifyTip') }}</view>
+        <view class="sec-t">{{ $t('campusConfig.printSection') }}</view>
+        <view class="pmodes">
+          <view
+            v-for="m in PRINT_MODES" :key="m.value"
+            class="pmode" :class="{ on: card.form.printMode === m.value }"
+            @tap="card.form.printMode = m.value"
+          >
+            <text>{{ $t(m.label) }}</text>
+          </view>
+        </view>
+        <view class="notify-tip">{{ $t('campusConfig.printModeTip') }}</view>
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
         </button>
@@ -128,6 +139,12 @@ const ROUTES = [
   { code: 'R5', key: 'campusConfig.r5', descKey: 'campusConfig.r5Desc' },
 ] as const;
 
+const PRINT_MODES = [
+  { value: 'off', label: 'campusConfig.printModeOff' },
+  { value: 'onPaid', label: 'campusConfig.printModeOnPaid' },
+  { value: 'onAccepted', label: 'campusConfig.printModeOnAccepted' },
+] as const;
+
 interface CardForm {
   routesEnabled: string[];
   deliveryMinutes: string;   // 输入态用字符串，提交时转 int
@@ -148,6 +165,7 @@ interface CardForm {
   notifyTemplateCancelled: string;
   notifyTemplateAfterSales: string;
   h5BaseUrl: string;
+  printMode: string;
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -179,6 +197,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     notifyTemplateCancelled: c.notifyTemplateCancelled ?? '',
     notifyTemplateAfterSales: c.notifyTemplateAfterSales ?? '',
     h5BaseUrl: c.h5BaseUrl ?? '',
+    printMode: c.printMode ?? 'off',
   };
 }
 
@@ -246,6 +265,7 @@ async function save(card: Card) {
       notifyTemplateCancelled: f.notifyTemplateCancelled.trim() || null,
       notifyTemplateAfterSales: f.notifyTemplateAfterSales.trim() || null,
       h5BaseUrl: f.h5BaseUrl.trim() || null,
+      printMode: f.printMode,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -326,5 +346,10 @@ async function ensureProfile(card: Card) {
   .ensure { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; font-size: 28rpx; border-radius: $wa-radius; }
   .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
   .notify-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 24rpx; }
+  .pmodes { display: flex; gap: 16rpx; padding: 8rpx 0 16rpx;
+    .pmode { flex: 1; text-align: center; padding: 18rpx 0; font-size: 26rpx; color: $wa-muted;
+      border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
+    .pmode.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+  }
 }
 </style>

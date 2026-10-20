@@ -411,3 +411,40 @@ python scripts/_smoke_coupon.py   # waimai 仓库根执行，期望 E2E SMOKE PA
 - E2E：`node .secrets/rider-withdraw-e2e.cjs` → `RIDER-WITHDRAW-E2E PASS`（13 断言：注入余额/冻结/越界拒/驳回退回/**防重 duplicateBlock**/通过留痕/流水与记录可查；开头自动驳回遗留 PENDING 保证幂等）
 - 冒烟：`waimai-e2e-smoke.cjs` S1-S8 PASS（2026-10-08 订单 342/343）
 - 截图：`vshop/docs/screenshots/waimai/p2-cleanup/`（5 张 780×1688：收入页/钱包页/提现记录/申请页/web-admin 审核页，逐张目检合格）
+
+## 13. 商家小票打印（C-Lodop，58mm 热敏，2026-10-20）
+
+### 13.1 原理与前提
+
+- 纯前端驱动：web-admin 工作台页通过 **C-Lodop** 浏览打印服务（跑在商家电脑 `http://localhost:8000`，备用 18000）静默打印到商家本机/局域网 WiFi 热敏打印机，免第三方账号、免计费。
+- **前提（缺一不可）**：① 商家电脑安装并启动 C-Lodop 服务（官网下载 C-Lodop 云打印服务）；② 打印机与本机连通并设为默认打印机（驱动里测过自检页）；③ 工作台页保持开启（浏览器关闭即停自动打印）；④ 建议 Chrome/Edge（HTTPS 页加载 localhost 打印服务属浏览器豁免，Safari 等可能拦截）。
+
+### 13.2 店铺配置（web-admin 拾光达配置页 → 「小票打印」）
+
+| 打印时机 | 行为 |
+| --- | --- |
+| **关闭** | 不自动打印，仅可手动补打 |
+| **支付后打印** | 工作台轮询（10s）发现新已支付单（30min 内）且未打印 → 自动出票 |
+| **接单后打印** | 商家点「接单」成功后自动出票（打印失败不阻塞接单，可补打） |
+
+- 配置存 `campus_fulfillment_config.printMode`，非法值一律按关闭处理。
+
+### 13.3 工作台（商家接单页）
+
+- 顶部打印状态条：显示当前自动打印模式；未检测到 C-Lodop → 黄条提示安装指引。
+- 每张订单卡有「**补打**」按钮（全部 tab 含预约单可用，不受 30min 限制）；打印成功回写 `waimaiPrintedAt`（防重复自动打印 + 补打留痕）。
+- 小票内容：店铺名/电话 → 单号/下单时间/路线/分区楼栋/送达时段 → 商品明细（名称×数量+金额）→ 商品小计/配送费/合计 → 尾注（暂不含整单备注：备注功能未上线）。
+
+### 13.4 截图
+
+![工作台打印状态条与补打按钮](screenshots/waimai/9-1-merchant-print.png)
+
+![配置页小票打印三选一](screenshots/waimai/9-2-config-printmode.png)
+
+![58mm 小票版式](screenshots/waimai/9-3-receipt-58mm.png)
+
+### 13.5 验证记录（2026-10-20）
+
+- vendure `pnpm build` / web-admin `npm run build:h5` 均通过；plugin.ts 两段 schema 过 graphql parse 校验（admin 块含 `campusMerchantMarkPrinted`/`printMode` 新字段）。
+- Playwright 移动视口（390×844 dpr=2）mock 自测：工作台打印状态条/补打按钮/接单按钮渲染 PASS；配置页三选一与提示文案 PASS；58mm 小票版式截图目检 PASS（219px 窄幅无溢出）。
+- 真机打印需商家电脑装 C-Lodop 后自测：工作台点「补打」应出票；无 C-Lodop 时点补打 → toast「未检测到打印服务」（已验证失败路径）。
