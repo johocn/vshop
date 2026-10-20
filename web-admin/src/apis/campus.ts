@@ -26,6 +26,7 @@ export interface CampusStoreConfig {
   notifyTemplateCancelled: string | null;
   notifyTemplateAfterSales: string | null;
   h5BaseUrl: string | null;
+  printMode: string; // 'off' | 'onPaid' | 'onAccepted'
 }
 
 export interface CampusStoreConfigInput {
@@ -48,10 +49,11 @@ export interface CampusStoreConfigInput {
   notifyTemplateCancelled?: string | null;
   notifyTemplateAfterSales?: string | null;
   h5BaseUrl?: string | null;
+  printMode?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl';
+  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -109,17 +111,22 @@ export interface MerchantBoardOrder {
   code: string;
   createdAt: string;
   total: number;
+  shipping: number;
   building: string;
   zone: string;
   slotText: string;
   route: string;
   riderName: string | null;
+  printedAt: string | null; // 小票最近打印时间（null=未打）
   lines: MerchantBoardLine[];
 }
 
 export interface CampusMerchantBoard {
   paused: boolean;
   merchantConfirmEnabled: boolean;
+  printMode: string; // 'off' | 'onPaid' | 'onAccepted'
+  storeName: string;
+  storePhone: string | null;
   pending: MerchantBoardOrder[];
   cooking: MerchantBoardOrder[];
   awaitingRider: MerchantBoardOrder[];
@@ -130,12 +137,12 @@ export interface CampusMerchantBoard {
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total building zone slotText route riderName lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
     `query { campusMerchantBoard {
-      paused merchantConfirmEnabled completedToday completedTodayAmount
+      paused merchantConfirmEnabled printMode storeName storePhone completedToday completedTodayAmount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       scheduled { ${ORDER_FIELDS} }
@@ -166,6 +173,15 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
     { paused },
   );
   return res.campusMerchantSetPaused.ok;
+}
+
+/** 小票打印回执：打印成功后回写 waimaiPrintedAt（防重打 + 补打依据） */
+export async function campusMerchantMarkPrinted(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantMarkPrinted: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantMarkPrinted(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantMarkPrinted.ok;
 }
 
 // ===== 调度操作台（CampusViewDispatch 权限，复用 dispatch-admin 既有 API）=====

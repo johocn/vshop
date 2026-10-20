@@ -3105,7 +3105,13 @@
     "ensuring": "Initializing…",
     "ensureProfileTip": "R2 courier & R4 store-pickup must share a shipping profile: creates/merges the default profile (both methods) and binds unbound variants. Idempotent, safe to repeat",
     "ensureOk": "Linked methods: {methods}; bound {n} variants",
-    "ensureMissing": "Missing methods: {codes} (related routes unavailable)"
+    "ensureMissing": "Missing methods: {codes} (related routes unavailable)",
+    "printSection": "Receipt Printing",
+    "printMode": "Print Timing",
+    "printModeOff": "Off",
+    "printModeOnPaid": "After Payment",
+    "printModeOnAccepted": "After Accept",
+    "printModeTip": "Requires C-Lodop service running on the merchant PC with this workbench page kept open; WiFi thermal printer (58mm). Search \"C-Lodop\" to download and install"
   },
   "campusMerchant": {
     "loading": "Loading…",
@@ -3126,7 +3132,23 @@
     "emptyTab": "No orders",
     "rider": "Rider: ",
     "accept": "Accept",
-    "cookingDone": "Food ready"
+    "cookingDone": "Food ready",
+    "printBtn": "Reprint",
+    "printing": "Printing…",
+    "printOk": "Receipt sent to printer",
+    "printFailed": "Receipt print failed",
+    "lodopMissing": "Print service (C-Lodop) not detected: install and start C-Lodop on the merchant PC; Chrome/Edge recommended",
+    "printModeOnPaid": "Auto print: after payment",
+    "printModeOnAccepted": "Auto print: after accept",
+    "printModeOff": "Auto print: off",
+    "receiptOrderNo": "Order",
+    "receiptTime": "Time",
+    "receiptRoute": "Route",
+    "receiptSlot": "Delivery slot",
+    "receiptSubtotal": "Subtotal",
+    "receiptDeliveryFee": "Delivery fee",
+    "receiptTotal": "Total",
+    "receiptThanks": "Thank you, welcome again"
   },
   "campusDispatch": {
     "loading": "Loading…",
