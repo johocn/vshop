@@ -42,6 +42,9 @@
           <text class="dest-txt">{{ o.zone }} {{ o.building }}</text>
           <text v-if="o.slotText" class="slot">{{ o.slotText }}</text>
         </view>
+        <view v-if="o.note" class="row note">
+          <text class="note-txt">{{ $t('campusMerchant.noteLabel') }}：{{ o.note }}</text>
+        </view>
         <view class="lines">
           <view v-for="(l, i) in o.lines" :key="i" class="line">
             <text class="l-name">{{ l.name }}</text>
@@ -151,6 +154,7 @@ function receiptLabels() {
     time: locale.t('campusMerchant.receiptTime'),
     route: locale.t('campusMerchant.receiptRoute'),
     slot: locale.t('campusMerchant.receiptSlot'),
+    note: locale.t('campusMerchant.receiptNote'),
     subtotal: locale.t('campusMerchant.receiptSubtotal'),
     deliveryFee: locale.t('campusMerchant.receiptDeliveryFee'),
     total: locale.t('campusMerchant.receiptTotal'),
@@ -173,6 +177,7 @@ async function printOne(o: MerchantBoardOrder, withToast: boolean): Promise<bool
         building: o.building,
         slotText: o.slotText,
         route: o.route,
+        note: o.note,
         lines: o.lines,
         shipping: o.shipping,
         total: o.total,
@@ -359,6 +364,9 @@ onUnmounted(() => {
     }
     .dest { padding-top: 12rpx; .dest-txt { font-size: 26rpx; color: $wa-ink; flex: 1; }
       .slot { font-size: 22rpx; color: $wa-muted; }
+    }
+    .note { margin-top: 10rpx; background: #fff7e6; border-left: 6rpx solid #ff9800; border-radius: 8rpx; padding: 10rpx 16rpx;
+      .note-txt { font-size: 24rpx; color: #b25f00; word-break: break-all; }
     }
     .lines { border-top: 1rpx solid $wa-rule; margin-top: 16rpx; padding-top: 8rpx;
       .line { display: flex; padding: 8rpx 0;

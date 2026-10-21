@@ -117,6 +117,7 @@ export interface MerchantBoardOrder {
   slotText: string;
   route: string;
   riderName: string | null;
+  note: string | null; // 顾客整单备注（工作台展示 + 小票打印）
   printedAt: string | null; // 小票最近打印时间（null=未打）
   lines: MerchantBoardLine[];
 }
