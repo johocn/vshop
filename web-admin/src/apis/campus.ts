@@ -295,3 +295,70 @@ export async function campusHandleException(
   );
   return res.campusHandleException;
 }
+
+// ===== 楼栋坐标维护（CampusConfig 权限，渠道隔离）=====
+
+export interface CampusZone {
+  id: string;
+  name: string;
+  fee: number;
+}
+
+export interface CampusBuilding {
+  id: string;
+  name: string;
+  detail: string | null;
+  lat: number | null;
+  lng: number | null;
+  zoneId: string;
+}
+
+export interface CampusBuildingPatch {
+  name?: string;
+  detail?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+const BUILDING_FIELDS = 'id name detail lat lng zoneId';
+
+export async function campusZones(): Promise<CampusZone[]> {
+  const res = await getAdminClient().request<{ campusZones: CampusZone[] }>(
+    `query { campusZones { id name fee } }`,
+  );
+  return res.campusZones;
+}
+
+export async function campusBuildings(zoneId?: string): Promise<CampusBuilding[]> {
+  const res = await getAdminClient().request<{ campusBuildings: CampusBuilding[] }>(
+    `query ($zoneId: ID) { campusBuildings(zoneId: $zoneId) { ${BUILDING_FIELDS} } }`,
+    { zoneId: zoneId ?? null },
+  );
+  return res.campusBuildings;
+}
+
+export async function campusUpdateBuilding(id: string, input: CampusBuildingPatch): Promise<CampusBuilding> {
+  const res = await getAdminClient().request<{ campusUpdateBuilding: CampusBuilding }>(
+    `mutation ($id: ID!, $input: CampusBuildingPatchInput!) {
+      campusUpdateBuilding(id: $id, input: $input) { ${BUILDING_FIELDS} }
+    }`,
+    { id, input },
+  );
+  return res.campusUpdateBuilding;
+}
+
+export async function campusCreateBuilding(
+  name: string,
+  zoneId: string,
+  detail?: string | null,
+  lat?: number | null,
+  lng?: number | null,
+): Promise<CampusBuilding> {
+  const res = await getAdminClient().request<{ campusCreateBuilding: CampusBuilding }>(
+    `mutation ($name: String!, $zoneId: ID!, $detail: String, $lat: Float, $lng: Float) {
+      campusCreateBuilding(name: $name, zoneId: $zoneId, detail: $detail, lat: $lat, lng: $lng) { ${BUILDING_FIELDS} }
+    }`,
+    { name, zoneId, detail: detail ?? null, lat: lat ?? null, lng: lng ?? null },
+  );
+  return res.campusCreateBuilding;
+}
