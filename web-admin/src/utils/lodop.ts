@@ -77,6 +77,7 @@ export interface ReceiptData {
   building: string;
   slotText?: string;
   route?: string;
+  note?: string | null; // 顾客整单备注
   lines: ReceiptLine[];
   shipping: number; // 分
   total: number; // 分（含配送费，已扣优惠）
@@ -88,6 +89,7 @@ export interface ReceiptLabels {
   time: string;
   route: string;
   slot: string;
+  note: string; // 备注行 label
   deliveryFee: string;
   total: string;
   subtotal: string;
@@ -114,6 +116,9 @@ export function buildReceiptHtml(d: ReceiptData, labels: ReceiptLabels): string 
   if (d.route) meta.push(`<div>${esc(labels.route)}：${esc(d.route)}</div>`);
   if (d.zone || d.building) meta.push(`<div>${esc(d.zone)} ${esc(d.building)}</div>`);
   if (d.slotText) meta.push(`<div>${esc(labels.slot)}：${esc(d.slotText)}</div>`);
+  const noteHtml = d.note
+    ? `<div class="dash"></div><div class="note"><span class="note-tag">${esc(labels.note)}</span>${esc(d.note)}</div>`
+    : '';
   return `<html><head><meta charset="utf-8"><style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { width: 200px; font: 12px/1.5 'Courier New', 'Microsoft YaHei', monospace; color: #000; }
@@ -130,6 +135,8 @@ export function buildReceiptHtml(d: ReceiptData, labels: ReceiptLabels): string 
     .sumrow .k { display: table-cell; }
     .sumrow .v { display: table-cell; text-align: right; white-space: nowrap; }
     .total { font-size: 15px; font-weight: 700; }
+    .note { font-size: 12px; word-break: break-all; }
+    .note-tag { font-weight: 700; margin-right: 4px; }
     .thanks { text-align: center; padding-top: 6px; font-size: 11px; }
   </style></head><body>
     <div class="store">${esc(d.storeName)}</div>
@@ -140,6 +147,7 @@ export function buildReceiptHtml(d: ReceiptData, labels: ReceiptLabels): string 
       <div>${esc(labels.time)}：${esc(d.createdAtText)}</div>
       ${meta.join('')}
     </div>
+    ${noteHtml}
     <div class="dash"></div>
     <table>${rows}</table>
     <div class="dash"></div>

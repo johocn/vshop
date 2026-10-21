@@ -3145,6 +3145,8 @@
     "receiptTime": "Time",
     "receiptRoute": "Route",
     "receiptSlot": "Delivery slot",
+    "receiptNote": "Note",
+    "noteLabel": "Note",
     "receiptSubtotal": "Subtotal",
     "receiptDeliveryFee": "Delivery fee",
     "receiptTotal": "Total",
