@@ -21,10 +21,81 @@
           >
             <view class="dot" />
             <view class="route-main">
-              <text class="route-name">{{ $t(r.key) }}</text>
+              <view class="route-head">
+                <text class="route-name">{{ $t(r.key) }}</text>
+                <text v-if="r.relay" class="chip">{{ $t('campusConfig.relayTag') }}</text>
+                <text v-else class="chip plain">{{ $t('campusConfig.directTag') }}</text>
+              </view>
               <text class="route-desc">{{ $t(r.descKey) }}</text>
+
+              <!-- 第一段承运方：仅 R1（商户/自营快递）、R3（传信者/自营快递/外部快递）可配 -->
+              <view v-if="r.options && card.form.routesEnabled.includes(r.code)" class="seg" @tap.stop>
+                <text class="seg-lbl">{{ $t('campusConfig.firstLeg') }}</text>
+                <view class="seg-items">
+                  <view
+                    v-for="o in r.options" :key="o.value"
+                    class="seg-item" :class="{ on: card.form.routeFirstLeg[r.code] === o.value }"
+                    @tap.stop="setFirstLeg(card, r.code, o.value)"
+                  >{{ $t(o.label) }}</view>
+                </view>
+              </view>
+
+              <!-- 校园交接点：R1、R2 接力起点 -->
+              <view v-if="r.point && card.form.routesEnabled.includes(r.code)" class="point" @tap.stop>
+                <view class="point-t">{{ $t('campusConfig.pointSection') }}</view>
+                <view class="cell">
+                  <text class="lbl">{{ $t('campusConfig.pointName') }}</text>
+                  <input v-model="card.form.handoverPoints[r.code].name" :placeholder="$t('campusConfig.phText')" />
+                </view>
+                <view class="cell">
+                  <text class="lbl">{{ $t('campusConfig.pointAddress') }}</text>
+                  <input v-model="card.form.handoverPoints[r.code].address" :placeholder="$t('campusConfig.phText')" />
+                </view>
+                <view class="cell">
+                  <text class="lbl">{{ $t('campusConfig.pointPhone') }}</text>
+                  <input v-model="card.form.handoverPoints[r.code].phone" :placeholder="$t('campusConfig.phText')" />
+                </view>
+                <view class="cell">
+                  <text class="lbl">{{ $t('campusConfig.pointLat') }}</text>
+                  <input v-model="card.form.handoverPoints[r.code].lat" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+                </view>
+                <view class="cell">
+                  <text class="lbl">{{ $t('campusConfig.pointLng') }}</text>
+                  <input v-model="card.form.handoverPoints[r.code].lng" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+                </view>
+              </view>
             </view>
           </view>
+        </view>
+        <view class="sec-t">{{ $t('campusConfig.platformSection') }}</view>
+        <view class="platform-tip">{{ $t('campusConfig.platformTip') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.storeLat') }}</text>
+          <input v-model="card.form.storeLat" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.storeLng') }}</text>
+          <input v-model="card.form.storeLng" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.shopNoDada') }}</text>
+          <input v-model="card.form.shopNoDada" :placeholder="$t('campusConfig.phText')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.shopNoMeituan') }}</text>
+          <input v-model="card.form.shopNoMeituan" :placeholder="$t('campusConfig.phText')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutAccept') }}</text>
+          <input v-model="card.form.merchantAcceptMinutes" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutPush') }}</text>
+          <input v-model="card.form.externalPushTimeout" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutFallback') }}</text>
+          <input v-model="card.form.externalFallback" type="number" :placeholder="$t('campusConfig.phMinutes')" />
         </view>
         <view class="sec-t">{{ $t('campusConfig.infoSection') }}</view>
         <view class="cell">
@@ -131,13 +202,40 @@ import { fenToYuan, yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 
-const ROUTES = [
-  { code: 'R1', key: 'campusConfig.r1', descKey: 'campusConfig.r1Desc' },
-  { code: 'R2', key: 'campusConfig.r2', descKey: 'campusConfig.r2Desc' },
-  { code: 'R3', key: 'campusConfig.r3', descKey: 'campusConfig.r3Desc' },
-  { code: 'R4', key: 'campusConfig.r4', descKey: 'campusConfig.r4Desc' },
-  { code: 'R5', key: 'campusConfig.r5', descKey: 'campusConfig.r5Desc' },
-] as const;
+interface RouteOption {
+    value: string;
+    label: string;
+}
+
+interface RouteDef {
+    code: string;
+    key: string;
+    descKey: string;
+    relay: boolean;
+    point: boolean;
+    options?: RouteOption[]; // 仅 R1、R3 可配第一段承运
+}
+
+const MERCHANT_OPT: RouteOption = { value: 'merchant', label: 'campusConfig.carrierMerchant' };
+const OWNED_OPT: RouteOption = { value: 'owned', label: 'campusConfig.carrierOwned' };
+const CAMPUS_OPT: RouteOption = { value: 'campus', label: 'campusConfig.carrierCampus' };
+const EXTERNAL_OPT: RouteOption = { value: 'external', label: 'campusConfig.carrierExternal' };
+
+/**
+ * 五条路线（R6 已取消）。接力由路线决定：
+ * - R1/R2 恒两段（先送到校园交接点，再由传信者接力）
+ * - R3/R4/R5 一段到底
+ * 只有 R1、R3 可配「第一段由谁送」；只有 R1、R2 需要填校园交接点。
+ */
+const ROUTES: RouteDef[] = [
+    { code: 'R1', key: 'campusConfig.r1', descKey: 'campusConfig.chainR1', relay: true, point: true,
+      options: [MERCHANT_OPT, OWNED_OPT] },
+    { code: 'R2', key: 'campusConfig.r2', descKey: 'campusConfig.chainR2', relay: true, point: true },
+    { code: 'R3', key: 'campusConfig.r3', descKey: 'campusConfig.chainR3', relay: false, point: false,
+      options: [CAMPUS_OPT, OWNED_OPT, EXTERNAL_OPT] },
+    { code: 'R4', key: 'campusConfig.r4', descKey: 'campusConfig.chainR4', relay: false, point: false },
+    { code: 'R5', key: 'campusConfig.r5', descKey: 'campusConfig.chainR5', relay: false, point: false },
+];
 
 const PRINT_MODES = [
   { value: 'off', label: 'campusConfig.printModeOff' },
@@ -145,8 +243,25 @@ const PRINT_MODES = [
   { value: 'onAccepted', label: 'campusConfig.printModeOnAccepted' },
 ] as const;
 
+interface HandoverForm {
+  name: string;
+  address: string;
+  phone: string;
+  lat: string;
+  lng: string;
+}
+
 interface CardForm {
   routesEnabled: string[];
+  routeFirstLeg: Record<string, string>; // 仅 R1 / R3
+  handoverPoints: Record<string, HandoverForm>; // 仅 R1 / R2
+  shopNoDada: string;
+  shopNoMeituan: string;
+  merchantAcceptMinutes: string;
+  externalPushTimeout: string;
+  externalFallback: string;
+  storeLat: string;
+  storeLng: string;
   deliveryMinutes: string;   // 输入态用字符串，提交时转 int
   minOrderYuan: string;      // 元输入态；提交转分
   deliveryFeeYuan: string;
@@ -176,9 +291,29 @@ const expandedId = ref<string>('');
 const savingId = ref<string>('');
 const ensuringId = ref<string>('');
 
+const emptyPoint = (): HandoverForm => ({ name: '', address: '', phone: '', lat: '', lng: '' });
+
 function toForm(c: CampusStoreConfig): CardForm {
+  const leg = Object.fromEntries((c.routeFirstLeg ?? []).map(x => [x.route, x.carrier]));
+  const pts = Object.fromEntries((c.handoverPoints ?? []).map(x => [x.route, {
+    name: x.name ?? '',
+    address: x.address ?? '',
+    phone: x.phone ?? '',
+    lat: x.lat != null ? String(x.lat) : '',
+    lng: x.lng != null ? String(x.lng) : '',
+  }]));
+  const shops = Object.fromEntries((c.providerShopNo ?? []).map(x => [x.provider, x.shopNo]));
   return {
     routesEnabled: [...c.routesEnabled],
+    routeFirstLeg: { R1: leg.R1 ?? 'merchant', R3: leg.R3 ?? 'campus' },
+    handoverPoints: { R1: pts.R1 ?? emptyPoint(), R2: pts.R2 ?? emptyPoint() },
+    shopNoDada: shops.dada ?? '',
+    shopNoMeituan: shops.meituan ?? '',
+    merchantAcceptMinutes: String(c.merchantAcceptMinutes ?? 5),
+    externalPushTimeout: String(c.externalPushTimeoutMinutes ?? 10),
+    externalFallback: String(c.externalFallbackMinutes ?? 20),
+    storeLat: c.storeLat != null ? String(c.storeLat) : '',
+    storeLng: c.storeLng != null ? String(c.storeLng) : '',
     deliveryMinutes: c.deliveryMinutes != null ? String(c.deliveryMinutes) : '',
     minOrderYuan: c.minOrderAmount != null ? fenToYuan(c.minOrderAmount) : '',
     deliveryFeeYuan: c.deliveryFee != null ? fenToYuan(c.deliveryFee) : '',
@@ -216,6 +351,10 @@ function toggleRoute(card: Card, code: string) {
   else card.form.routesEnabled.push(code);
 }
 
+function setFirstLeg(card: Card, route: string, carrier: string) {
+  card.form.routeFirstLeg[route] = carrier;
+}
+
 async function save(card: Card) {
   const f = card.form;
   const minutes = f.deliveryMinutes.trim() === '' ? null : Number(f.deliveryMinutes);
@@ -243,10 +382,78 @@ async function save(card: Card) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
   }
+
+  // 交接点（仅 R1/R2）：名称 + 经纬度必填，避免外部快递派不到点
+  const handoverPoints: Array<{ route: string; name: string; address: string | null; phone: string | null; lat: number; lng: number }> = [];
+  for (const code of ['R1', 'R2']) {
+    if (!f.routesEnabled.includes(code)) continue;
+    const p = f.handoverPoints[code];
+    if (!p.name.trim() || p.lat.trim() === '' || p.lng.trim() === '') {
+      uni.showToast({ title: locale.t('campusConfig.pointRequired'), icon: 'none' });
+      return;
+    }
+    const lat = Number(p.lat);
+    const lng = Number(p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      uni.showToast({ title: locale.t('campusConfig.badCoord'), icon: 'none' });
+      return;
+    }
+    handoverPoints.push({
+      route: code,
+      name: p.name.trim(),
+      address: p.address.trim() || null,
+      phone: p.phone.trim() || null,
+      lat,
+      lng,
+    });
+  }
+
+  // 第一段承运方：仅 R1（merchant|owned）、R3（campus|owned|external）
+  const routeFirstLeg = (['R1', 'R3'] as const)
+    .filter((r) => f.routesEnabled.includes(r))
+    .map((r) => ({ route: r, carrier: f.routeFirstLeg[r] }));
+
+  // 外部快递门店编号：只在填写时提交，空表示沿用原值
+  const providerShopNo = [['dada', f.shopNoDada], ['meituan', f.shopNoMeituan]]
+    .filter(([, v]) => v.trim() !== '')
+    .map(([provider, v]) => ({ provider, shopNo: v.trim() }));
+
+  const timeout = (raw: string, def: number): number | null => {
+    if (raw.trim() === '') return def;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  };
+  const acceptMin = timeout(f.merchantAcceptMinutes, 5);
+  const pushMin = timeout(f.externalPushTimeout, 10);
+  const fallbackMin = timeout(f.externalFallback, 20);
+  if (acceptMin == null || pushMin == null || fallbackMin == null) {
+    uni.showToast({ title: locale.t('campusConfig.badTimeout'), icon: 'none' });
+    return;
+  }
+  const coordOf = (raw: string, limit: number): number | null | undefined => {
+    if (raw.trim() === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && Math.abs(n) <= limit ? n : undefined;
+  };
+  const storeLat = coordOf(f.storeLat, 90);
+  const storeLng = coordOf(f.storeLng, 180);
+  if (storeLat === undefined || storeLng === undefined) {
+    uni.showToast({ title: locale.t('campusConfig.badCoord'), icon: 'none' });
+    return;
+  }
+
   savingId.value = card.channelId;
   try {
     const saved = await campusUpdateStoreConfig(card.channelId, {
       routesEnabled: [...f.routesEnabled],
+      routeFirstLeg,
+      handoverPoints,
+      providerShopNo,
+      merchantAcceptMinutes: acceptMin,
+      externalPushTimeoutMinutes: pushMin,
+      externalFallbackMinutes: fallbackMin,
+      storeLat,
+      storeLng,
       deliveryMinutes: minutes,
       minOrderAmount: minOrder,
       deliveryFee: fee,
@@ -331,7 +538,26 @@ async function ensureProfile(card: Card) {
         border-left: 3rpx solid #fff; border-bottom: 3rpx solid #fff; transform: rotate(-45deg); } }
     .route-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx;
       .route-name { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
-      .route-desc { font-size: 24rpx; color: $wa-muted; } }
+      .route-desc { font-size: 24rpx; color: $wa-muted; }
+      .route-head { display: flex; align-items: center; gap: 12rpx; }
+      .chip { font-size: 20rpx; color: $wa-accent; border: 1rpx solid $wa-accent;
+        border-radius: 999rpx; padding: 2rpx 12rpx; }
+      .chip.plain { color: $wa-muted; border-color: $wa-rule; }
+      .seg { margin-top: 16rpx; padding: 16rpx 0 4rpx; border-top: 1rpx dashed $wa-rule;
+        .seg-lbl { font-size: 23rpx; color: $wa-muted; }
+        .seg-items { display: flex; gap: 12rpx; margin-top: 12rpx; }
+        .seg-item { flex: 1; text-align: center; font-size: 24rpx; color: $wa-muted;
+          padding: 12rpx 0; border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
+        .seg-item.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+      }
+      .point { margin-top: 16rpx; padding-top: 12rpx; border-top: 1rpx dashed $wa-rule;
+        .point-t { font-size: 23rpx; color: $wa-muted; padding: 8rpx 0; }
+        .cell { padding: 14rpx 0;
+          .lbl { width: 160rpx; font-size: 24rpx; }
+          input { font-size: 24rpx; }
+        }
+      }
+    }
   }
   .cell { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid $wa-rule;
     .lbl { width: 240rpx; font-size: 28rpx; color: $wa-ink; flex-shrink: 0; }
@@ -346,6 +572,7 @@ async function ensureProfile(card: Card) {
   .ensure { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; font-size: 28rpx; border-radius: $wa-radius; }
   .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
   .notify-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 24rpx; }
+  .platform-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 12rpx; }
   .pmodes { display: flex; gap: 16rpx; padding: 8rpx 0 16rpx;
     .pmode { flex: 1; text-align: center; padding: 18rpx 0; font-size: 26rpx; color: $wa-muted;
       border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
