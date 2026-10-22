@@ -38,6 +38,10 @@
           <text class="time">{{ hhmm(o.createdAt) }}</text>
           <text v-if="o.route" class="route">{{ o.route }}</text>
         </view>
+        <view v-if="o.provider || o.thirdPartyNo" class="row ext">
+          <text class="ext-txt">{{ providerLabel(o.provider) }}</text>
+          <text v-if="o.thirdPartyNo" class="ext-no">{{ o.thirdPartyNo }}</text>
+        </view>
         <view class="row dest">
           <text class="dest-txt">{{ o.zone }} {{ o.building }}</text>
           <text v-if="o.slotText" class="slot">{{ o.slotText }}</text>
@@ -68,6 +72,34 @@
             class="act" :disabled="actingId === o.id"
             @tap="cookingDone(o)"
           >{{ $t('campusMerchant.cookingDone') }}</button>
+          <template v-else-if="tab === 'pendingDispatch'">
+            <button class="act" :disabled="actingId === o.id" @tap="pushExternal(o, 'dada')">
+              {{ $t('campusMerchant.pushDada') }}
+            </button>
+            <button class="act ghost" :disabled="actingId === o.id" @tap="pushExternal(o, 'meituan')">
+              {{ $t('campusMerchant.pushMeituan') }}
+            </button>
+          </template>
+          <template v-else-if="tab === 'thirdParty'">
+            <button class="act ghost" :disabled="actingId === o.id" @tap="cancelExternal(o)">
+              {{ $t('campusMerchant.cancelExternal') }}
+            </button>
+          </template>
+          <button
+            v-else-if="tab === 'ownedPool'"
+            class="act" :disabled="actingId === o.id"
+            @tap="acceptOwned(o)"
+          >{{ $t('campusMerchant.acceptOwned') }}</button>
+          <button
+            v-else-if="tab === 'ownedDispatched'"
+            class="act" :disabled="actingId === o.id"
+            @tap="markOwnedArrived(o)"
+          >{{ $t('campusMerchant.markOwnedArrived') }}</button>
+          <button
+            v-else-if="tab === 'merchantDelivering'"
+            class="act" :disabled="actingId === o.id"
+            @tap="markHandoverArrived(o)"
+          >{{ $t('campusMerchant.markHandoverArrived') }}</button>
         </view>
       </view>
     </template>
@@ -78,8 +110,13 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   campusMerchantAcceptOrder,
+  campusMerchantAcceptOwned,
   campusMerchantBoard,
+  campusMerchantCancelExternal,
   campusMerchantCookingDone,
+  campusMerchantDispatchExternal,
+  campusMerchantMarkHandoverArrived,
+  campusMerchantMarkOwnedArrived,
   campusMerchantMarkPrinted,
   campusMerchantSetPaused,
   type CampusMerchantBoard,
@@ -93,6 +130,11 @@ import { useLocaleStore } from '../../stores/localeStore';
 const TABS = [
   { key: 'pending', label: 'campusMerchant.tabPending' },
   { key: 'cooking', label: 'campusMerchant.tabCooking' },
+  { key: 'merchantDelivering', label: 'campusMerchant.tabMerchantDelivering' },
+  { key: 'pendingDispatch', label: 'campusMerchant.tabPendingDispatch' },
+  { key: 'thirdParty', label: 'campusMerchant.tabThirdParty' },
+  { key: 'ownedPool', label: 'campusMerchant.tabOwnedPool' },
+  { key: 'ownedDispatched', label: 'campusMerchant.tabOwnedDispatched' },
   { key: 'awaitingRider', label: 'campusMerchant.tabAwaiting' },
   { key: 'delivering', label: 'campusMerchant.tabDelivering' },
   { key: 'scheduled', label: 'campusMerchant.tabScheduled' },
@@ -111,6 +153,11 @@ const board = ref<CampusMerchantBoard>({
   cooking: [],
   awaitingRider: [],
   delivering: [],
+  pendingDispatch: [],
+  thirdParty: [],
+  ownedPool: [],
+  ownedDispatched: [],
+  merchantDelivering: [],
   scheduled: [],
   completedToday: 0,
   completedTodayAmount: 0,
@@ -307,6 +354,74 @@ async function cookingDone(o: MerchantBoardOrder) {
   }
 }
 
+function providerLabel(provider: string | null): string {
+  if (provider === 'dada') return locale.t('campusMerchant.providerDada');
+  if (provider === 'meituan') return locale.t('campusMerchant.providerMeituan');
+  return '';
+}
+
+async function pushExternal(o: MerchantBoardOrder, provider: 'dada' | 'meituan') {
+  actingId.value = o.id;
+  try {
+    await campusMerchantDispatchExternal(o.id, provider);
+    uni.showToast({ title: locale.t('campusMerchant.pushOk'), icon: 'success' });
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
+}
+
+async function cancelExternal(o: MerchantBoardOrder) {
+  actingId.value = o.id;
+  try {
+    await campusMerchantCancelExternal(o.id);
+    uni.showToast({ title: locale.t('campusMerchant.cancelOk'), icon: 'none' });
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
+}
+
+async function acceptOwned(o: MerchantBoardOrder) {
+  actingId.value = o.id;
+  try {
+    await campusMerchantAcceptOwned(o.id);
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
+}
+
+async function markOwnedArrived(o: MerchantBoardOrder) {
+  actingId.value = o.id;
+  try {
+    await campusMerchantMarkOwnedArrived(o.id);
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
+}
+
+async function markHandoverArrived(o: MerchantBoardOrder) {
+  actingId.value = o.id;
+  try {
+    await campusMerchantMarkHandoverArrived(o.id);
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
+}
+
 onMounted(() => {
   refresh(true);
   timer = setInterval(() => refresh(), 10_000);
@@ -345,8 +460,8 @@ onUnmounted(() => {
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx;
     .p-mode { font-size: 24rpx; color: $wa-accent; font-weight: 600; }
     .p-warn { flex: 1; font-size: 22rpx; color: #c47b00; } }
-  .tabs { display: flex; gap: 12rpx; margin-bottom: 24rpx;
-    .tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8rpx;
+  .tabs { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx;
+    .tab { flex: 1 1 30%; min-width: 200rpx; display: flex; align-items: center; justify-content: center; gap: 8rpx;
       background: $wa-card; border-radius: $wa-radius; padding: 18rpx 0; font-size: 26rpx;
       color: $wa-muted; border: 1.5px solid transparent;
       &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
@@ -364,6 +479,10 @@ onUnmounted(() => {
     }
     .dest { padding-top: 12rpx; .dest-txt { font-size: 26rpx; color: $wa-ink; flex: 1; }
       .slot { font-size: 22rpx; color: $wa-muted; }
+    }
+    .ext { padding-top: 10rpx; gap: 12rpx;
+      .ext-txt { font-size: 22rpx; color: $wa-accent; }
+      .ext-no { font-size: 22rpx; color: $wa-muted; word-break: break-all; }
     }
     .note { margin-top: 10rpx; background: #fff7e6; border-left: 6rpx solid #ff9800; border-radius: 8rpx; padding: 10rpx 16rpx;
       .note-txt { font-size: 24rpx; color: #b25f00; word-break: break-all; }

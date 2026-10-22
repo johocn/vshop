@@ -3,11 +3,38 @@
 // 权限 CampusConfig）。金额字段均为「分」，页面层用 utils/money 做分↔元转换。
 import { getAdminClient } from './client';
 
+export interface CampusRouteCarrier {
+  route: string;
+  carrier: string; // R1: merchant|owned；R3: campus|owned|external
+}
+
+export interface CampusHandoverPoint {
+  route: string; // R1 / R2
+  name: string;
+  address: string | null;
+  phone: string | null;
+  lat: number;
+  lng: number;
+}
+
+export interface CampusProviderShopNo {
+  provider: string; // dada | meituan
+  shopNo: string;
+}
+
 export interface CampusStoreConfig {
   channelId: string;
   channelName: string;
   channelToken: string;
   routesEnabled: string[];
+  routeFirstLeg: CampusRouteCarrier[];
+  handoverPoints: CampusHandoverPoint[];
+  providerShopNo: CampusProviderShopNo[];
+  merchantAcceptMinutes: number;
+  externalPushTimeoutMinutes: number;
+  externalFallbackMinutes: number;
+  storeLat: number | null;
+  storeLng: number | null;
   deliveryMinutes: number | null;
   minOrderAmount: number | null;
   deliveryFee: number | null;
@@ -31,6 +58,14 @@ export interface CampusStoreConfig {
 
 export interface CampusStoreConfigInput {
   routesEnabled: string[];
+  routeFirstLeg?: CampusRouteCarrier[] | null;
+  handoverPoints?: CampusHandoverPoint[] | null;
+  providerShopNo?: CampusProviderShopNo[] | null;
+  merchantAcceptMinutes?: number | null;
+  externalPushTimeoutMinutes?: number | null;
+  externalFallbackMinutes?: number | null;
+  storeLat?: number | null;
+  storeLng?: number | null;
   deliveryMinutes?: number | null;
   minOrderAmount?: number | null;
   deliveryFee?: number | null;
@@ -53,7 +88,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -119,6 +154,8 @@ export interface MerchantBoardOrder {
   riderName: string | null;
   note: string | null; // 顾客整单备注（工作台展示 + 小票打印）
   printedAt: string | null; // 小票最近打印时间（null=未打）
+  provider: string | null; // 外部快递：dada | meituan
+  thirdPartyNo: string | null; // 外部快递平台单号
   lines: MerchantBoardLine[];
 }
 
@@ -132,13 +169,18 @@ export interface CampusMerchantBoard {
   cooking: MerchantBoardOrder[];
   awaitingRider: MerchantBoardOrder[];
   delivering: MerchantBoardOrder[];
+  pendingDispatch: MerchantBoardOrder[]; // 待运营推送外部快递（R2 / R3-外部）
+  thirdParty: MerchantBoardOrder[]; // 外部快递配送中
+  ownedPool: MerchantBoardOrder[]; // 待自营快递接单（R3）
+  ownedDispatched: MerchantBoardOrder[]; // 自营快递配送中
+  merchantDelivering: MerchantBoardOrder[]; // 商户送校园交接点（R1）
   scheduled: MerchantBoardOrder[]; // 预约单（plan 3.1）：已支付未放量，到点前 30min 自动进入待接单/大厅
   completedToday: number;
   completedTodayAmount: number;
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total shipping building zone slotText route riderName printedAt lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
@@ -146,6 +188,9 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
       paused merchantConfirmEnabled printMode storeName storePhone completedToday completedTodayAmount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
+      pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }
+      ownedPool { ${ORDER_FIELDS} } ownedDispatched { ${ORDER_FIELDS} }
+      merchantDelivering { ${ORDER_FIELDS} }
       scheduled { ${ORDER_FIELDS} }
     } }`,
   );
@@ -185,8 +230,59 @@ export async function campusMerchantMarkPrinted(orderId: string): Promise<boolea
   return res.campusMerchantMarkPrinted.ok;
 }
 
-// ===== 调度操作台（CampusViewDispatch 权限，复用 dispatch-admin 既有 API）=====
+/** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
+export async function campusMerchantDispatchExternal(
+  orderId: string,
+  provider: 'dada' | 'meituan',
+): Promise<{ ok: boolean; provider: string | null; thirdPartyNo: string | null; already: boolean | null }> {
+  const res = await getAdminClient().request<{ campusMerchantDispatchExternal: any }>(
+    `mutation ($orderId: ID!, $provider: String!) {
+      campusMerchantDispatchExternal(orderId: $orderId, provider: $provider) { ok provider thirdPartyNo already }
+    }`,
+    { orderId, provider },
+  );
+  return res.campusMerchantDispatchExternal;
+}
 
+/** 取消外部快递（改推另一家前先取消） */
+export async function campusMerchantCancelExternal(orderId: string, reason?: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantCancelExternal: { ok: boolean } }>(
+    `mutation ($orderId: ID!, $reason: String) {
+      campusMerchantCancelExternal(orderId: $orderId, reason: $reason) { ok }
+    }`,
+    { orderId, reason: reason ?? null },
+  );
+  return res.campusMerchantCancelExternal.ok;
+}
+
+/** 自营快递接单（R1 商户超时转自营 / R3 自营池） */
+export async function campusMerchantAcceptOwned(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantAcceptOwned: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantAcceptOwned(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantAcceptOwned.ok;
+}
+
+/** R1：商户把餐送到校园交接点（之后传信者接力） */
+export async function campusMerchantMarkHandoverArrived(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantMarkHandoverArrived: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantMarkHandoverArrived(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantMarkHandoverArrived.ok;
+}
+
+/** 自营快递送达：R1/R2 到交接点，R3 到学生 */
+export async function campusMerchantMarkOwnedArrived(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantMarkOwnedArrived: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantMarkOwnedArrived(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantMarkOwnedArrived.ok;
+}
+
+// ===== 调度操作台（CampusViewDispatch 权限，复用 dispatch-admin 既有 API）=====
 export interface DispatchAlert {
   orderId: string;
   orderCode: string;
