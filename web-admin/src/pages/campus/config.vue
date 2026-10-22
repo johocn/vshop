@@ -40,29 +40,38 @@
                 </view>
               </view>
 
-              <!-- 校园交接点：R1、R2 接力起点 -->
+              <!-- 校园交接点：R1、R2 接力起点，同一路线可配多个（按收货楼栋取最近） -->
               <view v-if="r.point && card.form.routesEnabled.includes(r.code)" class="point" @tap.stop>
                 <view class="point-t">{{ $t('campusConfig.pointSection') }}</view>
-                <view class="cell">
-                  <text class="lbl">{{ $t('campusConfig.pointName') }}</text>
-                  <input v-model="card.form.handoverPoints[r.code].name" :placeholder="$t('campusConfig.phText')" />
+                <view class="point-hint">{{ $t('campusConfig.pointMultiHint') }}</view>
+                <view class="point-row" v-for="(p, pi) in card.form.handoverPoints[r.code]" :key="pi">
+                  <view class="point-row__head">
+                    <text class="point-row__idx">#{{ pi + 1 }}</text>
+                    <text class="point-default" :class="{ on: p.isDefault }" @tap.stop="setDefaultPoint(card, r.code, pi)">{{ $t('campusConfig.pointDefault') }}</text>
+                    <text class="point-del" v-if="card.form.handoverPoints[r.code].length > 1" @tap.stop="removePoint(card, r.code, pi)">{{ $t('campusConfig.pointRemove') }}</text>
+                  </view>
+                  <view class="cell">
+                    <text class="lbl">{{ $t('campusConfig.pointName') }}</text>
+                    <input v-model="p.name" :placeholder="$t('campusConfig.phText')" />
+                  </view>
+                  <view class="cell">
+                    <text class="lbl">{{ $t('campusConfig.pointAddress') }}</text>
+                    <input v-model="p.address" :placeholder="$t('campusConfig.phText')" />
+                  </view>
+                  <view class="cell">
+                    <text class="lbl">{{ $t('campusConfig.pointPhone') }}</text>
+                    <input v-model="p.phone" :placeholder="$t('campusConfig.phText')" />
+                  </view>
+                  <view class="cell">
+                    <text class="lbl">{{ $t('campusConfig.pointLat') }}</text>
+                    <input v-model="p.lat" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+                  </view>
+                  <view class="cell">
+                    <text class="lbl">{{ $t('campusConfig.pointLng') }}</text>
+                    <input v-model="p.lng" type="digit" :placeholder="$t('campusConfig.phCoord')" />
+                  </view>
                 </view>
-                <view class="cell">
-                  <text class="lbl">{{ $t('campusConfig.pointAddress') }}</text>
-                  <input v-model="card.form.handoverPoints[r.code].address" :placeholder="$t('campusConfig.phText')" />
-                </view>
-                <view class="cell">
-                  <text class="lbl">{{ $t('campusConfig.pointPhone') }}</text>
-                  <input v-model="card.form.handoverPoints[r.code].phone" :placeholder="$t('campusConfig.phText')" />
-                </view>
-                <view class="cell">
-                  <text class="lbl">{{ $t('campusConfig.pointLat') }}</text>
-                  <input v-model="card.form.handoverPoints[r.code].lat" type="digit" :placeholder="$t('campusConfig.phCoord')" />
-                </view>
-                <view class="cell">
-                  <text class="lbl">{{ $t('campusConfig.pointLng') }}</text>
-                  <input v-model="card.form.handoverPoints[r.code].lng" type="digit" :placeholder="$t('campusConfig.phCoord')" />
-                </view>
+                <view class="point-add" @tap.stop="addPoint(card, r.code)">+ {{ $t('campusConfig.pointAdd') }}</view>
               </view>
             </view>
           </view>
@@ -249,12 +258,13 @@ interface HandoverForm {
   phone: string;
   lat: string;
   lng: string;
+  isDefault: boolean;
 }
 
 interface CardForm {
   routesEnabled: string[];
   routeFirstLeg: Record<string, string>; // 仅 R1 / R3
-  handoverPoints: Record<string, HandoverForm>; // 仅 R1 / R2
+  handoverPoints: Record<string, HandoverForm[]>; // 仅 R1 / R2，可多个
   shopNoDada: string;
   shopNoMeituan: string;
   merchantAcceptMinutes: string;
@@ -291,22 +301,43 @@ const expandedId = ref<string>('');
 const savingId = ref<string>('');
 const ensuringId = ref<string>('');
 
-const emptyPoint = (): HandoverForm => ({ name: '', address: '', phone: '', lat: '', lng: '' });
+const emptyPoint = (): HandoverForm => ({ name: '', address: '', phone: '', lat: '', lng: '', isDefault: false });
+
+/** 同一路线可配多个交接点：按距离收货楼栋取最近，默认点用于收货楼栋无坐标时兜底 */
+function addPoint(card: CardForm, code: string) {
+  (card.form.handoverPoints[code] ??= []).push(emptyPoint());
+}
+function removePoint(card: CardForm, code: string, idx: number) {
+  const list = card.form.handoverPoints[code];
+  if (!list || list.length <= 1) return; // 至少保留一行，避免无输入框可填
+  list.splice(idx, 1);
+  if (!list.some(p => p.isDefault) && list[0]) list[0].isDefault = true;
+}
+function setDefaultPoint(card: CardForm, code: string, idx: number) {
+  (card.form.handoverPoints[code] ?? []).forEach((p, i) => { p.isDefault = i === idx; });
+}
 
 function toForm(c: CampusStoreConfig): CardForm {
   const leg = Object.fromEntries((c.routeFirstLeg ?? []).map(x => [x.route, x.carrier]));
-  const pts = Object.fromEntries((c.handoverPoints ?? []).map(x => [x.route, {
-    name: x.name ?? '',
-    address: x.address ?? '',
-    phone: x.phone ?? '',
-    lat: x.lat != null ? String(x.lat) : '',
-    lng: x.lng != null ? String(x.lng) : '',
-  }]));
+  const pts: Record<string, HandoverForm[]> = { R1: [], R2: [] };
+  for (const x of c.handoverPoints ?? []) {
+    (pts[x.route] ??= []).push({
+      name: x.name ?? '',
+      address: x.address ?? '',
+      phone: x.phone ?? '',
+      lat: x.lat != null ? String(x.lat) : '',
+      lng: x.lng != null ? String(x.lng) : '',
+      isDefault: !!x.isDefault,
+    });
+  }
   const shops = Object.fromEntries((c.providerShopNo ?? []).map(x => [x.provider, x.shopNo]));
   return {
     routesEnabled: [...c.routesEnabled],
     routeFirstLeg: { R1: leg.R1 ?? 'merchant', R3: leg.R3 ?? 'campus' },
-    handoverPoints: { R1: pts.R1 ?? emptyPoint(), R2: pts.R2 ?? emptyPoint() },
+    handoverPoints: {
+      R1: pts.R1.length ? pts.R1 : [emptyPoint()],
+      R2: pts.R2.length ? pts.R2 : [emptyPoint()],
+    },
     shopNoDada: shops.dada ?? '',
     shopNoMeituan: shops.meituan ?? '',
     merchantAcceptMinutes: String(c.merchantAcceptMinutes ?? 5),
@@ -383,29 +414,42 @@ async function save(card: Card) {
     return;
   }
 
-  // 交接点（仅 R1/R2）：名称 + 经纬度必填，避免外部快递派不到点
-  const handoverPoints: Array<{ route: string; name: string; address: string | null; phone: string | null; lat: number; lng: number }> = [];
+  // 交接点（仅 R1/R2）：每条路线可配多个；名称 + 经纬度必填，避免外部快递派不到点
+  const handoverPoints: Array<{ route: string; name: string; address: string | null; phone: string | null; lat: number; lng: number; isDefault: boolean }> = [];
   for (const code of ['R1', 'R2']) {
     if (!f.routesEnabled.includes(code)) continue;
-    const p = f.handoverPoints[code];
-    if (!p.name.trim() || p.lat.trim() === '' || p.lng.trim() === '') {
+    const list = (f.handoverPoints[code] ?? []).filter(p => p.name.trim() !== '' || p.lat.trim() !== '' || p.lng.trim() !== '');
+    if (!list.length) {
       uni.showToast({ title: locale.t('campusConfig.pointRequired'), icon: 'none' });
       return;
     }
-    const lat = Number(p.lat);
-    const lng = Number(p.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-      uni.showToast({ title: locale.t('campusConfig.badCoord'), icon: 'none' });
-      return;
+    for (const p of list) {
+      if (!p.name.trim() || p.lat.trim() === '' || p.lng.trim() === '') {
+        uni.showToast({ title: locale.t('campusConfig.pointRequired'), icon: 'none' });
+        return;
+      }
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        uni.showToast({ title: locale.t('campusConfig.badCoord'), icon: 'none' });
+        return;
+      }
+      handoverPoints.push({
+        route: code,
+        name: p.name.trim(),
+        address: p.address.trim() || null,
+        phone: p.phone.trim() || null,
+        lat,
+        lng,
+        isDefault: p.isDefault,
+      });
     }
-    handoverPoints.push({
-      route: code,
-      name: p.name.trim(),
-      address: p.address.trim() || null,
-      phone: p.phone.trim() || null,
-      lat,
-      lng,
-    });
+    // 每条路线保证有且仅有一个默认点（与后端归一一致，避免前端展示与实际不一致）
+    const own = handoverPoints.filter(x => x.route === code);
+    const marked = own.filter(x => x.isDefault);
+    if (marked.length !== 1) {
+      own.forEach((x, i) => { x.isDefault = i === 0; });
+    }
   }
 
   // 第一段承运方：仅 R1（merchant|owned）、R3（campus|owned|external）
@@ -552,6 +596,18 @@ async function ensureProfile(card: Card) {
       }
       .point { margin-top: 16rpx; padding-top: 12rpx; border-top: 1rpx dashed $wa-rule;
         .point-t { font-size: 23rpx; color: $wa-muted; padding: 8rpx 0; }
+        .point-hint { font-size: 21rpx; color: $wa-muted; padding-bottom: 6rpx; }
+        .point-row { border-top: 1rpx solid $wa-rule; margin-top: 8rpx; padding-top: 4rpx;
+          &:first-of-type { border-top: none; }
+        }
+        .point-row__head { display: flex; align-items: center; gap: 16rpx; padding: 8rpx 0;
+          .point-row__idx { font-size: 22rpx; color: $wa-muted; }
+          .point-default { font-size: 21rpx; color: $wa-muted; border: 1rpx solid $wa-rule; border-radius: 20rpx; padding: 2rpx 14rpx;
+            &.on { color: #fff; background: $wa-accent; border-color: $wa-accent; }
+          }
+          .point-del { font-size: 21rpx; color: $wa-danger; margin-left: auto; }
+        }
+        .point-add { font-size: 23rpx; color: $wa-accent; padding: 12rpx 0 4rpx; }
         .cell { padding: 14rpx 0;
           .lbl { width: 160rpx; font-size: 24rpx; }
           input { font-size: 24rpx; }
