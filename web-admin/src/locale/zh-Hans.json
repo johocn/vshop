@@ -3427,6 +3427,7 @@
     "alertSla": "配送超 SLA",
     "alertSlotFull": "时段锁位失败",
     "alertException": "骑手异常",
+    "alertUrged": "顾客催单",
     "causeSlotFull": "时段锁位失败，需人工跟进",
     "causeNoRider": "无人接单已自动退款",
     "causeMerchantTimeout": "商家超时未处理，已自动入厅",

@@ -365,6 +365,7 @@ function typeLabel(type: string): string {
     sla_breach: locale.t('campusDispatch.alertSla'),
     slot_full: locale.t('campusDispatch.alertSlotFull'),
     exception: locale.t('campusDispatch.alertException'),
+    urged: locale.t('campusDispatch.alertUrged'),
   };
   return map[type] ?? type;
 }
