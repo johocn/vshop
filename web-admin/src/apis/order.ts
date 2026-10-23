@@ -186,7 +186,17 @@ export interface OrderDetail {
   lines: Array<{ id: string; quantity: number; unitPriceWithTax: number; linePriceWithTax: number; productVariant: { id: string; name: string; sku: string } | null }>;
   shippingLines?: Array<{ shippingMethod: { id: string; code: string; name: string } | null }>;
   fulfillments?: Array<{ id: string; state: string; method?: string | null; trackingCode?: string | null; createdAt: string }>;
-  customFields?: { deliveryType?: string | null; pickupClaimed?: boolean | null };
+  customFields?: {
+    deliveryType?: string | null;
+    pickupClaimed?: boolean | null;
+    campusZone?: string | null;
+    buildingId?: string | null;
+    deliveryDetail?: string | null;
+    deliveryStatus?: string | null;
+    deliveredAt?: string | null;
+    thirdPartyState?: string | null;
+    deliverySlotText?: string | null;
+  };
 }
 
 export async function fetchOrder(id: string): Promise<OrderDetail | null> {
@@ -213,7 +223,7 @@ const ORDER_DETAIL_FIELDS = `
   lines { id quantity unitPriceWithTax linePriceWithTax productVariant { id name sku } }
   shippingLines { shippingMethod { id code name } }
   fulfillments { id state method trackingCode createdAt }
-  customFields { deliveryType pickupClaimed }
+  customFields { deliveryType pickupClaimed campusZone buildingId deliveryDetail deliveryStatus deliveredAt thirdPartyState deliverySlotText }
 `;
 
 export async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {

@@ -1,5 +1,28 @@
 <template>
   <view class="page">
+    <!-- 动态计价试算：当前供需 + 各分区加价拆解（按当前登录渠道） -->
+    <view class="dpp" v-if="preview">
+      <view class="dpp-head">
+        <text class="dpp-title">{{ $t('campusConfig.dppTitle') }}</text>
+        <text class="dpp-refresh" @tap="loadPreview">{{ $t('campusConfig.dppRefresh') }}</text>
+      </view>
+      <view class="dpp-meta">
+        <view class="kv"><text class="k">{{ $t('campusConfig.dppBacklog') }}</text><text class="v">{{ preview.backlog }}</text></view>
+        <view class="kv"><text class="k">{{ $t('campusConfig.dppRiders') }}</text><text class="v">{{ preview.onlineRiders }}</text></view>
+        <view class="kv"><text class="k">{{ $t('campusConfig.dppMultiplier') }}</text><text class="v">{{ preview.manualMultiplier }}×</text></view>
+        <view class="kv"><text class="k">{{ $t('campusConfig.dppMaxAdd') }}</text><text class="v">¥{{ fenToYuanFixed(preview.maxAddFee) }}</text></view>
+      </view>
+      <text class="dpp-off" v-if="!preview.enabled">{{ $t('campusConfig.dppOff') }}</text>
+      <view v-for="z in preview.zones" :key="z.zoneId" class="dpp-row">
+        <view class="dpp-row__main">
+          <text class="zn">{{ z.zoneName }}</text>
+          <text class="pr">¥{{ fenToYuanFixed(z.baseFee) }} → ¥{{ fenToYuanFixed(z.price) }}</text>
+          <text class="ad" :class="{ on: z.addFee > 0 }">{{ z.addFee > 0 ? '+' + fenToYuanFixed(z.addFee) : $t('campusConfig.dppNoAdd') }}</text>
+        </view>
+        <text class="br" v-if="z.breakdown.length">{{ breakdownText(z.breakdown) }}</text>
+      </view>
+      <text class="dpp-note">{{ $t('campusConfig.dppNote') }}</text>
+    </view>
     <view v-if="loading" class="hint">{{ $t('campusConfig.loading') }}</view>
     <view v-else-if="!cards.length" class="hint">{{ $t('campusConfig.empty') }}</view>
     <view v-for="card in cards" v-else :key="card.channelId" class="card">
@@ -272,8 +295,16 @@
 
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue';
-import { campusStoreConfigs, campusUpdateStoreConfig, campusEnsureDefaultShippingProfile, type CampusStoreConfig } from '../../apis/campus';
-import { fenToYuan, yuanToFen } from '../../utils/money';
+import {
+  campusStoreConfigs,
+  campusUpdateStoreConfig,
+  campusEnsureDefaultShippingProfile,
+  campusDynamicPricingPreview,
+  type CampusStoreConfig,
+  type CampusDynamicPricingPreview,
+  type CampusPricingBreakdownItem,
+} from '../../apis/campus';
+import { fenToYuan, fenToYuanFixed, yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 
@@ -383,6 +414,21 @@ const cards = ref<Card[]>([]);
 const expandedId = ref<string>('');
 const savingId = ref<string>('');
 const ensuringId = ref<string>('');
+const preview = ref<CampusDynamicPricingPreview | null>(null);
+
+/** 加价拆解文案：时段高峰 3 元 · 运力紧张 2 元 · 手动 1.2x 1 元 */
+function breakdownText(items: CampusPricingBreakdownItem[]): string {
+  return items.map((b) => `${b.label} ¥${fenToYuanFixed(b.fee)}`).join(' · ');
+}
+
+/** 动态计价试算：按当前登录渠道取实时供需与分区报价（失败不打断配置页） */
+async function loadPreview() {
+  try {
+    preview.value = await campusDynamicPricingPreview();
+  } catch {
+    preview.value = null;
+  }
+}
 
 const emptyPoint = (): HandoverForm => ({ name: '', address: '', phone: '', lat: '', lng: '', isDefault: false });
 
@@ -745,6 +791,7 @@ async function save(card: Card) {
 }
 
 onMounted(async () => {
+  loadPreview();
   try {
     const list = await campusStoreConfigs();
     cards.value = list.map((c) => ({ ...c, form: toForm(c) }));
@@ -778,6 +825,23 @@ async function ensureProfile(card: Card) {
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx;
   .hint { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
+  .dpp { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 24rpx;
+    .dpp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx;
+      .dpp-title { font-size: 28rpx; font-weight: 600; color: $wa-ink; }
+      .dpp-refresh { font-size: 24rpx; color: $wa-accent; } }
+    .dpp-meta { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 12rpx;
+      .kv { flex: 1 0 45%; display: flex; align-items: center; justify-content: space-between; background: $wa-bg; border-radius: 10rpx; padding: 12rpx 18rpx;
+        .k { font-size: 22rpx; color: $wa-muted; }
+        .v { font-size: 26rpx; color: $wa-ink; font-weight: 600; } } }
+    .dpp-off { display: block; font-size: 22rpx; color: $wa-muted; margin: 8rpx 0; }
+    .dpp-row { padding: 16rpx 0; border-top: 1rpx solid $wa-rule;
+      .dpp-row__main { display: flex; align-items: center; gap: 16rpx;
+        .zn { flex: 1; font-size: 26rpx; color: $wa-ink; }
+        .pr { font-size: 24rpx; color: $wa-muted; }
+        .ad { font-size: 24rpx; color: $wa-muted; min-width: 96rpx; text-align: right;
+          &.on { color: $wa-danger; font-weight: 600; } } }
+      .br { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 8rpx; } }
+    .dpp-note { display: block; font-size: 22rpx; color: $wa-muted; line-height: 1.6; margin-top: 12rpx; } }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 8rpx 32rpx; margin-bottom: 24rpx; }
   .head { display: flex; align-items: center; padding: 28rpx 0;
     .head-l { flex: 1; display: flex; align-items: center; gap: 12rpx; min-width: 0;

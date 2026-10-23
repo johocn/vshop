@@ -624,7 +624,32 @@
       "invalidAmount": "请输入有效金额",
       "noChange": "金额未变化",
       "adjustSuccess": "改价成功",
-      "adjustFailed": "改价失败"
+      "adjustFailed": "改价失败",
+      "addr": {
+        "sectionTitle": "配送地址",
+        "changeBtn": "代顾客修改地址",
+        "pickedHint": "骑手已取货：顾客不可自助改址，运营仍可代改（需填写原因）",
+        "sheetTitle": "代顾客修改配送地址",
+        "zone": "分区",
+        "building": "宿舍楼",
+        "detail": "门牌 / 详细地址",
+        "detailPlaceholder": "如 3 栋 502（留空则沿用原地址）",
+        "reason": "代改原因（必填）",
+        "reasonPlaceholder": "如 顾客来电要求改到西区 5 栋",
+        "quoteOld": "原运费",
+        "quoteNew": "改后",
+        "diffCollect": "需补收 ¥{amount}",
+        "diffRefund": "需退款 ¥{amount}",
+        "diffNone": "无差额",
+        "quoteHint": "差额仅记入改址台账，不阻塞改址，稍后可在「改址台账」页结算。",
+        "confirm": "确认改址",
+        "noZone": "请选择分区",
+        "noBuilding": "请选择宿舍楼",
+        "noReason": "请填写代改原因",
+        "success": "改址成功，差额 ¥{amount}",
+        "failed": "改址失败",
+        "loadFailed": "地址数据加载失败"
+      }
     }
   },
   "paymentShipping": {
@@ -3187,7 +3212,16 @@
     "dpMaxAdd": "单笔加价封顶（元）",
     "dpMaxTip": "所有加价合计不超过封顶值",
     "dpSupplyOn": "已开启",
-    "dpSupplyOff": "未开启"
+    "dpSupplyOff": "未开启",
+    "dppTitle": "动态计价试算",
+    "dppRefresh": "刷新",
+    "dppBacklog": "大厅待抢",
+    "dppRiders": "在线骑手",
+    "dppMultiplier": "手动倍率",
+    "dppMaxAdd": "加价封顶",
+    "dppOff": "当前渠道未启用动态计价，以下为基价。",
+    "dppNoAdd": "无加价",
+    "dppNote": "试算按当前登录渠道的实时供需计算，修改配置并保存后点「刷新」可看新结果。"
   },
   "campusAddressChanges": {
     "loading": "加载中…",
@@ -3205,7 +3239,9 @@
     "settled": "已结清",
     "settleFailed": "结清失败",
     "createdAt": "改址时间 ",
-    "settledAt": "结清 "
+    "settledAt": "结清 ",
+    "source": { "customer": "顾客自助", "admin": "运营代改" },
+    "reason": "原因："
   },
   "campusMerchant": {
     "loading": "加载中…",

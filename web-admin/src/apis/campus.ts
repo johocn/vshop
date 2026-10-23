@@ -527,6 +527,12 @@ export interface CampusAddressChangeRow {
   settledAt: string | null;
   /** refund | collect | waive */
   settleAction: string | null;
+  /** customer=顾客自助 | admin=运营代改 */
+  source: string | null;
+  /** 代改原因（运营代改必填） */
+  reason: string | null;
+  /** 发起人 userId */
+  changedBy: string | null;
   createdAt: string;
 }
 
@@ -540,7 +546,7 @@ export interface CampusAddressChangeStats {
 }
 
 const ADDRESS_CHANGE_FIELDS =
-  'id orderId orderCode customerId fromZone fromBuilding fromDetail toZone toBuilding toDetail oldFee newFee diff status settledAt settleAction createdAt';
+  'id orderId orderCode customerId fromZone fromBuilding fromDetail toZone toBuilding toDetail oldFee newFee diff status settledAt settleAction source reason changedBy createdAt';
 
 export async function campusAddressChanges(
   status?: string | null,
@@ -575,4 +581,109 @@ export async function campusSettleAddressChange(
     { id, action },
   );
   return res.campusSettleAddressChange;
+}
+
+// ===== 运营代客改址 + 改址试算（CampusConfig 权限）=====
+
+export interface CampusAddressChangeQuote {
+  /** 分：订单当前运费 */
+  oldFee: number;
+  /** 分：改址后运费 */
+  newFee: number;
+  /** 分：正=需补收，负=需退款 */
+  diff: number;
+  zoneId: string;
+  zoneName: string;
+  buildings: Array<{ id: string; name: string }>;
+}
+
+/** 改址差额试算（不落台账、不改订单） */
+export async function campusAdminQuoteAddressChange(
+  orderId: string,
+  zoneId: string,
+): Promise<CampusAddressChangeQuote> {
+  const res = await getAdminClient().request<{ campusAdminQuoteAddressChange: CampusAddressChangeQuote }>(
+    `query ($orderId: ID!, $zoneId: ID!) {
+      campusAdminQuoteAddressChange(orderId: $orderId, zoneId: $zoneId) {
+        oldFee newFee diff zoneId zoneName buildings { id name }
+      }
+    }`,
+    { orderId, zoneId },
+  );
+  return res.campusAdminQuoteAddressChange;
+}
+
+export interface CampusAddressChangeResult {
+  diff: number;
+  oldFee: number;
+  newFee: number;
+  fromZone: string;
+  toZone: string;
+  recordId: string;
+}
+
+/** 运营代客改址：取货后也可代改，必须填写原因 */
+export async function campusAdminChangeDeliveryAddress(
+  orderId: string,
+  zoneId: string,
+  buildingId: string,
+  detail: string | null,
+  reason: string,
+): Promise<CampusAddressChangeResult> {
+  const res = await getAdminClient().request<{ campusAdminChangeDeliveryAddress: CampusAddressChangeResult }>(
+    `mutation ($orderId: ID!, $zoneId: ID!, $buildingId: ID!, $detail: String, $reason: String!) {
+      campusAdminChangeDeliveryAddress(orderId: $orderId, zoneId: $zoneId, buildingId: $buildingId, detail: $detail, reason: $reason) {
+        diff oldFee newFee fromZone toZone recordId
+      }
+    }`,
+    { orderId, zoneId, buildingId, detail: detail || null, reason },
+  );
+  return res.campusAdminChangeDeliveryAddress;
+}
+
+// ===== 动态计价试算预览（CampusConfig 权限）=====
+
+export interface CampusPricingBreakdownItem {
+  key: string; // peak | supply | multiplier
+  label: string;
+  /** 分 */
+  fee: number;
+}
+
+export interface CampusDynamicPricingZoneQuote {
+  zoneId: string;
+  zoneName: string;
+  /** 分 */
+  baseFee: number;
+  /** 分 */
+  price: number;
+  /** 分 */
+  addFee: number;
+  breakdown: CampusPricingBreakdownItem[];
+}
+
+export interface CampusDynamicPricingPreview {
+  at: string;
+  enabled: boolean;
+  /** 大厅待抢单量 */
+  backlog: number;
+  onlineRiders: number;
+  manualMultiplier: number;
+  /** 分 */
+  maxAddFee: number;
+  supply: { backlogThreshold: number; riderThreshold: number | null; addFee: number } | null;
+  peakWindows: Array<{ label: string | null; start: string; end: string; addFee: number }>;
+  zones: CampusDynamicPricingZoneQuote[];
+}
+
+export async function campusDynamicPricingPreview(): Promise<CampusDynamicPricingPreview> {
+  const res = await getAdminClient().request<{ campusDynamicPricingPreview: CampusDynamicPricingPreview }>(
+    `query { campusDynamicPricingPreview {
+      at enabled backlog onlineRiders manualMultiplier maxAddFee
+      supply { backlogThreshold riderThreshold addFee }
+      peakWindows { label start end addFee }
+      zones { zoneId zoneName baseFee price addFee breakdown { key label fee } }
+    } }`,
+  );
+  return res.campusDynamicPricingPreview;
 }

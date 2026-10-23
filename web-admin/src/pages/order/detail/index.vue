@@ -26,6 +26,14 @@
       <text class="line">{{ order.shippingAddress.fullName }} {{ order.shippingAddress.phoneNumber }}</text>
     </view>
 
+    <!-- 配送地址（校内配送，运营可代顾客改址） -->
+    <view class="card" v-if="deliveryAddressText">
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.addr.sectionTitle') }}</text>
+      <text class="line">{{ deliveryAddressText }}</text>
+      <text class="line muted" v-if="addrLockedHint">{{ $t('orderAdmin.orderDetail.addr.pickedHint') }}</text>
+      <button class="addr-btn" @tap="openAddrChange">{{ $t('orderAdmin.orderDetail.addr.changeBtn') }}</button>
+    </view>
+
     <!-- 金额明细 -->
     <view class="card">
       <text class="sec-title">{{ $t('orderAdmin.orderDetail.amountSection') }}</text>
@@ -99,12 +107,62 @@
         </view>
       </view>
     </view>
+
+    <!-- 代顾客改址弹层 -->
+    <view v-if="addrSheet" class="mask" @tap.self="addrSheet = false">
+      <view class="sheet">
+        <view class="st">{{ $t('orderAdmin.orderDetail.addr.sheetTitle') }}</view>
+        <text class="lbl">{{ $t('orderAdmin.orderDetail.addr.zone') }}</text>
+        <view class="chips">
+          <text
+            v-for="z in zones"
+            :key="z.id"
+            class="chip"
+            :class="{ on: addrZoneId === z.id }"
+            @tap="pickZone(z)"
+          >{{ z.name }} · ¥{{ money(z.fee) }}</text>
+        </view>
+        <text class="lbl">{{ $t('orderAdmin.orderDetail.addr.building') }}</text>
+        <view class="chips">
+          <text
+            v-for="b in addrBuildings"
+            :key="b.id"
+            class="chip"
+            :class="{ on: addrBuildingId === b.id }"
+            @tap="addrBuildingId = b.id"
+          >{{ b.name }}</text>
+          <text class="chip muted" v-if="!addrBuildings.length">{{ $t('orderAdmin.orderDetail.addr.noZone') }}</text>
+        </view>
+        <text class="lbl">{{ $t('orderAdmin.orderDetail.addr.detail') }}</text>
+        <input v-model="addrDetail" class="ipt" :placeholder="$t('orderAdmin.orderDetail.addr.detailPlaceholder')" />
+        <text class="lbl">{{ $t('orderAdmin.orderDetail.addr.reason') }}</text>
+        <textarea v-model="addrReason" class="ta" :placeholder="$t('orderAdmin.orderDetail.addr.reasonPlaceholder')" />
+        <view class="quote" v-if="addrQuote">
+          <text class="q-line">{{ $t('orderAdmin.orderDetail.addr.quoteOld') }} ¥{{ money(addrQuote.oldFee) }} → {{ $t('orderAdmin.orderDetail.addr.quoteNew') }} ¥{{ money(addrQuote.newFee) }}</text>
+          <text class="q-diff" :class="{ up: addrQuote.diff > 0, down: addrQuote.diff < 0 }">{{ diffText }}</text>
+        </view>
+        <text class="tip">{{ $t('orderAdmin.orderDetail.addr.quoteHint') }}</text>
+        <view class="btns">
+          <button class="bn" @tap="addrSheet = false">{{ $t('orderAdmin.orderDetail.cancelBtn') }}</button>
+          <button class="bn main" :disabled="addrSubmitting" @tap="submitAddrChange">{{ addrSubmitting ? $t('orderAdmin.orderDetail.submitting') : $t('orderAdmin.orderDetail.addr.confirm') }}</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { fetchOrderDetail, cancelOrder, addOrderNote, modifyOrderPrice, OrderDetail } from '../../../apis/order';
+import {
+  campusZones,
+  campusBuildings,
+  campusAdminQuoteAddressChange,
+  campusAdminChangeDeliveryAddress,
+  CampusZone,
+  CampusBuilding,
+  CampusAddressChangeQuote,
+} from '../../../apis/campus';
 import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
@@ -121,6 +179,109 @@ const adjusting = ref(false);
 
 const canAdjustPrice = computed(() => ['AddingItems', 'ArrangingPayment'].includes(order.value?.state || ''));
 
+// ===== 代顾客改址 =====
+const zones = ref<CampusZone[]>([]);
+const allBuildings = ref<CampusBuilding[]>([]);
+const addrSheet = ref(false);
+const addrZoneId = ref('');
+const addrBuildingId = ref('');
+const addrDetail = ref('');
+const addrReason = ref('');
+const addrQuote = ref<CampusAddressChangeQuote | null>(null);
+const addrSubmitting = ref(false);
+let quoteTimer: ReturnType<typeof setTimeout> | null = null;
+
+const cf = computed(() => order.value?.customFields ?? {});
+const zoneName = computed(() => cf.value.campusZone || '');
+const buildingName = computed(() => {
+  const id = cf.value.buildingId;
+  return (allBuildings.value.find(b => String(b.id) === String(id)) || {}).name || '';
+});
+const deliveryAddressText = computed(() => {
+  if (!zoneName.value) return '';
+  const parts = [zoneName.value, buildingName.value || `#${cf.value.buildingId || ''}`];
+  if (cf.value.deliveryDetail) parts.push(cf.value.deliveryDetail);
+  return parts.filter(Boolean).join(' · ');
+});
+const addrLockedHint = computed(() => cf.value.deliveryStatus === 'in_progress' || ['accepted', 'pickup'].includes(cf.value.thirdPartyState || ''));
+const addrBuildings = computed(() => allBuildings.value.filter(b => String(b.zoneId) === String(addrZoneId.value)));
+const diffText = computed(() => {
+  const d = addrQuote.value?.diff ?? 0;
+  if (d > 0) return locale.t('orderAdmin.orderDetail.addr.diffCollect').replace('{amount}', money(d));
+  if (d < 0) return locale.t('orderAdmin.orderDetail.addr.diffRefund').replace('{amount}', money(-d));
+  return locale.t('orderAdmin.orderDetail.addr.diffNone');
+});
+
+async function ensureAddrData() {
+  if (!zones.value.length) zones.value = await campusZones();
+  if (!allBuildings.value.length) allBuildings.value = await campusBuildings();
+}
+
+async function openAddrChange() {
+  try {
+    await ensureAddrData();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.orderDetail.addr.loadFailed'), icon: 'none' });
+    return;
+  }
+  const curZone = zones.value.find(z => z.name === zoneName.value);
+  addrZoneId.value = curZone?.id || zones.value[0]?.id || '';
+  addrBuildingId.value = String(cf.value.buildingId || '');
+  addrDetail.value = cf.value.deliveryDetail || '';
+  addrReason.value = '';
+  addrQuote.value = null;
+  addrSheet.value = true;
+  refreshQuote();
+}
+
+function pickZone(z: CampusZone) {
+  if (addrZoneId.value === z.id) return;
+  addrZoneId.value = z.id;
+  addrBuildingId.value = '';
+  addrQuote.value = null;
+}
+
+function refreshQuote() {
+  if (quoteTimer) clearTimeout(quoteTimer);
+  if (!order.value?.id || !addrZoneId.value) return;
+  quoteTimer = setTimeout(async () => {
+    try {
+      addrQuote.value = await campusAdminQuoteAddressChange(order.value!.id, addrZoneId.value);
+    } catch {
+      addrQuote.value = null;
+    }
+  }, 250);
+}
+
+watch([addrZoneId], () => refreshQuote());
+
+async function submitAddrChange() {
+  if (!order.value || addrSubmitting.value) return;
+  if (!addrZoneId.value) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.addr.noZone'), icon: 'none' }); return; }
+  if (!addrBuildingId.value) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.addr.noBuilding'), icon: 'none' }); return; }
+  if (!addrReason.value.trim()) { uni.showToast({ title: locale.t('orderAdmin.orderDetail.addr.noReason'), icon: 'none' }); return; }
+  addrSubmitting.value = true;
+  try {
+    const r = await campusAdminChangeDeliveryAddress(
+      order.value.id,
+      addrZoneId.value,
+      addrBuildingId.value,
+      addrDetail.value.trim() || null,
+      addrReason.value.trim(),
+    );
+    addrSheet.value = false;
+    uni.showToast({
+      title: locale.t('orderAdmin.orderDetail.addr.success').replace('{amount}', money(r.diff)),
+      icon: 'success',
+    });
+    order.value = await fetchOrderDetail(order.value.id);
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('orderAdmin.orderDetail.addr.failed'), icon: 'none' });
+  } finally {
+    addrSubmitting.value = false;
+  }
+}
+
 const money = fenToYuanFixed;
 
 const canShip = computed(() => ['PaymentAuthorized', 'WaitingForShipping'].includes(order.value?.state || ''));
@@ -132,6 +293,8 @@ const canRedeem = computed(() => isPickup.value && !isPickupClaimed.value);
 onLoad(async (q) => {
   const id: string = (q && (q.id as string)) || '';
   if (id) order.value = await fetchOrderDetail(id);
+  // 预取分区/楼栋，用于展示当前配送地址名（失败不影响详情页）
+  ensureAddrData().catch(() => undefined);
 });
 
 function goShip() {
@@ -228,6 +391,10 @@ async function onSubmitAdjust() {
       }
       &.total .val { color: $wa-danger; font-weight: 600; font-size: 30rpx; }
     }
+    .addr-btn {
+      margin: 16rpx 0 0; height: 64rpx; line-height: 64rpx; font-size: 26rpx;
+      border-radius: $wa-radius; background: $wa-bg; color: $wa-accent;
+    }
     .item {
       display: flex; align-items: center; justify-content: space-between; padding: 14rpx 0;
       border-bottom: 1rpx solid $wa-rule;
@@ -248,6 +415,23 @@ async function onSubmitAdjust() {
       .pre { font-size: 36rpx; color: $wa-ink; margin-right: 12rpx; }
       .amt { flex: 1; font-size: 40rpx; font-weight: 700; color: $wa-danger; } }
     .tip { display: block; font-size: 22rpx; color: $wa-muted; margin: 16rpx 0; line-height: 1.6; }
+    .lbl { display: block; font-size: 24rpx; color: $wa-muted; margin: 20rpx 0 12rpx; }
+    .chips { display: flex; flex-wrap: wrap; gap: 12rpx;
+      .chip {
+        padding: 10rpx 22rpx; font-size: 26rpx; border-radius: 999rpx;
+        background: $wa-bg; color: $wa-ink; border: 1rpx solid transparent;
+        &.on { background: transparent; border-color: $wa-accent; color: $wa-accent; }
+        &.muted { color: $wa-muted; }
+      }
+    }
+    .ipt { width: 100%; height: 72rpx; line-height: 72rpx; background: $wa-bg; border-radius: 12rpx; padding: 0 20rpx; font-size: 28rpx; box-sizing: border-box; }
+    .quote { display: flex; align-items: center; justify-content: space-between; background: $wa-bg; border-radius: 12rpx; padding: 18rpx 20rpx; margin-top: 16rpx;
+      .q-line { font-size: 24rpx; color: $wa-muted; }
+      .q-diff { font-size: 30rpx; font-weight: 600; color: $wa-ink;
+        &.up { color: $wa-danger; }
+        &.down { color: $wa-accent; }
+      }
+    }
     .btns { display: flex; gap: 20rpx; margin-top: 24rpx;
       .bn { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; font-size: 30rpx; border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
         &.main { background: $wa-accent; color: #fff; } } } }
