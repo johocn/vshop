@@ -3194,6 +3194,7 @@
     "receiptSlot": "Delivery slot",
     "receiptNote": "Note",
     "noteLabel": "Note",
+    "handoverCode": "Handover code",
     "receiptSubtotal": "Subtotal",
     "receiptDeliveryFee": "Delivery fee",
     "receiptTotal": "Total",
