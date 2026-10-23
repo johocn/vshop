@@ -626,7 +626,32 @@
       "invalidAmount": "Please enter a valid amount",
       "noChange": "No change in amount",
       "adjustSuccess": "Price adjusted",
-      "adjustFailed": "Adjust failed"
+      "adjustFailed": "Adjust failed",
+      "addr": {
+        "sectionTitle": "Delivery address",
+        "changeBtn": "Change address for customer",
+        "pickedHint": "Rider has picked up: customers cannot change the address themselves, staff can still change it (reason required)",
+        "sheetTitle": "Change delivery address for customer",
+        "zone": "Zone",
+        "building": "Building",
+        "detail": "Room / detail",
+        "detailPlaceholder": "e.g. Building 3, Room 502 (leave blank to keep current)",
+        "reason": "Reason (required)",
+        "reasonPlaceholder": "e.g. Customer called to move to West Zone, Building 5",
+        "quoteOld": "Current fee",
+        "quoteNew": "New fee",
+        "diffCollect": "Collect ¥{amount}",
+        "diffRefund": "Refund ¥{amount}",
+        "diffNone": "No difference",
+        "quoteHint": "The difference is recorded in the address-change ledger and does not block the change. Settle it later on the ledger page.",
+        "confirm": "Confirm change",
+        "noZone": "Please select a zone",
+        "noBuilding": "Please select a building",
+        "noReason": "Please enter a reason",
+        "success": "Address changed, difference ¥{amount}",
+        "failed": "Failed to change address",
+        "loadFailed": "Failed to load address data"
+      }
     }
   },
   "paymentShipping": {
@@ -3189,7 +3214,16 @@
     "dpMaxAdd": "Per-order surcharge cap (CNY)",
     "dpMaxTip": "All surcharges together never exceed the cap",
     "dpSupplyOn": "Enabled",
-    "dpSupplyOff": "Disabled"
+    "dpSupplyOff": "Disabled",
+    "dppTitle": "Dynamic pricing preview",
+    "dppRefresh": "Refresh",
+    "dppBacklog": "Hall backlog",
+    "dppRiders": "Riders online",
+    "dppMultiplier": "Multiplier",
+    "dppMaxAdd": "Surcharge cap",
+    "dppOff": "Dynamic pricing is off for the current channel; base fees are shown.",
+    "dppNoAdd": "No surcharge",
+    "dppNote": "Preview uses live supply/demand of the current channel. Save changes, then tap Refresh."
   },
   "campusAddressChanges": {
     "loading": "Loading…",
@@ -3207,7 +3241,9 @@
     "settled": "Settled",
     "settleFailed": "Settle failed",
     "createdAt": "Changed ",
-    "settledAt": "Settled "
+    "settledAt": "Settled ",
+    "source": { "customer": "Customer", "admin": "Staff" },
+    "reason": "Reason: "
   },
   "campusMerchant": {
     "loading": "Loading…",

@@ -27,7 +27,10 @@
 
     <view v-for="r in rows" :key="r.id" class="row">
       <view class="row-head">
-        <text class="code">{{ r.orderCode }}</text>
+        <view class="head-left">
+          <text class="code">{{ r.orderCode }}</text>
+          <text class="src" :class="{ admin: r.source === 'admin' }">{{ sourceLabel(r) }}</text>
+        </view>
         <text class="badge" :class="badgeOf(r)">{{ statusLabel(r) }}</text>
       </view>
       <view class="addr">
@@ -54,6 +57,7 @@
           <text v-else class="op" @tap="settle(r, 'pending')">{{ $t('campusAddressChanges.op.revert') }}</text>
         </view>
       </view>
+      <text class="reason" v-if="r.reason">{{ $t('campusAddressChanges.reason') }}{{ r.reason }}</text>
       <text class="time">{{ $t('campusAddressChanges.createdAt') }}{{ fmtTime(r.createdAt) }}<text v-if="r.settledAt"> · {{ $t('campusAddressChanges.settledAt') }}{{ fmtTime(r.settledAt) }}</text></text>
     </view>
 
@@ -131,6 +135,12 @@ function diffClass(diff: number): string {
   return diff > 0 ? 'collect' : diff < 0 ? 'refund' : '';
 }
 
+function sourceLabel(r: CampusAddressChangeRow): string {
+  return r.source === 'admin'
+    ? locale.t('campusAddressChanges.source.admin')
+    : locale.t('campusAddressChanges.source.customer');
+}
+
 function badgeOf(r: CampusAddressChangeRow): string {
   if (r.status === 'settled') return 'done';
   return r.diff > 0 ? 'collect' : r.diff < 0 ? 'refund' : 'done';
@@ -186,7 +196,10 @@ load();
   .hint { text-align: center; color: $wa-muted; font-size: 26rpx; padding: 60rpx 0; }
   .row { background: $wa-card; border-radius: $wa-radius; padding: 24rpx; margin-bottom: 20rpx;
     .row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx;
+      .head-left { display: flex; align-items: center; gap: 12rpx; }
       .code { font-size: 28rpx; color: $wa-ink; font-weight: 600; }
+      .src { font-size: 20rpx; color: $wa-muted; background: $wa-bg; border-radius: 6rpx; padding: 2rpx 10rpx;
+        &.admin { color: $wa-accent; background: rgba(255, 122, 0, 0.12); } }
       .badge { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 999rpx; color: $wa-muted; background: $wa-bg;
         &.collect { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
         &.refund { color: $wa-danger; background: rgba(220, 38, 38, 0.1); }
@@ -205,7 +218,8 @@ load();
       .ops { display: flex; gap: 16rpx;
         .op { font-size: 24rpx; color: $wa-accent; padding: 8rpx 20rpx; border: 1rpx solid $wa-accent; border-radius: 999rpx;
           &.primary { background: $wa-accent; color: #fff; } } } }
-    .time { display: block; font-size: 22rpx; color: $wa-muted; padding-top: 12rpx; } }
+    .reason { display: block; font-size: 22rpx; color: $wa-ink; padding-top: 10rpx; }
+    .time { display: block; font-size: 22rpx; color: $wa-muted; padding-top: 8rpx; } }
   .err { display: block; text-align: center; color: $wa-danger; font-size: 24rpx; padding: 12rpx 0;
     .retry { color: $wa-accent; margin-left: 12rpx; } }
 }
