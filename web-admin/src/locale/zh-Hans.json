@@ -63,6 +63,7 @@
     "campusMerchant": "商家接单",
     "campusDispatch": "调度中心",
     "campusBuildings": "楼栋坐标",
+    "campusStats": "配送看板",
     "pickup": "自提点管理",
     "pickupEdit": "自提点",
     "pickupRedeem": "到店自提核销",
@@ -263,6 +264,7 @@
     "campusMerchant": "商家接单",
     "campusDispatch": "调度中心",
     "campusBuildings": "楼栋坐标",
+    "campusStats": "配送看板",
     "riderAudit": "骑手入驻审核",
     "riderWithdraw": "骑手提现审核",
     "shippingProfile": "配送档案",
@@ -3049,6 +3051,16 @@
     "save": "保存",
     "saved": "已保存",
     "saveFailed": "保存失败"
+  },
+  "campusStats": {
+    "range": { "today": "今日", "near7": "近7日", "near30": "近30日" },
+    "kpi": { "orders": "有效单量", "onTime": "准点率", "avgDelivery": "平均送达", "compensated": "超时赔付单" },
+    "trend": { "title": "单量与准点率趋势", "legendOrders": "单量", "legendOnTime": "准点率" },
+    "stages": { "title": "环节耗时（分钟）", "assign": "接单", "transit": "在途" },
+    "attribution": { "title": "超时归因", "merchant": "商家", "rider": "骑手", "platform": "平台", "none": "窗口内无超时赔付单" },
+    "stores": { "title": "店铺准点对比", "colStore": "店铺", "colOrders": "单量", "colOnTime": "准点率", "empty": "窗口内无订单" },
+    "unit": { "min": "分" },
+    "retry": "重试"
   },
   "campusConfig": {
     "loading": "加载中…",

@@ -63,6 +63,7 @@
     "campusMerchant": "Merchant Orders",
     "campusDispatch": "Dispatch Center",
     "campusBuildings": "Building Coordinates",
+    "campusStats": "Delivery Stats",
     "pickup": "Pickup Points",
     "pickupEdit": "Pickup Point Edit",
     "pickupRedeem": "Pickup Redemption",
@@ -265,6 +266,7 @@
     "campusMerchant": "Merchant Orders",
     "campusDispatch": "Dispatch Center",
     "campusBuildings": "Building Coordinates",
+    "campusStats": "Delivery Stats",
     "riderAudit": "Rider Audit",
     "riderWithdraw": "Rider Withdrawals",
     "shippingProfile": "Shipping Profile",
@@ -3051,6 +3053,16 @@
     "save": "Save",
     "saved": "Saved",
     "saveFailed": "Save failed"
+  },
+  "campusStats": {
+    "range": { "today": "Today", "near7": "7 Days", "near30": "30 Days" },
+    "kpi": { "orders": "Valid Orders", "onTime": "On-time Rate", "avgDelivery": "Avg Delivery", "compensated": "Timeout Compensated" },
+    "trend": { "title": "Orders & On-time Trend", "legendOrders": "Orders", "legendOnTime": "On-time" },
+    "stages": { "title": "Stage Duration (min)", "assign": "Accept", "transit": "Transit" },
+    "attribution": { "title": "Timeout Attribution", "merchant": "Merchant", "rider": "Rider", "platform": "Platform", "none": "No timeout compensation in window" },
+    "stores": { "title": "Store On-time Comparison", "colStore": "Store", "colOrders": "Orders", "colOnTime": "On-time", "empty": "No orders in window" },
+    "unit": { "min": "m" },
+    "retry": "Retry"
   },
   "campusConfig": {
     "loading": "Loading…",
