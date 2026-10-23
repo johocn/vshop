@@ -1,4 +1,4 @@
-﻿# waimai 外卖（校园配送 + 骑手端）操作手册
+# waimai 外卖（校园配送 + 骑手端）操作手册
 
 上线日期：2026-10-06 ｜ H5 站点：**https://www.yourbao.cn/waimai/**
 后端：Vendure（campus-delivery-plugin）｜ 验证：e2e 冒烟 S1-S8 全 PASS（见 `docs/verify/2026-10-waimai-e2e.md`）
@@ -496,3 +496,33 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 
 - 复核要点：三处展示的码值一致（本次 9390）；订单号一致（本次 SKJ8MN47VQDQK4JJ）；时间线为两段（第一段「商户已送达交接点」已完成，第二段进行中）。
 - 线上验证使用 `canteen-a-token` 渠道临时配置 R1 交接点「桂1栋驿站」，截图后已清空该配置，未留脏数据。
+
+## 16. 超时赔付 + 工作台云打印增强（P0 收尾，2026-10-23）
+
+### 16.1 超时赔付（后台配置 + 自动发券）
+
+- **后端全链路**（vendure `bd6aad357`）：订单支付时固化「承诺送达时间」；实际送达超过 承诺时间 + 宽限分钟 即自动发赔付券，每单只赔一次；归因留痕（赔给谁、为什么赔可查）。
+- **配置入口**：web-admin 拾光达配置页 → 展开店铺卡 → 「超时赔付」区：
+  - 开关（默认**关**，灰度开启）；宽限分钟（默认 10）；赔付券模板 ID（**必须独立**，不要与无骑手补偿券共用）。
+  - 未填券模板 ID 时只告警不真正发券，页面有黄条提醒，请补齐后再开启。
+- 配置存 `campus_fulfillment_config.timeoutCompensation*` 三字段，旧表单保存不会清空已配值。
+
+![超时赔付配置区](screenshots/waimai/16-1-timeout-config.png)
+
+### 16.2 工作台云打印增强（商家接单页）
+
+在 §13 小票打印基础上增强（`printMode` 非「关闭」时顶部显示打印条）：
+
+- **连接探测**：进入工作台自动探测 C-Lodop，未连接显红态「打印服务未连接，本单未出票」；装好/启动服务后点「**重新连接**」即恢复，无需刷新页面。
+- **未出票可见可补**：打印失败的单据在顶部汇总「{n} 单未出票」，点「**重试打印**」串行补打；新单超过 2 分钟仍未出票，订单卡上显示「未出票」徽标。
+- **使用说明**：打印条右侧「使用说明」弹窗，四步指引（装 C-Lodop 设自启 → 打印机开机纸足 → Chrome/Edge 保持页面 → 点重新连接自动补打）。
+
+![工作台打印条未连接态](screenshots/waimai/16-2-merchant-print.png)
+
+![使用说明弹窗](screenshots/waimai/16-3-merchant-print-help.png)
+
+### 16.3 验证记录（2026-10-23）
+
+- web-admin 构建通过，新词条已打进产物（`index-Bo7Ux-3J.js` 含 timeoutCouponMissing/printRetryFailed）；vendure 已推送并部署（`/www/apps/vendure` reset 至 `bd6aad357` + pm2 restart，JobQueue 正常）。
+- 线上回归：admin-api 200；部署的插件 lib 含 `timeoutCompensationEnabled`；站点 `index.html` 引用新 chunk，chunk 内含新词条。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli 真实环境）：超时赔付配置区（开启态含宽限分钟/券模板/告警）PASS；工作台打印条未连接红态 + 重新连接 + 使用说明 PASS；说明弹窗 PASS。截图用 `test-marketplace-shop` 临时开 `printMode=onPaid`，**截后已恢复 off，无脏配置**。
