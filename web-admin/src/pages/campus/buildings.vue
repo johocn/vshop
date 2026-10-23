@@ -15,6 +15,21 @@
         >{{ z.name }}</view>
       </scroll-view>
 
+      <view class="zone-manage">
+        <text class="zm-toggle" @tap="toggleZoneManage">{{ zoneEditOpen ? $t('buildingCoord.zoneClose') : $t('buildingCoord.zoneManage') }}</text>
+        <text class="zm-hint">{{ $t('buildingCoord.zoneHint') }}</text>
+      </view>
+      <view v-if="zoneEditOpen" class="zone-panel">
+        <view v-for="z in zones" :key="z.id" class="zp-row">
+          <input v-model="zoneForms[z.id].name" class="zp-name" :placeholder="$t('buildingCoord.zoneNamePh')" />
+          <view class="zp-fee">
+            <text class="zp-fee-lbl">¥</text>
+            <input v-model="zoneForms[z.id].fee" class="zp-fee-input" type="digit" :placeholder="$t('buildingCoord.zoneFeePh')" />
+          </view>
+          <text class="zp-save" :class="{ busy: zoneBusy === z.id }" @tap="saveZone(z)">{{ $t('buildingCoord.zoneSave') }}</text>
+        </view>
+      </view>
+
       <view v-if="!visible.length" class="hint">{{ $t('buildingCoord.empty') }}</view>
       <view v-else class="list">
         <view v-for="b in visible" :key="b.id" class="row" @tap="startEdit(b)">
@@ -84,6 +99,9 @@
           <button v-if="mapReady" class="ghost" @tap="takeCenter">{{ $t('buildingCoord.pickCenter') }}</button>
           <button class="save" :disabled="saving" @tap="save">{{ saving ? $t('buildingCoord.saving') : $t('buildingCoord.save') }}</button>
         </view>
+        <button v-if="editing.id" class="del" :disabled="deleting" @tap="removeBuilding">
+          {{ deleting ? $t('buildingCoord.deleting') : $t('buildingCoord.del') }}
+        </button>
         <view class="note">{{ $t('buildingCoord.coordNote') }}</view>
       </view>
     </block>
@@ -94,10 +112,15 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   campusBuildings, campusCreateBuilding, campusUpdateBuilding, campusZones,
+  campusUpdateZone, campusDeleteBuilding,
   type CampusBuilding, type CampusZone,
 } from '../../apis/campus';
 import { graphQlErrorMsg } from '../../apis/client';
+import { fenToYuan, yuanToFen } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusConfig');
 
 /** 地图初始中心（无任何已标注楼栋时的兜底，与骑手上报坐标系 GCJ-02 一致） */
 const DEFAULT_CENTER = { lat: 30.52, lng: 114.36 };
@@ -120,6 +143,11 @@ const activeZone = ref('');
 const editing = ref<EditingForm | null>(null);
 const pickCenter = ref({ ...DEFAULT_CENTER });
 const picked = ref<{ lat: number; lng: number } | null>(null);
+/** 分区改名/改运费：面板开关、逐行保存中标记、编辑中的名称/运费（元） */
+const zoneEditOpen = ref(false);
+const zoneBusy = ref('');
+const zoneForms = ref<Record<string, { name: string; fee: string }>>({});
+const deleting = ref(false);
 
 /** H5 底图依赖腾讯 Key；未配置时不渲染 <map>（SDK 无 key 会报错） */
 const mapReady = computed(() => {
@@ -272,11 +300,82 @@ function cancel() {
   editing.value = null;
 }
 
+/** 分区编辑面板：展开时用当前分区数据回填名称与运费（元） */
+function toggleZoneManage() {
+  zoneEditOpen.value = !zoneEditOpen.value;
+  if (zoneEditOpen.value) syncZoneForms();
+}
+
+function syncZoneForms() {
+  const next: Record<string, { name: string; fee: string }> = {};
+  zones.value.forEach((z) => {
+    next[z.id] = { name: z.name, fee: fenToYuan(z.fee) };
+  });
+  zoneForms.value = next;
+}
+
+async function saveZone(z: CampusZone) {
+  if (zoneBusy.value) return;
+  const form = zoneForms.value[z.id];
+  if (!form) return;
+  const name = form.name.trim();
+  if (!name) {
+    uni.showToast({ title: locale.t('buildingCoord.zoneNeedName'), icon: 'none' });
+    return;
+  }
+  const fee = yuanToFen(form.fee);
+  if (fee == null) {
+    uni.showToast({ title: locale.t('buildingCoord.zoneBadFee'), icon: 'none' });
+    return;
+  }
+  zoneBusy.value = z.id;
+  try {
+    const updated = await campusUpdateZone(z.id, { name, fee });
+    const i = zones.value.findIndex((x) => x.id === z.id);
+    if (i >= 0) zones.value[i] = updated;
+    form.name = updated.name;
+    form.fee = fenToYuan(updated.fee);
+    uni.showToast({ title: locale.t('buildingCoord.zoneSaved'), icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('buildingCoord.saveFailed')), icon: 'none' });
+  } finally {
+    zoneBusy.value = '';
+  }
+}
+
+/** 删除楼栋：有历史订单引用时后端拒绝（提示中带引用笔数） */
+async function removeBuilding() {
+  const f = editing.value;
+  if (!f?.id || deleting.value) return;
+  const confirmed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: locale.t('buildingCoord.delTitle'),
+      content: locale.t('buildingCoord.delConfirm').replace('{name}', f.name),
+      confirmText: locale.t('buildingCoord.del'),
+      success: (res) => resolve(!!res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!confirmed) return;
+  deleting.value = true;
+  try {
+    await campusDeleteBuilding(f.id);
+    uni.showToast({ title: locale.t('buildingCoord.delDone'), icon: 'success' });
+    editing.value = null;
+    await load();
+  } catch (e: any) {
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('buildingCoord.delFailed')), icon: 'none' });
+  } finally {
+    deleting.value = false;
+  }
+}
+
 async function load() {
   try {
     const [zs, bs] = await Promise.all([campusZones(), campusBuildings()]);
     zones.value = zs;
     buildings.value = bs;
+    if (zoneEditOpen.value) syncZoneForms();
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('buildingCoord.loadFailed')), icon: 'none' });
   } finally {
@@ -298,6 +397,20 @@ onMounted(load);
       background: $wa-card; border: 1.5px solid $wa-rule; font-size: 24rpx; color: $wa-muted;
       &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; } }
   }
+  .zone-manage { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx;
+    .zm-toggle { font-size: 24rpx; color: $wa-accent; flex-shrink: 0; }
+    .zm-hint { font-size: 20rpx; color: $wa-muted; } }
+  .zone-panel { background: $wa-card; border-radius: $wa-radius; padding: 8rpx 24rpx; margin-bottom: 20rpx;
+    border: 1.5px solid $wa-rule;
+    .zp-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0;
+      border-bottom: 1rpx solid $wa-rule;
+      &:last-child { border-bottom: none; }
+      .zp-name { flex: 1; font-size: 26rpx; color: $wa-ink; min-width: 0; }
+      .zp-fee { display: flex; align-items: center; gap: 4rpx; flex-shrink: 0;
+        .zp-fee-lbl { font-size: 24rpx; color: $wa-muted; }
+        .zp-fee-input { width: 120rpx; font-size: 26rpx; color: $wa-ink; text-align: right; } }
+      .zp-save { font-size: 24rpx; color: $wa-accent; flex-shrink: 0; padding: 0 8rpx;
+        &.busy { color: $wa-muted; } } } }
   .list { background: $wa-card; border-radius: $wa-radius; padding: 0 24rpx;
     .row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid $wa-rule;
       &:last-child { border-bottom: none; }
@@ -335,6 +448,8 @@ onMounted(load);
       .ghost { flex: 1; background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent;
         font-size: 28rpx; border-radius: $wa-radius; }
       .save { flex: 1; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; } }
+    .del { margin-top: 20rpx; background: transparent; border: 1.5px solid $wa-danger; color: $wa-danger;
+      font-size: 26rpx; border-radius: $wa-radius; }
     .note { font-size: 22rpx; color: $wa-muted; padding-top: 16rpx; }
   }
 }

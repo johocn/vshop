@@ -46,6 +46,122 @@
       </view>
       <text class="dpp-note">{{ $t('campusConfig.dppNote') }}</text>
     </view>
+    <!-- 履约参数 + 时段容量（按当前登录渠道，CampusConfig 权限） -->
+    <view class="card" v-if="ops">
+      <view class="head" @tap="opsOpen = !opsOpen">
+        <view class="head-l">
+          <text class="name">{{ $t('campusConfig.opsTitle') }}</text>
+          <text class="token">{{ $t('campusConfig.opsChannelHint') }}</text>
+        </view>
+        <text class="chev">{{ opsOpen ? '▾' : '▸' }}</text>
+      </view>
+      <block v-if="opsOpen">
+        <view class="sec-t">{{ $t('campusConfig.opsSection') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsCommission') }}</text>
+          <input v-model="ops.commission" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsAutoAssign') }}</text>
+          <input v-model="ops.autoAssign" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsAutoRefund') }}</text>
+          <input v-model="ops.autoRefund" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsSla') }}</text>
+          <input v-model="ops.sla" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsMerchantAutoOpen') }}</text>
+          <input v-model="ops.merchantAutoOpen" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsCompensationCoupon') }}</text>
+          <input v-model="ops.compensationCoupon" :placeholder="$t('campusConfig.phText')" />
+        </view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: ops.merchantConfirm }" @tap="ops.merchantConfirm = !ops.merchantConfirm">
+            <text>{{ $t(ops.merchantConfirm ? 'campusConfig.opsMerchantConfirmOn' : 'campusConfig.opsMerchantConfirmOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.opsMerchantConfirmTip') }}</text>
+        </view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: ops.paused }" @tap="ops.paused = !ops.paused">
+            <text>{{ $t(ops.paused ? 'campusConfig.opsPausedOn' : 'campusConfig.opsPausedOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.opsPausedTip') }}</text>
+        </view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: ops.timeoutEnabled }" @tap="toggleOpsTimeout">
+            <text>{{ $t(ops.timeoutEnabled ? 'campusConfig.timeoutOn' : 'campusConfig.timeoutOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.timeoutTip') }}</text>
+        </view>
+        <view v-if="ops.timeoutEnabled" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutGrace') }}</text>
+          <input v-model="ops.timeoutGrace" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view v-if="ops.timeoutEnabled" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutCoupon') }}</text>
+          <input v-model="ops.timeoutCoupon" :placeholder="$t('campusConfig.timeoutCouponPh')" />
+        </view>
+        <button class="save" :disabled="opsSaving" @tap="saveOps">
+          {{ opsSaving ? $t('campusConfig.saving') : $t('campusConfig.save') }}
+        </button>
+      </block>
+    </view>
+
+    <view class="card" v-if="ops">
+      <view class="head" @tap="slotsOpen = !slotsOpen">
+        <view class="head-l">
+          <text class="name">{{ $t('campusConfig.slotTitle') }}</text>
+          <text class="token">{{ slots.length ? $t('campusConfig.slotCount').replace('{n}', String(slots.length)) : $t('campusConfig.slotEmpty') }}</text>
+        </view>
+        <text class="chev">{{ slotsOpen ? '▾' : '▸' }}</text>
+      </view>
+      <block v-if="slotsOpen">
+        <view class="sec-t">{{ $t('campusConfig.slotCreate') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.slotDate') }}</text>
+          <picker mode="date" :value="slotForm.slotDate" @change="(e: any) => (slotForm.slotDate = e.detail.value)">
+            <view class="fld picker">{{ slotForm.slotDate || $t('campusConfig.slotDatePh') }}</view>
+          </picker>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.slotStart') }}</text>
+          <picker mode="time" :value="slotForm.startTime" @change="(e: any) => (slotForm.startTime = e.detail.value)">
+            <view class="fld picker">{{ slotForm.startTime || '08:00' }}</view>
+          </picker>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.slotEnd') }}</text>
+          <picker mode="time" :value="slotForm.endTime" @change="(e: any) => (slotForm.endTime = e.detail.value)">
+            <view class="fld picker">{{ slotForm.endTime || '09:00' }}</view>
+          </picker>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.slotCapacity') }}</text>
+          <input v-model="slotForm.capacity" type="number" :placeholder="$t('campusConfig.slotCapacityPh')" />
+        </view>
+        <button class="save" :disabled="slotCreating" @tap="createSlot">
+          {{ slotCreating ? $t('campusConfig.saving') : $t('campusConfig.slotAdd') }}
+        </button>
+        <view class="sec-t">{{ $t('campusConfig.slotList') }}</view>
+        <view class="slot-row" v-for="s in slots" :key="s.id">
+          <view class="slot-row__main">
+            <text class="slot-date">{{ s.slotDate }} {{ s.startTime }}-{{ s.endTime }}</text>
+            <text class="slot-usage">{{ $t('campusConfig.slotUsage').replace('{u}', String(s.lockedCount)).replace('{c}', String(s.capacity)) }}</text>
+          </view>
+          <view class="slot-row__acts">
+            <input class="slot-cap" v-model="slotEdit[s.id]" type="number" :placeholder="String(s.capacity)" />
+            <text class="slot-act" @tap="saveSlot(s)">{{ $t('campusConfig.save') }}</text>
+            <text class="slot-act" :class="{ off: !s.active }" @tap="toggleSlot(s)">{{ $t(s.active ? 'campusConfig.slotDisable' : 'campusConfig.slotEnable') }}</text>
+          </view>
+        </view>
+      </block>
+    </view>
     <view v-if="loading" class="hint">{{ $t('campusConfig.loading') }}</view>
     <view v-else-if="!cards.length" class="hint">{{ $t('campusConfig.empty') }}</view>
     <view v-for="card in cards" v-else :key="card.channelId" class="card">
@@ -255,9 +371,22 @@
         </view>
         <view v-if="card.form.timeoutCompensation" class="cell">
           <text class="lbl">{{ $t('campusConfig.timeoutCoupon') }}</text>
-          <input v-model="card.form.timeoutCouponTemplateId" :placeholder="$t('campusConfig.timeoutCouponPh')" />
+          <picker
+            v-if="couponTemplates.length"
+            mode="selector"
+            :range="couponNames"
+            @change="(e: any) => onTimeoutCouponPick(card, Number(e.detail.value))"
+          >
+            <view class="timeout-picker">{{ timeoutCouponName(card) || $t('campusConfig.timeoutCouponPickPh') }}</view>
+          </picker>
+          <input v-else v-model="card.form.timeoutCouponTemplateId" :placeholder="$t('campusConfig.timeoutCouponPh')" />
         </view>
-        <view v-if="card.form.timeoutCompensation && !card.form.timeoutCouponTemplateId.trim()" class="notify-tip">
+        <view v-if="card.form.timeoutCompensation && card.form.timeoutCouponTemplateId" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutCouponId') }}</text>
+          <text class="timeout-id">{{ card.form.timeoutCouponTemplateId }}</text>
+          <text class="timeout-clear" @tap="card.form.timeoutCouponTemplateId = ''">{{ $t('campusConfig.clear') }}</text>
+        </view>
+        <view v-if="card.form.timeoutCompensation && !card.form.timeoutCouponTemplateId.trim()" class="notify-tip danger">
           {{ $t('campusConfig.timeoutCouponMissing') }}
         </view>
         <view class="sec-t">{{ $t('campusConfig.dpSection') }}</view>
@@ -321,19 +450,29 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, reactive, computed } from 'vue';
 import {
   campusStoreConfigs,
   campusUpdateStoreConfig,
   campusEnsureDefaultShippingProfile,
   campusDynamicPricingPreview,
+  campusConfig as fetchCampusConfig,
+  campusUpdateConfig,
+  campusSlots as fetchCampusSlots,
+  campusCreateSlot,
+  campusUpdateSlot,
   type CampusStoreConfig,
   type CampusDynamicPricingPreview,
   type CampusPricingBreakdownItem,
+  type CampusDeliverySlot,
 } from '../../apis/campus';
+import { fetchCouponTemplates, type CouponTemplateItem } from '../../apis/coupon';
 import { fenToYuan, fenToYuanFixed, yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusConfig');
 
 interface RouteOption {
     value: string;
@@ -443,6 +582,207 @@ const expandedId = ref<string>('');
 const savingId = ref<string>('');
 const ensuringId = ref<string>('');
 const preview = ref<CampusDynamicPricingPreview | null>(null);
+
+// ===== 履约参数（当前登录渠道）+ 时段容量 =====
+interface OpsForm {
+  commission: string;
+  autoAssign: string;
+  autoRefund: string;
+  sla: string;
+  merchantAutoOpen: string;
+  compensationCoupon: string;
+  merchantConfirm: boolean;
+  paused: boolean;
+  timeoutEnabled: boolean;
+  timeoutGrace: string;
+  timeoutCoupon: string;
+}
+const ops = ref<OpsForm | null>(null);
+const opsOpen = ref(true);
+const opsSaving = ref(false);
+const slots = ref<CampusDeliverySlot[]>([]);
+const slotsOpen = ref(false);
+const slotCreating = ref(false);
+const slotEdit = reactive<Record<string, string>>({});
+const slotForm = reactive({ slotDate: '', startTime: '08:00', endTime: '09:00', capacity: '20' });
+
+async function loadOps() {
+  try {
+    const c = await fetchCampusConfig();
+    ops.value = {
+      commission: String(c.riderCommissionRate ?? 100),
+      autoAssign: String(c.autoAssignMinutes ?? 10),
+      autoRefund: String(c.autoRefundMinutes ?? 30),
+      sla: String(c.inProgressSlaMinutes ?? 45),
+      merchantAutoOpen: String(c.merchantAutoOpenMinutes ?? 15),
+      compensationCoupon: c.compensationCouponTemplateId ?? '',
+      merchantConfirm: !!c.merchantConfirmEnabled,
+      paused: !!c.paused,
+      timeoutEnabled: !!c.timeoutCompensationEnabled,
+      timeoutGrace: String(c.timeoutGraceMinutes ?? 10),
+      timeoutCoupon: c.timeoutCompensationCouponTemplateId ?? '',
+    };
+    slots.value = await fetchCampusSlots();
+  } catch {
+    // 无 CampusConfig 权限或渠道未初始化：整块隐藏，不打断店铺配置页
+    ops.value = null;
+  }
+}
+
+function toggleOpsTimeout() {
+  if (!ops.value) return;
+  ops.value.timeoutEnabled = !ops.value.timeoutEnabled;
+}
+
+/** 非负整数校验：空=默认值，非法=null（调用方提示） */
+function intOr(raw: string, def: number): number | null {
+  const t = raw.trim();
+  if (t === '') return def;
+  const n = Number(t);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+async function saveOps() {
+  const f = ops.value;
+  if (!f) return;
+  const commission = intOr(f.commission, 100);
+  const autoAssign = intOr(f.autoAssign, 10);
+  const autoRefund = intOr(f.autoRefund, 30);
+  const sla = intOr(f.sla, 45);
+  const merchantAutoOpen = intOr(f.merchantAutoOpen, 15);
+  const grace = intOr(f.timeoutGrace, 10);
+  if (commission == null || commission > 100) {
+    uni.showToast({ title: locale.t('campusConfig.badCommission'), icon: 'none' });
+    return;
+  }
+  if (autoAssign == null || autoRefund == null || sla == null || merchantAutoOpen == null) {
+    uni.showToast({ title: locale.t('campusConfig.badTimeout'), icon: 'none' });
+    return;
+  }
+  if (grace == null || grace > 240) {
+    uni.showToast({ title: locale.t('campusConfig.badGrace'), icon: 'none' });
+    return;
+  }
+  if (f.timeoutEnabled && !f.timeoutCoupon.trim()) {
+    uni.showToast({ title: locale.t('campusConfig.timeoutCouponRequired'), icon: 'none' });
+    return;
+  }
+  opsSaving.value = true;
+  try {
+    const saved = await campusUpdateConfig({
+      riderCommissionRate: commission,
+      autoAssignMinutes: autoAssign,
+      autoRefundMinutes: autoRefund,
+      inProgressSlaMinutes: sla,
+      merchantAutoOpenMinutes: merchantAutoOpen,
+      compensationCouponTemplateId: f.compensationCoupon.trim() || null,
+      merchantConfirmEnabled: f.merchantConfirm,
+      paused: f.paused,
+      timeoutCompensationEnabled: f.timeoutEnabled,
+      timeoutGraceMinutes: grace,
+      timeoutCompensationCouponTemplateId: f.timeoutCoupon.trim() || null,
+    });
+    ops.value = {
+      ...f,
+      commission: String(saved.riderCommissionRate),
+      autoAssign: String(saved.autoAssignMinutes),
+      autoRefund: String(saved.autoRefundMinutes),
+      sla: String(saved.inProgressSlaMinutes),
+      merchantAutoOpen: String(saved.merchantAutoOpenMinutes),
+      compensationCoupon: saved.compensationCouponTemplateId ?? '',
+      merchantConfirm: !!saved.merchantConfirmEnabled,
+      paused: !!saved.paused,
+      timeoutEnabled: !!saved.timeoutCompensationEnabled,
+      timeoutGrace: String(saved.timeoutGraceMinutes),
+      timeoutCoupon: saved.timeoutCompensationCouponTemplateId ?? '',
+    };
+    uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusConfig.saveFailed')), icon: 'none' });
+  } finally {
+    opsSaving.value = false;
+  }
+}
+
+async function createSlot() {
+  const date = slotForm.slotDate.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    uni.showToast({ title: locale.t('campusConfig.slotBadDate'), icon: 'none' });
+    return;
+  }
+  if (!slotForm.startTime || !slotForm.endTime || slotForm.endTime <= slotForm.startTime) {
+    uni.showToast({ title: locale.t('campusConfig.slotBadTime'), icon: 'none' });
+    return;
+  }
+  const capacity = intOr(slotForm.capacity, 20);
+  if (capacity == null || capacity < 1) {
+    uni.showToast({ title: locale.t('campusConfig.slotBadCapacity'), icon: 'none' });
+    return;
+  }
+  slotCreating.value = true;
+  try {
+    await campusCreateSlot({
+      slotDate: date,
+      startTime: slotForm.startTime,
+      endTime: slotForm.endTime,
+      capacity,
+    });
+    slots.value = await fetchCampusSlots();
+    uni.showToast({ title: locale.t('campusConfig.slotAdded'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusConfig.saveFailed')), icon: 'none' });
+  } finally {
+    slotCreating.value = false;
+  }
+}
+
+async function saveSlot(s: CampusDeliverySlot) {
+  const raw = (slotEdit[s.id] ?? '').trim();
+  const capacity = intOr(raw, s.capacity);
+  if (capacity == null || capacity < Math.max(0, s.lockedCount)) {
+    uni.showToast({ title: locale.t('campusConfig.slotCapacityTooLow').replace('{n}', String(s.lockedCount)), icon: 'none' });
+    return;
+  }
+  try {
+    const saved = await campusUpdateSlot(s.id, { capacity });
+    Object.assign(s, saved);
+    slotEdit[s.id] = '';
+    uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusConfig.saveFailed')), icon: 'none' });
+  }
+}
+
+async function toggleSlot(s: CampusDeliverySlot) {
+  try {
+    const saved = await campusUpdateSlot(s.id, { active: !s.active });
+    Object.assign(s, saved);
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusConfig.saveFailed')), icon: 'none' });
+  }
+}
+
+// ===== 超时赔付券模板选择器（与调度台同源券模板列表）=====
+const couponTemplates = ref<CouponTemplateItem[]>([]);
+const couponNames = computed(() => couponTemplates.value.map(t => `${t.name || t.id}`));
+
+async function loadCoupons() {
+  try {
+    const { items } = await fetchCouponTemplates({ skip: 0, take: 50 });
+    couponTemplates.value = items;
+  } catch { /* 券模板接口不可用时回退为手填 ID */ }
+}
+
+function timeoutCouponName(card: Card): string {
+  const id = card.form.timeoutCouponTemplateId;
+  const hit = couponTemplates.value.find(t => String(t.id) === String(id));
+  return hit ? `${hit.name || hit.id}` : '';
+}
+
+function onTimeoutCouponPick(card: Card, index: number) {
+  const tpl = couponTemplates.value[index];
+  if (tpl) card.form.timeoutCouponTemplateId = String(tpl.id);
+}
 
 /** 加价拆解文案：时段高峰 3 元 · 运力紧张 2 元 · 手动 1.2x 1 元 */
 function breakdownText(items: CampusPricingBreakdownItem[]): string {
@@ -776,6 +1116,17 @@ async function save(card: Card) {
     dynamicPricing = JSON.stringify({ enabled: true, peakWindows: peaks, supply, manualMultiplier: mult, maxAddFee });
   }
 
+  // 超时赔付（P2）：开启必须选券模板；宽限非法直接阻断，不再静默回落 10 分钟
+  if (f.timeoutCompensation && !f.timeoutCouponTemplateId.trim()) {
+    uni.showToast({ title: locale.t('campusConfig.timeoutCouponRequired'), icon: 'none' });
+    return;
+  }
+  const graceInput = f.timeoutGraceMinutes.trim() === '' ? 10 : Number(f.timeoutGraceMinutes);
+  if (!Number.isInteger(graceInput) || graceInput < 0 || graceInput > 240) {
+    uni.showToast({ title: locale.t('campusConfig.badGrace'), icon: 'none' });
+    return;
+  }
+
   savingId.value = card.channelId;
   try {
     const saved = await campusUpdateStoreConfig(card.channelId, {
@@ -809,10 +1160,7 @@ async function save(card: Card) {
       h5BaseUrl: f.h5BaseUrl.trim() || null,
       printMode: f.printMode,
       timeoutCompensationEnabled: f.timeoutCompensation,
-      timeoutGraceMinutes: (() => {
-        const n = Number(f.timeoutGraceMinutes);
-        return Number.isInteger(n) && n >= 0 && n <= 180 ? n : 10;
-      })(),
+      timeoutGraceMinutes: graceInput,
       timeoutCompensationCouponTemplateId: f.timeoutCouponTemplateId.trim() || null,
       dynamicPricing,
     });
@@ -827,6 +1175,8 @@ async function save(card: Card) {
 
 onMounted(async () => {
   loadPreview();
+  loadOps();
+  loadCoupons();
   try {
     const list = await campusStoreConfigs();
     cards.value = list.map((c) => ({ ...c, form: toForm(c) }));
@@ -944,6 +1294,20 @@ async function ensureProfile(card: Card) {
   .ensure { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; font-size: 28rpx; border-radius: $wa-radius; }
   .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
   .notify-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 24rpx; }
+  .notify-tip.danger { color: $wa-danger; }
+  .fld.picker { flex: 1; font-size: 28rpx; color: $wa-ink; }
+  .timeout-picker { flex: 1; font-size: 28rpx; color: $wa-ink; }
+  .timeout-id { flex: 1; font-size: 24rpx; color: $wa-muted; word-break: break-all; }
+  .timeout-clear { font-size: 24rpx; color: $wa-danger; margin-left: 16rpx; }
+  .slot-row { padding: 18rpx 0; border-bottom: 1rpx solid $wa-rule;
+    &__main { display: flex; align-items: center; justify-content: space-between;
+      .slot-date { font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+      .slot-usage { font-size: 22rpx; color: $wa-muted; } }
+    &__acts { display: flex; align-items: center; gap: 16rpx; margin-top: 12rpx;
+      .slot-cap { width: 160rpx; font-size: 26rpx; border: 1rpx solid $wa-rule; border-radius: 8rpx; padding: 8rpx 12rpx; }
+      .slot-act { font-size: 24rpx; color: $wa-accent;
+        &.off { color: $wa-muted; } } }
+  }
   .platform-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 12rpx; }
   .pmodes { display: flex; gap: 16rpx; padding: 8rpx 0 16rpx;
     .pmode { flex: 1; text-align: center; padding: 18rpx 0; font-size: 26rpx; color: $wa-muted;

@@ -144,6 +144,9 @@ import { fenToYuan } from '../../utils/money';
 import { loadLodop, printReceipt58 } from '../../utils/lodop';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusMerchant');
 
 const TABS = [
   { key: 'pending', label: 'campusMerchant.tabPending' },

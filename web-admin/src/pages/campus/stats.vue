@@ -86,6 +86,9 @@
 import { computed, ref } from 'vue';
 import CampusStatsChart from '../../components/CampusStatsChart.vue';
 import { campusDeliveryStats, type CampusDeliveryStats } from '../../apis/campus';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusViewDispatch');
 
 const range = ref<'today' | '7d' | '30d'>('7d');
 const loaded = ref(false);
