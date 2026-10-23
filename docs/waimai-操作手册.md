@@ -1,4 +1,4 @@
-# waimai 外卖（校园配送 + 骑手端）操作手册
+﻿# waimai 外卖（校园配送 + 骑手端）操作手册
 
 上线日期：2026-10-06 ｜ H5 站点：**https://www.yourbao.cn/waimai/**
 后端：Vendure（campus-delivery-plugin）｜ 验证：e2e 冒烟 S1-S8 全 PASS（见 `docs/verify/2026-10-waimai-e2e.md`）
@@ -475,4 +475,24 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - **D 交接码**：第一段送达校园交接点入接力大厅时生成 4 位 `customFields.handoverCode`（+`handoverCodeAt`）。**商家工作台**订单卡显示「取餐交接码」，学生订单详情同步可见；骑手端开始取货必须输入该码，`campusStartTask(orderId, code)` 校验不符返回「交接码不正确」，防丢餐扯皮。骑手组卡批量开始取货时逐单弹码输入，取消则中止整组。
 - 配置/运维：新增 Order customFields 三列（`customFieldsHandovercode` / `customFieldsHandovercodeat` / `customFieldsThirdpartysyncat`），生产已验证自动建列；外部平台凭据（`DADA_*` / `MEITUAN_*`）未配置时推送与轮询均静默跳过。
 - 验证（2026-10-23）：campus 230 用例、gateway 32 用例全绿；三端本地构建通过；生产 `admin-api/shop-api 200`，日志确认「外部快递状态回调已接入订单履约」。
-- 待补：线上暂无在途接力单，取餐码输入弹层与订单详情交接码的**真机截图**待有真实单后补入本节。
+
+### 15.1 真机截图（390×844 dpr=2，真实链路：R1 建单 → 商家接单/出餐 → 送达交接点生成交接码 → 骑手抢单取货）
+
+**① 骑手点「我已到店 · 开始取货」弹出取餐码校验层**（接力单必填 4 位码，错误会被后端拒绝）
+
+![骑手取餐码弹层](screenshots/waimai/p1-1-rider-handover-code.png)
+
+![取餐码弹层细节](screenshots/waimai/p1-1b-rider-code-dialog.png)
+
+**② 学生订单详情展示「取餐交接码」**（第一段送达交接点后生成，第二段骑手须核对）
+
+![订单详情交接码](screenshots/waimai/p1-2-order-handover-code.png)
+
+**③ 商家工作台「配送中」页签订单卡展示取餐交接码**（交付给骑手核对）
+
+![商家工作台交接码](screenshots/waimai/p1-3-merchant-handover-code.png)
+
+![商家订单卡细节](screenshots/waimai/p1-3b-merchant-card.png)
+
+- 复核要点：三处展示的码值一致（本次 9390）；订单号一致（本次 SKJ8MN47VQDQK4JJ）；时间线为两段（第一段「商户已送达交接点」已完成，第二段进行中）。
+- 线上验证使用 `canteen-a-token` 渠道临时配置 R1 交接点「桂1栋驿站」，截图后已清空该配置，未留脏数据。
