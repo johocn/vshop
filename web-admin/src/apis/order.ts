@@ -196,6 +196,17 @@ export interface OrderDetail {
     deliveredAt?: string | null;
     thirdPartyState?: string | null;
     deliverySlotText?: string | null;
+    /** R1..R5 履约路线 */
+    fulfillmentRoute?: string | null;
+    deliveryPlan?: string | null;
+    thirdPartyProvider?: string | null;
+    thirdPartyNo?: string | null;
+    thirdPartyCourierName?: string | null;
+    thirdPartyCourierPhone?: string | null;
+    /** 两段接力的取餐交接码 */
+    handoverCode?: string | null;
+    /** 自营骑手 customerId（DeliveryPlugin 字段） */
+    deliveryStaffId?: string | null;
   };
 }
 
@@ -223,7 +234,8 @@ const ORDER_DETAIL_FIELDS = `
   lines { id quantity unitPriceWithTax linePriceWithTax productVariant { id name sku } }
   shippingLines { shippingMethod { id code name } }
   fulfillments { id state method trackingCode createdAt }
-  customFields { deliveryType pickupClaimed campusZone buildingId deliveryDetail deliveryStatus deliveredAt thirdPartyState deliverySlotText }
+  customFields { deliveryType pickupClaimed campusZone buildingId deliveryDetail deliveryStatus deliveredAt thirdPartyState deliverySlotText
+    fulfillmentRoute deliveryPlan thirdPartyProvider thirdPartyNo thirdPartyCourierName thirdPartyCourierPhone handoverCode deliveryStaffId }
 `;
 
 export async function fetchOrderDetail(id: string): Promise<OrderDetail | null> {

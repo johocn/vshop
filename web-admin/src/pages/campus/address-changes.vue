@@ -57,8 +57,25 @@
           <text v-else class="op" @tap="settle(r, 'pending')">{{ $t('campusAddressChanges.op.revert') }}</text>
         </view>
       </view>
+      <!-- 结清凭证：补收必填（收款方式/流水号），退款/免收选填 -->
+      <view class="note-line" v-if="r.status === 'pending'">
+        <input
+          class="note-input"
+          :value="noteOf[r.id]"
+          :placeholder="r.diff > 0 ? $t('campusAddressChanges.collectNotePh') : $t('campusAddressChanges.notePh')"
+          @input="(e: any) => (noteOf[r.id] = e.detail.value)"
+        />
+      </view>
+      <text class="settle-info" v-if="r.status === 'settled' && (r.settleNote || r.refundId)">
+        <text v-if="r.settleNote">{{ $t('campusAddressChanges.settleNote') }}{{ r.settleNote }}</text>
+        <text v-if="r.refundId"> · {{ $t('campusAddressChanges.refundId') }}{{ r.refundId }}</text>
+      </text>
       <text class="reason" v-if="r.reason">{{ $t('campusAddressChanges.reason') }}{{ r.reason }}</text>
       <text class="time">{{ $t('campusAddressChanges.createdAt') }}{{ fmtTime(r.createdAt) }}<text v-if="r.settledAt"> · {{ $t('campusAddressChanges.settledAt') }}{{ fmtTime(r.settledAt) }}</text></text>
+    </view>
+
+    <view v-if="hasMore" class="more" @tap="loadMore">
+      {{ loadingMore ? $t('campusAddressChanges.loadingMore') : $t('campusAddressChanges.loadMore') }}
     </view>
 
     <text v-if="err" class="err">{{ err }} <text class="retry" @tap="load">{{ $t('campusAddressChanges.retry') }}</text></text>
@@ -69,7 +86,7 @@
 <script lang="ts" setup>
 // 改址台账（运营端）：顾客自助改址产生的运费差额「多退少补」，逐笔结清留痕。
 // 口径：diff>0 待收顾客、diff<0 待退顾客；零差额改址在写入时即视为结清（waive）。
-import { ref } from 'vue';
+import { ref, reactive } from 'vue';
 import {
   campusAddressChanges,
   campusAddressChangeStats,
@@ -80,6 +97,9 @@ import {
 import { fenToYuanFixed } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusConfig');
 
 const locale = useLocaleStore();
 const status = ref<'' | 'pending' | 'settled'>('');
@@ -88,21 +108,45 @@ const stats = ref<CampusAddressChangeStats>({ total: 0, pendingCount: 0, pending
 const loaded = ref(false);
 const err = ref('');
 const busyId = ref('');
+const noteOf = reactive<Record<string, string>>({});
+const PAGE_SIZE = 20;
+const skip = ref(0);
+const hasMore = ref(false);
+const loadingMore = ref(false);
 
 async function load(): Promise<void> {
   err.value = '';
+  skip.value = 0;
   try {
     const [list, s] = await Promise.all([
-      campusAddressChanges(status.value || null, 0, 100),
+      campusAddressChanges(status.value || null, 0, PAGE_SIZE),
       campusAddressChangeStats(),
     ]);
     rows.value = list ?? [];
+    hasMore.value = (list?.length ?? 0) >= PAGE_SIZE;
+    skip.value = rows.value.length;
     stats.value = s;
     loaded.value = true;
   } catch (e: any) {
     console.error('campusAddressChanges failed', e);
     loaded.value = false;
     err.value = graphQlErrorMsg(e, locale.t('campusAddressChanges.loadFailed'));
+  }
+}
+
+/** 台账分页：每页 20，按 skip 追加 */
+async function loadMore(): Promise<void> {
+  if (loadingMore.value || !hasMore.value) return;
+  loadingMore.value = true;
+  try {
+    const list = await campusAddressChanges(status.value || null, skip.value, PAGE_SIZE);
+    rows.value = rows.value.concat(list ?? []);
+    hasMore.value = (list?.length ?? 0) >= PAGE_SIZE;
+    skip.value = rows.value.length;
+  } catch (e: any) {
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('campusAddressChanges.loadFailed')), icon: 'none' });
+  } finally {
+    loadingMore.value = false;
   }
 }
 
@@ -162,14 +206,37 @@ function fmtTime(iso: string | null): string {
 
 async function settle(r: CampusAddressChangeRow, action: string): Promise<void> {
   if (busyId.value) return;
+  const note = (noteOf[r.id] ?? '').trim();
+  // 补收必须留凭证（收款方式/流水号），退款/免收选填；与后端 settle 校验一致
+  if (action === 'collect' && !note) {
+    uni.showToast({ title: locale.t('campusAddressChanges.collectNoteRequired'), icon: 'none' });
+    return;
+  }
+  const confirmText = action === 'collect'
+    ? locale.t('campusAddressChanges.confirmCollect').replace('{amount}', '¥' + fenToYuanFixed(Math.abs(r.diff)))
+    : action === 'refund'
+      ? locale.t('campusAddressChanges.confirmRefund').replace('{amount}', '¥' + fenToYuanFixed(Math.abs(r.diff)))
+      : action === 'waive'
+        ? locale.t('campusAddressChanges.confirmWaive')
+        : locale.t('campusAddressChanges.confirmRevert');
+  const confirmed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: locale.t('campusAddressChanges.confirmTitle'),
+      content: confirmText,
+      success: (res) => resolve(!!res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!confirmed) return;
   busyId.value = r.id;
   try {
-    const saved = await campusSettleAddressChange(r.id, action);
+    const saved = await campusSettleAddressChange(r.id, action, note || null);
     const i = rows.value.findIndex((x) => x.id === r.id);
     if (i >= 0) {
       if (status.value === '' || saved.status === status.value) rows.value.splice(i, 1, saved);
       else rows.value.splice(i, 1);
     }
+    delete noteOf[r.id];
     stats.value = await campusAddressChangeStats();
     uni.showToast({ title: locale.t('campusAddressChanges.settled'), icon: 'success' });
   } catch (e: any) {
@@ -219,7 +286,11 @@ load();
         .op { font-size: 24rpx; color: $wa-accent; padding: 8rpx 20rpx; border: 1rpx solid $wa-accent; border-radius: 999rpx;
           &.primary { background: $wa-accent; color: #fff; } } } }
     .reason { display: block; font-size: 22rpx; color: $wa-ink; padding-top: 10rpx; }
+    .note-line { padding-top: 12rpx;
+      .note-input { font-size: 24rpx; background: $wa-bg; border-radius: 8rpx; padding: 10rpx 14rpx; } }
+    .settle-info { display: block; font-size: 22rpx; color: $wa-muted; padding-top: 10rpx; word-break: break-all; }
     .time { display: block; font-size: 22rpx; color: $wa-muted; padding-top: 8rpx; } }
+  .more { text-align: center; font-size: 26rpx; color: $wa-accent; padding: 20rpx 0; }
   .err { display: block; text-align: center; color: $wa-danger; font-size: 24rpx; padding: 12rpx 0;
     .retry { color: $wa-accent; margin-left: 12rpx; } }
 }

@@ -31,7 +31,54 @@
       <text class="sec-title">{{ $t('orderAdmin.orderDetail.addr.sectionTitle') }}</text>
       <text class="line">{{ deliveryAddressText }}</text>
       <text class="line muted" v-if="addrLockedHint">{{ $t('orderAdmin.orderDetail.addr.pickedHint') }}</text>
-      <button class="addr-btn" @tap="openAddrChange">{{ $t('orderAdmin.orderDetail.addr.changeBtn') }}</button>
+      <button v-if="canChangeAddr" class="addr-btn" @tap="openAddrChange">{{ $t('orderAdmin.orderDetail.addr.changeBtn') }}</button>
+
+      <!-- 改址记录：含运营代改与顾客自助（差额是否已结清） -->
+      <template v-if="addrHistory.length">
+        <text class="line muted hist-title">{{ $t('orderAdmin.orderDetail.addr.historyTitle') }}</text>
+        <view v-for="h in addrHistory" :key="h.id" class="hist">
+          <text class="hist-line">{{ addrHistText(h) }}</text>
+          <view class="hist-meta">
+            <text>{{ histDiffText(h) }}</text>
+            <text class="hist-state" :class="{ done: h.status === 'settled' }">
+              {{ h.status === 'settled' ? $t('orderAdmin.orderDetail.addr.histSettled') : $t('orderAdmin.orderDetail.addr.histPending') }}
+            </text>
+            <text class="hist-time">{{ fmtTime(h.createdAt) }}</text>
+          </view>
+        </view>
+      </template>
+    </view>
+
+    <!-- 校园配送信息（路线 / 骑手 / 外部快递 / 交接码） -->
+    <view class="card" v-if="hasDeliveryInfo">
+      <text class="sec-title">{{ $t('orderAdmin.orderDetail.deliverySection') }}</text>
+      <view class="cell" v-if="cf.fulfillmentRoute">
+        <text>{{ $t('orderAdmin.orderDetail.route') }}</text>
+        <text class="val">{{ routeLabel(cf.fulfillmentRoute) }}</text>
+      </view>
+      <view class="cell" v-if="cf.deliveryStatus">
+        <text>{{ $t('orderAdmin.orderDetail.deliveryState') }}</text>
+        <text class="val">{{ deliveryStatusLabel(cf.deliveryStatus) }}</text>
+      </view>
+      <view class="cell" v-if="cf.deliverySlotText">
+        <text>{{ $t('orderAdmin.orderDetail.slot') }}</text>
+        <text class="val">{{ cf.deliverySlotText }}</text>
+      </view>
+      <view class="cell" v-if="cf.deliveryStaffId">
+        <text>{{ $t('orderAdmin.orderDetail.rider') }}</text>
+        <text class="val">#{{ cf.deliveryStaffId }}</text>
+      </view>
+      <view class="cell" v-if="cf.handoverCode">
+        <text>{{ $t('orderAdmin.orderDetail.handoverCode') }}</text>
+        <text class="val">{{ cf.handoverCode }}</text>
+      </view>
+      <view class="cell" v-if="cf.thirdPartyNo">
+        <text>{{ $t('orderAdmin.orderDetail.thirdParty') }}</text>
+        <text class="val">{{ thirdPartyText }}</text>
+      </view>
+      <text class="line muted" v-if="cf.thirdPartyCourierName || cf.thirdPartyCourierPhone">
+        {{ $t('orderAdmin.orderDetail.courier') }}：{{ [cf.thirdPartyCourierName, cf.thirdPartyCourierPhone].filter(Boolean).join(' · ') }}
+      </text>
     </view>
 
     <!-- 金额明细 -->
@@ -157,17 +204,21 @@ import { fetchOrderDetail, cancelOrder, addOrderNote, modifyOrderPrice, OrderDet
 import {
   campusZones,
   campusBuildings,
+  campusAddressChanges,
   campusAdminQuoteAddressChange,
   campusAdminChangeDeliveryAddress,
   CampusZone,
   CampusBuilding,
   CampusAddressChangeQuote,
+  CampusAddressChangeRow,
 } from '../../../apis/campus';
 import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/orderState';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { useAuthStore } from '../../../stores/authStore';
 import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
 
 const order = ref<OrderDetail | null>(null);
 
@@ -211,6 +262,77 @@ const diffText = computed(() => {
   if (d < 0) return locale.t('orderAdmin.orderDetail.addr.diffRefund').replace('{amount}', money(-d));
   return locale.t('orderAdmin.orderDetail.addr.diffNone');
 });
+
+// ===== 配送信息 / 改址记录（只读展示）=====
+const addrHistory = ref<CampusAddressChangeRow[]>([]);
+const canChangeAddr = computed(() => auth.hasPermission('CampusConfig'));
+const hasDeliveryInfo = computed(() => {
+  const c = cf.value;
+  return !!(c.fulfillmentRoute || c.deliveryStatus || c.deliverySlotText
+    || c.deliveryStaffId || c.handoverCode || c.thirdPartyNo);
+});
+const thirdPartyText = computed(() => {
+  const c = cf.value;
+  const provider = c.thirdPartyProvider === 'dada'
+    ? locale.t('campusDispatch.providerDada')
+    : c.thirdPartyProvider === 'meituan'
+      ? locale.t('campusDispatch.providerMeituan')
+      : (c.thirdPartyProvider || '-');
+  return locale.t('orderAdmin.orderDetail.thirdPartyLine')
+    .replace('{p}', provider)
+    .replace('{no}', c.thirdPartyNo || '-');
+});
+
+function routeLabel(route: string): string {
+  const map: Record<string, string> = {
+    R1: locale.t('orderAdmin.orderDetail.routeR1'),
+    R2: locale.t('orderAdmin.orderDetail.routeR2'),
+    R3: locale.t('orderAdmin.orderDetail.routeR3'),
+    R4: locale.t('orderAdmin.orderDetail.routeR4'),
+    R5: locale.t('orderAdmin.orderDetail.routeR5'),
+  };
+  return map[route] ?? route;
+}
+
+function deliveryStatusLabel(s: string): string {
+  const map: Record<string, string> = {
+    assigned: locale.t('orderAdmin.orderDetail.dsAssigned'),
+    in_progress: locale.t('orderAdmin.orderDetail.dsInProgress'),
+    delivered: locale.t('orderAdmin.orderDetail.dsDelivered'),
+    exception: locale.t('orderAdmin.orderDetail.dsException'),
+  };
+  return map[s] ?? s;
+}
+
+function fmtTime(iso: string | null): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function addrHistText(h: CampusAddressChangeRow): string {
+  const from = [h.fromZone, h.fromBuilding, h.fromDetail].filter(Boolean).join(' · ');
+  const to = [h.toZone, h.toBuilding, h.toDetail].filter(Boolean).join(' · ');
+  return `${from} → ${to}`;
+}
+
+function histDiffText(h: CampusAddressChangeRow): string {
+  if (!h.diff) return locale.t('orderAdmin.orderDetail.addr.histZero');
+  const amount = money(Math.abs(h.diff));
+  return h.diff > 0
+    ? locale.t('orderAdmin.orderDetail.addr.histCollect').replace('{amount}', amount)
+    : locale.t('orderAdmin.orderDetail.addr.histRefund').replace('{amount}', amount);
+}
+
+async function loadAddrHistory(orderId: string) {
+  try {
+    addrHistory.value = await campusAddressChanges(null, 0, 5, orderId);
+  } catch {
+    addrHistory.value = [];
+  }
+}
 
 async function ensureAddrData() {
   if (!zones.value.length) zones.value = await campusZones();
@@ -293,7 +415,8 @@ const canRedeem = computed(() => isPickup.value && !isPickupClaimed.value);
 onLoad(async (q) => {
   const id: string = (q && (q.id as string)) || '';
   if (id) order.value = await fetchOrderDetail(id);
-  // 预取分区/楼栋，用于展示当前配送地址名（失败不影响详情页）
+  // 改址记录与分区/楼栋名称（失败不影响详情页）
+  if (id) loadAddrHistory(id);
   ensureAddrData().catch(() => undefined);
 });
 
@@ -394,6 +517,15 @@ async function onSubmitAdjust() {
     .addr-btn {
       margin: 16rpx 0 0; height: 64rpx; line-height: 64rpx; font-size: 26rpx;
       border-radius: $wa-radius; background: $wa-bg; color: $wa-accent;
+    }
+    .hist-title { margin-top: 22rpx; }
+    .hist {
+      padding: 14rpx 0; border-top: 1rpx solid $wa-rule;
+      .hist-line { display: block; font-size: 26rpx; color: $wa-ink; line-height: 1.5; word-break: break-all; }
+      .hist-meta { display: flex; align-items: center; gap: 16rpx; margin-top: 6rpx;
+        font-size: 22rpx; color: $wa-muted;
+        .hist-state { color: $wa-danger; &.done { color: $wa-muted; } }
+        .hist-time { margin-left: auto; } }
     }
     .item {
       display: flex; align-items: center; justify-content: space-between; padding: 14rpx 0;

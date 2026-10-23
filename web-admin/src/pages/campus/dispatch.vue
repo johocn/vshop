@@ -94,8 +94,13 @@
               {{ $t('campusDispatch.waitMin').replace('{n}', waitMin(o.customFields.hallEnteredAt)!) }}
             </view>
             <view v-if="o.customFields.campusCause" class="cause">{{ causeLabel(o.customFields.campusCause) }}</view>
+            <view v-if="isExternalRoute(o)" class="ext-line">
+              <text class="ext-tag">{{ o.customFields.fulfillmentRoute }} · {{ extStateLabel(o) }}</text>
+              <text v-if="o.customFields.thirdPartyNo" class="ext-no">{{ o.customFields.thirdPartyNo }}</text>
+            </view>
             <view class="acts">
               <button class="act" @tap="assign(o)">{{ $t('campusDispatch.assign') }}</button>
+              <button v-if="canPushExternal(o)" class="act ghost" @tap="pushExternal(o)">{{ $t('campusDispatch.pushExternal') }}</button>
             </view>
           </view>
         </view>
@@ -104,6 +109,9 @@
           <view class="col-head">
             <text class="col-title">{{ $t('campusDispatch.active') }}</text>
             <text class="col-count">{{ board.activeOrders.length }}</text>
+            <text v-if="pushableActive.length > 1" class="batch" @tap="pushExternalBatch">
+              {{ $t('campusDispatch.pushBatch').replace('{n}', String(pushableActive.length)) }}
+            </text>
           </view>
           <view v-if="!board.activeOrders.length" class="hint sm">{{ $t('campusDispatch.emptyCol') }}</view>
           <view v-for="o in board.activeOrders" :key="o.id" class="card">
@@ -113,6 +121,10 @@
               <text class="chip" :class="o.customFields.deliveryStatus">{{ statusLabel(o.customFields) }}</text>
             </view>
             <view class="meta">{{ o.customFields.campusZone || '-' }} · #{{ o.customFields.buildingId || '-' }}</view>
+            <view v-if="isExternalRoute(o)" class="ext-line">
+              <text class="ext-tag">{{ o.customFields.fulfillmentRoute }} · {{ extStateLabel(o) }}</text>
+              <text v-if="o.customFields.thirdPartyNo" class="ext-no">{{ o.customFields.thirdPartyNo }}</text>
+            </view>
             <view class="row acts">
               <button
                 v-if="o.customFields.hallStatus === 'grabbed'"
@@ -122,6 +134,8 @@
                 v-if="o.customFields.hallStatus === 'open'"
                 class="act" @tap="assign(o)"
               >{{ $t('campusDispatch.assign') }}</button>
+              <button v-if="canPushExternal(o)" class="act ghost" @tap="pushExternal(o)">{{ $t('campusDispatch.pushExternal') }}</button>
+              <button v-if="inFlightExternal(o)" class="act ghost" @tap="cancelExternal(o)">{{ $t('campusDispatch.cancelExternal') }}</button>
             </view>
           </view>
         </view>
@@ -167,6 +181,8 @@ import {
   campusDispatchBackToHall,
   campusDispatchBoard,
   campusHandleException,
+  campusAdminDispatchExternal,
+  campusAdminCancelExternal,
   type CampusDispatchBoardData,
   type DispatchAlert,
   type DispatchOrder,
@@ -176,6 +192,9 @@ import { fetchCouponTemplates, type CouponTemplateItem } from '../../apis/coupon
 import { graphQlErrorMsg } from '../../apis/client';
 import { yuanToFen, fenToYuanFixed } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusViewDispatch');
 
 const locale = useLocaleStore();
 const loading = ref(true);
@@ -408,6 +427,132 @@ async function backToHall(o: DispatchOrder) {
   }
 }
 
+// —— 外部快递（R2/R3）：运营侧手动推送/重推与取消 ——
+/** R2/R3 才可能走外部快递；具体 provider 是否可用由后端按店铺路线配置校验 */
+function isExternalRoute(o: DispatchOrder): boolean {
+  return ['R2', 'R3'].includes(String(o.customFields.fulfillmentRoute ?? ''));
+}
+
+/** 已推送且在途（平台未取消/未异常），此时不重复下单 */
+function inFlightExternal(o: DispatchOrder): boolean {
+  const cf = o.customFields;
+  return !!cf.thirdPartyNo && !['cancelled', 'exception'].includes(String(cf.thirdPartyState ?? ''));
+}
+
+function canPushExternal(o: DispatchOrder): boolean {
+  return isExternalRoute(o) && !inFlightExternal(o);
+}
+
+const pushableActive = computed(() => board.value.activeOrders.filter(canPushExternal));
+
+function providerLabel(code: string | null): string {
+  if (code === 'dada') return locale.t('campusDispatch.providerDada');
+  if (code === 'meituan') return locale.t('campusDispatch.providerMeituan');
+  return code ?? '';
+}
+
+function extStateLabel(o: DispatchOrder): string {
+  const cf = o.customFields;
+  if (!cf.thirdPartyNo) return locale.t('campusDispatch.extPending');
+  const map: Record<string, string> = {
+    accepted: locale.t('campusDispatch.extAccepted'),
+    pickup: locale.t('campusDispatch.extPickup'),
+    delivering: locale.t('campusDispatch.extDelivering'),
+    delivered: locale.t('campusDispatch.extDelivered'),
+    cancelled: locale.t('campusDispatch.extCancelledState'),
+    exception: locale.t('campusDispatch.extExceptionState'),
+  };
+  const state = String(cf.thirdPartyState ?? '');
+  const text = map[state] ?? (state || locale.t('campusDispatch.extPushed'));
+  return cf.thirdPartyProvider ? `${providerLabel(cf.thirdPartyProvider)} · ${text}` : text;
+}
+
+function confirmDialog(title: string, content: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title,
+      content,
+      success: (r: any) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    });
+  });
+}
+
+function pickProvider(): Promise<'dada' | 'meituan' | null> {
+  return new Promise((resolve) => {
+    uni.showActionSheet({
+      itemList: [locale.t('campusDispatch.providerDada'), locale.t('campusDispatch.providerMeituan')],
+      success: ({ tapIndex }) => resolve(tapIndex === 1 ? 'meituan' : 'dada'),
+      fail: () => resolve(null),
+    });
+  });
+}
+
+async function doPushExternal(o: DispatchOrder, provider: 'dada' | 'meituan'): Promise<boolean> {
+  try {
+    const res = await campusAdminDispatchExternal(o.id, provider);
+    uni.showToast({
+      title: res.already ? locale.t('campusDispatch.extAlready') : locale.t('campusDispatch.extPushed'),
+      icon: res.already ? 'none' : 'success',
+    });
+    return true;
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusDispatch.pushFailed')), icon: 'none' });
+    return false;
+  }
+}
+
+async function pushExternal(o: DispatchOrder) {
+  const provider = await pickProvider();
+  if (!provider) return;
+  const ok = await confirmDialog(
+    locale.t('campusDispatch.pushExternal'),
+    `${o.code} · ${providerLabel(provider)}`,
+  );
+  if (!ok) return;
+  await doPushExternal(o, provider);
+  await refresh();
+}
+
+/** 批量重推：对进行中列所有「路线支持且未在途」的单顺序推送，失败的逐单提示后继续 */
+async function pushExternalBatch() {
+  const list = pushableActive.value.slice();
+  if (!list.length) return;
+  const provider = await pickProvider();
+  if (!provider) return;
+  const ok = await confirmDialog(
+    locale.t('campusDispatch.pushExternal'),
+    locale.t('campusDispatch.pushBatchConfirm')
+      .replace('{n}', String(list.length))
+      .replace('{p}', providerLabel(provider)),
+  );
+  if (!ok) return;
+  let done = 0;
+  for (const o of list) {
+    if (await doPushExternal(o, provider)) done += 1;
+  }
+  uni.showToast({
+    title: locale.t('campusDispatch.pushBatchDone').replace('{n}', String(done)),
+    icon: 'none',
+  });
+  await refresh();
+}
+
+async function cancelExternal(o: DispatchOrder) {
+  const ok = await confirmDialog(
+    locale.t('campusDispatch.cancelExternal'),
+    `${o.code} · ${locale.t('campusDispatch.cancelExternalHint')}`,
+  );
+  if (!ok) return;
+  try {
+    await campusAdminCancelExternal(o.id);
+    uni.showToast({ title: locale.t('campusDispatch.extCancelled'), icon: 'success' });
+    await refresh();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusDispatch.opFailed')), icon: 'none' });
+  }
+}
+
 onMounted(() => {
   refresh(true);
   timer = setInterval(() => refresh(), 10_000);
@@ -437,7 +582,7 @@ onUnmounted(() => {
     .col-title { font-size: 28rpx; color: $wa-ink; font-weight: 700; }
     .col-count { font-size: 24rpx; color: $wa-accent; font-weight: 700;
       &.danger { color: #ff4d4f; } }
-  }
+    .batch { margin-left: auto; font-size: 22rpx; color: $wa-accent; } }
   .exc-card { background: #fff; border: 1.5px solid #ffc2c2; border-radius: $wa-radius;
     padding: 20rpx 24rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; gap: 12rpx; }
@@ -489,8 +634,12 @@ onUnmounted(() => {
     }
     .meta { font-size: 24rpx; color: $wa-muted; padding-top: 8rpx; }
     .cause { font-size: 22rpx; color: #c47b00; padding-top: 8rpx; }
+    .ext-line { display: flex; align-items: center; gap: 12rpx; padding-top: 8rpx;
+      .ext-tag { font-size: 20rpx; color: #0a8f4d; background: rgba(29, 201, 129, .12);
+        padding: 2rpx 12rpx; border-radius: 999rpx; }
+      .ext-no { font-size: 22rpx; color: $wa-muted; font-family: monospace; } }
     .route-tag { font-size: 20rpx; color: #0a8f4d; background: rgba(29, 201, 129, .12); padding: 2rpx 12rpx; border-radius: 999rpx; }
-    .acts { padding-top: 16rpx;
+    .acts { padding-top: 16rpx; display: flex; flex-wrap: wrap; gap: 12rpx;
       .act { background: $wa-accent; color: #fff; font-size: 24rpx; border-radius: $wa-radius;
         padding: 0 24rpx; line-height: 56rpx; margin: 0;
         &.ghost { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; }
