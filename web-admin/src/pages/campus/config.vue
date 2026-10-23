@@ -343,6 +343,10 @@
           <input v-model="card.form.notifyTemplateAfterSales" :placeholder="$t('campusConfig.notifyPh')" />
         </view>
         <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.notifyAddressChanged') }}</text>
+          <input v-model="card.form.notifyTemplateAddressChanged" :placeholder="$t('campusConfig.notifyPh')" />
+        </view>
+        <view class="cell">
           <text class="lbl">{{ $t('campusConfig.h5BaseUrl') }}</text>
           <input v-model="card.form.h5BaseUrl" :placeholder="$t('campusConfig.h5BaseUrlPh')" />
         </view>
@@ -559,6 +563,7 @@ interface CardForm {
   notifyTemplatePaymentPending: string;
   notifyTemplateCancelled: string;
   notifyTemplateAfterSales: string;
+  notifyTemplateAddressChanged: string;
   h5BaseUrl: string;
   printMode: string;
   timeoutCompensation: boolean;         // 超时赔付开关（默认关，灰度开）
@@ -914,6 +919,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     notifyTemplatePaymentPending: c.notifyTemplatePaymentPending ?? '',
     notifyTemplateCancelled: c.notifyTemplateCancelled ?? '',
     notifyTemplateAfterSales: c.notifyTemplateAfterSales ?? '',
+    notifyTemplateAddressChanged: c.notifyTemplateAddressChanged ?? '',
     h5BaseUrl: c.h5BaseUrl ?? '',
     printMode: c.printMode ?? 'off',
     timeoutCompensation: !!c.timeoutCompensationEnabled,
@@ -1157,6 +1163,7 @@ async function save(card: Card) {
       notifyTemplatePaymentPending: f.notifyTemplatePaymentPending.trim() || null,
       notifyTemplateCancelled: f.notifyTemplateCancelled.trim() || null,
       notifyTemplateAfterSales: f.notifyTemplateAfterSales.trim() || null,
+      notifyTemplateAddressChanged: f.notifyTemplateAddressChanged.trim() || null,
       h5BaseUrl: f.h5BaseUrl.trim() || null,
       printMode: f.printMode,
       timeoutCompensationEnabled: f.timeoutCompensation,

@@ -3186,6 +3186,7 @@
     "notifyPaymentPending": "待付款提醒模板ID",
     "notifyCancelled": "取消通知模板ID",
     "notifyAfterSales": "售后进度模板ID",
+    "notifyAddressChanged": "改址成功模板ID",
     "h5BaseUrl": "H5站点域名",
     "h5BaseUrlPh": "如 https://www.yourbao.cn（用于模板消息跳转）",
     "notifyPh": "模板 ID，留空不通知",

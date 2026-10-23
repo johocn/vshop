@@ -55,6 +55,7 @@ export interface CampusStoreConfig {
   notifyTemplatePaymentPending: string | null;
   notifyTemplateCancelled: string | null;
   notifyTemplateAfterSales: string | null;
+  notifyTemplateAddressChanged: string | null;
   h5BaseUrl: string | null;
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
   timeoutCompensationEnabled: boolean;
@@ -92,6 +93,7 @@ export interface CampusStoreConfigInput {
   notifyTemplatePaymentPending?: string | null;
   notifyTemplateCancelled?: string | null;
   notifyTemplateAfterSales?: string | null;
+  notifyTemplateAddressChanged?: string | null;
   h5BaseUrl?: string | null;
   printMode?: string | null;
   timeoutCompensationEnabled?: boolean | null;
@@ -101,7 +103,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
