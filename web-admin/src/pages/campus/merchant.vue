@@ -16,9 +16,21 @@
         </view>
       </view>
       <view v-if="!board.merchantConfirmEnabled" class="notice">{{ $t('campusMerchant.notConfirmMode') }}</view>
-      <view v-if="board.printMode !== 'off'" class="printbar">
-        <text class="p-mode">{{ $t(printModeKey) }}</text>
-        <text v-if="lodopReady === 'fail'" class="p-warn">{{ $t('campusMerchant.lodopMissing') }}</text>
+      <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: lodopReady === 'fail' }">
+        <view class="p-status">
+          <text class="p-dot" :class="{ bad: lodopReady === 'fail', wait: lodopReady === 'probing' }"></text>
+          <text class="p-mode">{{ printStatusText }}</text>
+          <text v-if="failedCount" class="p-warn">{{ $t('campusMerchant.printFailedCount').replace('{n}', String(failedCount)) }}</text>
+        </view>
+        <view class="p-ops">
+          <button v-if="lodopReady === 'fail'" class="p-btn" @tap="probePrinter(true)">
+            {{ $t('campusMerchant.printRetryConnect') }}
+          </button>
+          <button v-if="failedCount" class="p-btn" :disabled="lodopReady !== 'ok'" @tap="retryFailed">
+            {{ $t('campusMerchant.printRetryFailed') }}
+          </button>
+          <button class="p-btn ghost" @tap="showPrintHelp">{{ $t('campusMerchant.printHelp') }}</button>
+        </view>
       </view>
 
       <view class="tabs">
@@ -35,6 +47,7 @@
       <view v-for="o in listOf(tab)" :key="o.id" class="card">
         <view class="row head">
           <text class="code">{{ o.code }}</text>
+          <text v-if="isUnprinted(o)" class="unprinted">{{ $t('campusMerchant.printUnprinted') }}</text>
           <text class="time">{{ hhmm(o.createdAt) }}</text>
           <text v-if="o.route" class="route">{{ o.route }}</text>
         </view>
@@ -172,13 +185,58 @@ const actingId = ref('');
 const printingId = ref(''); // 手动补打中的订单
 const lastPendingCount = ref(0);
 let timer: ReturnType<typeof setInterval> | null = null;
+let reconnectTimer: ReturnType<typeof setInterval> | null = null;
 
 // ===== 小票打印（C-Lodop）=====
-const lodopReady = ref<'' | 'ok' | 'fail'>('');
-const autoPrinting = ref(false); // 自动打印互斥（10s 轮询防重入）
+// 增强版：串行队列防丢票、失败可见可重试、连接断开自动重探（商家可能刚开电脑/刚装服务）
+const lodopReady = ref<'probing' | 'ok' | 'fail'>('probing');
+const failedPrints = ref<Record<string, string>>({}); // orderId -> 失败原因（顶部条汇总 + 卡内徽标共用）
+const printQueue: MerchantBoardOrder[] = [];
+let printing = false;
 const autoAttempted = new Set<string>(); // 会话内已尝试自动打印的订单（防失败循环重试）
 /** onPaid 自动打印仅打 30min 内的新单，防存量未打单/历史单风暴 */
 const AUTO_PRINT_WINDOW_MS = 30 * 60 * 1000;
+/** 打印失败重试一次（3s 退避，打印机卡纸/瞬时离线多可恢复） */
+const PRINT_RETRY_DELAY_MS = 3000;
+/** 失败徽标阈值：新单超过该时长仍未打票即提示（正常出票在秒级） */
+const UNPRINTED_ALERT_MS = 2 * 60 * 1000;
+const failedCount = computed(() => Object.keys(failedPrints.value).length);
+
+const printStatusText = computed(() => {
+  if (board.value.printMode === 'off') return locale.t('campusMerchant.printModeOff');
+  if (lodopReady.value === 'probing') return locale.t('campusMerchant.printProbing');
+  if (lodopReady.value === 'fail') return locale.t('campusMerchant.printOffline');
+  return `${locale.t(printModeKey.value)} · ${locale.t('campusMerchant.printConnected')}`;
+});
+
+/** 连接状态重探（商家装好/启动 C-Lodop 后点「重新连接」即可恢复，不用刷新页面） */
+async function probePrinter(withToast = false) {
+  lodopReady.value = 'probing';
+  try {
+    await loadLodop();
+    lodopReady.value = 'ok';
+    if (withToast) uni.showToast({ title: locale.t('campusMerchant.printConnected'), icon: 'none' });
+    void flushQueue();
+  } catch {
+    lodopReady.value = 'fail';
+    if (withToast) uni.showToast({ title: locale.t('campusMerchant.lodopMissing'), icon: 'none' });
+  }
+}
+
+function showPrintHelp() {
+  uni.showModal({
+    title: locale.t('campusMerchant.printHelpTitle'),
+    content: locale.t('campusMerchant.printHelpBody'),
+    showCancel: false,
+    confirmText: locale.t('campusMerchant.printHelpOk'),
+  });
+}
+
+/** 未出票徽标：打印已启用、非终态、超阈值仍无打印回执 */
+function isUnprinted(o: MerchantBoardOrder): boolean {
+  if (board.value.printMode === 'off' || o.printedAt) return false;
+  return Date.now() - new Date(o.createdAt).getTime() > UNPRINTED_ALERT_MS;
+}
 
 const printModeKey = computed(() =>
   board.value.printMode === 'onPaid' ? 'campusMerchant.printModeOnPaid'
@@ -240,11 +298,14 @@ async function printOne(o: MerchantBoardOrder, withToast: boolean): Promise<bool
       await campusMerchantMarkPrinted(o.id);
     } catch { /* 回执失败不阻塞（下次补打以 printedAt 为准） */ }
     o.printedAt = new Date().toISOString();
+    delete failedPrints.value[o.id];
     if (withToast) uni.showToast({ title: locale.t('campusMerchant.printOk'), icon: 'success' });
     return true;
   } catch (err: any) {
+    // 失败留痕：顶部状态条汇总 + 订单卡「未出票」徽标，商家可一键重试/补打
+    failedPrints.value[o.id] = graphQlErrorMsg(err, locale.t('campusMerchant.printFailed'));
     if (withToast) {
-      uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.printFailed')), icon: 'none' });
+      uni.showToast({ title: failedPrints.value[o.id], icon: 'none' });
     }
     return false;
   } finally {
@@ -252,32 +313,75 @@ async function printOne(o: MerchantBoardOrder, withToast: boolean): Promise<bool
   }
 }
 
-/** 手动补打（任意 tab，不受 30min 限制） */
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+/** 入队打印（串行）：多单同时到达时逐张出票，避免并发抢占 C-Lodop 丢票 */
+function enqueuePrint(o: MerchantBoardOrder, withToast = false) {
+  if (o.printedAt) return;
+  if (printQueue.some(q => q.id === o.id)) return;
+  if (lodopReady.value !== 'ok') {
+    failedPrints.value[o.id] = locale.t('campusMerchant.printOffline');
+    return;
+  }
+  printQueue.push(o);
+  if (withToast) void flushQueue(true);
+  else void flushQueue();
+}
+
+/** 消费打印队列：失败退避重试一次，仍失败留痕等人工重试 */
+async function flushQueue(withToast = false) {
+  if (printing) return;
+  printing = true;
+  try {
+    while (printQueue.length) {
+      const o = printQueue.shift()!;
+      if (o.printedAt) continue;
+      const ok = await printOne(o, withToast);
+      if (!ok && lodopReady.value === 'ok') {
+        await sleep(PRINT_RETRY_DELAY_MS);
+        await printOne(o, false);
+      }
+    }
+  } finally {
+    printing = false;
+  }
+}
+
+/** 重试全部失败单（顶部状态条按钮；打印服务未恢复时禁用） */
+async function retryFailed() {
+  if (lodopReady.value !== 'ok') {
+    uni.showToast({ title: locale.t('campusMerchant.lodopMissing'), icon: 'none' });
+    return;
+  }
+  const ids = Object.keys(failedPrints.value);
+  const all = TABS.flatMap(t => listOf(t.key));
+  const targets = ids.map(id => all.find(o => o.id === id)).filter(Boolean) as MerchantBoardOrder[];
+  for (const o of targets) enqueuePrint(o);
+  await flushQueue(true);
+}
+
+/** 手动补打（任意 tab，不受 30min 限制；失败单也走此路径重置状态） */
 async function reprint(o: MerchantBoardOrder) {
   if (printingId.value) return;
   if (lodopReady.value === 'fail') {
     uni.showToast({ title: locale.t('campusMerchant.lodopMissing'), icon: 'none' });
+    void probePrinter(true); // 顺手重探：商家可能刚启动服务
     return;
   }
-  await printOne(o, true);
+  enqueuePrint(o, true);
 }
 
-/** onPaid 自动打印：轮询发现未打新单即打（静默，失败 toast 一次并标记已尝试） */
-async function autoPrint(b: CampusMerchantBoard) {
-  if (b.printMode !== 'onPaid' || autoPrinting.value || lodopReady.value !== 'ok') return;
+/** onPaid 自动打印：轮询发现未打新单即入队（串行出票，失败退避重试一次） */
+function autoPrint(b: CampusMerchantBoard) {
+  if (b.printMode !== 'onPaid') return;
   const candidates = [...b.pending, ...b.cooking, ...b.awaitingRider, ...b.delivering].filter(o => {
     if (o.printedAt || autoAttempted.has(o.id)) return false;
     return Date.now() - new Date(o.createdAt).getTime() < AUTO_PRINT_WINDOW_MS;
   });
   if (!candidates.length) return;
-  autoPrinting.value = true;
-  try {
-    for (const o of candidates) {
-      autoAttempted.add(o.id);
-      await printOne(o, false);
-    }
-  } finally {
-    autoPrinting.value = false;
+  for (const o of candidates) {
+    autoAttempted.add(o.id);
+    enqueuePrint(o);
   }
 }
 
@@ -335,10 +439,8 @@ async function accept(o: MerchantBoardOrder) {
   actingId.value = o.id;
   try {
     await campusMerchantAcceptOrder(o.id);
-    // onAccepted 模式：接单成功即打小票（打失败不阻塞接单，可手动补打）
-    if (board.value.printMode === 'onAccepted' && lodopReady.value !== 'fail') {
-      void printOne(o, true);
-    }
+    // onAccepted 模式：接单成功即打小票（打失败不阻塞接单，顶部条可重试/补打）
+    if (board.value.printMode === 'onAccepted') enqueuePrint(o, true);
     await refresh();
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
@@ -430,18 +532,17 @@ async function markHandoverArrived(o: MerchantBoardOrder) {
 onMounted(() => {
   refresh(true);
   timer = setInterval(() => refresh(), 10_000);
-  // C-Lodop 探测：异步不阻塞看板加载
-  loadLodop()
-    .then(() => {
-      lodopReady.value = 'ok';
-    })
-    .catch(() => {
-      lodopReady.value = 'fail';
-    });
+  // C-Lodop 探测：异步不阻塞看板加载；断连后每分钟自动重探（商家开电脑/启动服务即恢复）
+  void probePrinter();
+  reconnectTimer = setInterval(() => {
+    if (lodopReady.value === 'fail') void probePrinter();
+  }, 60_000);
 });
 onUnmounted(() => {
   if (timer) clearInterval(timer);
   timer = null;
+  if (reconnectTimer) clearInterval(reconnectTimer);
+  reconnectTimer = null;
 });
 </script>
 
@@ -462,9 +563,21 @@ onUnmounted(() => {
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; }
   .printbar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
-    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx;
+    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; border: 1.5px solid transparent;
+    .p-status { flex: 1; display: flex; align-items: center; gap: 10rpx; flex-wrap: wrap; }
+    .p-dot { width: 14rpx; height: 14rpx; border-radius: 999rpx; background: $wa-accent; flex: none;
+      &.wait { background: $wa-muted; } &.bad { background: #ff4d4f; } }
     .p-mode { font-size: 24rpx; color: $wa-accent; font-weight: 600; }
-    .p-warn { flex: 1; font-size: 22rpx; color: #c47b00; } }
+    .p-warn { font-size: 22rpx; color: #c47b00; }
+    .p-ops { display: flex; gap: 12rpx; flex: none;
+      .p-btn { font-size: 22rpx; line-height: 1; padding: 12rpx 20rpx; border-radius: 999rpx;
+        background: $wa-accent; color: #fff; border: none;
+        &.ghost { background: transparent; color: $wa-muted; border: 1.5px solid $wa-rule; }
+        &[disabled] { opacity: .45; } }
+    }
+    &.bad { border-color: #ffb4b0; background: #fff5f4;
+      .p-mode { color: #d4380d; } }
+  }
   .tabs { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx;
     .tab { flex: 1 1 30%; min-width: 200rpx; display: flex; align-items: center; justify-content: center; gap: 8rpx;
       background: $wa-card; border-radius: $wa-radius; padding: 18rpx 0; font-size: 26rpx;
@@ -478,6 +591,8 @@ onUnmounted(() => {
   .card { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; gap: 16rpx; }
     .head { .code { font-size: 28rpx; color: $wa-ink; font-weight: 700; flex: 1; }
+      .unprinted { font-size: 20rpx; color: #d4380d; border: 1px solid #ffb4b0; background: #fff5f4;
+        border-radius: 8rpx; padding: 2rpx 10rpx; }
       .time { font-size: 24rpx; color: $wa-muted; }
       .route { font-size: 20rpx; color: $wa-accent; border: 1px solid $wa-accent;
         border-radius: 8rpx; padding: 2rpx 10rpx; }

@@ -56,6 +56,9 @@ export interface CampusStoreConfig {
   notifyTemplateAfterSales: string | null;
   h5BaseUrl: string | null;
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
+  timeoutCompensationEnabled: boolean;
+  timeoutGraceMinutes: number;
+  timeoutCompensationCouponTemplateId: string | null;
 }
 
 export interface CampusStoreConfigInput {
@@ -87,10 +90,13 @@ export interface CampusStoreConfigInput {
   notifyTemplateAfterSales?: string | null;
   h5BaseUrl?: string | null;
   printMode?: string | null;
+  timeoutCompensationEnabled?: boolean | null;
+  timeoutGraceMinutes?: number | null;
+  timeoutCompensationCouponTemplateId?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(

@@ -192,6 +192,24 @@
           </view>
         </view>
         <view class="notify-tip">{{ $t('campusConfig.printModeTip') }}</view>
+        <view class="sec-t">{{ $t('campusConfig.timeoutSection') }}</view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: card.form.timeoutCompensation }" @tap="toggleTimeout(card)">
+            <text>{{ $t(card.form.timeoutCompensation ? 'campusConfig.timeoutOn' : 'campusConfig.timeoutOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.timeoutTip') }}</text>
+        </view>
+        <view v-if="card.form.timeoutCompensation" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutGrace') }}</text>
+          <input v-model="card.form.timeoutGraceMinutes" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+        </view>
+        <view v-if="card.form.timeoutCompensation" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutCoupon') }}</text>
+          <input v-model="card.form.timeoutCouponTemplateId" :placeholder="$t('campusConfig.timeoutCouponPh')" />
+        </view>
+        <view v-if="card.form.timeoutCompensation && !card.form.timeoutCouponTemplateId.trim()" class="notify-tip">
+          {{ $t('campusConfig.timeoutCouponMissing') }}
+        </view>
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
         </button>
@@ -291,6 +309,9 @@ interface CardForm {
   notifyTemplateAfterSales: string;
   h5BaseUrl: string;
   printMode: string;
+  timeoutCompensation: boolean;         // 超时赔付开关（默认关，灰度开）
+  timeoutGraceMinutes: string;          // 宽限分钟（超过才赔）
+  timeoutCouponTemplateId: string;      // 独立赔付券模板（与 T4 无骑手补偿券隔离）
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -364,6 +385,9 @@ function toForm(c: CampusStoreConfig): CardForm {
     notifyTemplateAfterSales: c.notifyTemplateAfterSales ?? '',
     h5BaseUrl: c.h5BaseUrl ?? '',
     printMode: c.printMode ?? 'off',
+    timeoutCompensation: !!c.timeoutCompensationEnabled,
+    timeoutGraceMinutes: String(c.timeoutGraceMinutes ?? 10),
+    timeoutCouponTemplateId: c.timeoutCompensationCouponTemplateId ?? '',
   };
 }
 
@@ -380,6 +404,11 @@ function toggleRoute(card: Card, code: string) {
   const i = card.form.routesEnabled.indexOf(code);
   if (i >= 0) card.form.routesEnabled.splice(i, 1);
   else card.form.routesEnabled.push(code);
+}
+
+/** 超时赔付开关（默认关；开启需配券模板，否则后端只告警不扣闸） */
+function toggleTimeout(card: Card) {
+  card.form.timeoutCompensation = !card.form.timeoutCompensation;
 }
 
 function setFirstLeg(card: Card, route: string, carrier: string) {
@@ -517,6 +546,12 @@ async function save(card: Card) {
       notifyTemplateAfterSales: f.notifyTemplateAfterSales.trim() || null,
       h5BaseUrl: f.h5BaseUrl.trim() || null,
       printMode: f.printMode,
+      timeoutCompensationEnabled: f.timeoutCompensation,
+      timeoutGraceMinutes: (() => {
+        const n = Number(f.timeoutGraceMinutes);
+        return Number.isInteger(n) && n >= 0 && n <= 180 ? n : 10;
+      })(),
+      timeoutCompensationCouponTemplateId: f.timeoutCouponTemplateId.trim() || null,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -633,6 +668,13 @@ async function ensureProfile(card: Card) {
     .pmode { flex: 1; text-align: center; padding: 18rpx 0; font-size: 26rpx; color: $wa-muted;
       border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
     .pmode.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+  }
+  // 超时赔付：开关按钮 + 说明同行
+  .pmode-row { display: flex; align-items: center; gap: 16rpx; padding: 8rpx 0 16rpx;
+    .pmode { flex: none; min-width: 180rpx; text-align: center; padding: 18rpx 24rpx; font-size: 26rpx;
+      color: $wa-muted; border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
+    .pmode.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+    .timeout-tip { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
   }
 }
 </style>
