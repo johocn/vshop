@@ -3144,6 +3144,8 @@
     "deliveryFee": "Delivery Fee (yuan)",
     "errandBaseFee": "Errand base fee (yuan)",
     "errandBaseFeePh": "Empty = default ¥2",
+    "thirdPartyBaseFee": "Third-party delivery base fee (yuan)",
+    "thirdPartyBaseFeePh": "Empty = not managed; store shipping fee applies",
     "freeShipping": "Free shipping over X yuan",
     "freeShippingPh": "Empty = disabled",
     "storeAddress": "Pickup Address",
@@ -3223,6 +3225,10 @@
     "dppMaxAdd": "Surcharge cap",
     "dppOff": "Dynamic pricing is off for the current channel; base fees are shown.",
     "dppNoAdd": "No surcharge",
+    "dppErrand": "Errand base fee",
+    "dppErrandDefault": "Not configured; ¥2 default applies",
+    "dppThirdParty": "Third-party campus delivery",
+    "dppNotConfigured": "Not configured; store shipping fee applies",
     "dppNote": "Preview uses live supply/demand of the current channel. Save changes, then tap Refresh."
   },
   "campusAddressChanges": {
