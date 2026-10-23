@@ -230,7 +230,7 @@
           <view class="dp-sub">{{ $t('campusConfig.dpSupplySection') }}</view>
           <view class="pmode-row">
             <view class="pmode" :class="{ on: card.form.dpSupply }" @tap="card.form.dpSupply = !card.form.dpSupply">
-              <text>{{ $t(card.form.dpSupply ? 'campusConfig.timeoutOn' : 'campusConfig.timeoutOff') }}</text>
+              <text>{{ $t(card.form.dpSupply ? 'campusConfig.dpSupplyOn' : 'campusConfig.dpSupplyOff') }}</text>
             </view>
             <text class="timeout-tip">{{ $t('campusConfig.dpSupplyTip') }}</text>
           </view>

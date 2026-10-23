@@ -3187,7 +3187,9 @@
     "dpMultiplierPh": "e.g. 1.2",
     "dpBadMultiplier": "Manual multiplier must be between 1.0 and 2.0",
     "dpMaxAdd": "Per-order surcharge cap (CNY)",
-    "dpMaxTip": "All surcharges together never exceed the cap"
+    "dpMaxTip": "All surcharges together never exceed the cap",
+    "dpSupplyOn": "Enabled",
+    "dpSupplyOff": "Disabled"
   },
   "campusAddressChanges": {
     "loading": "Loading…",
