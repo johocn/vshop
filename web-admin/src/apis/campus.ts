@@ -362,6 +362,38 @@ export async function campusDispatchBoard(): Promise<CampusDispatchBoardData> {
   return res.campusDispatchBoard;
 }
 
+// ===== 配送数据看板（CampusViewDispatch 权限，跨店铺聚合）=====
+
+export interface CampusDeliveryStats {
+  range: string;
+  windowStart: string;
+  kpis: {
+    totalOrders: number;
+    onTimeRate: number;
+    avgDeliveryMinutes: number;
+    timeoutCompensated: number;
+  };
+  dailyTrend: Array<{ date: string; orders: number; onTimeRate: number }>;
+  stages: Array<{ key: string; label: string; avgMinutes: number }>;
+  attribution: { merchant: number; rider: number; platform: number };
+  storeComparison: Array<{ channelId: string; channelName: string; orders: number; onTimeRate: number }>;
+}
+
+export async function campusDeliveryStats(range: string): Promise<CampusDeliveryStats> {
+  const res = await getAdminClient().request<{ campusDeliveryStats: CampusDeliveryStats }>(
+    `query ($range: String) { campusDeliveryStats(range: $range) {
+      range windowStart
+      kpis { totalOrders onTimeRate avgDeliveryMinutes timeoutCompensated }
+      dailyTrend { date orders onTimeRate }
+      stages { key label avgMinutes }
+      attribution { merchant rider platform }
+      storeComparison { channelId channelName orders onTimeRate }
+    } }`,
+    { range },
+  );
+  return res.campusDeliveryStats;
+}
+
 export async function campusDispatchAssign(orderId: string, riderCustomerId: string): Promise<boolean> {
   const res = await getAdminClient().request<{ campusAssignOrder: { assigned: boolean } }>(
     `mutation ($orderId: ID!, $riderCustomerId: ID!) {
