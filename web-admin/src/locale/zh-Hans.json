@@ -3185,7 +3185,9 @@
     "dpMultiplierPh": "如 1.2",
     "dpBadMultiplier": "手动倍率需在 1.0 到 2.0 之间",
     "dpMaxAdd": "单笔加价封顶（元）",
-    "dpMaxTip": "所有加价合计不超过封顶值"
+    "dpMaxTip": "所有加价合计不超过封顶值",
+    "dpSupplyOn": "已开启",
+    "dpSupplyOff": "未开启"
   },
   "campusAddressChanges": {
     "loading": "加载中…",
