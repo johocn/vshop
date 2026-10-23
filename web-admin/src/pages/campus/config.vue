@@ -210,6 +210,54 @@
         <view v-if="card.form.timeoutCompensation && !card.form.timeoutCouponTemplateId.trim()" class="notify-tip">
           {{ $t('campusConfig.timeoutCouponMissing') }}
         </view>
+        <view class="sec-t">{{ $t('campusConfig.dpSection') }}</view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: card.form.dpEnabled }" @tap="toggleDp(card)">
+            <text>{{ $t(card.form.dpEnabled ? 'campusConfig.dpOn' : 'campusConfig.dpOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.dpTip') }}</text>
+        </view>
+        <block v-if="card.form.dpEnabled">
+          <view class="dp-sub">{{ $t('campusConfig.dpPeakSection') }}</view>
+          <view v-for="(p, pi) in card.form.dpPeaks" :key="pi" class="dp-peak">
+            <input v-model="p.start" class="dp-time" placeholder="08:00" />
+            <text class="dp-dash">-</text>
+            <input v-model="p.end" class="dp-time" placeholder="09:00" />
+            <input v-model="p.addYuan" class="dp-add" type="digit" :placeholder="$t('campusConfig.dpAddPh')" />
+            <text class="dp-del" @tap="removePeak(card, pi)">{{ $t('campusConfig.pointRemove') }}</text>
+          </view>
+          <view class="point-add" @tap="addPeak(card)">+ {{ $t('campusConfig.dpAddPeak') }}</view>
+          <view class="dp-sub">{{ $t('campusConfig.dpSupplySection') }}</view>
+          <view class="pmode-row">
+            <view class="pmode" :class="{ on: card.form.dpSupply }" @tap="card.form.dpSupply = !card.form.dpSupply">
+              <text>{{ $t(card.form.dpSupply ? 'campusConfig.timeoutOn' : 'campusConfig.timeoutOff') }}</text>
+            </view>
+            <text class="timeout-tip">{{ $t('campusConfig.dpSupplyTip') }}</text>
+          </view>
+          <block v-if="card.form.dpSupply">
+            <view class="cell">
+              <text class="lbl">{{ $t('campusConfig.dpBacklog') }}</text>
+              <input v-model="card.form.dpBacklog" type="number" :placeholder="$t('campusConfig.dpBacklogPh')" />
+            </view>
+            <view class="cell">
+              <text class="lbl">{{ $t('campusConfig.dpSupplyAdd') }}</text>
+              <input v-model="card.form.dpSupplyAddYuan" type="digit" :placeholder="$t('campusConfig.dpAddPh')" />
+            </view>
+            <view class="cell">
+              <text class="lbl">{{ $t('campusConfig.dpRelease') }}</text>
+              <input v-model="card.form.dpReleaseBacklog" type="number" :placeholder="$t('campusConfig.dpReleasePh')" />
+            </view>
+          </block>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.dpMultiplier') }}</text>
+            <input v-model="card.form.dpMultiplier" type="digit" :placeholder="$t('campusConfig.dpMultiplierPh')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.dpMaxAdd') }}</text>
+            <input v-model="card.form.dpMaxAddYuan" type="digit" :placeholder="$t('campusConfig.dpAddPh')" />
+          </view>
+          <view class="notify-tip">{{ $t('campusConfig.dpMaxTip') }}</view>
+        </block>
         <button class="save" :disabled="savingId === card.channelId" @tap="save(card)">
           {{ savingId === card.channelId ? $t('campusConfig.saving') : $t('campusConfig.save') }}
         </button>
@@ -279,6 +327,12 @@ interface HandoverForm {
   isDefault: boolean;
 }
 
+interface PeakForm {
+  start: string;   // HH:mm
+  end: string;     // HH:mm（不支持跨天）
+  addYuan: string; // 加价（元输入态）
+}
+
 interface CardForm {
   routesEnabled: string[];
   routeFirstLeg: Record<string, string>; // 仅 R1 / R3
@@ -312,6 +366,14 @@ interface CardForm {
   timeoutCompensation: boolean;         // 超时赔付开关（默认关，灰度开）
   timeoutGraceMinutes: string;          // 宽限分钟（超过才赔）
   timeoutCouponTemplateId: string;      // 独立赔付券模板（与 T4 无骑手补偿券隔离）
+  dpEnabled: boolean;                   // 动态计价总开关
+  dpPeaks: PeakForm[];                  // 时段高峰（可多段）
+  dpSupply: boolean;                    // 供需紧张加价开关
+  dpBacklog: string;                    // 大厅积压阈值（单）
+  dpSupplyAddYuan: string;              // 供需加价（元）
+  dpReleaseBacklog: string;             // 回落阈值（单，可空）
+  dpMultiplier: string;                 // 手动倍率 1.0–2.0
+  dpMaxAddYuan: string;                 // 单笔加价封顶（元）
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -338,6 +400,59 @@ function setDefaultPoint(card: CardForm, code: string, idx: number) {
   (card.form.handoverPoints[code] ?? []).forEach((p, i) => { p.isDefault = i === idx; });
 }
 
+interface DpParsed {
+  enabled: boolean;
+  peakWindows: Array<{ start: string; end: string; addFee: number }>;
+  supply: { backlogThreshold: number; addFee: number; releaseBacklog: number | null } | null;
+  manualMultiplier: number;
+  maxAddFee: number;
+}
+
+/**
+ * 解析后台下发的动态计价 JSON（坏 JSON / 未启用一律回退默认关闭态）。
+ * 与后端 parseDynamicPricing 口径一致：enabled !== true 时忽略其余字段。
+ */
+function parseDp(raw: string | null): DpParsed {
+  const def: DpParsed = { enabled: false, peakWindows: [], supply: null, manualMultiplier: 1, maxAddFee: 600 };
+  if (!raw) return def;
+  try {
+    const r = JSON.parse(raw);
+    if (!r || r.enabled !== true) return def;
+    const num = (v: any, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d);
+    return {
+      enabled: true,
+      peakWindows: Array.isArray(r.peakWindows)
+        ? r.peakWindows
+            .filter((w: any) => w && typeof w.start === 'string' && typeof w.end === 'string')
+            .map((w: any) => ({ start: w.start, end: w.end, addFee: num(w.addFee, 0) }))
+        : [],
+      supply: r.supply && typeof r.supply === 'object'
+        ? {
+            backlogThreshold: num(r.supply.backlogThreshold, 5),
+            addFee: num(r.supply.addFee, 0),
+            releaseBacklog: typeof r.supply.releaseBacklog === 'number' ? r.supply.releaseBacklog : null,
+          }
+        : null,
+      manualMultiplier: Math.min(2, Math.max(1, num(r.manualMultiplier, 1))),
+      maxAddFee: num(r.maxAddFee, 600),
+    };
+  } catch (_e) {
+    return def;
+  }
+}
+
+function toggleDp(card: Card) {
+  card.form.dpEnabled = !card.form.dpEnabled;
+}
+
+function addPeak(card: Card) {
+  card.form.dpPeaks.push({ start: '', end: '', addYuan: '' });
+}
+
+function removePeak(card: Card, idx: number) {
+  card.form.dpPeaks.splice(idx, 1);
+}
+
 function toForm(c: CampusStoreConfig): CardForm {
   const leg = Object.fromEntries((c.routeFirstLeg ?? []).map(x => [x.route, x.carrier]));
   const pts: Record<string, HandoverForm[]> = { R1: [], R2: [] };
@@ -352,6 +467,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     });
   }
   const shops = Object.fromEntries((c.providerShopNo ?? []).map(x => [x.provider, x.shopNo]));
+  const dp = parseDp(c.dynamicPricing);
   return {
     routesEnabled: [...c.routesEnabled],
     routeFirstLeg: { R1: leg.R1 ?? 'merchant', R3: leg.R3 ?? 'campus' },
@@ -388,6 +504,14 @@ function toForm(c: CampusStoreConfig): CardForm {
     timeoutCompensation: !!c.timeoutCompensationEnabled,
     timeoutGraceMinutes: String(c.timeoutGraceMinutes ?? 10),
     timeoutCouponTemplateId: c.timeoutCompensationCouponTemplateId ?? '',
+    dpEnabled: dp.enabled,
+    dpPeaks: dp.peakWindows.map(w => ({ start: w.start, end: w.end, addYuan: fenToYuan(w.addFee) })),
+    dpSupply: !!dp.supply,
+    dpBacklog: String(dp.supply?.backlogThreshold ?? 5),
+    dpSupplyAddYuan: dp.supply ? fenToYuan(dp.supply.addFee) : '',
+    dpReleaseBacklog: dp.supply?.releaseBacklog != null ? String(dp.supply.releaseBacklog) : '',
+    dpMultiplier: String(dp.manualMultiplier ?? 1),
+    dpMaxAddYuan: fenToYuan(dp.maxAddFee ?? 600) || '6',
   };
 }
 
@@ -515,6 +639,63 @@ async function save(card: Card) {
     return;
   }
 
+  // 动态计价：关闭时提交 null（后端视为关闭）；开启时按输入组装 JSON（峰段可多段）
+  let dynamicPricing: string | null = null;
+  if (f.dpEnabled) {
+    const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const peaks: Array<{ start: string; end: string; addFee: number }> = [];
+    for (const p of f.dpPeaks) {
+      const start = p.start.trim();
+      const end = p.end.trim();
+      const addYuan = p.addYuan.trim();
+      if (!start && !end && !addYuan) continue; // 空行忽略
+      if (!timeRe.test(start) || !timeRe.test(end) || end <= start) {
+        uni.showToast({ title: locale.t('campusConfig.dpBadPeak'), icon: 'none' });
+        return;
+      }
+      const addFee = yuanToFen(addYuan);
+      if (addFee == null || addFee <= 0) {
+        uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+        return;
+      }
+      peaks.push({ start, end, addFee });
+    }
+    let supply: { backlogThreshold: number; addFee: number; releaseBacklog: number | null } | null = null;
+    if (f.dpSupply) {
+      const backlog = Number(f.dpBacklog);
+      if (!Number.isInteger(backlog) || backlog < 1) {
+        uni.showToast({ title: locale.t('campusConfig.dpBadBacklog'), icon: 'none' });
+        return;
+      }
+      const addFee = yuanToFen(f.dpSupplyAddYuan.trim());
+      if (addFee == null || addFee <= 0) {
+        uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+        return;
+      }
+      let releaseBacklog: number | null = null;
+      if (f.dpReleaseBacklog.trim() !== '') {
+        const n = Number(f.dpReleaseBacklog);
+        if (!Number.isInteger(n) || n < 0 || n >= backlog) {
+          uni.showToast({ title: locale.t('campusConfig.dpBadRelease'), icon: 'none' });
+          return;
+        }
+        releaseBacklog = n;
+      }
+      supply = { backlogThreshold: backlog, addFee, releaseBacklog };
+    }
+    const mult = Number(f.dpMultiplier);
+    if (!Number.isFinite(mult) || mult < 1 || mult > 2) {
+      uni.showToast({ title: locale.t('campusConfig.dpBadMultiplier'), icon: 'none' });
+      return;
+    }
+    const maxAddFee = yuanToFen(f.dpMaxAddYuan.trim());
+    if (maxAddFee == null) {
+      uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+      return;
+    }
+    dynamicPricing = JSON.stringify({ enabled: true, peakWindows: peaks, supply, manualMultiplier: mult, maxAddFee });
+  }
+
   savingId.value = card.channelId;
   try {
     const saved = await campusUpdateStoreConfig(card.channelId, {
@@ -552,6 +733,7 @@ async function save(card: Card) {
         return Number.isInteger(n) && n >= 0 && n <= 180 ? n : 10;
       })(),
       timeoutCompensationCouponTemplateId: f.timeoutCouponTemplateId.trim() || null,
+      dynamicPricing,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -675,6 +857,14 @@ async function ensureProfile(card: Card) {
       color: $wa-muted; border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
     .pmode.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
     .timeout-tip { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
+  }
+  // 动态计价：时段高峰行（起止时间 + 加价）
+  .dp-sub { font-size: 24rpx; color: $wa-ink; font-weight: 600; padding: 16rpx 0 8rpx; }
+  .dp-peak { display: flex; align-items: center; gap: 12rpx; padding: 8rpx 0;
+    .dp-time { width: 150rpx; font-size: 24rpx; text-align: center; border: 1px solid $wa-rule; border-radius: $wa-radius; padding: 10rpx 0; }
+    .dp-dash { font-size: 24rpx; color: $wa-muted; }
+    .dp-add { flex: 1; font-size: 24rpx; border: 1px solid $wa-rule; border-radius: $wa-radius; padding: 10rpx 16rpx; }
+    .dp-del { font-size: 22rpx; color: $wa-danger; padding: 8rpx 0 8rpx 8rpx; }
   }
 }
 </style>
