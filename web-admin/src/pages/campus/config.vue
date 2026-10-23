@@ -13,6 +13,29 @@
         <view class="kv"><text class="k">{{ $t('campusConfig.dppMaxAdd') }}</text><text class="v">¥{{ fenToYuanFixed(preview.maxAddFee) }}</text></view>
       </view>
       <text class="dpp-off" v-if="!preview.enabled">{{ $t('campusConfig.dppOff') }}</text>
+      <!-- R5 跑腿起步价：未配置按默认 2 元 -->
+      <view class="dpp-row">
+        <view class="dpp-row__main">
+          <text class="zn">{{ $t('campusConfig.dppErrand') }}</text>
+          <text class="pr">¥{{ fenToYuanFixed(preview.errand.baseFee) }} → ¥{{ fenToYuanFixed(preview.errand.price) }}</text>
+          <text class="ad" :class="{ on: preview.errand.addFee > 0 }">{{ preview.errand.addFee > 0 ? '+' + fenToYuanFixed(preview.errand.addFee) : $t('campusConfig.dppNoAdd') }}</text>
+        </view>
+        <text class="br" v-if="preview.errand.breakdown.length">{{ breakdownText(preview.errand.breakdown) }}</text>
+        <text class="br" v-else-if="!preview.errand.configured">{{ $t('campusConfig.dppErrandDefault') }}</text>
+      </view>
+      <!-- R2 第三方到校：未配置基价则不接管，沿用店铺普通快递运费 -->
+      <view class="dpp-row">
+        <view class="dpp-row__main" v-if="preview.thirdParty">
+          <text class="zn">{{ $t('campusConfig.dppThirdParty') }}</text>
+          <text class="pr">¥{{ fenToYuanFixed(preview.thirdParty.baseFee) }} → ¥{{ fenToYuanFixed(preview.thirdParty.price) }}</text>
+          <text class="ad" :class="{ on: preview.thirdParty.addFee > 0 }">{{ preview.thirdParty.addFee > 0 ? '+' + fenToYuanFixed(preview.thirdParty.addFee) : $t('campusConfig.dppNoAdd') }}</text>
+        </view>
+        <view class="dpp-row__main" v-else>
+          <text class="zn">{{ $t('campusConfig.dppThirdParty') }}</text>
+          <text class="pr">{{ $t('campusConfig.dppNotConfigured') }}</text>
+        </view>
+        <text class="br" v-if="preview.thirdParty && preview.thirdParty.breakdown.length">{{ breakdownText(preview.thirdParty.breakdown) }}</text>
+      </view>
       <view v-for="z in preview.zones" :key="z.zoneId" class="dpp-row">
         <view class="dpp-row__main">
           <text class="zn">{{ z.zoneName }}</text>
@@ -145,6 +168,10 @@
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.errandBaseFee') }}</text>
           <input v-model="card.form.errandBaseFeeYuan" type="digit" :placeholder="$t('campusConfig.errandBaseFeePh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.thirdPartyBaseFee') }}</text>
+          <input v-model="card.form.thirdPartyBaseFeeYuan" type="digit" :placeholder="$t('campusConfig.thirdPartyBaseFeePh')" />
         </view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.freeShipping') }}</text>
@@ -379,6 +406,7 @@ interface CardForm {
   minOrderYuan: string;      // 元输入态；提交转分
   deliveryFeeYuan: string;
   errandBaseFeeYuan: string; // 跑腿起步价（元输入态）；提交转分
+  thirdPartyBaseFeeYuan: string; // R2 第三方到校基价（元输入态）；空=不接管，沿用店铺普通快递运费
   freeShipYuan: string;      // 满X元免配送费门槛（元输入态）；空=不启用
   storeAddress: string;
   storePhone: string;
@@ -532,6 +560,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     minOrderYuan: c.minOrderAmount != null ? fenToYuan(c.minOrderAmount) : '',
     deliveryFeeYuan: c.deliveryFee != null ? fenToYuan(c.deliveryFee) : '',
     errandBaseFeeYuan: c.errandBaseFee != null ? fenToYuan(c.errandBaseFee) : '',
+    thirdPartyBaseFeeYuan: c.thirdPartyBaseFee != null ? fenToYuan(c.thirdPartyBaseFee) : '',
     freeShipYuan: c.freeShippingThreshold != null ? fenToYuan(c.freeShippingThreshold) : '',
     storeAddress: c.storeAddress ?? '',
     storePhone: c.storePhone ?? '',
@@ -595,12 +624,17 @@ async function save(card: Card) {
   const minOrder = f.minOrderYuan.trim() === '' ? null : yuanToFen(f.minOrderYuan);
   const fee = f.deliveryFeeYuan.trim() === '' ? null : yuanToFen(f.deliveryFeeYuan);
   const errandFee = f.errandBaseFeeYuan.trim() === '' ? null : yuanToFen(f.errandBaseFeeYuan);
+  const thirdPartyFee = f.thirdPartyBaseFeeYuan.trim() === '' ? null : yuanToFen(f.thirdPartyBaseFeeYuan);
   const freeShip = f.freeShipYuan.trim() === '' ? null : yuanToFen(f.freeShipYuan);
   if (f.freeShipYuan.trim() !== '' && freeShip == null) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
   }
   if (f.errandBaseFeeYuan.trim() !== '' && errandFee == null) {
+    uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+    return;
+  }
+  if (f.thirdPartyBaseFeeYuan.trim() !== '' && thirdPartyFee == null) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
   }
@@ -758,6 +792,7 @@ async function save(card: Card) {
       minOrderAmount: minOrder,
       deliveryFee: fee,
       errandBaseFee: errandFee,
+      thirdPartyBaseFee: thirdPartyFee,
       freeShippingThreshold: freeShip,
       storeAddress: f.storeAddress.trim() || null,
       storePhone: f.storePhone.trim() || null,

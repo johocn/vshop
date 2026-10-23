@@ -44,6 +44,7 @@ export interface CampusStoreConfig {
   storePhone: string | null;
   storeNotice: string | null;
   errandBaseFee: number | null;
+  thirdPartyBaseFee: number | null;
   freeShippingThreshold: number | null;
   notifyTemplateAccepted: string | null;
   notifyTemplateRiderAssigned: string | null;
@@ -80,6 +81,7 @@ export interface CampusStoreConfigInput {
   storePhone?: string | null;
   storeNotice?: string | null;
   errandBaseFee?: number | null;
+  thirdPartyBaseFee?: number | null;
   freeShippingThreshold?: number | null;
   notifyTemplateAccepted?: string | null;
   notifyTemplateRiderAssigned?: string | null;
@@ -99,7 +101,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -662,6 +664,21 @@ export interface CampusDynamicPricingZoneQuote {
   breakdown: CampusPricingBreakdownItem[];
 }
 
+/** R5 跑腿起步价 / R2 第三方到校基价 的动态报价口径 */
+export interface CampusDynamicPricingBaseQuote {
+  /** errand | third-party */
+  key: string;
+  /** 是否显式配置了基价（跑腿未配置按默认 2 元；第三方未配置为 false） */
+  configured: boolean;
+  /** 分 */
+  baseFee: number;
+  /** 分 */
+  price: number;
+  /** 分 */
+  addFee: number;
+  breakdown: CampusPricingBreakdownItem[];
+}
+
 export interface CampusDynamicPricingPreview {
   at: string;
   enabled: boolean;
@@ -673,6 +690,10 @@ export interface CampusDynamicPricingPreview {
   maxAddFee: number;
   supply: { backlogThreshold: number; riderThreshold: number | null; addFee: number } | null;
   peakWindows: Array<{ label: string | null; start: string; end: string; addFee: number }>;
+  /** R5 跑腿起步价口径（未配置按默认 2 元） */
+  errand: CampusDynamicPricingBaseQuote;
+  /** R2 第三方到校基价口径（null = 不接管，沿用店铺普通快递运费） */
+  thirdParty: CampusDynamicPricingBaseQuote | null;
   zones: CampusDynamicPricingZoneQuote[];
 }
 
@@ -682,6 +703,8 @@ export async function campusDynamicPricingPreview(): Promise<CampusDynamicPricin
       at enabled backlog onlineRiders manualMultiplier maxAddFee
       supply { backlogThreshold riderThreshold addFee }
       peakWindows { label start end addFee }
+      errand { key configured baseFee price addFee breakdown { key label fee } }
+      thirdParty { key configured baseFee price addFee breakdown { key label fee } }
       zones { zoneId zoneName baseFee price addFee breakdown { key label fee } }
     } }`,
   );

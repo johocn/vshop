@@ -3142,6 +3142,8 @@
     "deliveryFee": "配送费（元）",
     "errandBaseFee": "跑腿起步价（元）",
     "errandBaseFeePh": "留空默认 2 元",
+    "thirdPartyBaseFee": "第三方配送基价（元）",
+    "thirdPartyBaseFeePh": "留空=不接管，沿用店铺运费",
     "freeShipping": "满X元免配送费（元）",
     "freeShippingPh": "留空=不启用",
     "storeAddress": "自提地址",
@@ -3221,6 +3223,10 @@
     "dppMaxAdd": "加价封顶",
     "dppOff": "当前渠道未启用动态计价，以下为基价。",
     "dppNoAdd": "无加价",
+    "dppErrand": "跑腿起步价",
+    "dppErrandDefault": "未配置，按默认 ¥2 起算",
+    "dppThirdParty": "第三方到校配送",
+    "dppNotConfigured": "未配置，不接管（沿用店铺运费）",
     "dppNote": "试算按当前登录渠道的实时供需计算，修改配置并保存后点「刷新」可看新结果。"
   },
   "campusAddressChanges": {
