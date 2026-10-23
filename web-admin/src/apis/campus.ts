@@ -60,6 +60,7 @@ export interface CampusStoreConfig {
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
   timeoutCompensationEnabled: boolean;
   timeoutGraceMinutes: number;
+  timeoutCompensationWindowHours: number;
   timeoutCompensationCouponTemplateId: string | null;
   /** 动态计价配置 JSON 字符串（null=关闭） */
   dynamicPricing: string | null;
@@ -98,12 +99,13 @@ export interface CampusStoreConfigInput {
   printMode?: string | null;
   timeoutCompensationEnabled?: boolean | null;
   timeoutGraceMinutes?: number | null;
+  timeoutCompensationWindowHours?: number | null;
   timeoutCompensationCouponTemplateId?: string | null;
   dynamicPricing?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -227,6 +229,17 @@ export async function campusMerchantCookingDone(orderId: string): Promise<boolea
     { orderId },
   );
   return res.campusMerchantCookingDone.ok;
+}
+
+/** 商家拒单/缺货：全额退款并取消订单（接单前或备餐中可用，必须填原因） */
+export async function campusMerchantRejectOrder(orderId: string, reason: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantRejectOrder: { ok: boolean } }>(
+    `mutation ($orderId: ID!, $reason: String!) {
+      campusMerchantRejectOrder(orderId: $orderId, reason: $reason) { ok }
+    }`,
+    { orderId, reason },
+  );
+  return res.campusMerchantRejectOrder.ok;
 }
 
 export async function campusMerchantSetPaused(paused: boolean): Promise<boolean> {
@@ -534,6 +547,7 @@ export interface CampusFulfillmentConfigData {
   freeShippingThreshold: number | null;
   timeoutCompensationEnabled: boolean;
   timeoutGraceMinutes: number;
+  timeoutCompensationWindowHours: number;
   timeoutCompensationCouponTemplateId: string | null;
 }
 
@@ -549,11 +563,12 @@ export interface CampusFulfillmentConfigPatch {
   merchantAutoOpenMinutes?: number;
   timeoutCompensationEnabled?: boolean;
   timeoutGraceMinutes?: number;
+  timeoutCompensationWindowHours?: number;
   timeoutCompensationCouponTemplateId?: string | null;
 }
 
 const CONFIG_FIELDS =
-  'id channelId routesEnabled riderCommissionRate autoAssignMinutes paused autoRefundMinutes inProgressSlaMinutes compensationCouponTemplateId merchantConfirmEnabled merchantAutoOpenMinutes freeShippingThreshold timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId';
+  'id channelId routesEnabled riderCommissionRate autoAssignMinutes paused autoRefundMinutes inProgressSlaMinutes compensationCouponTemplateId merchantConfirmEnabled merchantAutoOpenMinutes freeShippingThreshold timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId';
 
 export async function campusConfig(): Promise<CampusFulfillmentConfigData> {
   const res = await getAdminClient().request<{ campusConfig: CampusFulfillmentConfigData }>(

@@ -104,6 +104,10 @@
           <input v-model="ops.timeoutGrace" type="number" :placeholder="$t('campusConfig.phMinutes')" />
         </view>
         <view v-if="ops.timeoutEnabled" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutWindow') }}</text>
+          <input v-model="ops.timeoutWindow" type="number" :placeholder="$t('campusConfig.phHours')" />
+        </view>
+        <view v-if="ops.timeoutEnabled" class="cell">
           <text class="lbl">{{ $t('campusConfig.timeoutCoupon') }}</text>
           <input v-model="ops.timeoutCoupon" :placeholder="$t('campusConfig.timeoutCouponPh')" />
         </view>
@@ -374,6 +378,10 @@
           <input v-model="card.form.timeoutGraceMinutes" type="number" :placeholder="$t('campusConfig.phMinutes')" />
         </view>
         <view v-if="card.form.timeoutCompensation" class="cell">
+          <text class="lbl">{{ $t('campusConfig.timeoutWindow') }}</text>
+          <input v-model="card.form.timeoutWindowHours" type="number" :placeholder="$t('campusConfig.phHours')" />
+        </view>
+        <view v-if="card.form.timeoutCompensation" class="cell">
           <text class="lbl">{{ $t('campusConfig.timeoutCoupon') }}</text>
           <picker
             v-if="couponTemplates.length"
@@ -568,6 +576,7 @@ interface CardForm {
   printMode: string;
   timeoutCompensation: boolean;         // 超时赔付开关（默认关，灰度开）
   timeoutGraceMinutes: string;          // 宽限分钟（超过才赔）
+  timeoutWindowHours: string;           // 赔付回扫窗口（小时，1-168）
   timeoutCouponTemplateId: string;      // 独立赔付券模板（与 T4 无骑手补偿券隔离）
   dpEnabled: boolean;                   // 动态计价总开关
   dpPeaks: PeakForm[];                  // 时段高峰（可多段）
@@ -600,6 +609,7 @@ interface OpsForm {
   paused: boolean;
   timeoutEnabled: boolean;
   timeoutGrace: string;
+  timeoutWindow: string;
   timeoutCoupon: string;
 }
 const ops = ref<OpsForm | null>(null);
@@ -625,6 +635,7 @@ async function loadOps() {
       paused: !!c.paused,
       timeoutEnabled: !!c.timeoutCompensationEnabled,
       timeoutGrace: String(c.timeoutGraceMinutes ?? 10),
+      timeoutWindow: String(c.timeoutCompensationWindowHours ?? 24),
       timeoutCoupon: c.timeoutCompensationCouponTemplateId ?? '',
     };
     slots.value = await fetchCampusSlots();
@@ -656,6 +667,7 @@ async function saveOps() {
   const sla = intOr(f.sla, 45);
   const merchantAutoOpen = intOr(f.merchantAutoOpen, 15);
   const grace = intOr(f.timeoutGrace, 10);
+  const windowH = intOr(f.timeoutWindow, 24);
   if (commission == null || commission > 100) {
     uni.showToast({ title: locale.t('campusConfig.badCommission'), icon: 'none' });
     return;
@@ -666,6 +678,10 @@ async function saveOps() {
   }
   if (grace == null || grace > 240) {
     uni.showToast({ title: locale.t('campusConfig.badGrace'), icon: 'none' });
+    return;
+  }
+  if (windowH == null || windowH < 1 || windowH > 168) {
+    uni.showToast({ title: locale.t('campusConfig.badWindow'), icon: 'none' });
     return;
   }
   if (f.timeoutEnabled && !f.timeoutCoupon.trim()) {
@@ -685,6 +701,7 @@ async function saveOps() {
       paused: f.paused,
       timeoutCompensationEnabled: f.timeoutEnabled,
       timeoutGraceMinutes: grace,
+      timeoutCompensationWindowHours: windowH,
       timeoutCompensationCouponTemplateId: f.timeoutCoupon.trim() || null,
     });
     ops.value = {
@@ -699,6 +716,7 @@ async function saveOps() {
       paused: !!saved.paused,
       timeoutEnabled: !!saved.timeoutCompensationEnabled,
       timeoutGrace: String(saved.timeoutGraceMinutes),
+      timeoutWindow: String(saved.timeoutCompensationWindowHours ?? 24),
       timeoutCoupon: saved.timeoutCompensationCouponTemplateId ?? '',
     };
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -924,6 +942,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     printMode: c.printMode ?? 'off',
     timeoutCompensation: !!c.timeoutCompensationEnabled,
     timeoutGraceMinutes: String(c.timeoutGraceMinutes ?? 10),
+    timeoutWindowHours: String(c.timeoutCompensationWindowHours ?? 24),
     timeoutCouponTemplateId: c.timeoutCompensationCouponTemplateId ?? '',
     dpEnabled: dp.enabled,
     dpPeaks: dp.peakWindows.map(w => ({ start: w.start, end: w.end, addYuan: fenToYuan(w.addFee) })),
@@ -1132,6 +1151,11 @@ async function save(card: Card) {
     uni.showToast({ title: locale.t('campusConfig.badGrace'), icon: 'none' });
     return;
   }
+  const windowInput = f.timeoutWindowHours.trim() === '' ? 24 : Number(f.timeoutWindowHours);
+  if (!Number.isInteger(windowInput) || windowInput < 1 || windowInput > 168) {
+    uni.showToast({ title: locale.t('campusConfig.badWindow'), icon: 'none' });
+    return;
+  }
 
   savingId.value = card.channelId;
   try {
@@ -1168,6 +1192,7 @@ async function save(card: Card) {
       printMode: f.printMode,
       timeoutCompensationEnabled: f.timeoutCompensation,
       timeoutGraceMinutes: graceInput,
+      timeoutCompensationWindowHours: windowInput,
       timeoutCompensationCouponTemplateId: f.timeoutCouponTemplateId.trim() || null,
       dynamicPricing,
     });
