@@ -782,6 +782,60 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 手机视口（390×844 dpr=2）：调度中心正常渲染，异常处置记录留痕正常，PASS。
 - 已知展示问题（非本次改动引入）：异常处置记录时间显示 `NaN:NaN`，历史数据缺少可解析时间字段，留待后续统一修时区/格式化。
 
+## 22. 配送体系第三轮审计（P0/P1 八项加固，2026-10-24）
+
+第三轮只读审计发现 13 项遗漏（P0 3 项 / P1 5 项 / P2 5 项），本轮修复 P0+P1 共 8 项，聚焦**容量口径、重复赔付/重复配送、退款与外部运单并发**。
+
+### 22.1 时段锁位幂等（容量虚增修复）
+
+- 原逻辑：订单一取消就 `lockedCount - 1`，但未支付取消、容量已满未锁位的单从未加过容量 → 每次取消都在**虚增**余量，可超卖。
+- 现在：锁位成功时写 `slotLocked=true`（与容量递增同源）；取消时用单条 `UPDATE ... WHERE slotLocked=true RETURNING slotId` **原子认领**，只有真正锁过位的单才归还容量，同一单只归还一次。
+- 迁移 `p4OpsHardeningSql` 新增 `customFieldsSlotlocked` 列（默认 false），并把**在途预约单**回填为已锁位（历史未落标记，避免其取消时无法归还）。
+
+### 22.2 异常处置幂等 + 取消单拦截
+
+- 异常处置（重派/退差价/补偿券/全额退）改为**原子认领**：先 `UPDATE ... RETURNING` 消费异常态，失败直接提示「该异常已处置，请刷新后重试」。并发双击/双运营操作只有一路生效，不再二次发券或二次小额退款。
+- 已取消订单（`state=Cancelled`）直接拒绝处置。
+- 处置动作抛错时**回滚认领**（恢复 `hallStatus/deliveryStatus=exception`），保留异常态供重试，避免「标记已处置但钱没退」。
+- 重派后把 `hallEnteredAt` 刷新为当前时间，防止同一轮扫描按旧入厅时间立即触发 T4 自动退款。
+
+### 22.3 退款串行化补齐（异常处置 / 改址差额）
+
+- 上一轮退款锁只覆盖商家拒单与 T4；本轮把 **异常处置退差价/全额退**、**改址差额结清** 也纳入同一把订单级锁 `campus:refund:<orderId>`。
+- 改址差额在锁内**复查台账 refundId**，防并发结清双退；抢不到锁提示「该订单正在退款处理中，请稍后重试」。
+
+### 22.4 外部运单回调幂等与防回退
+
+- 回调状态加入推进序 `pending < accepted < pickup < delivered`：同状态重复、旧状态乱序到达一律忽略。
+- 送达回调若订单**已离开 `third_party`**（已进大厅 / 已被抢 / 已送达），只补终态与快递员信息，**不再二次 `enterHallForHandover`**——原逻辑会重置大厅、清空骑手、重生成交接码，造成重复配送与二次分成。
+
+### 22.5 外部推送订单级锁
+
+- `dispatchExternal` 增加订单级咨询锁 `campus:thirdparty:<orderId>`，幂等判断与下单在同一锁内；并发推送第二路提示「该订单正在推送外部快递，请稍后重试」，防产生两张外部运单（孤儿单 + 双倍运费）。
+
+### 22.6 手动强派在线校验
+
+- 强派前校验骑手心跳 `riderOnlineAt`：超过 5 分钟（与 `CapacityService` 在线窗口一致）直接拒绝「该骑手当前不在线，无法派单」，避免派给离线骑手后 15 分钟必然回厅。
+
+### 22.7 调度扫描按渠道加锁 + 故障隔离
+
+- 扫描锁从全局 `campus:dispatch:scan` 改为**按渠道** `campus:dispatch:scan:<channelId>`：多实例下各渠道可并行，单渠道慢不再拖住其他渠道。
+- 单渠道扫描异常只记日志并继续后续渠道，不再中断整轮。
+
+![调度中心：大厅/进行中/异常留痕正常](screenshots/waimai/p7-delivery/01-dispatch-board.png)
+
+![履约参数与时段容量](screenshots/waimai/p7-delivery/02-campus-config.png)
+
+![配送看板](screenshots/waimai/p7-delivery/03-campus-stats.png)
+
+### 22.8 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；`npx vitest --config vitest.config.mts --run` **29 文件 / 302 用例全 PASS**（新增：锁位标记与解锁幂等、强派离线拒绝、异常重复认领/取消单/失败回滚、外部回调幂等与防回退、按渠道扫描锁与渠道故障隔离）。
+- 部署：vendure `158ed8b2a` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online，启动日志无迁移/插件报错。
+- 数据库核对：`order.customFieldsSlotlocked` 列已建（boolean，默认 false）；历史 24 单带时段订单全部为终态（取消 11 / 无人接退款 9 / 已送达 4），在途回填 0 单，符合预期。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：调度中心、履约参数与时段容量、配送看板均正常渲染，无控制台错误。
+
+
 
 
 
