@@ -662,4 +662,57 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 截图说明：为展示拒单按钮，临时将一笔历史订单的 `hallStatus` 置为 `pending_merchant` 并隐去骑手信息，**截后已还原**（`grabbed` + 原骑手），未触发退款、无脏数据。
 - 数据限制：线上无 R2/R3 在途订单与改址记录，改址联动与外部快递节点通知本次未取得真实数据截图，接入真实数据后按 §19.5/§19.6 复验即可。
 
+## 20. 配送体系二次体检（P0 五项：终态一致性 / 看板干净 / 统计口径，2026-10-24）
+
+第二轮只读审计发现 17 项体系性遗漏（不含 P4 已修 8 项），本轮先修 P0 五项。核心问题：**骑手送达只写 `deliveryStatus`，不写 `hallStatus`**，导致送达后的订单在调度墙、商家台、统计里长期「滞留配送中」（线上实测 14 单）。
+
+### 20.1 骑手送达同步写终态 `hallStatus=delivered`
+
+- `RiderTaskService.deliver()` 在写入 `deliveryStatus=delivered` 的同时写 `hallStatus=delivered`（与 R2/R3 外部直送的终态一致）。
+- 影响面：送达后订单立即退出调度看板「进行中」、商家工作台「配送中」、自动扫描（`DispatchJobService` 只扫活跃状态），不再被 SLA 超时告警反复计入。
+- 前端/接口无需改动，`delivered` 已是既有终态枚举。
+
+### 20.2 调度看板 / 商家工作台过滤终态单
+
+- 调度中心看板：`cancelled` / `no_rider_final` / `delivered` 三类终态单不再进入「大厅待接 / 进行中 / 告警」；`exception_final`（已处置）仍进「异常处置记录」留痕。
+- 兼容**历史脏数据**：即使 `hallStatus` 仍为 `grabbed`，只要 `deliveryStatus=delivered` 也不再进墙/进栏。
+- 商家工作台：`deliveryStatus=delivered` 的单不再出现在「配送中」等流转栏（今日完成数与金额口径不变）。
+
+![调度中心：终态单不进墙](screenshots/waimai/p5-delivery/01-dispatch-terminal-clean.png)
+
+![商家接单：配送中无送达残留](screenshots/waimai/p5-delivery/02-merchant-delivered-clean.png)
+
+### 20.3 第一段送达加前置状态校验
+
+- `completeFirstLeg`（R1 商户送交接点 / 自营快递送达）新增状态前置校验：
+  - `deliveryPlan=merchant` 必须处于 `merchant_delivering`；
+  - `deliveryPlan=owned` 必须处于 `owned_dispatched`。
+- 不符时返回「第一段已送达或订单状态已变更，请刷新后重试」。防止商家重复点击把已回大厅（`open`）或已送达的单**再次** `enterHallForHandover`：重置 `hallStatus`、清空骑手、重生成交接码。
+
+### 20.4 配送统计只计校园履约单
+
+- 「配送看板」SQL 增加 `hallStatus IS NOT NULL` 过滤：普通快递、自提等非校园履约单不再计入有效单量 / 准点率 / 环节耗时 / 店铺对比。
+- 线上实测（近 7 天）：修复前口径 24 单，修复后 **4 单**（14 单校园履约 − 10 单取消）；与真实业务量一致。
+
+![配送看板：有效单量回到校园履约口径](screenshots/waimai/p5-delivery/03-stats-scope.png)
+
+### 20.5 时段更新加渠道归属校验
+
+- `updateSlot` 查询条件增加 `channelId`：只能修改**本渠道**时段，跨租户传别人家时段 id 返回「时段不存在」。
+- 与分区/楼栋/店铺配置的渠道隔离保持一致。
+
+### 20.6 存量脏数据幂等回填
+
+- 启动迁移 `p4OpsHardeningSql` 追加幂等 UPDATE：`deliveryStatus=delivered` 且 `hallStatus` 非终态（`delivered/cancelled/no_rider_final/exception_final`）的单统一回填 `hallStatus=delivered`。
+- 线上执行结果：14 单 `grabbed + delivered` → **14 单 `delivered + delivered`**，与 20.1 后续新单口径一致。
+
+### 20.7 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；`npx vitest --config vitest.config.mts --run` **29 文件 / 276 用例全 PASS**（新增送达终态、看板终态过滤、第一段前置校验、统计口径、时段渠道隔离用例）。
+- 部署：vendure `67fed74d9` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online，启动日志无迁移报错。
+- 数据库核对：`grabbed + delivered` 脏数据 14 → 0；近 7 天校园履约 14 单、非取消 4 单，与看板「有效单量 4」一致。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli）：调度中心「大厅待接 0 / 进行中 0 / 异常处置记录留痕」PASS；商家接单各栏无送达残留 PASS；配送看板有效单量 4、趋势图正常 PASS。
+- 未修项（P1/P2 共 12 项）见本轮审计清单：催单门槛、异常超时升级、骑手钱包累计口径、信用分并发、改址楼栋跨店校验、通知去重键、多实例扫描幂等、拒单/退款行锁等，后续按优先级推进。
+
+
 
