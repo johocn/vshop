@@ -3429,6 +3429,7 @@
     "alertSla": "SLA breach",
     "alertSlotFull": "Slot lock failed",
     "alertException": "Rider exception",
+    "alertUrged": "Customer urged",
     "causeSlotFull": "Slot lock failed, manual follow-up needed",
     "causeNoRider": "Auto-refunded (no rider)",
     "causeMerchantTimeout": "Merchant not responding, auto-opened",
