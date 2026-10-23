@@ -3,6 +3,8 @@
     <view v-if="loading" class="hint">{{ $t('campusDispatch.loading') }}</view>
     <template v-else>
       <view v-if="board.paused" class="banner paused">{{ $t('campusDispatch.pausedBanner') }}</view>
+      <!-- 写操作需 CampusDispatch，仅有看板权限时为只读 -->
+      <view v-if="!canDispatch" class="banner readonly">{{ $t('campusDispatch.readonlyBanner') }}</view>
 
       <!-- 异常待处理（plan 3.4）：处置卡内联三选一 + 危险操作二次确认 -->
       <template v-if="exceptionAlerts.length">
@@ -22,7 +24,7 @@
               @tap="previewPhoto(a, i)"
             />
           </view>
-          <view class="tabs">
+          <view v-if="canDispatch" class="tabs">
             <button class="tab" :class="{ on: excTab(a.orderId) === 'diff' }" @tap="setExcTab(a.orderId, 'diff')">
               {{ $t('campusDispatch.excDiff') }}
             </button>
@@ -33,7 +35,7 @@
               {{ $t('campusDispatch.excRefund') }}
             </button>
           </view>
-          <view v-if="excTab(a.orderId) === 'diff'" class="pane">
+          <view v-if="canDispatch && excTab(a.orderId) === 'diff'" class="pane">
             <view class="fld-label">{{ $t('campusDispatch.excAmount') }}</view>
             <input
               class="fld" type="digit" :value="excAmount[a.orderId]"
@@ -46,7 +48,7 @@
             />
             <button class="act primary block" @tap="handleDiff(a)">{{ $t('campusDispatch.excConfirmDiff') }}</button>
           </view>
-          <view v-else-if="excTab(a.orderId) === 'coupon'" class="pane">
+          <view v-else-if="canDispatch && excTab(a.orderId) === 'coupon'" class="pane">
             <view class="fld-label">{{ $t('campusDispatch.excPickCoupon') }}</view>
             <picker mode="selector" :range="couponNames" @change="(e: any) => onCouponPick(a.orderId, Number(e.detail.value))">
               <view class="fld picker">
@@ -60,12 +62,12 @@
             />
             <button class="act primary block" @tap="handleCoupon(a)">{{ $t('campusDispatch.excConfirmCoupon') }}</button>
           </view>
-          <view v-else class="pane">
+          <view v-else-if="canDispatch" class="pane">
             <view class="warnline">{{ $t('campusDispatch.excRefundWarn') }}</view>
             <button class="act danger block" @tap="handleRefundAll(a)">{{ $t('campusDispatch.excConfirmRefund') }}</button>
           </view>
           <view class="sep" />
-          <button class="act ghost block" @tap="handleReassign(a)">{{ $t('campusDispatch.excReassign') }}</button>
+          <button v-if="canDispatch" class="act ghost block" @tap="handleReassign(a)">{{ $t('campusDispatch.excReassign') }}</button>
         </view>
       </template>
 
@@ -98,7 +100,7 @@
               <text class="ext-tag">{{ o.customFields.fulfillmentRoute }} · {{ extStateLabel(o) }}</text>
               <text v-if="o.customFields.thirdPartyNo" class="ext-no">{{ o.customFields.thirdPartyNo }}</text>
             </view>
-            <view class="acts">
+            <view v-if="canDispatch" class="acts">
               <button class="act" @tap="assign(o)">{{ $t('campusDispatch.assign') }}</button>
               <button v-if="canPushExternal(o)" class="act ghost" @tap="pushExternal(o)">{{ $t('campusDispatch.pushExternal') }}</button>
             </view>
@@ -109,7 +111,7 @@
           <view class="col-head">
             <text class="col-title">{{ $t('campusDispatch.active') }}</text>
             <text class="col-count">{{ board.activeOrders.length }}</text>
-            <text v-if="pushableActive.length > 1" class="batch" @tap="pushExternalBatch">
+            <text v-if="canDispatch && pushableActive.length > 1" class="batch" @tap="pushExternalBatch">
               {{ $t('campusDispatch.pushBatch').replace('{n}', String(pushableActive.length)) }}
             </text>
           </view>
@@ -125,7 +127,7 @@
               <text class="ext-tag">{{ o.customFields.fulfillmentRoute }} · {{ extStateLabel(o) }}</text>
               <text v-if="o.customFields.thirdPartyNo" class="ext-no">{{ o.customFields.thirdPartyNo }}</text>
             </view>
-            <view class="row acts">
+            <view v-if="canDispatch" class="row acts">
               <button
                 v-if="o.customFields.hallStatus === 'grabbed'"
                 class="act ghost" @tap="backToHall(o)"
@@ -192,11 +194,15 @@ import { fetchCouponTemplates, type CouponTemplateItem } from '../../apis/coupon
 import { graphQlErrorMsg } from '../../apis/client';
 import { yuanToFen, fenToYuanFixed } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
+import { useAuthStore } from '../../stores/authStore';
 import { usePermGuard } from '../../composables/usePermGuard';
 
 usePermGuard('CampusViewDispatch');
 
 const locale = useLocaleStore();
+const auth = useAuthStore();
+/** 调度写操作需 CampusDispatch；仅有 CampusViewDispatch 时为只读看板 */
+const canDispatch = computed(() => auth.hasPermission('CampusDispatch'));
 const loading = ref(true);
 const board = ref<CampusDispatchBoardData>({
   paused: false,
@@ -570,6 +576,7 @@ onUnmounted(() => {
   }
   .banner { border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; font-size: 26rpx;
     &.paused { color: #fff; background: #ff4d4f; }
+    &.readonly { color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8; }
   }
   .alerts { margin-bottom: 24rpx;
     .alert { display: flex; align-items: center; gap: 16rpx; background: #fff7e6;

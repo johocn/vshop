@@ -118,6 +118,12 @@
             class="act" :disabled="actingId === o.id"
             @tap="markHandoverArrived(o)"
           >{{ $t('campusMerchant.markHandoverArrived') }}</button>
+          <!-- 拒单/缺货：接单前与备餐中均可，二次确认后全额退款并取消（独立链，勿并入上方 v-else-if） -->
+          <button
+            v-if="tab === 'pending' || tab === 'cooking'"
+            class="act ghost reject" :disabled="actingId === o.id"
+            @tap="reject(o)"
+          >{{ $t('campusMerchant.reject') }}</button>
         </view>
       </view>
     </template>
@@ -136,6 +142,7 @@ import {
   campusMerchantMarkHandoverArrived,
   campusMerchantMarkOwnedArrived,
   campusMerchantMarkPrinted,
+  campusMerchantRejectOrder,
   campusMerchantSetPaused,
   type CampusMerchantBoard,
   type MerchantBoardOrder,
@@ -464,6 +471,41 @@ async function cookingDone(o: MerchantBoardOrder) {
   }
 }
 
+/** 拒单/缺货：原因选择 → 二次确认 → 全额退款并取消（接单前/备餐中均可用） */
+const REJECT_REASONS = [
+  'campusMerchant.rejectReasonSoldOut',
+  'campusMerchant.rejectReasonClosed',
+  'campusMerchant.rejectReasonOutOfRange',
+  'campusMerchant.rejectReasonOther',
+];
+function reject(o: MerchantBoardOrder) {
+  const reasons = REJECT_REASONS.map(k => locale.t(k));
+  uni.showActionSheet({
+    itemList: reasons,
+    success: (res: any) => {
+      const reason = reasons[res.tapIndex] ?? reasons[reasons.length - 1];
+      uni.showModal({
+        title: locale.t('campusMerchant.rejectTitle'),
+        content: locale.t('campusMerchant.rejectBody').replace('{code}', o.code),
+        confirmText: locale.t('campusMerchant.rejectConfirm'),
+        success: async (r: any) => {
+          if (!r.confirm) return;
+          actingId.value = o.id;
+          try {
+            await campusMerchantRejectOrder(o.id, reason);
+            uni.showToast({ title: locale.t('campusMerchant.rejectDone'), icon: 'none' });
+            await refresh();
+          } catch (err: any) {
+            uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+          } finally {
+            actingId.value = '';
+          }
+        },
+      });
+    },
+  });
+}
+
 function providerLabel(provider: string | null): string {
   if (provider === 'dada') return locale.t('campusMerchant.providerDada');
   if (provider === 'meituan') return locale.t('campusMerchant.providerMeituan');
@@ -627,6 +669,8 @@ onUnmounted(() => {
         padding: 0 32rpx; line-height: 64rpx; }
       .act.ghost { background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent;
         padding: 0 20rpx; }
+      // 拒单为不可逆操作：危险色 + 置于按钮链末尾，降低误触
+      .act.reject { border-color: #ff4d4f; color: #d4380d; }
     }
   }
 }
