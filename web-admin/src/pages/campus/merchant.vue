@@ -42,6 +42,11 @@
           <text class="ext-txt">{{ providerLabel(o.provider) }}</text>
           <text v-if="o.thirdPartyNo" class="ext-no">{{ o.thirdPartyNo }}</text>
         </view>
+        <!-- 交接码：第一段送达交接点后生成，交给取货骑手核对（防丢餐扯皮） -->
+        <view v-if="o.handoverCode" class="row code-row">
+          <text class="code-label">{{ $t('campusMerchant.handoverCode') }}</text>
+          <text class="code-val">{{ o.handoverCode }}</text>
+        </view>
         <view class="row dest">
           <text class="dest-txt">{{ o.zone }} {{ o.building }}</text>
           <text v-if="o.slotText" class="slot">{{ o.slotText }}</text>
@@ -483,6 +488,10 @@ onUnmounted(() => {
     .ext { padding-top: 10rpx; gap: 12rpx;
       .ext-txt { font-size: 22rpx; color: $wa-accent; }
       .ext-no { font-size: 22rpx; color: $wa-muted; word-break: break-all; }
+    }
+    .code-row { padding-top: 10rpx;
+      .code-label { font-size: 22rpx; color: $wa-muted; }
+      .code-val { font-size: 32rpx; font-weight: 700; letter-spacing: 4rpx; color: $wa-accent; }
     }
     .note { margin-top: 10rpx; background: #fff7e6; border-left: 6rpx solid #ff9800; border-radius: 8rpx; padding: 10rpx 16rpx;
       .note-txt { font-size: 24rpx; color: #b25f00; word-break: break-all; }

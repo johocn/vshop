@@ -158,6 +158,7 @@ export interface MerchantBoardOrder {
   printedAt: string | null; // 小票最近打印时间（null=未打）
   provider: string | null; // 外部快递：dada | meituan
   thirdPartyNo: string | null; // 外部快递平台单号
+  handoverCode: string | null; // 交接码（第一段送达交接点后生成，骑手取货核对）
   lines: MerchantBoardLine[];
 }
 
@@ -182,7 +183,7 @@ export interface CampusMerchantBoard {
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(

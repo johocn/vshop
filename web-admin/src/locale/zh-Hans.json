@@ -3192,6 +3192,7 @@
     "receiptSlot": "送达时段",
     "receiptNote": "备注",
     "noteLabel": "备注",
+    "handoverCode": "取餐交接码",
     "receiptSubtotal": "商品小计",
     "receiptDeliveryFee": "配送费",
     "receiptTotal": "合计",
