@@ -65,6 +65,7 @@ export const NAV_TITLE_KEYS: Record<string, string> = {
     'pages/campus/merchant': 'nav.campusMerchant',
     'pages/campus/dispatch': 'nav.campusDispatch',
     'pages/campus/stats': 'nav.campusStats',
+    'pages/campus/address-changes': 'nav.campusAddressChanges',
     'pages/campus/buildings': 'nav.campusBuildings',
     'pages/pickup/index': 'nav.pickup',
     'pages/pickup/edit/index': 'nav.pickupEdit',

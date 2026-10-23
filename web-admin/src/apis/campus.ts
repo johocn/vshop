@@ -59,6 +59,8 @@ export interface CampusStoreConfig {
   timeoutCompensationEnabled: boolean;
   timeoutGraceMinutes: number;
   timeoutCompensationCouponTemplateId: string | null;
+  /** 动态计价配置 JSON 字符串（null=关闭） */
+  dynamicPricing: string | null;
 }
 
 export interface CampusStoreConfigInput {
@@ -93,10 +95,11 @@ export interface CampusStoreConfigInput {
   timeoutCompensationEnabled?: boolean | null;
   timeoutGraceMinutes?: number | null;
   timeoutCompensationCouponTemplateId?: string | null;
+  dynamicPricing?: string | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationCouponTemplateId dynamicPricing';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -498,4 +501,78 @@ export async function campusCreateBuilding(
     { name, zoneId, detail: detail ?? null, lat: lat ?? null, lng: lng ?? null },
   );
   return res.campusCreateBuilding;
+}
+
+// ===== 改址台账（CampusConfig 权限，渠道隔离）=====
+
+export interface CampusAddressChangeRow {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  customerId: string | null;
+  fromZone: string;
+  fromBuilding: string;
+  fromDetail: string | null;
+  toZone: string;
+  toBuilding: string;
+  toDetail: string | null;
+  /** 分 */
+  oldFee: number;
+  /** 分 */
+  newFee: number;
+  /** 分：正=待收，负=待退 */
+  diff: number;
+  /** pending | settled */
+  status: string;
+  settledAt: string | null;
+  /** refund | collect | waive */
+  settleAction: string | null;
+  createdAt: string;
+}
+
+export interface CampusAddressChangeStats {
+  total: number;
+  pendingCount: number;
+  /** 待收差额合计（分，正数） */
+  pendingCollect: number;
+  /** 待退差额合计（分，正数） */
+  pendingRefund: number;
+}
+
+const ADDRESS_CHANGE_FIELDS =
+  'id orderId orderCode customerId fromZone fromBuilding fromDetail toZone toBuilding toDetail oldFee newFee diff status settledAt settleAction createdAt';
+
+export async function campusAddressChanges(
+  status?: string | null,
+  skip?: number,
+  take?: number,
+): Promise<CampusAddressChangeRow[]> {
+  const res = await getAdminClient().request<{ campusAddressChanges: CampusAddressChangeRow[] }>(
+    `query ($status: String, $skip: Int, $take: Int) {
+      campusAddressChanges(status: $status, skip: $skip, take: $take) { ${ADDRESS_CHANGE_FIELDS} }
+    }`,
+    { status: status ?? null, skip: skip ?? null, take: take ?? null },
+  );
+  return res.campusAddressChanges;
+}
+
+export async function campusAddressChangeStats(): Promise<CampusAddressChangeStats> {
+  const res = await getAdminClient().request<{ campusAddressChangeStats: CampusAddressChangeStats }>(
+    `query { campusAddressChangeStats { total pendingCount pendingCollect pendingRefund } }`,
+  );
+  return res.campusAddressChangeStats;
+}
+
+/** action: refund（已退）| collect（已收）| waive（免收）| pending（撤销结清） */
+export async function campusSettleAddressChange(
+  id: string,
+  action: string,
+): Promise<CampusAddressChangeRow> {
+  const res = await getAdminClient().request<{ campusSettleAddressChange: CampusAddressChangeRow }>(
+    `mutation ($id: ID!, $action: String!) {
+      campusSettleAddressChange(id: $id, action: $action) { ${ADDRESS_CHANGE_FIELDS} }
+    }`,
+    { id, action },
+  );
+  return res.campusSettleAddressChange;
 }
