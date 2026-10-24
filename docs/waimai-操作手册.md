@@ -1282,3 +1282,42 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![校园配置：动态计价试算与履约参数（写入白名单生效）](screenshots/waimai/p9-round10/02-campus-config.png)
 
 ![商家接单：活跃单视图正常](screenshots/waimai/p9-round10/03-merchant.png)
+
+## 31. 配送体系第十一轮审计（P1 资金幂等 + P2 配置边界/回调条件写 + P3 可观测性，2026-10-24）
+
+### 31.1 骑手分成入账防重复加余额（P1）
+
+- 送达分成与钱包补账原实现「先查 pending → 直接 `addBalance` → 置 credited」，余额端口 `addBalance` 无业务幂等键。多端同时读钱包（骑手 App + 后台）或送达重试时，同一笔 pending 分成可能被**加两次余额**。
+- 现在两处都先做行级 CAS 认领（`UPDATE rider_earning SET status='crediting' WHERE id=$1 AND status=旧态 RETURNING id`），只有认领成功的进程才入账，成功置 `credited`、失败回 `pending` 待下次补账。
+- 补账额外纳入「超过 10 分钟仍停留在 `crediting`」的残留行（入账链路中断不会永久卡款）；入账端口异常时中断本轮，避免逐条打错误日志。
+- 残余风险（已注释标注）：入账成功但进程在置 `credited` 前崩溃 → 10 分钟后会被再次补账，仅能靠「补账成功」日志人工对账。
+
+### 31.2 配送配置结构化校验（P2）
+
+- 经纬度：`storeLat` 必须 ∈[-90,90]、`storeLng` ∈[-180,180] 且为有限数，否则「storeLat 必须是合法的纬度」。
+- 结构化字段：`routeFirstLeg / providerShopNo / dynamicPricing` 必须是对象（字符串/数组 → 拒绝，防 JSON 列写坏导致交接点/动态计价静默失效）。
+- 交接点：`handoverPoints` 必须是 `{路线: [{lat,lng}]}`，逐项校验数组与坐标，非法时提示「交接点 R2 坐标不合法」。
+
+### 31.3 外部快递回调改条件写（P2/P3）
+
+- 中间态回调（pending/accepted/pickup）原为「读当前状态 → 比对推进序 → 写回」，并发下可能把已推进的状态回退。现在改为单条条件 `UPDATE`（`WHERE customFieldsThirdpartystate = 读取值 AND state <> 'Cancelled'`），未命中即忽略并记日志、不再发接单通知。
+- 迟到送达回调（订单已脱厅进大厅）同样走条件写，**已取消订单不会被写回 `delivered`**（否则取消退款后仍按送达统计）。
+
+### 31.4 P3 可观测性与条件写收口
+
+- **飞书去重键**：未显式传 `dedupeKey` 时，缺省键由 `orderCode` 改为 `orderCode:事件标题`，同一订单 2 分钟内连发「取货超时告警」+「回厅」等不同事件不再被吞（显式传键的调用语义不变）。
+- **reassign 重置入厅时间**：改条件写 `transitionFrom(['open'])`，并发取消时不把终态单改回履约态，未命中记告警日志。
+- **调度积压告警**：单渠道单轮扫描达 200 单上限时，除日志外推送飞书「调度扫描积压」（按渠道去重键），提醒运营增派运力/清理异常单；年轻订单被 oldest-first 饿死的问题在运营侧可见。
+- **评估未改**：异常处置发补偿券极端情况下可能重复，但单客户发券走事务、失败即回滚，且 `grantCoupon` 无幂等键，风险极低，暂不改代码。
+
+### 31.5 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **34 文件 / 425 用例全 PASS**（较上轮 410 +15：补账认领成功/未命中/失败回 pending、坐标与结构化配置/交接点校验、扫描积压告警、外部中间态条件写未命中）。
+- 部署：vendure `7d481a1a1` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 应答 `{"data":{"activeChannel":{"id":"1","code":"__default_channel__"}}}`，JobQueue（payment-timeout / order-timeout 等）全部启动。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，当前登录店铺渠道）：调度中心、校园配置（含「配送超时赔付」新参数区）、商家接单均正常渲染。
+
+![调度中心：正常渲染](screenshots/waimai/p9-round11/01-dispatch.png)
+
+![校园配置：履约参数与动态计价试算正常](screenshots/waimai/p9-round11/02-campus-config.png)
+
+![商家接单：活跃单视图正常](screenshots/waimai/p9-round11/03-merchant.png)
