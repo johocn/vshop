@@ -1220,3 +1220,65 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![拾光达配置：动态计价试算与履约参数（当前店铺）](screenshots/waimai/p9-round9/02-campus-config.png)
 
 ![楼栋坐标：公开只读接口正常返回](screenshots/waimai/p9-round9/03-buildings.png)
+
+
+
+
+## 30. 配送体系第十轮审计（P1 履约快照 + P2 静默失败/白名单/隔离 + P3 边界收口，2026-10-24）
+
+### 30.1 商家确认模式自动入厅重置履约快照（P1）
+
+- 商家接单确认开启时，超过 `merchantAcceptMinutes` 未确认的订单会自动入厅（`open`）。原实现只改 `hallStatus`，遗留 `deliveryPlan=merchant / handoverMode=...`，后续兜底规则按旧快照判断，可能出现「已入厅却仍按商户配送统计/页面显示商户配送」。
+- 现在自动入厅同时写 `deliveryPlan='campus_rider'`、`handoverMode=''`（内存快照同步更新），入厅后的订单立即按传信者抢单口径参与后续调度。
+
+### 30.2 出餐超时兜底覆盖 R1（P1）
+
+- 原出餐超时（`merchant_cooking_timeout`）只兜底 R2：R1 已接单但久未出餐的单，只有渠道仍开启「商家接单确认」时才会被处理；渠道一旦关闭确认模式，遗留 `accepted` 单会**永久卡死**（不退款、不进墙、不告警）。
+- 现在 R1/R2 的 `accepted` 单超 `merchantAutoOpenMinutes` 统一降级 `open + campus_rider`，清 `handoverMode`，飞书事件文案标注路线（`（R1）/（R2）`）。
+
+### 30.3 无人接单自动退款失败不再静默终态（P2）
+
+- T4 超时退款抛错时，原实现仍把订单写成 `no_rider_final` 终态：运营看板看不到、订单不再重试、顾客钱也没退。
+- 现在失败写 `hallStatus='refund_failed'` + `campusCause='refund_failed'`，并推送飞书「无人接单自动退款失败」；调度看板新增 `refund_failed` 告警（类型 `exception`，提示「请人工退款/取消」），订单继续留在活跃列表可人工处置。
+
+### 30.4 配送配置写入白名单（P2）
+
+- `campusUpdateFulfillmentConfig` 原先把入参直接展开写库：可注入 `channelId/id` 等非配置字段，也可写入负数/超大数值导致后续调度按异常阈值运行。
+- 现在仅接受 44 个已声明配置字段；未知字段直接报「不支持的配置字段」；整数区间校验（分成比例 0–100、各超时/分钟 1–240、商家接单 0–240、金额 0–1000 万分即 10 万元）；字符串限长（门店地址 200、电话 32、公告 500、H5 域名 200、模板 ID 128）；`routesEnabled` 仅 R1–R5 且去重；`printMode` 白名单。
+
+### 30.5 骑手审核与列表按渠道隔离（P2）
+
+- 骑手审核状态写回、审核列表原实现未校验 Customer 归属渠道，A 店管理员可用 B 店 customerId 停用/通过骑手。
+- 现在写状态前先按 `customer.channels` 校验（不在当前店铺 → 「骑手不存在或不属于当前店铺」）；审核列表同样 join 渠道过滤。
+
+### 30.6 跑腿单入参校验（P2）
+
+- `campusSetErrandInfo` 增加：`kind` 白名单（`pickup_express / bring_food / buy / other`）；起点/终点必填且 ≤100 字；备注 ≤200 字；来源单号 ≤64 字；小费为整数、0–10 万元。
+- 分区/楼栋必须属于当前店铺；同时传分区与楼栋时校验楼栋归属该分区；仅传楼栋时按楼栋反查分区名回填，避免跨店 ID 串店计价与调度。
+
+### 30.7 P3 边界收口
+
+- **配送目标**：路线必须在该店铺 `routesEnabled` 内（否则「该配送路线当前不可用」）；预约时段必须属于所选分区。
+- **异常赔付**：`refund_diff` 金额必须为正整数且不超过订单实付，防止越权超额退款。
+- **拒单扣分**：先条件写脱厅成功（未命中则报「订单已取消或已终态，无法拒单」）后再扣信用分，不再对终态单扣分。
+- **外部快递取消**：`cancel` 外层加 `campus:thirdparty:{orderId}` 咨询锁（3 次 ×300ms 重试），推送与取消并发时提示「该订单正在推送/取消外部快递，请稍后重试」，避免重复取消/双运单。
+- **取消事件顺序**：订单 `Cancelled` 事件由三个并行 fire-and-forget 改为串行 `cancel → exitHall → slotLock.unlock`，每步独立 catch，避免时段锁位先释放、外部运单仍在途。
+- **待付款任务去重**：同单同类型已有 PENDING 任务时不再重复创建，防止重复提醒/提前取消。
+- **分页钳制**：骑手收益、余额流水、提现申请、审核列表 `skip ≥ 0`、`take 1–200`（审核列表上限 500），不再接受负数/超大分页。
+- **文本限长**：提现渠道 ≤30 字、账号 ≤100 字；商家拒单原因 ≤200 字；骑手姓名/学号/校区 ≤30 字、证件图 ≤500 字（第九轮已加）。
+- **条件写补齐**：R2 到校确认 `markArrived`、发票申请 `applyOrderInvoice` 改为单条 `UPDATE ... WHERE 旧态 + state <> 'Cancelled' RETURNING id`，未命中提示「订单状态已变更，请刷新」/`INVOICE_ALREADY_APPLIED`。
+- **收藏商品**：`campusToggleFavoriteVariant` 校验 variant 归属当前渠道，防跨店收藏他店 variant。
+- **口径说明**：骑手提现列表为**平台级**（钱包余额跨渠道汇总），按设计不限定店铺渠道。
+
+### 30.8 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **34 文件 / 410 用例全 PASS**（较上轮 394 +16：R1 出餐兜底、跑腿入参 7 项、配置白名单/路线/时段、骑手跨渠道拒绝、赔付金额越界、markArrived 条件写与未命中）。
+- 部署：vendure `2d9092aa0` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 正常应答，JobQueue（payment-timeout / order-timeout 等）全部启动。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，当前登录店铺渠道）：调度中心（异常待处理含赔付金额校验、大厅待接、异常处置记录）、校园配置（动态计价试算与履约参数）、商家接单均正常渲染。
+- 已知限制：`refund_failed` 为新增告警类型，需真实「超时无骑手 + 退款接口失败」才能触发线上截图，链路由单测覆盖；`delivery-stats` 30 天全量聚合、`tick` 仅扫描已配置渠道为既定设计，本轮未改。
+
+![调度中心：异常待处理（赔付金额校验）/大厅待接/异常处置记录正常](screenshots/waimai/p9-round10/01-dispatch.png)
+
+![校园配置：动态计价试算与履约参数（写入白名单生效）](screenshots/waimai/p9-round10/02-campus-config.png)
+
+![商家接单：活跃单视图正常](screenshots/waimai/p9-round10/03-merchant.png)
