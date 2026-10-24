@@ -1399,3 +1399,43 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![改址台账：待处理/待退/待收差额指标正常](screenshots/waimai/p9-round13/02-address-changes.png)
 
 ![校园配置：履约参数与动态计价试算正常](screenshots/waimai/p9-round13/03-campus-config.png)
+
+## 34. 配送体系第十四轮审计（P2 入厅竞态/供需加价口径 + P3 分页/日界/流水/心跳/小费，2026-10-24）
+
+### 34.1 入厅写改条件写，堵「已取消单复活」（P2）
+
+- **问题**：支付成功回调 `HallService.onOrderPlaced` 原为「读一次订单判 `Cancelled` → 无条件 `repo.update` 写 `hallStatus`」。读与写之间无锁无 CAS，用户取消与支付回调并发时，已退款单会被写回 `open/pending_merchant`；商家工作台只按 `hallStatus` 拉活跃单、不看 `state`，于是工作台会冒出已取消单。
+- **修复**：入厅统一走 `transitionFrom(..., [''])` 条件写（`COALESCE(hallStatus,'')=''` 且 `state <> 'Cancelled'`），命中才写履约快照与目标态；未命中则**归还本次已锁的时段容量**（`slotLock.unlock`，原子认领保证只释放一次）并打 warn，不再写任何字段、不再通知骑手。
+- 运营口径：已取消/已入厅订单不会再回到商家工作台或抢单大厅；时段名额不会因取消竞态泄漏。
+
+### 34.2 结算运费补齐在线骑手数，供需加价阈值真正生效（P2）
+
+- **问题**：`quoteDynamicFee` 的供需命中条件为「积压 ≥ 阈值 **且** 在线骑手 ≤ `riderThreshold`」，但 `shipping-calculator` 三处报价（跑腿起步价 / 第三方到校基价 / 分区运费）都**没传 `onlineRiders`**，函数按 `0` 兜底 → 骑手条件恒成立，只要积压达标就加价。同时改址补差报价传了真实骑手数，**同一单结算价与改址价口径不一致**（骑手充足时结算仍被加价）。
+- **修复**：新增 `readOnlineRiderCount`（approved 且 5min 内有点击心跳，按渠道 30s 缓存，与 `CapacityService.listOnlineRiders` 同口径），三处报价统一传入；`riderThreshold`/`releaseRiders` 恢复正常语义（骑手充足或回落到 `releaseRiders` 以上即不加价）。
+- 运营口径：动态计价配置里的「在线骑手阈值」现在是真实生效的，调整后顾客结算价与改址补差价一致。
+
+### 34.3 P3 健壮性收口
+
+- **待付款任务分页参数钳制**：`listTasks` 的 `skip` 归零下限、`take` 限 1–100（GraphQL 可传负数，负 `skip` 会生成非法 `OFFSET` 直接报错），与骑手申请列表/提现列表同口径。
+- **「今日」统计改校园 UTC+8 日界**：`getStats` 原用服务器本地 `setHours(0,0,0,0)`，与 `campus-time.ts`（骑手统计/飞书日报）口径不一致；服务器时区变更后会整体漂移 8 小时。现统一 `startOfCampusDay(Date.now())`。
+- **骑手信用分流水失败告警**：分数为原子 UPDATE（无法回滚），流水 `save` 失败原先静默；现在捕获并 `Logger.warn`（含 customer/delta/reason），分数照常返回，避免调用方误判失败而重复加减分。
+- **上下线仅限已过审骑手**：`setOnline(true)` 增加 `riderStatus==='approved'` 校验（none/pending/suspended 一律拒绝，下线不受限），避免待审/停用账号写心跳污染在线运力口径。
+- **跑腿小费「先清后加」失败回补**：新增小费失败时尽力回补刚清掉的旧小费再抛错，避免用户已填小费在改单后静默丢失。
+
+### 34.4 复核后未改项
+
+- 提现列表/审核跨渠道：代码注释明确为**平台级**设计（余额与流水固定默认渠道口径），渠道管理员能否拿到 `CampusAuditRider` 属权限配置问题，非代码缺陷。
+- 骑手分成「入账成功但崩溃前未置 credited」的极小窗口重复入账：治本需余额端口提供幂等键，超出配送插件范围，维持代码内已声明的残余风险（靠日志人工对账）。
+- 时段/预约、动态高峰时段按服务器本地时区解析：生产服务器实测 `Asia/Shanghai`（CST=UTC+8），无实际偏差。
+- `cancel-guard`、最低起送价、发票 CAS、收藏归属校验、配送档案租户隔离、R4 打标、R2 到校 CAS：本轮复核正常。
+
+### 34.5 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **35 文件 / 457 用例全 PASS**（较上轮 447 +10：入厅 CAS 未命中/命中两分支、供需加价骑手充足与紧张两档、分页钳制、信用分流水失败告警、setOnline 审核态三分支、小费失败回补）。
+- 部署：vendure `fe8510261` → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，`HEAD is now at fe8510261`、pm2 online、内存正常；JobQueue（payment-timeout / order-timeout / after-sales-timeout 等）全部启动，`coupon-expire` 定时批次正常。
+- lib 产物核验：`lib/src/hall.service.js` 含 `enter hall skipped`、`lib/src/shipping-calculator.js` 含 `readOnlineRiderCount`、`lib/src/payment-timeout-admin.service.js` 含 `startOfCampusDay`。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，当前登录店铺渠道）：支付超时观测看板、校园配置均正常渲染。
+
+![支付超时观测：四指标看板与任务分页正常（本轮钳制与日界生效）](screenshots/waimai/p9-round14/01-payment-timeout.png)
+
+![校园配置：动态计价供需阈值配置正常（在线骑手数已入结算报价）](screenshots/waimai/p9-round14/02-campus-config.png)
