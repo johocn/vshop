@@ -375,6 +375,8 @@ function causeLabel(cause: string): string {
     slot_full: locale.t('campusDispatch.causeSlotFull'),
     no_rider: locale.t('campusDispatch.causeNoRider'),
     merchant_timeout: locale.t('campusDispatch.causeMerchantTimeout'),
+    external_cancel_failed: locale.t('campusDispatch.causeExternalCancelFailed'),
+    address_change_cancel_failed: locale.t('campusDispatch.causeAddressChangeCancelFailed'),
   };
   return map[cause] ?? cause;
 }

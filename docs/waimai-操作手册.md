@@ -898,7 +898,7 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ### 24.4 改址时外部取消失败不再静默（P1）
 
 - 原逻辑：改址流程调外部取消失败只打一条 warn，订单继续按**旧地址**配送，运营无感知。
-- 现在：失败写 `campusCause=address_change_cancel_failed` 并记 error 日志（明确提示 still routed to old address / manual follow-up required），改址台账可见，便于人工介入。
+- 现在：失败写 `campusCause=address_change_cancel_failed` 并记 error 日志（明确提示 still routed to old address / manual follow-up required）；调度中心该单会显示「改址取消失败，仍按旧地址配送，需人工跟进」，改址台账仍按原流程核对运费差额。
 
 ### 24.5 调度/商家状态写入改条件更新（P2）
 
@@ -929,7 +929,7 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 
 ![调度中心：状态条件写与异常重派留痕](screenshots/waimai/p9-round4/02-dispatch-board.png)
 
-![改址台账：外部取消失败留痕](screenshots/waimai/p9-round4/03-address-changes.png)
+![改址台账：外部取消失败后仍按旧地址配送，需在调度中心跟进](screenshots/waimai/p9-round4/03-address-changes.png)
 
 ### 24.10 验证记录（2026-10-24）
 

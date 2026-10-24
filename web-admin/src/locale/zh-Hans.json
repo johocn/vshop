@@ -3431,6 +3431,8 @@
     "causeSlotFull": "时段锁位失败，需人工跟进",
     "causeNoRider": "无人接单已自动退款",
     "causeMerchantTimeout": "商家超时未处理，已自动入厅",
+    "causeExternalCancelFailed": "外部运单取消失败，保持原运单重试中",
+    "causeAddressChangeCancelFailed": "改址取消失败，仍按旧地址配送，需人工跟进",
     "stAssigned": "已接单待取",
     "stInProgress": "配送中",
     "stException": "异常",
