@@ -1044,5 +1044,51 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 
 ![商家接单：条件写不命中会提示状态已变更](screenshots/waimai/p9-round6/03-merchant-orders.png)
 
+## 27. 配送体系第七轮审计（P1 两项 + P2 两项收口，2026-10-24）
+
+本轮复查「跨租户数据可见性 / 无界历史查询 / 定时任务并发」三类残余风险，四项已修复上线（另有 1 项 P3 竞态与 1 项需业务确认项本轮不修）。
+
+### 27.1 配送看板按渠道隔离（P1）
+
+- 原逻辑：`deliveryStats` 只按 `hallStatus IS NOT NULL` 取窗口内全部订单，无渠道过滤。任何持有看板权限的租户管理员都能看到**其他店铺**的「店铺准点对比」单量与准点率，构成跨租户数据泄漏。
+- 现在：非平台超管（`Permission.SuperAdmin` 之外）查询强制追加 `channel.id = ctx.channelId`，只统计本渠道；平台超管仍可看全平台汇总。
+- 前端无需改动：接口返回结构不变，店铺级账号打开「配送看板」即只见本店。
+
+### 27.2 待付款任务管理渠道作用域（P1）
+
+- 原逻辑：`paymentTimeoutTasks` / `paymentTimeoutStats` 仅要求 `ReadOrder`，`executePaymentTimeoutTask` / `resendPaymentTimeoutRemind` 仅要求 `UpdateOrder`，服务端也无渠道过滤。租户管理员可列举、手动执行甚至**取消其他店铺的待付款订单**（订单超时取消会释放库存并通知顾客）。
+- 现在：
+  - 列表：非平台超管自动过滤 `channelId = ctx.channelId`；
+  - 统计四项 KPI 同样按渠道收口；
+  - 手动执行 / 重发提醒先校验任务归属，越权返回「任务不属于当前店铺」；
+  - 平台超管保持跨店运维能力。
+
+### 27.3 商家工作台只拉活跃单（P2）
+
+- 原逻辑：`board()` 按渠道拉取**全部** `hallStatus` 非空订单（含 `delivered` / `cancelled` / `exception_final` / `no_rider_final`），并连带 `lines + productVariant`。门店经营越久，历史单持续膨胀，接单台首屏越来越慢、内存压力持续增长。
+- 现在：SQL 限定活跃状态集合（`pending_merchant / accepted / open / grabbed / pending_dispatch / third_party / owned_pool / owned_dispatched / merchant_delivering / scheduled`）；内存中的终态/已送达过滤保留作双保险。今日完成数仍走独立查询，不受影响。
+
+### 27.4 待付款任务并发收口 + 库存幂等释放（P2）
+
+- 原逻辑：
+  - 同一任务可能被「定时队列 + 手动执行 + 5 分钟补偿扫描」三路同时命中，重复发提醒、重复 `cancelOrder`；
+  - 取消路径先 `createReleasesForOrderLines` 再 `cancelOrder`，若取消失败进入重试，下一轮会**再次释放同一批分配**（重复生成 Release、重复回补可用库存）。
+- 现在：
+  - `runTask` 外层加任务级 PG 咨询锁 `campus:paytimeout:<taskId>`（会话级，锁内重新读取任务状态），抢不到锁的队列轮次静默跳过、手动执行返回 `PAYMENT_TIMEOUT_TASK_BUSY`；
+  - 库存释放改用**幂等** `createOutstandingReleasesForOrderLines`（按 allocations + sales − releases 计算未释放余量），重试/并发不会重复释放；
+  - `cancelOrder` 抛错时复查订单状态，若已 `Cancelled` 视为成功（不再无限重试），且跳过重复的「订单已自动取消」通知。
+
+![支付超时观测：列表/统计按当前店铺渠道收口，历史任务仍可查](screenshots/waimai/p9-round7/01-payment-timeout.png)
+
+![配送看板：店铺级账号只看本渠道数据，KPI 与趋势正常](screenshots/waimai/p9-round7/02-campus-stats.png)
+
+![商家接单：仅拉取活跃流转单，今日完成口径不受影响](screenshots/waimai/p9-round7/03-merchant-orders.png)
+
+### 27.5 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；全量 `npm run test` **31 文件 / 361 用例全 PASS**（新增：看板非超管渠道过滤、待付款任务列表渠道过滤/跨渠道执行与重发拒绝、任务锁抢不到拒绝、取消已完成视为成功且不重复通知）。
+- 部署：vendure `4be57e67a` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 返回 200（`activeChannel` 正常应答）。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：支付超时观测、配送看板、商家接单均正常渲染，无接口报错（页面浮层「无访问权限」为本地打印控件 CLodop 的越权提示，与业务无关）。
+
 
 
