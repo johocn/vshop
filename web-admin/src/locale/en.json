@@ -3433,6 +3433,8 @@
     "causeSlotFull": "Slot lock failed, manual follow-up needed",
     "causeNoRider": "Auto-refunded (no rider)",
     "causeMerchantTimeout": "Merchant not responding, auto-opened",
+    "causeExternalCancelFailed": "External delivery cancel failed; keeping original waybill and retrying",
+    "causeAddressChangeCancelFailed": "Address change cancel failed; still routed to old address, manual follow-up needed",
     "stAssigned": "Assigned",
     "stInProgress": "Delivering",
     "stException": "Exception",
