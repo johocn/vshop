@@ -1439,3 +1439,33 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![支付超时观测：四指标看板与任务分页正常（本轮钳制与日界生效）](screenshots/waimai/p9-round14/01-payment-timeout.png)
 
 ![校园配置：动态计价供需阈值配置正常（在线骑手数已入结算报价）](screenshots/waimai/p9-round14/02-campus-config.png)
+
+## 35. 第十五轮：骑手信用自动恢复收口（2026-10-25）
+
+### 35.1 背景与生产实测缺陷
+
+上一轮之后并行会话提交了 `3d850b310`（超时赔付默认开 + 骑手信用自动恢复），本轮审计在该提交里发现 2 项 P1，且生产已 100% 复现。
+
+- **P1-1 原生 SQL 列名未加引号**：`rider_credit_log` 物理列是带引号的 camelCase（`"customerId"`/`"channelId"`，见建表 SQL），`sweepRecovery` 里写成裸 `customerId`，PostgreSQL 折叠成小写 → 列不存在。生产日志每分钟每渠道刷：`credit recovery sweep failed channel=107: column "customerid" does not exist`，功能**完全不生效**且淹没其他告警。
+- **P1-2 缺恢复去重窗口**：原 SQL 只排除「近 7 天有 timeout 扣分」，没有「近 7 天已恢复过」的判断。dispatch sweep 每 60 秒一轮，修好列名后会变成同一骑手每分钟 +5 分，约 20 分钟从 0 回满 100，「7 天恢复一次」失效，信用 <60 的接单屏蔽几乎形同虚设。
+
+### 35.2 本轮修复
+
+- **列名引号**：`SELECT DISTINCT "customerId"`、`log."customerId" = c.id`、`log."channelId" = $1`、`log."createdAt" >= $2` 全部改成带引号写法。
+- **恢复节奏（既定口径：每 7 天最多 +5 一次）**：新增 `NOT EXISTS (... reason = 'recovery_7d_clean' AND "createdAt" >= $2)`，与超时扣分排除共用同一个 7 天窗口。
+- **`adjust` 回退值夹紧（P3）**：UPDATE 未匹配行（顾客不存在）时回退值由 `100+delta` 改为 `Math.min(100, Math.max(0, 100+delta))`，不再出现 105 这类越界值。
+- **P6 迁移改一次性（P2）**：新增 `campus_migration_marker` 表，先用 `INSERT ... ON CONFLICT DO NOTHING RETURNING name` 抢占 `p6-default-compensation`；抢到才执行 `FALSE→TRUE`。否则运营在后台关掉超时赔付，每次重启/部署都会被翻回开（自动发券=真金白银）。
+- **补单测（P3）**：新增 5 个用例（候选逐个加分并落流水、候选为空、SQL 引号与去重文本断言、单个失败继续、无匹配行回退夹紧）。
+
+### 35.3 验证记录
+
+- 全量单测：campus-delivery-plugin **35 文件 / 462 用例全 PASS**（较上轮 457 +5）；`tsc` 构建通过，`lib/` 产物随提交入库。
+- 部署：`df3456758` → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，`HEAD is now at df3456758`、pm2 online。
+- 生产日志（重启后 3 轮 sweep，约 3 分钟）：
+  - `column "customerid" does not exist` 计数 **0**（部署前每分钟每渠道一条）。
+  - 恢复按预期只跑一次：`credit recovery channel=113: +1 rider(s) +5pt`、`credit recovery channel=1: +1 rider(s) +5pt`；后续 sweep 无重复加分 → 7 天去重生效。
+- 手机视口截图（390×844 dpr=2，`e.joho.cn/guanli`）：骑手入驻审核页信用分列、校园配置页均正常。
+
+![骑手入驻审核：信用分列（自动恢复按 7 天窗口 +5）](screenshots/waimai/p9-round15/01-rider-credit.png)
+
+![校园配置：超时赔付开关默认开（P6 仅执行一次，关掉后不会被重启覆盖）](screenshots/waimai/p9-round15/02-campus-config.png)
