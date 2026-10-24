@@ -1469,3 +1469,42 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![骑手入驻审核：信用分列（自动恢复按 7 天窗口 +5）](screenshots/waimai/p9-round15/01-rider-credit.png)
 
 ![校园配置：超时赔付开关默认开（P6 仅执行一次，关掉后不会被重启覆盖）](screenshots/waimai/p9-round15/02-campus-config.png)
+
+## 36. 第十六轮：待付款超时补偿改自管定时器（2026-10-25）
+
+### 36.1 背景与生产实测缺陷
+
+本轮静态审计覆盖第三方运力、路线矩阵、配送统计、公众号通知、店铺配置、骑手任务、校园配置 7 个模块（均未发现 P1/P2），随后做生产数据健康检查时发现**系统性遗漏（P1）**：
+
+- **生产从不执行 Vendure `ScheduledTask`**：`dev-config.ts` 设 `schedulerOptions.runTasksInWorkerOnly: true`，而生产 pm2 只启动 `prod-start.js → dist/index`（API 服务器），**没有 worker 进程**（`index-worker.ts` 只在 `npm run dev` 时跑）。`SchedulerService` 因此从未注册任何计划任务，启动日志里也从来没有 `Registered scheduled task` 行。
+- **SQL JobQueue 不按 `delay` 排队**：`scheduleForOrder` 带 `delay` 入队的提醒/取消 job，实测在**创建当秒**就被消费（`job_record.createdAt == startedAt`），`process()` 看到 `now < dueAt` 直接 return、任务保持 PENDING —— 设计上完全依赖补偿扫描重新入队。
+- **补偿扫描是 ScheduledTask → 从不运行** ⇒ 待付款提醒/取消在生产**100% 失效**。实证：10-14 起的 20 条 `payment_timeout_task` 至今 PENDING（retryCount=0、lastError=null），订单 385/386/387/388/390/391 在 `ArrangingPayment` 卡了 **11 天**未被取消（占用库存与结算数据）。
+- 遗留数据：订单 269（10-06）`hallStatus='in_progress'` + `deliveryStatus=exception`。当前状态机不会产生 `in_progress`（配送中是 `hallStatus=grabbed` + `deliveryStatus=in_progress`），且 `exceptionReportedAt` 为空，调度扫描的异常超时升级按设计跳过 —— 属旧版本遗留测试单，非现网功能缺陷。
+
+### 36.2 本轮修复
+
+- **`PaymentTimeoutJob` 新增自管补偿循环**：`startCompensationLoop(intervalMs=5min)` / `stopCompensationLoop()`，30s 后首跑（等 JobQueue 初始化），`running` 标志防上一轮未结束时堆叠，异常只 `Logger.warn` 不中断后续轮次；实现 `OnApplicationShutdown` 在停机时清理定时器。
+- **插件启动顺序**：`onApplicationBootstrap` 中 `PaymentTimeoutJob.init()` 完成后再 `startCompensationLoop()`，与 `DispatchJobService.start()`、`FeishuDigestService.start()` 的自管定时器部署形态对齐（生产无 worker 的唯一可行形态）。
+- **移除 ScheduledTask 注册**：删除 `payment-timeout-compensation` 的 `ScheduledTask` 定义与 `config.schedulerOptions` 注入，避免未来补 worker 时两套机制重复入队。
+- **补偿可观测性**：`runCompensation` 增加 `jobQueue` 未就绪短路（启动窗口返回 0）与重入队条数日志（`compensation re-enqueued N overdue task(s)`），运营可在 `pm2 logs vendure` 直接确认补偿心跳。
+- **新增 5 个单测**：30s 首跑 + 5min 周期 / 重复 start 幂等 / 上一轮未结束时跳过 / 补偿异常吞错不抛出 / `onApplicationShutdown` 清理定时器（另加 `jobQueue` 未就绪返回 0）。
+
+### 36.3 验证记录
+
+- 全量单测：campus-delivery-plugin **35 文件 / 467 用例全 PASS**（较上轮 462 +5）；`tsc` 构建通过，`lib/` 产物随提交入库（`lib/src/payment-timeout.job.js` 含 `startCompensationLoop`，插件 JS 不再有 ScheduledTask）。
+- 部署：`42fd789f9` → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online。
+- 生产实测（重启后 80s）：
+  - 日志首次出现 `[PaymentTimeout] compensation re-enqueued 20 overdue task(s)`，随后 20 条任务全部终结（stale 的按订单终态 CANCELLED，其余 EXECUTED）。
+  - 卡单 385/386/387/388/390/391 全部自动取消（`Cancelled`）；395/396（已支付）任务按 stale 作废，订单状态不受影响。
+  - 库内统计：`payment_timeout_task` 仅剩 `CANCELLED 95 / EXECUTED 17`，**PENDING 与 FAILED 均为 0**；`PENDING AND dueAt < now()` 为 **0**。
+- 手机视口截图（390×844 dpr=2，`e.joho.cn/guanli`）：支付超时观测页四指标全为 0（今日提醒/今日取消/累计失败/**逾期滞留 0**，即本轮修复的直接判据），订单列表正常。
+
+![支付超时观测：逾期滞留归零，任务全部已执行/已取消（本轮修复直接判据）](screenshots/waimai/p9-round16/01-payment-timeout.png)
+
+![订单列表：卡单已自动取消，页面正常](screenshots/waimai/p9-round16/02-order-list.png)
+
+### 36.4 遗留与建议（非配送插件范围）
+
+- Vendure 内置 `order-timeout`、`clean-sessions`、`after-sales-timeout`、`flash-sale-status`、`group-buy-check` 等同样依赖 `ScheduledTask`，**生产同样不执行**（库内 `job_record` 最后一批补偿入队停在 10-23）。若希望这些平台级补偿恢复，可在 `dev-config.ts` 设 `schedulerOptions.runTasksInWorkerOnly: false`（单进程部署的官方推荐做法，需重新构建 dev-server `dist` 并重启），或另起 `index-worker` pm2 进程。本轮按配送体系范围只修校园插件自有链路，未改动全局配置。
+- 订单 269 等 10-06 遗留测试单（`hallStatus='in_progress'`）不影响现网流转，建议运营侧归档处理，不做代码兜底（状态机已不产出该状态）。
+
