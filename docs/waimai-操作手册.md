@@ -1564,5 +1564,30 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 遗留测试单 269 已归档：`hallStatus 'in_progress' → 'exception_final'`（未改订单状态与金额），全库 `hallStatus='in_progress' 且超 3 小时` 归零。
 - 本轮为服务端配置修复，无 UI 变更，取证以启动日志与 `job_record` 统计为准。
 
+## 39. 第十八轮：六项体验级（P3）缺陷一并收口（2026-10-25）
+
+### 39.1 修复清单
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | `updateStoreConfig` 未传字段被置 null（后台局部更新会清空配送时长/运费/公告/模板/H5 域名等） | 改为「未传即保留，显式传 null 才清空」；`printMode` 同样未传不改 |
+| 2 | 无配置行时 `timeoutCompensationEnabled` 显示 false（实体默认 true，保存任一字段后突变 true） | 视图默认值对齐实体 `default: true` |
+| 3 | 配送看板「店铺准点对比」店名显示 `canteen-a` 这类渠道 code | 优先取 `Channel.customFields.shopName`（中文店铺名），缺失再回退 code |
+| 4 | `campus-notify` 以 `Number(ssoId)` 下发，脏数据会变成 NaN | ssoId 非数字时记 warn 并跳过，不再请求下游 |
+| 5 | `rider-task.transfer` 回厅与清位置/写交接存证是两次独立写，中间被取消会半更新 | 并入 `backToHall` 同一条 CAS 语句；`transferPhotos` 按 simple-array 逗号分隔写 |
+| 6 | FAILED 任务飞书告警「先标记后推送」，推送失败也静默 24h | `pushEvent` 返回送达结果，去重键改为送达成功后才登记；失败下一轮重试 |
+
+### 39.2 验证记录
+
+- 单测：`npm test` 35 文件 **474 用例全过**（新增 3 个用例：配置未传保留、ssoId 非数字跳过、告警失败重试）。
+- 生产部署 `ef79cafda`（`git reset --hard + pm2 restart`）启动正常，`Registered scheduled task` 全部在册，无 error。
+- 配置保留（channel 114 `canteen-b`，只传 `routesEnabled` 原值）：回读 `deliveryMinutes=24`、`storeAddress=东门美食广场 2 号铺`、`storeNotice=午市高峰出餐较慢…` 全部保留 → PASS。
+- 店名（临时给 channel 113 写 `shopName=一食堂` 后查看板）：`storeComparison` 返回 `channelName=一食堂`，验证完立即还原为 NULL → PASS。
+- 转单单条 CAS（列名含 `customFieldsRiderlat/Riderlng/Transferphotos/Transfernote/Transferat`）在生产 PG `EXPLAIN` 通过，无 `column does not exist`。
+- 无配置行默认值：生产各渠道均已存在配置行，无法造「无行」场景，由单测覆盖（`timeoutCompensationEnabled: true`）。
+- 手机视口截图（390×844 dpr=2）：`docs/screenshots/waimai/p9-round18/01-delivery-stats.png`、`02-store-config.png`（看板店铺对比仍显示 code 属预期，该渠道未配中文店名）。
+- 已知未改（仅记录）：`delivery-stats` 中未配 `shopName` 的渠道仍显示 code；`web-admin` 无店铺配置界面，本项只能由接口验证。
+
+
 
 
