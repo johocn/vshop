@@ -1321,3 +1321,41 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![校园配置：履约参数与动态计价试算正常](screenshots/waimai/p9-round11/02-campus-config.png)
 
 ![商家接单：活跃单视图正常](screenshots/waimai/p9-round11/03-merchant.png)
+
+## 32. 配送体系第十二轮审计（P1 退款结算不静默吞单 + P2 退款失败留痕告警 + P3 分成落库告警，2026-10-24）
+
+### 32.1 退款结算失败后已退总额虚高导致少退（P1）
+
+- Vendure 退款是**两步**：`refundOrder` 只创建退款单（`state=Pending`），`settleRefund` 才真实打款并置 `Settled`。原实现的「已退总额」直接 `SUM(refund.total)`，**Pending 退款单也算进已退金额**。
+- 后果：一次结算失败（网关/余额异常）后，退款单仍停在 `Pending` 且占额；商家重试拒单、或异常处置 `refund_all` 重试时，可退余额被算成 0 → **直接跳过退款并取消订单，客户静默少退**。
+- 现在：① 已退总额排除 `state='Failed'` 的退款单；② 新增统一入口 `settleRefundOrMarkFailed`：结算抛错时把退款单置 `Failed`（保留审计痕迹，不删除记录）后重抛；③ 商家拒单、异常处置退款、无人接单 T4 自动退款**三条退款路径全部改用该入口**。
+- 运营口径：`Failed` 退款单请在 `paymentMethod` 中人工核对后重新退款；历史遗留的 `Pending` 退款单（服务器无 `psql`，未能直接盘点）同样需人工对账一次。
+
+### 32.2 异常处置退款失败无留痕无告警（P2）
+
+- 异常处置 `refund_diff / refund_all` 原实现退款失败只 `restore()` 回滚认领并抛错：订单退回原异常态，但**没有失败标记、没有告警**，运营无从得知「客户没收到退款」。
+- 现在：失败时条件写 `hallStatus='refund_failed'` + `campusCause='refund_failed'`（仅当订单仍在 `exception_final` 且未被取消，未命中则不覆盖），并推送飞书「异常处置退款失败」（去重键 `exception_refund_failed:{订单号}`）；已成功标记失败时**不再回滚认领**，避免状态在 `refund_failed` 与异常态之间来回跳。
+- 发券类处置失败仍走原回滚逻辑（异常态保留、可重试），与退款类区分。
+
+### 32.3 骑手分成落库失败补告警（P3）
+
+- 订单送达后分成落库失败**无法重试**（订单已是终态），原实现只打 `Logger.error`，等于静默丢钱。
+- 现在落库异常时推送飞书「骑手分成落库失败」（含订单号、分成金额、原因、去重键 `earning_persist_failed:{订单号}`），运营可人工补账。
+- **复核后未改码**：异常处置「认领成功但进程崩溃、未写处置结果」的场景，调度墙已对「`exception_final` + `deliveryStatus='exception'` + 无 `exceptionHandledAt`」的订单常驻告警，无需再加代码。
+
+### 32.4 复核确认无问题项
+
+- 飞书去重 Map 每次调用清理超过 2 分钟的历史键，不会无界增长；`withAdvisoryLock` 同 runner 持有/释放，异常时释放失败由连接回收兜底。
+- `delivery-stats` 非 SuperAdmin 已按渠道过滤且剔除 `Cancelled`；`dispatch-admin` 所有写操作均经 `assertOrderInChannel`；取消守卫仅拦截 C 端取消，调度/后台取消不受影响。
+
+### 32.5 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **34 文件 / 432 用例全 PASS**（较上轮 425 +7：已退总额排除 Failed、结算失败置 Failed、异常处置退款失败标记+告警、未命中不告警、发券失败仍回滚、分成落库失败告警）。
+- 部署：vendure `1591d9c98` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，`HEAD is now at 1591d9c98`、pm2 online；`shop-api` 应答 `{"data":{"activeChannel":{"id":"1","code":"__default_channel__"}}}`，JobQueue（payment-timeout / order-timeout 等）全部 Starting。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，当前登录店铺渠道）：调度中心、校园配置、商家接单均正常渲染。
+
+![调度中心：大厅待接/告警正常渲染](screenshots/waimai/p9-round12/01-dispatch.png)
+
+![校园配置：动态计价试算与履约参数正常](screenshots/waimai/p9-round12/02-campus-config.png)
+
+![商家接单：活跃单视图正常](screenshots/waimai/p9-round12/03-merchant.png)
