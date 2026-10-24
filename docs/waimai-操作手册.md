@@ -998,4 +998,51 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 部署：vendure `c0796a2b9` + `ffe99450c` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`；`shop-api` 返回 200，启动日志无新增报错；`campusDispatchBoard` 返回 `handledAt` 为 ISO（`2026-10-07T00:35:14.972Z`）。
 - 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：调度中心（异常处置记录时间恢复 `hh:mm`）、商家接单、改址台账均正常渲染，无接口报错（商家页仅本地打印控件 CORS 提示，与业务无关）。
 
+## 26. 配送体系第六轮审计（P1 两项 + P2 三项收口，2026-10-24）
+
+本轮专查「骑手提交流程 / 跨租户配置 / 赔付闸长期占用 / 定时任务出错隔离」四类残余风险，五项已修复上线。
+
+### 26.1 骑手送达与异常上报加「已取消」守卫（P1）
+
+- 原逻辑：`deliver()` 的原子更新只校验 `deliveryStatus='in_progress'`，`reportException()` 为「先读后写」。若用户下单后取消退款、而骑手端仍提交送达/异常，已取消单会被改成 `delivered` 并入账分成（钱已退 + 分成照发），异常上报也会把取消单拉回配送态。
+- 现在：
+  - `deliver()` 的 UPDATE 追加 `AND "state" <> 'Cancelled'`，未命中提示「订单已被取消或处理，无法送达」，不再写分成、不加信用分；
+  - `reportException()` 改为单条条件写（本人 + `deliveryStatus IN ('assigned','in_progress')` + 未取消），未命中提示「订单已被取消或改派，无法上报异常」。
+
+### 26.2 履约配置租户隔离（P1）
+
+- 原逻辑：`campusStoreConfigs`（店铺配置列表）、`campusUpdateStoreConfig`（保存配置）、`campusEnsureDefaultShippingProfile`（补默认配送档案）仅校验 `CampusConfig` 权限。租户管理员持有该权限即可读取全部店铺配置、按任意 `channelId` 改写别家店铺的运费/模板/交接点，甚至给别家补绑配送档案。
+- 现在：
+  - 列表：平台超管看全部；租户管理员只返回本渠道（`ctx.channelId`）一条；
+  - 保存配置 / 补默认档案：非平台超管只能操作本渠道，越权返回「无权操作其他店铺的履约配置」；
+  - 平台超管仍可跨店铺运维（`Permission.SuperAdmin` 判定）。
+
+### 26.3 超时赔付「空券」不再占死赔付闸（P2）
+
+- 原逻辑：抢到赔付闸后调券端口发券，若端口返回空数组（未抛错），仍继续把空 `couponId` 写入订单 → 闸已占用、券未发出，该单永久漏赔。
+- 现在：`couponId` 为空时立即释放赔付闸并记 warn，下一轮自动重试。
+
+### 26.4 赔付闸过期回收（P2）
+
+- 原逻辑：赔付闸（`timeoutCompensatedAt`）一旦写入只能人工清，若发券成功但留痕落库失败/进程中断，该单永久卡在「已认领、无券」。
+- 现在：扫描与抢闸均接受「券 id 为空且认领超过 15 分钟」的僵死认领重新赔付；真实已赔付单（有券 id）依旧不再扫。
+
+### 26.5 调度扫描逐单隔离（P2）
+
+- 原逻辑：调度扫描（未取货回收 / 预约放量 / 商家超时入厅 / 强派 / 自动退款 / 路线兜底 / 异常超时 / 超时赔付）均为 `for` 循环串行 await，任一单抛错（DB 抖动、外部平台异常）会中断整轮，后续订单全部积压到下一分钟。
+- 现在：所有逐单循环均加 try/catch，单笔失败只记 error 日志并跳过，同轮其余订单继续处理；渠道级锁与 `scanChannelWithLock` 故障隔离保持不变。
+
+### 26.6 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；全量 `npm run test` **31 文件 / 354 用例全 PASS**（新增：骑手送达 CAS 守卫、异常上报条件写与未命中拒绝、超时赔付空券放闸、赔付闸 15min 过期回收、调度单笔退款异常不阻断、履约配置租户隔离 6 例）。
+- 部署：vendure `f193c916c`（+ 同批飞书管理群 `69ffb2e17`）推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`；`shop-api` 返回 200，启动日志无新增报错。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：拾光达配置（「履约参数（当前店铺）· 按登录渠道生效」）、调度中心、商家接单均正常渲染，无接口报错（页面浮层「无访问权限」为本地打印控件 CLodop 的越权提示，与业务无关）。
+
+![拾光达配置：履约参数按当前登录渠道生效（租户隔离后仍可正常保存）](screenshots/waimai/p9-round6/01-store-config.png)
+
+![调度中心：异常处置记录与大厅/进行中看板正常](screenshots/waimai/p9-round6/02-dispatch-board.png)
+
+![商家接单：条件写不命中会提示状态已变更](screenshots/waimai/p9-round6/03-merchant-orders.png)
+
+
 
