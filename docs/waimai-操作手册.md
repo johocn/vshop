@@ -937,8 +937,65 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 部署：vendure `8d916559d` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online，启动日志无报错，`shop-api` 正常应答。
 - 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：骑手提现审核、调度中心、改址台账均正常渲染，无控制台错误。
 
+## 25. 配送体系第五轮审计（P1 两项 + P2 七项收口，2026-10-24）
 
+本轮只查「并发窗口 + 回调重放 + 外部平台异常」这三类容易漏的路径，全部修复已上线。
 
+### 25.1 外部运单推送改为「落库成功才算推送」（P1）
 
+- 原逻辑：先把订单写成 `third_party`，再调外部平台建运单。若期间用户取消 / 被改派，运单仍会建出来，形成「已取消单复活 / 孤儿运单双份运费」。
+- 现在：调用平台建单成功后，用条件写（`UPDATE ... WHERE hallStatus IN ('pending_merchant','accepted','pending_dispatch','third_party') AND state <> 'Cancelled'`）落库；未命中立即调用平台 `cancelDelivery` 撤销运单，并向商家报「订单状态已变更（可能已取消），外部运单已撤销」。撤销失败记 error 日志供人工核对。
+
+### 25.2 交接入厅 / 平台回调 / 自营接单 / 第一段完结全部条件写（P1）
+
+- 交接入厅（`enterHallForHandover`）、平台回调（`onDeliveryStatus`）、自营骑手接单（`acceptOwned`）、R1/R2 第一段完结统一改为条件写；不命中只记 warn 或明确报错，**绝不把已取消单改回大厅被再次抢单**。
+- 大厅列表与派单查询整体排除 `order.state = Cancelled`：已取消单即使 `hallStatus` 未及时清，也不会出现在骑手大厅、运营调度墙、顺路打包组内。
+
+### 25.3 骑手「开始配送」条件写（P2）
+
+- `start()` 由「先读后写」改为单条条件更新（`deliveryStatus='assigned'` + 本人 + `hallStatus='grabbed'` + 未取消）。订单已被取消或改派时直接提示「订单已被取消或改派，无法开始配送」，不再把别人的单改成 `in_progress`。
+
+### 25.4 改址后外部运单用实时地址 + 在途骑手通知（P2）
+
+- 外部平台运单地址不再用入厅时的旧快照，改为实时读取楼栋名 + `deliveryDetail`（回退 `streetLine1`）。
+- 改址时若已有骑手在途，向该骑手推送订阅消息（订单号 + 新分区/新楼栋），减少「送到旧地址」。
+
+### 25.5 超时赔付先抢闸再发券（P2）
+
+- 原逻辑：先发券再写 `timeoutCompensatedAt`，并发（多实例/重试）可能重复发券。
+- 现在：先条件抢占赔付闸（`timeoutcompensatedAt IS NULL`），抢到才发券；发券失败/服务不可用则释放闸位供下轮重试，避免「扣了闸却没赔」。
+
+### 25.6 运营回厅 / 改派校验结果（P2）
+
+- `backToHall` 未命中（订单已取消或已脱厅）时，调度中心明确报「订单已取消或已不在履约流程中，无法回大厅」；改派分支报「订单已取消，无法重新派送」，不再静默成功。
+
+### 25.7 异常回滚与处置留痕条件写 + 未处置告警（P2）
+
+- 异常处置的「回滚」与「留痕」均由 `repo.update` 改为条件写：仅 `exception_final`（留痕）/ 活单态（回滚）可写，已取消单不会被写回。
+- 调度墙新增告警：`exception_final` 且 `deliveryStatus='exception'` 且无 `exceptionHandledAt` → 「异常处置未完成（已标记但未赔付/未留痕），请人工核对补处理」。用于覆盖「处置中途宕机/失败」的漏赔。
+
+### 25.8 预约单不挤占调度扫描窗口（P2）
+
+- 扫描排序改为「非预约单优先 + 预约单按 `scheduledFor` 升序」，`take(200)` 不再被大量未到点预约单占满导致 open 强派 / 超时退款被扫出窗口。
+
+### 25.9 顺路打包条件写（P2）
+
+- `packRoutes` 写 `routeGroupId` 改为条件写（仅 `hallStatus='open'` 且未取消），仅同步实际命中行到内存快照；日志输出命中数/组内总数，便于排查并发脱厅。
+
+### 25.10 顺带修复：调度墙处置时间 NaN:NaN（2026-10-24）
+
+- `datetime` 自定义字段按 `String` 标量返回时会退化成毫秒数，前端 `hhmm` 解析失败显示 `NaN:NaN`。`board()` 显式转 ISO 字符串，异常处置记录时间显示恢复正常（如 `08:35`）。
+
+![调度中心：异常处置记录时间正常显示，已取消单不进墙](screenshots/waimai/p9-round5/01-dispatch-board.png)
+
+![商家接单：条件写不命中会提示状态已变更](screenshots/waimai/p9-round5/02-merchant-orders.png)
+
+![改址台账：改址后外部运单用实时地址，在途骑手收到通知](screenshots/waimai/p9-round5/03-address-changes.png)
+
+### 25.11 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；全量 `npm run test` **30 文件 / 338 用例全 PASS**（新增：外部推送 CAS 未命中撤单、入厅/回调/自营接单/第一段 CAS 未命中拒绝、已取消单送达回调不复活、R3 异常回大厅刷新计时锚点、赔付抢闸与释放闸、打包条件写、处置时间 ISO）。
+- 部署：vendure `c0796a2b9` + `ffe99450c` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`；`shop-api` 返回 200，启动日志无新增报错；`campusDispatchBoard` 返回 `handledAt` 为 ISO（`2026-10-07T00:35:14.972Z`）。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：调度中心（异常处置记录时间恢复 `hh:mm`）、商家接单、改址台账均正常渲染，无接口报错（商家页仅本地打印控件 CORS 提示，与业务无关）。
 
 
