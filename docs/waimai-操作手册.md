@@ -1546,4 +1546,23 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 
 ![配送档案页：本轮修复的「补绑未绑变体」链路所在模块](screenshots/waimai/p9-round17/01-shipping-profile.png)
 
+## 38. 平台级计划任务恢复执行（2026-10-25）
+
+### 38.1 决策与改动
+
+经确认，本轮把「计划任务只在 worker 执行」改为**单进程执行**（生产 pm2 只有 API 进程、无 worker）：
+
+- `packages/dev-server/dev-config.ts`：`schedulerOptions.runTasksInWorkerOnly: true → false`，同步重建 `dist/dev-config.js` 并随提交入库。
+- 影响面：此前在生产**完全停摆**的平台功能全部恢复 —— 待付款补偿（校园插件已另改自管定时器）、订单超时释放预留（order-timeout）、售后超时、会话清理、积分订单过期/退款重试、订单自动完成、预售/秒杀/拼团状态切换、运营内容生命周期、支付计划扫描等。
+- 本地开发注意：`npm run dev` 会 server+worker 各跑一次计划任务（补偿类幂等，无副作用）。
+
+### 38.2 验证记录
+
+- 部署 `df3d14e65` 后启动日志出现 `Registered scheduled task: ...`（此前从未出现），并逐条 `Executing scheduled task ... completed successfully`：
+  `points-order-refund-retry`、`order-complete-auto`、`operations-content-lifecycle`、`operations-product-stats`、`pre-sale-status-transition`、`payment-schedule-scan`、`points-order-expiry`、`release-expired-reservations`、`flash-sale-status-transition`、`group-buy-check`。
+- 部署后 10 分钟内新入队任务：`order-timeout 55 条 / after-sales-timeout 6 条`，全部 `COMPLETED`；`pm2 error.log` 近 900 行无任何 error/failed/column does not exist。
+- 遗留测试单 269 已归档：`hallStatus 'in_progress' → 'exception_final'`（未改订单状态与金额），全库 `hallStatus='in_progress' 且超 3 小时` 归零。
+- 本轮为服务端配置修复，无 UI 变更，取证以启动日志与 `job_record` 统计为准。
+
+
 
