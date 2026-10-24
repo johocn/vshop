@@ -876,6 +876,67 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 部署：vendure `4675a4341` 推送 → 服务器 `git reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online，`shop-api` 正常应答，启动日志无报错。
 - 手机视口截图（390×844 dpr=2，canteen-a 渠道）：骑手入驻审核、商家接单台、调度中心均正常渲染；控制台仅打印插件（CLodop 本地端口）CORS 提示，与本轮改动无关。
 
+## 24. 配送体系第四轮审计（P1/P2 九项收口，2026-10-24）
+
+本轮聚焦「并发与异常路径」：先读后写的状态覆盖、重复事件重放、外部运单取消失败后的资金风险。九项已全部修复并部署。
+
+### 24.1 预约单放量不再被误判超时（P1）
+
+- 原逻辑：预约单放量后，商家接单超时 / R2 出餐超时 / 自营池超时仍以 `createdAt` 计时。预约单可能几小时前就下单，**一放量即被判超时**：R1 直接转自营、R2 直接跳过商家确认进大厅。
+- 现在：放量时写 `hallEnteredAt` 作为计时锚点，上述兜底统一按 `hallEnteredAt ?? createdAt` 起算；放量本身改为「仅 scheduled 态」条件写，与取消并发时不复活订单。
+
+### 24.2 提现审核真原子（P1）
+
+- 原逻辑：`repo.update(id, ...)` 只按主键更新，`affected` 恒为 1，不是原子认领。并发「通过 + 驳回」都可能成功 → 可能**又退款又标记已打款**。
+- 现在：改为 `UPDATE ... WHERE id=? AND status='PENDING'`，`affected=0` 即已处理，直接报「该申请已处理」。驳回退回失败时按 `id + status='REJECTED'` 条件补偿回 PENDING，可安全重试。
+
+### 24.3 外部运单取消失败不再回落重推（P1）
+
+- 原逻辑：调度兜底发现外部快递久未送达 → 调平台取消，无论成功失败都回落本地（R2 重新待推送 / R3 回大厅）→ 旧运单仍在跑，新运单再推一次，**双运单双份运费**。
+- 现在：取消未确认（返回非 ok / 抛错）时保持 `third_party` 不回落，写 `campusCause=external_cancel_failed` 并记错误日志，下一轮继续尝试取消，直到平台确认。仅「确认取消成功」或「本来就没有外部运单（skipped）」才回落。
+
+### 24.4 改址时外部取消失败不再静默（P1）
+
+- 原逻辑：改址流程调外部取消失败只打一条 warn，订单继续按**旧地址**配送，运营无感知。
+- 现在：失败写 `campusCause=address_change_cancel_failed` 并记 error 日志（明确提示 still routed to old address / manual follow-up required），改址台账可见，便于人工介入。
+
+### 24.5 调度/商家状态写入改条件更新（P2）
+
+- 调度扫描（商家接单超时、R2 出餐超时、商家送达超时、外部推送超时、自营池超时、自营送达超时）与商家端（接单/拒单/出餐）原本都是「先读后写」无条件 `update`。并发下用户取消已脱厅（`cancelled`），仍会被改回 `open/pending_merchant` 重新进大厅被抢。
+- 现在统一走 `HallService.transitionFrom`（单条 `UPDATE ... WHERE hallStatus = ANY(from)` + `RETURNING id`）：不命中即跳过本轮，已取消/已送达单不再被复活；商家操作不命中则提示「订单状态已变更，请刷新」。扫描查询同时整体排除 `order.state = Cancelled`。
+
+### 24.6 时段锁位幂等（P2）
+
+- 原逻辑：支付事件重放/并发二次入厅会对同一单**重复递增 `lockedCount`**，取消只释放一次 → 时段容量永久少 1，最终显示「已满」但实际还有空位。
+- 现在：先原子认领订单 `slotLocked(false→true)`，认领失败视为已锁位直接返回；容量满时回滚认领标记（避免未占位却释放名额）。取消/退款释放也按 `slotLocked(true→false)` 原子认领，同一单只归还一次。
+
+### 24.7 分成落库兜底与 0 分成（P2）
+
+- `deliver` 的 `RiderEarning.save` + `addBalance` 整体加 try/catch：落库失败时订单已送达、客户端重试会被状态机挡住，因此记 error 日志（含订单号与金额）供人工补账，不再静默丢失。
+- 0 分成判据改为只看 `earning`（小费已计入分成）：修复 `earning=0 & tip>0` 仍写 0 元 pending、钱包补账永久报错的问题。
+
+### 24.8 异常超时重派清痕迹（P2）
+
+- 原逻辑：异常上报超时自动重派只回厅，`deliveryStatus` 仍为 `exception`、异常类型/照片/上报时间全部保留 → 新骑手端继续显示「异常单」，且本轮会再次命中超时规则。
+- 现在：单条 CAS 完成「回厅 + 清空异常痕迹 + 重置 `hallEnteredAt`」，`campusCause=exception_timeout` 留痕供复盘。
+
+### 24.9 超时赔付剔除已退款订单（P2）
+
+- 原逻辑：赔付扫描只排除 `order.state = Cancelled`；「先退款、后取消」或退款流程中的订单仍会被发超时券。
+- 现在：查询加 `NOT EXISTS` 子查询，支付单退款合计 ≥ 支付金额的订单一律不参与赔付。
+
+![骑手提现审核：并发双审只允许一次（原子认领）](screenshots/waimai/p9-round4/01-rider-withdraw.png)
+
+![调度中心：状态条件写与异常重派留痕](screenshots/waimai/p9-round4/02-dispatch-board.png)
+
+![改址台账：外部取消失败留痕](screenshots/waimai/p9-round4/03-address-changes.png)
+
+### 24.10 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `npm run build` 通过；全量 `npx vitest --config vitest.config.mts --run` **29 文件 / 318 用例全 PASS**（新增：CAS 未命中跳过、外部取消失败保持 third_party、预约单按 hallEnteredAt 计时、锁位幂等与满员回滚、提现并发 affected=0、0 分成跳过入账、锁内复查已被抢单/取消、赔付 SQL 含退款排除）。
+- 部署：vendure `8d916559d` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online，启动日志无报错，`shop-api` 正常应答。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：骑手提现审核、调度中心、改址台账均正常渲染，无控制台错误。
+
 
 
 
