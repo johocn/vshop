@@ -1154,3 +1154,69 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 
 
 
+
+## 29. 配送体系第九轮审计（P1 权限 + P2 履约并发 + P3 回调/入参，2026-10-24）
+
+### 29.1 C 端与骑手接口权限显式化（P1）
+
+- **背景（Vendure 权限默认值）**：resolver 不写 `@Allow` 时，`auth-guard` 传给 `DefaultEntityAccessControlStrategy` 的权限列表为空，该策略 `permissions.length === 0 → return true`——**即「不写 @Allow」= 完全公开**，不是「默认需登录」。
+- 本轮按语义显式分三类：
+  - **Public（公开只读）**：`campusZones` / `campusBuildings` / `campusCapacityCheck` / `campusShopSlots` / `campusErrandVariant` / `waimaiStoreList`（下单前选楼、运力预检、跑腿估价）。
+  - **Authenticated（需登录）**：骑手入驻/资料/钱包/余额流水/提现、任务列表与开始/送达/转单/异常上报/位置上报/催单、大厅抢单/拒单/收益、跑腿信息写入、R2 转寄、发票申请。
+  - **Owner**：`campusSetDeliveryTarget` 写当前 activeOrder，游客会话同样可用。
+- **线上探针**：匿名 `campusCapacityCheck` 正常返回；匿名 `myRiderProfile` 返回 `FORBIDDEN`（修复前可匿名读）。
+
+### 29.2 送达 / 开始配送 / 位置 / 异常上报改条件写（P2）
+
+- 送达：单条 `UPDATE` 同时写 `deliveryStatus=delivered`、`hallStatus=delivered`、照片、分成、清位置，并把条件锚定在 **当前骑手 + `deliveryStatus=in_progress` + `hallStatus=grabbed` + `state <> 'Cancelled'`**（原来只有 deliveryStatus 条件，改派窗口内旧骑手仍可完成送达并领分成）。
+- 开始配送：条件锚定 `assigned + 当前骑手 + hallStatus=grabbed + 未取消`。
+- 位置上报：条件锚定当前骑手 + `assigned/in_progress`；坐标先做范围校验（`|lat| <= 90`、`|lng| <= 180`）。
+- 异常上报：条件锚定当前骑手 + `assigned/in_progress`；类型限 `merchant_issue / no_recipient / food_spilled / other` 四类白名单。
+- 未命中统一提示「订单已被取消或改派，无法…」，不再出现「已取消单被改成送达/异常」。
+
+### 29.3 骑手分成按订单所属渠道解析（P2）
+
+- 分成比例取自**订单所属渠道**的履约配置（读不到才回退当前 ctx 渠道）：跨店订单此前用访问者渠道算比例，会按错误比例入账。
+- 为此订单归属校验同时加载 `channels` 关系。
+
+### 29.4 后台强制回厅需交接说明（P2）
+
+- 订单已取货（`deliveryStatus=in_progress`）时，后台「回大厅」必须填写交接说明，否则提示「骑手已取货，强制回大厅需填写交接说明」。
+- 说明以 `transferNote / transferAt / campusCause=admin_force_back` 与「回厅复位字段」**同一条条件 UPDATE 落库**，运营可在订单详情回溯是谁、何时、因何把已取餐订单退回大厅。
+- 接口签名：`campusBackToHall(orderId: ID!, note: String)`（note 可空）。
+
+### 29.5 取消脱厅原子化（P3）
+
+- `exitHall` 由「先读 hallStatus 再 update」改为**单条条件 UPDATE**：仅活跃流转态改 `cancelled`，`grabbed` 单用 `CASE WHEN 旧 hallStatus='grabbed'` 连带清 `deliveryStaffId/deliveryStatus/assignedAt`。
+- 消除与调度 T4 写 `no_rider_final` 的竞态（原先读到 grabbed 后、写入前被判终态，仍会被覆盖成 cancelled）。
+
+### 29.6 外部快递回调防串（P3）
+
+- 状态序补 `cancelled / exception` 为终态档：终态之后到达的任何回调一律忽略（原先 `cancelled` 无档位，迟到 `delivered` 可能把已回大厅的单再入厅）。
+- 回调运单号与订单当前 `thirdPartyNo` 不一致时直接丢弃：换运力重推后，旧运单的迟到回调不得污染新运单状态。
+
+### 29.7 在线骑手渠道过滤 + 时段锁位容量列比较（P3）
+
+- 在线骑手池增加 `customer.channels` 渠道过滤：骑手资格本身按渠道生效，原先会把 A 店单派给 B 店骑手（其资格校验会直接拒绝，造成无效派单）。
+- 时段锁位容量条件改为数据库列比较 `"lockedCount" < "capacity"`：不再用读取时的快照，管理员并发调低容量也不会超额。
+
+### 29.8 入参校验与隐私收敛（P3）
+
+- 骑手入驻：姓名/学号/校区 trim 后非空、各 ≤30 字；证件图地址 ≤500 字。
+- 骑手状态：仅 `none / approved / suspended`，非 `approved` 时同时清 `riderOnlineAt`（停用即强制下线，不再出现在在线运力池）。
+- 发票抬头：非空、≤500 字。
+- 用户侧查骑手：`campusOrderRider` 只返回姓名/信用分/位置/预计时间，**手机号恒为 null**（脱敏）。
+
+### 29.9 验证记录（2026-10-24）
+
+- 构建与单测：`tsc` 构建通过；campus-delivery-plugin 全量 **34 文件 / 394 用例全 PASS**（较上轮 385 +9：后台回厅交接说明、位置上报条件写/坐标校验、旧运单号与终态回调、骑手入参/状态白名单；脱厅用例按条件写重写）。
+- 部署：vendure `a098f5f7c` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 正常应答。
+- 线上探针：匿名 `campusCapacityCheck` → `{paused:false, ridersOnline:0}`；匿名 `myRiderProfile` → `FORBIDDEN`（权限显式化生效）。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：调度中心（大厅待接/告警/异常处置记录）、拾光达配置（动态计价试算 + 履约参数）、楼栋坐标均正常渲染，无控制台错误（浮层「无访问权限」为本地打印控件 CLodop 的越权提示，与业务无关）。
+- **口径记录（本轮不改代码）**：① 骑手钱包/累计收入为**平台级跨渠道汇总**（分成流水记在各店铺渠道，钱包查询固定默认渠道上下文，按渠道过滤会恒为 0）；② 送达完成后再发生的异常/退款**不回收已入账分成**（配送已履约），如需追回走人工或信用分。
+
+![调度中心：大厅待接/滞留告警/异常处置记录正常](screenshots/waimai/p9-round9/01-dispatch.png)
+
+![拾光达配置：动态计价试算与履约参数（当前店铺）](screenshots/waimai/p9-round9/02-campus-config.png)
+
+![楼栋坐标：公开只读接口正常返回](screenshots/waimai/p9-round9/03-buildings.png)
