@@ -1508,3 +1508,42 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - Vendure 内置 `order-timeout`、`clean-sessions`、`after-sales-timeout`、`flash-sale-status`、`group-buy-check` 等同样依赖 `ScheduledTask`，**生产同样不执行**（库内 `job_record` 最后一批补偿入队停在 10-23）。若希望这些平台级补偿恢复，可在 `dev-config.ts` 设 `schedulerOptions.runTasksInWorkerOnly: false`（单进程部署的官方推荐做法，需重新构建 dev-server `dist` 并重启），或另起 `index-worker` pm2 进程。本轮按配送体系范围只修校园插件自有链路，未改动全局配置。
 - 订单 269 等 10-06 遗留测试单（`hallStatus='in_progress'`）不影响现网流转，建议运营侧归档处理，不做代码兜底（状态机已不产出该状态）。
 
+## 37. 第十七轮：两处原生 SQL 漏加列名引号（2026-10-25）
+
+### 37.1 背景与生产缺陷
+
+本轮复核并行会话提交 `3cdf068fc`（FAILED 任务接飞书告警）未发现 P1/P2（告警去重、扫描上限、异常不阻断均正确），随后对全插件 `rawConnection` 原生 SQL 做**列名引号全量复查**（round 15 曾因裸写 `customerId` 导致生产每分钟报错），又发现两处同类遗漏：
+
+1. **飞书「确认恢复」指令完全不可用（P1）**：`feishu.command.service.buildRestoreSQL()` 生成
+   `UPDATE "order" SET customFieldsHallstatus='open', customFieldsExceptionaction=NULL, ...`，
+   5 个列名全部裸写。PostgreSQL 会把裸写标识符折叠为小写（`customfieldshallstatus`），
+   而物理列是 `customFieldsHallstatus` → 生产执行必报 `column ... does not exist`，
+   指令回复「恢复失败」。SQLite 单测大小写不敏感，因此一直未暴露。
+2. **「合并默认配送档案」补绑变体报错（P1）**：`shipping-profile-ensure.service.bindUnboundVariants`
+   的 QueryBuilder 原始 where 写成 `v.customFieldsShippingprofileid IS NULL`（未加引号），
+   同样在 PG 报 `column v.customfieldsshippingprofileid does not exist`，未绑变体补绑直接失败。
+
+> 根因同源：本 fork 的 customFields 物理列名保留首字母大写（`customFieldsHallstatus` /
+> `customFieldsShippingprofileid`），任何原生 SQL 与 QueryBuilder 原始条件都必须双引号包裹。
+
+### 37.2 本轮修复
+
+- `buildRestoreSQL()`：5 个列名全部改为 `"customFieldsXxx"` 形式，恢复指令在 PG 可执行。
+- `bindUnboundVariants`：where 改为 `v."customFieldsShippingprofileid" IS NULL`，
+  UPDATE 语句原本已加引号无需改动。
+- 单测补 **PG 回归断言**（SQLite 单测无法暴露大小写问题，只能断言写法）：
+  - `feishu.spec.ts`：每个 SET 字段的列名必须匹配 `^"customFields[A-Za-z]+"$`；
+  - `shipping-profile-ensure.service.spec.ts`：变体过滤 where 必须包含 `"customFieldsShippingprofileid"`，且不得出现裸写 `v.customFields`。
+
+### 37.3 验证记录
+
+- 全量单测：**35 文件 / 471 用例全 PASS**（较上轮 467 +4）；`tsc` 构建通过，`lib/` 随提交入库。
+- 全插件原生 SQL 复查：`customFields` 裸写仅上述两处，其余（rider-task / dispatch-job / dispatch-admin / slot-lock / r2-mark / campus-invoice / rider-credit / 迁移脚本 / 收藏表）均已双引号；自建表 `campus_favorite_shop` 等 camelCase 列亦已加引号。
+- 部署 `0e1094a45` 后在生产 PG 用 `EXPLAIN`（不执行、无副作用）验证两条语句可正常解析：
+  - `Update on "order" ... Index Scan ... (id = 269)`；
+  - `Update on product_variant ... Filter: ("customFieldsShippingprofileid" IS NULL)`。
+- 手机视口截图（390×844 dpr=2）：配送档案页正常渲染（门店自提 / default 租户默认档案 / 全局档案均可见）。
+
+![配送档案页：本轮修复的「补绑未绑变体」链路所在模块](screenshots/waimai/p9-round17/01-shipping-profile.png)
+
+
