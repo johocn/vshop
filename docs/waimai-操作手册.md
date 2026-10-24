@@ -1359,3 +1359,43 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 ![校园配置：动态计价试算与履约参数正常](screenshots/waimai/p9-round12/02-campus-config.png)
 
 ![商家接单：活跃单视图正常](screenshots/waimai/p9-round12/03-merchant.png)
+
+## 33. 配送体系第十三轮审计（P1 改址差额退款接统一结算 + P2 台账并发/告警 + P3 校验与口径，2026-10-24）
+
+### 33.1 改址差额退款未走统一结算入口（P1）
+
+- 第十二轮统一了「商家拒单 / 异常处置 / 无人接单」三条退款路径，但**遗漏了第 4 条：改址差额退款**（`address-change.service.ts` 的 `refundAmount`）。原实现只调用 `refundOrder` 创建退款单，**从不结算**，退款单长期停在 `Pending`：钱没打给客户，且按 32.1 的口径占掉已退额度。
+- 现在 `refundAmount` 末行统一调用 `settleRefundOrMarkFailed`：结算成功即真实打款，失败置 `Failed` 留痕、不占额度、可由运营重试。
+- 运营口径：改址台账「待退顾客」金额在结清后即已真实打款，不再需要人工另行退款。
+
+### 33.2 改址台账与订单地址并发写（P2）
+
+- **台账 `refundId` 落库改条件写**：结清差额原为「锁内查重 → 退款 → `repo.save`」，锁外并发/重试可能把同一行写成两条退款。现在在退款锁内用 `UPDATE ... WHERE id=? AND "refundId" IS NULL` 落库，`affected=0` 直接判「该差额已退款」，重复请求不会二次打款。
+- **调度墙新增常驻告警** `address_change_cancel_failed`：改址后原外部运力单取消失败（旧运单仍会把餐送到旧地址）原来只写日志，调度中心完全看不到。现在该订单在调度墙的异常区常驻提示「请人工取消并按新址重推」。
+- **改址失败回滚台账**：订单地址写库失败时删除已插入的台账行，避免留下「有台账、无改址」的幽灵记录。
+
+### 33.3 P3 配置校验与统计口径
+
+- **`updateStoreConfig` 补校验**（此前只挡负数）：各配送时长/金额参数加区间校验与整数归一；`routesEnabled` 去重并过滤非法值；门店坐标校验 `lat ∈ [-90,90]`、`lng ∈ [-180,180]`，传 `null` 可清空。
+- **骑手分成按实收小费计**：原先按订单 `cf.tip` 计算，跑腿小费 surcharge 未落库时会虚高分成。现在按实际收取的 `跑腿小费` surcharge 金额累加计算，未收取即按 0 计。
+- **T4 无人接单补偿券失败独立告警**：发券异常原被外层 catch 记为「退款失败」，券静默丢失。现在发券单独 try/catch，失败推飞书「无人接单补偿券发放失败」（去重键 `compensation_coupon_failed:{订单号}`），退款/取消流程不受影响。
+- **外部运力取消回退改条件写**：`doCancel` 成功后不再「读后无条件写」，改 `transitionFrom(['third_party'])` 条件写，避免并发/已取消订单被复活；未命中仅补写第三方状态。
+- **台账列表 `skip` 钳制**（负数归零）；结清备注限制 200 字。
+
+### 33.4 复核后未改项
+
+- 骑手钱包 `sumEarned` 含 `pending` 分成：口径为「应得」，与提现可用的 `available` 分开展示，符合业务定义。
+- `campusErrandVariant` 建商品为幂等 upsert，并发重复调用不会产生重复变体。
+
+### 33.5 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **35 文件 / 447 用例全 PASS**（较上轮 432 +15：改址退款结算/结算失败置 Failed/台账 CAS 未命中/备注超长/改址失败回滚台账、配置区间与坐标校验、routes 去重、小费实际口径、改址取消失败告警、补偿券失败告警、`doCancel` 三种条件写分支；同时修正 12 轮遗留的 `refundRepo.findOne` 测试缺口）。
+- 部署：vendure `941f96cee` 推送（服务器 HEAD `c6d054de9`，含本轮全部提交）→ `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online、内存正常；JobQueue（payment-timeout / order-timeout / after-sales-timeout 等）全部启动；`shop-api` 正常应答（GET 400，POST 正常），`coupon-expire` 定时任务正常跑批次。
+- lib 产物核验：服务器 `lib/src/address-change.service.js` 含 `settleRefundOrMarkFailed`、`lib/src/dispatch-admin.service.js` 含 `address_change_cancel_failed`，确认编译产物与源码一致。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，当前登录店铺渠道）：调度中心、改址台账、校园配置均正常渲染。
+
+![调度中心：告警与大厅正常渲染](screenshots/waimai/p9-round13/01-dispatch.png)
+
+![改址台账：待处理/待退/待收差额指标正常](screenshots/waimai/p9-round13/02-address-changes.png)
+
+![校园配置：履约参数与动态计价试算正常](screenshots/waimai/p9-round13/03-campus-config.png)
