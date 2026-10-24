@@ -1090,5 +1090,67 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 部署：vendure `4be57e67a` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 返回 200（`activeChannel` 正常应答）。
 - 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：支付超时观测、配送看板、商家接单均正常渲染，无接口报错（页面浮层「无访问权限」为本地打印控件 CLodop 的越权提示，与业务无关）。
 
+## 28. 配送体系第八轮审计（P1 两项 + P2 四项 + 调度扫描修复，2026-10-24）
+
+### 28.1 改址差额口径修正 + 订单级改址锁（P1）
+
+- **原问题**：差额基准恒取 `order.shippingWithTax`（下单快照、从不回写），A→B→A 连续改址会按同一旧价重复记差额；且改址无并发保护，双击/双标签页可双写台账并按旧价各算一次。
+- **现在**：差额基准取**最近一次改址台账的 newFee**（无改址史才回退下单快照）；C 端自助改址与后台代改全程包在 PG 会话咨询锁 `campus:address:<orderId>` 内，锁内重读订单再校验/落库；抢不到锁返回「该订单正在处理其他改址，请稍后重试」。
+- 运营口径：台账差额始终相对「上一笔改址后的生效运费」，结清只影响台账，不回写订单运费。
+
+### 28.2 配送中/已送达禁止用户取消（P1）
+
+- 新增订单取消守卫（`campusCancelGuardProcess`），仅拦截 **C 端 shop API** 发起的 `→ Cancelled`：
+  - 已送达：提示「订单已送达，无法取消，请申请售后」；
+  - `deliveryStatus = assigned / in_progress`、`thirdPartyState = accepted / pickup`、`hallStatus = grabbed / third_party / owned_dispatched / merchant_delivering`：提示「骑手已接单或配送中，无法取消，请联系客服或申请售后」。
+- 后台与系统取消（商家拒单、调度强制取消/异常处置、支付超时关闭）不受影响。
+
+### 28.3 退款支付单口径统一（P2）
+
+- 商家拒单、调度 T4、异常处置、改址负差额 4 处退款统一只选 **state ∈ Settled/Authorized 且仍有余额** 的支付单；全额流程逐张退「剩余余额」，重试/并发天然幂等。
+- 无可退余额时统一提示「订单无可退支付余额（可能未支付或已全额退款）」；超额提示「退款金额超过可退余额（订单可能已全额退款）」。
+
+### 28.4 R1 商户自配送改址触达商户（P2）
+
+- 改址成功后写入 `campusCause = address_changed`，并推送飞书事件 `campus_address_changed`（订单号 + 新旧「分区·楼栋」），避免商户仍按旧楼栋配送；推送失败不阻断改址。
+- 有骑手单仍按原骑手通知链路触达，不重复打扰商户。
+
+### 28.5 飞书回调 fail-closed + 多令牌（P2）
+
+- 未配置 `FEISHU_VERIFY_TOKEN` 时业务事件一律 403；令牌不符也 403（日志只记事件类型与令牌长度，不打印原文）。
+- 支持**逗号分隔多令牌**（事件订阅与卡片回调各一份），令牌兼容 `header.token` / `event.token`；`challenge` 握手先回显（不回显任何业务数据）。
+
+### 28.6 后台配置入参校验（P2）
+
+- 分区：名称非空、运费为非负整数（分）；
+- 楼栋：名称非空、分区必须属于当前登录店铺、经纬度范围（±90 / ±180）；
+- 时段：日期 `YYYY-MM-DD`、时刻 `HH:mm`、开始早于结束、容量 1–9999、分区归属校验、同店同日同分区同开始时间不允许重复。
+- 前端原本无校验的脏输入现在会在接口层被拒绝并返回中文原因。
+
+### 28.7 追加修复：调度扫描 orderBy 被 TypeORM 误判别名
+
+- **原问题**（第五轮引入、线上潜伏）：扫描使用 `take + join` 会走 TypeORM 的 distinct 分页子查询，该路径把 CASE 表达式里的 `CASE WHEN order` 当作别名解析 → 每轮扫描**所有渠道**整轮失败（`"CASE WHEN order" alias was not found`），自动强派/回厅/退款兜底实际未执行。
+- **现在**：改用 `limit`（查询已按 `channel.id` 过滤，一单只命中一行，不会产生重复行），ORDER BY 表达式正常生成 SQL；重启后日志该报错计数 0。
+
+### 28.8 验证记录（2026-10-24）
+
+- 构建与单测：campus-delivery-plugin `tsc` 构建通过；全量 **34 文件 / 385 用例全 PASS**（新增 `refund-payment` 4、`cancel-guard.process` 7、`campus-config-validation` 7；`dispatch-job` 48、`feishu` 26 全绿）。
+- 部署：vendure `a8bad81b8 → 37546b731 → 7abe6cf3c` 推送 → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env`，pm2 online；`shop-api` 200。
+- 线上探针（admin-api）：`campusCreateZone` 空名称 → 「分区名称不能为空」、负运费 → 「分区运费必须为非负整数（分）」、`campusCreateSlot` 非法日期 → 「日期格式必须为 YYYY-MM-DD」，均 `USER_INPUT_ERROR`（脏数据未落库）。
+- 线上日志：重启后 9 分钟窗口内 `alias was not found` / `CampusDispatch scan failed` 均为 **0**。
+- 手机视口截图（390×844 dpr=2，e.joho.cn/guanli，canteen-a 渠道）：
+  - 校园配置页正常渲染（动态计价试算、履约参数按当前店铺生效）；
+  - 改址台账（KPI 三卡 + 状态筛选，当前无改址记录，空态正常）；
+  - 商家接单（活跃单视图，提示「未开启商家接单确认」为店铺当前配置，与本次修复无关）。
+  - 页面浮层「无访问权限」为本地打印控件 CLodop 的跨域提示，与业务无关。
+
+![校园配置：动态计价试算与履约参数（当前店铺）](screenshots/waimai/p9-round8/01-campus-config.png)
+
+![改址台账：差额口径按最近一次改址生效运费（当前无记录）](screenshots/waimai/p9-round8/02-address-changes.png)
+
+![商家接单：拒单退款改走可退余额口径](screenshots/waimai/p9-round8/03-merchant-orders.png)
+
+- 已知限制：取消守卫只在 C 端取消路径生效，未构造真实在途订单做线上取消拦截截图（由 7 个单测覆盖各状态组合）；接真实在途单后可按 §28.2 复验。
+
 
 
