@@ -28,6 +28,15 @@
           </view>
           <text class="zp-save" :class="{ busy: zoneBusy === z.id }" @tap="saveZone(z)">{{ $t('buildingCoord.zoneSave') }}</text>
         </view>
+        <!-- 新增分区（新校区/新配送圈）：此前只能手工调 GraphQL -->
+        <view class="zp-row zp-new">
+          <input v-model="newZoneName" class="zp-name" :placeholder="$t('buildingCoord.zoneNewNamePh')" />
+          <view class="zp-fee">
+            <text class="zp-fee-lbl">¥</text>
+            <input v-model="newZoneFee" class="zp-fee-input" type="digit" :placeholder="$t('buildingCoord.zoneFeePh')" />
+          </view>
+          <text class="zp-save" :class="{ busy: zoneCreating }" @tap="createZone">{{ $t('buildingCoord.zoneAdd') }}</text>
+        </view>
       </view>
 
       <view v-if="!visible.length" class="hint">{{ $t('buildingCoord.empty') }}</view>
@@ -112,7 +121,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   campusBuildings, campusCreateBuilding, campusUpdateBuilding, campusZones,
-  campusUpdateZone, campusDeleteBuilding,
+  campusUpdateZone, campusCreateZone, campusDeleteBuilding,
   type CampusBuilding, type CampusZone,
 } from '../../apis/campus';
 import { graphQlErrorMsg } from '../../apis/client';
@@ -147,6 +156,10 @@ const picked = ref<{ lat: number; lng: number } | null>(null);
 const zoneEditOpen = ref(false);
 const zoneBusy = ref('');
 const zoneForms = ref<Record<string, { name: string; fee: string }>>({});
+/** 新增分区表单（分区管理面板底部） */
+const newZoneName = ref('');
+const newZoneFee = ref('');
+const zoneCreating = ref(false);
 const deleting = ref(false);
 
 /** H5 底图依赖腾讯 Key；未配置时不渲染 <map>（SDK 无 key 会报错） */
@@ -340,6 +353,34 @@ async function saveZone(z: CampusZone) {
     uni.showToast({ title: graphQlErrorMsg(e, locale.t('buildingCoord.saveFailed')), icon: 'none' });
   } finally {
     zoneBusy.value = '';
+  }
+}
+
+/** 新增分区：名称 + 运费（元）→ campusCreateZone；成功后并入分区列表与编辑表单 */
+async function createZone() {
+  if (zoneCreating.value) return;
+  const name = newZoneName.value.trim();
+  if (!name) {
+    uni.showToast({ title: locale.t('buildingCoord.zoneNeedName'), icon: 'none' });
+    return;
+  }
+  const fee = yuanToFen(newZoneFee.value);
+  if (fee == null) {
+    uni.showToast({ title: locale.t('buildingCoord.zoneBadFee'), icon: 'none' });
+    return;
+  }
+  zoneCreating.value = true;
+  try {
+    const created = await campusCreateZone(name, fee);
+    zones.value.push(created);
+    newZoneName.value = '';
+    newZoneFee.value = '';
+    syncZoneForms();
+    uni.showToast({ title: locale.t('buildingCoord.zoneCreated'), icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: graphQlErrorMsg(e, locale.t('buildingCoord.saveFailed')), icon: 'none' });
+  } finally {
+    zoneCreating.value = false;
   }
 }
 

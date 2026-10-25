@@ -12,18 +12,19 @@ export interface RiderWithdrawRow {
   amount: number;
   channel: string;
   account: string;
-  status: 'PENDING' | 'PAID' | 'REJECTED' | string;
+  status: 'PENDING' | 'PAID' | 'REJECTED' | 'FAILED' | string;
   remark?: string | null;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   payoutRef?: string | null;
   payoutProof?: string | null;
+  failReason?: string | null;
   createdAt?: string | null;
 }
 
 const WITHDRAW_FIELDS = `
   id customerId channelId amount channel account status
-  remark reviewedBy reviewedAt payoutRef payoutProof createdAt
+  remark reviewedBy reviewedAt payoutRef payoutProof failReason createdAt
 `;
 
 /**
@@ -63,6 +64,17 @@ export async function approveRiderWithdraw(
     { id, remark: remark || null, payoutRef, payoutProof: payoutProof || null },
   );
   return approveRiderWithdraw;
+}
+
+/** 打款失败回退（PAID → FAILED 并退回骑手余额；用于转账被退回/账号错误） */
+export async function markWithdrawFailed(id: string, reason: string): Promise<RiderWithdrawRow> {
+  const { campusMarkWithdrawFailed } = await getAdminClient().request<{ campusMarkWithdrawFailed: RiderWithdrawRow }>(
+    `mutation MarkWithdrawFailed($id: ID!, $reason: String!) {
+      campusMarkWithdrawFailed(id: $id, reason: $reason) { ${WITHDRAW_FIELDS} }
+    }`,
+    { id, reason },
+  );
+  return campusMarkWithdrawFailed;
 }
 
 /** 驳回（状态 REJECTED 并自动退回冻结金额） */

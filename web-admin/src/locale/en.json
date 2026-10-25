@@ -1619,6 +1619,7 @@
       "status_PENDING": "Pending",
       "status_PAID": "Paid",
       "status_REJECTED": "Rejected",
+      "status_FAILED": "Payout failed",
       "toChannel": "Withdraw to ",
       "createdAtLabel": "Applied at ",
       "reviewedAtLabel": "Reviewed at ",
@@ -1641,6 +1642,13 @@
       "rejectPlaceholder": "Enter rejection reason",
       "rejectEmpty": "Rejection reason is required",
       "rejectOk": "Rejected and refunded",
+      "failReasonLabel": "Failure reason: ",
+      "failBtn": "Mark payout failed",
+      "failTitle": "Mark Payout Failed",
+      "failContent": "Confirm the ¥{amount} transfer actually failed (returned / wrong account)? The amount will be refunded to the rider's balance and a new request is required.",
+      "failPlaceholder": "Enter failure reason",
+      "failEmpty": "Failure reason is required",
+      "failOk": "Marked as failed and refunded",
       "opFailed": "Operation failed",
       "loading": "Loading…",
       "loadMore": "Load more",
@@ -5052,6 +5060,9 @@
     "zoneSaved": "Zone saved",
     "zoneNeedName": "Zone name is required",
     "zoneBadFee": "Enter a valid fee (CNY, up to 2 decimals)",
+    "zoneNewNamePh": "New zone name",
+    "zoneAdd": "Add",
+    "zoneCreated": "Zone created",
     "del": "Delete building",
     "deleting": "Deleting…",
     "delTitle": "Delete building",
@@ -5174,6 +5185,10 @@
     "monthlySales": "Monthly sales",
     "variantCount": "Variants",
     "soldOut": "Sold out",
-    "onSale": "On sale"
+    "onSale": "On sale",
+    "errandHint": "Errand orders (R5) require the 0-price carrier product; idempotent and safe to re-run.",
+    "errandInit": "Init errand product",
+    "errandBusy": "Initializing…",
+    "errandOk": "Ready (SKU {sku})"
   }
 }

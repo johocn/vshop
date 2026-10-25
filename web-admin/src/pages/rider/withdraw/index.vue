@@ -16,6 +16,7 @@
       <text class="meta" v-if="r.reviewedAt">{{ $t('rider.withdraw.reviewedAtLabel') }}{{ fmtTime(r.reviewedAt) }}</text>
       <view class="remark" v-if="r.remark">{{ $t('rider.withdraw.remarkLabel') }}：{{ r.remark }}</view>
       <view class="remark" v-if="r.payoutRef">{{ $t('rider.withdraw.payoutRefLabel') }}{{ r.payoutRef }}</view>
+      <view class="remark" v-if="r.failReason">{{ $t('rider.withdraw.failReasonLabel') }}{{ r.failReason }}</view>
       <view class="remark proof" v-if="r.payoutProof" @tap="openProof(r.payoutProof)">
         {{ $t('rider.withdraw.viewProof') }}
       </view>
@@ -23,6 +24,9 @@
       <view class="ops" v-if="r.status === 'PENDING'">
         <button class="op main" @tap="onApprove(r)">{{ $t('rider.withdraw.approveBtn') }}</button>
         <button class="op" @tap="onReject(r)">{{ $t('rider.withdraw.rejectBtn') }}</button>
+      </view>
+      <view class="ops" v-else-if="r.status === 'PAID'">
+        <button class="op" @tap="onMarkFailed(r)">{{ $t('rider.withdraw.failBtn') }}</button>
       </view>
     </view>
 
@@ -48,7 +52,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
-import { fetchWithdrawPage, approveRiderWithdraw, rejectRiderWithdraw, type RiderWithdrawRow } from '../../../apis/rider-withdraw';
+import { fetchWithdrawPage, approveRiderWithdraw, rejectRiderWithdraw, markWithdrawFailed, type RiderWithdrawRow } from '../../../apis/rider-withdraw';
 import { fenToYuanFixed } from '../../../utils/money';
 
 const locale = useLocaleStore();
@@ -145,6 +149,22 @@ function onReject(r: RiderWithdrawRow) {
       const remark = (res.content || '').trim();
       if (!remark) { toast(locale.t('rider.withdraw.rejectEmpty')); return; }
       void run(() => rejectRiderWithdraw(r.id, remark), locale.t('rider.withdraw.rejectOk'));
+    },
+  });
+}
+
+/** 打款失败回退：已标记打款但实际转账被退回（账号错误等），必填原因并自动退回余额 */
+function onMarkFailed(r: RiderWithdrawRow) {
+  uni.showModal({
+    title: locale.t('rider.withdraw.failTitle'),
+    content: locale.t('rider.withdraw.failContent').replace('{amount}', fmtFen(r.amount)),
+    editable: true,
+    placeholderText: locale.t('rider.withdraw.failPlaceholder'),
+    success: (res) => {
+      if (!res.confirm) return;
+      const reason = (res.content || '').trim();
+      if (!reason) { toast(locale.t('rider.withdraw.failEmpty')); return; }
+      void run(() => markWithdrawFailed(r.id, reason), locale.t('rider.withdraw.failOk'));
     },
   });
 }

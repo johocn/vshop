@@ -642,6 +642,17 @@ export async function campusUpdateSlot(
   return res.campusUpdateSlot;
 }
 
+/** 新增配送分区（此前只能手工 GraphQL/SQL 建，后台缺入口） */
+export async function campusCreateZone(name: string, fee: number): Promise<CampusZone> {
+  const res = await getAdminClient().request<{ campusCreateZone: CampusZone }>(
+    `mutation ($name: String!, $fee: Int!) {
+      campusCreateZone(name: $name, fee: $fee) { id name fee }
+    }`,
+    { name, fee },
+  );
+  return res.campusCreateZone;
+}
+
 /** 分区改名/改运费（名称被历史订单快照引用，仅影响后续下单） */
 export async function campusUpdateZone(
   id: string,
