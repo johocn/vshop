@@ -1574,7 +1574,18 @@ var CHAPTERS = [
   <div><img class="img" src="shots/wx-order-support.png" alt="对话客服卡片"><div class="imgcap">图 WX6 · 回复「客服」：门店电话 + 当前订单</div></div>
 </div>
 
-<h3>四、上线前自检</h3>
+<h3>四、对话实拍（客服培训用）</h3>
+<p>以下四张依次是<mark class="mark">帮助指引 → 选地址 → 确认下单 → 附近门店</mark>，可直接用于客服培训和上线验收对照。</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-help.png" alt="回复帮助的指引"><div class="imgcap">图 WX7 · 回复「帮助」：六条使用指引</div></div>
+  <div><img class="img" src="shots/wx-order-address.png" alt="收货地址列表"><div class="imgcap">图 WX8 · 回复编号后：地址列表（⭐默认，回复 0 新增）</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-confirm.png" alt="确认订单卡片"><div class="imgcap">图 WX9 · 确认卡：明细 / 合计、收货信息、支付方式与 1 / 0 / 9 选项</div></div>
+  <div><img class="img" src="shots/wx-order-nearby.png" alt="附近门店列表"><div class="imgcap">图 WX10 · 发送位置：3 km 内门店（回复「门店N」选用）</div></div>
+</div>
+
+<h3>五、上线前自检</h3>
 <ul>
 <li>用真实商品名搜一次，能返回图文卡片；回复编号能进入收货地址选择。</li>
 <li>选定地址后能出现支付方式选择（或自动选中唯一方式）；回复 <code>1</code> 能生成订单号与支付链接。</li>
@@ -1583,13 +1594,23 @@ var CHAPTERS = [
 <li>在后台停用 / 启用一个支付方式，下一次对话立即生效（验证后记得恢复）。</li>
 </ul>
 
-<h3>五、常见问题</h3>
+<h3>六、常见问题</h3>
 <details><summary>买家搜不到某个商品</summary><p>按顺序确认：商品是否<mark class="mark">已启用</mark>、是否归属<mark class="mark">本店渠道</mark>、检索索引是否已同步。前两项正常仍搜不到时，让平台运维重建检索索引，并用商品全名重试。</p></details>
 <details><summary>提示「本店暂未开通在线支付」</summary><p>「支付方式」里没有任何已启用通道，或已启用但未分配到本店。打开开关并保存后，买家重新下单即可看到；此状态<mark class="mark">不会创建订单</mark>。</p></details>
 <details><summary>「客服」卡片没有门店电话</summary><p>说明当前匹配到的自提点未填联系电话，且「店铺信息 → 客服电话」也为空。补齐任一处即可，优先补自提点电话。</p></details>
 <details><summary>「附近门店」提示没有位置，或列表为空</summary><p>「附近门店」依赖买家<mark class="mark">先发送位置</mark>（位置缓存 30 分钟）。已发送仍为空，多半是 3km 内没有自提点，或自提点经纬度未填 / 不准；不影响下单配送。</p></details>
 <details><summary>买家回复编号提示「没有该商品」</summary><p>编号只对应<mark class="mark">最近一次搜索结果</mark>，且 30 分钟过期。请买家重新发送商品名，再按新编号下单。</p></details>
 <details><summary>商品改了价格 / 名称，对话里还是旧的</summary><p>增量同步通常几秒内完成，可让买家重新搜索一次。如果多个商品同时不对，联系平台运维执行全量重建后复测。</p></details>
+<details><summary>第一次下单提示「您还未绑定购物账号」</summary><p>助手会在对话内两步补录：先回复 11 位手机号开通账号，再回复含<mark class="mark">省 / 市 / 区</mark>的收货地址；绑定成功后即可正常下单，之后再买无需重复绑定。若该手机号<mark class="mark">已注册过店铺账号</mark>，助手会要求到 H5 登录验证（防冒领），不能在对话内直接开通。</p></details>
+<details><summary>回复「0」「9」「取消」分别代表什么</summary><p>三者都是<mark class="mark">当前卡片的选项</mark>，不是商品编号：<code>0</code> 新增地址 / 重选地址 / 返回上一级；<code>9</code> 更换支付方式；<code>取消</code> 退出手机号、地址、留言等录入流程。在确认卡上，只有回复 <code>1</code> 才是下单。</p></details>
+<details><summary>想一次买多件，怎么发</summary><p>两种方式：回复多个编号，如 <code>1,3</code>、<code>1和3</code>（支持逗号、顿号、和、&amp;），会合并为同一单；或直接带数量搜索，如「买2瓶酱油」「要3份」，数量带入本次下单。</p></details>
+<details><summary>地址怎么改、删、设为默认</summary><p>回复「地址管理」列出地址簿，再回复编号进入操作菜单：<code>1</code> 设为默认、<code>2</code> 修改地址、<code>3</code> 删除、<code>0</code> 返回列表。新增地址可回复「新增地址」或在地址列表回复 <code>0</code>；联系电话默认用注册手机号，可按提示回复 <code>2</code> 换号。</p></details>
+<details><summary>地址录入到一半不想买了</summary><p>回复「取消」退出当前手机号 / 地址 / 留言流程，回到空闲态，再发送商品名重新开始；已保存的地址和已生成的订单不受影响。</p></details>
+<details><summary>重复回复「客服」只收到一句短提示</summary><p>同一会话<mark class="mark">10 分钟内</mark>重复请求客服，系统只回一条短提示（号码未变），避免重复刷屏。需要门店回电时，回复「留言」写清问题（200 字以内），提交后会生成工单编号。</p></details>
+<details><summary>留言提示「有点长」怎么办</summary><p>留言上限 <mark class="mark">200 字</mark>，超出会提示精简后重发；提交成功会返回工单编号（如 #123），门店按编号核对处理。</p></details>
+<details><summary>位置发了还是没匹配到门店，能下单吗</summary><p>能。「附近门店」只影响就近安排，<mark class="mark">匹配不到门店仍可正常下单配送</mark>。位置缓存 30 分钟，过期后需重新发送位置；在地址录入过程中发送位置会提示先完成当前步骤，回复「取消」后可保存为新地址。</p></details>
+<details><summary>「客服2」「门店1」里的数字是哪来的</summary><p>是<mark class="mark">最近一次门店列表</mark>的顺序编号，不是订单号；列表过期后重新发送位置或回复「客服」即可刷新。编号超出范围时，按提示回复范围内的数字。</p></details>
+<details><summary>支付在哪里完成，助手会代收吗</summary><p>助手只负责创建订单并给出<mark class="mark">支付链接</mark>，实际收款在商城收银台完成，对话内不输入卡号也不代收。支付结果与订单状态请到商城「个人中心 → 我的订单」查看。</p></details>
 `},
 {book:'op', id:'op-54', title:'平台角色管理（本店角色 · 全局角色池）', html:`
 <p class="lead">「平台管理 → 角色管理」是权限的源头：<mark class="mark">本店角色</mark>维护本租户的角色与权限码；<mark class="mark">全局角色池</mark>沉淀平台级角色标准（默认模板导入、入池引用、创建即分发）。入口需「角色管理」权限；把角色授给成员的操作见「成员密码管理与角色授权」一章。</p>

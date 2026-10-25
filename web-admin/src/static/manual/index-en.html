@@ -1559,7 +1559,18 @@ var CHAPTERS = [
   <div><img class="img" src="shots/wx-order-support.png" alt="Support card in chat"><div class="imgcap">Fig. WX6 · Replying “support”: store phone + current order</div></div>
 </div>
 
-<h3>4. Pre-launch self-check</h3>
+<h3>4. Conversation walkthrough (for support training)</h3>
+<p>These four screens show <mark class="mark">help → address → confirmation → nearby stores</mark> in order and can be used directly for support training and go-live sign-off.</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-help.png" alt="Help guide in chat"><div class="imgcap">Fig. WX7 · Replying “help”: six usage tips</div></div>
+  <div><img class="img" src="shots/wx-order-address.png" alt="Delivery address list"><div class="imgcap">Fig. WX8 · After replying a number: address list (⭐ default, reply 0 to add)</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-confirm.png" alt="Order confirmation card"><div class="imgcap">Fig. WX9 · Confirmation: items / total, delivery info, payment and the 1 / 0 / 9 options</div></div>
+  <div><img class="img" src="shots/wx-order-nearby.png" alt="Nearby stores list"><div class="imgcap">Fig. WX10 · After sharing location: stores within 3 km (reply “store N” to pick)</div></div>
+</div>
+
+<h3>5. Pre-launch self-check</h3>
 <ul>
 <li>Search a real product name and get numbered card results; replying a number reaches address selection.</li>
 <li>After choosing an address the payment selection appears (or the single method is auto-selected); replying <code>1</code> generates an order number and payment link.</li>
@@ -1568,13 +1579,23 @@ var CHAPTERS = [
 <li>Disable / enable a payment method in the admin and the next conversation reflects it immediately (restore it after the test).</li>
 </ul>
 
-<h3>5. FAQ</h3>
+<h3>6. FAQ</h3>
 <details><summary>A buyer cannot find a product</summary><p>Check in order: whether the product is <mark class="mark">enabled</mark>, whether it belongs to <mark class="mark">this store’s channel</mark>, and whether the search index has synced. If the first two are fine and it still cannot be found, have platform ops rebuild the search index and retry with the full product name.</p></details>
 <details><summary>“This store has no online payment enabled”</summary><p>No channel is enabled under “Payment Methods”, or one is enabled but not assigned to this store. Switch it on and save; the buyer sees it on the next order. In this state <mark class="mark">no order is created</mark>.</p></details>
 <details><summary>The “support” card has no store phone</summary><p>The matched pickup point has no contact phone and “Shop Info → Support Phone” is empty as well. Fill in either one; the pickup point phone is preferred.</p></details>
 <details><summary>“Nearby stores” says there is no location, or the list is empty</summary><p>“Nearby stores” requires the buyer to <mark class="mark">send a location first</mark> (location cached for 30 minutes). If it is still empty, most likely there is no pickup point within 3 km, or coordinates are missing / inaccurate; ordering and delivery are unaffected.</p></details>
 <details><summary>Replying a number says “no such product”</summary><p>Numbers map only to the <mark class="mark">latest search results</mark> and expire after 30 minutes. Ask the buyer to send the product name again and order with the new numbers.</p></details>
 <details><summary>The chat still shows an old price / name after an edit</summary><p>Incremental sync usually completes within seconds; ask the buyer to search again. If several products are wrong at once, have platform ops run a full rebuild and retest.</p></details>
+<details><summary>“You have not linked a shopping account yet” on the first order</summary><p>The assistant collects two things in chat: first reply an 11-digit phone number to open the account, then reply a delivery address including <mark class="mark">province / city / district</mark>. Once linked, ordering works and the buyer never has to link again. If the phone number <mark class="mark">is already registered</mark> to a store account, the buyer must verify by logging in on the H5 page (anti-impersonation); it cannot be opened inside the chat.</p></details>
+<details><summary>What do “0”, “9” and “cancel” mean</summary><p>All three are <mark class="mark">options of the current card</mark>, not product numbers: <code>0</code> adds an address / re-selects the address / returns to the previous level; <code>9</code> switches the payment method; <code>cancel</code> exits the phone-number, address or message entry flow. On the confirmation card only <code>1</code> places the order.</p></details>
+<details><summary>How to buy several items at once</summary><p>Two ways: reply several numbers such as <code>1,3</code> or <code>1 and 3</code> (commas, enumeration commas, “and”, &amp; are supported) and they merge into one order; or search with a quantity such as “buy 2 bottles of soy sauce” / “want 3”, and the quantity carries into that order.</p></details>
+<details><summary>How to edit, delete or default an address</summary><p>Reply “address book” to list addresses, then reply a number to open the action menu: <code>1</code> set as default, <code>2</code> edit the address, <code>3</code> delete, <code>0</code> back to the list. To add one, reply “add address” or reply <code>0</code> on the list; the contact phone defaults to the registered number and the buyer can reply <code>2</code> to use another one.</p></details>
+<details><summary>The buyer wants to stop halfway through an address entry</summary><p>Replying “cancel” exits the current phone-number / address / message flow, back to idle; the buyer can then send a product name to start again. Saved addresses and orders already placed are unaffected.</p></details>
+<details><summary>Replying “support” again only returns a short line</summary><p>Within <mark class="mark">10 minutes</mark>, a repeated support request in the same session returns just a short reminder (the number has not changed) to avoid flooding the chat. If the buyer wants a callback, reply “message” with the issue (up to 200 characters); a ticket number is then created.</p></details>
+<details><summary>“Your message is a bit long”</summary><p>Messages are capped at <mark class="mark">200 characters</mark>; the buyer is asked to shorten and resend. A successful submission returns a ticket number (e.g. #123) that the store uses to follow up.</p></details>
+<details><summary>Location shared but no store matched — can the buyer still order?</summary><p>Yes. “Nearby stores” only affects nearest-store arrangement; <mark class="mark">ordering and delivery still work without a matched store</mark>. The location is cached for 30 minutes, so it must be re-sent after that. Sending a location during address entry prompts the buyer to finish the current step first; replying “cancel” then allows saving it as a new address.</p></details>
+<details><summary>Where do the numbers in “support 2” / “store 1” come from</summary><p>They are the sequence numbers of the <mark class="mark">latest store list</mark>, not order numbers. Once the list expires, re-send the location or reply “support” to refresh it. If a number is out of range, the buyer is prompted with the valid range.</p></details>
+<details><summary>Where is payment completed — does the assistant collect money?</summary><p>The assistant only creates the order and returns a <mark class="mark">payment link</mark>; the actual payment happens in the shop checkout, and the chat never asks for card details nor collects money. Payment results and order status are available in the shop under “Profile → My Orders”.</p></details>
 `},
 {book:'op', id:'op-54', title:'Role Management (Store Roles · Global Role Pool)', html:`
 <p class="lead">“Platform Management → Role Management” is the source of permissions: <mark class="mark">store roles</mark> maintain this tenant’s roles and permission codes; the <mark class="mark">global role pool</mark> holds platform-level role standards (default template import, pool referencing, dispatch on creation). The entry requires the “Role Management” permission; for granting roles to members see the chapter “Member Password Management &amp; Role Granting”.</p>
