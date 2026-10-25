@@ -1696,6 +1696,50 @@ ALTER TABLE "order" ADD COLUMN IF NOT EXISTS "customFieldsCampuscancelcause" var
 - 演示数据说明：P3-3 截图所需评价为**入库演示数据**（3 条，绑定历史已送达订单 273/274/275），黑名单两条为上述导入接口实测写入；如需清理：`DELETE FROM campus_rider_review WHERE "riderCustomerId"=150 AND "channelId"=113;`、`DELETE FROM campus_blacklist WHERE reason='批量导入线上验证';`。
 - 已知：`waimai` 仓库 `tests/timeline.spec.ts`、`tests/store-display.spec.ts` 共 22 例为**历史遗留失败**（路线文案改名后用例期望未同步，涉及文件本轮未改动）；其余 7 个测试文件 114 例全过。
 
+## 43. 配送体系全量审计补漏（P1 + P2 + P3 九项收口，2026-10-25）
+
+### 43.1 交付清单
+
+| # | 能力 | 后端（vendure） | C 端（waimai） | 后台（vshop/web-admin） |
+|---|---|---|---|---|
+| P1-1 | 提现打款失败回退 | 提现状态新增 `FAILED` + `failReason` 列；`adminMarkFailed` 以 `UPDATE ... WHERE status='PAID'` 原子认领后置 `FAILED`，再按默认渠道上下文 `addBalance` 退回余额；退回失败补偿恢复 `PAID` 并抛「退回失败」可重试；新增 admin mutation `campusMarkWithdrawFailed(id, reason)`（权限 `CampusAuditRider`，原因必填 ≤255 字符） | 提现记录展示 `FAILED` 徽标与失败原因 | 提现审核 PAID 卡片新增「标记打款失败」：弹窗必填原因 → 退回余额；FAILED 卡片展示失败原因 |
+| P2-1 | 提现表冷启动建表 | 迁移 `AddWithdrawPayoutMigration` 补 `CREATE TABLE IF NOT EXISTS rider_withdrawal_request`（含全部列）与 `failReason` 补列；新环境/灾备不再因缺表导致 `ALTER` 失败 | — | — |
+| P2-2 | 停用骑手回收在途任务 | `setRiderStatus` 非 `approved`（suspended/reset）时执行 `reclaimActiveTasks`：裸 SQL 把 `assigned/in_progress` 且 hallStatus 属活跃池的订单回 `open`，清空骑手/派单快照（已取消订单不动） | — | 骑手审核「停用/重置」即时生效，不再遗留悬挂任务 |
+| P2-3 | 后台新增分区入口 | 复用既有 `campusCreateZone(name, fee)` | — | 楼栋坐标页「分区管理」面板底部新增「新增分区名称 + 运费(元) + 新增」，创建后刷新筛选列表 |
+| P2-4 | 已支付未接单自助取消 | 后端 `cancel-guard.process` 口径不变（守卫既有） | 订单详情 `canCancel` 镜像守卫：`Created/AddingItems/ArrangingPayment` 可取消；已支付仅当未送达、`deliveryStatus` 非 `assigned/in_progress`、三方状态非 `accepted/pickup`、`hallStatus` 非 `grabbed/third_party/owned_dispatched/merchant_delivering` 时可取消 | — |
+| P3-1 | 跑腿商品初始化入口 | 复用既有 `campusEnsureErrandProducts`（0 元载体，幂等） | — | 商品页提示卡片「初始化跑腿商品」，重复执行安全 |
+| P3-2 | 骑手拒单入口 | 复用既有 `campusRejectAssignment`（校验本人 + `assigned` → 回厅 → 信用分 `CREDIT_REJECT`） | 配送页 assigned 任务（组内子单与独立卡）新增「拒单」：二次确认后回大厅并扣信用分 | — |
+| P3-3 | Schema drift 噪音清理 | 6 个实体补 7 个具名 `@Index`（`idx_campus_*`，与库内索引同名），启动日志不再输出 campus 相关 `DROP INDEX` | — | — |
+| P3-4 | 短信兜底通道说明 | `CampusSmsService` 仅在 env 齐备时启用（见 43.3） | — | — |
+
+### 43.2 数据库变更（启动幂等迁移 `AddWithdrawPayoutMigration`）
+
+```sql
+CREATE TABLE IF NOT EXISTS rider_withdrawal_request (...);  -- 历史缺失，本轮补建（全部列，含 reviewedAt/failReason）
+ALTER TABLE rider_withdrawal_request ADD COLUMN IF NOT EXISTS "failReason" varchar(255);
+```
+
+> 迁移**未新增索引**：实体已声明 `@Index(['channelId','status'])` 由 TypeORM 自动命名，迁移里再 `CREATE INDEX` 会制造新的 drift。
+
+### 43.3 短信通道配置说明（未配置即静默跳过）
+
+- 启用条件：`SMS_GATEWAY_URL` 与 `SMS_GATEWAY_KEY` 同时存在；缺任一 → `configured=false`，`send()` 直接返回 false，**不伪造发送成功、不阻塞业务主流程**（公众号模板消息仍是第 1 通道）。
+- 网关契约：`POST {SMS_GATEWAY_URL}`，Header `Authorization: Bearer {SMS_GATEWAY_KEY}`，body `{ phone, content, signName }`，2xx 视为成功；超时 8s，失败仅 `Logger.warn` 留痕。
+- 可选变量：`SMS_SIGN_NAME`（短信签名，缺省空串）。
+- 落地方式：写入 `packages/dev-server/.env` 后 `pm2 restart vendure --update-env`（改环境变量必须带 `--update-env`）。
+- 现状：生产未配置短信网关，通知仅走公众号模板消息 + 站内信，属预期行为。
+
+### 43.4 验证记录
+
+- 单测：`packages/campus-delivery-plugin` `npm test` → **41 文件 / 538 用例全过**（新增 5 例 `adminMarkFailed`：原因必填、仅 PAID 可回退、成功退回、并发 `affected=0`、退回失败补偿；`rider.service.spec` 补 `rawConnection` mock）；`npm run build`（tsc）成功，`lib/` 随提交入库。
+- 部署：vendure `bdc6f6f91`、web-admin `1bddcf8a`、waimai `2ab3b38`（三仓库均已推送 `origin/master`；vendure 服务器 `git reset --hard origin/master` + `pm2 restart vendure --update-env`，online）。
+- 启动日志：最新一轮启动**无 campus `DROP INDEX`**（原 7 条已消失；coupon/in_store_bill 等非本轮范围仍在）；无新增报错（`CJKPlugin 默认数据初始化失败 duplicate key` 为 3:44 / 4:00 / 4:46 多次复现的历史问题，与本轮无关）。
+- 生产库核对：`rider_withdrawal_request` 含 `failReason / payoutRef / payoutProof / status`；7 个 `idx_campus_*` 索引均在库；迁移未产生多余索引。
+- Schema 探针：admin-api `mutation campusMarkWithdrawFailed` 未授权返回 `FORBIDDEN`（字段存在，非 unknown field）。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p8/`）：`01` 提现审核（待审）、`02` 已打款 tab 展示「标记打款失败」按钮、`03b` 楼栋页「分区管理」展开后的新增分区行（名称/运费/新增）、`04` 商品页「初始化跑腿商品」卡片；页面 console 无错误。
+- 未做线上破坏性验证：打款失败回退会真实改动骑手余额，故仅以 5 例单测覆盖；如需演练，可在测试渠道对一笔 PAID 申请执行。
+- 待核实（本轮未改动）：① 骑手分成明细缺 admin 台账查询；② 骑手位置仅实时上报、无轨迹留存。
+
 
 
 
