@@ -1657,6 +1657,46 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 恢复通知、升级绕过冷却、失败不占冷却、渠道白名单、未启用降级、env 解析、看板链接拼接均由单测覆盖（生产当前无「告警→恢复」天然数据，未造单验证）。
 - 涉及文件：`capacity-alert.job.ts`、`feishu/feishu.client.ts`（`broadcast` 新增 `channel` 定向 + 无命退回 webhook）、`feishu/feishu-notify.service.ts`（`pushEvent/push` 新增 `target`，暴露 `enabled`）；新增 `capacity-alert.job.spec.ts`。
 
+## 42. 配送体系 P2/P3 六项收口（2026-10-25）
+
+### 42.1 交付清单
+
+| # | 能力 | 后端（vendure） | C 端（waimai） | 后台（vshop/web-admin） |
+|---|---|---|---|---|
+| P2-1 | 工单/申诉全链路提醒 | `campusReplySupportTicket` / `campusReviewRiderAppeal` 后推飞书（`support_ticket` / `rider_appeal`）+ 站内信（`Message` + `MessageDelivery`，失败静默降级） | 工单页/申诉页展示回复与审核意见 | 运营中心「客服工单/骑手申诉」tab 红点 + 60s 轮询刷新 |
+| P2-2 | 提现打款留痕 | 提现实体新增 `payoutRef` / `payoutProof`；`approveRiderWithdraw` 必填流水号（空白报「请填写打款流水号」）；启动幂等补列 | 钱包「提现记录」PAID 行展示「流水号 xxx」；流水查询含 `payoutRef` | 提现审核页「通过」弹窗顺序填写流水号 + 凭证 URL；PAID 卡片展示流水号 |
+| P3-1 | 班次与接单联动 | 店铺配置 `shiftCheckEnabled`；`hall-grab.service` 抢单前 `assertShiftAllowed`（跨零点排班支持；强派单不拦） | 抢单失败提示后端文案 | 拾光达配置「履约参数」新增「班次校验」开关 |
+| P3-2 | 黑名单自动规则 + 批量导入 | 订单转 `Cancelled` 写 `campusCancelCause`（shop=customer，其余=system/ops）；`blacklist-scan.job` 每 6h（首跑 120s）按店铺阈值扫描近 30 天主动取消，命中自动拉黑并推飞书 `blacklist_auto`；`campusImportBlacklist`（≤500 条、手机号/用户分类计数） | — | 「黑名单」tab 新增「批量导入黑名单」卡片（按类型逐行解析，完成后提示 新增/跳过/无效）；配置页新增「自动拉黑阈值（次）」，0=关闭 |
+| P3-3 | 骑手评价明细 | `campusMyRiderReviews(skip,take)` 仅返回当前登录骑手本人评价（渠道隔离） | 骑手大厅均分下方展示最近 5 条：星级/标签/留言/时间（`MM-DD HH:mm`） | — |
+| P3-4 | 飞书/短信配置核对 | 飞书支持平台群 + 店铺群定向（§41）；短信适配器 env 未配置静默跳过 | — | — |
+
+### 42.2 数据库变更（启动幂等迁移 `AddWithdrawPayoutMigration`）
+
+```sql
+ALTER TABLE rider_withdrawal_request ADD COLUMN IF NOT EXISTS "payoutRef" varchar(255);
+ALTER TABLE rider_withdrawal_request ADD COLUMN IF NOT EXISTS "payoutProof" varchar(255);
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "shiftCheckEnabled" boolean DEFAULT false;
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "blacklistAutoCancelCount" integer NOT NULL DEFAULT 0;
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS "customFieldsCampuscancelcause" varchar(255);
+```
+
+> customFields 在 PG 中是独立列（非 JSON）；列名按 TypeORM 实际生成名书写，已用 `information_schema.columns` 核对。
+
+### 42.3 验证记录
+
+- 单测：`packages/campus-delivery-plugin` `npm test` → **41 文件 / 533 用例全过**（新增 `blacklist-scan.job.spec.ts` 4 例、`support.service` 导入 4 例、提现/班次/评价相关断言）；`npm run build`（tsc）成功，`lib/` 随提交入库。
+- 部署：vendure `90adc1cbc`（`git reset --hard origin/master` + `pm2 restart vendure --update-env`，online、启动无迁移报错）；web-admin `4ba0c3db`（`node scripts/deploy.mjs`，nginx reload OK）；waimai `eb25d48`（`node .secrets/deploy-waimai.mjs`，站点 200）。
+- 生产库列核对：`campus_fulfillment_config.shiftCheckEnabled / blacklistAutoCancelCount`、`rider_withdrawal_request.payoutRef / payoutProof`、`order.customFieldsCampuscancelcause` 均存在。
+- Schema 探针：`shop-api` 查询 `campusMyRiderReviews` 未登录返回 `FORBIDDEN`（字段存在而非 unknown field）；部署的 `lib` 含 `campusImportBlacklist` / `campusMyRiderReviews`。
+- 生产实测（真数据）：
+  - P2-2：骑手创建 ¥10 提现 → 后台通过并登记 `ALIPAY-20261025-0001` → 钱包「提现记录」显示「已打款 / 流水号 ALIPAY-20261025-0001」，可用余额 90→80 元、冻结归零。
+  - P3-2：`campusImportBlacklist(type:"phone", values:["13800000000","abc","13800000001"])` 返回 `{added:2, skipped:0, invalid:1}`；后台黑名单列表出现两条「生效中」记录。
+  - P3-3：骑手端 `campusMyRiderReviews` 返回 3 条评价（tags 为数组、按时间倒序），大厅显示均分 4.7 · 3 条评价 与逐条评价。
+- 手机视口截图（390×844 dpr=2）：`docs/screenshots/waimai/p2p3/` 下 `01/02` 骑手大厅评价、`03` 钱包打款流水号、`04` 提现审核已打款、`05/06` 配置页班次校验与自动拉黑阈值、`07/08` 黑名单列表与批量导入卡片。
+- 演示数据说明：P3-3 截图所需评价为**入库演示数据**（3 条，绑定历史已送达订单 273/274/275），黑名单两条为上述导入接口实测写入；如需清理：`DELETE FROM campus_rider_review WHERE "riderCustomerId"=150 AND "channelId"=113;`、`DELETE FROM campus_blacklist WHERE reason='批量导入线上验证';`。
+- 已知：`waimai` 仓库 `tests/timeline.spec.ts`、`tests/store-display.spec.ts` 共 22 例为**历史遗留失败**（路线文案改名后用例期望未同步，涉及文件本轮未改动）；其余 7 个测试文件 114 例全过。
+
+
 
 
 
