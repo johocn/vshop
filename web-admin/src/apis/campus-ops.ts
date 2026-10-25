@@ -1,7 +1,8 @@
 // 运营中心 / 沽清域 admin-api 调用（schema 以 vendure/packages/campus-delivery-plugin/src/campus-delivery.plugin.ts adminApiExtensions 为准）
 //   Query：campusSupportTickets / campusRiderAppeals / campusBlacklist / campusRiderShifts /
 //          campusRiderOnlineStats / campusRiderReviews / campusRiderRating / campusMerchantProducts
-//   Mutation：campusReplySupportTicket / campusReviewRiderAppeal / campusAddBlacklist / campusRemoveBlacklist /
+//   Mutation：campusReplySupportTicket / campusReviewRiderAppeal / campusAddBlacklist /
+//             campusImportBlacklist / campusRemoveBlacklist /
 //             campusSaveRiderShift / campusDeleteRiderShift / campusMerchantSetProductSoldOut
 import { getAdminClient } from './client';
 
@@ -219,6 +220,29 @@ export async function addBlacklist(
     { type, value, reason: reason ?? null },
   );
   return campusAddBlacklist;
+}
+
+export interface BlacklistImportResult {
+  added: number;
+  skipped: number;
+  invalid: number;
+}
+
+/** 批量导入黑名单：type=phone 时 values 为手机号；type=user 时为用户 ID（单次 ≤500 条） */
+export async function importBlacklist(
+  type: 'user' | 'phone',
+  values: string[],
+  reason?: string | null,
+): Promise<BlacklistImportResult> {
+  const { campusImportBlacklist } = await getAdminClient().request<{
+    campusImportBlacklist: BlacklistImportResult;
+  }>(
+    `mutation CampusImportBlacklist($type: String!, $values: [String!]!, $reason: String) {
+      campusImportBlacklist(type: $type, values: $values, reason: $reason) { added skipped invalid }
+    }`,
+    { type, values, reason: reason ?? null },
+  );
+  return campusImportBlacklist;
 }
 
 export async function removeBlacklist(id: string): Promise<boolean> {

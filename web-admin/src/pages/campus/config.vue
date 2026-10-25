@@ -94,6 +94,17 @@
           <text class="timeout-tip">{{ $t('campusConfig.opsPausedTip') }}</text>
         </view>
         <view class="pmode-row">
+          <view class="pmode" :class="{ on: ops.shiftCheck }" @tap="ops.shiftCheck = !ops.shiftCheck">
+            <text>{{ $t(ops.shiftCheck ? 'campusConfig.opsShiftCheckOn' : 'campusConfig.opsShiftCheckOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.opsShiftCheckTip') }}</text>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.opsBlacklistAuto') }}</text>
+          <input v-model="ops.blacklistAuto" type="number" :placeholder="'0'" />
+        </view>
+        <text class="timeout-tip">{{ $t('campusConfig.opsBlacklistAutoTip') }}</text>
+        <view class="pmode-row">
           <view class="pmode" :class="{ on: ops.timeoutEnabled }" @tap="toggleOpsTimeout">
             <text>{{ $t(ops.timeoutEnabled ? 'campusConfig.timeoutOn' : 'campusConfig.timeoutOff') }}</text>
           </view>
@@ -607,6 +618,8 @@ interface OpsForm {
   compensationCoupon: string;
   merchantConfirm: boolean;
   paused: boolean;
+  shiftCheck: boolean;
+  blacklistAuto: string;
   timeoutEnabled: boolean;
   timeoutGrace: string;
   timeoutWindow: string;
@@ -633,6 +646,8 @@ async function loadOps() {
       compensationCoupon: c.compensationCouponTemplateId ?? '',
       merchantConfirm: !!c.merchantConfirmEnabled,
       paused: !!c.paused,
+      shiftCheck: !!c.shiftCheckEnabled,
+      blacklistAuto: String(c.blacklistAutoCancelCount ?? 0),
       timeoutEnabled: !!c.timeoutCompensationEnabled,
       timeoutGrace: String(c.timeoutGraceMinutes ?? 10),
       timeoutWindow: String(c.timeoutCompensationWindowHours ?? 24),
@@ -668,6 +683,7 @@ async function saveOps() {
   const merchantAutoOpen = intOr(f.merchantAutoOpen, 15);
   const grace = intOr(f.timeoutGrace, 10);
   const windowH = intOr(f.timeoutWindow, 24);
+  const blacklistAuto = intOr(f.blacklistAuto, 0);
   if (commission == null || commission > 100) {
     uni.showToast({ title: locale.t('campusConfig.badCommission'), icon: 'none' });
     return;
@@ -682,6 +698,10 @@ async function saveOps() {
   }
   if (windowH == null || windowH < 1 || windowH > 168) {
     uni.showToast({ title: locale.t('campusConfig.badWindow'), icon: 'none' });
+    return;
+  }
+  if (blacklistAuto == null || blacklistAuto > 50) {
+    uni.showToast({ title: locale.t('campusConfig.badBlacklistAuto'), icon: 'none' });
     return;
   }
   if (f.timeoutEnabled && !f.timeoutCoupon.trim()) {
@@ -699,6 +719,8 @@ async function saveOps() {
       compensationCouponTemplateId: f.compensationCoupon.trim() || null,
       merchantConfirmEnabled: f.merchantConfirm,
       paused: f.paused,
+      shiftCheckEnabled: f.shiftCheck,
+      blacklistAutoCancelCount: blacklistAuto,
       timeoutCompensationEnabled: f.timeoutEnabled,
       timeoutGraceMinutes: grace,
       timeoutCompensationWindowHours: windowH,
@@ -714,6 +736,8 @@ async function saveOps() {
       compensationCoupon: saved.compensationCouponTemplateId ?? '',
       merchantConfirm: !!saved.merchantConfirmEnabled,
       paused: !!saved.paused,
+      shiftCheck: !!saved.shiftCheckEnabled,
+      blacklistAuto: String(saved.blacklistAutoCancelCount ?? 0),
       timeoutEnabled: !!saved.timeoutCompensationEnabled,
       timeoutGrace: String(saved.timeoutGraceMinutes),
       timeoutWindow: String(saved.timeoutCompensationWindowHours ?? 24),
