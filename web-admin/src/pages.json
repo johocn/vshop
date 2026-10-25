@@ -66,6 +66,8 @@
     { "path": "pages/campus/stats", "style": { "navigationBarTitleText": "配送看板" } },
     { "path": "pages/campus/address-changes", "style": { "navigationBarTitleText": "改址台账" } },
     { "path": "pages/campus/buildings", "style": { "navigationBarTitleText": "楼栋坐标" } },
+    { "path": "pages/campus/ops", "style": { "navigationBarTitleText": "运营中心" } },
+    { "path": "pages/campus/products", "style": { "navigationBarTitleText": "一键沽清" } },
     { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
     { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } },
     { "path": "pages/pickup/redeem/index", "style": { "navigationBarTitleText": "到店自提核销" } },
