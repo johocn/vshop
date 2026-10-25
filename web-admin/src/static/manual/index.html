@@ -138,7 +138,7 @@ img:fullscreen{object-fit:contain;background:#fff}
 <section id="viewHome" class="page">
   <div class="cover">
     <img src="cover.jpg" alt="youshop 使用手册">
-    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）；二批：酒店预订管理（op-17 扩节）、成员启停移除与核销档案（op-16 扩节）、公众号三件套 / 平台角色 / 拾光达校园配送（op-53～op-55）；2026-10-17 · 到店买单核销（op-56）：待核销券默认列表 / 角色边界 / 防复核</p></div>
+    <div class="cap"><h2>youshop 使用手册</h2><p>商家 / 运营 / 平台一站式指南：含入驻、审批、装修、商品、下单拆单全流程。</p><p style="margin-top:8px;font-size:12px;color:#8a8f98"><b>修订记录</b> · 2026-10-12 · 补充营销与增长板块 7 章（op-46～op-52）；二批：酒店预订管理（op-17 扩节）、成员启停移除与核销档案（op-16 扩节）、公众号三件套 / 平台角色 / 拾光达校园配送（op-53～op-55）；2026-10-17 · 到店买单核销（op-56）：待核销券默认列表 / 角色边界 / 防复核；2026-10-25 · 新增「微信公众号文字订购（配置 · 指令 · 客服）」章节：五处配置 / 买家指令速查 / 客服与上线自检（6 张手机截图）</p></div>
   </div>
   <div class="search-entry" id="goSearchHome"><span class="si">🔍</span>搜索文档…</div>
   <div id="bookList"></div>
@@ -1514,6 +1514,82 @@ var CHAPTERS = [
 <img class="img" src="shots/op53-wechat-templates-390.png" alt="消息模板列表页">
 <div class="imgcap">图 W3 · 消息模板（390 视口）：私有模板列表 + 发送弹层（openid 必填）</div>
 <details><summary>发布菜单 / 拉取粉丝报错怎么办</summary><p>报错信息带微信原始提示：多为 AppID / Secret 失效或服务器 IP 不在公众号白名单，处理后重试即可。模板列表为空通常是尚未申请模板或模板未审核通过。</p></details>
+`},
+{book:'op', id:'op-57', title:'微信公众号文字订购（配置 · 指令 · 客服）', html:`
+<p class="lead">买家关注公众号后，在对话框直接发「洗车」「买2瓶酱油」或回复「1」，就能完成<mark class="mark">搜索 → 选地址 → 选支付方式 → 下单</mark>，最后收到<mark class="mark">待支付订单与支付链接</mark>。后台<mark class="mark">没有单独的功能开关</mark>：商品能不能搜到、能选哪些支付方式、客服电话是哪家门店，全部由下面几处既有配置决定。</p>
+<div class="flow">
+  <div class="frow"><span class="fnode">发送商品名</span><span class="farrow">→</span><span class="fnode">编号结果</span><span class="farrow">→</span><span class="fnode">回复编号</span><span class="farrow">→</span><span class="fnode">选地址</span><span class="farrow">→</span><span class="fnode primary">选支付方式</span><span class="farrow">→</span><span class="fnode">回复 1 确认</span><span class="farrow">→</span><span class="fnode">待支付 + 支付链接</span></div>
+</div>
+<h3>一、配置清单：五处决定对话行为</h3>
+<table>
+  <thead><tr><th>配置项</th><th>后台位置</th><th>决定的对话行为</th></tr></thead>
+  <tbody>
+    <tr><td>商品启用与本店渠道</td><td>商品 → 商品管理</td><td>能否被搜到；未启用或不属于本店渠道时回复「没有找到」</td></tr>
+    <tr><td>支付方式</td><td>支付 → 支付方式（开关 + 名称）</td><td>支付选择列表、确认卡、下单成功文案；0 个则不建单</td></tr>
+    <tr><td>自提点信息</td><td>配送 / 自提 → 自提点管理</td><td>「客服」卡片的门店电话与营业时间；定位后的 3km 门店</td></tr>
+    <tr><td>客服电话</td><td>店铺装修 → 店铺信息 → 客服电话</td><td>门店未填电话时的兜底联系方式</td></tr>
+    <tr><td>公众号菜单（可选）</td><td>平台管理 → 公众号菜单</td><td>给买家一个固定入口：跳转商城链接或直接发送位置</td></tr>
+  </tbody>
+</table>
+<div class="note"><b>检索索引：</b>商品新增 / 修改会自动增量同步到检索库，通常无需人工干预；若大批量导入后仍搜不到，联系平台运维执行一次全量重建即可。</div>
+
+<h3>二、配置步骤</h3>
+<ol>
+<li><b>商品</b>：在「商品 → 商品管理」维护标题、主图、规格、价格与库存，确认状态为<mark class="mark">已启用</mark>。商品在本店后台创建并启用即归属本店渠道；多店共用的商品由平台侧维护渠道归属。</li>
+<li><b>支付方式</b>：进入「支付 → 支付方式」，打开需要开放的通道开关；点「修改」里的<mark class="mark">名称就是对话中显示的支付方式名</mark>（建议用「微信支付」这类口语名）。只启用 1 个时系统自动选中，买家不必再选。</li>
+<li><b>门店（自提点）</b>：在「配送 / 自提 → 自提点管理」编辑门店，至少填写<mark class="mark">名称、联系电话、营业时间、详细地址、经纬度</mark>。「附近门店」按定位 3km 匹配，经纬度不准会导致匹配不到；门店电话缺失时回退到下一步的客服电话。</li>
+<li><b>客服兜底电话</b>：在「店铺装修 → 店铺信息 → 客服电话」填写门店总机或客服手机。门店与平台电话都没有时，「客服」卡片只提示到店铺页联系在线客服。</li>
+<li><b>公众号菜单（可选）</b>：在「平台管理 → 公众号菜单」新增一级菜单（如「买点什么」），类型选<mark class="mark">跳转链接</mark>指向店铺 H5，或选<mark class="mark">发送位置</mark>方便买家直接定位；点「发布到公众号」后约 5 分钟手机端生效。</li>
+</ol>
+
+<div class="imgrow">
+  <div><img class="img" src="shots/b3_payment_methods.png" alt="支付方式列表"><div class="imgcap">图 WX1 · 支付方式：开关启用 + 修改名称（即对话展示名）</div></div>
+  <div><img class="img" src="shots/b3_pickup_edit.png" alt="自提点编辑表单"><div class="imgcap">图 WX2 · 自提点：电话 / 营业时间 / 地址 / 经纬度</div></div>
+</div>
+
+<h3>三、买家能用的指令（客服速查）</h3>
+<p>以下话术在对话框里<mark class="mark">直接生效</mark>，无需菜单点击；全角数字会自动转半角。</p>
+<table>
+  <thead><tr><th>买家输入</th><th>效果</th></tr></thead>
+  <tbody>
+    <tr><td><code>洗车</code> / <code>买一瓶酱油</code> / <code>帮我找洗衣液</code></td><td>搜索商品，返回编号图文卡片（单次最多 5 条）</td></tr>
+    <tr><td><code>买2瓶酱油</code> / <code>要3份</code></td><td>按数量搜索，数量带入本次下单</td></tr>
+    <tr><td><code>1</code> / <code>买1</code> / <code>1,3</code> / <code>1和3</code></td><td>按最近一次搜索结果下单（编号 1–99），进入地址选择</td></tr>
+    <tr><td><code>支付方式</code> / <code>怎么付款</code></td><td>随时查看本店启用的支付方式，不打断当前流程</td></tr>
+    <tr><td><code>地址管理</code> / <code>新增地址</code></td><td>打开地址簿（设默认 / 修改 / 删除）或新增收货地址</td></tr>
+    <tr><td><code>附近门店</code>（需先发送位置）</td><td>列出 3km 内门店，回复「门店1」即可选定</td></tr>
+    <tr><td><code>客服</code> / <code>人工</code> / <code>售后</code> / <code>客服2</code></td><td>返回门店客服电话与营业时间；多个候选门店时用「客服N」指定</td></tr>
+    <tr><td><code>留言</code> / <code>反馈</code> / <code>建议</code></td><td>录入 200 字以内留言，提交后生成工单编号</td></tr>
+    <tr><td><code>帮助</code> / <code>菜单</code> / <code>怎么用</code></td><td>返回使用指南（含进店链接）</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>两个时效与语义：</b>商品编号<mark class="mark">只对最近一次搜索有效</mark>，会话 30 分钟无交互即过期；在地址 / 确认 / 支付环节里，<code>1</code>、<code>0</code>、<code>9</code> 是<mark class="mark">卡片选项</mark>而不是商品编号。</div>
+
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-search.png" alt="对话搜索商品"><div class="imgcap">图 WX3 · 发送商品名：返回编号图文卡片</div></div>
+  <div><img class="img" src="shots/wx-order-paypick.png" alt="对话选择支付方式"><div class="imgcap">图 WX4 · 选定地址后：按编号选择支付方式</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/wx-order-success.png" alt="对话下单成功"><div class="imgcap">图 WX5 · 下单成功：订单号 + 支付链接</div></div>
+  <div><img class="img" src="shots/wx-order-support.png" alt="对话客服卡片"><div class="imgcap">图 WX6 · 回复「客服」：门店电话 + 当前订单</div></div>
+</div>
+
+<h3>四、上线前自检</h3>
+<ul>
+<li>用真实商品名搜一次，能返回图文卡片；回复编号能进入收货地址选择。</li>
+<li>选定地址后能出现支付方式选择（或自动选中唯一方式）；回复 <code>1</code> 能生成订单号与支付链接。</li>
+<li>回复「客服」能看到门店电话与营业时间；回复「帮助」能看到使用指南。</li>
+<li>发送微信位置后能列出 3km 门店；没有门店也不影响正常下单。</li>
+<li>在后台停用 / 启用一个支付方式，下一次对话立即生效（验证后记得恢复）。</li>
+</ul>
+
+<h3>五、常见问题</h3>
+<details><summary>买家搜不到某个商品</summary><p>按顺序确认：商品是否<mark class="mark">已启用</mark>、是否归属<mark class="mark">本店渠道</mark>、检索索引是否已同步。前两项正常仍搜不到时，让平台运维重建检索索引，并用商品全名重试。</p></details>
+<details><summary>提示「本店暂未开通在线支付」</summary><p>「支付方式」里没有任何已启用通道，或已启用但未分配到本店。打开开关并保存后，买家重新下单即可看到；此状态<mark class="mark">不会创建订单</mark>。</p></details>
+<details><summary>「客服」卡片没有门店电话</summary><p>说明当前匹配到的自提点未填联系电话，且「店铺信息 → 客服电话」也为空。补齐任一处即可，优先补自提点电话。</p></details>
+<details><summary>「附近门店」提示没有位置，或列表为空</summary><p>「附近门店」依赖买家<mark class="mark">先发送位置</mark>（位置缓存 30 分钟）。已发送仍为空，多半是 3km 内没有自提点，或自提点经纬度未填 / 不准；不影响下单配送。</p></details>
+<details><summary>买家回复编号提示「没有该商品」</summary><p>编号只对应<mark class="mark">最近一次搜索结果</mark>，且 30 分钟过期。请买家重新发送商品名，再按新编号下单。</p></details>
+<details><summary>商品改了价格 / 名称，对话里还是旧的</summary><p>增量同步通常几秒内完成，可让买家重新搜索一次。如果多个商品同时不对，联系平台运维执行全量重建后复测。</p></details>
 `},
 {book:'op', id:'op-54', title:'平台角色管理（本店角色 · 全局角色池）', html:`
 <p class="lead">「平台管理 → 角色管理」是权限的源头：<mark class="mark">本店角色</mark>维护本租户的角色与权限码；<mark class="mark">全局角色池</mark>沉淀平台级角色标准（默认模板导入、入池引用、创建即分发）。入口需「角色管理」权限；把角色授给成员的操作见「成员密码管理与角色授权」一章。</p>
