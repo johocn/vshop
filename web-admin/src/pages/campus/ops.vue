@@ -4,7 +4,7 @@
       <view
         v-for="t in TABS" :key="t.key"
         class="tab" :class="{ on: tab === t.key }" @tap="switchTab(t.key)"
-      >{{ $t(t.label) }}</view>
+      >{{ $t(t.label) }}<text v-if="badges[t.key]" class="badge">{{ badges[t.key] }}</text></view>
     </view>
 
     <!-- ===== 客服工单 ===== -->
@@ -132,6 +132,22 @@
         </view>
         <button class="primary" :disabled="blSaving" @tap="submitBlacklist">
           {{ blSaving ? $t('campusOps.submitting') : $t('campusOps.blAdd') }}
+        </button>
+      </view>
+
+      <view class="card form">
+        <text class="form-title">{{ $t('campusOps.blImportTitle') }}</text>
+        <view class="cell col">
+          <textarea
+            v-model="blBatch"
+            class="batch"
+            :placeholder="blType === 'phone' ? $t('campusOps.blImportPhPhone') : $t('campusOps.blImportPhUser')"
+            auto-height
+          />
+        </view>
+        <text class="batch-hint">{{ $t('campusOps.blImportHint') }}</text>
+        <button class="primary" :disabled="blImporting" @tap="submitImportBlacklist">
+          {{ blImporting ? $t('campusOps.submitting') : $t('campusOps.blImport') }}
         </button>
       </view>
 
@@ -309,7 +325,7 @@
 
 <script lang="ts" setup>
 // 运营中心：客服工单 / 骑手申诉 / 黑名单 / 班次与在线时长 / 骑手评分 五个 tab，统一分页「加载更多」。
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   addBlacklist,
   deleteRiderShift,
@@ -320,6 +336,7 @@ import {
   fetchRiderReviews,
   fetchRiderShifts,
   fetchSupportTickets,
+  importBlacklist,
   removeBlacklist,
   replySupportTicket,
   reviewRiderAppeal,
@@ -476,6 +493,7 @@ async function submitReply(): Promise<void> {
     replaceTicket(updated);
     replyTarget.value = null;
     toast(locale.t('campusOps.replyDone'), true);
+    void refreshBadges();
   } catch (err: any) {
     toast(graphQlErrorMsg(err, locale.t('campusOps.opFailed')));
   } finally {
@@ -500,6 +518,7 @@ async function closeTicket(t: SupportTicket): Promise<void> {
     const updated = await replySupportTicket(t.id, t.reply ?? '', 'closed');
     replaceTicket(updated);
     toast(locale.t('campusOps.closeDone'), true);
+    void refreshBadges();
   } catch (err: any) {
     toast(graphQlErrorMsg(err, locale.t('campusOps.opFailed')));
   } finally {
@@ -572,6 +591,7 @@ async function submitAppeal(): Promise<void> {
     if (i >= 0) appeals.value[i] = updated;
     appealTarget.value = null;
     toast(locale.t('campusOps.reviewDone'), true);
+    void refreshBadges();
   } catch (err: any) {
     toast(graphQlErrorMsg(err, locale.t('campusOps.opFailed')));
   } finally {
@@ -587,6 +607,8 @@ const blSaving = ref(false);
 const blType = ref<'user' | 'phone'>('phone');
 const blValue = ref('');
 const blReason = ref('');
+const blBatch = ref('');
+const blImporting = ref(false);
 
 async function loadBlacklist(reset: boolean): Promise<void> {
   if (blLoading.value) return;
@@ -623,6 +645,37 @@ async function submitBlacklist(): Promise<void> {
     toast(graphQlErrorMsg(err, locale.t('campusOps.opFailed')));
   } finally {
     blSaving.value = false;
+  }
+}
+
+/** 批量导入：每行一条，按当前类型解析（手机号 / customerId） */
+async function submitImportBlacklist(): Promise<void> {
+  if (blImporting.value) return;
+  const values = blBatch.value
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!values.length) {
+    toast(locale.t('campusOps.blImportNeed'));
+    return;
+  }
+  blImporting.value = true;
+  try {
+    const r = await importBlacklist(blType.value, values, blReason.value.trim() || null);
+    toast(
+      locale
+        .t('campusOps.blImportDone')
+        .replace('{added}', String(r.added))
+        .replace('{skipped}', String(r.skipped))
+        .replace('{invalid}', String(r.invalid)),
+      true,
+    );
+    blBatch.value = '';
+    await loadBlacklist(true);
+  } catch (err: any) {
+    toast(graphQlErrorMsg(err, locale.t('campusOps.opFailed')));
+  } finally {
+    blImporting.value = false;
   }
 }
 
@@ -876,6 +929,32 @@ function switchTab(k: TabKey): void {
   ensureLoaded(k);
 }
 
+// ===== 待办红点（每 60s 轮询：待处理工单 / 待审核申诉） =====
+const badges = ref<Partial<Record<TabKey, number>>>({});
+let badgeTimer: ReturnType<typeof setInterval> | null = null;
+
+async function refreshBadges(): Promise<void> {
+  try {
+    const [t, a] = await Promise.all([
+      fetchSupportTickets('open', 0, 1),
+      fetchRiderAppeals('pending', 0, 1),
+    ]);
+    const next: Partial<Record<TabKey, number>> = { tickets: t.total, appeals: a.total };
+    const changedTickets = next.tickets !== badges.value.tickets;
+    const changedAppeals = next.appeals !== badges.value.appeals;
+    badges.value = next;
+    // 当前正在看的列表有新待办时静默重载，运营无需手动刷新
+    if (changedTickets && tab.value === 'tickets' && ticketStatus.value === 'open' && !ticketsLoading.value) {
+      void loadTickets(true);
+    }
+    if (changedAppeals && tab.value === 'appeals' && appealStatus.value === 'pending' && !appealsLoading.value) {
+      void loadAppeals(true);
+    }
+  } catch {
+    // 红点失败静默：不打扰运营主流程
+  }
+}
+
 async function ensureLoaded(k: TabKey): Promise<void> {
   if (loaded.value[k]) return;
   if (k === 'tickets') {
@@ -899,6 +978,13 @@ async function ensureLoaded(k: TabKey): Promise<void> {
 
 onMounted(() => {
   void ensureLoaded('tickets');
+  void refreshBadges();
+  badgeTimer = setInterval(() => void refreshBadges(), 60_000);
+});
+
+onUnmounted(() => {
+  if (badgeTimer) clearInterval(badgeTimer);
+  badgeTimer = null;
 });
 </script>
 
@@ -908,7 +994,10 @@ onMounted(() => {
     .tab { flex: 1 1 30%; min-width: 190rpx; display: flex; align-items: center; justify-content: center;
       background: $wa-card; border-radius: $wa-radius; padding: 18rpx 0; font-size: 26rpx;
       color: $wa-muted; border: 1.5px solid transparent;
-      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; } } }
+      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
+      .badge { margin-left: 8rpx; min-width: 32rpx; height: 32rpx; line-height: 32rpx; padding: 0 8rpx;
+        border-radius: 999rpx; background: $wa-danger; color: #fff; font-size: 18rpx;
+        text-align: center; font-weight: 600; } } }
   .filters { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 20rpx;
     .chip { padding: 10rpx 26rpx; border-radius: 999rpx; background: $wa-card;
       border: 1.5px solid $wa-rule; font-size: 24rpx; color: $wa-muted;
@@ -954,6 +1043,9 @@ onMounted(() => {
         .seg-item { flex: 1; text-align: center; padding: 12rpx 0; border-radius: $wa-radius;
           background: $wa-bg; font-size: 24rpx; color: $wa-muted;
           &.on { background: $wa-accent; color: #fff; font-weight: 600; } } } }
+    .cell.col { flex-direction: column; align-items: stretch; }
+    .batch { width: 100%; min-height: 160rpx; font-size: 26rpx; line-height: 1.5; }
+    .batch-hint { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 8rpx; }
     .primary { margin-top: 24rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; }
     &.rating { display: flex; align-items: center; gap: 32rpx;
       .avg { font-size: 64rpx; color: $wa-accent; font-weight: 700; }

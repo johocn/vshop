@@ -549,6 +549,10 @@ export interface CampusFulfillmentConfigData {
   timeoutGraceMinutes: number;
   timeoutCompensationWindowHours: number;
   timeoutCompensationCouponTemplateId: string | null;
+  /** 接单班次校验：开启后骑手仅能在后台登记的排班时段内抢单 */
+  shiftCheckEnabled: boolean;
+  /** 自动拉黑阈值：近 30 天顾客主动取消达到该次数自动拉黑（0=关闭） */
+  blacklistAutoCancelCount: number;
 }
 
 export interface CampusFulfillmentConfigPatch {
@@ -565,10 +569,12 @@ export interface CampusFulfillmentConfigPatch {
   timeoutGraceMinutes?: number;
   timeoutCompensationWindowHours?: number;
   timeoutCompensationCouponTemplateId?: string | null;
+  shiftCheckEnabled?: boolean;
+  blacklistAutoCancelCount?: number;
 }
 
 const CONFIG_FIELDS =
-  'id channelId routesEnabled riderCommissionRate autoAssignMinutes paused autoRefundMinutes inProgressSlaMinutes compensationCouponTemplateId merchantConfirmEnabled merchantAutoOpenMinutes freeShippingThreshold timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId';
+  'id channelId routesEnabled riderCommissionRate autoAssignMinutes paused autoRefundMinutes inProgressSlaMinutes compensationCouponTemplateId merchantConfirmEnabled merchantAutoOpenMinutes freeShippingThreshold timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId shiftCheckEnabled blacklistAutoCancelCount';
 
 export async function campusConfig(): Promise<CampusFulfillmentConfigData> {
   const res = await getAdminClient().request<{ campusConfig: CampusFulfillmentConfigData }>(

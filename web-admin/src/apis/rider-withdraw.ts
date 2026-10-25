@@ -16,12 +16,14 @@ export interface RiderWithdrawRow {
   remark?: string | null;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
+  payoutRef?: string | null;
+  payoutProof?: string | null;
   createdAt?: string | null;
 }
 
 const WITHDRAW_FIELDS = `
   id customerId channelId amount channel account status
-  remark reviewedBy reviewedAt createdAt
+  remark reviewedBy reviewedAt payoutRef payoutProof createdAt
 `;
 
 /**
@@ -47,13 +49,18 @@ export async function fetchWithdrawPage(p: {
   };
 }
 
-/** 通过（标记 PAID 留痕；金额已在申请时冻结扣减） */
-export async function approveRiderWithdraw(id: string, remark?: string): Promise<RiderWithdrawRow> {
+/** 通过（标记 PAID + 打款流水号/凭证留痕；金额已在申请时冻结扣减） */
+export async function approveRiderWithdraw(
+  id: string,
+  payoutRef: string,
+  payoutProof?: string,
+  remark?: string,
+): Promise<RiderWithdrawRow> {
   const { approveRiderWithdraw } = await getAdminClient().request<{ approveRiderWithdraw: RiderWithdrawRow }>(
-    `mutation ApproveRiderWithdraw($id: ID!, $remark: String) {
-      approveRiderWithdraw(id: $id, remark: $remark) { ${WITHDRAW_FIELDS} }
+    `mutation ApproveRiderWithdraw($id: ID!, $remark: String, $payoutRef: String, $payoutProof: String) {
+      approveRiderWithdraw(id: $id, remark: $remark, payoutRef: $payoutRef, payoutProof: $payoutProof) { ${WITHDRAW_FIELDS} }
     }`,
-    { id, remark: remark || null },
+    { id, remark: remark || null, payoutRef, payoutProof: payoutProof || null },
   );
   return approveRiderWithdraw;
 }

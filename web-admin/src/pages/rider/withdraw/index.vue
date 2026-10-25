@@ -15,6 +15,10 @@
       <text class="meta">{{ $t('rider.withdraw.createdAtLabel') }}{{ fmtTime(r.createdAt) }}</text>
       <text class="meta" v-if="r.reviewedAt">{{ $t('rider.withdraw.reviewedAtLabel') }}{{ fmtTime(r.reviewedAt) }}</text>
       <view class="remark" v-if="r.remark">{{ $t('rider.withdraw.remarkLabel') }}：{{ r.remark }}</view>
+      <view class="remark" v-if="r.payoutRef">{{ $t('rider.withdraw.payoutRefLabel') }}{{ r.payoutRef }}</view>
+      <view class="remark proof" v-if="r.payoutProof" @tap="openProof(r.payoutProof)">
+        {{ $t('rider.withdraw.viewProof') }}
+      </view>
 
       <view class="ops" v-if="r.status === 'PENDING'">
         <button class="op main" @tap="onApprove(r)">{{ $t('rider.withdraw.approveBtn') }}</button>
@@ -98,10 +102,36 @@ async function run(action: () => Promise<unknown>, okMsg: string) {
 
 function onApprove(r: RiderWithdrawRow) {
   uni.showModal({
-    title: locale.t('rider.withdraw.approveTitle'),
-    content: locale.t('rider.withdraw.approveContent').replace('{amount}', fmtFen(r.amount)),
-    success: (res) => { if (res.confirm) void run(() => approveRiderWithdraw(r.id), locale.t('rider.withdraw.approveOk')); },
+    title: locale.t('rider.withdraw.payoutRefTitle'),
+    editable: true,
+    placeholderText: locale.t('rider.withdraw.payoutRefPlaceholder'),
+    success: (res) => {
+      if (!res.confirm) return;
+      const ref = (res.content || '').trim();
+      if (!ref) { toast(locale.t('rider.withdraw.payoutRefEmpty')); return; }
+      uni.showModal({
+        title: locale.t('rider.withdraw.proofTitle'),
+        editable: true,
+        placeholderText: locale.t('rider.withdraw.proofPlaceholder'),
+        success: (res2) => {
+          const proof = res2.confirm ? (res2.content || '').trim() : '';
+          void run(
+            () => approveRiderWithdraw(r.id, ref, proof),
+            locale.t('rider.withdraw.approveOk'),
+          );
+        },
+      });
+    },
   });
+}
+
+function openProof(url?: string | null): void {
+  if (!url) return;
+  if (/^https?:\/\//i.test(url)) {
+    window.open(url, '_blank');
+  } else {
+    uni.setClipboardData({ data: url, success: () => toast(locale.t('rider.withdraw.proofCopied')) });
+  }
 }
 
 function onReject(r: RiderWithdrawRow) {
@@ -139,7 +169,8 @@ onLoad(() => {
       &.st-PAID { color: #16a34a; background: #e6f5ec; }
       &.st-REJECTED { color: #8a919c; background: #f5f6f8; } }
     .meta { font-size: 24rpx; color: $wa-muted; }
-    .remark { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.5; }
+    .remark { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 24rpx; color: $wa-muted; line-height: 1.5;
+      &.proof { color: $wa-accent; } }
     .ops { display: flex; gap: 12rpx; margin-top: 8rpx;
       .op { min-width: 160rpx; margin: 0; padding: 0 20rpx; height: 56rpx; line-height: 56rpx;
         font-size: 24rpx; border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
