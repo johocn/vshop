@@ -1738,7 +1738,60 @@ ALTER TABLE rider_withdrawal_request ADD COLUMN IF NOT EXISTS "failReason" varch
 - Schema 探针：admin-api `mutation campusMarkWithdrawFailed` 未授权返回 `FORBIDDEN`（字段存在，非 unknown field）。
 - 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p8/`）：`01` 提现审核（待审）、`02` 已打款 tab 展示「标记打款失败」按钮、`03b` 楼栋页「分区管理」展开后的新增分区行（名称/运费/新增）、`04` 商品页「初始化跑腿商品」卡片；页面 console 无错误。
 - 未做线上破坏性验证：打款失败回退会真实改动骑手余额，故仅以 5 例单测覆盖；如需演练，可在测试渠道对一笔 PAID 申请执行。
-- 待核实（本轮未改动）：① 骑手分成明细缺 admin 台账查询；② 骑手位置仅实时上报、无轨迹留存。
+- 待核实（本轮未改动）：① 骑手分成明细缺 admin 台账查询；② 骑手位置仅实时上报、无轨迹留存。（已在本手册 §44 收口）
+
+## 44. 配送体系补漏：骑手分成台账 + 骑手轨迹留存（2026-10-25）
+
+### 44.1 交付清单
+
+| # | 能力 | 后端（vendure） | 后台（vshop/web-admin） |
+|---|---|---|---|
+| P8-4-1 | 骑手分成台账（admin） | 新增只读 `RiderLedgerService.earningsLedger` + Query `campusRiderEarnings(from,to,riderCustomerId,status,orderCode,skip,take)`（权限 `CampusAuditRider`）；按渠道隔离，日期/骑手/状态/订单号筛选，返回当页明细 + 全量合计；写入侧（`RiderTaskService`）不变 | 新增页 `pages/campus/rider-earnings`（菜单「骑手分成台账」，tier 2）：筛选（起止日期 / 骑手 / 状态 chips / 订单号）+ 汇总条（合计分成 / 笔数 / 其中小费）+ 卡片流（骑手名、金额、订单号、小费、状态标签、时间）+「查看该单轨迹 ›」 |
+| P8-4-2 | 骑手轨迹落库 | 新增表 `campus_rider_location` + 实体 `CampusRiderLocation` + 幂等迁移 `AddRiderLocationMigration`；骑手上报实时位置时同事务外补一条 `INSERT ... SELECT ... WHERE NOT EXISTS`（同单 5s 去重，失败只告警不影响实时跟踪）；`DispatchJobService` 每 6h 清理 30 天前点位 | — |
+| P8-4-3 | 轨迹查询（admin） | Query `campusOrderRiderTrack(orderId, orderCode)` 与 `campusRiderTrack(riderCustomerId, from, to)`（权限 `CampusViewDispatch`）；累计 haversine 距离、单次上限 5000 点 | 新增页 `pages/campus/rider-track`（菜单「骑手轨迹」，tier 1）：双 tab「按订单 / 按骑手时段」，汇总（点数 / 距离 / 时长）+ 归一化折线（起点绿 / 终点主色）+ 点位列表（最新在前）+ 30 天保留说明；从台账卡片可带订单号直达本页 |
+
+### 44.2 接口与口径
+
+- 分成口径：`amount = floor((配送费 + 小费) × 骑手分成比例 / 100)`，金额单位**分**；台账合计 `SUM(amount)`，小费单列仅为展示，不重复计入。
+- 日期口径：`from` / `to` 为东八区自然日 `YYYY-MM-DD`，`to` 含当日 24:00；骑手时段区间上限 **31 天**，结束早于开始直接报错。
+- 订单号：纯数字按 `orderId` 精确匹配，否则 `order.code ILIKE '%xx%'` 模糊；「按订单」轨迹先按订单号反查，并校验订单归属当前渠道，未命中报 `USER_INPUT_ERROR：订单不存在或不属于当前店铺`。
+- 分成状态白名单：`credited`（已入账）/ `pending`（待入账）/ `crediting`（入账中）。
+- 轨迹展示：单次最多 5000 点（`truncated` 标记），前端抽稀到 ≤300 段；折线按经纬度等比例缩放绘制，**非地图底图**（不依赖地图 SDK/密钥）。
+
+### 44.3 数据库变更（启动幂等迁移）
+
+```sql
+CREATE TABLE IF NOT EXISTS campus_rider_location (
+  id SERIAL PRIMARY KEY,
+  "createdAt" timestamptz DEFAULT now(),
+  "updatedAt" timestamptz DEFAULT now(),
+  "channelId" int NOT NULL,
+  "orderId" int NOT NULL,
+  "riderCustomerId" int NOT NULL,
+  lat double precision NOT NULL,
+  lng double precision NOT NULL,
+  "reportedAt" timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_campus_rider_location_order ON campus_rider_location ("orderId", "reportedAt");
+CREATE INDEX IF NOT EXISTS idx_campus_rider_location_rider ON campus_rider_location ("channelId", "riderCustomerId", "reportedAt");
+CREATE INDEX IF NOT EXISTS idx_campus_rider_earning_channel_created ON rider_earning ("channelId", "createdAt");
+CREATE INDEX IF NOT EXISTS idx_campus_rider_earning_rider_created ON rider_earning ("riderCustomerId", "createdAt");
+```
+
+> 生产 `synchronize:false`，全部走 `OnApplicationBootstrap` + `IF NOT EXISTS`，重复启动安全；索引具名且与实体 `@Index` 同名，不产生 drift。
+
+### 44.4 验证记录
+
+- 单测：`packages/campus-delivery-plugin` `npm test` → **42 文件 / 546 用例全过**（新增 `rider-ledger.service.spec`，以及 `rider-task-extra.spec` 的轨迹 INSERT 断言）；`npm run build`（tsc）通过。
+- 生产探针（超管）：
+  - `campusRiderEarnings`（默认渠道，无筛选）→ `total=2, sumAmount=100, sumTip=100`，两条为 `#Y23RBC2Z9BU78X69`（骑手 148）/ `#ZW56SE6YGZ2YTXNK`（骑手 132）。
+  - `campusOrderRiderTrack(orderCode:"__none__")` → `USER_INPUT_ERROR：订单不存在或不属于当前店铺`（渠道隔离与错误分支生效）。
+  - 库表核对：`campus_rider_location` 与 `idx_campus_rider_location_order`、`idx_campus_rider_location_rider`、`idx_campus_rider_earning_channel_created`、`idx_campus_rider_earning_rider_created` 全部就位。
+- 部署：vendure `b208393bb`（服务器 `git pull` + `pm2 restart vendure`，online）；web-admin `node scripts/deploy.mjs`（本地构建，产物约 60 MB，服务器解压 + `nginx -t`/reload 通过）。vshop 页面/菜单/i18n 与本文同批提交。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p8-ledger/`）：
+  - `01-rider-earnings.png`：汇总条「¥1.00 合计分成 / 2 笔数 / ¥1.00 其中小费」，两张卡片含骑手名、`+¥金额`、订单号、状态徽标「已入账」、小费、时间与「查看该单轨迹 ›」，页面 console 无错误。
+  - `02-rider-track-order.png`：按订单号 `ZW56SE6YGZ2YTXNK` 查得 10 点 / 0.54 km / 27 min，折线图 + 起点（绿）/终点图例 + 点位列表（最新在前），页面 console 无错误。
+- 造数说明：截图用 10 个轨迹点为临时数据（订单 `ZW56SE6YGZ2YTXNK`，`id` 1–10），截图后已 `DELETE` 清空，`campus_rider_location` 当前 0 行；台账两条为真实历史分成流水。
+- 权限提示：台账需 `CampusAuditRider`、轨迹需 `CampusViewDispatch`；`guoxinnanshan@163.com` 对同类既有接口 `riderApplications` 亦返回 `FORBIDDEN`，属账号授权范围，非接口缺陷。
 
 
 
