@@ -15,6 +15,12 @@
           <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : $t('campusMerchant.open') }}</text>
         </view>
       </view>
+      <view class="voicebar">
+        <text class="v-lbl">{{ $t('campusMerchant.voiceTitle') }}</text>
+        <view class="v-switch" :class="{ on: voiceEnabled }" @tap="toggleVoice">
+          <text class="v-switch-lbl">{{ voiceEnabled ? $t('campusMerchant.voiceOn') : $t('campusMerchant.voiceOff') }}</text>
+        </view>
+      </view>
       <view v-if="!board.merchantConfirmEnabled" class="notice">{{ $t('campusMerchant.notConfirmMode') }}</view>
       <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: lodopReady === 'fail' }">
         <view class="p-status">
@@ -395,12 +401,119 @@ function autoPrint(b: CampusMerchantBoard) {
   }
 }
 
-/** 新单提示音（H5 Web Audio，三短音） */
+/** 新单提示音（H5 Web Audio，复用同一个 AudioContext：自动播放策略需手势解锁） */
+let audioCtx: any = null;
+const audioUnlocked = ref(false);
+const VOICE_PREF_KEY = 'wa_voice_alert';
+const voiceEnabled = ref(loadVoicePref());
+let notifyAsked = false;
+
+function loadVoicePref(): boolean {
+  try {
+    const v = uni.getStorageSync(VOICE_PREF_KEY);
+    if (v === '' || v === null || v === undefined) return true;
+    return v !== false && v !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function ensureAudioCtx(): any {
+  if (audioCtx) return audioCtx;
+  const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+  if (!AC) return null;
+  try {
+    audioCtx = new AC();
+  } catch {
+    audioCtx = null;
+  }
+  return audioCtx;
+}
+
+/** 一次性手势解锁：创建/恢复 AudioContext，并顺势申请通知权限 */
+function unlockAudio() {
+  try {
+    const ctx = ensureAudioCtx();
+    if (ctx && ctx.state === 'suspended') void ctx.resume();
+    audioUnlocked.value = true;
+  } catch {
+    audioUnlocked.value = true; // 无 Web Audio 环境也置位，走通知/TTS 分支
+  }
+  requestNotifyPermission();
+  if (typeof window !== 'undefined') window.removeEventListener('pointerdown', unlockAudio);
+}
+
+function requestNotifyPermission() {
+  if (notifyAsked) return;
+  notifyAsked = true;
+  try {
+    const N = (window as any).Notification;
+    if (!N || N.permission !== 'default') return;
+    N.requestPermission();
+  } catch {
+    // 浏览器不支持或用户拒绝：静默回退
+  }
+}
+
+/** 语音播报开关：localStorage 记忆，默认开启 */
+function toggleVoice() {
+  voiceEnabled.value = !voiceEnabled.value;
+  try {
+    uni.setStorageSync(VOICE_PREF_KEY, voiceEnabled.value);
+  } catch {
+    // 存储不可用不影响本次会话
+  }
+  // 本次点击本身即手势，开启时直接解锁，无需再等下一次点击
+  if (voiceEnabled.value && !audioUnlocked.value) unlockAudio();
+}
+
+/** 中文语音优先；无 speechSynthesis 返回 false 以回退提示音 */
+function speakNewOrder(count: number): boolean {
+  try {
+    const syn = (window as any).speechSynthesis;
+    const Utter = (window as any).SpeechSynthesisUtterance;
+    if (!syn || !Utter) return false;
+    const text = count > 1
+      ? locale.t('campusMerchant.voiceNewOrderMany').replace('{n}', String(count))
+      : locale.t('campusMerchant.voiceNewOrder');
+    const u = new Utter(text);
+    u.lang = 'zh-CN';
+    const voices: any[] = syn.getVoices?.() || [];
+    const zh = voices.find((v: any) => /^zh[-_]CN/i.test(v.lang)) || voices.find((v: any) => /^zh/i.test(v.lang));
+    if (zh) u.voice = zh;
+    syn.cancel();
+    syn.speak(u);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 浏览器通知：仅在已授权时发送（授权本身需用户手势触发） */
+function notifyNewOrders(codes: string[]) {
+  try {
+    const N = (window as any).Notification;
+    if (!N || N.permission !== 'granted') return;
+    new N(locale.t('campusMerchant.notifyTitle'), {
+      body: locale.t('campusMerchant.notifyBody').replace('{codes}', codes.map((c) => '#' + c).join(' ')),
+    });
+  } catch {
+    // 通知失败不影响看板
+  }
+}
+
+/** 新单到达：语音（TTS 失败回退提示音）+ 通知 */
+function alertNewOrders(pending: MerchantBoardOrder[], count: number) {
+  if (!count || !voiceEnabled.value || !audioUnlocked.value) return;
+  if (!speakNewOrder(count)) beep();
+  notifyNewOrders(pending.slice(0, count).map((o) => o.code));
+}
+
 function beep() {
   try {
-    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC();
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') void ctx.resume();
     for (let i = 0; i < 3; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -411,7 +524,6 @@ function beep() {
       osc.start(ctx.currentTime + i * 0.25);
       osc.stop(ctx.currentTime + i * 0.25 + 0.15);
     }
-    setTimeout(() => ctx.close(), 1200);
   } catch {
     // 无 AudioContext 环境静默跳过
   }
@@ -421,7 +533,9 @@ async function refresh(initial = false) {
   try {
     const b = await campusMerchantBoard();
     const pendingCount = b.pending.length;
-    if (!initial && pendingCount > lastPendingCount.value) beep();
+    if (!initial && pendingCount > lastPendingCount.value) {
+      alertNewOrders(b.pending, pendingCount - lastPendingCount.value);
+    }
     lastPendingCount.value = pendingCount;
     board.value = b;
     void autoPrint(b);
@@ -582,12 +696,15 @@ onMounted(() => {
   reconnectTimer = setInterval(() => {
     if (lodopReady.value === 'fail') void probePrinter();
   }, 60_000);
+  // H5 自动播放/通知授权均需用户手势：首个 pointerdown 一次性解锁
+  if (typeof window !== 'undefined') window.addEventListener('pointerdown', unlockAudio);
 });
 onUnmounted(() => {
   if (timer) clearInterval(timer);
   timer = null;
   if (reconnectTimer) clearInterval(reconnectTimer);
   reconnectTimer = null;
+  if (typeof window !== 'undefined') window.removeEventListener('pointerdown', unlockAudio);
 });
 </script>
 
@@ -604,6 +721,13 @@ onUnmounted(() => {
       .switch-lbl { font-size: 26rpx; color: $wa-muted; font-weight: 600; }
       &.on { background: $wa-accent; .switch-lbl { color: #fff; } }
     }
+  }
+  .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;
+    .v-lbl { flex: 1; font-size: 24rpx; color: $wa-muted; }
+    .v-switch { padding: 10rpx 28rpx; border-radius: 999rpx; background: $wa-rule;
+      .v-switch-lbl { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
+      &.on { background: $wa-accent; .v-switch-lbl { color: #fff; } } }
   }
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; }
