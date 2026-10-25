@@ -1588,6 +1588,35 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 手机视口截图（390×844 dpr=2）：`docs/screenshots/waimai/p9-round18/01-delivery-stats.png`、`02-store-config.png`（看板店铺对比仍显示 code 属预期，该渠道未配中文店名）。
 - 已知未改（仅记录）：`delivery-stats` 中未配 `shopName` 的渠道仍显示 code；`web-admin` 无店铺配置界面，本项只能由接口验证。
 
+## 40. 配送体系 P1/P2 十项能力交付（2026-10-25）
+
+### 40.1 交付清单
+
+| # | 能力 | 后端（vendure） | C 端（waimai） | 后台（vshop/web-admin） |
+|---|---|---|---|---|
+| 1 | 商家语音播报 | — | — | 商家看板：`speechSynthesis` 中文播报（多单带数量）→ 无语音回退提示音；新单浏览器通知；首个手势解锁音频与通知授权；localStorage 记忆开关（`wa_voice_alert`） |
+| 2 | 骑手导航 | `campusRiderNav(orderId)` 返回店铺/楼栋坐标 | 配送中列表「导航」按钮，1 个目标直达 `uni.openLocation`，多目标 ActionSheet 选择，无坐标给文案提示 | — |
+| 3 | 营业时间自动开关 | `campusOrderGateProcess`：进入 `ArrangingPayment` 前校验营业时间（跑腿单豁免）；`WaimaiStore.openNow` | 菜单/首页以 `openNow` 为准；商家手动暂停显示「商家休息中 · 暂停接单，可先加购」 | — |
+| 4 | 一键沽清 | `product.customFields.waimaiSoldOut` + 闸门拦截 | 菜单售罄标签、禁止加购（仍展示，智能替代生效） | `/pages/campus/products` 搜索分页 + 售罄开关（乐观更新失败回滚） |
+| 5 | 客服站内工单 | 工单实体 + `campusCreateSupportTicket` / `campusMySupportTickets` / `campusReplySupportTicket` | `/pkg-user/pages/support-tickets`：分类/订单号/500 字/3 图，列表含状态与商家回复 | 运营中心「客服工单」tab：筛选、回复、关闭 |
+| 6 | 骑手申诉 | 申诉实体 + 待审唯一约束 + 审核回补信用分 | `/pkg-rider/pages/rider-appeal`：信用分概览、理由+证据图、历史状态与审核意见 | 运营中心「骑手申诉」tab：通过（可回补分值）/驳回 |
+| 7 | 下单黑名单 | 黑名单表 + 闸门校验（用户/手机号） | 下单失败直接展示后端文案「该账号暂不可下单…」 | 运营中心「黑名单」tab：按用户 ID/手机号增删 |
+| 8 | 班次 + 在线时长 + 运力预警 | 班次表、在线会话累计、`capacity-alert.job` 推飞书 | `/pkg-rider/pages/rider-shifts`：未来 14 天班次与时长 | 运营中心「班次与在线」tab：按日 CRUD + 当天在线时长排行 |
+| 9 | 用户给骑手评分 | 评分表（按订单幂等 upsert）+ 均分聚合 | 评价页骑手 1-5 星 + 4 个标签（未点星跳过、失败不阻断商品评价）；骑手首页展示均分 | 运营中心「骑手评分」tab：均分与评价明细 |
+| 10 | 短信兜底 | `campus-sms.service` 适配器，env 未配置时静默跳过 | — | — |
+
+### 40.2 验证记录
+
+- 后端单测：`npm test` **37 文件 / 491 用例全过**；`npm run build`（tsc）成功，`lib/` 产物随提交入库。
+- 生产部署：`/www/apps/vendure` → `git reset --hard origin/master`（`e958cab69`）+ `pm2 restart vendure`，启动 online、无崩溃循环。
+- Schema 上线探针（生产）：`waimaiStoreList { openNow }` 返回 `canteen-a=true / canteen-b=false`；`campusSupportTickets` 未带 token 返回 `FORBIDDEN`（字段已存在，非 unknown field）。
+- Admin API 实测（superadmin + `vendure-token`）：工单/申诉/黑名单/班次/在线时长/评分均可读；`campusMerchantProducts` 默认渠道 116、`canteen-a` 3、`canteen-b` 2（渠道隔离正确）。
+- C 端 e2e（生产真数据）：提交工单 → 后台回复 → 工单页显示「已回复」+ 商家回复；提交申诉 → 后台「待审核」可审批；后台建 10:00-14:00 班次 → 骑手「我的班次」显示 4.0 小时；沽清「麻辣拌面」→ 菜单出现「售罄」且加号禁用 → 验证后已回滚为在售。
+- 手机视口截图（390×844 dpr=2）：`docs/screenshots/waimai/p1p2/` 下 01 菜单售罄、02 首页营业状态、03 工单、04 骑手评分、05 申诉、06 班次、07 骑手首页评分、08 运营中心工单、09 申诉/黑名单/班次/评分四个 tab、10 一键沽清、11 商家语音开关。
+- 连带修复：①菜单 `menu.etaBar/etaBarNextDay/etaHint` 文案键缺失（第 38 轮遗留）导致页面显示原始 key，已补中英；②骑手评分星级默认 5 星改为 0 星（点星才提交）；③后台 `usePermGuard` 在 `access` 异步加载前误判，改为最多等 6s 再判定（修复超级管理员直连被误提示并回退）。
+- 已知/待补充：`waimai` 工作区仍有与本轮无关的未提交改动（结算页 ETA 区块移除、江湖模块），部署产物按仓库提交版本构建（部署时临时暂存 `checkout.vue`，部署后还原工作区），不影响本轮功能；后台账号若未开通 `CampusDispatch` / `CampusMerchant` 权限仍按原逻辑拦截（`@Allow` 后端兜底）。
+
+
 
 
 
