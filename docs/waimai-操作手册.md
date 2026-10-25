@@ -1616,6 +1616,48 @@ P1 对标缺口。顾客在**确认订单页**（应付金额下方）可填「�
 - 连带修复：①菜单 `menu.etaBar/etaBarNextDay/etaHint` 文案键缺失（第 38 轮遗留）导致页面显示原始 key，已补中英；②骑手评分星级默认 5 星改为 0 星（点星才提交）；③后台 `usePermGuard` 在 `access` 异步加载前误判，改为最多等 6s 再判定（修复超级管理员直连被误提示并回退）。
 - 已知/待补充：`waimai` 工作区仍有与本轮无关的未提交改动（结算页 ETA 区块移除、江湖模块），部署产物按仓库提交版本构建（部署时临时暂存 `checkout.vue`，部署后还原工作区），不影响本轮功能；后台账号若未开通 `CampusDispatch` / `CampusMerchant` 权限仍按原逻辑拦截（`@Allow` 后端兜底）。
 
+## 41. 运力预警飞书推送完善（2026-10-25）
+
+### 41.1 能力说明
+
+| 维度 | 行为 |
+|---|---|
+| 分级 | **无在线骑手**（critical）：在线骑手 0 人且待抢单 ≥ `NO_RIDER_BACKLOG`；**骑手紧张**（warning）：在线骑手 ≤ `TIGHT_RIDERS` 且待抢单 ≥ `TIGHT_BACKLOG` |
+| 内容 | 店铺名（优先 `channel.customFields.shopName`，缺省回退渠道 code）+ 待抢单量 + 最久等待分钟 + 在线骑手数 + 处置建议 + 调度看板链接（后台运营中心） |
+| 定向 | 按渠道推送：该店铺群 + 平台群；未配置店铺群时只发平台群；完全没有群映射时退回 `FEISHU_WEBHOOK`，告警不静默丢失 |
+| @所有人 | critical 默认 @所有人（`CAPACITY_ALERT_AT_ALL=false` 可关）；warning 不 @ |
+| 冷却 | 同渠道同级别 30 分钟；**级别升级（紧张→无骑手）绕过冷却立即推**；**仅送达成功才占冷却**，推送失败下一轮自动重试 |
+| 恢复 | 渠道回到健康后补一条「运力已恢复」（含骑手数/待抢单量），每轮恢复只推一次 |
+| 降级 | `FEISHU_ENABLED=false` 或发送通道未配置时只写日志（保留冷却，避免刷日志），不影响订单主流程 |
+| 在线会话 | 每轮顺带把心跳超过 5 分钟的 `campus_rider_session` 关账（在线时长统计收口） |
+
+### 41.2 环境变量（均可选，留空用默认）
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `CAPACITY_ALERT_ENABLED` | `true` | 总开关；`false` 时只关闭运力预警定时器，不影响其他配送功能 |
+| `CAPACITY_ALERT_INTERVAL_MIN` | `5` | 扫描周期（分钟，最小 1） |
+| `CAPACITY_ALERT_BOOT_DELAY_SEC` | `60` | 启动首跑延迟（秒），等连接池/事件总线就绪 |
+| `CAPACITY_ALERT_COOLDOWN_MIN` | `30` | 同渠道同级别冷却（分钟；`0` = 不冷却） |
+| `CAPACITY_ALERT_NO_RIDER_BACKLOG` | `1` | 无骑手告警的待抢单量下限 |
+| `CAPACITY_ALERT_TIGHT_BACKLOG` | `5` | 运力紧张的待抢单量下限 |
+| `CAPACITY_ALERT_TIGHT_RIDERS` | `2` | 运力紧张的在线骑手数上限 |
+| `CAPACITY_ALERT_AT_ALL` | `true` | 严重告警是否 @所有人 |
+| `CAPACITY_ALERT_CHANNELS` | 空（全部） | 只告警指定渠道 code，逗号分隔（如 `canteen-a,canteen-b`），避免演示店铺噪声 |
+| `CAPACITY_ALERT_LINK` | 空 | 覆盖告警里的调度看板链接 |
+| `ADMIN_UI_BASE_URL` | `https://e.joho.cn` | 后台域名（可带 `/guanli`），用于拼看板链接 |
+
+> 修改 env 后需 `pm2 restart vendure` 生效；启动日志会打印当前阈值与渠道白名单：`[CampusCapacity] 运力预警已启动：…`
+
+### 41.3 验证记录
+
+- 单测：`packages/campus-delivery-plugin` `npm test` → **38 文件 / 507 用例全过**（新增 9 个运力预警用例 + 3 个飞书定向推送用例）；`npm run build` 成功，`lib/` 随提交入库。
+- 生产部署：`git reset --hard origin/master`（`c26e7ee47`）+ `pm2 restart vendure`；启动日志：`运力预警已启动：每 5 分钟扫描，冷却 30 分钟，阈值 无骑手≥1 单 / 紧张≥5 单且≤2 人，渠道 全部`。
+- 端到端自检（生产，临时收紧阈值后已还原）：`CAPACITY_ALERT_CHANNELS=canteen-a`、`TIGHT_BACKLOG=0`、`TIGHT_RIDERS=99`、首跑 5s、冷却 5 分钟 → 12:13 触发 `[CampusCapacity] 运力预警 channel=113(canteen-a) severity=warning backlog=0 oldest=0min riders=0 delivered=true`，飞书平台群实际收到告警；随后移除自检 env 并重启，日志恢复默认阈值，`shop-api` 400（正常探针）。
+- 恢复通知、升级绕过冷却、失败不占冷却、渠道白名单、未启用降级、env 解析、看板链接拼接均由单测覆盖（生产当前无「告警→恢复」天然数据，未造单验证）。
+- 涉及文件：`capacity-alert.job.ts`、`feishu/feishu.client.ts`（`broadcast` 新增 `channel` 定向 + 无命退回 webhook）、`feishu/feishu-notify.service.ts`（`pushEvent/push` 新增 `target`，暴露 `enabled`）；新增 `capacity-alert.job.spec.ts`。
+
+
 
 
 
