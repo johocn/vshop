@@ -359,6 +359,16 @@ export async function fetchMerchantProducts(
   return { items: campusMerchantProducts?.items ?? [], total: campusMerchantProducts?.total ?? 0 };
 }
 
+/** R5 跑腿单：幂等初始化 0 元载体商品（新建店铺/新校区首次上线跑腿前调用） */
+export async function ensureErrandProducts(): Promise<{ variantId: string; sku: string }> {
+  const { campusEnsureErrandProducts } = await getAdminClient().request<{
+    campusEnsureErrandProducts: { variantId: string; sku: string };
+  }>(
+    `mutation { campusEnsureErrandProducts { variantId sku } }`,
+  );
+  return campusEnsureErrandProducts;
+}
+
 /** 设置商品售罄；返回后端实际状态 */
 export async function setMerchantProductSoldOut(productId: string, soldOut: boolean): Promise<boolean> {
   const { campusMerchantSetProductSoldOut } = await getAdminClient().request<{

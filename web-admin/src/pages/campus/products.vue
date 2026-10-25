@@ -2,6 +2,14 @@
   <view class="page">
     <view class="notice">{{ $t('campusProducts.notice') }}</view>
 
+    <!-- R5 跑腿载体商品初始化：新店铺/新校区首次开跑腿前必须执行（幂等） -->
+    <view class="errand">
+      <text class="errand-hint">{{ $t('campusProducts.errandHint') }}</text>
+      <button class="errand-btn" :disabled="errandBusy" @tap="initErrand">
+        {{ errandBusy ? $t('campusProducts.errandBusy') : $t('campusProducts.errandInit') }}
+      </button>
+    </view>
+
     <view class="searchbar">
       <input
         v-model="search" class="search"
@@ -44,7 +52,7 @@
 <script lang="ts" setup>
 // 一键沽清：商品售罄仅影响 C 端加购，仍保留菜单展示（避免频繁上下架打断装修/搜索索引）。
 import { onMounted, ref } from 'vue';
-import { fetchMerchantProducts, setMerchantProductSoldOut, type MerchantProduct } from '../../apis/campus-ops';
+import { fetchMerchantProducts, setMerchantProductSoldOut, ensureErrandProducts, type MerchantProduct } from '../../apis/campus-ops';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
@@ -59,6 +67,24 @@ const total = ref(0);
 const search = ref('');
 const loading = ref(false);
 const busy = ref<Record<string, boolean>>({});
+const errandBusy = ref(false);
+
+/** 幂等初始化跑腿载体商品（SKU 查重，重复点击安全） */
+async function initErrand(): Promise<void> {
+  if (errandBusy.value) return;
+  errandBusy.value = true;
+  try {
+    const r = await ensureErrandProducts();
+    uni.showToast({
+      title: locale.t('campusProducts.errandOk').replace('{sku}', r.sku),
+      icon: 'success',
+    });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    errandBusy.value = false;
+  }
+}
 
 async function load(reset: boolean): Promise<void> {
   if (loading.value) return;
@@ -102,6 +128,11 @@ onMounted(() => {
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx; padding-bottom: 80rpx;
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx; }
+  .errand { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx;
+    .errand-hint { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
+    .errand-btn { flex: none; margin: 0; font-size: 22rpx; line-height: 56rpx; padding: 0 24rpx;
+      background: transparent; border: 1.5px solid $wa-accent; color: $wa-accent; border-radius: $wa-radius; } }
   .searchbar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 12rpx 24rpx; margin-bottom: 20rpx;
     .search { flex: 1; font-size: 26rpx; }

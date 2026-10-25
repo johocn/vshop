@@ -1617,6 +1617,7 @@
       "status_PENDING": "审核中",
       "status_PAID": "已打款",
       "status_REJECTED": "已驳回",
+      "status_FAILED": "打款失败",
       "toChannel": "提现到 ",
       "createdAtLabel": "申请于 ",
       "reviewedAtLabel": "审核于 ",
@@ -1639,6 +1640,13 @@
       "rejectPlaceholder": "请输入驳回原因",
       "rejectEmpty": "驳回原因不能为空",
       "rejectOk": "已驳回并退回",
+      "failReasonLabel": "打款失败原因：",
+      "failBtn": "标记打款失败",
+      "failTitle": "标记打款失败",
+      "failContent": "确认本次 ¥{amount} 转账实际失败（被退回/账号错误）？标记后金额将退回骑手余额，需重新申请。",
+      "failPlaceholder": "请输入失败原因",
+      "failEmpty": "失败原因不能为空",
+      "failOk": "已标记失败并退回余额",
       "opFailed": "操作失败",
       "loading": "加载中…",
       "loadMore": "加载更多",
@@ -5050,6 +5058,9 @@
     "zoneSaved": "分区已保存",
     "zoneNeedName": "请填写分区名称",
     "zoneBadFee": "请填写有效运费（元，最多两位小数）",
+    "zoneNewNamePh": "新增分区名称",
+    "zoneAdd": "新增",
+    "zoneCreated": "分区已创建",
     "del": "删除楼栋",
     "deleting": "删除中…",
     "delTitle": "删除楼栋",
@@ -5172,6 +5183,10 @@
     "monthlySales": "月销",
     "variantCount": "规格数",
     "soldOut": "已售罄",
-    "onSale": "在售"
+    "onSale": "在售",
+    "errandHint": "跑腿单（R5）需先初始化 0 元载体商品；幂等操作，重复执行安全。",
+    "errandInit": "初始化跑腿商品",
+    "errandBusy": "初始化中…",
+    "errandOk": "已就绪（SKU {sku}）"
   }
 }
