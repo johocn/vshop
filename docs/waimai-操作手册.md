@@ -1870,6 +1870,25 @@ ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealReviewedAt" timestamptz;
 
 > 同批 C 端（waimai-v39）交付：帮助中心/订单详情在线客服入口、客服会话页、我的评价差评申诉、店铺食安公示（见 `waimai-v39/docs/waimai-操作手册-常用功能.md` §147）。
 
+### 45.6 部署记录（2026-10-26 已上线）
+
+| 目标 | 方式 | 结果 |
+|------|------|------|
+| 后端（vendure） | 本地构建两个插件产物 → `git push` → 服务器 `git pull --ff-only` + `pm2 restart vendure --update-env` | `eb70db84a..4d382ce08` 快进成功，重启后 `↺189 online`；`/health` 返回 `{"status":"ok"}` |
+| 后台（vshop/web-admin） | `node scripts/deploy.mjs`（本地 `build:h5` → 校验 61.4 MB → tar/scp → 解压 + `openresty -t && -s reload`） | nginx 语法检查通过并 reload，`https://www.yourbao.cn/guanli/` 返回 200 |
+| C 端（waimai-v39） | `node .secrets/deploy-waimai.mjs`（本地 `build:h5` → 校验 3.6 MB → tar/scp → 解压） | `https://www.yourbao.cn/waimai/` 返回 200 |
+
+幂等迁移已落地（生产 `synchronize:false`，靠 `OnApplicationBootstrap` 执行）：
+
+- 新增表 `campus_chat_conversation`（`unreadForAdmin` / `unreadForCustomer` / `lastSenderType` / `status` / `orderCode`）、`campus_chat_message`（`images` / `readAt` / `senderType`）。
+- `campus_fulfillment_config` 新增：`privacyNumberEnabled` / `privacyNumberProvider` / `privacyNumberPrefix` / `privacyNumberTtlMinutes`、`foodLicenseNo` / `foodLicenseImage` / `foodLicenseExpiry` / `foodSafetyGrade` / `foodSafetyCommitmentImage` / `kitchenLiveUrl` / `kitchenLiveEnabled`。
+- `review` 新增：`appealStatus` / `appealReason` / `appealImages` / `appealAt` / `appealResult` / `appealReviewedBy` / `appealReviewedAt`。
+
+GraphQL 字段在线核验（服务器本地 `curl`）：
+
+- `shop-api` 新增 Query：`campusMyChatConversations`、`campusChatMessages`；Mutation：`campusStartChat`、`campusSendChatMessage`、`campusMarkChatRead`、`campusCloseChat`、`appealReview`。未带 token 请求返回 `FORBIDDEN`（字段存在，权限生效）。
+- `admin-api` 新增 Query：`campusChatConversations`、`campusChatUnread`、`campusAdminChatMessages`、`reviewAppeals`；Mutation：`campusReplyChat`、`campusCloseChatConversation`、`approveReviewAppeal`、`rejectReviewAppeal`；`Review` 类型含全部 6 个 `appeal*` 字段。
+
 
 
 
