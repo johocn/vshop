@@ -89,6 +89,15 @@
         <text class="tip">{{ $t('couponEdit.categoryTip') }}</text>
       </view>
 
+      <!-- 优惠活动照片：全渠道通用；券卡缩略图 / 券店头图，空则由 C 端按券名兜底 -->
+      <view class="field">
+        <text class="label">{{ $t('couponEdit.activityImageLabel') }} <text class="opt">{{ $t('couponEdit.optional') }}</text></text>
+        <view class="img-row">
+          <MediaPicker :max="1" media-type="image" :value="activityImageIds" @change="onPickActivityImage" />
+          <text class="hint-inline">{{ $t('couponEdit.activityImageTip') }}</text>
+        </view>
+      </view>
+
       <!-- 满减 / 直减 面额 -->
       <view class="field" v-if="form.type === 'FIXED' || form.type === 'FULL'">
         <text class="label">{{ form.type === 'FIXED' ? $t('couponEdit.discountLabel') : $t('couponEdit.fullLabel') }}</text>
@@ -267,6 +276,7 @@ const form = ref({
   marketingLabel: '',
   studentPriceYuan: '',
   category: '',
+  activityImage: '',
   discountYuan: '',
   minSpendYuan: '',
   startsAt: '',
@@ -299,6 +309,17 @@ async function insertMarker(formKey: 'descZh' | 'descEn', ids: string[], idsRef:
 }
 const onInsertImgZh = (ids: string[]) => insertMarker('descZh', ids, descImgIdsZh);
 const onInsertImgEn = (ids: string[]) => insertMarker('descEn', ids, descImgIdsEn);
+
+// ---- 优惠活动照片：选 1 张图，解析预览地址存入 activityImage；清空则置空由 C 端兜底 ----
+const activityImageIds = ref<string[]>([]);
+async function onPickActivityImage(ids: string[]) {
+  activityImageIds.value = ids;
+  if (!ids.length) { form.value.activityImage = ''; return; }
+  try {
+    const r = await fetchAssets(1, 0, undefined, ids);
+    form.value.activityImage = r.items[0]?.preview || '';
+  } catch { /* 解析失败保留原值，选择器侧已有提示 */ }
+}
 
 function onTypeChange(e: any) {
   const t = typeKeys[e.detail.value];
@@ -341,6 +362,8 @@ function buildInput(): CouponTemplateInput {
     model.studentPrice = sp > 0 ? sp : null;
     model.category = f.category.trim() ? f.category.trim().slice(0, 30) : null;
   }
+  // 活动照片全渠道通用（券卡缩略图 / 券店头图）：空串 → null，由 C 端按券名兜底
+  model.activityImage = f.activityImage.trim() ? f.activityImage.trim() : null;
   if (f.descZh.trim()) model.description = f.descZh.trim();
   if (f.descZh.trim()) model.descZh = f.descZh.trim();
   if (f.descEn.trim()) model.descEn = f.descEn.trim();
@@ -453,6 +476,7 @@ async function loadAll() {
     marketingLabel: c.label || '',
     studentPriceYuan: c.studentPrice ? String(c.studentPrice / 100) : '',
     category: c.category || '',
+    activityImage: c.activityImage || '',
     discountYuan: c.type === 'PERCENT' ? String((c.discountValue || 0) / 10) : String((c.discountValue || 0) / 100),
     minSpendYuan: String((c.minSpend || 0) / 100),
     startsAt: toLocalDate(c.startsAt),
