@@ -92,6 +92,8 @@ export interface MerchantProduct {
   soldOut: boolean;
   monthlySales: number;
   variantCount: number;
+  /** 商品级打包费（分/件）；null = 沿用店铺配置金额 */
+  packingFee?: number | null;
 }
 
 export interface CampusRiderShiftInput {
@@ -350,7 +352,7 @@ export async function fetchMerchantProducts(
   }>(
     `query CampusMerchantProducts($search: String, $skip: Int, $take: Int) {
       campusMerchantProducts(search: $search, skip: $skip, take: $take) {
-        items { productId name soldOut monthlySales variantCount }
+        items { productId name soldOut monthlySales variantCount packingFee }
         total
       }
     }`,
@@ -380,4 +382,20 @@ export async function setMerchantProductSoldOut(productId: string, soldOut: bool
     { productId, soldOut },
   );
   return !!campusMerchantSetProductSoldOut?.soldOut;
+}
+
+/** 设置商品级打包费（分/件）；传 null 清除，回落到店铺配置金额 */
+export async function setMerchantProductPackingFee(
+  productId: string,
+  packingFee: number | null,
+): Promise<number | null> {
+  const { campusMerchantSetProductPackingFee } = await getAdminClient().request<{
+    campusMerchantSetProductPackingFee: { ok: boolean; packingFee: number | null };
+  }>(
+    `mutation CampusMerchantSetProductPackingFee($productId: ID!, $packingFee: Int) {
+      campusMerchantSetProductPackingFee(productId: $productId, packingFee: $packingFee) { ok packingFee }
+    }`,
+    { productId, packingFee },
+  );
+  return campusMerchantSetProductPackingFee?.packingFee ?? null;
 }
