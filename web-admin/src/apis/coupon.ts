@@ -56,6 +56,8 @@ export interface CouponTemplateItem {
   studentPrice?: number | null;
   /** 业态分类键（券店首页分组楼层用，如 food/billiards）；空=未分类 */
   category?: string | null;
+  /** 优惠活动照片 URL（券卡缩略图 / 券店头图）；空=前端按券名兜底 */
+  activityImage?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -97,9 +99,11 @@ export interface CouponTemplateInput {
   studentPrice?: number | null;
   /** 业态分类键（券店首页分组楼层用，如 food/billiards）；空=未分类 */
   category?: string | null;
+  /** 优惠活动照片 URL；空=前端按券名兜底 */
+  activityImage?: string | null;
 }
 
-const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene distributionChannels salePrice anchorPrice label studentPrice category createdAt updatedAt`;
+const FIELDS = `id name nameZh nameEn description descZh descEn type discountValue minSpend startsAt endsAt totalCount claimedCount pointsPrice perUserLimit scope categoryId variantId enabled claimable claimCode validDays newCustomerOnly memberLevel shopId usageScene distributionChannels salePrice anchorPrice label studentPrice category activityImage createdAt updatedAt`;
 
 const TYPE_LABEL: Record<CouponType, string> = {
   FIXED: '满减',
