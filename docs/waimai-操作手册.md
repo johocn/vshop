@@ -1941,3 +1941,19 @@ ALTER TABLE product ADD COLUMN IF NOT EXISTS "customFieldsWaimaipackingfee" int;
 - **不参与优惠**：打包费为 surcharge，不进入满减/券的可优惠金额计算（与运费同口径）。
 - **按件口径的件数**：取订单行 `quantity` 累加，不含加料/套餐子项（待 P1-2 套餐落地后统一）。
 - **未做按商品分类差异计费**：当前只有店铺级默认 + 商品级覆盖两级。
+
+### 46.7 部署记录（2026-10-26 已上线）
+
+| 目标 | 方式 | 结果 |
+|------|------|------|
+| 后端（vendure） | 本地构建插件产物 → `git push` → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env` | `bc9b0c4c9` 首次部署**启动失败**（`Mutation.campusMerchantSetProductPackingFee defined in resolvers, but not in schema` —— 该 mutation 被误写进 `extend type Query`），修正后 `2dc29eed7` 重启，`Nest application successfully started`、pm2 online |
+| 后台（vshop/web-admin） | `node scripts/deploy.mjs` | 产物校验 61441 KB，`openresty -t` 通过并 reload |
+| C 端（waimai-v39） | `node .secrets/deploy-waimai.mjs` | 产物校验 3639 KB，解压完成 |
+
+线上核验（服务器本地 `curl`）：
+
+- `https://www.yourbao.cn/waimai/` → 200；`https://www.yourbao.cn/guanli/` → 200；`shop-api` 正常应答。
+- `admin-api` 内省 `CampusStoreConfigWithChannel` 已含 `packingFeeEnabled / packingFeeMode / packingFeeAmount / packingFeeCap / packingFeeLabel`；`Mutation.campusMerchantSetProductPackingFee` 已上线。
+- 幂等迁移建列核验（`information_schema`）：`campus_fulfillment_config` 的 5 个 `packingFee*` 列、`product.customFieldsWaimaipackingfee` 均已存在，`product` 表列数 36。
+
+> 教训：Vendure 的 `adminApiExtensions` 中 `extend type Query` 与 `extend type Mutation` 是两个独立块，新增 mutation 必须落在 `extend type Mutation` 内；否则启动期 GraphQL schema 校验直接失败，进程 crash-loop（本次靠 `~/.pm2/logs/vendure-out.log` 定位）。
