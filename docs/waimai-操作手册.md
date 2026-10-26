@@ -1957,3 +1957,72 @@ ALTER TABLE product ADD COLUMN IF NOT EXISTS "customFieldsWaimaipackingfee" int;
 - 幂等迁移建列核验（`information_schema`）：`campus_fulfillment_config` 的 5 个 `packingFee*` 列、`product.customFieldsWaimaipackingfee` 均已存在，`product` 表列数 36。
 
 > 教训：Vendure 的 `adminApiExtensions` 中 `extend type Query` 与 `extend type Mutation` 是两个独立块，新增 mutation 必须落在 `extend type Mutation` 内；否则启动期 GraphQL schema 校验直接失败，进程 crash-loop（本次靠 `~/.pm2/logs/vendure-out.log` 定位）。
+
+## 47. P1-2 加料/小料 + 套餐/组合商品（2026-10-26）
+
+### 47.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | `Product` 新增自定义字段 `waimaiAddonGroups`（加料组 JSON）、`waimaiCombo`（套餐内容 JSON）；`OrderLine` 新增 `waimaiAddons`（加料引用 JSON）；新增 `addon-fee.ts`（解析/白名单校验/计价纯函数）与 `addon-fee.process.ts`（`campusAddonFeeProcess`，进 `ArrangingPayment` 前落 `sku=campus-addon-fee` 的 surcharge）；`merchant-admin` 新增 `campusMerchantSetProductAddonGroups` / `campusMerchantSetProductCombo` |
+| 后台（web-admin） | 「商品管理」卡片新增「改加料 N」「改套餐 M」入口；两个底部 sheet：加料组（组名/最少选/最多选/选项名/加价元，最多 5 组、每组 12 项）与套餐内容（套餐名/单品名/份数/参考价，最多 20 项） |
+| C 端（waimai-v39） | 规格弹层展示套餐内容（含「立省」）与加料组多选（含加价、必选/最多提示、头部价格叠加）；购物车与订单详情行内展示加料；结算页新增「加料费」行并计入应付；详见 `waimai-v39/docs/waimai-操作手册-常用功能.md` §149 |
+
+### 47.2 口径
+
+- **加料只存引用**：`OrderLine.customFields.waimaiAddons` 仅保存 `[{ g: 组名, n: 选项名 }]`，**不存金额**；单价一律由服务端按商品当前 `waimaiAddonGroups` 解析，客户端传任意字符串都无法凭空产生费用。
+- **合并语义**：Vendure 判定「同商品同行」时会比对 `customFields`，因此加料必须在 `addItemToOrder` 当次写入，避免先建空行再回写导致重复行。
+- **计费**：单行加料费 = 该行已选加料的单份加价和 × 件数；订单级合计在进入 `ArrangingPayment` 前写成一条 surcharge（`sku=campus-addon-fee`），重复进入先按 sku 删旧再加新，幂等。
+- **套餐仅展示**：`waimaiCombo` 用于 C 端展示「套餐含什么 / 立省多少」与后厨备餐参考，**不参与计价**；套装售价仍由商品自身价格决定。
+- **清洗上限**：加料组 ≤5、每组选项 ≤12、单份加价 ≤1000 元、组名字数 ≤20；套餐单品 ≤20、份数 1~99。
+- **跑腿单豁免**：`orderKind=errand` 不收加料费。
+
+### 47.3 权限与校验
+
+- 两个配置 mutation 均使用 `CampusPermissions.CampusMerchant`。
+- 加料组保存校验：组数 ≤5、每组选项 ≤12、加价 0~100000 分、`min ≤ max ≤ 选项数`；套餐保存校验：单品 ≤20、单品名非空、参考价可空。
+- 解析层容错：非法 JSON / 结构异常一律退空（不抛错），商品改配置后旧订单行上的失效引用会被白名单丢弃，不再计费。
+
+### 47.4 数据库变更（启动幂等迁移 `P8P1AddonComboMigration`）
+
+```sql
+ALTER TABLE product ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddongroups" text;
+ALTER TABLE product ADD COLUMN IF NOT EXISTS "customFieldsWaimaicombo" text;
+ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
+```
+
+> 与 P1-1 同款：`OnApplicationBootstrap` + `IF NOT EXISTS`，重复启动安全。
+
+### 47.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，新增 `lib/src/addon-fee.*`、`lib/src/addon-fee.process.*`、`lib/src/migrations/p8-p1-2-addon-combo.*`）；web-admin `npm run build:h5` 通过；C 端 `npm run build:h5` 通过。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p12-addon-combo/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `07-admin-products-addon-combo-entry.png`：商品卡片 meta 显示「改加料 2 / 改套餐 3」，无配置商品显示 0。
+  - `08-admin-product-addon-sheet.png`：两组加料回填（加料：加蛋 ¥2.00 / 加辣免费 / 加芝士 ¥3.00；主食（必选 1）：米饭 / 馒头），最少选/最多选可编辑。
+  - `09-admin-product-combo-sheet.png`：套餐名称「单人套餐」+ 3 个内含单品（宫保鸡丁 1×28.00 / 米饭 1×2.00 / 冰粉 1×6.00）。
+- 截图脚本：`node scripts/shots-p12-addon-combo.cjs`。
+
+### 47.6 边界与已知限制
+
+- **不参与优惠**：加料费为 surcharge，不进入满减/券的可优惠金额计算。
+- **仅影响新单**：配置变更只影响后续进支付流程的订单，已支付订单金额不变。
+- **加料不支持独立库存**：加料不扣减库存、不单独沽清；依靠商品售罄统一控制。
+- **套餐不拆行**：套餐内容不生成子订单行，后厨按套餐文案备餐；库存只按主商品扣减。
+
+### 47.7 部署记录（2026-10-26）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `6273fa967 feat(campus): P1-2 套餐/组合商品 + 加料（小料）`（仅 `packages/campus-delivery-plugin`，含 `lib/` 产物）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `[NestApplication] Nest application successfully started`；pm2 `vendure` online |
+| 后端 | 幂等迁移校验：`product.customFieldsWaimaiaddongroups`、`product.customFieldsWaimaicombo`、`order_line.customFieldsWaimaiaddons` | 三列均已存在（重复启动无报错） |
+| 后端 | admin-api 内省 | `campusMerchantSetProductAddonGroups`、`campusMerchantSetProductCombo` 均在 Mutation 列表（共 629 个） |
+| 后端 | shop-api 内省 | `addItemToOrder` 已带 `customFields: OrderLineCustomFieldsInput`，其 `inputFields` 含 `waimaiAddons` |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61454 KB，解压后 nginx reload 成功；线上 `guanli/assets/index-C8Wc2nKM.js` 含「改加料 / 套餐内容」 |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` | 产物校验 3648 KB，`deploy done`；线上 `yourbao/waimai/assets/index-jUVfrupl.js` 含「加料费」 |
+| 线上 | `https://www.yourbao.cn/waimai/`、`https://www.yourbao.cn/guanli/` | 均 HTTP 200 |
+
+> 说明：启动日志中 `[CJKPlugin] 默认数据初始化失败: duplicate key ...` 为既有噪声（每次重启均出现），不影响本项目功能。
+
+操作入口：
+- 商家/平台后台：校园外卖 → 商品管理 → 商品卡片「改加料 N」「改套餐 N」。
+- C 端：店铺 → 商品 → 规格弹层（套餐卡片 + 加料组）→ 购物车/结算/订单详情展示「加料：xxx」与「加料费」。
