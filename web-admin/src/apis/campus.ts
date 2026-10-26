@@ -229,6 +229,37 @@ export interface CampusMerchantBoard {
   completedTodayAmount: number;
 }
 
+/** 商家自助经营：门店资料（营业时间/公告/电话/营业状态） */
+export interface MerchantStoreProfile {
+  storeName: string;
+  businessHours: string | null;
+  storeNotice: string | null;
+  storePhone: string | null;
+  paused: boolean;
+  openNow: boolean; // 营业时段内且未临时休息（服务端按 UTC+8 判定）
+}
+
+/** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
+export interface MerchantRevenueBucket {
+  orders: number;
+  gross: number;
+  avgTicket: number;
+  cancelled: number;
+  cancelledAmount: number;
+}
+
+export interface MerchantRevenueDay {
+  date: string; // MM-DD
+  orders: number;
+  gross: number;
+}
+
+export interface MerchantRevenue {
+  today: MerchantRevenueBucket;
+  last7: MerchantRevenueBucket;
+  days: MerchantRevenueDay[];
+}
+
 const ORDER_FIELDS =
   'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode lines { name quantity price }';
 
@@ -280,6 +311,51 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
     { paused },
   );
   return res.campusMerchantSetPaused.ok;
+}
+
+const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow';
+
+/** 商家自助经营：门店资料 */
+export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantStoreProfile: MerchantStoreProfile }>(
+    `query { campusMerchantStoreProfile { ${STORE_PROFILE_FIELDS} } }`,
+  );
+  return res.campusMerchantStoreProfile;
+}
+
+/** 商家自助修改门店资料：只改本渠道；营业时间留空=全天营业 */
+export async function campusMerchantUpdateStore(input: {
+  businessHours?: string | null;
+  storeNotice?: string | null;
+  storePhone?: string | null;
+}): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateStore: MerchantStoreProfile }>(
+    `mutation ($businessHours: String, $storeNotice: String, $storePhone: String) {
+      campusMerchantUpdateStore(businessHours: $businessHours, storeNotice: $storeNotice, storePhone: $storePhone) {
+        ${STORE_PROFILE_FIELDS}
+      }
+    }`,
+    {
+      businessHours: input.businessHours ?? null,
+      storeNotice: input.storeNotice ?? null,
+      storePhone: input.storePhone ?? null,
+    },
+  );
+  return res.campusMerchantUpdateStore;
+}
+
+const REVENUE_BUCKET_FIELDS = 'orders gross avgTicket cancelled cancelledAmount';
+
+/** 经营数据：今日 / 近 7 日 / 逐日趋势 */
+export async function campusMerchantRevenue(): Promise<MerchantRevenue> {
+  const res = await getAdminClient().request<{ campusMerchantRevenue: MerchantRevenue }>(
+    `query { campusMerchantRevenue {
+      today { ${REVENUE_BUCKET_FIELDS} }
+      last7 { ${REVENUE_BUCKET_FIELDS} }
+      days { date orders gross }
+    } }`,
+  );
+  return res.campusMerchantRevenue;
 }
 
 /** 小票打印回执：打印成功后回写 waimaiPrintedAt（防重打 + 补打依据） */

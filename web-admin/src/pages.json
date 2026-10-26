@@ -68,6 +68,7 @@
     { "path": "pages/campus/buildings", "style": { "navigationBarTitleText": "楼栋坐标" } },
     { "path": "pages/campus/ops", "style": { "navigationBarTitleText": "运营中心" } },
     { "path": "pages/campus/products", "style": { "navigationBarTitleText": "一键沽清" } },
+    { "path": "pages/campus/store-settings", "style": { "navigationBarTitleText": "经营设置", "enablePullDownRefresh": true } },
     { "path": "pages/campus/rider-earnings", "style": { "navigationBarTitleText": "骑手分成台账" } },
     { "path": "pages/campus/rider-track", "style": { "navigationBarTitleText": "骑手轨迹" } },
     { "path": "pages/campus/chat", "style": { "navigationBarTitleText": "在线客服", "enablePullDownRefresh": true } },

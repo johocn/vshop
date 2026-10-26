@@ -2026,3 +2026,66 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 操作入口：
 - 商家/平台后台：校园外卖 → 商品管理 → 商品卡片「改加料 N」「改套餐 N」。
 - C 端：店铺 → 商品 → 规格弹层（套餐卡片 + 加料组）→ 购物车/结算/订单详情展示「加料：xxx」与「加料费」。
+
+## 48. P1-3 商家自助经营后台（2026-10-27）
+
+### 48.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | `merchant-admin` 新增三个能力：`campusMerchantStoreProfile`（读营业时间/公告/电话/营业状态）、`campusMerchantUpdateStore`（自助改营业时间与门店资料）、`campusMerchantRevenue`（今日/近 7 日经营数据 + 逐日趋势）；GraphQL 新增 `MerchantStoreProfile`、`CampusMerchantRevenue*` 类型 |
+| 后台（web-admin） | 新增页面「经营设置」（`pages/campus/store-settings`）：营业状态 pill（营业中/非营业时段/临时休息）+ 临时休息开关 + 营业时间输入（含 3 个预设）+ 店铺公告/联系电话 + 经营数据（今日/近 7 日分段、单量/营业额/客单价/取消退款、近 7 日柱状图）；商家工作台顶部新增「经营设置」入口条；菜单与导航标题、中英 i18n 同步 |
+| C 端（waimai-v39） | **本轮无改动**：C 端店铺页的营业时间、`openNow` 营业状态、店铺公告本就消费 `Channel.customFields.waimaiBusinessHours` 与运营中心配置，商家自助修改后即时生效 |
+
+### 48.2 口径
+
+- **营业时间唯一源**：写入 `Channel.customFields.waimaiBusinessHours`，与打烊拦截（`order-gate.process.ts`）、C 端店铺页（`waimai-store.service.ts` 的 `businessHours` / `openNow`）同一数据源，**不由配置表另存一份**，避免两处口径漂移。
+- **格式**：支持单时段 `10:00-22:00` 与多时段逗号分隔 `10:00-14:00,17:00-21:00`；支持跨零点 `18:00-02:00`；留空 = 全天营业。解析复用 `business-hours.ts`（UTC+8）。
+- **营业状态判定**：`openNow = 在营业时段内 && !临时休息`；临时休息（`campusMerchantSetPaused`）优先于营业时间，恢复后自动按营业时间开闭店。
+- **营业额口径**：只统计 `deliveryStatus = delivered` 且有 `deliveredAt` 的订单，**按送达日归帐**（跨零点订单计入实际送达当天），金额取 `totalWithTax`；客单价 = 营业额 / 已完成单量（四舍五入到分）。
+- **取消退款口径**：`state = Cancelled` 的订单按**创建日**归帐，金额取取消时的 `totalWithTax`，不影响营业额分子。
+- **统计范围**：仅本渠道（`order.channels` 含当前店铺）且 `customFields.hallStatus IS NOT NULL` 的校园外卖单；跑腿单不计入营业额。
+
+### 48.3 权限与校验
+
+- 三个接口均使用 `CampusPermissions.CampusMerchant`；页面由 `usePermGuard('CampusMerchant')` 把关，菜单项 `perm: 'CampusMerchant'`。
+- `campusMerchantUpdateStore` 校验：营业时间长度 ≤100 字符；非空时必须能被 `parseBusinessHours` 解析，否则直接报「营业时间格式不正确，示例：10:00-22:00 或 10:00-14:00,17:00-21:00」。
+- 仅改当前 `ctx.channelId` 对应渠道，跨店无法读写。
+- 前端保存前做一次轻量正则预校验，避免明显格式错误打到后端。
+
+### 48.4 数据库变更
+
+无。营业时间沿用既有 `channel."customFieldsWaimaibusinesshours"` 列，公告/电话沿用配置表字段，本轮不新增表/列，也无需幂等迁移。
+
+### 48.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0）；web-admin `npm run build:h5` 通过（`DONE Build complete.`，产物 61470 KB）。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p13-merchant-self-service/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `01-admin-merchant-entry.png`：工作台顶栏后「经营设置 ›」入口，今日完成 23 单 / ¥684。
+  - `02-admin-store-settings-today.png`：状态 pill「营业中」，营业时间回填 `10:00-14:00,17:00-21:00`，公告 18/500，电话回填，今日 KPI（23 单 / ¥684 / ¥29.74，取消 1 单 ¥26）。
+  - `03-admin-store-settings-last7.png`：切到「近 7 日」后 KPI（156 单 / ¥4586 / ¥29.4，取消 5 单 ¥132）与 7 根逐日柱（528/745/612/892/689/436/684）。
+  - `04-admin-store-settings-paused-edit.png`：临时休息开启后 pill 变「临时休息」、开关置灰橙，营业时间可编辑为 `18:00-02:00`。
+- 截图脚本：`node scripts/shots-p13-store-settings.cjs`（mock 覆盖 `myTenantAccess` / `campusMerchantBoard` / `campusMerchantStoreProfile` / `campusMerchantRevenue` / `campusMerchantSetPaused` / `campusMerchantUpdateStore`）。
+- 线上 schema：未登录请求 `campusMerchantStoreProfile`、`campusMerchantRevenue`、`campusMerchantUpdateStore` 均返回 `FORBIDDEN`（字段存在、仅缺权限），未出现「Cannot query field」。
+
+### 48.6 边界与已知限制
+
+- **不做商品编辑/分类排序**：商品上下架、沽清、加料、套餐已在「商品管理」页，完整商品资料仍走通用商品管理，不在本页重复。
+- **不做评价回复**：评价回复与差评申诉审核已在评价管理完成。
+- **不做结算/抽佣**：配置中无平台抽佣字段，经营数据只展示流水与单量，不做分账计算。
+- **营业额不含未送达单**：待配送/配送中的订单不计入营业额，只计入取消统计（若取消）。
+- **取消退款按创建日**：跨零点取消的订单可能落在前一日，与送达归日口径并存，看板会分别标注「取消退款」「退款金额」字段。
+
+### 48.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `6f0d34e25 feat(campus): P1-3 商家自助经营（营业时间/门店资料/经营数据）`（仅 `packages/campus-delivery-plugin`，含 `lib/` 产物）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `[NestApplication] Nest application successfully started`；pm2 `vendure` online |
+| 后端 | 线上 admin-api 字段校验（未登录探针） | `campusMerchantStoreProfile` / `campusMerchantRevenue` / `campusMerchantUpdateStore` 均返回 `FORBIDDEN`，无 schema 校验错误 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61470 KB，解压后 nginx reload 成功；线上 `guanli/assets/pages-campus-store-settings.Dl66DGp_.js` 存在且含 `campusStoreSettings`，入口 bundle 含「经营设置」 |
+| C 端 | 本轮无改动，不部署 | 沿用上一轮产物 |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 商家后台：校园外卖 → 商家接单（工作台）→ 顶部「经营设置」→ 营业状态/营业时间/门店信息/经营数据。
+- C 端：店铺页顶部即时反映营业状态、营业时间与店铺公告，无需改动。
