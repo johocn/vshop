@@ -15,6 +15,10 @@
           <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : $t('campusMerchant.open') }}</text>
         </view>
       </view>
+      <view class="entrybar" @tap="goSettings">
+        <text class="e-lbl">{{ $t('nav.campusStoreSettings') }}</text>
+        <text class="e-chev">›</text>
+      </view>
       <view class="voicebar">
         <text class="v-lbl">{{ $t('campusMerchant.voiceTitle') }}</text>
         <view class="v-switch" :class="{ on: voiceEnabled }" @tap="toggleVoice">
@@ -548,6 +552,11 @@ async function refresh(initial = false) {
   }
 }
 
+/** 经营设置：营业时间 / 店铺公告 / 经营数据（CampusMerchant 自助） */
+function goSettings() {
+  uni.navigateTo({ url: '/pages/campus/store-settings' });
+}
+
 async function toggleOpen() {
   const next = !board.value.paused;
   try {
@@ -721,6 +730,11 @@ onUnmounted(() => {
       .switch-lbl { font-size: 26rpx; color: $wa-muted; font-weight: 600; }
       &.on { background: $wa-accent; .switch-lbl { color: #fff; } }
     }
+  }
+  .entrybar { display: flex; align-items: center; background: $wa-card; border-radius: $wa-radius;
+    padding: 20rpx 28rpx; margin-bottom: 20rpx;
+    .e-lbl { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+    .e-chev { font-size: 32rpx; color: $wa-muted; }
   }
   .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;
