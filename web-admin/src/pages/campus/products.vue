@@ -30,6 +30,10 @@
           <text class="m">{{ $t('campusProducts.packingFee') }} {{ p.packingFee != null ? '¥' + (p.packingFee / 100).toFixed(2) : $t('campusProducts.packingFeeDefault') }}</text>
           <text class="m edit" @tap="openPacking(p)">{{ $t('campusProducts.packingEdit') }}</text>
         </view>
+        <view class="meta">
+          <text class="m edit" @tap="openAddon(p)">{{ $t('campusProducts.addonEntry') }} {{ addonGroupCount(p) }}</text>
+          <text class="m edit" @tap="openCombo(p)">{{ $t('campusProducts.comboEntry') }} {{ comboItemCount(p) }}</text>
+        </view>
       </view>
       <view class="right">
         <text class="state" :class="{ out: p.soldOut }">
@@ -67,13 +71,88 @@
         </view>
       </view>
     </view>
+
+    <!-- 加料（P1-2）：组 → 选项，C 端商品详情勾选，结算按份加价 -->
+    <view v-if="addonOpen" class="mask" @tap.self="addonOpen = false">
+      <view class="sheet sheet--tall">
+        <view class="sheet__hd">
+          <text class="sheet__t">{{ $t('campusProducts.addonTitle') }}</text>
+          <text class="sheet__x" @tap="addonOpen = false">✕</text>
+        </view>
+        <text class="sheet__sub">{{ addonTarget?.name }}</text>
+        <text class="sheet__hint">{{ $t('campusProducts.addonHint') }}</text>
+        <scroll-view scroll-y class="sheet__scroll">
+          <view v-if="!addonDraft.length" class="empty">{{ $t('campusProducts.addonEmpty') }}</view>
+          <view v-for="(g, gi) in addonDraft" :key="'ag' + gi" class="ag">
+            <view class="ag__hd">
+              <input v-model="g.name" class="ag__name" :placeholder="$t('campusProducts.addonGroupName')" />
+              <text class="ag__del" @tap="addonDraft.splice(gi, 1)">{{ $t('campusProducts.addonRemove') }}</text>
+            </view>
+            <view class="ag__range">
+              <text class="ag__lbl">{{ $t('campusProducts.addonMin') }}</text>
+              <input v-model="g.min" class="ag__num" type="number" />
+              <text class="ag__lbl">{{ $t('campusProducts.addonMax') }}</text>
+              <input v-model="g.max" class="ag__num" type="number" />
+            </view>
+            <view v-for="(o, oi) in g.options" :key="'ao' + oi" class="op">
+              <input v-model="o.name" class="op__name" :placeholder="$t('campusProducts.addonOptionName')" />
+              <input v-model="o.priceYuan" class="op__price" type="digit" :placeholder="$t('campusProducts.addonOptionPrice')" />
+              <text class="op__del" @tap="g.options.splice(oi, 1)">✕</text>
+            </view>
+            <text class="ag__add" @tap="addOption(g)">{{ $t('campusProducts.addonAddOption') }}</text>
+          </view>
+          <text class="add-group" @tap="addGroup">{{ $t('campusProducts.addonAddGroup') }}</text>
+        </scroll-view>
+        <view class="sheet__ops">
+          <text class="sheet__clear" @tap="clearAddons">{{ $t('campusProducts.addonClear') }}</text>
+          <button class="sheet__save" :disabled="addonBusy" @tap="saveAddons">
+            {{ addonBusy ? $t('campusProducts.loading') : $t('campusProducts.addonSave') }}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 套餐内容（P1-2）：仅展示与备餐用，套餐价仍由商品价格决定 -->
+    <view v-if="comboOpen" class="mask" @tap.self="comboOpen = false">
+      <view class="sheet sheet--tall">
+        <view class="sheet__hd">
+          <text class="sheet__t">{{ $t('campusProducts.comboTitle') }}</text>
+          <text class="sheet__x" @tap="comboOpen = false">✕</text>
+        </view>
+        <text class="sheet__sub">{{ comboTarget?.name }}</text>
+        <text class="sheet__hint">{{ $t('campusProducts.comboHint') }}</text>
+        <scroll-view scroll-y class="sheet__scroll">
+          <view v-if="!comboDraft.length" class="empty">{{ $t('campusProducts.comboEmpty') }}</view>
+          <view class="op">
+            <input v-model="comboTitle" class="op__name" :placeholder="$t('campusProducts.comboName')" />
+          </view>
+          <view v-for="(it, i) in comboDraft" :key="'ci' + i" class="op">
+            <input v-model="it.name" class="op__name" :placeholder="$t('campusProducts.comboItemName')" />
+            <input v-model="it.qty" class="ag__num" type="number" :placeholder="$t('campusProducts.comboItemQty')" />
+            <input v-model="it.priceYuan" class="op__price" type="digit" :placeholder="$t('campusProducts.comboItemPrice')" />
+            <text class="op__del" @tap="comboDraft.splice(i, 1)">✕</text>
+          </view>
+          <text class="add-group" @tap="comboDraft.push({ name: '', qty: '1', priceYuan: '' })">{{ $t('campusProducts.comboAddItem') }}</text>
+        </scroll-view>
+        <view class="sheet__ops">
+          <text class="sheet__clear" @tap="clearCombo">{{ $t('campusProducts.comboClear') }}</text>
+          <button class="sheet__save" :disabled="comboBusy" @tap="saveCombo">
+            {{ comboBusy ? $t('campusProducts.loading') : $t('campusProducts.comboSave') }}
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script lang="ts" setup>
 // 一键沽清：商品售罄仅影响 C 端加购，仍保留菜单展示（避免频繁上下架打断装修/搜索索引）。
 import { onMounted, ref } from 'vue';
-import { fetchMerchantProducts, setMerchantProductSoldOut, setMerchantProductPackingFee, ensureErrandProducts, type MerchantProduct } from '../../apis/campus-ops';
+import {
+  fetchMerchantProducts, setMerchantProductSoldOut, setMerchantProductPackingFee, ensureErrandProducts,
+  setMerchantProductAddonGroups, setMerchantProductCombo,
+  type MerchantProduct, type AddonGroupConfig, type ComboItemConfig,
+} from '../../apis/campus-ops';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
@@ -81,6 +160,8 @@ import { usePermGuard } from '../../composables/usePermGuard';
 usePermGuard('CampusMerchant');
 
 const TAKE = 20;
+const MAX_GROUPS = 5;
+const MAX_OPTIONS = 12;
 
 const locale = useLocaleStore();
 const products = ref<MerchantProduct[]>([]);
@@ -154,7 +235,7 @@ function openPacking(p: MerchantProduct): void {
 
 /** 元输入转分；留空返回 null（沿用店铺配置） */
 function yuanToFen(v: string): number | null | undefined {
-  const s = v.trim();
+  const s = String(v ?? '').trim();
   if (s === '') return null;
   const n = Number(s);
   if (!Number.isFinite(n) || n < 0) return undefined;
@@ -187,6 +268,209 @@ async function clearPacking(): Promise<void> {
   await savePacking();
 }
 
+// ===== 加料组（P1-2）=====
+type AddonGroupDraft = {
+  name: string;
+  min: string;
+  max: string;
+  options: Array<{ name: string; priceYuan: string }>;
+};
+
+const addonOpen = ref(false);
+const addonTarget = ref<MerchantProduct | null>(null);
+const addonDraft = ref<AddonGroupDraft[]>([]);
+const addonBusy = ref(false);
+
+/** 卡片上展示已配置组数（解析失败按 0，避免脏 JSON 打断列表） */
+function addonGroupCount(p: MerchantProduct): number {
+  return readJsonArray(p.addonGroups).length;
+}
+
+function comboItemCount(p: MerchantProduct): number {
+  const obj: any = readJson(p.combo);
+  return Array.isArray(obj?.items) ? obj.items.length : 0;
+}
+
+function readJson(raw?: string | null): any {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+function readJsonArray(raw?: string | null): any[] {
+  const v = readJson(raw);
+  return Array.isArray(v) ? v : [];
+}
+
+function openAddon(p: MerchantProduct): void {
+  addonTarget.value = p;
+  addonDraft.value = readJsonArray(p.addonGroups).map((g: any) => ({
+    name: String(g?.name ?? ''),
+    min: String(Number(g?.min ?? 0) || ''),
+    max: String(Number(g?.max ?? 0) || ''),
+    options: (Array.isArray(g?.options) ? g.options : []).map((o: any) => ({
+      name: String(o?.name ?? ''),
+      priceYuan: o?.price ? (Number(o.price) / 100).toFixed(2) : '',
+    })),
+  }));
+  if (!addonDraft.value.length) addGroup();
+  addonOpen.value = true;
+}
+
+function addGroup(): void {
+  if (addonDraft.value.length >= MAX_GROUPS) {
+    uni.showToast({ title: locale.t('campusProducts.addonBad'), icon: 'none' });
+    return;
+  }
+  addonDraft.value.push({ name: '', min: '', max: '', options: [{ name: '', priceYuan: '' }] });
+}
+
+function addOption(g: AddonGroupDraft): void {
+  if (g.options.length >= MAX_OPTIONS) {
+    uni.showToast({ title: locale.t('campusProducts.addonBad'), icon: 'none' });
+    return;
+  }
+  g.options.push({ name: '', priceYuan: '' });
+}
+
+/** 草稿 → 提交结构；任一组/选项为空或金额非法则返回 null */
+function buildAddonGroups(): AddonGroupConfig[] | null {
+  const out: AddonGroupConfig[] = [];
+  for (const g of addonDraft.value) {
+    const name = g.name.trim();
+    if (!name) return null;
+    const options: AddonGroupConfig['options'] = [];
+    for (const o of g.options) {
+      const on = o.name.trim();
+      if (!on) return null;
+      const fen = yuanToFen(o.priceYuan || '0');
+      if (fen === undefined) return null;
+      options.push({ name: on, price: fen ?? 0 });
+    }
+    if (!options.length) return null;
+    const min = Math.max(0, Number(g.min) || 0);
+    const max = Math.max(0, Number(g.max) || 0);
+    if (min > 0 && max > 0 && min > max) return null;
+    out.push({ name, min, max, options });
+  }
+  return out;
+}
+
+async function saveAddons(): Promise<void> {
+  const p = addonTarget.value;
+  if (!p || addonBusy.value) return;
+  const groups = buildAddonGroups();
+  if (!groups) {
+    uni.showToast({ title: locale.t('campusProducts.addonBad'), icon: 'none' });
+    return;
+  }
+  addonBusy.value = true;
+  try {
+    p.addonGroups = await setMerchantProductAddonGroups(p.productId, groups);
+    addonOpen.value = false;
+    uni.showToast({ title: locale.t('campusProducts.addonSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    addonBusy.value = false;
+  }
+}
+
+/** 清除该商品全部加料（提交空数组） */
+async function clearAddons(): Promise<void> {
+  const p = addonTarget.value;
+  if (!p || addonBusy.value) return;
+  addonBusy.value = true;
+  try {
+    p.addonGroups = await setMerchantProductAddonGroups(p.productId, []);
+    addonDraft.value = [];
+    addonOpen.value = false;
+    uni.showToast({ title: locale.t('campusProducts.addonSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    addonBusy.value = false;
+  }
+}
+
+// ===== 套餐内容（P1-2）=====
+type ComboDraftItem = { name: string; qty: string; priceYuan: string };
+
+const comboOpen = ref(false);
+const comboTarget = ref<MerchantProduct | null>(null);
+const comboDraft = ref<ComboDraftItem[]>([]);
+const comboTitle = ref('');
+const comboBusy = ref(false);
+
+function openCombo(p: MerchantProduct): void {
+  comboTarget.value = p;
+  const obj: any = readJson(p.combo);
+  comboTitle.value = String(obj?.title ?? '');
+  const items: any[] = Array.isArray(obj?.items) ? obj.items : [];
+  comboDraft.value = items.map(it => ({
+    name: String(it?.name ?? ''),
+    qty: String(Number(it?.qty ?? 1) || 1),
+    priceYuan: it?.price ? (Number(it.price) / 100).toFixed(2) : '',
+  }));
+  if (!comboDraft.value.length) comboDraft.value.push({ name: '', qty: '1', priceYuan: '' });
+  comboOpen.value = true;
+}
+
+function buildCombo(): { title: string | null; items: ComboItemConfig[] } | null {
+  const items: ComboItemConfig[] = [];
+  for (const it of comboDraft.value) {
+    const name = it.name.trim();
+    if (!name) return null;
+    const fen = yuanToFen(it.priceYuan || '');
+    if (fen === undefined) return null;
+    items.push({ name, qty: Math.max(1, Number(it.qty) || 1), price: fen });
+  }
+  if (!items.length) return null;
+  return { title: comboTitle.value.trim() || null, items };
+}
+
+async function saveCombo(): Promise<void> {
+  const p = comboTarget.value;
+  if (!p || comboBusy.value) return;
+  const combo = buildCombo();
+  if (!combo) {
+    uni.showToast({ title: locale.t('campusProducts.comboBad'), icon: 'none' });
+    return;
+  }
+  comboBusy.value = true;
+  try {
+    p.combo = await setMerchantProductCombo(p.productId, combo);
+    comboOpen.value = false;
+    uni.showToast({ title: locale.t('campusProducts.comboSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    comboBusy.value = false;
+  }
+}
+
+/** 清除套餐内容，恢复为普通商品（传 null） */
+async function clearCombo(): Promise<void> {
+  const p = comboTarget.value;
+  if (!p || comboBusy.value) return;
+  comboBusy.value = true;
+  try {
+    p.combo = await setMerchantProductCombo(p.productId, null);
+    comboDraft.value = [];
+    comboTitle.value = '';
+    comboOpen.value = false;
+    uni.showToast({ title: locale.t('campusProducts.comboSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    comboBusy.value = false;
+  }
+}
+
 onMounted(() => {
   void load(true);
 });
@@ -210,7 +494,7 @@ onMounted(() => {
     border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
     .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10rpx;
       .name { font-size: 28rpx; color: $wa-ink; font-weight: 600; word-break: break-all; }
-      .meta { display: flex; gap: 24rpx;
+      .meta { display: flex; flex-wrap: wrap; gap: 24rpx;
         .m { font-size: 22rpx; color: $wa-muted; } } }
     .right { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8rpx;
       .state { font-size: 20rpx; color: $wa-success;
@@ -223,6 +507,7 @@ onMounted(() => {
   display: flex; align-items: flex-end; }
 .sheet { width: 100%; background: $wa-card; border-radius: 24rpx 24rpx 0 0; padding: 28rpx 32rpx 40rpx;
   box-sizing: border-box;
+  &--tall { max-height: 86vh; display: flex; flex-direction: column; }
   &__hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
   &__t { font-size: 30rpx; font-weight: 600; color: $wa-ink; }
   &__x { font-size: 32rpx; color: $wa-muted; padding: 4rpx 8rpx; }
@@ -230,10 +515,32 @@ onMounted(() => {
   &__hint { display: block; font-size: 22rpx; color: $wa-muted; line-height: 1.5; margin-bottom: 16rpx; }
   &__input { height: 72rpx; background: $wa-bg; border-radius: $wa-radius; padding: 0 20rpx;
     font-size: 28rpx; box-sizing: border-box; }
+  &__scroll { flex: 1; min-height: 120rpx; margin-bottom: 8rpx; }
   &__ops { display: flex; align-items: center; gap: 20rpx; margin-top: 24rpx; }
   &__clear { flex: none; font-size: 24rpx; color: $wa-muted; padding: 12rpx 8rpx; }
   &__save { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; background: $wa-accent;
     color: #fff; font-size: 28rpx; border-radius: $wa-radius; border: none; }
 }
+.empty { font-size: 24rpx; color: $wa-muted; padding: 24rpx 0; text-align: center; }
+.ag { background: $wa-bg; border-radius: $wa-radius; padding: 20rpx; margin-bottom: 16rpx;
+  &__hd { display: flex; align-items: center; gap: 16rpx; }
+  &__name { flex: 1; height: 64rpx; background: $wa-card; border-radius: $wa-radius;
+    padding: 0 16rpx; font-size: 26rpx; box-sizing: border-box; }
+  &__del { flex: none; font-size: 22rpx; color: $wa-danger; }
+  &__range { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx; }
+  &__lbl { font-size: 22rpx; color: $wa-muted; }
+  &__num { width: 96rpx; height: 56rpx; background: $wa-card; border-radius: $wa-radius;
+    padding: 0 12rpx; font-size: 24rpx; text-align: center; box-sizing: border-box; }
+  &__add { display: block; font-size: 24rpx; color: $wa-accent; padding: 12rpx 0 0; }
+}
+.op { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx;
+  &__name { flex: 1; min-width: 0; height: 60rpx; background: $wa-card; border-radius: $wa-radius;
+    padding: 0 14rpx; font-size: 24rpx; box-sizing: border-box; }
+  &__price { width: 150rpx; height: 60rpx; background: $wa-card; border-radius: $wa-radius;
+    padding: 0 14rpx; font-size: 24rpx; box-sizing: border-box; }
+  &__del { flex: none; font-size: 22rpx; color: $wa-muted; padding: 0 4rpx; }
+}
+.add-group { display: block; text-align: center; font-size: 26rpx; color: $wa-accent;
+  border: 1.5px dashed $wa-accent; border-radius: $wa-radius; padding: 16rpx 0; margin-top: 8rpx; }
 .page .meta .edit { color: $wa-accent; }
 </style>

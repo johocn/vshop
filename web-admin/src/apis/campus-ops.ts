@@ -94,6 +94,36 @@ export interface MerchantProduct {
   variantCount: number;
   /** 商品级打包费（分/件）；null = 沿用店铺配置金额 */
   packingFee?: number | null;
+  /** 加料组配置 JSON 字符串（AddonGroupConfig[]）；null = 无加料 */
+  addonGroups?: string | null;
+  /** 套餐内容 JSON 字符串（ComboConfig）；null = 非套餐 */
+  combo?: string | null;
+}
+
+/** 加料组（P1-2）：price 为单份加价（分）；min/max 为该组可选数量约束（0 = 不限） */
+export interface AddonOptionConfig {
+  name: string;
+  price: number;
+}
+
+export interface AddonGroupConfig {
+  name: string;
+  min?: number;
+  max?: number;
+  options: AddonOptionConfig[];
+}
+
+/** 套餐内容（P1-2）：价格仅用于「原价/立省」展示，可空 */
+export interface ComboItemConfig {
+  name: string;
+  qty: number;
+  price?: number | null;
+}
+
+export interface ComboConfig {
+  title?: string | null;
+  items: ComboItemConfig[];
+  note?: string | null;
 }
 
 export interface CampusRiderShiftInput {
@@ -352,7 +382,7 @@ export async function fetchMerchantProducts(
   }>(
     `query CampusMerchantProducts($search: String, $skip: Int, $take: Int) {
       campusMerchantProducts(search: $search, skip: $skip, take: $take) {
-        items { productId name soldOut monthlySales variantCount packingFee }
+        items { productId name soldOut monthlySales variantCount packingFee addonGroups combo }
         total
       }
     }`,
@@ -398,4 +428,36 @@ export async function setMerchantProductPackingFee(
     { productId, packingFee },
   );
   return campusMerchantSetProductPackingFee?.packingFee ?? null;
+}
+
+/** 保存商品加料组：groups 传空数组 = 清除加料 */
+export async function setMerchantProductAddonGroups(
+  productId: string,
+  groups: AddonGroupConfig[],
+): Promise<string | null> {
+  const { campusMerchantSetProductAddonGroups } = await getAdminClient().request<{
+    campusMerchantSetProductAddonGroups: { ok: boolean; addonGroups: string | null };
+  }>(
+    `mutation CampusMerchantSetProductAddonGroups($productId: ID!, $groups: [String!]!) {
+      campusMerchantSetProductAddonGroups(productId: $productId, groups: $groups) { ok addonGroups }
+    }`,
+    { productId, groups: groups.map(g => JSON.stringify(g)) },
+  );
+  return campusMerchantSetProductAddonGroups?.addonGroups ?? null;
+}
+
+/** 保存商品套餐内容：combo 传 null = 清除（恢复普通商品） */
+export async function setMerchantProductCombo(
+  productId: string,
+  combo: ComboConfig | null,
+): Promise<string | null> {
+  const { campusMerchantSetProductCombo } = await getAdminClient().request<{
+    campusMerchantSetProductCombo: { ok: boolean; combo: string | null };
+  }>(
+    `mutation CampusMerchantSetProductCombo($productId: ID!, $combo: String) {
+      campusMerchantSetProductCombo(productId: $productId, combo: $combo) { ok combo }
+    }`,
+    { productId, combo: combo ? JSON.stringify(combo) : null },
+  );
+  return campusMerchantSetProductCombo?.combo ?? null;
 }
