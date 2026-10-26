@@ -377,6 +377,70 @@
           </view>
         </view>
         <view class="notify-tip">{{ $t('campusConfig.printModeTip') }}</view>
+        <view class="sec-t">{{ $t('campusConfig.foodSafetySection') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.foodLicenseNo') }}</text>
+          <input v-model="card.form.foodLicenseNo" :placeholder="$t('campusConfig.phText')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.foodLicenseImage') }}</text>
+          <input v-model="card.form.foodLicenseImage" placeholder="https://" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.foodLicenseExpiry') }}</text>
+          <input v-model="card.form.foodLicenseExpiry" placeholder="2027-12-31" />
+        </view>
+        <view class="pmode-row">
+          <text class="lbl">{{ $t('campusConfig.foodSafetyGrade') }}</text>
+          <view
+            v-for="g in FOOD_GRADES" :key="g.value"
+            class="pmode" :class="{ on: card.form.foodSafetyGrade === g.value }"
+            @tap="card.form.foodSafetyGrade = g.value"
+          >
+            <text>{{ $t(g.label) }}</text>
+          </view>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.foodSafetyCommitmentImage') }}</text>
+          <input v-model="card.form.foodCommitmentImage" placeholder="https://" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.kitchenLiveUrl') }}</text>
+          <input v-model="card.form.kitchenLiveUrl" placeholder="https://" />
+        </view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: card.form.kitchenLiveEnabled }" @tap="card.form.kitchenLiveEnabled = !card.form.kitchenLiveEnabled">
+            <text>{{ $t(card.form.kitchenLiveEnabled ? 'campusConfig.kitchenLiveOn' : 'campusConfig.kitchenLiveOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.kitchenLiveTip') }}</text>
+        </view>
+        <view class="sec-t">{{ $t('campusConfig.privacySection') }}</view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: card.form.privacyEnabled }" @tap="card.form.privacyEnabled = !card.form.privacyEnabled">
+            <text>{{ $t(card.form.privacyEnabled ? 'campusConfig.privacyOn' : 'campusConfig.privacyOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.privacyTip') }}</text>
+        </view>
+        <block v-if="card.form.privacyEnabled">
+          <view class="pmode-row">
+            <text class="lbl">{{ $t('campusConfig.privacyProvider') }}</text>
+            <view
+              v-for="p in PRIVACY_PROVIDERS" :key="p.value"
+              class="pmode" :class="{ on: card.form.privacyProvider === p.value }"
+              @tap="card.form.privacyProvider = p.value"
+            >
+              <text>{{ $t(p.label) }}</text>
+            </view>
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.privacyTtl') }}</text>
+            <input v-model="card.form.privacyTtl" type="number" :placeholder="$t('campusConfig.phMinutes')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.privacyPrefix') }}</text>
+            <input v-model="card.form.privacyPrefix" :placeholder="$t('campusConfig.privacyPrefixPh')" />
+          </view>
+        </block>
         <view class="sec-t">{{ $t('campusConfig.timeoutSection') }}</view>
         <view class="pmode-row">
           <view class="pmode" :class="{ on: card.form.timeoutCompensation }" @tap="toggleTimeout(card)">
@@ -538,6 +602,22 @@ const PRINT_MODES = [
   { value: 'onAccepted', label: 'campusConfig.printModeOnAccepted' },
 ] as const;
 
+/** 食安量化分级（'' = 未评级） */
+const FOOD_GRADES = [
+  { value: 'A', label: 'campusConfig.gradeA' },
+  { value: 'B', label: 'campusConfig.gradeB' },
+  { value: 'C', label: 'campusConfig.gradeC' },
+  { value: '', label: 'campusConfig.gradeNone' },
+] as const;
+
+/** 隐私号服务商（与服务端白名单一致） */
+const PRIVACY_PROVIDERS = [
+  { value: 'mask', label: 'campusConfig.privacyMask' },
+  { value: 'mock', label: 'campusConfig.privacyMock' },
+  { value: 'aliyun', label: 'campusConfig.privacyAliyun' },
+  { value: 'tencent', label: 'campusConfig.privacyTencent' },
+] as const;
+
 interface HandoverForm {
   name: string;
   address: string;
@@ -597,6 +677,17 @@ interface CardForm {
   dpReleaseBacklog: string;             // 回落阈值（单，可空）
   dpMultiplier: string;                 // 手动倍率 1.0–2.0
   dpMaxAddYuan: string;                 // 单笔加价封顶（元）
+  privacyEnabled: boolean;
+  privacyProvider: string;
+  privacyTtl: string;
+  privacyPrefix: string;
+  foodLicenseNo: string;
+  foodLicenseImage: string;
+  foodLicenseExpiry: string;
+  foodSafetyGrade: string;
+  foodCommitmentImage: string;
+  kitchenLiveUrl: string;
+  kitchenLiveEnabled: boolean;
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -976,6 +1067,17 @@ function toForm(c: CampusStoreConfig): CardForm {
     dpReleaseBacklog: dp.supply?.releaseBacklog != null ? String(dp.supply.releaseBacklog) : '',
     dpMultiplier: String(dp.manualMultiplier ?? 1),
     dpMaxAddYuan: fenToYuan(dp.maxAddFee ?? 600) || '6',
+    privacyEnabled: !!c.privacyNumberEnabled,
+    privacyProvider: c.privacyNumberProvider || 'mask',
+    privacyTtl: String(c.privacyNumberTtlMinutes ?? 60),
+    privacyPrefix: c.privacyNumberPrefix ?? '',
+    foodLicenseNo: c.foodLicenseNo ?? '',
+    foodLicenseImage: c.foodLicenseImage ?? '',
+    foodLicenseExpiry: c.foodLicenseExpiry ?? '',
+    foodSafetyGrade: c.foodSafetyGrade ?? '',
+    foodCommitmentImage: c.foodSafetyCommitmentImage ?? '',
+    kitchenLiveUrl: c.kitchenLiveUrl ?? '',
+    kitchenLiveEnabled: !!c.kitchenLiveEnabled,
   };
 }
 
@@ -1219,6 +1321,17 @@ async function save(card: Card) {
       timeoutCompensationWindowHours: windowInput,
       timeoutCompensationCouponTemplateId: f.timeoutCouponTemplateId.trim() || null,
       dynamicPricing,
+      privacyNumberEnabled: f.privacyEnabled,
+      privacyNumberProvider: f.privacyProvider,
+      privacyNumberTtlMinutes: Number(f.privacyTtl) || 60,
+      privacyNumberPrefix: f.privacyPrefix.trim() || null,
+      foodLicenseNo: f.foodLicenseNo.trim() || null,
+      foodLicenseImage: f.foodLicenseImage.trim() || null,
+      foodLicenseExpiry: f.foodLicenseExpiry.trim() || null,
+      foodSafetyGrade: f.foodSafetyGrade || null,
+      foodSafetyCommitmentImage: f.foodCommitmentImage.trim() || null,
+      kitchenLiveUrl: f.kitchenLiveUrl.trim() || null,
+      kitchenLiveEnabled: f.kitchenLiveEnabled,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });

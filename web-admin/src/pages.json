@@ -70,6 +70,7 @@
     { "path": "pages/campus/products", "style": { "navigationBarTitleText": "一键沽清" } },
     { "path": "pages/campus/rider-earnings", "style": { "navigationBarTitleText": "骑手分成台账" } },
     { "path": "pages/campus/rider-track", "style": { "navigationBarTitleText": "骑手轨迹" } },
+    { "path": "pages/campus/chat", "style": { "navigationBarTitleText": "在线客服", "enablePullDownRefresh": true } },
     { "path": "pages/pickup/index", "style": { "navigationBarTitleText": "自提点管理" } },
     { "path": "pages/pickup/edit/index", "style": { "navigationBarTitleText": "自提点" } },
     { "path": "pages/pickup/redeem/index", "style": { "navigationBarTitleText": "到店自提核销" } },

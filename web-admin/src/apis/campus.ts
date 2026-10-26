@@ -64,6 +64,17 @@ export interface CampusStoreConfig {
   timeoutCompensationCouponTemplateId: string | null;
   /** 动态计价配置 JSON 字符串（null=关闭） */
   dynamicPricing: string | null;
+  privacyNumberEnabled: boolean;
+  privacyNumberProvider: string;
+  privacyNumberTtlMinutes: number;
+  privacyNumberPrefix: string | null;
+  foodLicenseNo: string | null;
+  foodLicenseImage: string | null;
+  foodLicenseExpiry: string | null;
+  foodSafetyGrade: string | null;
+  foodSafetyCommitmentImage: string | null;
+  kitchenLiveUrl: string | null;
+  kitchenLiveEnabled: boolean;
 }
 
 export interface CampusStoreConfigInput {
@@ -102,10 +113,21 @@ export interface CampusStoreConfigInput {
   timeoutCompensationWindowHours?: number | null;
   timeoutCompensationCouponTemplateId?: string | null;
   dynamicPricing?: string | null;
+  privacyNumberEnabled?: boolean | null;
+  privacyNumberProvider?: string | null;
+  privacyNumberTtlMinutes?: number | null;
+  privacyNumberPrefix?: string | null;
+  foodLicenseNo?: string | null;
+  foodLicenseImage?: string | null;
+  foodLicenseExpiry?: string | null;
+  foodSafetyGrade?: string | null;
+  foodSafetyCommitmentImage?: string | null;
+  kitchenLiveUrl?: string | null;
+  kitchenLiveEnabled?: boolean | null;
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -911,4 +933,116 @@ export async function campusDynamicPricingPreview(): Promise<CampusDynamicPricin
     } }`,
   );
   return res.campusDynamicPricingPreview;
+}
+
+// ===== 在线客服 IM（CampusDispatch 权限，渠道隔离）=====
+
+export interface CampusChatConversationRow {
+  id: string;
+  customerId: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  orderCode: string | null;
+  subject: string | null;
+  /** open | closed */
+  status: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  /** customer | admin */
+  lastSenderType: string | null;
+  unreadForCustomer: number;
+  unreadForAdmin: number;
+  closedAt: string | null;
+  createdAt: string;
+}
+
+export interface CampusChatMessageRow {
+  id: string;
+  conversationId: string;
+  /** customer | admin */
+  senderType: string;
+  senderId: string | null;
+  content: string | null;
+  images: string[] | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+const CHAT_CONV_FIELDS =
+  'id customerId customerName customerPhone orderCode subject status lastMessage lastMessageAt lastSenderType unreadForCustomer unreadForAdmin closedAt createdAt';
+const CHAT_MSG_FIELDS = 'id conversationId senderType senderId content images readAt createdAt';
+
+/** 会话列表：status=open|closed，unreadOnly=仅待回复（unreadForAdmin>0） */
+export async function campusChatConversations(opts?: {
+  status?: string | null;
+  unreadOnly?: boolean;
+  skip?: number;
+  take?: number;
+}): Promise<{ items: CampusChatConversationRow[]; total: number }> {
+  const res = await getAdminClient().request<{
+    campusChatConversations: { items: CampusChatConversationRow[]; total: number };
+  }>(
+    `query ($status: String, $unreadOnly: Boolean, $skip: Int, $take: Int) {
+      campusChatConversations(status: $status, unreadOnly: $unreadOnly, skip: $skip, take: $take) {
+        total items { ${CHAT_CONV_FIELDS} }
+      }
+    }`,
+    {
+      status: opts?.status ?? null,
+      unreadOnly: opts?.unreadOnly ?? null,
+      skip: opts?.skip ?? null,
+      take: opts?.take ?? null,
+    },
+  );
+  return res.campusChatConversations;
+}
+
+/** 待回复角标 */
+export async function campusChatUnread(): Promise<{ conversationCount: number; messageCount: number }> {
+  const res = await getAdminClient().request<{
+    campusChatUnread: { conversationCount: number; messageCount: number };
+  }>(`query { campusChatUnread { conversationCount messageCount } }`);
+  return res.campusChatUnread;
+}
+
+/** 会话消息：afterId 增量拉取（轮询用） */
+export async function campusAdminChatMessages(
+  conversationId: string,
+  afterId?: string | null,
+  take?: number,
+): Promise<CampusChatMessageRow[]> {
+  const res = await getAdminClient().request<{ campusAdminChatMessages: CampusChatMessageRow[] }>(
+    `query ($conversationId: ID!, $afterId: ID, $take: Int) {
+      campusAdminChatMessages(conversationId: $conversationId, afterId: $afterId, take: $take) { ${CHAT_MSG_FIELDS} }
+    }`,
+    { conversationId, afterId: afterId ?? null, take: take ?? null },
+  );
+  return res.campusAdminChatMessages;
+}
+
+/** 后台回复（同时把该会话运营侧待回复计数清零、会话恢复 open） */
+export async function campusReplyChat(
+  conversationId: string,
+  content: string,
+): Promise<CampusChatMessageRow> {
+  const res = await getAdminClient().request<{ campusReplyChat: CampusChatMessageRow }>(
+    `mutation ($conversationId: ID!, $content: String) {
+      campusReplyChat(conversationId: $conversationId, content: $content) { ${CHAT_MSG_FIELDS} }
+    }`,
+    { conversationId, content },
+  );
+  return res.campusReplyChat;
+}
+
+/** 结束会话（顾客端将显示已结束，可重新发起） */
+export async function campusCloseChatConversation(
+  conversationId: string,
+): Promise<CampusChatConversationRow> {
+  const res = await getAdminClient().request<{ campusCloseChatConversation: CampusChatConversationRow }>(
+    `mutation ($conversationId: ID!) {
+      campusCloseChatConversation(conversationId: $conversationId) { ${CHAT_CONV_FIELDS} }
+    }`,
+    { conversationId },
+  );
+  return res.campusCloseChatConversation;
 }
