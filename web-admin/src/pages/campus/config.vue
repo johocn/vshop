@@ -414,6 +414,37 @@
           </view>
           <text class="timeout-tip">{{ $t('campusConfig.kitchenLiveTip') }}</text>
         </view>
+        <view class="sec-t">{{ $t('campusConfig.packingSection') }}</view>
+        <view class="pmode-row">
+          <view class="pmode" :class="{ on: card.form.packingEnabled }" @tap="card.form.packingEnabled = !card.form.packingEnabled">
+            <text>{{ $t(card.form.packingEnabled ? 'campusConfig.packingOn' : 'campusConfig.packingOff') }}</text>
+          </view>
+          <text class="timeout-tip">{{ $t('campusConfig.packingTip') }}</text>
+        </view>
+        <block v-if="card.form.packingEnabled">
+          <view class="pmode-row">
+            <text class="lbl">{{ $t('campusConfig.packingMode') }}</text>
+            <view
+              v-for="m in PACKING_MODES" :key="m.value"
+              class="pmode" :class="{ on: card.form.packingMode === m.value }"
+              @tap="card.form.packingMode = m.value"
+            >
+              <text>{{ $t(m.label) }}</text>
+            </view>
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.packingAmount') }}</text>
+            <input v-model="card.form.packingAmountYuan" type="digit" :placeholder="$t('campusConfig.phYuan')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.packingCap') }}</text>
+            <input v-model="card.form.packingCapYuan" type="digit" :placeholder="$t('campusConfig.packingCapPh')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.packingLabel') }}</text>
+            <input v-model="card.form.packingLabel" :placeholder="$t('campusConfig.packingLabelPh')" />
+          </view>
+        </block>
         <view class="sec-t">{{ $t('campusConfig.privacySection') }}</view>
         <view class="pmode-row">
           <view class="pmode" :class="{ on: card.form.privacyEnabled }" @tap="card.form.privacyEnabled = !card.form.privacyEnabled">
@@ -618,6 +649,12 @@ const PRIVACY_PROVIDERS = [
   { value: 'tencent', label: 'campusConfig.privacyTencent' },
 ] as const;
 
+/** 打包费计费方式（与服务端白名单一致） */
+const PACKING_MODES = [
+  { value: 'perItem', label: 'campusConfig.packingPerItem' },
+  { value: 'perOrder', label: 'campusConfig.packingPerOrder' },
+] as const;
+
 interface HandoverForm {
   name: string;
   address: string;
@@ -688,6 +725,11 @@ interface CardForm {
   foodCommitmentImage: string;
   kitchenLiveUrl: string;
   kitchenLiveEnabled: boolean;
+  packingEnabled: boolean;          // 打包费开关
+  packingMode: string;              // perItem=按件累加 / perOrder=每单固定
+  packingAmountYuan: string;        // 打包费金额（元输入态）；提交转分
+  packingCapYuan: string;           // 单笔封顶（元输入态）；空=不封顶
+  packingLabel: string;             // C 端展示名称；空=「打包费」
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -1078,6 +1120,11 @@ function toForm(c: CampusStoreConfig): CardForm {
     foodCommitmentImage: c.foodSafetyCommitmentImage ?? '',
     kitchenLiveUrl: c.kitchenLiveUrl ?? '',
     kitchenLiveEnabled: !!c.kitchenLiveEnabled,
+    packingEnabled: !!c.packingFeeEnabled,
+    packingMode: c.packingFeeMode === 'perOrder' ? 'perOrder' : 'perItem',
+    packingAmountYuan: c.packingFeeAmount != null ? fenToYuan(c.packingFeeAmount) : '',
+    packingCapYuan: c.packingFeeCap != null ? fenToYuan(c.packingFeeCap) : '',
+    packingLabel: c.packingFeeLabel ?? '',
   };
 }
 
@@ -1283,6 +1330,26 @@ async function save(card: Card) {
     return;
   }
 
+  // 打包费（P1）：开启必须填金额；封顶可空（不封顶），填了不得低于单件/每单金额
+  let packingAmount = 0;
+  let packingCap: number | null = null;
+  if (f.packingEnabled) {
+    const amount = yuanToFen(f.packingAmountYuan.trim());
+    if (amount == null || amount <= 0) {
+      uni.showToast({ title: locale.t('campusConfig.packingBadAmount'), icon: 'none' });
+      return;
+    }
+    packingAmount = amount;
+    if (f.packingCapYuan.trim() !== '') {
+      const cap = yuanToFen(f.packingCapYuan.trim());
+      if (cap == null || cap < amount) {
+        uni.showToast({ title: locale.t('campusConfig.packingBadCap'), icon: 'none' });
+        return;
+      }
+      packingCap = cap;
+    }
+  }
+
   savingId.value = card.channelId;
   try {
     const saved = await campusUpdateStoreConfig(card.channelId, {
@@ -1332,6 +1399,11 @@ async function save(card: Card) {
       foodSafetyCommitmentImage: f.foodCommitmentImage.trim() || null,
       kitchenLiveUrl: f.kitchenLiveUrl.trim() || null,
       kitchenLiveEnabled: f.kitchenLiveEnabled,
+      packingFeeEnabled: f.packingEnabled,
+      packingFeeMode: f.packingMode,
+      packingFeeAmount: packingAmount,
+      packingFeeCap: packingCap,
+      packingFeeLabel: f.packingLabel.trim() || null,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });

@@ -1,4 +1,4 @@
-# waimai 外卖（校园配送 + 骑手端）操作手册
+﻿# waimai 外卖（校园配送 + 骑手端）操作手册
 
 上线日期：2026-10-06 ｜ H5 站点：**https://www.yourbao.cn/waimai/**
 后端：Vendure（campus-delivery-plugin）｜ 验证：e2e 冒烟 S1-S8 全 PASS（见 `docs/verify/2026-10-waimai-e2e.md`）
@@ -1889,9 +1889,55 @@ GraphQL 字段在线核验（服务器本地 `curl`）：
 - `shop-api` 新增 Query：`campusMyChatConversations`、`campusChatMessages`；Mutation：`campusStartChat`、`campusSendChatMessage`、`campusMarkChatRead`、`campusCloseChat`、`appealReview`。未带 token 请求返回 `FORBIDDEN`（字段存在，权限生效）。
 - `admin-api` 新增 Query：`campusChatConversations`、`campusChatUnread`、`campusAdminChatMessages`、`reviewAppeals`；Mutation：`campusReplyChat`、`campusCloseChatConversation`、`approveReviewAppeal`、`rejectReviewAppeal`；`Review` 类型含全部 6 个 `appeal*` 字段。
 
+## 46. P1-1 打包费 / 餐盒费（2026-10-26）
 
+### 46.1 交付清单
 
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | `campus_fulfillment_config` 新增 `packingFeeEnabled / packingFeeMode / packingFeeAmount / packingFeeCap / packingFeeLabel`；`Product` 自定义字段 `waimaiPackingFee`（单件覆盖价，`null`=沿用店铺）；新增 `packing-fee.ts`（`quotePackingFee` 纯函数，前后端同口径）与 `packing-fee.process.ts`（`OrderProcess`，进 `ArrangingPayment` 前落一条 `sku=campus-packing-fee` 的 surcharge） |
+| 后台（web-admin） | 「校园配置」新增「打包费/餐盒费」区块（开关、计费方式、金额、单笔封顶、C 端展示名）；「商品管理」卡片 meta 显示打包费口径 + 「改打包费」底部 sheet（留空=店铺默认、填 0=本商品免收） |
+| C 端（waimai-v39） | 结算页汇总新增打包费行（展示名取后台配置，空则「打包费」）；应付合计含打包费；详见 `waimai-v39/docs/waimai-操作手册-常用功能.md` §148 |
 
+### 46.2 口径
 
+- **两种计费方式**：`perItem` 按件累加（`Σ 单件价 × 件数`）；`perOrder` 每单固定金额。
+- **商品级覆盖**：`waimaiPackingFee != null` 时用商品价替换店铺单件价（仅 `perItem` 生效）；`0` 表示该商品不收打包费。
+- **封顶**：`packingFeeCap` 非空时最终金额取 `min(计算值, cap)`；配置时校验 `cap >= amount`。
+- **落账时机**：订单进入 `ArrangingPayment` 前由 `campusPackingFeeProcess` 计算并写 surcharge；同一订单重复进入会先按 `sku` 删旧再加新，幂等。
+- **跑腿单豁免**：`customFields.orderKind === 'errand'` 直接跳过，不收打包费。
+- **结算口径一致**：surcharge 参与 `totalWithTax`，与页面展示同源，不存在「页面显示但不计入实付」。
 
+### 46.3 权限与校验
 
+- 配置写入口沿用「校园配置」既有权限；商品级改价走新增 mutation `campusMerchantSetProductPackingFee(productId, packingFee)`，权限 `CampusMerchant`。
+- 金额范围：`packingFeeAmount` 0~100000 分、`packingFeeCap` 0~1000000 分；开启打包费但金额 ≤ 0 时后台保存报错。
+- 计费方式白名单校验（非 `perItem`/`perOrder` 落回 `perItem`）。
+
+### 46.4 数据库变更（启动幂等迁移 `P8P1PackingFeeMigration`）
+
+```sql
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "packingFeeEnabled" boolean NOT NULL DEFAULT false;
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "packingFeeMode" varchar(16) NOT NULL DEFAULT 'perItem';
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "packingFeeAmount" int NOT NULL DEFAULT 0;
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "packingFeeCap" int;
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS "packingFeeLabel" varchar(32);
+ALTER TABLE product ADD COLUMN IF NOT EXISTS "customFieldsWaimaipackingfee" int;
+```
+
+> 与 P0 一致：生产 `synchronize:false`，全部由 `OnApplicationBootstrap` + `IF NOT EXISTS` 保证重复启动安全。
+
+### 46.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0）；web-admin `npm run build:h5` 通过。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p11-packing-fee/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `05-admin-config-packing-section.png`：「打包费/餐盒费」区块展开态——「已开启打包费」、计费方式「按件累加 / 每单固定」、打包费金额 0.5、单笔封顶 1、C 端展示名称「餐盒费」。
+  - `06-admin-product-packing-sheet.png`：商品卡片三口径（`¥1.00` / `店铺默认` / `¥0.00`）+ 底部「商品打包费」sheet（提示「留空 = 沿用店铺配置，填 0 = 不收打包费」、输入框、清除/保存）。
+- 截图脚本：`node scripts/shots-p11-packing-fee.cjs`。
+
+### 46.6 边界与已知限制
+
+- **仅影响新单**：打包费在进入支付前计算，已创建的订单与已支付订单不会补收。
+- **不参与优惠**：打包费为 surcharge，不进入满减/券的可优惠金额计算（与运费同口径）。
+- **按件口径的件数**：取订单行 `quantity` 累加，不含加料/套餐子项（待 P1-2 套餐落地后统一）。
+- **未做按商品分类差异计费**：当前只有店铺级默认 + 商品级覆盖两级。
