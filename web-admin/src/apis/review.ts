@@ -26,12 +26,20 @@ export interface ReviewRow {
   helpfulCount: number;
   createdAt?: string | null;
   updatedAt?: string | null;
+  /** 差评申诉：pending / approved（评价已隐藏）/ rejected；null 表示未申诉 */
+  appealStatus?: string | null;
+  appealReason?: string | null;
+  appealImages?: string[] | null;
+  appealAt?: string | null;
+  appealResult?: string | null;
+  appealReviewedAt?: string | null;
 }
 
 const REVIEW_FIELDS = `
   id customerId customerName productId variantId orderLineId parentId
   rating content images videos tags isAnonymous status reply repliedAt
   helpfulCount createdAt updatedAt
+  appealStatus appealReason appealImages appealAt appealResult appealReviewedAt
 `;
 
 /** 评价分页列表：skip/take/status 透传（admin ReviewListOptions 无 filter/sort） */
@@ -91,4 +99,52 @@ export async function replyReview(id: string, reply: string): Promise<ReviewRow>
     { id, reply },
   );
   return replyReview;
+}
+
+/** 差评申诉列表：status 为空时返回全部已申诉记录（pending / approved / rejected） */
+export async function fetchReviewAppeals(p: {
+  skip: number;
+  take: number;
+  status?: string;
+}): Promise<{ items: ReviewRow[]; total: number }> {
+  const { reviewAppeals } = await getAdminClient().request<{
+    reviewAppeals: { items: ReviewRow[]; totalItems: number };
+  }>(
+    `query ReviewAppeals($options: ReviewAppealListOptions) {
+      reviewAppeals(options: $options) {
+        totalItems
+        items { ${REVIEW_FIELDS} }
+      }
+    }`,
+    {
+      options: {
+        skip: p.skip,
+        take: p.take,
+        ...(p.status ? { status: p.status } : {}),
+      },
+    },
+  );
+  return { items: reviewAppeals?.items ?? [], total: reviewAppeals?.totalItems ?? 0 };
+}
+
+/** 通过申诉：评价置为 hidden（退出展示与评分聚合） */
+export async function approveReviewAppeal(id: string, note?: string): Promise<ReviewRow> {
+  const { approveReviewAppeal } = await getAdminClient().request<{ approveReviewAppeal: ReviewRow }>(
+    `mutation ApproveReviewAppeal($id: ID!, $note: String) {
+      approveReviewAppeal(id: $id, note: $note) { ${REVIEW_FIELDS} }
+    }`,
+    { id, note: note || null },
+  );
+  return approveReviewAppeal;
+}
+
+/** 驳回申诉：评价维持原状，仅留痕 */
+export async function rejectReviewAppeal(id: string, note?: string): Promise<ReviewRow> {
+  const { rejectReviewAppeal } = await getAdminClient().request<{ rejectReviewAppeal: ReviewRow }>(
+    `mutation RejectReviewAppeal($id: ID!, $note: String) {
+      rejectReviewAppeal(id: $id, note: $note) { ${REVIEW_FIELDS} }
+    }`,
+    { id, note: note || null },
+  );
+  return rejectReviewAppeal;
 }

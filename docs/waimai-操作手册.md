@@ -1793,6 +1793,83 @@ CREATE INDEX IF NOT EXISTS idx_campus_rider_earning_rider_created ON rider_earni
 - 造数说明：截图用 10 个轨迹点为临时数据（订单 `ZW56SE6YGZ2YTXNK`，`id` 1–10），截图后已 `DELETE` 清空，`campus_rider_location` 当前 0 行；台账两条为真实历史分成流水。
 - 权限提示：台账需 `CampusAuditRider`、轨迹需 `CampusViewDispatch`；`guoxinnanshan@163.com` 对同类既有接口 `riderApplications` 亦返回 `FORBIDDEN`，属账号授权范围，非接口缺陷。
 
+## 45. 常用功能 P0 收尾：在线客服工作台 + 差评申诉审核（2026-10-26）
+
+### 45.1 交付清单
+
+| # | 能力 | 后端（vendure） | 后台（vshop/web-admin） |
+|---|---|---|---|
+| P0-3 | 在线客服 IM | `campus-delivery-plugin` 新增 `chat.entities.ts` / `chat.service.ts` / `chat-shop.resolver.ts` / `chat-admin.resolver.ts`：表 `campus_chat_conversation` + `campus_chat_message`；顾客 6 个方法（`campusMyChatConversations` / `campusStartChat` / `campusChatMessages` / `campusSendChatMessage` / `campusMarkChatRead` / `campusCloseChat`），后台 5 个方法（`campusChatConversations` / `campusChatUnread` / `campusAdminChatMessages` / `campusReplyChat` / `campusCloseChatConversation`） | 新增页 `pages/campus/chat`（菜单「在线客服」，tier 1，权限 `CampusDispatch`）：全部会话 / 待回复双 tab + 未读数、会话卡片（首字头像、订单号、最后一条、未读角标、已结束态）、全屏聊天面板（顾客/客服气泡、图片预览、输入框与发送、结束会话） |
+| P0-4 | 差评申诉审核 | `review-plugin`：Review 扩展 `appealStatus / appealReason / appealImages / appealAt / appealResult / appealReviewedAt`；Query `reviewAppeals(options)`、Mutation `approveReviewAppeal` / `rejectReviewAppeal`；通过申诉置 `hidden` 并重算商品评分 | 评价管理新增第 5 个页签「差评申诉」：待审核 / 已通过 / 已驳回子筛选，卡片展示评价原文与图片、申诉理由与凭证、平台说明；待审核可「通过申诉 / 驳回申诉」（自绘弹窗：影响说明 + 审核说明选填）；普通页签卡片同步显示申诉留痕 |
+
+### 45.2 接口与口径
+
+- **会话复用**：`campusStartChat(orderCode?, subject?)` 按「顾客 + 订单号（或主题）+ status=open」复用同一条会话，避免重复开工单；结束会话后再次发起会新建一条。
+- **未读双口径**：顾客侧 `unreadForCustomer` 在打开会话并 `campusMarkChatRead` 后清零；运营侧 `unreadForAdmin` 只在 `campusReplyChat` 后清零，语义为「待回复」，页面文案统一为「待回复 / Awaiting reply」。
+- **轮询而非长连接**：两端均以 5s 间隔 `afterId` 增量拉取（`campusChatMessages` / `campusAdminChatMessages`，`take` 默认 200），会话列表同频静默刷新；`onHide` / `onUnload` 清理定时器。
+- **消息体**：`senderType` 取 `customer | admin`；`content` 与 `images`（URL 数组）至少有一项；后台回复 `campusReplyChat(conversationId, content)`。
+- **申诉状态机**：`pending`（待审核）→ `approved`（通过，评价 `status=hidden`，退出展示与评分聚合）/ `rejected`（驳回，评价维持原状，仅留痕）；`appealResult` 为平台说明，`appealReviewedAt` 为审核时间。
+- **申诉入口门槛**（C 端）：仅主评、星级 ≤ 3、未隐藏/未删除，且当前无待审/已通过申诉时可提交；理由必填，凭证图最多 3 张。
+- **权限**：客服工作台 `CampusDispatch`；评价与申诉沿用评价管理现有权限（`ReadOrder` / `UpdateOrder` 口径不变）。
+
+### 45.3 数据库变更（启动幂等迁移）
+
+> 本轮新增表与列均并入既有幂等迁移 `p8-p0-privacy-food-safety.ts`（`OnApplicationBootstrap` + `IF NOT EXISTS`），生产 `synchronize:false` 下重复启动安全。
+
+```sql
+CREATE TABLE IF NOT EXISTS campus_chat_conversation (
+  id SERIAL PRIMARY KEY,
+  "createdAt" timestamptz DEFAULT now(),
+  "updatedAt" timestamptz DEFAULT now(),
+  "channelId" int NOT NULL,
+  "customerId" int NOT NULL,
+  "orderCode" varchar,
+  subject varchar,
+  status varchar NOT NULL DEFAULT 'open',
+  "lastMessage" text,
+  "lastMessageAt" timestamptz,
+  "lastSenderType" varchar,
+  "unreadForCustomer" int NOT NULL DEFAULT 0,
+  "unreadForAdmin" int NOT NULL DEFAULT 0,
+  "closedAt" timestamptz);
+CREATE TABLE IF NOT EXISTS campus_chat_message (
+  id SERIAL PRIMARY KEY,
+  "createdAt" timestamptz DEFAULT now(),
+  "updatedAt" timestamptz DEFAULT now(),
+  "conversationId" int NOT NULL,
+  "senderType" varchar NOT NULL,
+  "senderId" int,
+  content text,
+  images text,
+  "readAt" timestamptz);
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealStatus" varchar;
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealReason" text;
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealImages" text;
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealAt" timestamptz;
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealResult" text;
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "appealReviewedAt" timestamptz;
+```
+
+### 45.4 验证记录
+
+- 构建：`packages/campus-delivery-plugin`、`packages/review-plugin` 均以 `npx tsc -p ./tsconfig.build.json` 通过（根仓库全量 `pnpm build` 仍会因 `@vendure/dashboard` 失败，沿用只构建目标包的口径）；web-admin `pnpm build:h5` 通过（仅 Sass legacy API 弃用告警）。
+- 手机视口截图（390×844 dpr=2，`docs/screenshots/waimai/p10-common-features/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `01-admin-review-appeal-pending.png`：「差评申诉」页签选中，子筛选「待审核 / 已通过 / 已驳回」，2 张待审核申诉卡（星级、待审核徽标、评价原文与图、申诉理由、凭证图、通过/驳回申诉）。
+  - `02-admin-review-appeal-modal.png`：自绘审核弹窗（标题「通过该申诉」、影响说明、审核说明输入框、取消/确定）。
+  - `03-admin-chat-list.png`：会话列表 3 条（待回复 2 角标、已结束标记、共 3 个会话），tab 未读数「2」。
+  - `04-admin-chat-panel.png`：聊天面板（顾客姓名、订单号 + 手机号、会话状态与「结束会话」、4 条气泡含 1 张图片、输入区与发送按钮），面板顶部已让出 H5 导航栏高度。
+- 截图脚本：`node scripts/shots-p10-common-features.cjs`（本轮未部署，故本地静态服务 `dist/build/h5` 前缀 `/guanli/` + `page.route('**/admin-api')` 全 mock，预置 `wa_auth_token` / `wa_channel_token` / `wa_channel_code`）。
+
+### 45.5 边界与已知限制
+
+- **无长连接**：轮询口径在 5s 级别，极端并发下首屏/新消息最多延迟一轮；后续如需秒级可换 SSE。
+- **会话不绑定单一订单**：`orderCode` 仅作展示与复用键，顾客从「帮助中心」发起的会话可无订单号。
+- **申诉通过即隐藏**：`approved` 后评价 `status=hidden`，C 端列表不再展示且评分聚合剔除；如需恢复需人工改库（暂无「撤销通过」入口）。
+- **审核说明选填**：留空时 `appealResult` 为 `null`，C 端不渲染「平台说明」行。
+- **H5 原生 editable 弹窗不可用**：uni-app H5 下 `uni.showModal({ editable: true, content })` 内容与输入框重叠，故申诉审核改为页面内自绘弹窗（其余确认型弹窗仍用原生）。
+
+> 同批 C 端（waimai-v39）交付：帮助中心/订单详情在线客服入口、客服会话页、我的评价差评申诉、店铺食安公示（见 `waimai-v39/docs/waimai-操作手册-常用功能.md` §147）。
+
 
 
 
