@@ -711,6 +711,9 @@ function onClose() {
   &__panel {
     width: 92%;
     max-width: 820px;
+    // 定高而非 max-height：让内部 grid-scroll 能按 flex 分到确定的高度，
+    // 小屏（375×667/360×640）下才不会被内容撑开顶掉底部操作条。
+    height: 82vh;
     max-height: 82vh;
     background: $wa-bg;
     border-radius: $wa-radius;
@@ -844,15 +847,20 @@ function onClose() {
   }
 
   &__grid-scroll {
-    flex: 1;
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     padding: 20rpx;
     box-sizing: border-box;
-    min-height: 0;
-    // uni 的 scroll-view 无显式高度时不会收缩，内容会撑开并 paint 覆盖底部
-    // 「已选/打标/确定」操作条（footer），导致真机点不到打标按钮。
-    // 这里限定高度为 52vh，网格内容在其中内部滚动，footer 始终可见可点。
-    height: 52vh;
-    max-height: 52vh;
+    // uni-app H5 的 scroll-view 会把外部 class 透传到内部 div.uni-scroll-view，
+    // 之前这里写死 height:52vh，flex 收缩了宿主却收不住内部元素，内容从底部溢出
+    // 盖住「已选/打标/确定」操作条（footer），小屏上点确定落到图片上 → 无反应。
+    // 改为让内部滚动层撑满宿主，由 flex 决定实际高度。
+    :deep(.uni-scroll-view) {
+      height: 100% !important;
+      max-height: none !important;
+    }
   }
   &__pull-hint {
     text-align: center;
