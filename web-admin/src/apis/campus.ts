@@ -289,12 +289,16 @@ export interface MerchantRevenueDay {
   date: string; // MM-DD
   orders: number;
   gross: number;
+  cancelled: number;
+  cancelledAmount: number;
 }
 
 export interface MerchantRevenue {
   today: MerchantRevenueBucket;
   last7: MerchantRevenueBucket;
   days: MerchantRevenueDay[];
+  /** P3-2 导出用：近 30 日（含今日）逐日明细 */
+  days30: MerchantRevenueDay[];
 }
 
 const ORDER_FIELDS =
@@ -389,7 +393,8 @@ export async function campusMerchantRevenue(): Promise<MerchantRevenue> {
     `query { campusMerchantRevenue {
       today { ${REVENUE_BUCKET_FIELDS} }
       last7 { ${REVENUE_BUCKET_FIELDS} }
-      days { date orders gross }
+      days { date orders gross cancelled cancelledAmount }
+      days30 { date orders gross cancelled cancelledAmount }
     } }`,
   );
   return res.campusMerchantRevenue;

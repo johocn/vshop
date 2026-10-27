@@ -90,6 +90,10 @@
             </view>
           </view>
         </view>
+        <view class="export">
+          <button class="export-btn" @tap="exportCsv">{{ $t('campusStoreSettings.exportCsv') }}</button>
+          <text class="tip">{{ $t('campusStoreSettings.exportHint') }}</text>
+        </view>
       </view>
     </template>
   </view>
@@ -106,7 +110,8 @@ import {
   type MerchantRevenue,
   type MerchantStoreProfile,
 } from '../../apis/campus';
-import { fenToYuan } from '../../utils/money';
+import { fenToYuan, fenToYuanFixed } from '../../utils/money';
+import { downloadCsv } from '../../utils/csv';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
@@ -198,6 +203,35 @@ function barHeight(gross: number): string {
   return `${Math.max(4, Math.round((gross / maxGross.value) * 160))}rpx`;
 }
 
+/** P3-2 经营数据导出：近 30 日逐日明细（口径与页面一致，金额固定两位小数） */
+function exportCsv(): void {
+  const days = revenue.value?.days30 ?? [];
+  if (!days.length) {
+    uni.showToast({ title: locale.t('campusStoreSettings.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const p = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+  downloadCsv(
+    `${locale.t('campusStoreSettings.exportFileName')}-${stamp}.csv`,
+    [
+      locale.t('campusStoreSettings.csvDate'),
+      locale.t('campusStoreSettings.csvOrders'),
+      locale.t('campusStoreSettings.csvGross'),
+      locale.t('campusStoreSettings.csvCancelled'),
+      locale.t('campusStoreSettings.csvCancelledAmount'),
+    ],
+    days.map((x) => [
+      x.date,
+      String(x.orders),
+      fenToYuanFixed(x.gross),
+      String(x.cancelled),
+      fenToYuanFixed(x.cancelledAmount),
+    ]),
+  );
+}
+
 onMounted(load);
 // 从工作台/沽清页返回时刷新营业状态与数据（首次展示由 onMounted 承担，避免重复请求）
 let shown = false;
@@ -260,6 +294,10 @@ onPullDownRefresh(async () => {
   }
   .trend { margin-top: 24rpx;
     .trend-t { font-size: 24rpx; color: $wa-muted; }
+  }
+  .export { margin-top: 28rpx; padding-top: 24rpx; border-top: 1.5px solid $wa-rule;
+    .export-btn { background: $wa-bg; color: $wa-accent; font-size: 26rpx; font-weight: 600;
+      border: 1.5px solid $wa-accent; border-radius: $wa-radius; line-height: 76rpx; }
   }
   .bars { display: flex; align-items: flex-end; gap: 9rpx; height: 240rpx; margin-top: 16rpx;
     .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;

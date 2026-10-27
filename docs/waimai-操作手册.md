@@ -2697,5 +2697,70 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 换设备恢复：新设备登录后打开「我的口味」或结算页，自动拉取云端偏好并回填。
 - 清除：口味页底部「清空口味偏好」→ 本机与云端同时清空。
 
+## 57. P3-2 商家经营数据导出 CSV（2026-10-27）
+
+### 57.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | `CampusMerchantRevenueDay` 增 `cancelled` / `cancelledAmount`；`CampusMerchantRevenue` 增 `days30`（近 30 日含今日，30 条）；`MerchantAdminService.revenue()` 查询窗口由 7 日扩到 30 日，近 7 日/今日口径显式收窄 |
+| 后台（web-admin） | 经营设置页「经营数据」卡片底部新增「导出 CSV（近 30 日）」按钮 + 说明；`apis/campus.ts` 类型与查询字段同步 `days30`；`utils/csv.ts` 复用 `downloadCsv`（BOM UTF-8，Excel 中文兼容） |
+| C 端 | 无改动 |
+
+### 57.2 接口口径
+
+- `campusMerchantRevenue { today, last7, days, days30 }`：
+  - `today` / `last7`：窗口汇总，字段 `orders / gross / avgTicket / cancelled / cancelledAmount`（分）；
+  - `days`：近 7 日逐日（含今日），字段 `date(MM-DD) / orders / gross / cancelled / cancelledAmount`；
+  - `days30`：近 30 日逐日（含今日，固定 30 条，无订单的日期补 0），字段同上，**与 `days` 同口径**（`days` ≡ `days30` 的末 7 条）。
+- 归日规则（两处一致）：
+  - 已送达单：按 `customFields.deliveredAt` 归日（跨零点计入实际送达当天），`gross` 累加 `totalWithTax`；
+  - 取消单：按「下单日」（`createdAt`）归日，`cancelled` 计件、`cancelledAmount` 按全额退款（`totalWithTax`）计入。
+- 范围：仅统计当前渠道（`ctx.channelId`）且 `customFields.hallStatus` 非空的校园订单。
+- CSV 列：`日期(MM-DD), 完成单量, 营业额(元), 取消单量, 退款金额(元)`；金额固定两位小数（`fenToYuanFixed`），行序为时间正序（09-28 → 10-27 这类 30 行）。
+
+### 57.3 后台交互
+
+- 按钮固定导出**近 30 日**，不受页面「今日 / 近 7 日」分段影响（分段只切换 KPI 桶）。
+- 文件名：`经营数据-近30日-YYYYMMDD.csv`（取浏览器本地日期；英文环境为 `revenue-last30d-YYYYMMDD.csv`）。
+- 表头随语言切换（zh-Hans / en 同名 key `campusStoreSettings.csv*`）。
+- 无数据时不产生空文件，提示「暂无可导出的数据」。
+- 纯浏览器端 `Blob` 生成，不请求服务端导出接口、不落盘服务器。
+
+### 57.4 验证记录
+
+- 编译：`packages/campus-delivery-plugin` `npm run build` 通过。
+- 后台构建：`npm run build:h5` → `DONE Build complete.`。
+- 本地 mock 取证（`web-admin/scripts/shots-p20-csv-export.cjs`，390×844 dpr=2，mock admin-api）：
+  - `01-store-settings-export-entry.png`：经营数据卡片底部按钮「导出 CSV（近 30 日）」与说明完整展示；
+  - `02-store-settings-export-window.png` + `02-exported-revenue-last30d.csv`：点击按钮捕获真实下载，31 行（表头 + 30 日）、带 UTF-8 BOM、金额两位小数、`09-28` 起 `10-27` 止。
+- 线上核验：
+  - GraphQL 探针（superadmin / 渠道 `canteen-a-token`）：`days30` 返回 30 条（09-28 → 10-27），`days` 与 `days30` 末 7 条数值一致；
+  - 真实登录导出（`web-admin/scripts/_shot_p20_csv_export_live.py`）：社区站点 `#/pages/campus/store-settings` 出现导出按钮，下载文件 `经营数据-近30日-20261027.csv`，30 行数据；
+  - 截图 `03-live-store-settings-export.png`、`03-live-revenue-last30d.csv`。
+
+### 57.5 边界与已知限制
+
+- **固定 30 日窗口**：不支持自定义起止日期；更长周期需另加区间参数（本轮未做）。
+- **日期仅 MM-DD**：跨年导出时同年内无歧义，但跨年数据无法从 CSV 行本身区分年份（依赖文件名日期推算）。
+- **无成本/抽成口径**：只含单量、营业额、取消与退款金额，不含食材成本、平台佣金、骑手分成。
+- **取消金额是全额退款**：与页面「退款金额」同口径，不区分部分退款。
+- **无审计留痕**：文件在浏览器生成，服务端不记录谁在何时导出。
+- **不做公式注入转义**：CSV 值全部来自服务端统计（数字/日期），不含用户输入文本；若后续追加店铺名等文本列需补 `=`/`+` 前缀转义。
+
+### 57.6 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `8aca63831 feat(campus): P3-2 商家经营数据近 30 日逐日明细（days30 + 取消/退款逐日口径）` → `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `HEAD is now at 8aca63831`；pm2 `vendure` online |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61564 KB；nginx 配置检查通过 + 重载；`deploy done` |
+| C 端 | 无改动 | 未部署 |
+| 线上 | 探针 + 真实登录导出 | 30 条逐日数据；下载文件名/表头/行数符合预期 |
+
+操作入口：
+- 商家工作台「经营设置」→ 拉到「经营数据」卡片 → 点「导出 CSV（近 30 日）」→ 浏览器直接下载 `经营数据-近30日-YYYYMMDD.csv`。
+- 逐日看数：卡片内「今日 / 近 7 日」切换 KPI，下方柱状图为近 7 日营业额；更长时间跨度用导出的 CSV 在 Excel 里看。
+
+
 
 
