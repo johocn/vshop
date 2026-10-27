@@ -2564,4 +2564,68 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 平台登记合规：后台「骑手入驻审核」→ 目标骑手卡片 → 「合规资料」块 → 「合规登记」→ 填健康证编号/到期日、保险单号/到期日、背调状态 → 「保存合规资料」；返回「已失效」时会提示该骑手已被禁止接单。
 - 骑手自查：C 端「我的 → 传信者中心」进接单大厅，顶部横幅显示合规提醒；「传信者入驻」页可查看合规资料只读明细。
 
+## 55. P2-6 骑手侧「联系顾客」号码保护（2026-10-27）
+
+### 55.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | **本轮无改动**。号码保护能力此前已落地：`PrivacyNumberService`（mask / mock / aliyun / tencent 四种 provider，缺凭证运行时降级，绝不阻断订单流程）+ `RiderTaskService.customerContact`（归属校验 + 只回 `display/callable`）+ shop-api `campusRiderCustomerContact(orderId)` |
+| 后台（web-admin） | **本轮无改动**。商家工作台的「联系顾客」已在 P0 阶段接入 `campusMerchantCustomerContact` |
+| C 端（waimai-v39） | 骑手配送页新增「📞 联系顾客」入口（独立任务卡底排、路线任务组子单操作行各一处）；点击拉取 `campusRiderCustomerContact`，弹窗展示 `display`（脱敏号/虚拟号）与号码保护提示，`callable` 有值时「拨打」直接 `uni.makePhoneCall`，为空时只给「知道了」；中英 i18n 各新增 7 个 key |
+
+### 55.2 数据模型与接口口径
+
+- **接口**：`campusRiderCustomerContact(orderId: ID!): CampusPrivacyContact!`，返回 `{ protected, display, callable, provider, expiresAt, note }`；`Permission.Authenticated` + service 内 `assertApprovedRider` + `deliveryStaffId` 归属校验，非本单骑手直接 `ForbiddenError`。
+- **四种展示形态**：
+  - 未开启号码保护 → `protected=false`，`display = callable =` 真实号（行为与旧版一致）。
+  - `mask`（默认兜底）→ `display` = `138****5678` 脱敏号，`callable = null`（不可拨，前端只给提示）。
+  - `mock` → 同渠道/订单/真实号在 TTL（默认 60 分钟）内稳定的虚拟号，`callable` 可拨但**不真实转接**，`note` 明示「mock 虚拟号仅本地演示」。
+  - `aliyun / tencent` → 缺 `PRIVACY_ALIYUN_KEY` / `PRIVACY_TENCENT_KEY` 环境变量时运行时降级为脱敏号，`note` 带上降级原因。
+- **配置来源**：`campus_fulfillment_config` 的 `privacyNumberEnabled / privacyNumberProvider / privacyNumberTtlMinutes / privacyNumberPrefix`，后台「运营中心配置 → 号码保护」区块维护。
+- **前端展示口径**：`display` 优先；`protected=true` 追加「号码保护中，请勿向他人透露该号码」；`note` 原样透出（降级/演示原因）。
+
+### 55.3 权限与校验
+
+- **仅本单骑手**：`assertOwner(ctx, orderId)` 比对 `order.customFields.deliveryStaffId === rider.id`，跨骑手/跨渠道一律 403。
+- **真实号不出服务端**：开启号码保护后接口响应中不含真实手机号，只有 `display/callable`。
+- **前端不可绕过**：C 端只做展示与拨号，不缓存号码；`callable` 为空时弹窗不给「拨打」按钮，避免给出打不通的号码。
+- **顾客无手机号**：`display` 为空时提示「顾客未留手机号，请通过在线客服联系」，不落空弹窗。
+
+### 55.4 数据库变更
+
+无。P2-6 复用既有 `campus_fulfillment_config` 的 4 个 `privacyNumber*` 列与 `Customer.phoneNumber`。
+
+### 55.5 验证记录
+
+- 构建：C 端 `npx uni build` 通过（`DONE Build complete.`），`node .secrets/deploy-waimai.mjs` 产物校验 3670 KB。
+- 线上截图（`docs/screenshots/waimai/p20-rider-contact/`，脚本 `waimai-v39/scripts/_shot_rider_contact.py`；线上 smoke-rider 登录，任务列表与联系方式按渠道 token 局部 mock，其余走真实线上）：
+  - `01-rider-delivering-contact-entry.png`：配送中任务卡底排三按钮「🧭 导航 / 📞 联系顾客 / 异常上报」，单卡无重复（mock 按 `vendure-token` 只对 canteen-a 返回任务，规避跨渠道聚合重复拼接）。
+  - `02-rider-contact-protected-modal.png`：弹窗「联系顾客」+ 虚拟号 `1700001234` + 「号码保护中，请勿向他人透露该号码」+ mock 演示说明 +「取消 / 拨打」。
+- 线上产物：`waimai/assets/pkg-rider-pages-rider-delivering.DZ6CLaRi.js`（20352B）、`waimai/assets/rider-delivering-Byto0GA5.css`（4454B）均 HTTP 200。
+
+### 55.6 边界与已知限制
+
+- **mock 不真实转接**：`mock` provider 生成的虚拟号只做演示，拨过去不会接通；真实可用需接阿里云/腾讯云 AXB 号池（接口位置已预留，解码后仍会降级为脱敏号）。
+- **无通话记录/回拨**：不记录通话、不支持顾客回拨骑手，双方只能单向拨出。
+- **无有效期倒计时**：弹窗不展示 `expiresAt` 剩余时间，过期后重新点击会重新解析（mock 下会拿到同一号码直至 TTL 结束）。
+- **骑手不可见真实号**：即便业务需要（如顾客电话不通需换号联系），骑手侧也拿不到真实号，只能走在线客服。
+- **仅配送页入口**：接单大厅、历史订单、钱包等页面均无「联系顾客」入口，超出配送中的单不提供。
+- **依赖渠道配置**：号码保护按渠道（`campus_fulfillment_config`）开关，跨渠道聚合任务时各单按各自渠道口径解析。
+
+### 55.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无改动（`campusRiderCustomerContact` 与 `PrivacyNumberService` 已在线上） | 未重启 |
+| 后台 | 无改动 | 未部署 |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs`（内含 `uni build`） | `DONE Build complete.`；产物校验 3670 KB；`200 deploy done`；`pkg-rider-pages-rider-delivering.DZ6CLaRi.js`、`rider-delivering-Byto0GA5.css` 均 200 |
+| C 端 | waimai 提交 `feat(rider): P2-6 骑手配送页「联系顾客」号码保护入口` → `git push origin HEAD:master` | 见仓库记录 |
+| 线上 | 登录态探针（smoke-rider）访问 `#/pkg-rider/pages/rider-delivering` | 入口按钮渲染正常，「联系顾客」弹窗按号码保护口径展示（见 55.5 截图） |
+
+操作入口：
+- 骑手联系顾客：C 端「配送中」页 → 任务卡底排「📞 联系顾客」→ 弹窗确认号码后「拨打」；脱敏降级时只展示号码不可拨。
+- 平台配置号码保护：后台「运营中心配置」→「号码保护」→ 开关 + 服务商（mask / mock / 阿里云 / 腾讯云）+ 有效期分钟数 + 号池前缀 → 保存。
+
+
 
