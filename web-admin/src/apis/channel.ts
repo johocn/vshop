@@ -14,6 +14,10 @@ export interface ChannelCustomFields {
   themeId?: string;
   shopName?: string;
   shopLogo?: string;
+  // 微信分享兜底图 URL（商品无主图时使用）
+  shareImageUrl?: string;
+  // 买单券券卡门头图 URL（独立于分享图；留空 C 端回退分享图 → Logo → 店名首字）
+  billPayStoreImage?: string;
   shopIntro?: string;
   servicePhone?: string;
   // shopContent 为 text 类型，存装修 JSON 字符串（Vendure 3.6.4 无 type:'json'）
@@ -78,7 +82,7 @@ export async function fetchActiveChannel(): Promise<ActiveChannelInfo> {
     `query {
       activeChannel {
         id code
-        customFields { displayTemplate themeId shopName shopLogo shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost couponCampaign couponFission couponDailyClaim couponFlashSale couponPayGift }
+        customFields { displayTemplate themeId shopName shopLogo shareImageUrl billPayStoreImage shopIntro servicePhone shopContent multilingualEnabled taxMode inventoryMode physicalStockEnabled odooBaseUrl odooApiKey inventoryDefaultSafetyStock detailConfig promoSchemes serviceSchemes templateId shopApp themeTokensOverride pageCategoryConfig pageCartConfig pageProfileConfig binMode balanceMinWithdrawalAmount lotteryFixedCost couponCampaign couponFission couponDailyClaim couponFlashSale couponPayGift }
       }
     }`,
   );

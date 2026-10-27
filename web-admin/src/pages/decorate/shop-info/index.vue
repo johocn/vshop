@@ -40,6 +40,13 @@
         <MediaPicker :max="1" :value="shareImageIds" @change="onShareImageChange" />
         <text class="hint-inline">{{ $t('decorateShopInfo.shareImageHint') }}</text>
       </view>
+      <!-- 买单券门店照片：独立于分享图，用于 C 端买单券券卡门头；留空自动回退分享图 → Logo → 店名首字 -->
+      <view class="cell col">
+        <text class="lbl">{{ $t('decorateShopInfo.billPayStoreImage') }}</text>
+        <image v-if="billPayStoreImagePreview" class="store-pv" :src="billPayStoreImagePreview" mode="aspectFill" @tap="previewStoreImage" />
+        <MediaPicker :max="1" :value="billPayStoreImageIds" @change="onBillPayStoreImageChange" />
+        <text class="hint-inline">{{ $t('decorateShopInfo.billPayStoreImageHint') }}</text>
+      </view>
       <view class="cell row-in">
         <text class="lbl">{{ $t('decorateShopInfo.taxMode') }}</text>
         <view class="seg">
@@ -220,6 +227,9 @@ const shareImageIds = ref<string[]>([]);
 const shareImageUrl = ref('');
 const logoIds = ref<string[]>([]);
 const logoPreview = ref('');
+const billPayStoreImageIds = ref<string[]>([]);
+const billPayStoreImage = ref('');
+const billPayStoreImagePreview = ref('');
 
 function onLogoChange(ids: string[]) {
   logoIds.value = ids;
@@ -249,6 +259,24 @@ function onShareImageChange(ids: string[]) {
   } else {
     shareImageUrl.value = '';
   }
+}
+function onBillPayStoreImageChange(ids: string[]) {
+  billPayStoreImageIds.value = ids;
+  if (ids.length) {
+    fetchAssets(1, 0, undefined, ids)
+      .then((r) => {
+        billPayStoreImage.value = r.items[0]?.preview || '';
+        billPayStoreImagePreview.value = billPayStoreImage.value;
+      })
+      .catch(() => {});
+  } else {
+    billPayStoreImage.value = '';
+    billPayStoreImagePreview.value = '';
+  }
+}
+
+function previewStoreImage() {
+  if (billPayStoreImagePreview.value) uni.previewImage({ urls: [billPayStoreImagePreview.value] });
 }
 let channelId = '';
 let rawDetailConfig = '';
@@ -366,6 +394,8 @@ onMounted(async () => {
   };
   shareImageUrl.value = cf.shareImageUrl ?? '';
   logoPreview.value = cf.shopLogo ?? '';
+  billPayStoreImage.value = cf.billPayStoreImage ?? '';
+  billPayStoreImagePreview.value = cf.billPayStoreImage ?? '';
   loadInventoryOverview();
 });
 
@@ -391,6 +421,7 @@ async function save() {
   cfg.layout = f.value.layout;
   payload.detailConfig = JSON.stringify(cfg);
   payload.shareImageUrl = shareImageUrl.value || null;
+  payload.billPayStoreImage = billPayStoreImage.value || null;
   payload.promoSchemes = serializeSchemes(promoSchemes.value);
   payload.serviceSchemes = serializeSchemes(serviceSchemes.value);
   try {
@@ -430,6 +461,7 @@ function safeParse(raw: string): any {
       textarea { width: 100%; height: 160rpx; font-size: 28rpx; }
     }
     .logo-pv { width: 160rpx; height: 160rpx; border-radius: 16rpx; margin-bottom: 16rpx; background: $wa-bg; }
+    .store-pv { width: 320rpx; height: 320rpx; border-radius: 16rpx; margin-bottom: 16rpx; background: $wa-bg; }
     &.row-in { justify-content: space-between; }
     &:last-child { border-bottom: none; }
     .seg { display: flex; background: $wa-rule; border-radius: 999rpx; padding: 4rpx;
