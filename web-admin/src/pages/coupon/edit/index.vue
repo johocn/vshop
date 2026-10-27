@@ -92,6 +92,7 @@
       <!-- 优惠活动照片：全渠道通用；券卡缩略图 / 券店头图，空则由 C 端按券名兜底 -->
       <view class="field">
         <text class="label">{{ $t('couponEdit.activityImageLabel') }} <text class="opt">{{ $t('couponEdit.optional') }}</text></text>
+        <image v-if="form.activityImage" class="act-pv" :src="form.activityImage" mode="aspectFill" @tap="previewActivityImage" />
         <view class="img-row">
           <MediaPicker :max="1" media-type="image" :value="activityImageIds" @change="onPickActivityImage" />
           <text class="hint-inline">{{ $t('couponEdit.activityImageTip') }}</text>
@@ -320,6 +321,9 @@ async function onPickActivityImage(ids: string[]) {
     form.value.activityImage = r.items[0]?.preview || '';
   } catch { /* 解析失败保留原值，选择器侧已有提示 */ }
 }
+function previewActivityImage() {
+  if (form.value.activityImage) uni.previewImage({ urls: [form.value.activityImage] });
+}
 
 function onTypeChange(e: any) {
   const t = typeKeys[e.detail.value];
@@ -524,6 +528,7 @@ function goBack() { backToHome(); }
       .tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: $wa-muted; }
       .area { background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; font-size: 28rpx; color: $wa-ink; width: 100%; height: 120rpx; box-sizing: border-box; }
       .img-row { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx; }
+      .act-pv { width: 100%; height: 300rpx; border-radius: 12rpx; margin-top: 12rpx; background: $wa-bg; }
       .hint-inline { flex: 1; font-size: 22rpx; color: $wa-muted; }
     }
     .pair { display: flex; gap: 12rpx;
