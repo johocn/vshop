@@ -2904,6 +2904,70 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 平台/商家工作台「拾光达配置」→ 展开渠道卡片 → 「配送费阶梯（按订单金额）」→ 填「满(元)」「配送费(元)」→「+ 添加阶梯」可加档 → 保存。
 - 顾客端下单：结算页运费行按商品金额自动取档；命中档位时显示「满 ¥X 本单配送费 ¥Y」，满X元免配送费达标的订单优先免运费。
 
+## 60. P4-1 销售侧经营 BI（2026-10-28）
 
+> 本轮边界：履约看板（`campusDeliveryStats`/`stats.vue`：准点率、环节耗时、超时归因）与 `sales-plugin`（销售员代下单业绩）均为既有能力，**未重复开发**；本轮只补缺口——菜品结构、用户结构与时段销售视角。
 
+### 60.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | 新增 `sales-stats.service.ts`（纯函数 `aggregateSalesStats` + 服务）、`sales-stats.resolver.ts`；`campus-delivery.plugin.ts` 注册服务/解析器并新增 SDL `campusSalesStats` 及 8 个类型；单测 `sales-stats.service.spec.ts` 14 例 |
+| 后台（web-admin） | 新增页面 `pages/campus/sales.vue`（经营分析）；`apis/campus.ts` 新增 `campusSalesStats(range)` 与类型；注册 `pages.json`、菜单 `constants/menus.ts`（履约域，权限 `CampusViewDispatch`）、导航标题 `i18n/nav-titles.ts`；中英 i18n 命名空间 `campusSales` |
+
+### 60.2 口径与接口
+
+- 查询：`campusSalesStats(range: String)`，`range ∈ today | 7d | 30d`（非法值回退 `7d`）；权限同履约看板 `CampusPermissions.CampusViewDispatch`；非平台超管按 `ctx.channelId` 隔离。
+- 窗口：`today` = 校园时区（UTC+8）今日 0 点起；`7d` / `30d` = **对齐自然日**的「近 N 个自然日 0 点起」（含今日），保证日趋势补零区间与总单量自洽。
+- 环比：`7d/30d` 对比紧邻等长窗口；`today` 对比「昨日 0 点 → 昨日同刻」；`compare` 为百分比数值，上期为 0 时返回 0（前端据 `prev.orders` 是否为 0 显示「—」）。
+- 销售单：排除 `Draft / AddingItems / ArrangingPayment / Cancelled`，并排除跑腿单（`customFields.errandKind` 非空，跑腿无商品会污染四象限与客单价）。
+- KPI：`orders` 有效单量；`gmvFen` = 订单 `totalWithTax` 汇总（**含配送费/打包费**）；`aovFen = gmvFen / orders`；`customers` 去重客户数（游客单不计）；`newCustomers` = 该客户全历史首单落在本窗口内；`repurchaseRate` = 窗口内 ≥2 单客户 / 下单客户。
+- 菜品四象限：按**商品**（聚合规格）统计销量与 `linePriceWithTax`；以「销量中位数 × 销售额中位数」分档（`>=` 中位为高）：`star` 明星（双高）/ `traffic` 引流（高销低额）/ `premium` 利润（低销高额）/ `slow` 滞销（双低）；中位数基于全部有销量商品，返回列表取 Top 50（按销售额降序）。
+- 商品名取 `ProductTranslation`（优先 `zh-Hans`/`zh`，否则第一条），避免 Top 商品显示 `#id`。
+- 复购分群：窗口内下单次数 1 / 2-4 / 5+ 三桶（客户数）。
+- 时段热力：固定 24 档（0-23 时），今日未来时段为 0；日趋势仅 `7d/30d` 返回（`today` 为空数组，前端改用时段柱）。
+
+### 60.3 后台交互
+
+- 入口：后台「履约 → 经营分析」（`pages/campus/sales`）。
+- 顶部三档切换（今日 / 近 7 日 / 近 30 日），切换即重新拉取；加载中、空数据（「窗口内暂无经营数据」）、接口失败（可点「重试」）三态齐备。
+- 5 张 KPI 卡（单量 / GMV / 客单价 / 新客数 / 复购率），每张带环比：正数绿色 ↑、负数红色 ↓、无上期数据为「—」。
+- 经营趋势：`7d/30d` 用日趋势柱、`today` 用 24 时段柱；柱高=单量，点柱标题行显示该点日期/时段 + 单量 + 金额。
+- 菜品四象限：十字线取 `medianQuantity` / `medianGmvFen`，散点按象限着色，四角标注 利润/明星/滞销/引流；下方 Top 10 商品表（名称、销量、销售额、象限）。
+- 复购分群：1 单 / 2-4 单 / 5+ 单三条横向进度条，右侧显示人数与占比。
+- 金额字段单位「分」，页面统一经既有 `src/utils/money.ts` 的 `fenToYuanFixed` 转元展示。
+
+### 60.4 验证记录
+
+- 单测：`npx vitest run packages/campus-delivery-plugin/src/sales-stats.service.spec.ts` → **14/14 通过**（窗口/中位数/取消与跑腿排除/分群边界/四象限/时段/空数据/日趋势补零）。
+- 插件构建：`npm run build` 通过（rimraf lib + tsc）。
+- 线上探针（`campusSalesStats` 三档，平台超管会话）：
+  - `today`：0 单 / GMV 0（今日暂无成交，页面显示空态）；
+  - `7d`：1 单 / GMV ¥2.05 / 客单价 ¥2.05 / 新客 1 / 环比单量 ↓90.0%、GMV ↓69.4%；
+  - `30d`：81 单 / GMV ¥3081.45 / 客单价 ¥38.04 / 客户 11 / 新客 9 / 复购率 54.5% / 环比单量 ↑161.3%；`products=9`、`cohorts={5,4,2}`。
+  - 自洽断言（脚本自动化）：`sum(hourlyHeat.orders) == kpis.orders`、`sum(dailyTrend.orders) == kpis.orders`（`today` 除外）、`aovFen == round(gmvFen/orders)`，三档全部 PASS。
+- 后台线上取证（`scripts/_shot_sales_bi.py`，390×844 dpr=2，产物目录 `docs/screenshots/p24-sales-bi/`）：
+  - `02-admin-sales-today.png`：今日空数据态（「窗口内暂无经营数据」）；
+  - `03-admin-sales-7d.png`：近 7 日 KPI 与环比（↓90.0% / ↓69.4% / ↑206.0%）、日趋势 7 柱、Top 商品「可乐鸡排饭」；
+  - `04-admin-sales-30d.png`：近 30 日 81 单、GMV ¥3081.45、复购率 54.5%、Top 商品商品名已取翻译字段（不再出现 `#id`）。
+- 修复记录（本轮上线中发现并已修复）：
+  1. 初次上线日趋势单量和（81）≠ 总单量（83）：7d/30d 原为滚动窗口，与自然日补零区间错位 → 改为「近 N 个自然日」对齐，复测 81 = 81；
+  2. Top 商品显示 `#85`：`Product.name` 非实体列（走翻译表）→ 补 join `product.translations` 并按中文取名称，复测显示「可乐鸡排饭」。
+
+### 60.5 边界与已知限制
+
+- **GMV 含配送费与打包费**：`totalWithTax` 口径；如需纯商品 GMV，看「菜品四象限」的 `gmvFen`（按 `linePriceWithTax` 汇总）。
+- **未接成本价**：本轮按默认口径（销量 × 销售额）分四象限，仓库无成本字段；若后续要真毛利，需给 `ProductVariant` 增加成本价并补录入口。
+- **新客需回查客户首单**：窗口内出现过的客户会触发一次 `MIN(createdAt)` 分组查询；客户量极大时需观察该查询耗时。
+- **游客单**：计入单量与 GMV，不计入客户数/新客/复购/分群。
+- **租户隔离同履约看板**：平台超管看全渠道汇总，店铺级账号只看本渠道（避免跨店数据泄露）。
+- **四象限中位数含全部有销量商品**，列表只展示 Top 50；冷门商品不会因未展示而漏算分档线。
+- **今日未来时段为 0**：时段热力不做预测，仅展示已发生数据。
+
+### 60.6 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `0f89aba8e`（P4-1 后端聚合）→ `004372f65`（窗口对齐自然日）→ `3e08a50fb`（商品名取翻译）→ `git push origin master` → 服务器 `git pull` + `pm2 restart vendure` | 三档接口均 200 且自洽断言 PASS；pm2 `vendure` online（重启计数 371+） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61678 KB；nginx 检查通过 + 重载；`deploy done` |
 

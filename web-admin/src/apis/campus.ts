@@ -679,6 +679,56 @@ export async function campusDeliveryStats(range: string): Promise<CampusDelivery
   return res.campusDeliveryStats;
 }
 
+// ===== 经营分析（CampusViewDispatch 权限，跨店铺聚合）=====
+
+export interface CampusSalesKpi {
+  orders: number;
+  /** 分 */
+  gmvFen: number;
+  /** 分 */
+  aovFen: number;
+  customers: number;
+  newCustomers: number;
+  /** 百分比数值（0-100） */
+  repurchaseRate: number;
+}
+
+export interface CampusSalesStats {
+  range: string;
+  windowStart: string;
+  kpis: CampusSalesKpi;
+  /** 上一窗口同口径 */
+  prev: CampusSalesKpi;
+  /** 环比百分比数值，可为负；上期为 0 时后端返回 0（前端按 prev 判空显示 —） */
+  compare: { ordersPct: number; gmvPct: number; aovPct: number; repurchaseRatePct: number };
+  hourlyHeat: Array<{ hour: number; orders: number; gmvFen: number }>;
+  dailyTrend: Array<{ date: string; orders: number; gmvFen: number }>;
+  products: Array<{ productId: string; name: string; quantity: number; gmvFen: number; quadrant: string }>;
+  cohorts: { once: number; twiceToFour: number; loyal: number };
+  /** 四象限分隔线：销量中位数 */
+  medianQuantity: number;
+  /** 四象限分隔线：销售额中位数（分） */
+  medianGmvFen: number;
+}
+
+export async function campusSalesStats(range: string): Promise<CampusSalesStats> {
+  const res = await getAdminClient().request<{ campusSalesStats: CampusSalesStats }>(
+    `query ($range: String) { campusSalesStats(range: $range) {
+      range windowStart
+      kpis { orders gmvFen aovFen customers newCustomers repurchaseRate }
+      prev { orders gmvFen aovFen customers newCustomers repurchaseRate }
+      compare { ordersPct gmvPct aovPct repurchaseRatePct }
+      hourlyHeat { hour orders gmvFen }
+      dailyTrend { date orders gmvFen }
+      products { productId name quantity gmvFen quadrant }
+      cohorts { once twiceToFour loyal }
+      medianQuantity medianGmvFen
+    } }`,
+    { range },
+  );
+  return res.campusSalesStats;
+}
+
 export async function campusDispatchAssign(orderId: string, riderCustomerId: string): Promise<boolean> {
   const res = await getAdminClient().request<{ campusAssignOrder: { assigned: boolean } }>(
     `mutation ($orderId: ID!, $riderCustomerId: ID!) {
