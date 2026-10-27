@@ -74,6 +74,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.campusMerchant', url: '/pages/campus/merchant', tier: 1, perm: 'CampusMerchant' },
       { label: 'menu.campusDispatch', url: '/pages/campus/dispatch', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusStats', url: '/pages/campus/stats', tier: 1, perm: 'CampusViewDispatch' },
+      { label: 'menu.campusSales', url: '/pages/campus/sales', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusOps', url: '/pages/campus/ops', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusChat', url: '/pages/campus/chat', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusProducts', url: '/pages/campus/products', tier: 2, perm: 'CampusMerchant' },
@@ -174,6 +175,11 @@ export function buildPlatformGroup(auth: MenuAuthLite): MenuGroup | null {
   const items: MenuItem[] = [];
   if (auth.isSuperAdmin || auth.hasPermission('TenantManage')) {
     items.push({ label: 'menu.tenantList', url: '/pages/platform/tenants/index', tier: 1 });
+  }
+  // 商户/门店主数据为平台级数据，仅超管维护
+  if (auth.isSuperAdmin) {
+    items.push({ label: 'menu.merchantList', url: '/pages/platform/merchants/index', tier: 1 });
+    items.push({ label: 'menu.merchantStoreList', url: '/pages/platform/stores/index', tier: 1 });
   }
   if (auth.hasPermission('TenantRoleManage')) {
     items.push({ label: 'menu.roleManage', url: '/pages/platform/roles/index', tier: 2 });
