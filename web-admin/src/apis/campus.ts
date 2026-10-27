@@ -1272,3 +1272,125 @@ export async function campusCloseChatConversation(
   );
   return res.campusCloseChatConversation;
 }
+
+// ── P2-3 广告位与商家自助投放计费 ─────────────────────────────
+// 商家侧：报价 / 本渠道投放单 / 下单 / 模拟支付 / 取消
+// 平台侧：按渠道查投放单 / 审核
+export interface CampusAdSlot {
+  code: string;
+  name: string;
+  unitPriceFen: number;
+}
+
+export interface CampusAdCampaignRow {
+  id: string;
+  channelId: string;
+  slot: string;
+  title: string;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  startDate: string;
+  endDate: string;
+  days: number;
+  unitPriceFen: number;
+  totalFen: number;
+  status: string;
+  live: boolean;
+  payRef: string | null;
+  paidAt: string | null;
+  reviewNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+}
+
+const AD_FIELDS =
+  'id channelId slot title imageUrl linkUrl startDate endDate days unitPriceFen totalFen status live payRef paidAt reviewNote reviewedBy reviewedAt createdAt';
+
+/** 广告位报价（分/天） */
+export async function campusAdSlots(): Promise<CampusAdSlot[]> {
+  const res = await getAdminClient().request<{ campusAdSlots: CampusAdSlot[] }>(
+    `query { campusAdSlots { code name unitPriceFen } }`,
+  );
+  return res.campusAdSlots;
+}
+
+/** 商家侧：本渠道投放单 */
+export async function campusMerchantAds(): Promise<CampusAdCampaignRow[]> {
+  const res = await getAdminClient().request<{ campusMerchantAds: CampusAdCampaignRow[] }>(
+    `query { campusMerchantAds { ${AD_FIELDS} } }`,
+  );
+  return res.campusMerchantAds;
+}
+
+/** 商家下单（按天计费，下单即固化单价与总价） */
+export async function campusMerchantCreateAd(input: {
+  slot: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  imageUrl?: string | null;
+  linkUrl?: string | null;
+}): Promise<CampusAdCampaignRow> {
+  const res = await getAdminClient().request<{ campusMerchantCreateAd: CampusAdCampaignRow }>(
+    `mutation ($slot: String!, $title: String!, $startDate: String!, $endDate: String!, $imageUrl: String, $linkUrl: String) {
+      campusMerchantCreateAd(slot: $slot, title: $title, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, linkUrl: $linkUrl) { ${AD_FIELDS} }
+    }`,
+    {
+      slot: input.slot,
+      title: input.title,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      imageUrl: input.imageUrl ?? null,
+      linkUrl: input.linkUrl ?? null,
+    },
+  );
+  return res.campusMerchantCreateAd;
+}
+
+/** 商家支付广告费（模拟支付，转待审核；重复调用幂等） */
+export async function campusMerchantPayAd(id: string): Promise<CampusAdCampaignRow> {
+  const res = await getAdminClient().request<{ campusMerchantPayAd: CampusAdCampaignRow }>(
+    `mutation ($id: ID!) { campusMerchantPayAd(id: $id) { ${AD_FIELDS} } }`,
+    { id },
+  );
+  return res.campusMerchantPayAd;
+}
+
+/** 商家取消投放（仅未支付/待审核） */
+export async function campusMerchantCancelAd(id: string): Promise<CampusAdCampaignRow> {
+  const res = await getAdminClient().request<{ campusMerchantCancelAd: CampusAdCampaignRow }>(
+    `mutation ($id: ID!) { campusMerchantCancelAd(id: $id) { ${AD_FIELDS} } }`,
+    { id },
+  );
+  return res.campusMerchantCancelAd;
+}
+
+/** 平台侧：按渠道/状态查投放单 */
+export async function campusAdCampaigns(
+  status?: string | null,
+  channelId?: string | null,
+): Promise<CampusAdCampaignRow[]> {
+  const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignRow[] }>(
+    `query ($status: String, $channelId: ID) {
+      campusAdCampaigns(status: $status, channelId: $channelId) { ${AD_FIELDS} }
+    }`,
+    { status: status ?? null, channelId: channelId ?? null },
+  );
+  return res.campusAdCampaigns;
+}
+
+/** 平台审核：通过转投放中，驳回须填原因 */
+export async function campusReviewAd(
+  id: string,
+  approve: boolean,
+  note?: string | null,
+): Promise<CampusAdCampaignRow> {
+  const res = await getAdminClient().request<{ campusReviewAd: CampusAdCampaignRow }>(
+    `mutation ($id: ID!, $approve: Boolean!, $note: String) {
+      campusReviewAd(id: $id, approve: $approve, note: $note) { ${AD_FIELDS} }
+    }`,
+    { id, approve, note: note ?? null },
+  );
+  return res.campusReviewAd;
+}

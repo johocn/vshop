@@ -8,8 +8,8 @@ export interface MenuItem {
   action?: string;
   /** 仅在启用库位功能（binMode = zone/bin）时可见，由 useBinMode 门控 */
   binOnly?: boolean;
-  /** 需要的权限点；缺省 = 不校验。isSuperAdmin 一律放行（与 buildPlatformGroup 同口径） */
-  perm?: string;
+  /** 需要的权限点（任一命中即可）；缺省 = 不校验。isSuperAdmin 一律放行（与 buildPlatformGroup 同口径） */
+  perm?: string | string[];
 }
 export interface MenuGroup {
   domain: string;
@@ -78,6 +78,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.campusChat', url: '/pages/campus/chat', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusProducts', url: '/pages/campus/products', tier: 2, perm: 'CampusMerchant' },
       { label: 'menu.campusStoreSettings', url: '/pages/campus/store-settings', tier: 1, perm: 'CampusMerchant' },
+      { label: 'menu.campusAds', url: '/pages/campus/ads', tier: 1, perm: ['CampusMerchant', 'CampusConfig'] },
       { label: 'menu.campusKitchen', url: '/pages/campus/kitchen', tier: 1, perm: 'CampusMerchant' },
       { label: 'menu.campusAddressChanges', url: '/pages/campus/address-changes', tier: 1, perm: 'CampusConfig' },
       { label: 'menu.campusBuildings', url: '/pages/campus/buildings', tier: 2, perm: 'CampusConfig' },
@@ -209,7 +210,7 @@ export function visibleMenus(auth: MenuAuthLite, showBins = false): MenuGroup[] 
   const pg = buildPlatformGroup(auth);
   const visible = (i: MenuItem): boolean => {
     if (i.binOnly && !showBins) return false;
-    if (i.perm && !(auth.isSuperAdmin || auth.hasPermission(i.perm))) return false;
+    if (i.perm && !(auth.isSuperAdmin || (Array.isArray(i.perm) ? i.perm : [i.perm]).some((p) => auth.hasPermission(p)))) return false;
     return true;
   };
   // 过滤后为空的组不再渲染（既有的 6 个域都还有其它项，故对现状无视觉影响）
