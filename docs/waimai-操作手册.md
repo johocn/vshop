@@ -2408,3 +2408,82 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 平台审核：后台侧边「广告投放」→ 平台审核 → 按状态筛选 → 「通过 / 驳回」（驳回填原因）→ 通过后广告按日期自动出现在 C 端。
 - C 端展示：首页 `homeBanner` 横滑区、店铺页店铺卡片下方 `shopTop` 广告条，点击按链接跳转。
 
+## 53. P2-4 智能取餐柜 + 无人配送接口占位（2026-10-27）
+
+### 53.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | 新增实体 `CampusLockerStation`（表 `campus_locker_station`）+ `unmanned-delivery.ts`（无人配送服务商清单 / 适配器契约）+ `CampusLockerService` + admin/shop 两套 resolver；admin-api 新增 `campusLockerStations` / `campusUnmannedChannel` 与 `campusCreateLockerStation` / `campusUpdateLockerStation` / `campusDeleteLockerStation` / `campusUpdateUnmannedChannel` / `campusRequestUnmannedDelivery`；shop-api 新增公开只读 `campusLockerStations` / `campusUnmannedDeliveryChannel`；幂等建表迁移 `p9-p4-locker.ts` |
+| 后台（web-admin） | 新增页面 `/pages/campus/locker`「取餐柜与无人配送」，双 tab：取餐柜站点（新增表单 + 站点卡列表，编辑/启用停用/删除）与无人配送通道（开关 + 服务商 + 接口地址 + 密钥）；侧边菜单项「取餐柜与无人配送」（商家或平台任一权限可见）；中英 i18n 各约 60 个 key |
+| C 端（waimai-v39） | 店铺页店铺卡内新增取餐柜入口条（有启用站点或无人配送已开通时显示），点击弹出取餐柜弹层：站点列表（名称/位置/可用格口/服务商/开放时间/取餐指引）+ 无人配送开通提示 + 说明脚注；中英 i18n 新增 `locker` 区块 |
+
+### 53.2 数据模型与接口口径
+
+- **取餐柜站点**（`campus_locker_station`，14 列）：`id / createdAt / updatedAt / channelId / name / location / provider / totalCells / availableCells / openHours / pickupGuide / enabled / sort / createdBy`；索引 `idx_campus_locker_channel (channelId, enabled)`。
+- **服务商编码**：取餐柜 `provider` 白名单 `self`（自建）/ `mock`（模拟通道（占位））/ `meituan`（美团无人车）/ `xinshiji`（新石器无人车）；对外视图 `providerName` 由编码翻译（`self` → 「自建」，其余取无人配送服务商中文名）。
+- **字段校验**：`name` 必填 ≤64；`location` 必填 ≤255；`totalCells` 0~2000 整数；`availableCells` ≥0 且 ≤ `totalCells`；`openHours` 正则 `^\d{2}:\d{2}-\d{2}:\d{2}$`（可空）；`pickupGuide` ≤500（可空）；`sort` 0~999。创建时必填项缺失直接 `UserInputError`，更新时只校验传入字段。
+- **无人配送通道**（配置挂在 `campus_fulfillment_config`，4 列）：`unmannedDeliveryEnabled`(boolean) / `unmannedDeliveryProvider`(varchar 16) / `unmannedDeliveryEndpoint`(varchar 255) / `unmannedDeliveryKey`(varchar 128)。
+- **服务商清单**（`unmanned-delivery.ts`）：`none`（未开通）/ `mock`（模拟通道（占位），无需 endpoint/key）/ `meituan`（美团无人车，需 endpoint + key）/ `xinshiji`（新石器无人车，需 endpoint + key）。选 `none` 自动关闭；**开启时**若服务商需要 endpoint/key 而缺配置，直接 `UserInputError` 拒绝保存。
+- **调用占位**（`campusRequestUnmannedDelivery(orderId)`）：通道未开启 → `status=disabled`；缺接口地址/密钥 → `status=unconfigured`；否则返回 `requestNo = UD-<时间戳>-<4 位随机>` 与 `status=accepted`（占位受理，**未向任何厂商真实下发运单**）。
+- **对外视图**：后台 `channel` 不回密钥明文，只回 `keyConfigured` 布尔 + `needsEndpoint/needsKey`；C 端 `campusUnmannedDeliveryChannel` 只回 `{ enabled, provider, providerName }`。
+
+### 53.3 权限与校验
+
+- **商家侧**（`CampusMerchant`）：`campusLockerStations`（本渠道含停用站点）、`campusUnmannedChannel`（只读状态）、`campusRequestUnmannedDelivery`；一律按 `ctx.channelId` 隔离。
+- **平台侧**（`CampusConfig`）：站点增删改、`campusUpdateUnmannedChannel` 通道配置。
+- **C 端**：`campusLockerStations` / `campusUnmannedDeliveryChannel` 为 `@Allow(Permission.Public)`，未登录可读；只返回启用站点与开通状态，不暴露停用站点/接口地址/密钥。
+- **resolver 拆分**：admin 与 shop 两套 schema 字段不同，拆为 `CampusLockerAdminResolver` 与 `CampusLockerShopResolver` 两个类分别注册，规避「defined in resolvers, but not in schema」启动崩溃（P2-3 曾踩坑）。
+- **菜单权限**：`constants/menus.ts` 新增「取餐柜与无人配送」，`perm` = `['CampusMerchant','CampusConfig']`；页面内再按 `CampusConfig` 显隐可写操作（商家只读）。
+
+### 53.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_locker_station`（新建） | `id`、`createdAt`、`updatedAt`、`channelId`、`name`、`location`、`provider`、`totalCells`、`availableCells`、`openHours`、`pickupGuide`、`enabled`、`sort`、`createdBy`，共 14 列 |
+| 索引 | `idx_campus_locker_channel (channelId, enabled)` |
+| `campus_fulfillment_config`（补列） | `unmannedDeliveryEnabled`(boolean NOT NULL DEFAULT false)、`unmannedDeliveryProvider`(varchar 16 NOT NULL DEFAULT 'mock')、`unmannedDeliveryEndpoint`(varchar 255)、`unmannedDeliveryKey`(varchar 128) |
+
+迁移形态：`OnApplicationBootstrap` + `CREATE TABLE / CREATE INDEX / ALTER TABLE ADD COLUMN IF NOT EXISTS`，语句逐条执行、单条失败只打 `[P9P4LockerMigration] failed:` 日志不阻断启动，重复启动安全（生产 `synchronize: false`）。
+
+### 53.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，`lib/` 随提交入库）；web-admin `node scripts/deploy.mjs` 内含 `npm run build:h5` 通过；C 端 `npx uni build` 通过（`DONE Build complete.`）。
+- 后台截图（`docs/screenshots/waimai/p18-locker/`，本地 dist 静态服务 + admin-api 全 mock，脚本 `web-admin/scripts/shots-p18-locker.cjs`）：
+  - `01-admin-locker-stations.png`：取餐柜站点 tab，3 张站点卡（自建启用 / 美团无人车启用 / 自建停用），含 pill（启用/停用）、`可用 a / 共 t 格`、开放时间、排序与「编辑 / 启用|停用 / 删除」。
+  - `02-admin-unmanned-channel.png`：无人配送通道 tab，开关开启态 + 4 个服务商胶囊（选中「模拟通道（占位）」）+ 提示文案 + 「保存配置」按钮，无溢出。
+  - `03-admin-locker-edit-modal.png`：编辑弹框「编辑柜机 | 东区 3 号楼智能柜 | 取消 / 保存」。
+- C 端截图（`docs/screenshots/p18-locker/`，本地 dist 静态服务 + shop-api 全 mock，脚本 `.secrets/p18-locker-shots.cjs`）：
+  - `01-shop-locker-bar.png`：店铺卡内入口条「3 个智能取餐柜可用」。
+  - `02-shop-locker-sheet.png`：取餐柜弹层标题「智能取餐柜 · 无人配送」+ 3 条站点 + 「模拟通道（占位） 已开通，下单后可选择无人配送」+ 说明脚注。
+- 生产库核验（`information_schema`）：`campus_locker_station` 存在，14 列（`id, createdAt, updatedAt, channelId, name, location, provider, totalCells, availableCells, openHours, pickupGuide, enabled, sort, createdBy`）；`campus_fulfillment_config` 补出 4 列（`unmannedDeliveryEnabled, unmannedDeliveryProvider, unmannedDeliveryEndpoint, unmannedDeliveryKey`）。
+- 线上 shop-api 探针（`https://www.yourbao.cn/shop-api`，未登录）：`campusLockerStations` → `[]`；`campusUnmannedDeliveryChannel` → `{"enabled":false,"provider":"mock","providerName":"模拟通道（占位）"}`（生产尚未登记站点、未开启通道，接口与表均正常）。
+- 线上产物：`guanli/assets/pages-campus-locker.C-BRNFfe.js`（14864B）、`guanli/assets/locker-CKYIkUJt.css`（5070B）、`guanli/assets/campus.Dac9OSG5.js`（含 `campusLockerStations`）、`waimai/assets/pages-shop-menu.DcH_bF6T.js`（含 `campusLockerStations`）均 200。
+
+### 53.6 边界与已知限制
+
+- **无人配送为接口占位**：`campusRequestUnmannedDelivery` 只做配置校验 + 模拟受理（返回单号），**未向美团/新石器等真实厂商下发运单**；接真实 SDK 时替换 `CampusLockerService.requestDelivery` 内部逻辑即可，返回结构与配置不变。
+- **无取餐柜 SDK / 开柜码**：本轮只落站点与格口规模，不接柜机硬件、不生成取餐码 / 开柜指令，C 端只做「展示 + 引导」。
+- **格口数为手工维护**：`availableCells` 由运营在后台手工填写，未接实时占用/释放，也无「已投递/已取走」状态流转。
+- **密钥明文存库**：`unmannedDeliveryKey` 以明文存 `campus_fulfillment_config`（不回显明文，只回 `keyConfigured`），未做加密/密钥托管。
+- **服务商写死代码**：服务商清单与需不需要 endpoint/key 写死在后端 `unmanned-delivery.ts`，新增服务商需改代码 + 重新发布。
+- **列表上限**：后台站点 `take 200`、C 端 `take 50`，超量未分页。
+- **无人配送与结算脱节**：通道开启不影响下单运费/骑手派单逻辑，仅作能力开关与展示。
+- **停用站点不对外**：C 端只读 `enabled = true` 的站点，停用即时从 C 端消失。
+
+### 53.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `645b8cd45 feat(campus): P2-4 智能取餐柜站点 + 无人配送通道接口占位` → `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | restarts 290→291，`pm2 online`，启动日志 `GraphQLModule Mapped {/shop-api}`、`{/admin-api}` 正常，**无 schema 报错**（`[P9P4LockerMigration] failed` 未出现）；仅有一条既有的 `[CJKPlugin] 默认数据初始化失败: duplicate key`（历史遗留，无关） |
+| 后端 | 生产 PG（`1Panel-postgresql-pIe0`）`information_schema` 核验 | `campus_locker_station` 14 列存在；`campus_fulfillment_config` 4 列 `unmannedDelivery*` 存在 |
+| 后端 | 线上 `shop-api` 探针 | `campusLockerStations` 返回 `[]`；`campusUnmannedDeliveryChannel` 返回 `{enabled:false,provider:"mock",providerName:"模拟通道（占位）"}`，无报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61551 KB，nginx reload 成功；`pages-campus-locker.C-BRNFfe.js`、`campus.Dac9OSG5.js` 均 200 且含 `campusLockerStations` |
+| C 端 | `cd D:\zhao\waimai-v39 && npx uni build` → `node .secrets/deploy-waimai.mjs` | 构建 `DONE Build complete.`；产物校验 3661 KB；部署返回 `200 deploy done`；`pages-shop-menu.DcH_bF6T.js` 200 且含 `campusLockerStations` |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 平台配置取餐柜：后台侧边「取餐柜与无人配送」→ 取餐柜站点 → 填名称/位置/服务商/格口/开放时间/取餐指引/排序 → 「新增柜机」；列表可「编辑 / 启用|停用 / 删除」。
+- 平台配置无人配送：同页 → 无人配送通道 → 打开开关 → 选服务商（模拟通道免配置；美团/新石器需填接口地址与密钥）→ 「保存配置」。
+- C 端展示：店铺页店铺卡内「🔒 N 个智能取餐柜可用」入口条 → 点击查看站点列表与无人配送开通状态。
+
