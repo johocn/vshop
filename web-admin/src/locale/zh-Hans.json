@@ -5517,7 +5517,16 @@
     "kpiCancelledAmount": "退款金额",
     "revenueEmpty": "暂无已完成订单",
     "trendTitle": "近 7 日营业额",
-    "trendEmpty": "暂无数据"
+    "trendEmpty": "暂无数据",
+    "exportCsv": "导出 CSV（近 30 日）",
+    "exportHint": "导出近 30 日逐日明细：日期、已完成单量、营业额、取消单量、退款金额；金额单位为元，可用 Excel 直接打开。",
+    "exportEmpty": "暂无可导出的数据",
+    "exportFileName": "经营数据-近30日",
+    "csvDate": "日期(MM-DD)",
+    "csvOrders": "完成单量",
+    "csvGross": "营业额(元)",
+    "csvCancelled": "取消单量",
+    "csvCancelledAmount": "退款金额(元)"
   },
   "campusKitchen": {
     "title": "出餐屏",

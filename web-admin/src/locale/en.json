@@ -5519,7 +5519,16 @@
     "kpiCancelledAmount": "Refund amount",
     "revenueEmpty": "No completed orders yet",
     "trendTitle": "Revenue (last 7 days)",
-    "trendEmpty": "No data"
+    "trendEmpty": "No data",
+    "exportCsv": "Export CSV (last 30 days)",
+    "exportHint": "Daily detail for the last 30 days: date, completed orders, revenue, cancelled orders, refund amount (amounts in CNY, opens in Excel).",
+    "exportEmpty": "Nothing to export yet",
+    "exportFileName": "revenue-last30d",
+    "csvDate": "Date (MM-DD)",
+    "csvOrders": "Completed orders",
+    "csvGross": "Revenue (CNY)",
+    "csvCancelled": "Cancelled orders",
+    "csvCancelledAmount": "Refund amount (CNY)"
   },
   "campusKitchen": {
     "title": "Kitchen Display",
