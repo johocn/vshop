@@ -308,6 +308,19 @@
           <text class="lbl">{{ $t('campusConfig.freeShipping') }}</text>
           <input v-model="card.form.freeShipYuan" type="digit" :placeholder="$t('campusConfig.freeShippingPh')" />
         </view>
+        <!-- 配送费阶梯（P3-4）：按订单商品金额分档替换分区运费基价，未达最低档回落固定运费 -->
+        <view class="sec-t">{{ $t('campusConfig.tierSection') }}</view>
+        <text class="notify-tip">{{ $t('campusConfig.tierHint') }}</text>
+        <view class="tier-row" v-for="(t, ti) in card.form.feeTiers" :key="'tier-' + ti">
+          <view class="tier-row__main">
+            <text class="tier-lbl">{{ $t('campusConfig.tierMin') }}</text>
+            <input v-model="t.minYuan" type="digit" class="tier-input" :placeholder="$t('campusConfig.phYuan')" />
+            <text class="tier-lbl">{{ $t('campusConfig.tierFee') }}</text>
+            <input v-model="t.feeYuan" type="digit" class="tier-input" :placeholder="$t('campusConfig.phYuan')" />
+            <text class="tier-del" @tap="removeFeeTier(card, ti)">{{ $t('campusConfig.tierRemove') }}</text>
+          </view>
+        </view>
+        <view class="tier-add" v-if="card.form.feeTiers.length < 10" @tap="addFeeTier(card)">+ {{ $t('campusConfig.tierAdd') }}</view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.storeAddress') }}</text>
           <input v-model="card.form.storeAddress" :placeholder="$t('campusConfig.phText')" />
@@ -817,6 +830,7 @@ interface CardForm {
   errandBaseFeeYuan: string; // 跑腿起步价（元输入态）；提交转分
   thirdPartyBaseFeeYuan: string; // R2 第三方到校基价（元输入态）；空=不接管，沿用店铺普通快递运费
   freeShipYuan: string;      // 满X元免配送费门槛（元输入态）；空=不启用
+  feeTiers: Array<{ minYuan: string; feeYuan: string }>; // 配送费阶梯（元输入态）；空数组=不启用
   storeAddress: string;
   storePhone: string;
   storeNotice: string;
@@ -1137,6 +1151,29 @@ function setDefaultPoint(card: CardForm, code: string, idx: number) {
   (card.form.handoverPoints[code] ?? []).forEach((p, i) => { p.isDefault = i === idx; });
 }
 
+/** 配送费阶梯（P3-4）：后台下发 JSON → 编辑行（元输入态），坏数据一律当作未配置 */
+function parseFeeTiers(raw: string | null): Array<{ minYuan: string; feeYuan: string }> {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(t => t && Number.isFinite(Number(t.minAmount)) && Number.isFinite(Number(t.fee)))
+      .map(t => ({ minYuan: fenToYuan(Number(t.minAmount)), feeYuan: fenToYuan(Number(t.fee)) }));
+  } catch {
+    return [];
+  }
+}
+
+function addFeeTier(card: Card) {
+  if (card.form.feeTiers.length >= 10) return;
+  card.form.feeTiers.push({ minYuan: '', feeYuan: '' });
+}
+
+function removeFeeTier(card: Card, index: number) {
+  card.form.feeTiers.splice(index, 1);
+}
+
 interface DpParsed {
   enabled: boolean;
   peakWindows: Array<{ start: string; end: string; addFee: number }>;
@@ -1225,6 +1262,7 @@ function toForm(c: CampusStoreConfig): CardForm {
     errandBaseFeeYuan: c.errandBaseFee != null ? fenToYuan(c.errandBaseFee) : '',
     thirdPartyBaseFeeYuan: c.thirdPartyBaseFee != null ? fenToYuan(c.thirdPartyBaseFee) : '',
     freeShipYuan: c.freeShippingThreshold != null ? fenToYuan(c.freeShippingThreshold) : '',
+    feeTiers: parseFeeTiers(c.deliveryFeeTiers),
     storeAddress: c.storeAddress ?? '',
     storePhone: c.storePhone ?? '',
     storeNotice: c.storeNotice ?? '',
@@ -1354,6 +1392,25 @@ async function save(card: Card) {
     uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
     return;
   }
+  // 配送费阶梯（P3-4）：空行跳过；门槛/配送费非法或门槛重复直接拦下，提交前按门槛升序
+  const feeTiers: Array<{ minAmount: number; fee: number }> = [];
+  const tierMins = new Set<number>();
+  for (const t of f.feeTiers) {
+    if (t.minYuan.trim() === '' && t.feeYuan.trim() === '') continue;
+    const minAmount = t.minYuan.trim() === '' ? null : yuanToFen(t.minYuan);
+    const tierFee = t.feeYuan.trim() === '' ? null : yuanToFen(t.feeYuan);
+    if (minAmount == null || tierFee == null) {
+      uni.showToast({ title: locale.t('campusConfig.badAmount'), icon: 'none' });
+      return;
+    }
+    if (tierMins.has(minAmount)) {
+      uni.showToast({ title: locale.t('campusConfig.tierDup'), icon: 'none' });
+      return;
+    }
+    tierMins.add(minAmount);
+    feeTiers.push({ minAmount, fee: tierFee });
+  }
+  feeTiers.sort((a, b) => a.minAmount - b.minAmount);
 
   // 交接点（仅 R1/R2）：每条路线可配多个；名称 + 经纬度必填，避免外部快递派不到点
   const handoverPoints: Array<{ route: string; name: string; address: string | null; phone: string | null; lat: number; lng: number; isDefault: boolean }> = [];
@@ -1570,6 +1627,7 @@ async function save(card: Card) {
       errandBaseFee: errandFee,
       thirdPartyBaseFee: thirdPartyFee,
       freeShippingThreshold: freeShip,
+      deliveryFeeTiers: feeTiers.length ? JSON.stringify(feeTiers) : null,
       storeAddress: f.storeAddress.trim() || null,
       storePhone: f.storePhone.trim() || null,
       storeNotice: f.storeNotice.trim() || null,
@@ -1773,6 +1831,14 @@ async function ensureProfile(card: Card) {
   .ensure-tip { font-size: 22rpx; color: $wa-muted; padding: 8rpx 0 24rpx; }
   .notify-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 24rpx; }
   .notify-tip.danger { color: $wa-danger; }
+  // 配送费阶梯（P3-4）：门槛 + 配送费两列编辑行
+  .tier-row { padding: 12rpx 0; border-bottom: 1rpx solid $wa-rule;
+    &__main { display: flex; align-items: center; gap: 12rpx; }
+    .tier-lbl { font-size: 24rpx; color: $wa-ink; flex-shrink: 0; }
+    .tier-input { width: 160rpx; font-size: 24rpx; border: 1rpx solid $wa-rule; border-radius: 8rpx; padding: 8rpx 12rpx; }
+    .tier-del { font-size: 22rpx; color: $wa-danger; margin-left: auto; }
+  }
+  .tier-add { font-size: 24rpx; color: $wa-accent; padding: 12rpx 0 4rpx; }
   .fld.picker { flex: 1; font-size: 28rpx; color: $wa-ink; }
   .timeout-picker { flex: 1; font-size: 28rpx; color: $wa-ink; }
   .timeout-id { flex: 1; font-size: 24rpx; color: $wa-muted; word-break: break-all; }

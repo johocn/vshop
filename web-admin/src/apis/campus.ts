@@ -46,6 +46,8 @@ export interface CampusStoreConfig {
   errandBaseFee: number | null;
   thirdPartyBaseFee: number | null;
   freeShippingThreshold: number | null;
+  /** 配送费阶梯 JSON：[{minAmount:分, fee:分}]（null=不启用） */
+  deliveryFeeTiers: string | null;
   notifyTemplateAccepted: string | null;
   notifyTemplateRiderAssigned: string | null;
   notifyTemplateCookingDone: string | null;
@@ -121,6 +123,8 @@ export interface CampusStoreConfigInput {
   errandBaseFee?: number | null;
   thirdPartyBaseFee?: number | null;
   freeShippingThreshold?: number | null;
+  /** 配送费阶梯 JSON：[{minAmount:分, fee:分}]；null 关闭 */
+  deliveryFeeTiers?: string | null;
   notifyTemplateAccepted?: string | null;
   notifyTemplateRiderAssigned?: string | null;
   notifyTemplateCookingDone?: string | null;
@@ -170,7 +174,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold deliveryFeeTiers notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
