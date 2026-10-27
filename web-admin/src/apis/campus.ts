@@ -1394,3 +1394,136 @@ export async function campusReviewAd(
   );
   return res.campusReviewAd;
 }
+
+// ── P2-4 智能取餐柜 / 无人配送接口占位 ───────────────────────
+// 取餐柜：本渠道站点 CRUD（平台写、商家读）
+// 无人配送：通道配置（服务商 / 接口地址 / 密钥）+ 调用占位
+export interface CampusLockerStationRow {
+  id: string;
+  channelId: string;
+  name: string;
+  location: string;
+  provider: string;
+  providerName: string;
+  totalCells: number;
+  availableCells: number;
+  openHours: string | null;
+  pickupGuide: string | null;
+  enabled: boolean;
+  sort: number;
+  createdBy: string | null;
+  createdAt: string | null;
+}
+
+export interface CampusLockerStationInput {
+  name?: string;
+  location?: string;
+  provider?: string;
+  totalCells?: number;
+  availableCells?: number;
+  openHours?: string | null;
+  pickupGuide?: string | null;
+  enabled?: boolean;
+  sort?: number;
+}
+
+export interface CampusUnmannedProviderOption {
+  code: string;
+  name: string;
+  needsEndpoint: boolean;
+  needsKey: boolean;
+}
+
+export interface CampusUnmannedChannel {
+  enabled: boolean;
+  provider: string;
+  providerName: string;
+  providers: CampusUnmannedProviderOption[];
+  endpoint: string | null;
+  keyConfigured: boolean;
+  needsEndpoint: boolean;
+  needsKey: boolean;
+}
+
+export interface CampusUnmannedDeliveryResult {
+  ok: boolean;
+  provider: string;
+  providerName: string;
+  status: string;
+  requestNo: string | null;
+  message: string;
+}
+
+const LOCKER_FIELDS =
+  'id channelId name location provider providerName totalCells availableCells openHours pickupGuide enabled sort createdBy createdAt';
+
+const UNMANNED_CHANNEL_FIELDS =
+  'enabled provider providerName providers { code name needsEndpoint needsKey } endpoint keyConfigured needsEndpoint needsKey';
+
+/** 取餐柜站点（含停用） */
+export async function campusLockerStations(): Promise<CampusLockerStationRow[]> {
+  const res = await getAdminClient().request<{ campusLockerStations: CampusLockerStationRow[] }>(
+    `query { campusLockerStations { ${LOCKER_FIELDS} } }`,
+  );
+  return res.campusLockerStations;
+}
+
+/** 新增取餐柜站点 */
+export async function campusCreateLockerStation(
+  input: CampusLockerStationInput,
+): Promise<CampusLockerStationRow> {
+  const res = await getAdminClient().request<{ campusCreateLockerStation: CampusLockerStationRow }>(
+    `mutation ($input: CampusLockerStationInput!) {
+      campusCreateLockerStation(input: $input) { ${LOCKER_FIELDS} }
+    }`,
+    { input },
+  );
+  return res.campusCreateLockerStation;
+}
+
+/** 编辑取餐柜站点（只改传入字段） */
+export async function campusUpdateLockerStation(
+  id: string,
+  input: CampusLockerStationInput,
+): Promise<CampusLockerStationRow> {
+  const res = await getAdminClient().request<{ campusUpdateLockerStation: CampusLockerStationRow }>(
+    `mutation ($id: ID!, $input: CampusLockerStationInput!) {
+      campusUpdateLockerStation(id: $id, input: $input) { ${LOCKER_FIELDS} }
+    }`,
+    { id, input },
+  );
+  return res.campusUpdateLockerStation;
+}
+
+/** 删除取餐柜站点 */
+export async function campusDeleteLockerStation(id: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusDeleteLockerStation: boolean }>(
+    `mutation ($id: ID!) { campusDeleteLockerStation(id: $id) }`,
+    { id },
+  );
+  return res.campusDeleteLockerStation;
+}
+
+/** 无人配送通道配置 */
+export async function campusUnmannedChannel(): Promise<CampusUnmannedChannel> {
+  const res = await getAdminClient().request<{ campusUnmannedChannel: CampusUnmannedChannel }>(
+    `query { campusUnmannedChannel { ${UNMANNED_CHANNEL_FIELDS} } }`,
+  );
+  return res.campusUnmannedChannel;
+}
+
+/** 保存无人配送通道配置（endpoint / key 传空串 = 清空） */
+export async function campusUpdateUnmannedChannel(input: {
+  enabled?: boolean;
+  provider?: string;
+  endpoint?: string | null;
+  key?: string | null;
+}): Promise<CampusUnmannedChannel> {
+  const res = await getAdminClient().request<{ campusUpdateUnmannedChannel: CampusUnmannedChannel }>(
+    `mutation ($input: CampusUnmannedChannelInput!) {
+      campusUpdateUnmannedChannel(input: $input) { ${UNMANNED_CHANNEL_FIELDS} }
+    }`,
+    { input },
+  );
+  return res.campusUpdateUnmannedChannel;
+}
