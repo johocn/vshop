@@ -377,6 +377,37 @@
           </view>
         </view>
         <view class="notify-tip">{{ $t('campusConfig.printModeTip') }}</view>
+        <!-- 打印通道（P1-4）：本地 C-Lodop 走浏览器插件；飞鹅/易联云由服务端签名直连 -->
+        <view class="sec-t">{{ $t('campusConfig.printChannelSection') }}</view>
+        <view class="pmode-row wrap">
+          <text class="lbl">{{ $t('campusConfig.printProvider') }}</text>
+          <view
+            v-for="p in PRINT_PROVIDERS_UI" :key="p.value"
+            class="pmode" :class="{ on: card.form.printProvider === p.value }"
+            @tap="card.form.printProvider = p.value"
+          >
+            <text>{{ $t(p.label) }}</text>
+          </view>
+        </view>
+        <template v-if="card.form.printProvider !== 'local'">
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.printAccount') }}</text>
+            <input v-model="card.form.printAccount" :placeholder="$t('campusConfig.printAccountPh')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.printDeviceSn') }}</text>
+            <input v-model="card.form.printDeviceSn" :placeholder="$t('campusConfig.printDeviceSnPh')" />
+          </view>
+          <view class="cell">
+            <text class="lbl">{{ $t('campusConfig.printDeviceKey') }}</text>
+            <input v-model="card.form.printDeviceKey" password :placeholder="$t('campusConfig.printDeviceKeyPh')" />
+          </view>
+        </template>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.printCopies') }}</text>
+          <input v-model="card.form.printCopies" type="number" placeholder="1" />
+        </view>
+        <view class="notify-tip">{{ $t('campusConfig.printProviderTip') }}</view>
         <view class="sec-t">{{ $t('campusConfig.foodSafetySection') }}</view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.foodLicenseNo') }}</text>
@@ -633,6 +664,13 @@ const PRINT_MODES = [
   { value: 'onAccepted', label: 'campusConfig.printModeOnAccepted' },
 ] as const;
 
+/** 打印通道（与服务端白名单一致）：local=浏览器 C-Lodop，feie=飞鹅云，yilianyun=易联云 */
+const PRINT_PROVIDERS_UI = [
+  { value: 'local', label: 'campusConfig.printProviderLocal' },
+  { value: 'feie', label: 'campusConfig.printProviderFeie' },
+  { value: 'yilianyun', label: 'campusConfig.printProviderYilianyun' },
+] as const;
+
 /** 食安量化分级（'' = 未评级） */
 const FOOD_GRADES = [
   { value: 'A', label: 'campusConfig.gradeA' },
@@ -702,6 +740,11 @@ interface CardForm {
   notifyTemplateAddressChanged: string;
   h5BaseUrl: string;
   printMode: string;
+  printProvider: string;            // local=浏览器 C-Lodop / feie=飞鹅云 / yilianyun=易联云
+  printAccount: string;             // 服务商账号（飞鹅 USER / 易联云 client_id）
+  printDeviceSn: string;            // 打印机编号（飞鹅 SN / 易联云 machine_code）
+  printDeviceKey: string;           // 服务商密钥（飞鹅 UKEY / 易联云 client_secret）
+  printCopies: string;              // 联数 1-5（元输入态）
   timeoutCompensation: boolean;         // 超时赔付开关（默认关，灰度开）
   timeoutGraceMinutes: string;          // 宽限分钟（超过才赔）
   timeoutWindowHours: string;           // 赔付回扫窗口（小时，1-168）
@@ -1097,6 +1140,11 @@ function toForm(c: CampusStoreConfig): CardForm {
     notifyTemplateAddressChanged: c.notifyTemplateAddressChanged ?? '',
     h5BaseUrl: c.h5BaseUrl ?? '',
     printMode: c.printMode ?? 'off',
+    printProvider: c.printProvider || 'local',
+    printAccount: c.printAccount ?? '',
+    printDeviceSn: c.printDeviceSn ?? '',
+    printDeviceKey: c.printDeviceKey ?? '',
+    printCopies: String(c.printCopies ?? 1),
     timeoutCompensation: !!c.timeoutCompensationEnabled,
     timeoutGraceMinutes: String(c.timeoutGraceMinutes ?? 10),
     timeoutWindowHours: String(c.timeoutCompensationWindowHours ?? 24),
@@ -1383,6 +1431,11 @@ async function save(card: Card) {
       notifyTemplateAddressChanged: f.notifyTemplateAddressChanged.trim() || null,
       h5BaseUrl: f.h5BaseUrl.trim() || null,
       printMode: f.printMode,
+      printProvider: f.printProvider,
+      printAccount: f.printAccount.trim() || null,
+      printDeviceSn: f.printDeviceSn.trim() || null,
+      printDeviceKey: f.printDeviceKey.trim() || null,
+      printCopies: Number(f.printCopies) || 1,
       timeoutCompensationEnabled: f.timeoutCompensation,
       timeoutGraceMinutes: graceInput,
       timeoutCompensationWindowHours: windowInput,
@@ -1561,6 +1614,11 @@ async function ensureProfile(card: Card) {
       color: $wa-muted; border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
     .pmode.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; }
     .timeout-tip { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
+    // 通道/等级类多选行：窄屏自动换行，标签固定宽度避免逐字折行
+    &.wrap { flex-wrap: wrap;
+      .lbl { width: 240rpx; flex-shrink: 0; font-size: 28rpx; color: $wa-ink; }
+      .pmode { min-width: 150rpx; padding: 14rpx 18rpx; font-size: 24rpx; }
+    }
   }
   // 动态计价：时段高峰行（起止时间 + 加价）
   .dp-sub { font-size: 24rpx; color: $wa-ink; font-weight: 600; padding: 16rpx 0 8rpx; }

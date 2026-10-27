@@ -58,6 +58,12 @@ export interface CampusStoreConfig {
   notifyTemplateAddressChanged: string | null;
   h5BaseUrl: string | null;
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
+  /** 打印通道（P1-4）：local=本地 C-Lodop / feie=飞鹅 / yilianyun=易联云 */
+  printProvider: string;
+  printAccount: string | null;
+  printDeviceSn: string | null;
+  printDeviceKey: string | null;
+  printCopies: number;
   timeoutCompensationEnabled: boolean;
   timeoutGraceMinutes: number;
   timeoutCompensationWindowHours: number;
@@ -113,6 +119,11 @@ export interface CampusStoreConfigInput {
   notifyTemplateAddressChanged?: string | null;
   h5BaseUrl?: string | null;
   printMode?: string | null;
+  printProvider?: string | null;
+  printAccount?: string | null;
+  printDeviceSn?: string | null;
+  printDeviceKey?: string | null;
+  printCopies?: number | null;
   timeoutCompensationEnabled?: boolean | null;
   timeoutGraceMinutes?: number | null;
   timeoutCompensationWindowHours?: number | null;
@@ -137,7 +148,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -213,6 +224,10 @@ export interface CampusMerchantBoard {
   paused: boolean;
   merchantConfirmEnabled: boolean;
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
+  /** 打印通道（P1-4）：local / feie / yilianyun */
+  printProvider: string;
+  /** 云通道账号/设备/密钥是否已配齐 */
+  cloudPrintConfigured: boolean;
   storeName: string;
   storePhone: string | null;
   pending: MerchantBoardOrder[];
@@ -266,7 +281,7 @@ const ORDER_FIELDS =
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
     `query { campusMerchantBoard {
-      paused merchantConfirmEnabled printMode storeName storePhone completedToday completedTodayAmount
+      paused merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }
@@ -366,6 +381,109 @@ export async function campusMerchantMarkPrinted(orderId: string): Promise<boolea
   );
   return res.campusMerchantMarkPrinted.ok;
 }
+
+/** ===== P1-4 云打印 / KDS 出餐屏 ===== */
+
+export interface CampusPrintResult {
+  ok: boolean;
+  provider: string;
+  dryRun: boolean;
+  jobId: string | null;
+  error: string | null;
+}
+
+/** 云打印一张小票：后端签名直连服务商，成功后回写打印时间（本地 LODOP 通道会返回 error） */
+export async function campusMerchantCloudPrint(orderId: string): Promise<CampusPrintResult> {
+  const res = await getAdminClient().request<{ campusMerchantCloudPrint: CampusPrintResult }>(
+    `mutation ($orderId: ID!) {
+      campusMerchantCloudPrint(orderId: $orderId) { ok provider dryRun jobId error }
+    }`,
+    { orderId },
+  );
+  return res.campusMerchantCloudPrint;
+}
+
+/** 云打印连通性测试：不绑定订单，仅验证账号/设备/密钥 */
+export async function campusMerchantCloudPrintTest(): Promise<CampusPrintResult> {
+  const res = await getAdminClient().request<{ campusMerchantCloudPrintTest: CampusPrintResult }>(
+    `mutation { campusMerchantCloudPrintTest { ok provider dryRun jobId error } }`,
+  );
+  return res.campusMerchantCloudPrintTest;
+}
+
+export interface CampusPrintJob {
+  id: string;
+  orderId: string | null;
+  orderCode: string | null;
+  provider: string;
+  deviceSn: string | null;
+  status: string; // ok | failed | pending
+  triggerType: string; // auto | manual | test
+  copies: number;
+  dryRun: boolean;
+  errorMessage: string | null;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+/** 最近云打印任务：失败原因/耗时排障 */
+export async function campusMerchantPrintJobs(limit = 20): Promise<CampusPrintJob[]> {
+  const res = await getAdminClient().request<{ campusMerchantPrintJobs: CampusPrintJob[] }>(
+    `query ($limit: Int) {
+      campusMerchantPrintJobs(limit: $limit) {
+        id orderId orderCode provider deviceSn status triggerType copies dryRun errorMessage durationMs createdAt
+      }
+    }`,
+    { limit },
+  );
+  return res.campusMerchantPrintJobs;
+}
+
+export interface CampusKitchenLine {
+  name: string;
+  quantity: number;
+  addons: string[];
+}
+
+export interface CampusKitchenTicket {
+  id: string;
+  code: string;
+  stage: 'pending' | 'cooking';
+  createdAt: string;
+  waitingMinutes: number;
+  urgency: 'normal' | 'warn' | 'late';
+  zone: string;
+  building: string;
+  slotText: string;
+  note: string | null;
+  printedAt: string | null;
+  total: number;
+  lines: CampusKitchenLine[];
+}
+
+export interface CampusKitchenQueue {
+  tickets: CampusKitchenTicket[];
+  pendingCount: number;
+  cookingCount: number;
+  lateCount: number;
+  warnMinutes: number;
+  lateMinutes: number;
+}
+
+/** KDS 出餐屏队列：待接单 + 备餐中，按支付先后排序 */
+export async function campusMerchantKitchenQueue(): Promise<CampusKitchenQueue> {
+  const res = await getAdminClient().request<{ campusMerchantKitchenQueue: CampusKitchenQueue }>(
+    `query { campusMerchantKitchenQueue {
+      pendingCount cookingCount lateCount warnMinutes lateMinutes
+      tickets {
+        id code stage createdAt waitingMinutes urgency zone building slotText note printedAt total
+        lines { name quantity addons }
+      }
+    } }`,
+  );
+  return res.campusMerchantKitchenQueue;
+}
+
 
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
