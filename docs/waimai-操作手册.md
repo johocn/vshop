@@ -2627,5 +2627,75 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 骑手联系顾客：C 端「配送中」页 → 任务卡底排「📞 联系顾客」→ 弹窗确认号码后「拨打」；脱敏降级时只展示号码不可拨。
 - 平台配置号码保护：后台「运营中心配置」→「号码保护」→ 开关 + 服务商（mask / mock / 阿里云 / 腾讯云）+ 有效期分钟数 + 号池前缀 → 保存。
 
+## 56. P3-1 口味偏好云端同步（2026-10-27）
+
+### 56.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | `Customer` 新增自定义字段 `tasteProfile`（text，JSON）；shop 接口 `campusMyTasteProfile`（读，未登录返回空串）/ `campusUpdateTasteProfile(input: String!)`（写，空串=清除）；启动幂等补列 |
+| C 端（waimai） | 「我的口味」页登录后自动拉取云端并回填、保存/清空时上行；结算页取 `activeCustomer.customFields.tasteProfile` 云端优先覆盖本机；底部提示文案改为「登录后自动同步到账户，换设备也能恢复」 |
+| 后台 | 无改动 |
+
+> C 端原有 `utils/taste-profile.ts`（辣度/忌口/过敏原/餐具 + 备注拼装 + 菜品命中提示）保持不变，本轮只补「云端层」，结构与存量数据完全兼容。
+
+### 56.2 数据模型与接口口径
+
+- 存储：`customer."customFieldsTasteprofile"`（text）。JSON 结构与 C 端 `TasteProfile` 一致：`{spicy:'none|mild|medium|hot'|'', avoid:[], allergens:[], tableware:0-5}`。
+- 读：`campusMyTasteProfile: String`，登录态返回原始 JSON 串，未登录返回 `""`（游客继续走本机存储）。
+- 写：`campusUpdateTasteProfile(input:String!): String!`，返回已落库的原文；`""` 表示清除（写 NULL）。
+- 合并口径（C 端）：
+  1. 页面/结算页先读本机值渲染，避免白屏；
+  2. `getActiveCustomer()` 返回的 `customFields.tasteProfile` 非空 → 以云端覆盖本机（`writeTasteProfile(JSON.parse(cloud))`）；
+  3. 云端为空且本机有设置 → 静默上行一次（首次打通账户）；
+  4. 上行失败静默降级，本机仍是权威副本，不阻塞下单。
+
+### 56.3 权限与校验
+
+- 权限：`Permission.Authenticated`（读、写均为登录态；`activeUserId` 为空时读返回空串、写抛 `NOT_LOGGED_IN`）。
+- 服务端校验：长度 ≤2000 字符；非空时必须是合法 JSON 且为对象（数组/标量拒绝，报「口味偏好格式不合法」）。
+- 键值白名单校验在 C 端 `normalizeProfile` 完成（非法 key 丢弃、tableware 夹取 0–5），服务端不重复实现语义校验。
+
+### 56.4 数据库变更（启动幂等迁移 `P9P6TasteProfileMigration`）
+
+```sql
+ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
+```
+
+> `DB_SYNC=0` 的生产环境靠此补列；`IF NOT EXISTS` 重复启动安全，失败只 `console.error('[P9P6TasteProfileMigration] failed: ...')` 不阻断启动。
+
+### 56.5 验证记录
+
+- 编译：`packages/campus-delivery-plugin` `npm run build`（rimraf lib + tsc）通过。
+- 部署后端后 `pm2 list` → `vendure online`，`pm2 logs --nostream` 无 error、无 `[P9P6TasteProfileMigration] failed`；服务器 HEAD `44808f108`。
+- 线上端到端（脚本 `waimai-v39/scripts/_shot_taste_cloud.py`，真实 shop-api 不 mock）：
+  - 写：`campusUpdateTasteProfile` 返回 `{"spicy":"mild","avoid":["coriander","onion"],"allergens":["peanut"],"tableware":2}`；
+  - 读：`campusMyTasteProfile` 返回同串 → 证明物理列已存在且可往返；
+  - 截图 `01-taste-profile-cloud-restored.png`：辣度「微辣」、忌口「香菜/葱」、过敏原「花生」、餐具「2」均已回填，预览「微辣；忌香菜、葱；对花生过敏；需 2 份餐具」。
+  - 截图 `02-checkout-taste-restored.png`：结算页订单备注自动带出同一摘要，餐具份数 2。
+- 构建：C 端 `uni build` 通过（`DONE Build complete.`），`node .secrets/deploy-waimai.mjs` 产物校验 3671 KB、`200 deploy done`。
+
+### 56.6 边界与已知限制
+
+- **仅整档覆盖**：云端保存的是完整 JSON，无字段级合并；两端同时修改以「最后一次保存」为准。
+- **无版本/时间戳**：不记录更新时间，冲突时无法判断新旧，只能依赖保存顺序。
+- **游客不落库**：未登录用户的口味偏好仍只在本机，注册后首次进入口味页才会自动上行。
+- **不上行到商家侧**：口味偏好只影响本单备注，不进入商家顾客画像/常客标签。
+- **多端并发**：手机与平板同时打开口味页时，先保存者会被后者覆盖（无冲突提示）。
+
+### 56.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `44808f108 feat(campus): P3-1 口味偏好云端同步（Customer 字段 + shop 读写接口 + 幂等补列）` → `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `HEAD is now at 44808f108`；pm2 `vendure` online；无 schema/迁移报错 |
+| 后台 | 无改动 | 未部署 |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs`（内含 `uni build`） | `DONE Build complete.`；产物校验 3671 KB；`200 deploy done` |
+| 线上 | 登录态探针（smoke-rider）读写 `campusMyTasteProfile` / `campusUpdateTasteProfile` | 写读一致；口味页与结算页均按云端值渲染（见 56.5 截图） |
+
+操作入口：
+- 顾客设置口味：C 端「我的 → 我的口味」→ 选辣度/忌口/过敏原/餐具 → 「保存并带入下单」（登录态同时保存到账户）。
+- 换设备恢复：新设备登录后打开「我的口味」或结算页，自动拉取云端偏好并回填。
+- 清除：口味页底部「清空口味偏好」→ 本机与云端同时清空。
+
 
 
