@@ -2173,3 +2173,79 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 连通性测试：商家接单（工作台）→ 顶部打印条「测试打印」。
 - 出餐屏：商家接单（工作台）→ 顶部「出餐屏（后厨大屏）」→ 两列卡片点「开始制作 / 出餐完成」。
 
+## 50. P2-1 小程序上架配置（2026-10-27）
+
+### 50.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | `campus_fulfillment_config` 新增 6 个 `mp*` 列（幂等迁移 `p9-p2-mp-listing.ts`）；`WaimaiStoreService.updateStoreConfig` 增加 AppID/版本/隐私 URL 格式校验、上架状态白名单、「置为已上架前 6 项资料必须齐全」的强制校验；GraphQL `CampusStoreConfigWithChannel` 暴露 6 个配置字段与 2 个计算字段 `mpReady / mpMissing`，`CampusStoreConfigInput` 增加 6 个可空入参 |
+| 后台（web-admin） | 拾光达配置 → 店铺卡片新增「小程序上架」区块：AppID / 服务类目 / 版本号 / 隐私保护指引地址 4 个输入 + 5 个上架状态胶囊（3+2 网格，窄屏不溢出）+ 审核备注 + 「上架前检查」6 项清单（实时 ✓/○，缺项时给出提示语）；保存前做 AppID/版本/隐私 URL 格式校验，状态选「已上架」而资料缺项时直接 toast 拦截；中英 i18n 各 30 个 key |
+| C 端（waimai-v39） | **本轮无改动**：上架信息属运营侧资料，`WaimaiStore`（C 端店铺类型）有意不暴露 `mp*` 字段 |
+
+### 50.2 上架前检查与状态口径
+
+- **上架状态**（`mpListingStatus`，默认 `draft`）：`draft` 未提交 / `inReview` 审核中 / `online` 已上架 / `rejected` 审核驳回 / `offline` 已下架。白名单校验，非法值拒绝保存。
+- **上架前检查 6 项**（key 与服务端 `mpMissing` 完全一致，前后端口径同源）：
+
+| key | 取值来源 | 说明 |
+|---|---|---|
+| `appId` | `mpAppId` | 小程序 AppID，`wx` + 16 位十六进制 |
+| `category` | `mpCategory` | 服务类目（如「餐饮/外卖」），≤64 字符 |
+| `version` | `mpVersion` | 上架版本号，`x.y` 或 `x.y.z` |
+| `privacyUrl` | `mpPrivacyUrl` | 用户隐私保护指引地址，http(s)，≤255 字符 |
+| `contactPhone` | `storePhone` | **复用** P1-3 门店联系电话，不重复录入 |
+| `licenseNo` | `foodLicenseNo` | **复用** 食安公示的食品经营许可证号 |
+
+- **强制点**：保存时若 `mpListingStatus = online` 而检查项有缺，服务端抛 `UserInputError('上架前请先补齐：...')`，后台同口径 toast 拦截，避免「资料缺项却对外宣称已上架」。
+- **计算字段**：`mpReady`（6 项是否齐全）、`mpMissing`（缺项 key 数组）随配置返回，供任何端复用，不必各自重算。
+
+### 50.3 权限与校验
+
+- **权限**：沿用 `CampusConfig`（后台页面 `usePermGuard('CampusConfig')`），未新增权限点；数据范围仍由 `campusStoreConfigs` 的渠道可见性决定（平台超管看全部渠道，租户只看本渠道）。
+- **写入口**：后台配置页走 `WaimaiStoreService.updateStoreConfig`，未加入 `CampusConfigService` 的 `WRITABLE_FIELDS`（该路径服务于平台配置场景，小程序上架是运营资料，单入口即可）。
+- **格式校验**：AppID `/^wx[0-9a-f]{16}$/i`；版本 `/^\d{1,3}(\.\d{1,3}){1,2}$/`；隐私 URL `/^https?:\/\/[^\s]+$/i` 且 ≤255；类目 ≤64；审核备注 ≤500。空串一律落库为 `NULL`（与既有可空字段口径一致）。
+
+### 50.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_fulfillment_config` | 新增 `mpAppId varchar(64)`、`mpCategory varchar(64)`、`mpVersion varchar(32)`、`mpListingStatus varchar(16) NOT NULL DEFAULT 'draft'`、`mpPrivacyUrl varchar(255)`、`mpReviewNote varchar(500)` |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`，逐条执行、单条失败只打 `[P9P2MpListingMigration] failed:` 日志不阻断启动，重复启动安全。
+
+### 50.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，`lib/` 随提交入库）；web-admin `npx uni build` 通过（`DONE Build complete.`）。
+- 截图（`docs/screenshots/waimai/p15-mp-listing/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `01-admin-mp-listing-ready.png`：资料齐全 + 状态「已上架」，检查清单 6 项全 ✓，底部提示「资料齐全，可提交上架」。
+  - `02-admin-mp-listing-missing.png`：AppID 与食品许可证缺失、状态为「未提交」，清单对应 2 项为 ○ 且提示缺项。
+  - `03-admin-mp-listing-rejected.png`：状态「审核驳回」+ 审核备注回填驳回原因，5 个状态胶囊按 3+2 排布无横向溢出。
+- 截图脚本：`node scripts/shots-p15-mp-listing.cjs`（mock 覆盖 `myTenantAccess` / `campusStoreConfigs` / `campusUpdateStoreConfig` / `me`）。
+- 生产库核验（`information_schema`）：`campus_fulfillment_config` 的 `mpAppId / mpCategory / mpListingStatus / mpPrivacyUrl / mpReviewNote / mpVersion` 六列均已存在。
+- 线上 schema：`admin-api` 未登录请求 `campusStoreConfigs { channelId mpAppId mpListingStatus mpReady mpMissing }` 返回 `FORBIDDEN`（非「Cannot query field」），字段已生效。
+- 线上产物：`guanli/assets/campus.ArCLfqrv.js`（15433B）、`pages-campus-config.BogVdX2H.js`（66936B）均 200，`https://e.joho.cn/guanli/` 首页 200。
+
+### 50.6 边界与已知限制
+
+- **不调微信审核接口**：本项是「资料台账 + 上架前检查 + 审核状态留痕」，不自动提交微信审核、也不同步真实审核结果；状态需运营按后台/微信后台实际情况手工维护。
+- **AppID 仅作记录**：不用于登录态、不校验与渠道微信配置是否一致（渠道 AppID 仍由既有微信登录配置维护）。
+- **类目不做白名单**：微信服务类目由平台审核，这里只要求填写，不做枚举校验。
+- **复用字段联动**：`contactPhone` 与 `licenseNo` 依赖 P1-3 门店电话与食安公示许可证号，改动这两处会同步影响上架检查结果（属于有意的单一数据源）。
+- **C 端无感知**：小程序上架信息不进入 C 端任何接口，不影响店铺页/下单链路。
+
+### 50.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `1f9cd48cc feat(campus): P2-1 小程序上架配置（上架前检查 + 审核状态留痕）`（`packages/campus-delivery-plugin` src + lib）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `HEAD is now at 1f9cd48cc`；pm2 `vendure` online；无迁移报错 |
+| 后端 | 生产 PG（`1Panel-postgresql-pIe0`）`information_schema` 核验 | 6 个 `mp*` 列存在 |
+| 后端 | 线上 `admin-api` 字段探针（未登录） | `campusStoreConfigs` 返回 `FORBIDDEN`，schema 校验通过 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61500 KB，nginx reload 成功；`pages-campus-config` / `campus` chunk 均 200 |
+| C 端 | 本轮无改动，不部署 | 沿用上一轮产物 |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 资料维护：拾光达配置 → 展开店铺卡片 → 「小程序上架」→ 填 AppID / 服务类目 / 版本号 / 隐私保护指引 → 选上架状态 →（审核驳回时）填审核备注 → 保存。
+- 上架前自查：同区块底部「上架前检查」清单，✓ 为已具备、○ 为缺项；6 项全 ✓ 才能保存为「已上架」。
+
