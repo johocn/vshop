@@ -2761,6 +2761,149 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 商家工作台「经营设置」→ 拉到「经营数据」卡片 → 点「导出 CSV（近 30 日）」→ 浏览器直接下载 `经营数据-近30日-YYYYMMDD.csv`。
 - 逐日看数：卡片内「今日 / 近 7 日」切换 KPI，下方柱状图为近 7 日营业额；更长时间跨度用导出的 CSV 在 Excel 里看。
 
+## 58. P3-3 骑手大厅批量接单（2026-10-27）
+
+> 本轮边界：大厅「顺路组聚合 / 整组抢单 / 顺路 N 单徽标」为既有 plan 3.3 能力（`routeGroupId`、`hall-grab.service.ts` 整组抢单），**未重复开发**；本轮只补增量——一次勾选多单批量接单、逐单独立事务、逐单结果回传。
+
+### 58.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | 新增 `type CampusGrabResult { orderId: ID! ok: Boolean! message: String }`；shop Mutation 新增 `campusGrabOrders(orderIds: [ID!]!): [CampusGrabResult!]!`（`hall-shop.resolver.ts`，`type: () => [GraphQLID]`） |
+| C 端（waimai） | 大厅卡片整体可点勾选（左侧圆点 ✓）、底部固定批量栏（已选 N 单 / 清除 / 批量接单（N））、按渠道分组 + 每 10 单分块提交、勾选态随轮询收敛、成功提示并跳转在途页；i18n 6 个 key |
+| 后台（web-admin） | 无改动 |
+
+### 58.2 接口口径
+
+- 入参：`orderIds: [ID!]!`，服务端先去重；长度 0 抛 `USER_INPUT_ERROR`「请先选择要接的订单」，>10 抛「一次最多接 10 单」（**校验在循环之前，不产生任何副作用**）。
+- 前置：`assertApprovedRider(ctx)`——未入驻/未通过审核的账号整体拒绝。
+- 逐单执行：每单复用既有 `grab(ctx, id)` 单抢逻辑（独立事务 + `pessimistic_write` 行锁 + 渠道/班次/信用分校验），**单条失败不中断其余**，结果按入参顺序返回 `[{ orderId, ok, message }]`。
+- 失败语义：`ok:false` + 后端原文（如「手慢了，该订单已被抢」「不能抢自己的订单」），不做批量整体报错。
+- 渠道隔离：抢单按 `ctx.channelId` 校验，跨渠道订单必须分组提交（C 端按 `channelToken` 分组，逐组带各自 token 调用）。
+
+### 58.3 C 端交互
+
+- 点击大厅卡片任意位置切换勾选；「一键接单」按钮为 `@tap.stop`，不会误触发勾选。
+- 底部批量栏仅在有勾选时出现，大厅底部自动留出 200rpx 安全间距。
+- 单次上限 10 单（`PICK_LIMIT`），超限 toast「一次最多选 10 单」。
+- 轮询刷新后自动剔除已消失（被他人接走/取消）的勾选，避免整批提交时必然失败。
+- 提交结果：全部成功 → toast「已接 N 单」；部分成功 → toast「已接 N 单，M 单未成功」；有成功则 600ms 后跳转配送任务页；全部失败 → toast 首条失败原文并留在大厅（勾选已清空可重选）。
+- 失败中含「已被抢」的单会标记 `taken`（置灰、按钮禁用），防止重复点击。
+
+### 58.4 验证记录
+
+- 后端编译：`packages/campus-delivery-plugin` `npm run build` 通过（`GraphQLID` 显式声明列表标量）。
+- 线上探针（smoke-rider / 渠道 `canteen-a-token`，均无副作用）：
+  - `orderIds: []` → `USER_INPUT_ERROR`「请先选择要接的订单」；
+  - `orderIds: ["9100001","9100002","9100003"]` → `ok:false` × 3，`message` 均为「手慢了，该订单已被抢」（逐单结果、整体不报错）；
+  - 11 个 id → 「一次最多接 10 单」。
+- C 端线上取证（`scripts/_shot_rider_batch.py`，390×844 dpr=2，大厅数据 mock 三单、批量结果 mock 全成功）：
+  - `01-rider-hall-batch-idle.png`：大厅常态（无勾选、无底栏）；
+  - `02-rider-hall-picked-batchbar.png`：两单已勾选（橙色 ✓）+ 底栏「已选 2 单 / 清除 / 批量接单（2）」，同组单带「顺路 3 单」既有徽标；
+  - `03-rider-hall-batch-done-toast.png`：提交后勾选清空、底栏收回，toast「已接 2 单」；
+  - `04-rider-delivering-after-batch.png`：600ms 后自动落到 `#/pkg-rider/pages/rider-delivering`（成功分支链路）。
+- 产物：`docs/screenshots/p22-rider-batch-grab/`。
+
+### 58.5 边界与已知限制
+
+- **非原子**：不保证「全成功或全失败」，部分成功是正常结果，客户端按逐单结果处理。
+- **单渠道 ≤10**：一次提交的批量上限 10 单；超过需自行分批（C 端已自动分块，但超 10 单会串行多轮，耗时可感知）。
+- **串行执行**：逐单独立事务按顺序执行，不是并发抢单，极端并发下后几单被抢的概率略高。
+- **无重试**：失败单不自动重试，只标记「已被抢」置灰。
+- **无全选/反选**：仅支持逐张点选（避免误接全厅单）。
+- **轻量校验**：仅空数组与 >10 两个前置校验，其余（班次、信用分、合规）沿用单抢的既有拦截。
+
+### 58.6 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `19c99e4c2 feat(campus): P3-3 骑手批量接单 campusGrabOrders（逐单独立事务 + 逐单结果）` → `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `HEAD is now at 19c99e4c2`；pm2 `vendure` online |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` | `DONE Build complete.`；产物校验 3829 KB；`deploy done` |
+| 后台 | 无改动 | 未部署 |
+
+**构建修复说明（同轮）**：C 端仓库此前被半迁移提交引入三处未跟踪 WIP 依赖（`pages.json` 引用 `jh-library/jh-teahouse/jh-chamber` 但对应 `.vue` 未入库、`jh-admin.vue` 依赖未入库的 `scene/`、`jh-library.vue` 样式块残留孤立的 `gap: 10px; }` 两行导致 sass `expected "{"`）。本轮补齐三页源码与 `scene/` 目录、删掉孤立两行，构建恢复，产物由缺失江湖三页的 2206 KB 回到完整形态 3829 KB，线上主包重新含 `jh-library / jh-teahouse / jh-chamber` 路由。
+
+操作入口：
+- 骑手小程序「接单大厅」→ 点卡片任意位置勾选（圆点变橙 ✓）→ 底部「批量接单（N）」→ 成功 toast 后自动进入「配送任务」页。
+- 只想接一单：直接点卡片内的「一键接单」，行为与旧版一致。
+
+## 59. P3-4 配送费阶梯计价（2026-10-27）
+
+> 本轮边界：动态计价（`dynamic-pricing.ts`：高峰/供需/手动倍率）与「满X元免配送费」（`freeShippingThreshold`）均为既有能力，**未重复开发**；本轮只补缺口——按订单商品金额分档替换分区运费基价。
+
+### 59.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | 新增 `delivery-fee-tiers.ts`（严格校验/宽松解析/取档纯函数）；`campus-fulfillment-config.entity.ts` 加 `deliveryFeeTiers`（simple-json）；迁移 `P9P7DeliveryFeeTiersMigration` 幂等补列；`shipping-calculator.ts` 结算按档位改基价并在 metadata 输出 `baseFee / tier`；`campus-config.service.ts` 写入口校验；`waimai-store.service.ts` 读写透出；5 处 SDL 加 `deliveryFeeTiers: String`；单测新增 3 例 |
+| 后台（web-admin） | 配置页「配送费阶梯（按订单金额）」区块：门槛/配送费两输入、增删行（上限 10 档）、保存前校验（空行跳过、非法金额与重复门槛拦截、升序重排）；`campus.ts` 字段与 FIELDS；i18n 7 个 key |
+| C 端（waimai） | `WAIMAI_STORE_LIST` 增加 `deliveryFeeTiers`；结算页按商品金额命中档位改运费展示，并在运费行下提示「满 ¥{门槛} 本单配送费 ¥{档位费}」；i18n 1 个 key |
+
+### 59.2 配置与接口口径
+
+- 存储：`campus_fulfillment_config.deliveryFeeTiers`（`jsonb`），GraphQL 统一以 `String`（JSON）透出：`[{"minAmount":分,"fee":分}]`，`null` = 不启用；最多 10 档。
+- 写入校验（`normalizeDeliveryFeeTiers`）：必须是数组、每项为对象、门槛与运费为整数且非负、门槛不可重复；自动按门槛升序；失败抛 `UserInputError`（后台原文提示）。
+- 结算解析（`parseDeliveryFeeTiers`）：宽松处理——丢脏项、去重、截断 10 档、升序，**永不抛错**，避免脏配置把结账链路打挂。
+- 计算优先级（`shipping-calculator.ts` → `quoteZoneFee`）：满X元免配送费达标 → 0；否则取「门槛 ≤ 商品金额」的最高档 `fee` 作为基价；未达最低档回退分区 `zone.fee`；动态加价（高峰/供需/手动）在基价之上叠加。
+- metadata 新增 `baseFee`（实际采用的基价）与 `tier {minAmount, fee}`（命中的档位），保留 `zoneFee`（分区原价）便于对账排查。
+- 查询透出：`campusStoreConfigs`、`campusStoreConfigWithChannel`、`waimaiStoreList` 均返回 `deliveryFeeTiers`。
+- 写入入口：`campusUpdateStoreConfig` / `campusStoreConfigWithChannel`（input）与 `waimaiUpdateStoreConfig` 均可写；传 `null` 或空串即关闭。
+
+### 59.3 后台交互
+
+- 入口：拾光达配置页 → 点开渠道卡片 → 「配送费阶梯（按订单金额）」区块（位于「满X元免配送费」之后）。
+- 每行两个输入：`满(元)` / `配送费(元)`，行尾「删除」；未满 10 档时显示「+ 添加阶梯」。
+- 保存校验：整行为空则跳过；只填一半、金额非法或门槛重复（toast「阶梯门槛不能重复」）直接拦下；提交前按门槛升序转分，全空提交 `null`。
+- 提示文案说明口径：达到门槛后该档配送费替换分区运费，未达最低档仍按分区原价，满X元免配送费优先。
+
+### 59.4 C 端结算展示
+
+- `waimaiStoreList.deliveryFeeTiers` → `parseFeeTiers`（升序、坏数据当未配置）。
+- 运费行：命中档位时显示「档位费 + 动态加价」（加价取 `zone.addFee`，无该字段时取 `zone.price - zone.fee`）；未命中退回分区原价。
+- 档位提示：命中档位且未满免时，运费行下方追加「满 ¥{门槛} 本单配送费 ¥{档位费}」；满免达标后该提示被满免明细取代（满免优先）。
+- 最终金额仍由后端 calculator 出价，页面为同口径预估。
+
+### 59.5 验证记录
+
+- 后端单测：`npx vitest run src/shipping-calculator.spec.ts` → 15/15 通过（新增 3 例：命中最高档 `goods=4500 → 100` 且 metadata 带 `tier/zoneFee/baseFee`；未达最低档回退 300；满免优先 `goods=3500 ≥ 3000 → 0`）。
+- 插件构建：`npm run build` 通过（rimraf lib + tsc）。
+- 线上探针（渠道 `canteen-a-token`，`campusUpdateStoreConfig` + `waimaiStoreList`）：写入两档后读回
+  `[{"minAmount":2000,"fee":100},{"minAmount":3000,"fee":50}]`，字段透出正常。
+- 后台 UI 保存链路（`e.joho.cn/guanli/` 配置页，非 API 直写）：展开 `canteen-a` 卡片 → 填两档 → 点「保存」→ 请求
+  `campusUpdateStoreConfig` 200、toast「已保存」，`waimaiStoreList` 读回同一 JSON；复测时曾因该渠道「超时赔付已开启但未选券模板」
+  被前端拦下（toast「开启超时赔付前请选择赔付券模板」），补齐券模板后保存即通过，说明拦截来自既有校验而非阶梯字段。
+- C 端线上取证（`scripts/_shot_fee_tiers.py`，390×844 dpr=2）：
+  - `admin-fee-tiers-config.png`：后台配置页两档阶梯（满 20 → 1.00、满 30 → 0.50）；
+  - `checkout-tier-zone-original.png`：商品 ¥16.36（未达档）→ 运费 ¥2.00，无档位提示；
+  - `checkout-tier-20.png`：商品 ¥20.45（命中满 20 档）→ 运费 ¥1.00 + 提示「满 ¥20 本单配送费 ¥1」，calculator 出价 100；
+  - `checkout-tier-30.png`：商品 ¥30.68（命中满 30 档）→ 运费 ¥0.50 + 提示「满 ¥30 本单配送费 ¥0.5」，calculator 出价 50。
+- 产物目录：`docs/screenshots/p23-fee-tiers/`。
+- 取证后已清理：`deliveryFeeTiers` 恢复 `null`，草稿单删除。
+
+### 59.6 边界与已知限制
+
+- **仅结算生效**：分区预览接口（`campusZones`）没有订单金额，仍返回分区原价；阶梯只在提交结算时按购物车金额改价，C 端结算页用同口径本地预估。
+- **动态计价叠加口径**：档位费只替换「基价」，动态加价仍按分区原价口径叠加；启用手动倍率时 C 端预估与实际可能有小额差异，最终以结算为准。
+- **满免优先**：满X元免配送费达标时阶梯不生效（运费直接 0），这是刻意优先级。
+- **店铺级全局**：不区分分区、配送方式（R1/R3 等）与时段；需要差异化时只能拆店铺渠道。
+- **上限 10 档**：超过需合并分档；门槛为 0 的档等价于全局最低基价。
+- **脏数据宽松**：结算侧解析永不抛错，脏档位被静默丢弃；排查以后台配置原文与 metadata 的 `tier` 为准。
+- **保存前置依赖**：后台保存会先跑整卡片校验，任一既有项不合法都会拦下（如「超时赔付」开启却未选赔付券模板、开通 R1/R2 却无交接点）；遇到「保存没反应」先看 toast 文案，按提示补齐其他配置项即可，与本阶梯无关。
+- **取证后已还原**：`canteen-a` 的阶梯、交接点、赔付券模板均已清回原状（`null` / `[]`）。
+
+### 59.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `03e3eda1b feat(campus): P3-4 配送费阶梯计价（按订单金额分档替换分区运费基价）` → `git push origin master` → 服务器拉取 + `pm2 restart vendure --update-env` | `HEAD is now at 03e3eda1b`；pm2 `vendure` online；迁移 `P9P7DeliveryFeeTiersMigration` 随启动补列 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61639 KB；nginx 检查通过 + 重载；`deploy done` |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` | `DONE Build complete.`；产物校验 3830 KB；`deploy done` |
+| 线上 | admin 探针 + C 端三态取证 | 档位读写、结算出价、页面提示全部一致；取证后配置已清回 `null` |
+
+操作入口：
+- 平台/商家工作台「拾光达配置」→ 展开渠道卡片 → 「配送费阶梯（按订单金额）」→ 填「满(元)」「配送费(元)」→「+ 添加阶梯」可加档 → 保存。
+- 顾客端下单：结算页运费行按商品金额自动取档；命中档位时显示「满 ¥X 本单配送费 ¥Y」，满X元免配送费达标的订单优先免运费。
+
 
 
 
