@@ -2089,3 +2089,87 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 操作入口：
 - 商家后台：校园外卖 → 商家接单（工作台）→ 顶部「经营设置」→ 营业状态/营业时间/门店信息/经营数据。
 - C 端：店铺页顶部即时反映营业状态、营业时间与店铺公告，无需改动。
+
+## 49. P1-4 云打印（飞鹅 / 易联云）+ KDS 出餐屏（2026-10-27）
+
+### 49.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | 新增 `campus_print_job` 打印任务表 + `campus_fulfillment_config` 五个打印通道列（幂等迁移 `p8-p1-4-cloud-print-kds.ts`）；新增 `CloudPrintService`：`printOrder`（按订单出票并回写 `waimaiPrintedAt`）、`testPrint`（不绑定订单的连通性测试）、`recentJobs`（排障）、服务商签名直连（飞鹅 SHA1 / 易联云 MD5）；`merchant-admin` 新增 `kitchenQueue`（KDS 队列）与 `cloudPrint / cloudPrintTest / printJobs`；`acceptOrder` 在 `printMode = onAccepted` 且通道非本地时自动触发云端出票；GraphQL 新增 `CampusKitchenTicket / CampusKitchenQueue / CampusPrintResult / CampusPrintJob` 类型与 2 个 Query + 2 个 Mutation |
+| 后台（web-admin） | 新增「出餐屏」页面（`pages/campus/kitchen`）：待接单 / 备餐中两列、10s 自动轮询（切走暂停）、等待时长分级（≥15min 橙 / ≥25min 红）、加料与备注直显、未出票徽标、一键「开始制作 / 出餐完成」；商家工作台顶部新增「出餐屏」入口；打印条按通道分流（本地 C-Lodop 沿用原链路、云通道显示「已配置/未配置」并提供「测试打印」），使用说明分本地/云端两套文案；拾光达配置 → 小票打印新增「打印通道 / 服务商账号 / 打印机编号 / 服务商密钥 / 打印联数」；菜单、导航标题、中英 i18n 同步 |
+| C 端（waimai-v39） | **本轮无改动**：小票内容、订单状态机、加料展示均由既有链路提供，云打印只是把「谁来出票」从浏览器插件换成服务端直连 |
+
+### 49.2 打印通道口径
+
+- **`printProvider`**：`local`（默认，浏览器 C-Lodop，需收银电脑开着工作台）/ `feie`（飞鹅云）/ `yilianyun`（易联云）。白名单校验，非法值拒绝保存。
+- **本地通道不变**：`merchant.vue` 仍走 `printReceipt58` + `campusMerchantMarkPrinted`，未配置 C-Lodop 时才提示重连；切到云通道后不再探测 Lodop。
+- **云通道由服务端出票**：`campusMerchantCloudPrint(orderId)` → `CloudPrintService.printOrder` → 成功后写 `customFields.waimaiPrintedAt`（与本地通道同一「已出票」口径，KDS 未出票徽标、工作台未出票计数通用）。
+- **自动打印时机**：`printMode = onPaid` 由前端在支付后队列触发（云通道调 mutation）；`printMode = onAccepted` 由后端 `acceptOrder` 直接触发，避免前端漏打。
+- **失败不阻塞接单/出餐**：云打印异常一律收敛为 `{ ok: false, error }` 并落 `campus_print_job.status = failed`，接单、出餐流程照常推进，失败可在打印任务/工作台重试。
+- **打印联数**：`printCopies` 1–5 整数，超范围回落 1。
+
+### 49.3 服务商签名
+
+| 服务商 | 端点 | 关键参数 | 成功判定 |
+|---|---|---|---|
+| 飞鹅 | `https://api.feieyun.cn/Api/Open/` | `apiname=Open_printMsg`、`sn`、`content`、`times`、`sig = SHA1(user + ukey + stime)` | `ret = 0` |
+| 易联云 | `https://open-api.10ss.net/oauth/oauth`（取 token）+ `/print/index` | `client_id` + `client_secret` + `machine_code`、`sign = MD5(client_id + timestamp + client_secret)` | `error = 0` |
+
+- 易联云 token 进程内缓存，`expires_in` 前 5 分钟失效重取，避免每单换 token。
+- 所有外呼统一 8s 超时（`AbortController`），非 JSON 响应按失败处理并记 `errorMessage`。
+
+### 49.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_fulfillment_config` | 新增 `printProvider varchar(16) NOT NULL DEFAULT 'local'`、`printAccount varchar(64)`、`printDeviceSn varchar(64)`、`printDeviceKey varchar(128)`、`printCopies int NOT NULL DEFAULT 1` |
+| `campus_print_job`（新表） | `id / createdAt / updatedAt / orderId / channelId / provider / deviceSn / status / triggerType / copies / dryRun / errorMessage / durationMs / content`，索引 `IDX_campus_print_job_channel_created (channelId, createdAt DESC)` |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`，重复启动安全；异常只打日志不阻断启动。
+
+### 49.5 KDS 出餐屏口径
+
+- **队列来源**：`hallStatus IN ('pending_merchant','accepted')` 的当前渠道订单，按 `createdAt` 升序出票；`pending` = 待接单，`cooking` = 备餐中。
+- **等待时长**：从 `createdAt`（支付时间）起算到当前分钟；`≥ KDS_WARN_MINUTES(15)` → `warn`（橙），`≥ KDS_LATE_MINUTES(25)` → `late`（红底）。
+- **票面内容**：单号、等待时长、送达楼栋/时段、下单时间、未出票徽标、每行「商品名 ×数量」+ 加料（`addonDisplayText` 快照）、备注。
+- **操作与工作台同源**：开始制作 = `campusMerchantAcceptOrder`，出餐完成 = `campusMerchantCookingDone`，不存在第二套状态机。
+
+### 49.6 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，`lib/` 随提交入库）；web-admin `npx uni build` 通过（`DONE Build complete.`）。
+- 截图（`docs/screenshots/waimai/p14-cloud-print-kds/`，本地 dist 静态服务 + admin-api 全 mock）：
+  - `01-admin-merchant-cloud-print-entry.png`：打印条「自动打印：支付后出票 · 飞鹅云打印 · 已配置」+「测试打印 / 使用说明」，顶部新增「出餐屏（后厨大屏）›」入口。
+  - `02-admin-kitchen-desktop.png`（1280×900）：两列 2 待接单 / 1 备餐中 / 1 超时；A2400007 已等 6 分钟（灰边）、A2400008 已等 18 分钟（橙边 + 未出票徽标 + 备注「少放盐，餐具两副」）、A2400006 已等 31 分钟（红底红边）；加料「+ 加辣 / 多花生」「+ 加饭」「+ 可乐 ×2」逐行展示。
+  - `03-admin-kitchen-mobile.png`（390×844）：窄屏堆叠为单列，字号与按钮保持可点。
+  - `04-admin-config-print-provider-cloud.png`：打印通道选中「飞鹅云」，回填账号 `feie-user-001`、SN、密钥（密文）、联数 2，三通道按钮完整可见。
+  - `05-admin-config-print-provider-local.png`：切回「本地（C-Lodop）」后云字段整体隐藏，仅保留联数。
+- 截图脚本：`node scripts/shots-p14-cloud-print-kds.cjs`（mock 覆盖 `campusMerchantBoard` / `campusMerchantKitchenQueue` / `campusMerchantPrintJobs` / `campusMerchantCloudPrint(Test)` / `campusMerchantAcceptOrder` / `campusMerchantCookingDone` / `campusStoreConfigs`）。
+- 生产库核验（`information_schema`）：`campus_fulfillment_config` 的 `printProvider / printAccount / printDeviceSn / printDeviceKey / printCopies` 五列与 `campus_print_job` 表均已存在。
+- 线上 schema：`admin-api` 未登录请求 `campusMerchantKitchenQueue { pendingCount cookingCount lateCount }`、`campusMerchantPrintJobs(limit: 1)` 返回授权错误（非「Cannot query field」），类型已生效。
+- 线上产物：`guanli/assets/pages-campus-kitchen.CM1SMfyc.js`（6767B）、`kitchen-BDpvmxNE.css`（4398B）均 200；入口 bundle 含 `pages/campus/kitchen`、`campusKitchen`、`printChannelSection`。
+
+### 49.7 边界与已知限制
+
+- **飞鹅/易联云未联调真实打印机**：签名与参数按官方文档实现，本轮以「结构 + 失败收敛 + 任务留痕」为目标；真实设备需商家填自己的账号/SN/密钥后点「测试打印」验证。
+- **云打印不含图片/二维码**：票面为纯文本（`<BR>` 换行、`<CB>` 店名、`<B>` 合计），不打印菜品图或取餐二维码。
+- **不打补丁式重打队列**：工作台「补打」在云通道是重新调 `campusMerchantCloudPrint`，不做客户端排队重试（服务端已留任务记录）。
+- **KDS 不做语音播报**：语音播报沿用工作台（新单提醒），出餐屏只做视觉提醒。
+- **KDS 无自动接单**：待接单卡片必须人工点「开始制作」，避免误接单。
+
+### 49.8 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `24964f16a feat(campus): P1-4 云打印（飞鹅/易联云）+ KDS 出餐屏`（`packages/campus-delivery-plugin` src + lib）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `[NestApplication] Nest application successfully started`；pm2 `vendure` online；无迁移报错 |
+| 后端 | 生产 PG（`1Panel-postgresql-pIe0`）`information_schema` 核验 | 5 个 `print*` 列 + `campus_print_job` 表存在 |
+| 后端 | 线上 `admin-api` 字段探针（未登录） | `campusMerchantKitchenQueue` / `campusMerchantPrintJobs` 授权错误，schema 校验通过 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61492 KB，nginx reload 成功；`guanli/assets/pages-campus-kitchen.CM1SMfyc.js`、`kitchen-BDpvmxNE.css` 均 200 |
+| C 端 | 本轮无改动，不部署 | 沿用上一轮产物 |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 打印通道：拾光达配置 → 展开店铺卡片 → 小票打印 → 打印通道（本地 / 飞鹅云 / 易联云）→ 填账号/设备编号/密钥/联数 → 保存。
+- 连通性测试：商家接单（工作台）→ 顶部打印条「测试打印」。
+- 出餐屏：商家接单（工作台）→ 顶部「出餐屏（后厨大屏）」→ 两列卡片点「开始制作 / 出餐完成」。
+
