@@ -2249,3 +2249,82 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 资料维护：拾光达配置 → 展开店铺卡片 → 「小程序上架」→ 填 AppID / 服务类目 / 版本号 / 隐私保护指引 → 选上架状态 →（审核驳回时）填审核备注 → 保存。
 - 上架前自查：同区块底部「上架前检查」清单，✓ 为已具备、○ 为缺项；6 项全 ✓ 才能保存为「已上架」。
 
+## 51. P2-2 语音/拍照搜索（2026-10-27）
+
+### 51.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | 新增 `SearchAssistProvider` 抽象 + 内置 mock 实现（`search-assist.ts`）；`SearchAssistService` 按渠道读取服务商配置并统一收敛成「关键词」；`campus_fulfillment_config` 新增 2 列（幂等迁移 `p9-p2-search-assist.ts`）；shop-api 公开只读 Query `campusSearchAssist(type, payload)`；admin-api `CampusStoreConfigWithChannel` / `CampusStoreConfigInput` 暴露两个服务商字段，`updateStoreConfig` 加白名单校验 |
+| 后台（web-admin） | 拾光达配置 → 店铺卡片新增「语音/拍照搜索」区块：语音搜索服务商、拍照搜索服务商两组胶囊（内置 mock / 未开启，标签独立一行、两等分不溢出）+ 说明文案；中英 i18n 各 6 个 key |
+| C 端（waimai-v39） | 首页搜索栏右侧新增 🎤 / 📷 两个入口（`.assist-btn`）：点语音→识别中 toast→取关键词入框并直接搜索；点拍照→调起选图→识别→入框搜索；多关键词时 toast「识别到：A / B」，失败按服务端 `error` 或兜底文案提示；中英 i18n 各 4 个 key |
+
+### 51.2 配置口径与识别契约
+
+- **配置值**（`voiceSearchProvider` / `imageSearchProvider`，默认 `mock`）：
+
+| 值 | 含义 |
+|---|---|
+| `mock` | 内置模拟识别：不调用任何外部服务，结果稳定可复现（联调 / 截图 / 回归用） |
+| `none` | 入口关闭：C 端调用直接抛 `UserInputError`（语音=「店铺未开启语音搜索」，拍照=「店铺未开启拍照搜索」） |
+
+- **白名单**：`SEARCH_ASSIST_PROVIDER_NAMES = ['mock', 'none']`，后台保存非白名单值直接拒绝；后续接入讯飞/微信同声传译/视觉识别时，只需新增 provider 实现并加入白名单与 `SEARCH_ASSIST_PROVIDERS` 注册表，**不改 GraphQL 契约、不改 C 端**。
+- **返回结构** `CampusSearchAssistResult`：`ok / type / provider / text / keywords / latencyMs / error`，`keywords` 已由 `normalizeKeywords` 归一（去空白、去重、单词 ≤20 字、最多 4 个）。
+- **异常口径**：识别过程中的失败一律收敛为 `{ ok:false, error }`（不抛异常，避免 C 端整页报错）；只有「类型非法 / 店铺未开启 / 服务商未注册」这类调用方错误才抛 `UserInputError`。
+- **mock 取词规则**：payload 是可读文本（≤40 字、非 URL / base64 / 文件路径、无图片音频扩展名）→ 按 `,，、;；空白` 切词；否则（URL、`blob:`、`wxfile://`、系统路径、空）→ 用 `type:payload` 稳定哈希从 10 词品类库取 1–2 个词，保证同一输入结果恒定。
+- **C 端行为**：识别结果只消费 `keywords[0]` 触发 `pickWord` → 写入搜索历史 + 跨店商品搜索；多词时先 toast 提示其余关键词，不阻塞搜索。
+
+### 51.3 权限与校验
+
+- **读**：`campusSearchAssist` 为 `@Allow(Permission.Public)` 公开只读，无需登录（C 端首页未登录也可用语音/拍照搜索）。
+- **配置读**：服务端按 `ctx.channelId` 读 `campus_fulfillment_config`，渠道间互不影响；无配置行时回落 `mock`。
+- **写**：沿用 `CampusConfig` 权限（后台 `usePermGuard('CampusConfig')`），写入口仍是 `WaimaiStoreService.updateStoreConfig`，新增两字段白名单校验，未新增权限点。
+- **不限流**：本轮 mock 无外部成本，未加频控；接真实服务商时需在 provider 侧或网关侧追加限流/配额（见 51.6）。
+
+### 51.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_fulfillment_config` | 新增 `voiceSearchProvider varchar(16) NOT NULL DEFAULT 'mock'`、`imageSearchProvider varchar(16) NOT NULL DEFAULT 'mock'` |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`，逐条执行、单条失败只打 `[P9P2SearchAssistMigration] failed:` 日志不阻断启动，重复启动安全。
+
+### 51.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，`lib/` 随提交入库）；web-admin `npx uni build` 通过；C 端 `npx uni build` 通过（`DONE Build complete.`）。
+- 后台截图（`docs/screenshots/waimai/p16-search-assist/`，本地 dist 静态服务 + admin-api 全 mock，脚本 `web-admin/scripts/shots-p16-search-assist.cjs`）：
+  - `01-admin-search-assist-both-on.png`：语音 / 拍照均为「内置 mock」，两组胶囊各占一行、标签独立成行不换行。
+  - `02-admin-search-assist-image-off.png`：拍照搜索切到「未开启」，语音仍为「内置 mock」，两行选中态互不影响。
+- C 端截图（`docs/screenshots/p16-search-assist/`，本地 dist 静态服务 + shop-api 全 mock，脚本 `.secrets/p16-search-assist-shots.cjs`）：
+  - `01-home-search-assist-entry.png`：首页搜索栏右侧 🎤 / 📷 两个圆形入口。
+  - `02-home-voice-search-result.png`：点 🎤 识别出「宫保鸡丁」→ 关键词入框 + 跨店商品「商品」结果 2 条（两家店）。
+  - `03-home-image-search-keywords.png`：点 📷 模拟选图 → 识别出「炸鸡 / 汉堡」→ 取首词「炸鸡」入框，命中无结果时展示「是不是想找 / 换个品类试试」兜底。
+- 生产库核验（`information_schema`）：`campus_fulfillment_config` 的 `voiceSearchProvider / imageSearchProvider` 两列均已存在。
+- 线上 shop-api 探针（`https://www.yourbao.cn/shop-api`，未登录）：
+  - `campusSearchAssist(type: "voice")` → `{"ok":true,"provider":"mock","keywords":["麻辣烫","奶茶"]}`
+  - `campusSearchAssist(type: "image", payload: "dish.png")` → `keywords:["凉拌黄瓜","香菇滑鸡饭"]`（修复后不再回显文件名）
+- 线上产物：`guanli/assets/pages-campus-config.Cnv8HkCf.js`（68307B）、`campus.F95msgkb.js`（15473B）均 200，`https://e.joho.cn/guanli/` 首页 200。
+
+### 51.6 边界与已知限制
+
+- **只有 mock**：本轮不接真实 ASR/OCR，识别结果与真实语音/图片无关；`text` 字段仅用于回显。
+- **payload 不上传**：C 端把选图/录音的本地地址直接作为 `payload` 传入，服务端 mock 不会下载或存储该文件；接真实服务商时需改为「先上传取 URL，再传 URL」。
+- **不限流不限大小**：GraphQL 入参 `payload` 未做长度硬限制（mock 内部只用前 40 字判断文本），接真实服务商前必须补大小/时长限制与频控。
+- **入口始终展示**：C 端不查询「店铺是否开启」，由服务端 `none` 抛错后在 C 端 toast 提示；若需隐藏入口，需新增一个公开只读的开关查询。
+- **关键词质量**：mock 词库固定 10 个外卖品类词，只为联调可对齐，不代表识别准确率。
+
+### 51.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `29694c129 feat(campus): P2-2 语音/拍照搜索（Provider 抽象 + mock + 渠道级开关）` + `ff07af399 fix(campus): P2-2 mock 识别不再把文件路径/URL 当关键词`（`packages/campus-delivery-plugin` src + lib）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | `HEAD is now at ff07af399`；pm2 `vendure` online；无迁移报错 |
+| 后端 | 生产 PG（`1Panel-postgresql-pIe0`）`information_schema` 核验 | `voiceSearchProvider / imageSearchProvider` 两列存在 |
+| 后端 | 线上 `shop-api` 探针（未登录，voice / image 各一次） | 均 `ok:true`，`provider:"mock"`，关键词为词库词 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61503 KB，nginx reload 成功；`pages-campus-config` / `campus` chunk 均 200 |
+| C 端 | `cd D:\zhao\waimai-v39 && npx uni build` → `node .secrets/deploy-waimai.mjs` | 构建 `DONE Build complete.`；部署脚本返回成功 |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 服务商配置：拾光达配置 → 展开店铺卡片 → 「语音/拍照搜索」→ 两个服务商各选「内置 mock / 未开启」→ 保存。
+- C 端使用：首页搜索栏右侧 🎤（语音）/ 📷（拍照）→ 识别出的关键词自动入框并直接搜索。
+
