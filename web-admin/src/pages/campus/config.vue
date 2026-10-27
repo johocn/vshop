@@ -517,6 +517,32 @@
           </view>
           <text class="timeout-tip">{{ mpMissingOf(card).length ? $t('campusConfig.mpNotReadyTip') : $t('campusConfig.mpReadyTip') }}</text>
         </view>
+        <view class="sec-t">{{ $t('campusConfig.saSection') }}</view>
+        <view class="sa-block">
+          <text class="sa-label">{{ $t('campusConfig.saVoice') }}</text>
+          <view class="sa-opts">
+            <view
+              v-for="p in SEARCH_ASSIST_PROVIDERS" :key="'sa-v-' + p.value"
+              class="sa-opt" :class="{ on: card.form.voiceSearchProvider === p.value }"
+              @tap="card.form.voiceSearchProvider = p.value"
+            >
+              <text>{{ $t(p.label) }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="sa-block">
+          <text class="sa-label">{{ $t('campusConfig.saImage') }}</text>
+          <view class="sa-opts">
+            <view
+              v-for="p in SEARCH_ASSIST_PROVIDERS" :key="'sa-i-' + p.value"
+              class="sa-opt" :class="{ on: card.form.imageSearchProvider === p.value }"
+              @tap="card.form.imageSearchProvider = p.value"
+            >
+              <text>{{ $t(p.label) }}</text>
+            </view>
+          </view>
+        </view>
+        <text class="sa-tip">{{ $t('campusConfig.saTip') }}</text>
         <view class="sec-t">{{ $t('campusConfig.privacySection') }}</view>
         <view class="pmode-row">
           <view class="pmode" :class="{ on: card.form.privacyEnabled }" @tap="card.form.privacyEnabled = !card.form.privacyEnabled">
@@ -753,6 +779,12 @@ const MP_CHECK_ITEMS = [
   { key: 'licenseNo', label: 'campusConfig.mpCheckLicenseNo' },
 ] as const;
 
+/** 语音/拍照搜索服务商（与服务端白名单一致，none=入口关闭） */
+const SEARCH_ASSIST_PROVIDERS = [
+  { value: 'mock', label: 'campusConfig.saProviderMock' },
+  { value: 'none', label: 'campusConfig.saProviderNone' },
+] as const;
+
 interface HandoverForm {
   name: string;
   address: string;
@@ -839,6 +871,8 @@ interface CardForm {
   mpListingStatus: string;          // draft/inReview/online/rejected/offline
   mpPrivacyUrl: string;             // 隐私保护指引地址
   mpReviewNote: string;             // 审核备注/驳回原因
+  voiceSearchProvider: string;      // mock / none
+  imageSearchProvider: string;      // mock / none
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -1245,6 +1279,8 @@ function toForm(c: CampusStoreConfig): CardForm {
     mpListingStatus: c.mpListingStatus || 'draft',
     mpPrivacyUrl: c.mpPrivacyUrl ?? '',
     mpReviewNote: c.mpReviewNote ?? '',
+    voiceSearchProvider: c.voiceSearchProvider || 'mock',
+    imageSearchProvider: c.imageSearchProvider || 'mock',
   };
 }
 
@@ -1581,6 +1617,8 @@ async function save(card: Card) {
       mpListingStatus: f.mpListingStatus,
       mpPrivacyUrl: f.mpPrivacyUrl.trim() || null,
       mpReviewNote: f.mpReviewNote.trim() || null,
+      voiceSearchProvider: f.voiceSearchProvider,
+      imageSearchProvider: f.imageSearchProvider,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -1668,6 +1706,15 @@ async function ensureProfile(card: Card) {
         &.ok { color: $wa-success; } }
       .mp-check-lbl { font-size: 24rpx; color: $wa-muted;
         &.ok { color: $wa-ink; } } } }
+  // 语音/拍照搜索：标签独立成行 + 两等分胶囊，窄屏也不换行
+  .sa-block { padding: 10rpx 0 18rpx;
+    .sa-label { display: block; font-size: 26rpx; color: $wa-ink; margin-bottom: 12rpx; }
+    .sa-opts { display: flex; gap: 16rpx; }
+    .sa-opt { flex: 1; text-align: center; padding: 16rpx 0; font-size: 24rpx; color: $wa-muted;
+      border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card;
+      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; } } }
+  // 语音/拍照搜索：区块说明文案
+  .sa-tip { display: block; padding: 0 0 16rpx; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
   .routes { display: flex; flex-direction: column; gap: 16rpx; padding: 8rpx 0 16rpx;
     .route { display: flex; align-items: flex-start; gap: 16rpx; padding: 20rpx 24rpx;
       border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
