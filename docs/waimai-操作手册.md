@@ -2487,3 +2487,81 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 平台配置无人配送：同页 → 无人配送通道 → 打开开关 → 选服务商（模拟通道免配置；美团/新石器需填接口地址与密钥）→ 「保存配置」。
 - C 端展示：店铺页店铺卡内「🔒 N 个智能取餐柜可用」入口条 → 点击查看站点列表与无人配送开通状态。
 
+## 54. P2-5 骑手合规：健康证 / 保险 / 背景调查（2026-10-27）
+
+### 54.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | Customer 新增 7 个合规自定义字段（健康证编号/照片/到期日、保险单号/到期日、背调状态/时间）；新增纯函数模块 `rider-compliance.ts`（判定 + 入参归一化）+ 单测 `rider-compliance.spec.ts`（10 例）；admin-api 新增 `campusUpdateRiderCompliance(customerId, input)`，shop-api `myRiderProfile` 扩展 `compliance` / `riderHealthCertExpiry` / `riderInsuranceExpiry`，`applyRider` 新增 `healthCertImg`；上线/接单闸门与 `setOnline` 按合规结果拦截；幂等补列迁移 `p9-p5-rider-compliance.ts` |
+| 后台（web-admin） | 骑手入驻审核页卡片内新增「合规资料（健康证 / 保险 / 背调）」块：状态胶囊（合规/即将到期/待完善/已失效）+ 三行逐项状态（有效/即将到期/已过期/审核中/未登记/未通过）+ 到期日；「合规登记」就地展开表单（健康证编号、到期日、保险单号、到期日、背调四态）；保存后返回 `blocked` 直接提示失效原因；中英 i18n 各约 30 个 key |
+| C 端（waimai-v39） | 入驻页新增「健康证照片（选填）」上传并随申请提交；已通过态的「已通过审核」卡内展示合规资料只读块；接单大厅顶部新增合规提醒横幅（已失效 / 即将到期 / 待完善三色），列出异常项与到期日；合规失效时「接单中」开关前置拦截并提示；中英 i18n 新增 `comp*` 文案 |
+
+### 54.2 数据模型与接口口径
+
+- **字段（Customer 自定义字段，共 7 个）**：`riderHealthCertNo`(string) / `riderHealthCertImg`(string) / `riderHealthCertExpiry`(datetime) / `riderInsuranceNo`(string) / `riderInsuranceExpiry`(datetime) / `riderBackgroundCheck`(string，值域 `none|pending|passed|failed`) / `riderBackgroundCheckAt`(datetime)。
+- **判定口径**（`evaluateRiderCompliance`，后台与 C 端前端同口径复刻）：
+  - 健康证：无编号且无照片 → `missing`；有登记则按到期日 → `ok` / `expiring`（≤30 天）/ `expired`。
+  - 保险：无单号 → `missing`；有登记按到期日 → `ok` / `expiring` / `expired`。
+  - 背调：`passed` → `ok`；`failed` → `failed`；`pending` → `pending`；其余 → `missing`。
+  - 汇总：`blocked = 任一 expired 或 failed`；`pending = 任一 missing 或 pending`；`ok = !blocked && !pending`。
+- **拦截策略（灰度）**：**只在「已登记但失效」时阻断**（健康证/保险过期、背调 `failed`）；未登记只算「待完善」不阻断，避免一次性锁死存量骑手。拦截点两处：`assertApprovedRider`（抢单/任务类接口前置）与 `setOnline(true)`（上线开关），均抛 `UserInputError('骑手合规资料已失效（健康证/保险过期或背调未通过），请联系管理员')`。
+- **登记 mutation**：`campusUpdateRiderCompliance(customerId: ID!, input: RiderComplianceInput!)` 返回 `RiderComplianceResult { customerId ok blocked pending items { key label status expiry detail } }`；`RiderComplianceInput` 全字段可选，**按字段存在性写库**（不传 = 不改动）；文本 >128 字符、日期非法、背调值非法均 `UserInputError`；写非法背调时同时刷新 `riderBackgroundCheckAt`。
+- **C 端只读**：shop-api `RiderProfile` 新增 `compliance`（无 `customerId`）、`riderHealthCertExpiry`、`riderInsuranceExpiry`；`applyRider(..., healthCertImg: String)` 仅接收照片 URL（≤500），编号与到期日仍由后台登记。
+
+### 54.3 权限与校验
+
+- **后台写**：`CampusPermissions.CampusAuditRider`（骑手审核权限）；只动合规字段，不改 `riderStatus`（审核通过/暂停仍是 `campusSetRiderStatus`）。
+- **后台读**：沿用 `riderApplications` 返回 `customFields`，新增 7 个字段已在 `APPLICATION_FIELDS` 中显式列出（GraphQL 需逐字段声明）。
+- **C 端读**：`myRiderProfile` 为 `Permission.Authenticated`（仅本人）；`compliance` 不含 `customerId`，避免跨账号信息泄露。
+- **校验边界**：所有合规文本 ≤128、照片 URL ≤500、到期日必须可 `Date` 解析；`healthCertImg` 上传沿用既有 `uploadCustomerAsset`（客户资产上传通道）。
+
+### 54.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `customer`（补列） | `customFieldsRiderhealthcertno`(varchar 255)、`customFieldsRiderhealthcertimg`(varchar 255)、`customFieldsRiderhealthcertexpiry`(timestamp)、`customFieldsRiderinsuranceno`(varchar 255)、`customFieldsRiderinsuranceexpiry`(timestamp)、`customFieldsRiderbackgroundcheck`(varchar 255)、`customFieldsRiderbackgroundcheckat`(timestamp)，共 7 列 |
+
+列名按 Vendure 自定义字段物理列规则（`customFields` + 字段名首字母大写其余小写）。迁移仍为 `OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`，逐条执行、单条失败只打 `[P9P5RiderComplianceMigration] failed:` 日志不阻断启动。
+
+### 54.5 验证记录
+
+- 单测：`npx vitest --config vitest.config.mts --run src/rider-compliance.spec.ts` → **10 passed**（未登记不阻断 / 全有效 / 过期阻断 / 背调 failed 阻断 / 30 天内 expiring / 仅照片算已登记 / 归一化各校验分支）。
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过；web-admin `node scripts/deploy.mjs` 通过（产物校验 61561 KB）；C 端 `npx uni build` 通过（`DONE Build complete.`）。
+- 后台截图（`docs/screenshots/waimai/p19-rider-compliance/`，本地 dist 静态服务 + admin-api 全 mock，脚本 `web-admin/scripts/shots-p19-rider-compliance.cjs`）：
+  - `01-admin-rider-compliance-list.png`：三张卡片分别呈现「待完善（健康证/保险/背调均未登记）」「即将到期（健康证 2026-11-15 橙色、保险 2027-06-30 绿色）」「已失效 · 禁止接单（健康证与保险均过期、背调未通过）」。
+  - `02-admin-rider-compliance-form.png`：展开的合规登记表单——健康证编号/到期日、保险单号/到期日、背调四态胶囊（默认「未开始」）。
+  - `03-admin-rider-compliance-blocked.png`：保存返回 `blocked` 后的收起态与提示。
+- C 端线上截图（`docs/screenshots/waimai/p19-rider-compliance/`，脚本 `waimai-v39/scripts/_shot_rider_compliance.py`，线上 smoke-rider 账号）：
+  - `04-rider-home-compliance-banner.png`：接单大厅顶部灰色提醒条「合规资料待完善，不影响接单」+「健康证 / 保险 / 背景调查」摘要，说明线上 shop-api `compliance` 字段已生效。
+  - `05-rider-join-compliance.png`：入驻页「已通过审核」卡内合规资料块：健康证/保险/背景调查三行均「未登记」，右上角「待完善」胶囊。
+- 生产库核验（`information_schema`）：`customer` 表 `customFieldsRider%` 列共 **14 列**（7 旧 + 7 新），新列名与上面表格一致。
+- 线上产物：`guanli/assets/pages-rider-audit-index.CgpK3XzS.js`、`guanli/assets/rider-audit.DtaPASdU.js`、`waimai/assets/pkg-rider-pages-rider-home.BA3Rouy9.js`、`waimai/assets/pkg-rider-pages-rider-join.BrsboWC4.js` 均 HTTP 200。
+
+### 54.6 边界与已知限制
+
+- **合规资料仅后台登记**：骑手端不上传编号/到期日（只能上传健康证照片加快审核），保险单号与背调结果完全由平台录入，无骑手自助续期流程。
+- **无到期提醒**：30 天 `expiring` 只在前端展示，未接入短信/公众号模板消息，也未做定时任务扫描。
+- **背调不接三方**：`riderBackgroundCheck` 为人工录入的四态枚举，未对接任何背调服务商。
+- **未登记不阻断**：存量骑手若从未登记合规资料，仍可正常接单（仅「待完善」提示）；如需强合规需运营侧另行收紧口径。
+- **照片仅存 URL**：健康证照片走客户资产库，未做 OCR 识别，也未校验图片内容。
+- **前端同口径复刻**：后台与 C 端的 `expiring` 判定（30 天）与后端为各自实现，改动阈值需三处同步（`rider-compliance.ts`、`audit/index.vue`、`rider-home.vue`）。
+- **无操作审计**：`campusUpdateRiderCompliance` 未写操作日志（谁在何时改了谁的合规资料），排查依赖经验。
+
+### 54.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `2185fc208 feat(campus): P2-5 骑手合规字段 + 判定模块 + 审核登记接口` → push → 服务器 `git reset --hard origin/master + pm2 restart vendure --update-env` | `pm2 online`，`/shop-api`、`/admin-api` 映射正常，无 schema 报错，无 `[P9P5RiderComplianceMigration] failed` |
+| 后端 | 生产 PG `information_schema` 核验 | `customer` 表 `customFieldsRider%` 共 14 列 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61561 KB，nginx reload 成功；`pages-rider-audit-index.CgpK3XzS.js`、`rider-audit.DtaPASdU.js` 均 200 |
+| 后台 | vshop 提交 `47079223 feat(campus-admin): P2-5 骑手审核页合规资料登记与阻断提示` → `git push` | `61cc5232..47079223 master -> master` |
+| C 端 | `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs`（内含 `uni build`） | 产物校验 3668 KB，`200 deploy done`；`pkg-rider-pages-rider-home.BA3Rouy9.js`、`pkg-rider-pages-rider-join.BrsboWC4.js` 均 200 |
+| C 端 | waimai 提交 `aa62f52 feat(rider): P2-5 骑手端合规展示与健康证上传` → `git push origin HEAD:master` | `ec12154..aa62f52 HEAD -> master` |
+| 线上 | 登录态探针（smoke-rider）访问 `#/pkg-rider/pages/rider-home`、`#/pkg-rider/pages/rider-join` | 均正常渲染合规提醒与合规资料块（见 54.5 截图），证明线上 `compliance` 字段链路通 |
+
+操作入口：
+- 平台登记合规：后台「骑手入驻审核」→ 目标骑手卡片 → 「合规资料」块 → 「合规登记」→ 填健康证编号/到期日、保险单号/到期日、背调状态 → 「保存合规资料」；返回「已失效」时会提示该骑手已被禁止接单。
+- 骑手自查：C 端「我的 → 传信者中心」进接单大厅，顶部横幅显示合规提醒；「传信者入驻」页可查看合规资料只读明细。
+
+
