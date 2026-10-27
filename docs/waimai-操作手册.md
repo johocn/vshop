@@ -2328,3 +2328,83 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - 服务商配置：拾光达配置 → 展开店铺卡片 → 「语音/拍照搜索」→ 两个服务商各选「内置 mock / 未开启」→ 保存。
 - C 端使用：首页搜索栏右侧 🎤（语音）/ 📷（拍照）→ 识别出的关键词自动入框并直接搜索。
 
+## 52. P2-3 广告位与商家自助投放计费（2026-10-27）
+
+### 52.1 交付清单
+
+| 端 | 能力 |
+|---|---|
+| 后端（vendure） | 新增实体 `CampusAdCampaign`（表 `campus_ad_campaign`）+ `ad-slots.ts`（广告位定义 / 报价 / 状态视图）+ `CampusAdService` + admin/shop 两套 resolver；admin-api 新增 `campusAdSlots` / `campusMerchantAds` / `campusAdCampaigns` 与 `campusMerchantCreateAd` / `campusMerchantPayAd` / `campusMerchantCancelAd` / `campusReviewAd`；shop-api 新增公开只读 `campusActiveAds(slot)`；幂等建表迁移 `p9-p3-ad-campaign.ts` |
+| 后台（web-admin） | 新增页面 `/pages/campus/ads`「广告投放」，双 tab：我的投放（商家自助）/ 平台审核（平台）；含广告位选择、标题、起止日期、图片地址、跳转链接、实时报价、下单/支付/取消，以及平台侧筛选 + 通过/驳回（驳回必填原因）；侧边菜单项「广告投放」（商家或平台任一权限可见）；中英 i18n 各约 50 个 key |
+| C 端（waimai-v39） | 首页新增 `.ad-banner` 横滑广告区（在投广告，最多 3 条）；店铺页顶部新增 `.shop-ad` 广告条；无图时降级为主题色文字卡；均展示「推广」标签 + 标题 +「至 YYYY-MM-DD」；点击按链接类型跳 webview 或站内页；中英 i18n 各 2 个 key |
+
+### 52.2 计费与状态口径
+
+- **广告位与单价**（`ad-slots.ts`，分/天，写死在代码里；后续调价只影响新单）：
+
+| code | 名称 | 单价 |
+|---|---|---|
+| `homeBanner` | 首页横幅 | ¥15.00 / 天（1500 分） |
+| `shopTop` | 店铺页顶部 | ¥8.00 / 天（800 分） |
+
+- **报价规则**：天数含首尾（`end - start + 1`），1 ~ 90 天；`end < start`、日期非 `YYYY-MM-DD`、超过 90 天、广告位不在白名单，一律 `UserInputError`。总价 = 天数 × 单价，**下单即固化** `unitPriceFen / totalFen` 到投放单上。
+- **状态机**：`pendingPay`（下单）→ 支付 → `pendingReview`（待审核）→ 通过 `running` / 驳回 `rejected`；`pendingPay | pendingReview` 可 `cancelled`；`running` 且已过结束日 → 对外视图改写为 `finished`（**不落库**，按 `campusDayKey` 实时判定，无需定时任务）。
+- **素材校验**：标题 1~40 字；`imageUrl` 必须 `http(s)://` 且 ≤512 字；`linkUrl` 必须 `http(s)://` 或 `/pages/` 开头且 ≤255 字；审核备注 ≤200 字，驳回必填。
+- **展示规则（C 端）**：仅 `status = running` 且 `startDate <= 今天 <= endDate` 的广告；同一广告位按 `totalFen DESC, createdAt ASC` 取前 3 条；返回精简字段（`id/slot/title/imageUrl/linkUrl/endDate`）。
+- **模拟支付**：`pay` 生成 `ADPAY-<时间戳>-<随机 4 位>` 流水号并写 `paidAt`；对已支付/投放中/已结束重复调用幂等返回，不重复扣费（本轮未接真实支付渠道）。
+
+### 52.3 权限与校验
+
+- **商家侧**（`CampusMerchant`）：`campusAdSlots` / `campusMerchantAds` / 下单 / 支付 / 取消，一律按 `ctx.channelId` 隔离，只能看到与操作本渠道投放单（`findOwn` 同时校验 id + channelId）。
+- **平台侧**（`CampusConfig`）：`campusAdCampaigns(status, channelId)` 默认本渠道、可指定渠道，`take 200`，状态过滤在内存完成（`finished` 是派生态，SQL 无法直接过滤）；`campusReviewAd` 仅 `pendingReview` 可审。
+- **C 端**：`campusActiveAds` 为 `@Allow(Permission.Public)`，未登录可读；只返回投放窗口内的精简字段，不暴露价格、审核备注、支付流水。
+- **菜单权限**：`constants/menus.ts` 的 `perm` 由 `string` 扩展为 `string | string[]`（任一命中即可），「广告投放」配置为 `['CampusMerchant','CampusConfig']`，商家与平台账号都能看到入口；页面内再按权限显隐 tab。
+
+### 52.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_ad_campaign`（新建） | `id`、`createdAt`、`updatedAt`、`channelId`、`slot`、`title`、`imageUrl`、`linkUrl`、`startDate`（date）、`endDate`（date）、`days`、`unitPriceFen`、`totalFen`、`status`、`payRef`、`paidAt`、`reviewNote`、`reviewedBy`、`reviewedAt`、`createdBy`，共 20 列 |
+| 索引 | `idx_campus_ad_channel_slot (channelId, slot, status)` |
+
+迁移形态：`OnApplicationBootstrap` + `CREATE TABLE / CREATE INDEX IF NOT EXISTS`，语句逐条执行、单条失败只打 `[P9P3AdCampaignMigration] failed:` 日志不阻断启动，重复启动安全（生产 `synchronize: false`）。
+
+### 52.5 验证记录
+
+- 构建：`packages/campus-delivery-plugin` `npx tsc -p ./tsconfig.build.json` 通过（exit 0，`lib/` 随提交入库）；web-admin `node scripts/deploy.mjs` 内含 `npm run build:h5` 通过；C 端 `npx uni build` 通过（`DONE Build complete.`）。
+- 后台截图（`docs/screenshots/waimai/p17-ads/`，本地 dist 静态服务 + admin-api 全 mock，脚本 `web-admin/scripts/shots-p17-ads.cjs`）：
+  - `01-admin-ads-merchant.png`：我的投放 tab，广告位/标题/日期/报价（`3 天 × 单价 = ¥45.00`）表单 + 4 张投放单卡（待支付 / 待审核 / 投放中 / 已驳回），对应按钮为「去支付 / 取消投放」或仅展示状态。
+  - `02-admin-ads-review-reject.png`：平台审核 tab，筛选胶囊「全部 / 待审核 / 投放中 / 已结束 / 已驳回」+ 驳回弹框（标题「驳回投放」、副标题带广告名、按钮「取消 / 确定」横排）。
+- C 端截图（`docs/screenshots/p17-ads/`，本地 dist 静态服务 + shop-api 全 mock，脚本 `.secrets/p17-ads-shots.cjs`）：
+  - `01-home-banner-ad.png`：首页横滑广告区 2 条（1 条有图 + 1 条无图文字卡），三行文案「推广 / 标题 / 至 YYYY-MM-DD」不重叠，无图卡为主题色底深色字。
+  - `02-shop-top-ad.png`：店铺页店铺卡片下方广告条，样式与首页一致、无溢出。
+- 生产库核验（`information_schema`）：`campus_ad_campaign` 存在，20 列（`id, createdAt, updatedAt, channelId, slot, title, imageUrl, linkUrl, startDate, endDate, days, unitPriceFen, totalFen, status, payRef, paidAt, reviewNote, reviewedBy, reviewedAt, createdBy`）。
+- 线上 shop-api 探针（`https://www.yourbao.cn/shop-api`，未登录）：`campusActiveAds(slot: "homeBanner")` → `{"data":{"campusActiveAds":[]}}`（生产尚无在投广告，接口与表均正常）。
+- 线上产物：`guanli/assets/pages-campus-ads.DbRhO8C9.js`（12886B）、`guanli/assets/ads-B357MlO2.css`（5551B）均 200；`waimai/assets/search.Vc-E-T4L.js` 200 且包含 `campusActiveAds` 查询。
+
+### 52.6 边界与已知限制
+
+- **模拟支付**：`campusMerchantPayAd` 只改状态 + 写流水号，不对接微信/支付宝，也没有对账、退款、发票；接真实支付时需改为「下单 → 拉起支付 → 回调置 pendingReview」。
+- **无素材上传**：C 端/后台都只填图片 URL，不提供上传；跨域图片需自行保证可访问。
+- **无曝光/点击统计**：本轮不埋点、不回收投放效果数据，按天计费不区分展示量。
+- **单广告位最多展示 3 条**：按总价降序取前 3，第 4 条起即使审核通过也不会曝光；平台侧未做「同时段超卖」校验。
+- **审核只有一审**：通过/驳回后不可再改判，驳回需新建投放单；`cancelled / rejected` 不退款（本轮未收款）。
+- **平台列表 take 200**：超量需按时间分页，当前未提供分页参数。
+- **广告位固定**：广告位与单价写死在后端代码，新增广告位需改代码 + 重新发布。
+
+### 52.7 部署记录（2026-10-27）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `47d0c2b54 feat(campus): P2-3 广告位与商家自助投放计费（按天计费 + 平台审核 + C 端在投广告）` → 服务器重启后启动失败：`Query.campusAdSlots defined in resolvers, but not in schema`（同一 resolver 同时注册进 admin/shop 两套 schema）→ 修复提交 `48329f8b7 fix(campus): P2-3 广告 resolver 拆 admin/shop 两套` → `git push origin master` → 服务器 `git fetch + reset --hard origin/master + pm2 restart vendure --update-env` | 首次部署 crash loop（restarts 264→290）；修复后 `uptime 45s` 稳定、pm2 online、启动日志无 schema 报错 |
+| 后端 | 生产 PG（`1Panel-postgresql-pIe0`）`information_schema` 核验 | `campus_ad_campaign` 20 列存在 |
+| 后端 | 线上 `shop-api` 探针 | `campusActiveAds` 返回空数组，无报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61526 KB，nginx reload 成功；`pages-campus-ads` chunk 200 |
+| C 端 | `cd D:\zhao\waimai-v39 && npx uni build` → `node .secrets/deploy-waimai.mjs` | 构建 `DONE Build complete.`；产物校验 3655 KB；部署返回 `200 deploy done` |
+| 线上 | `https://e.joho.cn/guanli/`（后台）、`https://www.yourbao.cn/waimai/`（C 端） | 均 HTTP 200 |
+
+操作入口：
+- 商家自助投放：后台侧边「广告投放」→ 我的投放 → 选广告位、填标题/起止日期（图片与链接选填）→ 看实时报价 → 提交投放 → 「去支付」（模拟）→ 等待平台审核。
+- 平台审核：后台侧边「广告投放」→ 平台审核 → 按状态筛选 → 「通过 / 驳回」（驳回填原因）→ 通过后广告按日期自动出现在 C 端。
+- C 端展示：首页 `homeBanner` 横滑区、店铺页店铺卡片下方 `shopTop` 广告条，点击按链接跳转。
+
