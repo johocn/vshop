@@ -19,6 +19,11 @@
         <text class="e-lbl">{{ $t('nav.campusStoreSettings') }}</text>
         <text class="e-chev">›</text>
       </view>
+      <!-- KDS 出餐屏（P1-4）：后厨大屏，与工作台共用同一订单状态机 -->
+      <view class="entrybar" @tap="goKitchen">
+        <text class="e-lbl">{{ $t('campusMerchant.kitchenEntry') }}</text>
+        <text class="e-chev">›</text>
+      </view>
       <view class="voicebar">
         <text class="v-lbl">{{ $t('campusMerchant.voiceTitle') }}</text>
         <view class="v-switch" :class="{ on: voiceEnabled }" @tap="toggleVoice">
@@ -26,17 +31,21 @@
         </view>
       </view>
       <view v-if="!board.merchantConfirmEnabled" class="notice">{{ $t('campusMerchant.notConfirmMode') }}</view>
-      <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: lodopReady === 'fail' }">
+      <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: printBad }">
         <view class="p-status">
-          <text class="p-dot" :class="{ bad: lodopReady === 'fail', wait: lodopReady === 'probing' }"></text>
+          <text class="p-dot" :class="{ bad: printBad, wait: isLocal && lodopReady === 'probing' }"></text>
           <text class="p-mode">{{ printStatusText }}</text>
           <text v-if="failedCount" class="p-warn">{{ $t('campusMerchant.printFailedCount').replace('{n}', String(failedCount)) }}</text>
         </view>
         <view class="p-ops">
-          <button v-if="lodopReady === 'fail'" class="p-btn" @tap="probePrinter(true)">
+          <button v-if="isLocal && lodopReady === 'fail'" class="p-btn" @tap="probePrinter(true)">
             {{ $t('campusMerchant.printRetryConnect') }}
           </button>
-          <button v-if="failedCount" class="p-btn" :disabled="lodopReady !== 'ok'" @tap="retryFailed">
+          <!-- 云打印通道：一键连通性测试（验证账号/设备/密钥） -->
+          <button v-if="!isLocal" class="p-btn" :disabled="cloudTesting" @tap="testCloudPrint">
+            {{ cloudTesting ? $t('campusMerchant.printing') : $t('campusMerchant.printTestCloud') }}
+          </button>
+          <button v-if="failedCount" class="p-btn" :disabled="isLocal && lodopReady !== 'ok'" @tap="retryFailed">
             {{ $t('campusMerchant.printRetryFailed') }}
           </button>
           <button class="p-btn ghost" @tap="showPrintHelp">{{ $t('campusMerchant.printHelp') }}</button>
@@ -147,6 +156,8 @@ import {
   campusMerchantAcceptOwned,
   campusMerchantBoard,
   campusMerchantCancelExternal,
+  campusMerchantCloudPrint,
+  campusMerchantCloudPrintTest,
   campusMerchantCookingDone,
   campusMerchantDispatchExternal,
   campusMerchantMarkHandoverArrived,
@@ -185,6 +196,8 @@ const board = ref<CampusMerchantBoard>({
   paused: false,
   merchantConfirmEnabled: false,
   printMode: 'off',
+  printProvider: 'local',
+  cloudPrintConfigured: false,
   storeName: '',
   storePhone: null,
   pending: [],
@@ -221,12 +234,30 @@ const PRINT_RETRY_DELAY_MS = 3000;
 /** 失败徽标阈值：新单超过该时长仍未打票即提示（正常出票在秒级） */
 const UNPRINTED_ALERT_MS = 2 * 60 * 1000;
 const failedCount = computed(() => Object.keys(failedPrints.value).length);
+/** 打印通道（P1-4）：local 走前端 C-Lodop，其余由服务端直连云打印机 */
+const isLocal = computed(() => board.value.printProvider === 'local');
+const cloudTesting = ref(false);
+
+/** 顶部打印条异常态：本地=服务未连上；云=账号/设备未配置 */
+const printBad = computed(() =>
+  isLocal.value ? lodopReady.value === 'fail' : !board.value.cloudPrintConfigured,
+);
 
 const printStatusText = computed(() => {
   if (board.value.printMode === 'off') return locale.t('campusMerchant.printModeOff');
+  const mode = locale.t(printModeKey.value);
+  if (!isLocal.value) {
+    const provider = board.value.printProvider === 'feie'
+      ? locale.t('campusMerchant.printProviderFeie')
+      : locale.t('campusMerchant.printProviderYilianyun');
+    const state = board.value.cloudPrintConfigured
+      ? locale.t('campusMerchant.printCloudReady')
+      : locale.t('campusMerchant.printCloudUnconfigured');
+    return `${mode} · ${provider} · ${state}`;
+  }
   if (lodopReady.value === 'probing') return locale.t('campusMerchant.printProbing');
   if (lodopReady.value === 'fail') return locale.t('campusMerchant.printOffline');
-  return `${locale.t(printModeKey.value)} · ${locale.t('campusMerchant.printConnected')}`;
+  return `${mode} · ${locale.t('campusMerchant.printConnected')}`;
 });
 
 /** 连接状态重探（商家装好/启动 C-Lodop 后点「重新连接」即可恢复，不用刷新页面） */
@@ -246,7 +277,7 @@ async function probePrinter(withToast = false) {
 function showPrintHelp() {
   uni.showModal({
     title: locale.t('campusMerchant.printHelpTitle'),
-    content: locale.t('campusMerchant.printHelpBody'),
+    content: locale.t(isLocal.value ? 'campusMerchant.printHelpBody' : 'campusMerchant.printHelpCloudBody'),
     showCancel: false,
     confirmText: locale.t('campusMerchant.printHelpOk'),
   });
@@ -296,27 +327,33 @@ function receiptLabels() {
 async function printOne(o: MerchantBoardOrder, withToast: boolean): Promise<boolean> {
   printingId.value = o.id;
   try {
-    await printReceipt58(
-      {
-        storeName: board.value.storeName,
-        storePhone: board.value.storePhone,
-        code: o.code,
-        createdAt: o.createdAt,
-        createdAtText: fullTime(o.createdAt),
-        zone: o.zone,
-        building: o.building,
-        slotText: o.slotText,
-        route: o.route,
-        note: o.note,
-        lines: o.lines,
-        shipping: o.shipping,
-        total: o.total,
-      },
-      receiptLabels(),
-    );
-    try {
-      await campusMerchantMarkPrinted(o.id);
-    } catch { /* 回执失败不阻塞（下次补打以 printedAt 为准） */ }
+    if (!isLocal.value) {
+      // 云打印（P1-4）：后端签名直连服务商，成功后由后端回写 printedAt（无需再调 markPrinted）
+      const r = await campusMerchantCloudPrint(o.id);
+      if (!r.ok) throw new Error(r.error || locale.t('campusMerchant.printFailed'));
+    } else {
+      await printReceipt58(
+        {
+          storeName: board.value.storeName,
+          storePhone: board.value.storePhone,
+          code: o.code,
+          createdAt: o.createdAt,
+          createdAtText: fullTime(o.createdAt),
+          zone: o.zone,
+          building: o.building,
+          slotText: o.slotText,
+          route: o.route,
+          note: o.note,
+          lines: o.lines,
+          shipping: o.shipping,
+          total: o.total,
+        },
+        receiptLabels(),
+      );
+      try {
+        await campusMerchantMarkPrinted(o.id);
+      } catch { /* 回执失败不阻塞（下次补打以 printedAt 为准） */ }
+    }
     o.printedAt = new Date().toISOString();
     delete failedPrints.value[o.id];
     if (withToast) uni.showToast({ title: locale.t('campusMerchant.printOk'), icon: 'success' });
@@ -339,8 +376,12 @@ const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 function enqueuePrint(o: MerchantBoardOrder, withToast = false) {
   if (o.printedAt) return;
   if (printQueue.some(q => q.id === o.id)) return;
-  if (lodopReady.value !== 'ok') {
+  if (isLocal.value && lodopReady.value !== 'ok') {
     failedPrints.value[o.id] = locale.t('campusMerchant.printOffline');
+    return;
+  }
+  if (!isLocal.value && !board.value.cloudPrintConfigured) {
+    failedPrints.value[o.id] = locale.t('campusMerchant.printCloudUnconfigured');
     return;
   }
   printQueue.push(o);
@@ -357,7 +398,7 @@ async function flushQueue(withToast = false) {
       const o = printQueue.shift()!;
       if (o.printedAt) continue;
       const ok = await printOne(o, withToast);
-      if (!ok && lodopReady.value === 'ok') {
+      if (!ok && (isLocal.value ? lodopReady.value === 'ok' : board.value.cloudPrintConfigured)) {
         await sleep(PRINT_RETRY_DELAY_MS);
         await printOne(o, false);
       }
@@ -369,7 +410,7 @@ async function flushQueue(withToast = false) {
 
 /** 重试全部失败单（顶部状态条按钮；打印服务未恢复时禁用） */
 async function retryFailed() {
-  if (lodopReady.value !== 'ok') {
+  if (isLocal.value && lodopReady.value !== 'ok') {
     uni.showToast({ title: locale.t('campusMerchant.lodopMissing'), icon: 'none' });
     return;
   }
@@ -383,12 +424,29 @@ async function retryFailed() {
 /** 手动补打（任意 tab，不受 30min 限制；失败单也走此路径重置状态） */
 async function reprint(o: MerchantBoardOrder) {
   if (printingId.value) return;
-  if (lodopReady.value === 'fail') {
+  if (isLocal.value && lodopReady.value === 'fail') {
     uni.showToast({ title: locale.t('campusMerchant.lodopMissing'), icon: 'none' });
     void probePrinter(true); // 顺手重探：商家可能刚启动服务
     return;
   }
   enqueuePrint(o, true);
+}
+
+/** 云打印连通性测试（P1-4）：验证账号/设备/密钥，不占用订单 */
+async function testCloudPrint() {
+  if (cloudTesting.value) return;
+  cloudTesting.value = true;
+  try {
+    const r = await campusMerchantCloudPrintTest();
+    uni.showToast({
+      title: r.ok ? locale.t('campusMerchant.printTestOk') : r.error || locale.t('campusMerchant.printFailed'),
+      icon: r.ok ? 'success' : 'none',
+    });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.printFailed')), icon: 'none' });
+  } finally {
+    cloudTesting.value = false;
+  }
 }
 
 /** onPaid 自动打印：轮询发现未打新单即入队（串行出票，失败退避重试一次） */
@@ -542,6 +600,8 @@ async function refresh(initial = false) {
     }
     lastPendingCount.value = pendingCount;
     board.value = b;
+    // 本地通道才探 C-Lodop（云打印由服务端直连，无需浏览器插件）
+    if (isLocal.value && lodopReady.value === 'probing') void probePrinter();
     void autoPrint(b);
   } catch (err: any) {
     if (initial) {
@@ -555,6 +615,11 @@ async function refresh(initial = false) {
 /** 经营设置：营业时间 / 店铺公告 / 经营数据（CampusMerchant 自助） */
 function goSettings() {
   uni.navigateTo({ url: '/pages/campus/store-settings' });
+}
+
+/** KDS 出餐屏（P1-4）：后厨大屏 */
+function goKitchen() {
+  uni.navigateTo({ url: '/pages/campus/kitchen' });
 }
 
 async function toggleOpen() {
@@ -700,10 +765,9 @@ async function markHandoverArrived(o: MerchantBoardOrder) {
 onMounted(() => {
   refresh(true);
   timer = setInterval(() => refresh(), 10_000);
-  // C-Lodop 探测：异步不阻塞看板加载；断连后每分钟自动重探（商家开电脑/启动服务即恢复）
-  void probePrinter();
+  // 断连后每分钟自动重探（商家开电脑/启动 C-Lodop 服务即恢复；云通道不探）
   reconnectTimer = setInterval(() => {
-    if (lodopReady.value === 'fail') void probePrinter();
+    if (isLocal.value && lodopReady.value === 'fail') void probePrinter();
   }, 60_000);
   // H5 自动播放/通知授权均需用户手势：首个 pointerdown 一次性解锁
   if (typeof window !== 'undefined') window.addEventListener('pointerdown', unlockAudio);
