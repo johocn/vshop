@@ -476,6 +476,47 @@
             <input v-model="card.form.packingLabel" :placeholder="$t('campusConfig.packingLabelPh')" />
           </view>
         </block>
+        <view class="sec-t">{{ $t('campusConfig.mpSection') }}</view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.mpAppId') }}</text>
+          <input v-model="card.form.mpAppId" :placeholder="$t('campusConfig.mpAppIdPh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.mpCategory') }}</text>
+          <input v-model="card.form.mpCategory" :placeholder="$t('campusConfig.mpCategoryPh')" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.mpVersion') }}</text>
+          <input v-model="card.form.mpVersion" placeholder="1.0.0" />
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.mpPrivacyUrl') }}</text>
+          <input v-model="card.form.mpPrivacyUrl" placeholder="https://" />
+        </view>
+        <view class="mp-status">
+          <text class="lbl">{{ $t('campusConfig.mpStatus') }}</text>
+          <view class="mp-status-items">
+            <view
+              v-for="s in MP_STATUSES" :key="s.value"
+              class="mp-status-item" :class="{ on: card.form.mpListingStatus === s.value }"
+              @tap="card.form.mpListingStatus = s.value"
+            >
+              <text>{{ $t(s.label) }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusConfig.mpReviewNote') }}</text>
+          <input v-model="card.form.mpReviewNote" :placeholder="$t('campusConfig.mpReviewNotePh')" />
+        </view>
+        <view class="mp-check">
+          <text class="mp-check-t">{{ $t('campusConfig.mpCheckTitle') }}</text>
+          <view v-for="i in MP_CHECK_ITEMS" :key="i.key" class="mp-check-row">
+            <text class="mp-check-mark" :class="{ ok: !mpMissingOf(card).includes(i.key) }">{{ mpMissingOf(card).includes(i.key) ? '○' : '✓' }}</text>
+            <text class="mp-check-lbl" :class="{ ok: !mpMissingOf(card).includes(i.key) }">{{ $t(i.label) }}</text>
+          </view>
+          <text class="timeout-tip">{{ mpMissingOf(card).length ? $t('campusConfig.mpNotReadyTip') : $t('campusConfig.mpReadyTip') }}</text>
+        </view>
         <view class="sec-t">{{ $t('campusConfig.privacySection') }}</view>
         <view class="pmode-row">
           <view class="pmode" :class="{ on: card.form.privacyEnabled }" @tap="card.form.privacyEnabled = !card.form.privacyEnabled">
@@ -693,6 +734,25 @@ const PACKING_MODES = [
   { value: 'perOrder', label: 'campusConfig.packingPerOrder' },
 ] as const;
 
+/** 小程序上架状态（与服务端白名单一致） */
+const MP_STATUSES = [
+  { value: 'draft', label: 'campusConfig.mpStatusDraft' },
+  { value: 'inReview', label: 'campusConfig.mpStatusInReview' },
+  { value: 'online', label: 'campusConfig.mpStatusOnline' },
+  { value: 'rejected', label: 'campusConfig.mpStatusRejected' },
+  { value: 'offline', label: 'campusConfig.mpStatusOffline' },
+] as const;
+
+/** 上架前检查项文案（key 与服务端 mpMissing 一致） */
+const MP_CHECK_ITEMS = [
+  { key: 'appId', label: 'campusConfig.mpCheckAppId' },
+  { key: 'category', label: 'campusConfig.mpCheckCategory' },
+  { key: 'version', label: 'campusConfig.mpCheckVersion' },
+  { key: 'privacyUrl', label: 'campusConfig.mpCheckPrivacyUrl' },
+  { key: 'contactPhone', label: 'campusConfig.mpCheckContactPhone' },
+  { key: 'licenseNo', label: 'campusConfig.mpCheckLicenseNo' },
+] as const;
+
 interface HandoverForm {
   name: string;
   address: string;
@@ -773,6 +833,12 @@ interface CardForm {
   packingAmountYuan: string;        // 打包费金额（元输入态）；提交转分
   packingCapYuan: string;           // 单笔封顶（元输入态）；空=不封顶
   packingLabel: string;             // C 端展示名称；空=「打包费」
+  mpAppId: string;                  // 小程序 AppID
+  mpCategory: string;               // 服务类目
+  mpVersion: string;                // 上架版本号
+  mpListingStatus: string;          // draft/inReview/online/rejected/offline
+  mpPrivacyUrl: string;             // 隐私保护指引地址
+  mpReviewNote: string;             // 审核备注/驳回原因
 }
 interface Card extends CampusStoreConfig { form: CardForm }
 
@@ -1173,12 +1239,32 @@ function toForm(c: CampusStoreConfig): CardForm {
     packingAmountYuan: c.packingFeeAmount != null ? fenToYuan(c.packingFeeAmount) : '',
     packingCapYuan: c.packingFeeCap != null ? fenToYuan(c.packingFeeCap) : '',
     packingLabel: c.packingFeeLabel ?? '',
+    mpAppId: c.mpAppId ?? '',
+    mpCategory: c.mpCategory ?? '',
+    mpVersion: c.mpVersion ?? '',
+    mpListingStatus: c.mpListingStatus || 'draft',
+    mpPrivacyUrl: c.mpPrivacyUrl ?? '',
+    mpReviewNote: c.mpReviewNote ?? '',
   };
 }
 
 function routeCountLabel(routes: string[]): string {
   if (!routes.length) return locale.t('campusConfig.routesNone');
   return locale.t('campusConfig.routesCount').replace('{n}', String(routes.length));
+}
+
+/** 上架前检查（前端实时口径，与服务端 mpMissing 一致）：返回缺项 key */
+function mpMissingOf(card: Card): string[] {
+  const f = card.form;
+  const v: Record<string, string> = {
+    appId: f.mpAppId,
+    category: f.mpCategory,
+    version: f.mpVersion,
+    privacyUrl: f.mpPrivacyUrl,
+    contactPhone: f.storePhone,
+    licenseNo: f.foodLicenseNo,
+  };
+  return MP_CHECK_ITEMS.filter(i => (v[i.key] ?? '').trim() === '').map(i => i.key);
 }
 
 function toggle(id: string) {
@@ -1398,6 +1484,38 @@ async function save(card: Card) {
     }
   }
 
+  // 小程序上架（P2-1）：格式与上架前检查（与服务端口径一致，前端先拦一道减少往返）
+  if (f.mpAppId.trim() !== '' && !/^wx[0-9a-f]{16}$/i.test(f.mpAppId.trim())) {
+    uni.showToast({ title: locale.t('campusConfig.mpBadAppId'), icon: 'none' });
+    return;
+  }
+  if (f.mpVersion.trim() !== '' && !/^\d{1,3}(\.\d{1,3}){1,2}$/.test(f.mpVersion.trim())) {
+    uni.showToast({ title: locale.t('campusConfig.mpBadVersion'), icon: 'none' });
+    return;
+  }
+  if (f.mpPrivacyUrl.trim() !== '' && !/^https?:\/\/[^\s]+$/i.test(f.mpPrivacyUrl.trim())) {
+    uni.showToast({ title: locale.t('campusConfig.mpBadPrivacyUrl'), icon: 'none' });
+    return;
+  }
+  const mpValues: Record<string, string> = {
+    appId: f.mpAppId,
+    category: f.mpCategory,
+    version: f.mpVersion,
+    privacyUrl: f.mpPrivacyUrl,
+    contactPhone: f.storePhone,
+    licenseNo: f.foodLicenseNo,
+  };
+  const mpMissingLabels = MP_CHECK_ITEMS
+    .filter(i => (mpValues[i.key] ?? '').trim() === '')
+    .map(i => locale.t(i.label));
+  if (f.mpListingStatus === 'online' && mpMissingLabels.length) {
+    uni.showToast({
+      title: locale.t('campusConfig.mpMissingTip').replace('{items}', mpMissingLabels.join('、')),
+      icon: 'none',
+    });
+    return;
+  }
+
   savingId.value = card.channelId;
   try {
     const saved = await campusUpdateStoreConfig(card.channelId, {
@@ -1457,6 +1575,12 @@ async function save(card: Card) {
       packingFeeAmount: packingAmount,
       packingFeeCap: packingCap,
       packingFeeLabel: f.packingLabel.trim() || null,
+      mpAppId: f.mpAppId.trim() || null,
+      mpCategory: f.mpCategory.trim() || null,
+      mpVersion: f.mpVersion.trim() || null,
+      mpListingStatus: f.mpListingStatus,
+      mpPrivacyUrl: f.mpPrivacyUrl.trim() || null,
+      mpReviewNote: f.mpReviewNote.trim() || null,
     });
     Object.assign(card, saved, { form: toForm(saved) });
     uni.showToast({ title: locale.t('campusConfig.saved'), icon: 'success' });
@@ -1531,6 +1655,19 @@ async function ensureProfile(card: Card) {
     .chev { color: $wa-muted; font-size: 26rpx; }
   }
   .sec-t { font-size: 26rpx; color: $wa-ink; padding: 20rpx 0 8rpx; font-weight: 600; }
+  .mp-status { padding: 12rpx 0;
+    .lbl { font-size: 26rpx; color: $wa-muted; }
+    .mp-status-items { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
+    .mp-status-item { flex: 1 0 28%; text-align: center; padding: 14rpx 0; font-size: 24rpx;
+      color: $wa-muted; border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card;
+      &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; } } }
+  .mp-check { background: $wa-bg; border-radius: 10rpx; padding: 16rpx 20rpx; margin-top: 12rpx;
+    .mp-check-t { display: block; font-size: 24rpx; font-weight: 600; color: $wa-ink; margin-bottom: 10rpx; }
+    .mp-check-row { display: flex; align-items: center; gap: 12rpx; padding: 4rpx 0;
+      .mp-check-mark { font-size: 22rpx; color: $wa-danger; width: 28rpx; text-align: center;
+        &.ok { color: $wa-success; } }
+      .mp-check-lbl { font-size: 24rpx; color: $wa-muted;
+        &.ok { color: $wa-ink; } } } }
   .routes { display: flex; flex-direction: column; gap: 16rpx; padding: 8rpx 0 16rpx;
     .route { display: flex; align-items: flex-start; gap: 16rpx; padding: 20rpx 24rpx;
       border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }
