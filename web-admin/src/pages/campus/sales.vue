@@ -288,20 +288,53 @@ function todayStamp(): string {
   return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
 }
 
+type ExportRange = 'today' | '7d' | '30d';
+const EXPORT_RANGE_KEY: Record<ExportRange, string> = {
+  today: 'campusSales.rangeToday',
+  '7d': 'campusSales.range7d',
+  '30d': 'campusSales.range30d',
+};
+
+/** 导出前选窗口（与页面当前窗口解耦）：返回该窗口数据 + 文件名后缀；取消返回 null */
+async function pickExportData(): Promise<{ r: ExportRange; tag: string; s: CampusSalesStats } | null> {
+  const list: ExportRange[] = ['today', '7d', '30d'];
+  const idx = await new Promise<number | null>((resolve) => {
+    uni.showActionSheet({
+      itemList: list.map((r) => locale.t(EXPORT_RANGE_KEY[r])),
+      success: (res) => resolve(res.tapIndex),
+      fail: () => resolve(null),
+    });
+  });
+  if (idx === null) return null;
+  const r = list[idx] ?? '7d';
+  const tag = `-${locale.t(EXPORT_RANGE_KEY[r])}`;
+  try {
+    const s = r === range.value && loaded.value ? stats.value : await campusSalesStats(r);
+    return { r, tag, s };
+  } catch (e) {
+    console.error('campusSalesStats(export) failed', e);
+    uni.showToast({ title: locale.t('campusSales.exportFail'), icon: 'none' });
+    return null;
+  }
+}
+
 /** P4-1-4 导出：商品结构明细（口径与页面一致，金额单位元、固定两位小数） */
-function exportProducts(): void {
-  if (!products.value.length) {
+async function exportProducts(): Promise<void> {
+  const picked = await pickExportData();
+  if (!picked) return;
+  const list = picked.s.products;
+  if (!list.length) {
     uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
     return;
   }
-  const rows = products.value.map((x) => [
+  const rows = list.map((x) => [
     x.name,
     String(x.quantity),
     fenToYuanFixed(x.gmvFen),
     locale.t(quadLabel(x.quadrant)),
   ]);
   downloadCsv(
-    `${locale.t('campusSales.exportFileName')}-${todayStamp()}.csv`,
+    `${locale.t('campusSales.exportFileName')}${picked.tag}-${todayStamp()}.csv`,
     [
       locale.t('campusSales.colName'),
       locale.t('campusSales.colQty'),
@@ -317,14 +350,16 @@ function exportProducts(): void {
 }
 
 /** P4-1-4 导出：用户结构明细（下单客户 / 新老客 / 复购分群，占比基数=窗口内下单客户数） */
-function exportUsers(): void {
-  const k = stats.value.kpis;
+async function exportUsers(): Promise<void> {
+  const picked = await pickExportData();
+  if (!picked) return;
+  const k = picked.s.kpis;
   if (k.customers <= 0) {
     uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
     return;
   }
   const total = k.customers;
-  const c = stats.value.cohorts;
+  const c = picked.s.cohorts;
   const pct = (n: number) => String(Math.round((n / total) * 1000) / 10);
   const row = (seg: string, count: number) => [seg, String(count), pct(count)];
   const rows = [
@@ -337,7 +372,7 @@ function exportUsers(): void {
     row(locale.t('campusSales.cohortLoyal'), c.loyal),
   ];
   downloadCsv(
-    `${locale.t('campusSales.exportUsersFileName')}-${todayStamp()}.csv`,
+    `${locale.t('campusSales.exportUsersFileName')}${picked.tag}-${todayStamp()}.csv`,
     [locale.t('campusSales.colSegment'), locale.t('campusSales.colCustomers'), locale.t('campusSales.colPct')],
     rows,
   );
@@ -348,18 +383,19 @@ function exportUsers(): void {
 }
 
 /** P4-1-4 导出：经营趋势明细（today=24 时段，7d/30d=按日；金额单位元） */
-function exportTrend(): void {
-  if (trendTotal.value <= 0) {
+async function exportTrend(): Promise<void> {
+  const picked = await pickExportData();
+  if (!picked) return;
+  const points = picked.r === 'today'
+    ? picked.s.hourlyHeat.map((h) => ({ label: `${h.hour}:00`, orders: h.orders, gmvFen: h.gmvFen }))
+    : picked.s.dailyTrend.map((d) => ({ label: d.date, orders: d.orders, gmvFen: d.gmvFen }));
+  if (!points.length || points.reduce((s, p) => s + p.orders, 0) <= 0) {
     uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
     return;
   }
-  const rows = trendPoints.value.map((p) => [
-    range.value === 'today' ? `${p.label}:00` : p.label,
-    String(p.orders),
-    fenToYuanFixed(p.gmvFen),
-  ]);
+  const rows = points.map((p) => [p.label, String(p.orders), fenToYuanFixed(p.gmvFen)]);
   downloadCsv(
-    `${locale.t('campusSales.exportTrendFileName')}-${todayStamp()}.csv`,
+    `${locale.t('campusSales.exportTrendFileName')}${picked.tag}-${todayStamp()}.csv`,
     [locale.t('campusSales.colPoint'), locale.t('campusSales.kpiOrders'), locale.t('campusSales.colTrendGmv')],
     rows,
   );
