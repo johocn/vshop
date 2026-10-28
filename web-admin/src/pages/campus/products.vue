@@ -2,6 +2,16 @@
   <view class="page">
     <view class="notice">{{ $t('campusProducts.notice') }}</view>
 
+    <!-- 全店批量沽清：打烊一步到位；恢复同理，避免逐个开关漏掉商品 -->
+    <view class="bulk">
+      <button class="bulk__btn bulk__btn--out" :disabled="allBusy" @tap="bulkSoldOut(true)">
+        {{ $t('campusProducts.bulkSellOut') }}
+      </button>
+      <button class="bulk__btn" :disabled="allBusy" @tap="bulkSoldOut(false)">
+        {{ $t('campusProducts.bulkOnSale') }}
+      </button>
+    </view>
+
     <!-- R5 跑腿载体商品初始化：新店铺/新校区首次开跑腿前必须执行（幂等） -->
     <view class="errand">
       <text class="errand-hint">{{ $t('campusProducts.errandHint') }}</text>
@@ -149,7 +159,7 @@
 // 一键沽清：商品售罄仅影响 C 端加购，仍保留菜单展示（避免频繁上下架打断装修/搜索索引）。
 import { onMounted, ref } from 'vue';
 import {
-  fetchMerchantProducts, setMerchantProductSoldOut, setMerchantProductPackingFee, ensureErrandProducts,
+  fetchMerchantProducts, setMerchantProductSoldOut, setMerchantAllProductsSoldOut, setMerchantProductPackingFee, ensureErrandProducts,
   setMerchantProductAddonGroups, setMerchantProductCombo,
   type MerchantProduct, type AddonGroupConfig, type ComboItemConfig,
 } from '../../apis/campus-ops';
@@ -170,6 +180,36 @@ const search = ref('');
 const loading = ref(false);
 const busy = ref<Record<string, boolean>>({});
 const errandBusy = ref(false);
+const allBusy = ref(false);
+
+/** 全店批量沽清/恢复（打烊场景）：二次确认后执行并刷新列表 */
+function bulkSoldOut(next: boolean): void {
+  if (allBusy.value) return;
+  uni.showModal({
+    title: locale.t(next ? 'campusProducts.bulkSellOutTitle' : 'campusProducts.bulkOnSaleTitle'),
+    content: locale.t(next ? 'campusProducts.bulkSellOutConfirm' : 'campusProducts.bulkOnSaleConfirm'),
+    success: async (r: any) => {
+      if (!r?.confirm) return;
+      allBusy.value = true;
+      try {
+        const n = await setMerchantAllProductsSoldOut(next);
+        if (!n) {
+          uni.showToast({ title: locale.t('campusProducts.bulkEmpty'), icon: 'none' });
+          return;
+        }
+        uni.showToast({
+          title: locale.t('campusProducts.bulkDone').replace('{n}', String(n)),
+          icon: 'success',
+        });
+        await load(true);
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+      } finally {
+        allBusy.value = false;
+      }
+    },
+  });
+}
 
 /** 幂等初始化跑腿载体商品（SKU 查重，重复点击安全） */
 async function initErrand(): Promise<void> {
@@ -480,6 +520,11 @@ onMounted(() => {
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx; padding-bottom: 80rpx;
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx; }
+  .bulk { display: flex; gap: 16rpx; margin-bottom: 20rpx;
+    &__btn { flex: 1; margin: 0; height: 68rpx; line-height: 68rpx; font-size: 24rpx;
+      background: $wa-card; color: $wa-accent; border: 1.5rpx solid $wa-accent; border-radius: $wa-radius; }
+    &__btn--out { color: $wa-danger; border-color: $wa-danger; }
+    &__btn[disabled] { opacity: .5; } }
   .errand { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx;
     .errand-hint { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }

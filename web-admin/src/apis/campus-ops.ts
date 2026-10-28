@@ -414,6 +414,19 @@ export async function setMerchantProductSoldOut(productId: string, soldOut: bool
   return !!campusMerchantSetProductSoldOut?.soldOut;
 }
 
+/** 全店批量沽清 / 恢复（打烊场景）；返回实际影响的本店商品数 */
+export async function setMerchantAllProductsSoldOut(soldOut: boolean): Promise<number> {
+  const { campusMerchantSetAllProductsSoldOut } = await getAdminClient().request<{
+    campusMerchantSetAllProductsSoldOut: { ok: boolean; soldOut: boolean; count: number };
+  }>(
+    `mutation CampusMerchantSetAllProductsSoldOut($soldOut: Boolean!) {
+      campusMerchantSetAllProductsSoldOut(soldOut: $soldOut) { ok soldOut count }
+    }`,
+    { soldOut },
+  );
+  return Number(campusMerchantSetAllProductsSoldOut?.count || 0);
+}
+
 /** 设置商品级打包费（分/件）；传 null 清除，回落到店铺配置金额 */
 export async function setMerchantProductPackingFee(
   productId: string,
