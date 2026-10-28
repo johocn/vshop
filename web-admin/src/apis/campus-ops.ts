@@ -427,6 +427,26 @@ export async function setMerchantAllProductsSoldOut(soldOut: boolean): Promise<n
   return Number(campusMerchantSetAllProductsSoldOut?.count || 0);
 }
 
+/** 沽清次日自动恢复：开关与待恢复件数 */
+export async function getMerchantSoldOutAutoRestore(): Promise<{ enabled: boolean; pending: number }> {
+  const { campusMerchantSoldOutAutoRestore } = await getAdminClient().request<{
+    campusMerchantSoldOutAutoRestore: { enabled: boolean; pending: number };
+  }>(`query CampusSoldOutAutoRestore { campusMerchantSoldOutAutoRestore { enabled pending } }`);
+  return campusMerchantSoldOutAutoRestore;
+}
+
+export async function setMerchantSoldOutAutoRestore(enabled: boolean): Promise<{ enabled: boolean; pending: number }> {
+  const { campusMerchantSetSoldOutAutoRestore } = await getAdminClient().request<{
+    campusMerchantSetSoldOutAutoRestore: { enabled: boolean; pending: number };
+  }>(
+    `mutation CampusMerchantSetSoldOutAutoRestore($enabled: Boolean!) {
+      campusMerchantSetSoldOutAutoRestore(enabled: $enabled) { enabled pending }
+    }`,
+    { enabled },
+  );
+  return campusMerchantSetSoldOutAutoRestore;
+}
+
 /** 设置商品级打包费（分/件）；传 null 清除，回落到店铺配置金额 */
 export async function setMerchantProductPackingFee(
   productId: string,

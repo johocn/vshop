@@ -3244,6 +3244,44 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs`（内含 `uni build` + tar/scp/解压/备份轮转 + nginx reload） | 产物校验 61729 KB；`nginx -t` 通过并 reload |
 | C 端 | `node_modules/.bin/uni.cmd build` → `WA_SKIP_BUILD=1 node .secrets/deploy-waimai.mjs` | 产物校验 3842 KB；站点返回 200 |
 
+## 66. 沽清次日自动恢复（2026-10-28）
+
+打烊用「全店沽清」后常忘记恢复，第二天开市菜品仍售罄。本轮加**每日 04:00 自动恢复**，且只恢复「全店沽清」批次，单品手动沽清不受影响。
+
+### 66.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | 迁移 `p11-soldout-auto-restore`（幂等）：建表 `campus_soldout_batch("channelId","productId")` 唯一索引 + `channel."customFieldsWaimaisoldoutautorestore" boolean DEFAULT true`；`SoldOutAutoRestoreJob`（启动 2 分钟后首检、每 10 分钟一轮、每日仅跑一次，本地时间 04:00 起执行）按店铺恢复批次内商品并清空登记；`merchant-admin.service` 新增 `get/setSoldOutAutoRestore`、`clearSoldOutBatch` |
+| 后端接口 | Query `campusMerchantSoldOutAutoRestore: CampusSoldOutAutoRestore!`（enabled/pending）；Mutation `campusMerchantSetSoldOutAutoRestore(enabled: Boolean!)` |
+| 后台 | 一键沽清页新增开关「次日 04:00 自动恢复沽清」+ 文案「当前登记 N 件；单品手动沽清不受影响」，切换即存；`apis/campus-ops.ts` 同步两个接口 |
+
+### 66.2 口径
+
+- 只有通过「全店沽清」标记的商品会进入批次表；单打开关任意方向都会清掉该商品的批次登记（手动意图优先）。
+- 关闭开关时批次登记保留，重新开启后下一个 04:00 继续生效。
+- 自动恢复只把 `waimaiSoldOut` 置回 false，不动上下架/库存；C 端下次 `onShow` 静默同步后即可加购。
+
+### 66.3 验证记录（线上）
+
+| 步骤 | 结果 |
+|---|---|
+| 初始状态 | `{enabled:true, pending:0}` |
+| 全店沽清（t2，38 件） | `count:38` → `pending:38` |
+| 关/开开关 | `enabled:false,pending:38` → `enabled:true,pending:38`（登记保留） |
+| 全店恢复 | `count:38` → `pending:0`；DB `campus_soldout_batch=0`、`t2_soldout=0`、开关列存在 |
+| 后台产物 | 61731 KB；服务器 `assets/index-CKfRVSll.js` 含「次日 04:00 自动恢复沽清」、`campus-ops.CHk-q8yE.js` 含新接口 |
+
+### 66.4 踩坑与修正
+
+首版把开关声明为 `Channel` customField 并注册批次实体，生产 schema sync 与迁移并发加列触发 PG `42703 column ... does not exist`，站点 503。修正：开关列只由幂等迁移补、服务层用原生 SQL 读写，批次表不注册实体（纯 SQL），重启后正常。
+
+### 66.5 部署记录
+
+- 后端：`878155494`（首版）→ `756a9682e`（修正），服务器 checkout `src/lib` + `pm2 restart vendure`。
+- 后台：`cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` → 产物 61731 KB，nginx reload 成功。
+
+
 
 
 
