@@ -103,7 +103,10 @@
 
       <!-- 复购分群 -->
       <view class="card">
-        <text class="sec">{{ $t('campusSales.cohortsTitle') }}</text>
+        <view class="secrow">
+          <text class="sec">{{ $t('campusSales.cohortsTitle') }}</text>
+          <text v-if="cohortTotal > 0" class="expo" @tap="exportUsers">{{ $t('campusSales.exportUsers') }}</text>
+        </view>
         <template v-if="cohortTotal > 0">
           <view v-for="r in cohortRows" :key="r.key" class="crow">
             <text class="cname">{{ $t(r.label) }}</text>
@@ -275,15 +278,19 @@ function quadLabel(q: string): string {
   return QUADRANT_LABEL[q] || QUADRANT_LABEL.slow;
 }
 
+/** 文件名日期戳 YYYYMMDD */
+function todayStamp(): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+}
+
 /** P4-1-4 导出：商品结构明细（口径与页面一致，金额单位元、固定两位小数） */
 function exportProducts(): void {
   if (!products.value.length) {
     uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
     return;
   }
-  const p = (n: number) => String(n).padStart(2, '0');
-  const now = new Date();
-  const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
   const rows = products.value.map((x) => [
     x.name,
     String(x.quantity),
@@ -291,13 +298,44 @@ function exportProducts(): void {
     locale.t(quadLabel(x.quadrant)),
   ]);
   downloadCsv(
-    `${locale.t('campusSales.exportFileName')}-${stamp}.csv`,
+    `${locale.t('campusSales.exportFileName')}-${todayStamp()}.csv`,
     [
       locale.t('campusSales.colName'),
       locale.t('campusSales.colQty'),
       locale.t('campusSales.colGmv'),
       locale.t('campusSales.colQuadrant'),
     ],
+    rows,
+  );
+  uni.showToast({
+    title: locale.t('campusSales.exportDone').replace('{n}', String(rows.length)),
+    icon: 'none',
+  });
+}
+
+/** P4-1-4 导出：用户结构明细（下单客户 / 新老客 / 复购分群，占比基数=窗口内下单客户数） */
+function exportUsers(): void {
+  const k = stats.value.kpis;
+  if (k.customers <= 0) {
+    uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const total = k.customers;
+  const c = stats.value.cohorts;
+  const pct = (n: number) => String(Math.round((n / total) * 1000) / 10);
+  const row = (seg: string, count: number) => [seg, String(count), pct(count)];
+  const rows = [
+    row(locale.t('campusSales.segCustomers'), total),
+    row(locale.t('campusSales.segNew'), k.newCustomers),
+    row(locale.t('campusSales.segOld'), Math.max(0, total - k.newCustomers)),
+    row(locale.t('campusSales.segRepeat'), c.twiceToFour + c.loyal),
+    row(locale.t('campusSales.cohortOnce'), c.once),
+    row(locale.t('campusSales.cohortTwice'), c.twiceToFour),
+    row(locale.t('campusSales.cohortLoyal'), c.loyal),
+  ];
+  downloadCsv(
+    `${locale.t('campusSales.exportUsersFileName')}-${todayStamp()}.csv`,
+    [locale.t('campusSales.colSegment'), locale.t('campusSales.colCustomers'), locale.t('campusSales.colPct')],
     rows,
   );
   uni.showToast({

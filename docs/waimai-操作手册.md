@@ -2913,7 +2913,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 端 | 内容 |
 |---|---|
 | 后端（vendure） | 新增 `sales-stats.service.ts`（纯函数 `aggregateSalesStats` + 服务）、`sales-stats.resolver.ts`；`campus-delivery.plugin.ts` 注册服务/解析器并新增 SDL `campusSalesStats` 及 8 个类型；单测 `sales-stats.service.spec.ts` 14 例 |
-| 后台（web-admin） | 新增页面 `pages/campus/sales.vue`（经营分析）；`apis/campus.ts` 新增 `campusSalesStats(range)` 与类型；注册 `pages.json`、菜单 `constants/menus.ts`（履约域，权限 `CampusViewDispatch`）、导航标题 `i18n/nav-titles.ts`；中英 i18n 命名空间 `campusSales`；商品表「导出 CSV」（P4-1-4，客户端生成，复用 `utils/csv.ts` 的 `downloadCsv`） |
+| 后台（web-admin） | 新增页面 `pages/campus/sales.vue`（经营分析）；`apis/campus.ts` 新增 `campusSalesStats(range)` 与类型；注册 `pages.json`、菜单 `constants/menus.ts`（履约域，权限 `CampusViewDispatch`）、导航标题 `i18n/nav-titles.ts`；中英 i18n 命名空间 `campusSales`；商品表「导出 CSV」+ 复购分群「导出用户结构」（P4-1-4，客户端生成，复用 `utils/csv.ts` 的 `downloadCsv`） |
 
 ### 60.2 口径与接口
 
@@ -2952,6 +2952,8 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
   - `04-admin-sales-30d.png`：近 30 日 81 单、GMV ¥3081.45、复购率 54.5%、Top 商品商品名已取翻译字段（不再出现 `#id`）；
   - `05-admin-sales-csv-export.png` + `商品结构明细-20261028.csv`：近 30 日档点「导出 CSV」，实得 9 行数据，表头 `名称,销量,销售额,象限`。
 - 导出（P4-1-4）：线上点「导出 CSV」→ 下载 `商品结构明细-20261028.csv`，**9 行数据**，表头 `名称,销量,销售额,象限`，首行 `酒店测试-豪华套房,1,888.00,利润`（金额两位小数、象限已本地化）。
+- 导出（P4-1-4 扩展 · 用户结构）：复购分群卡片「导出用户结构」→ 下载 `用户结构明细-20261028.csv`，**7 行数据**，表头 `分群,人数,占比(%)`；近 30 日实得 `下单客户（合计）11 / 新客 9（81.8%）/ 老客 2（18.2%）/ 复购客户（≥2 单）6（54.5%）/ 1 单 5（45.5%）/ 2-4 单 4（36.4%）/ 5+ 单 2（18.2%）`，分群三档人数合计 11 = 下单客户数、复购占比 54.5% = 页面复购率、新客+老客 = 合计，均自洽。取证：`06-admin-sales-user-export.png` + `用户结构明细-20261028.csv`（`web-admin/scripts/shots-p24-user-export.cjs`）。
+- 用户结构导出口径：占比基数 = 窗口内下单客户数（游客下单不计入，与 KPI 客户口径一致）；「复购客户（≥2 单）」= 2-4 单 + 5+ 单；今日档无成交时按钮不展示。
 - 修复记录（本轮上线中发现并已修复）：
   1. 初次上线日趋势单量和（81）≠ 总单量（83）：7d/30d 原为滚动窗口，与自然日补零区间错位 → 改为「近 N 个自然日」对齐，复测 81 = 81；
   2. Top 商品显示 `#85`：`Product.name` 非实体列（走翻译表）→ 补 join `product.translations` 并按中文取名称，复测显示「可乐鸡排饭」。
