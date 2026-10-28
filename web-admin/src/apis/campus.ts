@@ -703,7 +703,14 @@ export interface CampusSalesStats {
   compare: { ordersPct: number; gmvPct: number; aovPct: number; repurchaseRatePct: number };
   hourlyHeat: Array<{ hour: number; orders: number; gmvFen: number }>;
   dailyTrend: Array<{ date: string; orders: number; gmvFen: number }>;
-  products: Array<{ productId: string; name: string; quantity: number; gmvFen: number; quadrant: string }>;
+  products: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    gmvFen: number;
+    quadrant: string;
+    categories: Array<{ id: string; name: string }>;
+  }>;
   cohorts: { once: number; twiceToFour: number; loyal: number };
   /** 四象限分隔线：销量中位数 */
   medianQuantity: number;
@@ -725,7 +732,7 @@ export async function campusSalesStats(
       compare { ordersPct gmvPct aovPct repurchaseRatePct }
       hourlyHeat { hour orders gmvFen }
       dailyTrend { date orders gmvFen }
-      products { productId name quantity gmvFen quadrant }
+      products { productId name quantity gmvFen quadrant categories { id name } }
       cohorts { once twiceToFour loyal }
       medianQuantity medianGmvFen
     } }`,
