@@ -148,3 +148,142 @@ export async function rejectReviewAppeal(id: string, note?: string): Promise<Rev
   );
   return rejectReviewAppeal;
 }
+
+// ---------------------------------------------------------------------------
+// P4-2 评价品质闭环：差评预警
+//   - Query reviewAlertRule / reviewAlerts(options) / reviewAlert(id) / reviewAlertStats
+//   - Mutation updateReviewAlertRule(input) / replyReviewAlert / resendReviewAlertCoupon / closeReviewAlert
+//   - 预警 status：new（待处理）/ replied（已回评）/ closed（已关闭）
+//   - couponStatus：none（未发）/ issued（已发）/ failed（发放失败，可补发）
+// ---------------------------------------------------------------------------
+
+export interface ReviewAlertRow {
+  id: string;
+  reviewId: string;
+  productId: string;
+  customerId: string;
+  productName?: string | null;
+  rating: number;
+  content: string;
+  tags: string[];
+  couponStatus: string;
+  couponCode?: string | null;
+  status: string;
+  note?: string | null;
+  handledAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ReviewAlertRule {
+  channelId: string;
+  enabled: boolean;
+  maxRating: number;
+  couponTemplateId?: string | null;
+}
+
+export interface ReviewAlertStats {
+  newCount: number;
+  totalCount: number;
+  compensatedCount: number;
+  last7dCount: number;
+}
+
+const ALERT_FIELDS = `
+  id reviewId productId customerId productName rating content tags
+  couponStatus couponCode status note handledAt createdAt updatedAt
+`;
+
+/** 当前渠道预警规则 */
+export async function fetchReviewAlertRule(): Promise<ReviewAlertRule> {
+  const { reviewAlertRule } = await getAdminClient().request<{ reviewAlertRule: ReviewAlertRule }>(
+    `query ReviewAlertRule {
+      reviewAlertRule { channelId enabled maxRating couponTemplateId }
+    }`,
+  );
+  return reviewAlertRule;
+}
+
+/** 保存预警规则（每渠道一条） */
+export async function updateReviewAlertRule(input: {
+  enabled?: boolean;
+  maxRating?: number;
+  couponTemplateId?: string | null;
+}): Promise<ReviewAlertRule> {
+  const { updateReviewAlertRule } = await getAdminClient().request<{ updateReviewAlertRule: ReviewAlertRule }>(
+    `mutation UpdateReviewAlertRule($input: UpdateReviewAlertRuleInput!) {
+      updateReviewAlertRule(input: $input) { channelId enabled maxRating couponTemplateId }
+    }`,
+    { input },
+  );
+  return updateReviewAlertRule;
+}
+
+/** 预警分页列表：status 为空时返回全部 */
+export async function fetchReviewAlertPage(p: {
+  skip: number;
+  take: number;
+  status?: string;
+}): Promise<{ items: ReviewAlertRow[]; total: number }> {
+  const { reviewAlerts } = await getAdminClient().request<{
+    reviewAlerts: { items: ReviewAlertRow[]; totalItems: number };
+  }>(
+    `query ReviewAlerts($options: ReviewAlertListOptions) {
+      reviewAlerts(options: $options) {
+        totalItems
+        items { ${ALERT_FIELDS} }
+      }
+    }`,
+    {
+      options: {
+        skip: p.skip,
+        take: p.take,
+        ...(p.status ? { status: p.status } : {}),
+      },
+    },
+  );
+  return { items: reviewAlerts?.items ?? [], total: reviewAlerts?.totalItems ?? 0 };
+}
+
+/** 预警计数 */
+export async function fetchReviewAlertStats(): Promise<ReviewAlertStats> {
+  const { reviewAlertStats } = await getAdminClient().request<{ reviewAlertStats: ReviewAlertStats }>(
+    `query ReviewAlertStats {
+      reviewAlertStats { newCount totalCount compensatedCount last7dCount }
+    }`,
+  );
+  return reviewAlertStats;
+}
+
+/** 一键回评（写回评价回复，预警置 replied） */
+export async function replyReviewAlert(id: string, reply: string): Promise<ReviewAlertRow> {
+  const { replyReviewAlert } = await getAdminClient().request<{ replyReviewAlert: ReviewAlertRow }>(
+    `mutation ReplyReviewAlert($id: ID!, $reply: String!) {
+      replyReviewAlert(id: $id, reply: $reply) { ${ALERT_FIELDS} }
+    }`,
+    { id, reply },
+  );
+  return replyReviewAlert;
+}
+
+/** 补发致歉券 */
+export async function resendReviewAlertCoupon(id: string): Promise<ReviewAlertRow> {
+  const { resendReviewAlertCoupon } = await getAdminClient().request<{ resendReviewAlertCoupon: ReviewAlertRow }>(
+    `mutation ResendReviewAlertCoupon($id: ID!) {
+      resendReviewAlertCoupon(id: $id) { ${ALERT_FIELDS} }
+    }`,
+    { id },
+  );
+  return resendReviewAlertCoupon;
+}
+
+/** 关闭预警（无需回评时的兜底） */
+export async function closeReviewAlert(id: string, note?: string): Promise<ReviewAlertRow> {
+  const { closeReviewAlert } = await getAdminClient().request<{ closeReviewAlert: ReviewAlertRow }>(
+    `mutation CloseReviewAlert($id: ID!, $note: String) {
+      closeReviewAlert(id: $id, note: $note) { ${ALERT_FIELDS} }
+    }`,
+    { id, note: note || null },
+  );
+  return closeReviewAlert;
+}
