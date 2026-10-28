@@ -106,6 +106,7 @@
         <text class="a-rule__text">{{ ruleText }}</text>
         <view class="a-rule__ops">
           <text class="a-rule__btn" @tap="exportAlerts">{{ $t('review.alert.exportAlerts') }}</text>
+          <text class="a-rule__btn" @tap="exportAlertStats">{{ $t('review.alert.exportStats') }}</text>
           <text class="a-rule__btn" @tap="openRuleSheet">{{ $t('review.alert.adjustRule') }}</text>
         </view>
       </view>
@@ -369,6 +370,62 @@ function pickExportRange(): Promise<{ from?: string; tag: string } | null> {
       fail: () => resolve(null),
     });
   });
+}
+
+/** P4-2 导出：预警统计（按归因 / 商品 / 星级分组，口径=当前状态 + 时间段，最多 500 条） */
+async function exportAlertStats() {
+  const range = await pickExportRange();
+  if (!range) return;
+  try {
+    const res = await fetchReviewAlertPage({
+      skip: 0,
+      take: 500,
+      status: alertStatus.value === 'all' ? undefined : alertStatus.value,
+      ...(range.from ? { from: range.from } : {}),
+    });
+    const rows = res.items;
+    if (!rows.length) {
+      toast(locale.t('review.alert.exportEmpty'));
+      return;
+    }
+    const p = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+    const total = rows.length;
+    const pct = (n: number) => String(Math.round((n / total) * 1000) / 10);
+    const add = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
+    const tagMap = new Map<string, number>();
+    const prodMap = new Map<string, number>();
+    const rateMap = new Map<string, number>();
+    rows.forEach((a) => {
+      const tags = (a.tags || []).filter(Boolean);
+      add(tagMap, tags.length ? tags.join('/') : locale.t('review.alert.noTag'));
+      add(prodMap, a.productName || `#${a.productId}`);
+      add(rateMap, locale.t('review.alert.ratingStar').replace('{n}', String(a.rating)));
+    });
+    const out: string[][] = [];
+    const push = (dim: string, m: Map<string, number>) => {
+      [...m.entries()]
+        .sort((x, y) => y[1] - x[1])
+        .forEach(([name, n]) => out.push([dim, name, String(n), pct(n)]));
+    };
+    push(locale.t('review.alert.dimTag'), tagMap);
+    push(locale.t('review.alert.dimProduct'), prodMap);
+    push(locale.t('review.alert.dimRating'), rateMap);
+    downloadCsv(
+      `${locale.t('review.alert.statsFileName')}${range.tag}-${stamp}.csv`,
+      [
+        locale.t('review.alert.colDimension'),
+        locale.t('review.alert.colName'),
+        locale.t('review.alert.colCount'),
+        locale.t('review.alert.colPct'),
+      ],
+      out,
+    );
+    toast(locale.t('review.alert.exportDone').replace('{n}', String(out.length)));
+  } catch (e: any) {
+    toast(e?.message || locale.t('review.alert.exportFail'));
+  }
 }
 
 /** P4-2 导出：品质预警明细（跟随当前状态 + 时间段，最多 500 条，时间/星级/商品/归因/券/状态/正文） */
