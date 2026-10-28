@@ -2954,6 +2954,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 导出（P4-1-4）：线上点「导出 CSV」→ 下载 `商品结构明细-20261028.csv`，**9 行数据**，表头 `名称,销量,销售额,象限`，首行 `酒店测试-豪华套房,1,888.00,利润`（金额两位小数、象限已本地化）。
 - 导出（P4-1-4 扩展 · 用户结构）：复购分群卡片「导出用户结构」→ 下载 `用户结构明细-20261028.csv`，**7 行数据**，表头 `分群,人数,占比(%)`；近 30 日实得 `下单客户（合计）11 / 新客 9（81.8%）/ 老客 2（18.2%）/ 复购客户（≥2 单）6（54.5%）/ 1 单 5（45.5%）/ 2-4 单 4（36.4%）/ 5+ 单 2（18.2%）`，分群三档人数合计 11 = 下单客户数、复购占比 54.5% = 页面复购率、新客+老客 = 合计，均自洽。取证：`06-admin-sales-user-export.png` + `用户结构明细-20261028.csv`（`web-admin/scripts/shots-p24-user-export.cjs`）。
 - 用户结构导出口径：占比基数 = 窗口内下单客户数（游客下单不计入，与 KPI 客户口径一致）；「复购客户（≥2 单）」= 2-4 单 + 5+ 单；今日档无成交时按钮不展示。
+- 导出（P4-1-4 扩展 · 经营趋势）：趋势卡片「导出趋势」→ 下载 `经营趋势明细-20261028.csv`，近 30 日 **30 行**（含无成交日补 0），表头 `时段/日期,单量,金额(元)`，单量列合计 81 = KPI 单量；今日档导出 24 行、首列为 `HH:00`。取证：`07-admin-sales-trend-export.png` + `经营趋势明细-20261028.csv`。
 - 修复记录（本轮上线中发现并已修复）：
   1. 初次上线日趋势单量和（81）≠ 总单量（83）：7d/30d 原为滚动窗口，与自然日补零区间错位 → 改为「近 N 个自然日」对齐，复测 81 = 81；
   2. Top 商品显示 `#85`：`Product.name` 非实体列（走翻译表）→ 补 join `product.translations` 并按中文取名称，复测显示「可乐鸡排饭」。
@@ -2986,7 +2987,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 端 | 内容 |
 |---|---|
 | 后端（vendure） | 新增 `review-alert.ts`（纯函数归因词典 + 预警判定）、`review-alert.entity.ts`（`CampusReviewAlertRule` / `CampusReviewAlert`）、`review-alert.service.ts`、`review-alert.resolver.ts`、`migrations/p10-review-alert.ts`（幂等建表 + 唯一索引）；`ReviewService.createReview` 落库后调用 `recordFromReview`（try/catch 不阻断主流程）；admin SDL 新增 `ReviewAlertRule` / `ReviewAlert` / `ReviewAlertList` / `ReviewAlertStats` 4 类型 + 4 Query + 4 Mutation；单测 `review-alert.spec.ts` 22 例 |
-| 后台（web-admin） | 评价管理页新增「品质预警」页签（`pages/review/list/index.vue`）：统计 KPI、规则摘要与「调整规则」弹窗、状态筛选、预警卡片；`apis/review.ts` 新增 7 个预警接口与类型；中英 i18n 命名空间 `review.alert` 40+ 键 |
+| 后台（web-admin） | 评价管理页新增「品质预警」页签（`pages/review/list/index.vue`）：统计 KPI、规则摘要与「调整规则」弹窗、状态筛选、预警卡片；`apis/review.ts` 新增 7 个预警接口与类型；中英 i18n 命名空间 `review.alert` 40+ 键；预警明细「导出预警」CSV（P4-2 扩展，跟随当前状态筛选） |
 
 ### 61.2 口径与接口
 
@@ -3020,6 +3021,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
   - `03-admin-review-alert-reply-sheet.png`：一键回评弹窗，选中「异物致歉」模板后正文自动填充；
   - `04-admin-review-alert-replied.png`：提交后「已回评」页签，卡片状态转绿、待处理计数归 0；
   - `05-c-end-coupon-wallet.png`：C 端「我的优惠券 → 未使用」可见「差评致歉券-冒烟 ¥5 满 0 可用，有效期至 2026.11.11」。
+- 导出（P4-2 扩展）：品质预警页签「导出预警」（跟随当前状态筛选，单次最多 200 条）→ 下载 `品质预警明细-20261028.csv`，实得 1 行：`2026-10-28 08:57,1,可乐鸡排饭,异物/变凉,致歉券已发放：C-XPCL-PYK4,已回评,菜里有一根头发，米饭也是凉的，太失望了`；表头 `时间,星级,商品,归因,致歉券,状态,评价正文`，标签以 `/` 连接、正文压空白并截 300 字。取证：`06-admin-review-alert-export.png` + `品质预警明细-20261028.csv`（`web-admin/scripts/shots-p4-exports.cjs`）。
 - 修复记录（本轮上线中发现并已修复）：
   1. 冒烟首跑标签只命中「异物」，「米饭也是凉的」未命中 `变凉`：词典只有「凉了/冷了」，补「凉的 / 凉透」并加单测，重新构建部署后复测 6/6 PASS；
   2. 部署脚本一度重启 `nshop`（youshop 前端服务）而非 `vendure`（API 服务），导致新词典未生效；经 `pm2 jlist` 确认 API 进程名为 `vendure`、cwd `packages/dev-server`，重启后生效。

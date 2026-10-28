@@ -30,7 +30,10 @@
 
       <!-- 趋势：7d/30d 按日；today 按时段 0-23 -->
       <view class="card">
-        <text class="sec">{{ range === 'today' ? $t('campusSales.hourlyTitle') : $t('campusSales.trendTitle') }}</text>
+        <view class="secrow">
+          <text class="sec">{{ range === 'today' ? $t('campusSales.hourlyTitle') : $t('campusSales.trendTitle') }}</text>
+          <text v-if="trendTotal > 0" class="expo" @tap="exportTrend">{{ $t('campusSales.exportTrend') }}</text>
+        </view>
         <template v-if="trendPoints.length && trendTotal > 0">
           <view class="tmeta">
             <text class="tm on">{{ activePoint.label }}</text>
@@ -336,6 +339,28 @@ function exportUsers(): void {
   downloadCsv(
     `${locale.t('campusSales.exportUsersFileName')}-${todayStamp()}.csv`,
     [locale.t('campusSales.colSegment'), locale.t('campusSales.colCustomers'), locale.t('campusSales.colPct')],
+    rows,
+  );
+  uni.showToast({
+    title: locale.t('campusSales.exportDone').replace('{n}', String(rows.length)),
+    icon: 'none',
+  });
+}
+
+/** P4-1-4 导出：经营趋势明细（today=24 时段，7d/30d=按日；金额单位元） */
+function exportTrend(): void {
+  if (trendTotal.value <= 0) {
+    uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const rows = trendPoints.value.map((p) => [
+    range.value === 'today' ? `${p.label}:00` : p.label,
+    String(p.orders),
+    fenToYuanFixed(p.gmvFen),
+  ]);
+  downloadCsv(
+    `${locale.t('campusSales.exportTrendFileName')}-${todayStamp()}.csv`,
+    [locale.t('campusSales.colPoint'), locale.t('campusSales.kpiOrders'), locale.t('campusSales.colTrendGmv')],
     rows,
   );
   uni.showToast({
