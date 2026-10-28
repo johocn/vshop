@@ -75,6 +75,7 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.campusDispatch', url: '/pages/campus/dispatch', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusStats', url: '/pages/campus/stats', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusSales', url: '/pages/campus/sales', tier: 1, perm: 'CampusViewDispatch' },
+      { label: 'menu.campusMonitor', url: '/pages/campus/monitor', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusOps', url: '/pages/campus/ops', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusChat', url: '/pages/campus/chat', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusProducts', url: '/pages/campus/products', tier: 2, perm: 'CampusMerchant' },

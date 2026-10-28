@@ -68,6 +68,7 @@
     "campusBuildings": "楼栋坐标",
     "campusStats": "配送看板",
     "campusSales": "经营分析",
+    "campusMonitor": "系统监控",
     "campusAddressChanges": "改址台账",
     "campusOps": "运营中心",
     "campusChat": "在线客服",
@@ -290,6 +291,7 @@
     "campusBuildings": "楼栋坐标",
     "campusStats": "配送看板",
     "campusSales": "经营分析",
+    "campusMonitor": "系统监控",
     "campusAddressChanges": "改址台账",
     "campusOps": "运营中心",
     "campusChat": "在线客服",
@@ -3395,6 +3397,21 @@
     "empty": "窗口内暂无经营数据",
     "noPrev": "—",
     "retry": "重试"
+  },
+  "campusMonitor": {
+    "title": "系统监控",
+    "subtitle": "前端埋点与错误上报（近 7 日趋势 / Top 事件 / 错误明细）",
+    "loading": "加载中…",
+    "empty": "窗口内暂无数据",
+    "kpiTodayEvents": "今日事件",
+    "kpiTodayErrors": "今日错误",
+    "kpiUsers": "今日活跃用户",
+    "kpiTotalEvents": "累计事件",
+    "trendTitle": "近 7 日趋势",
+    "trendHint": "柱高=事件数，下方红色数字=当日错误数",
+    "topTitle": "今日 Top 事件",
+    "tabEvents": "埋点明细",
+    "tabErrors": "错误上报"
   },
   "campusConfig": {
     "loading": "加载中…",

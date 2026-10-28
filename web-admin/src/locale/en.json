@@ -68,6 +68,7 @@
     "campusBuildings": "Building Coordinates",
     "campusStats": "Delivery Stats",
     "campusSales": "Business Analysis",
+    "campusMonitor": "System Monitor",
     "campusAddressChanges": "Address Change Ledger",
     "campusOps": "Operations Center",
     "campusProducts": "One-tap Sell-out",
@@ -292,6 +293,7 @@
     "campusBuildings": "Building Coordinates",
     "campusStats": "Delivery Stats",
     "campusSales": "Business Analysis",
+    "campusMonitor": "System Monitor",
     "campusAddressChanges": "Address Change Ledger",
     "campusOps": "Operations Center",
     "campusProducts": "One-tap Sell-out",
@@ -3397,6 +3399,21 @@
     "empty": "No sales data in this window",
     "noPrev": "—",
     "retry": "Retry"
+  },
+  "campusMonitor": {
+    "title": "System Monitor",
+    "subtitle": "Frontend telemetry & error reports (7-day trend / top events / details)",
+    "loading": "Loading…",
+    "empty": "No data in this window",
+    "kpiTodayEvents": "Events today",
+    "kpiTodayErrors": "Errors today",
+    "kpiUsers": "Active users today",
+    "kpiTotalEvents": "Total events",
+    "trendTitle": "7-day trend",
+    "trendHint": "Bar = events, red number below = errors that day",
+    "topTitle": "Top events today",
+    "tabEvents": "Telemetry",
+    "tabErrors": "Errors"
   },
   "campusConfig": {
     "loading": "Loading…",

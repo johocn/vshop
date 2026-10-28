@@ -61,6 +61,7 @@ import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getOrderByCode } from '../../api/queries/order';
 import { getMyReviews, createReview } from '../../api/queries/review';
+import { track } from '../../utils/telemetry';
 import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import ImageUpload from '../../components/ImageUpload.vue';
@@ -175,6 +176,8 @@ async function onSubmit() {
                 images: b.images,
                 isAnonymous: b.isAnonymous,
             });
+            // P4-4 评价提交埋点（评分分布 + 是否带图）
+            track('review_submit', { productId: b.productId, rating: b.rating, images: (b.images || []).length });
         } catch (e: any) {
             // graphql-request 的 ClientError 把后端 UserInputError 放在 response.errors[0].message
             const msg = String(e?.response?.errors?.[0]?.message || e?.message || e);

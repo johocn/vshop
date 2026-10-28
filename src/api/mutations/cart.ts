@@ -1,11 +1,17 @@
 import { getGraphQLClient } from '../client';
 import { CART_FRAGMENT } from '../fragments';
+import { track } from '../../utils/telemetry';
 
 export async function addItemToOrder(productVariantId: string, quantity: number) {
     const client = getGraphQLClient();
     const mutation = `${CART_FRAGMENT}
         mutation AddToCart($productVariantId: ID!, $quantity: Int!) { addItemToOrder(productVariantId: $productVariantId, quantity: $quantity) { ... on Order { ...CartInfo } ... on ErrorResult { errorCode message } } }`;
-    return client.request(mutation, { productVariantId, quantity });
+    const res: any = await client.request(mutation, { productVariantId, quantity });
+    // P4-4 加购埋点：仅成功（非 ErrorResult）才记
+    if (res?.addItemToOrder && !res.addItemToOrder.errorCode) {
+        track('add_to_cart', { variantId: productVariantId, quantity });
+    }
+    return res;
 }
 
 export async function adjustOrderLine(orderLineId: string, quantity: number) {

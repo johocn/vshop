@@ -46,6 +46,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { getOrderByCode, getActiveOrder } from '../../api/queries/order';
 import { getEligiblePaymentMethods } from '../../api/queries/user';
 import { addPaymentToOrder, transitionOrderToState } from '../../api/mutations/checkout';
+import { track } from '../../utils/telemetry';
 import { handlePayment, type PaymentMethod } from '../../composables/usePayment';
 import EmptyState from '../../components/EmptyState.vue';
 
@@ -117,6 +118,7 @@ async function pay() {
         if (o.state === 'PaymentSettled' || o.state === 'PaymentAuthorized') {
             // 即时结算类（balance-pay）必须真正 Settled 才算成功
             if (method === 'balance-pay' && o.state !== 'PaymentSettled') throw new Error(t('payment.balancePayIncomplete'));
+            track('pay_success', { method, code: o.code, state: o.state });
             uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + encodeURIComponent(o.code) });
             return;
         }
@@ -131,6 +133,7 @@ async function pay() {
             orderState: o.state,
         });
         if (result.success) {
+            track('pay_success', { method, code: o.code, state: o.state });
             uni.redirectTo({ url: '/pkg-order/pages/pay-result?code=' + encodeURIComponent(o.code) });
         } else {
             uni.showToast({ title: result.message || t('payment.payIncomplete'), icon: 'none' });
