@@ -3153,4 +3153,53 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 - C 端：`cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` → 产物校验 3835 KB、远端解压 + 备份轮转、站点返回 200。
 
+## 64. 待付款订单续付（C 端补付入口，2026-10-28）
+
+### 64.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure / campus-delivery-plugin） | 新增 Shop mutation `campusResumePaymentOrder(orderId: ID!): Order!`（`src/resume-payment-shop.resolver.ts` + SDL + resolver 注册）。Vendure Shop API 原生没有「切换活跃订单」能力，而 `addPaymentToOrder` 只作用于 `session.activeOrder`，导致下单后未支付成功的订单无法再次支付 |
+| C 端（waimai） | `src/utils/resume-pay.ts`（续付编排：活跃购物车冲突守卫 → 切换活跃订单 → 选支付方式 → `addPaymentToOrder` → JSAPI 拉起收银台 → 轮询结算 → 失败 `cancelPayment` 回滚）；`src/api/client.ts` 新增 `getChannelClient(channelToken)`；`src/api/mutations/checkout.ts` 新增 `setActiveOrder`；`src/pages/orders/index.vue` 订单卡片「去支付」+ 金额确认弹层；`src/pkg-order/pages/order-detail.vue` 底部操作区同款入口；i18n 中英各 7 条（`orders.payNow / payTitle / payConfirm / paying / payBlockedTitle / payBlocked / payFail` + `orderDetail.payNow`） |
+
+### 64.2 口径与交互
+
+- **入口**：仅 `state === 'ArrangingPayment'` 的订单显示「去支付」（列表卡片快捷区首个主色按钮、详情页操作区首个按钮）。
+- **支付方式选择**：`eligiblePaymentMethods` 中优先 `wechatpay-yourbao-h5`（H5 公众号 JSAPI）、其次 `wechatpay`、最后第一个可用；拉起收银台前把渠道专属 PM code 归一为 `wechatpay`，避免平台适配层识别失败。
+- **渠道隔离**：订单列表按渠道聚合而来，续付全程用订单所属渠道的 `vendure-token`（`getChannelClient`），不依赖当前 `tenantStore.token`，跨店订单同样可付。
+- **活跃购物车冲突守卫**：切换活跃订单前先查当前渠道的 `activeOrder`；若它不是本单且 `lines.length > 0`，返回 `blocked` 并提示「当前购物车还有 N 件商品未结算，请先完成或清空购物车后再支付该订单」。实测 Vendure 在 `ArrangingPayment` 状态下会拒绝加购（`ORDER_MODIFICATION_ERROR`），该守卫覆盖跨设备/新购物车等非常规场景。
+- **失败回滚**：JSAPI 取消/失败时调用 `cancelPayment` 取消该笔 payment，订单保持 `ArrangingPayment` 可再次补付。
+- **成功跳转**：`success / pending` 均跳 `/pkg-order/pages/pay-result?code=…&status=…`（与结算页支付结果口径一致）。
+- **后端安全校验**：订单必须属于当前登录客户（`order.customer.user.id === ctx.activeUserId`），否则 `ORDER_NOT_FOUND`；非 `ArrangingPayment` 状态返回 `ORDER_NOT_PAYABLE`。
+
+### 64.3 验证记录（线上 www.yourbao.cn/waimai，测试学生真实会话）
+
+`resume-pay-e2e.cjs` 全部 PASS：
+
+| 步骤 | 结果 |
+|---|---|
+| 造数 | 加购 → `campusSetDeliveryTarget(东区/桂2栋, R1)` → `campusSetShippingMethod(campus-errand-smoke)` → `transitionOrderToState(ArrangingPayment)` → 订单 434 / `6PW4GX5RVCKVWKZ3` |
+| 切换活跃订单 | `campusResumePaymentOrder(434)` 返回同单；`activeOrder.id == 434` |
+| 状态锁 | `ArrangingPayment` 活跃时加购被拒（`ORDER_MODIFICATION_ERROR`），说明同渠道不会与有商品的购物车并存 |
+| 越权/状态校验 | 已支付订单（403）→ `ORDER_NOT_PAYABLE`；匿名调用 → `ORDER_NOT_FOUND` |
+| UI 列表 | 真实数据卡片显示「待付款 … 去支付」，其余卡片无多余按钮（`01-orders-pay-btn.png`） |
+| UI 弹层 | 点击「去支付」→「继续支付 / 确认支付 ¥2.00？支付成功后商家将开始备餐。取消 确定」（`02-pay-confirm-modal.png`） |
+| UI 支付尝试 | 浏览器非微信环境：`wechatpay` 支付被微信拒（payment `Declined`）→ toast 提示（`03-pay-result-toast.png`）；订单仍 `ArrangingPayment`、活跃订单仍是本单（`04-orders-after-fail.png`），可再次点「去支付」 |
+| 数据清理 | `cancelMyOrder(434)` → 清 `session.activeOrderId`、`payment / order_line / surcharge / order` → `orderByCode` 查无此单 |
+
+### 64.4 边界与已知限制
+
+- 真实支付成功需在微信内置浏览器/小程序中完成；桌面浏览器只能验证「拉起支付 → 微信拒绝 → 回滚」链路。
+- 续付不会重置订单已写入的备注/餐具/发票信息（沿用原单），仅补支付这一步。
+- `Created / AddingItems` 订单不走本入口（属购物车阶段，应去结算页完成地址与配送方式）。
+- 同一订单重复点击会复用同一活跃订单；已取消/已支付订单入口自动消失（状态轮询 30s 内刷新）。
+
+### 64.5 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `2f3477856` → `git push origin master`；服务器 `git fetch origin master && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib` → `pm2 restart vendure --update-env` | 重启后 503 约 8s；Schema 探针 `Mutation` 含 `campusResumePaymentOrder` |
+| C 端 | `node_modules/.bin/uni.cmd build`（DONE Build complete）→ `WA_SKIP_BUILD=1 node .secrets/deploy-waimai.mjs` | 产物校验 3842 KB；站点返回 200 |
+
+
 
