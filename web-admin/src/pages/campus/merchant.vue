@@ -11,9 +11,13 @@
           <text class="stat-num">¥{{ fenToYuan(board.completedTodayAmount) }}</text>
           <text class="stat-lbl">{{ $t('campusMerchant.completedAmount') }}</text>
         </view>
-        <view class="switch" :class="{ on: !board.paused }" @tap="toggleOpen">
-          <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : $t('campusMerchant.open') }}</text>
+        <view class="switch" :class="{ on: board.openNow }" @tap="toggleOpen">
+          <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : (board.openNow ? $t('campusMerchant.open') : $t('campusMerchant.closedByHours')) }}</text>
         </view>
+      </view>
+      <!-- 营业时间自动开关门：下次开门/打烊倒计时；打烊前 15 分钟标橙 -->
+      <view v-if="clockText" class="clockbar" :class="{ warn: closingSoon }">
+        <text>{{ clockText }}</text>
       </view>
       <view class="entrybar" @tap="goSettings">
         <text class="e-lbl">{{ $t('nav.campusStoreSettings') }}</text>
@@ -170,6 +174,7 @@ import {
 } from '../../apis/campus';
 import { fenToYuan } from '../../utils/money';
 import { loadLodop, printReceipt58 } from '../../utils/lodop';
+import { maybeClosingReminder, transitionText } from '../../utils/closing-reminder';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
@@ -194,6 +199,9 @@ const locale = useLocaleStore();
 const loading = ref(true);
 const board = ref<CampusMerchantBoard>({
   paused: false,
+  openNow: false,
+  businessHours: null,
+  nextTransition: null,
   merchantConfirmEnabled: false,
   printMode: 'off',
   printProvider: 'local',
@@ -217,6 +225,12 @@ const tab = ref<TabKey>('pending');
 const actingId = ref('');
 const printingId = ref(''); // 手动补打中的订单
 const lastPendingCount = ref(0);
+/** 自动开关门：下一次切换倒计时（营业时间外显示下次开门） */
+const clockText = computed(() => transitionText(board.value.nextTransition));
+const closingSoon = computed(() => {
+  const n = board.value.nextTransition;
+  return !!n && n.action === 'close' && n.inMinutes <= 15;
+});
 let timer: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -600,6 +614,7 @@ async function refresh(initial = false) {
     }
     lastPendingCount.value = pendingCount;
     board.value = b;
+    maybeClosingReminder(b.nextTransition);
     // 本地通道才探 C-Lodop（云打印由服务端直连，无需浏览器插件）
     if (isLocal.value && lodopReady.value === 'probing') void probePrinter();
     void autoPrint(b);
@@ -799,6 +814,11 @@ onUnmounted(() => {
     padding: 20rpx 28rpx; margin-bottom: 20rpx;
     .e-lbl { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 600; }
     .e-chev { font-size: 32rpx; color: $wa-muted; }
+  }
+  .clockbar { background: #fff7e6; border: 1.5px solid #fa8c16; border-radius: $wa-radius;
+    padding: 14rpx 24rpx; margin-bottom: 20rpx;
+    text { font-size: 24rpx; color: #ad4e00; font-weight: 600; }
+    &.warn { background: #fff1e6; border-color: #d4380d; text { color: #d4380d; } }
   }
   .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;

@@ -24,7 +24,13 @@
             <text class="preset" @tap="form.businessHours = '18:00-02:00'">{{ $t('campusStoreSettings.presetNight') }}</text>
           </view>
           <text class="tip">{{ $t('campusStoreSettings.hoursHint') }}</text>
+          <text v-if="nextText" class="next">{{ nextText }}</text>
         </view>
+        <view class="row">
+          <text class="row-lbl">{{ $t('campusStoreSettings.warnLabel') }}</text>
+          <switch class="sw" :checked="warnOn" color="#ff6600" @change="onWarn" />
+        </view>
+        <text class="tip">{{ $t('campusStoreSettings.warnHint') }}</text>
       </view>
 
       <!-- 门店信息：公告 / 电话（C 端店铺页直接展示） -->
@@ -100,7 +106,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import {
   campusMerchantRevenue,
@@ -112,6 +118,12 @@ import {
 } from '../../apis/campus';
 import { fenToYuan, fenToYuanFixed } from '../../utils/money';
 import { downloadCsv } from '../../utils/csv';
+import {
+  closingWarnEnabled,
+  maybeClosingReminder,
+  setClosingWarnEnabled,
+  transitionText,
+} from '../../utils/closing-reminder';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
@@ -127,6 +139,8 @@ const paused = ref(false);
 const revenue = ref<MerchantRevenue | null>(null);
 const range = ref<'today' | 'last7'>('today');
 const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
+const warnOn = ref(closingWarnEnabled());
+let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const bucket = computed(() => (range.value === 'today'
   ? revenue.value?.today
@@ -139,13 +153,18 @@ const statusText = computed(() => {
     : locale.t('campusStoreSettings.statusOffHours');
 });
 const statusClass = computed(() => ({ open: !paused.value && !!profile.value?.openNow, off: paused.value }));
+/** 下一次自动开门/打烊倒计时文案（自动开关门） */
+const nextText = computed(() => transitionText(profile.value?.nextTransition));
 
-function applyProfile(p: MerchantStoreProfile): void {
+function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
   profile.value = p;
   paused.value = p.paused;
-  form.value.businessHours = p.businessHours ?? '';
-  form.value.storeNotice = p.storeNotice ?? '';
-  form.value.storePhone = p.storePhone ?? '';
+  if (syncForm) {
+    form.value.businessHours = p.businessHours ?? '';
+    form.value.storeNotice = p.storeNotice ?? '';
+    form.value.storePhone = p.storePhone ?? '';
+  }
+  maybeClosingReminder(p.nextTransition);
 }
 
 async function load(): Promise<void> {
@@ -174,6 +193,20 @@ async function onPause(e: any): Promise<void> {
   } finally {
     pauseBusy.value = false;
   }
+}
+
+/** 打烊前提醒开关（本机记忆；工作台/本页轮询到进入 15 分钟窗口时横幅 + 语音） */
+function onWarn(e: any): void {
+  const on = !!e.detail.value;
+  warnOn.value = on;
+  setClosingWarnEnabled(on);
+}
+
+/** 每分钟只回读营业状态（不同步表单，避免覆盖正在编辑的内容）：倒计时与打烊提醒随轮询更新 */
+async function tickClock(): Promise<void> {
+  try {
+    applyProfile(await campusMerchantStoreProfile(), false);
+  } catch { /* 静默重试下一轮 */ }
 }
 
 async function save(): Promise<void> {
@@ -232,7 +265,14 @@ function exportCsv(): void {
   );
 }
 
-onMounted(load);
+onMounted(() => {
+  void load();
+  clockTimer = setInterval(() => { if (!loading.value) void tickClock(); }, 60_000);
+});
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer);
+  clockTimer = null;
+});
 // 从工作台/沽清页返回时刷新营业状态与数据（首次展示由 onMounted 承担，避免重复请求）
 let shown = false;
 onShow(() => {
@@ -270,6 +310,7 @@ onPullDownRefresh(async () => {
     .count { display: block; text-align: right; font-size: 22rpx; color: $wa-muted; margin-top: 8rpx; }
   }
   .tip { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 12rpx; line-height: 1.5; }
+  .next { display: block; font-size: 22rpx; color: #fa8c16; font-weight: 600; margin-top: 10rpx; }
   .presets { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx;
     .preset { font-size: 22rpx; color: $wa-accent; border: 1.5px solid $wa-accent;
       border-radius: 999rpx; padding: 8rpx 20rpx; }
