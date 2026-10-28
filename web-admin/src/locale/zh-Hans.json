@@ -3436,7 +3436,17 @@
     "loading": "加载中…",
     "empty": "窗口内暂无经营数据",
     "noPrev": "—",
-    "retry": "重试"
+    "retry": "重试",
+    "exportCustom": "自定义日期…",
+    "customTitle": "自定义导出区间",
+    "customHint": "按自然日统计，含起止两天，最长 366 天",
+    "customFrom": "开始日期",
+    "customTo": "结束日期",
+    "customRangeInvalid": "结束日期不能早于开始日期",
+    "customRangeTooLong": "区间不能超过 366 天",
+    "customRangeJoin": "至",
+    "cancel": "取消",
+    "confirm": "确定"
   },
   "campusMonitor": {
     "title": "系统监控",
