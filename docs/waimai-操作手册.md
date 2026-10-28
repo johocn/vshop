@@ -3201,5 +3201,49 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后端 | 提交 `2f3477856` → `git push origin master`；服务器 `git fetch origin master && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib` → `pm2 restart vendure --update-env` | 重启后 503 约 8s；Schema 探针 `Mutation` 含 `campusResumePaymentOrder` |
 | C 端 | `node_modules/.bin/uni.cmd build`（DONE Build complete）→ `WA_SKIP_BUILD=1 node .secrets/deploy-waimai.mjs` | 产物校验 3842 KB；站点返回 200 |
 
+## 65. 沽清日常闭环：全店批量沽清/恢复 + C 端售罄实时同步（2026-10-28）
+
+单品「一键沽清」在 P1/P2 期已上线（商品级 `customFields.waimaiSoldOut` + 下单闸门拦截 + C 端售罄标签）。本轮补两处日常高频缺口：**打烊/备料不足时逐个开关太慢**、**商家沽清后顾客菜单要重进才生效**。
+
+### 65.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure / campus-delivery-plugin） | Admin mutation `campusMerchantSetAllProductsSoldOut(soldOut: Boolean!): CampusMerchantSoldOutBatchResult!`（`merchant-admin.service.ts#setAllProductsSoldOut`）：按 `ctx.channelId` 批量 UPDATE 本店商品 `customFieldsWaimaisoldout`，`UPDATE … RETURNING p.id` 统计实际影响条数；权限沿用 `CampusPermissions.CampusMerchant` |
+| 后台（web-admin） | `pages/campus/products` 顶部新增「全店沽清 / 全店恢复」两个按钮 + 二次确认弹层（写明「C 端仍展示但不可加购、已下单不受影响」），成功后 toast「已更新 N 件商品」并重载列表；`apis/campus-ops.ts` 新增 `setMerchantAllProductsSoldOut`；中英 i18n 各 9 键 |
+| C 端（waimai） | `pages/shop/menu.vue` 新增 `syncSoldOut()` 静默同步：`onShow`（从购物车/详情返回、切后台再回）与「加购被拒（售罄 toast）」时，按商品 id 回填 `waimaiSoldOut` 与规格 `stockLevel/enabled`；只改字段、不重建分类、不打断滚动位置 |
+
+### 65.2 口径与交互
+
+- **批量范围**：仅当前店铺渠道（`ctx.channelId`）的商品；跨渠道/其它店不受影响。
+- **恢复语义**：全店恢复会把「此前单品沽清」的商品一并恢复，弹层已明示；用于打烊后第二天开门。
+- **售罄表现**：C 端仍展示商品与「售罄」标签，加号禁用；售罄商品恒定排到分类末尾；加购请求仍被下单闸门二次拦截。
+- **实时同步**：菜单页首次加载后仅做静默同步，不重新计算分类/筛选；同步失败静默忽略，下次回前台或下次加购被拒时重试。
+
+### 65.3 验证记录（线上）
+
+| 步骤 | 结果 |
+|---|---|
+| Schema 探针（admin-api） | `Mutation` 字段含 `campusMerchantSetAllProductsSoldOut` |
+| 批量沽清（测试渠道 t2，38 件商品） | `campusMerchantSetAllProductsSoldOut(soldOut: true)` → `{ok:true, soldOut:true, count:38}` |
+| 批量恢复 | `soldOut: false` → `{ok:true, soldOut:false, count:38}`；DB 复核 `t2 soldout=0/total=38`、`canteen-a soldout=0/total=3`（线上店未受影响） |
+| 产物上线 | 后台产物 61729 KB、nginx 重载成功；服务器站点 `assets/index-CvpTqWet.js` 含「全店沽清」文案、`campus-ops.MXiZVhBg.js` 含新 mutation |
+| C 端 | 产物 3842 KB、站点 200 |
+
+### 65.4 边界与已知限制
+
+- 批量操作是「全店」粒度，不支持只对某个分类批量沽清；需要分类粒度时仍逐个开关。
+- 后台是全店覆盖，不区分商品是否参与其它渠道；批量恢复同样作用于本店全部商品。
+- C 端同步不改变已加入购物车的行项目，商家沽清后老购物车行仍可在结算时被下单闸门拦截提示。
+
+### 65.5 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `26eab68eb` → `git push origin master`；服务器 `git fetch origin master && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib` → `pm2 restart vendure --update-env` | `vendure` online（重启计数 442） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs`（内含 `uni build` + tar/scp/解压/备份轮转 + nginx reload） | 产物校验 61729 KB；`nginx -t` 通过并 reload |
+| C 端 | `node_modules/.bin/uni.cmd build` → `WA_SKIP_BUILD=1 node .secrets/deploy-waimai.mjs` | 产物校验 3842 KB；站点返回 200 |
+
+
 
 
