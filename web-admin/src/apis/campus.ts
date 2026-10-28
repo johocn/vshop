@@ -711,9 +711,14 @@ export interface CampusSalesStats {
   medianGmvFen: number;
 }
 
-export async function campusSalesStats(range: string): Promise<CampusSalesStats> {
+/** range=today|7d|30d；传 from/to（YYYY-MM-DD）则按自定义自然日区间统计（含首尾两天） */
+export async function campusSalesStats(
+  range?: string | null,
+  from?: string | null,
+  to?: string | null,
+): Promise<CampusSalesStats> {
   const res = await getAdminClient().request<{ campusSalesStats: CampusSalesStats }>(
-    `query ($range: String) { campusSalesStats(range: $range) {
+    `query ($range: String, $from: String, $to: String) { campusSalesStats(range: $range, from: $from, to: $to) {
       range windowStart
       kpis { orders gmvFen aovFen customers newCustomers repurchaseRate }
       prev { orders gmvFen aovFen customers newCustomers repurchaseRate }
@@ -724,7 +729,7 @@ export async function campusSalesStats(range: string): Promise<CampusSalesStats>
       cohorts { once twiceToFour loyal }
       medianQuantity medianGmvFen
     } }`,
-    { range },
+    { range: range ?? null, from: from ?? null, to: to ?? null },
   );
   return res.campusSalesStats;
 }

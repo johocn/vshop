@@ -3438,7 +3438,17 @@
     "loading": "Loading…",
     "empty": "No sales data in this window",
     "noPrev": "—",
-    "retry": "Retry"
+    "retry": "Retry",
+    "exportCustom": "Custom range…",
+    "customTitle": "Custom Export Range",
+    "customHint": "Natural days, both ends included, up to 366 days",
+    "customFrom": "Start date",
+    "customTo": "End date",
+    "customRangeInvalid": "End date cannot be earlier than start date",
+    "customRangeTooLong": "Range cannot exceed 366 days",
+    "customRangeJoin": "to",
+    "cancel": "Cancel",
+    "confirm": "OK"
   },
   "campusMonitor": {
     "title": "System Monitor",

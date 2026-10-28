@@ -126,6 +126,30 @@
 
     <text v-if="err" class="err">{{ err }} <text class="retry" @tap="load">{{ $t('campusSales.retry') }}</text></text>
     <view style="height: 40rpx" />
+
+    <!-- 自定义导出区间（任意起止日期，含首尾两天） -->
+    <view v-if="customOpen" class="mask" @tap="closeCustom(null)">
+      <view class="sheet" @tap.stop>
+        <text class="stitle">{{ $t('campusSales.customTitle') }}</text>
+        <text class="shint">{{ $t('campusSales.customHint') }}</text>
+        <view class="drow">
+          <text class="dl">{{ $t('campusSales.customFrom') }}</text>
+          <picker mode="date" :value="customFrom" :end="customTo || todayStr" @change="onCustomFrom">
+            <text class="dv">{{ customFrom }}</text>
+          </picker>
+        </view>
+        <view class="drow">
+          <text class="dl">{{ $t('campusSales.customTo') }}</text>
+          <picker mode="date" :value="customTo" :start="customFrom" :end="todayStr" @change="onCustomTo">
+            <text class="dv">{{ customTo }}</text>
+          </picker>
+        </view>
+        <view class="dacts">
+          <text class="dbtn ghost" @tap="closeCustom(null)">{{ $t('campusSales.cancel') }}</text>
+          <text class="dbtn primary" @tap="confirmCustom">{{ $t('campusSales.confirm') }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -289,27 +313,106 @@ function todayStamp(): string {
 }
 
 type ExportRange = 'today' | '7d' | '30d';
+type ExportChoice = ExportRange | 'custom';
 const EXPORT_RANGE_KEY: Record<ExportRange, string> = {
   today: 'campusSales.rangeToday',
   '7d': 'campusSales.range7d',
   '30d': 'campusSales.range30d',
 };
 
+/** YYYY-MM-DD（本地时区） */
+function ymd(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+/** 文件名用紧凑日期 YYYYMMDD */
+function stampOf(v: string): string {
+  return v.replace(/-/g, '');
+}
+
+// ===== 自定义导出区间（任意起止日期）=====
+const customOpen = ref(false);
+const customFrom = ref('');
+const customTo = ref('');
+let customDone: ((v: { from: string; to: string } | null) => void) | null = null;
+const todayStr = computed(() => ymd(new Date()));
+
+/** 打开日期选择层，默认最近 7 个自然日；取消返回 null */
+function askCustomRange(): Promise<{ from: string; to: string } | null> {
+  const now = new Date();
+  customTo.value = ymd(now);
+  customFrom.value = ymd(new Date(now.getTime() - 6 * 86400_000));
+  // 等 uni 动作面板收起动画结束再弹层，避免两层叠加
+  setTimeout(() => {
+    customOpen.value = true;
+  }, 260);
+  return new Promise((resolve) => {
+    customDone = resolve;
+  });
+}
+
+function closeCustom(v: { from: string; to: string } | null): void {
+  customOpen.value = false;
+  const fn = customDone;
+  customDone = null;
+  fn?.(v);
+}
+
+function onCustomFrom(e: { detail: { value: string } }): void {
+  customFrom.value = e.detail.value;
+}
+function onCustomTo(e: { detail: { value: string } }): void {
+  customTo.value = e.detail.value;
+}
+
+/** 自然日天数（含首尾） */
+function daysBetween(from: string, to: string): number {
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400_000) + 1;
+}
+
+function confirmCustom(): void {
+  const from = customFrom.value;
+  const to = customTo.value;
+  if (!from || !to) return;
+  if (from > to) {
+    uni.showToast({ title: locale.t('campusSales.customRangeInvalid'), icon: 'none' });
+    return;
+  }
+  if (daysBetween(from, to) > 366) {
+    uni.showToast({ title: locale.t('campusSales.customRangeTooLong'), icon: 'none' });
+    return;
+  }
+  closeCustom({ from, to });
+}
+
 /** 导出前选窗口（与页面当前窗口解耦）：返回该窗口数据 + 文件名后缀；取消返回 null */
-async function pickExportData(): Promise<{ r: ExportRange; tag: string; s: CampusSalesStats } | null> {
+async function pickExportData(): Promise<{ r: ExportChoice; tag: string; s: CampusSalesStats } | null> {
   const list: ExportRange[] = ['today', '7d', '30d'];
   const idx = await new Promise<number | null>((resolve) => {
     uni.showActionSheet({
-      itemList: list.map((r) => locale.t(EXPORT_RANGE_KEY[r])),
+      itemList: [...list.map((r) => locale.t(EXPORT_RANGE_KEY[r])), locale.t('campusSales.exportCustom')],
       success: (res) => resolve(res.tapIndex),
       fail: () => resolve(null),
     });
   });
   if (idx === null) return null;
-  const r = list[idx] ?? '7d';
-  const tag = `-${locale.t(EXPORT_RANGE_KEY[r])}`;
+
+  let r: ExportChoice = list[idx] ?? '7d';
+  let from: string | null = null;
+  let to: string | null = null;
+  if (idx === list.length) {
+    // 自定义日期：弹出起止日期选择层
+    const picked = await askCustomRange();
+    if (!picked) return null;
+    r = 'custom';
+    from = picked.from;
+    to = picked.to;
+  }
+  const tag = from && to
+    ? `-${stampOf(from)}${locale.t('campusSales.customRangeJoin')}${stampOf(to)}`
+    : `-${locale.t(EXPORT_RANGE_KEY[r as ExportRange])}`;
   try {
-    const s = r === range.value && loaded.value ? stats.value : await campusSalesStats(r);
+    const s = r === range.value && loaded.value ? stats.value : await campusSalesStats(from ? null : r, from, to);
     return { r, tag, s };
   } catch (e) {
     console.error('campusSalesStats(export) failed', e);
@@ -517,5 +620,20 @@ load();
   .muted { display: block; text-align: center; color: $wa-muted; font-size: 26rpx; padding: 30rpx 0; }
   .err { display: block; text-align: center; color: $wa-danger; font-size: 24rpx; padding: 12rpx 0;
     .retry { color: $wa-accent; margin-left: 12rpx; } }
+
+  .mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: flex-end; z-index: 9999; }
+  .sheet { width: 100%; background: $wa-card; border-radius: 24rpx 24rpx 0 0;
+    padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+    .stitle { display: block; font-size: 30rpx; font-weight: 600; color: $wa-ink; text-align: center; }
+    .shint { display: block; font-size: 22rpx; color: $wa-muted; text-align: center; margin-top: 10rpx; }
+    .drow { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 0;
+      border-bottom: 1rpx solid $wa-rule;
+      .dl { font-size: 26rpx; color: $wa-muted; }
+      .dv { font-size: 28rpx; color: $wa-ink; font-weight: 600; } }
+    .dacts { display: flex; gap: 20rpx; margin-top: 32rpx;
+      .dbtn { flex: 1; text-align: center; padding: 22rpx 0; border-radius: $wa-radius; font-size: 28rpx;
+        &.ghost { background: $wa-bg; color: $wa-muted; }
+        &.primary { background: $wa-accent; color: #fff; font-weight: 600; } } } }
 }
 </style>

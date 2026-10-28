@@ -2912,13 +2912,14 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 | 端 | 内容 |
 |---|---|
-| 后端（vendure） | 新增 `sales-stats.service.ts`（纯函数 `aggregateSalesStats` + 服务）、`sales-stats.resolver.ts`；`campus-delivery.plugin.ts` 注册服务/解析器并新增 SDL `campusSalesStats` 及 8 个类型；单测 `sales-stats.service.spec.ts` 14 例 |
-| 后台（web-admin） | 新增页面 `pages/campus/sales.vue`（经营分析）；`apis/campus.ts` 新增 `campusSalesStats(range)` 与类型；注册 `pages.json`、菜单 `constants/menus.ts`（履约域，权限 `CampusViewDispatch`）、导航标题 `i18n/nav-titles.ts`；中英 i18n 命名空间 `campusSales`；商品表「导出 CSV」+ 复购分群「导出用户结构」（P4-1-4，客户端生成，复用 `utils/csv.ts` 的 `downloadCsv`） |
+| 后端（vendure） | 新增 `sales-stats.service.ts`（纯函数 `aggregateSalesStats` + `customSalesWindow` + 服务）、`sales-stats.resolver.ts`；`campus-delivery.plugin.ts` 注册服务/解析器并新增 SDL `campusSalesStats(range, from, to)` 及 8 个类型；单测 `sales-stats.service.spec.ts` 18 例 |
+| 后台（web-admin） | 新增页面 `pages/campus/sales.vue`（经营分析）；`apis/campus.ts` 新增 `campusSalesStats(range, from?, to?)` 与类型；注册 `pages.json`、菜单 `constants/menus.ts`（履约域，权限 `CampusViewDispatch`）、导航标题 `i18n/nav-titles.ts`；中英 i18n 命名空间 `campusSales`；商品表「导出 CSV」+ 复购分群「导出用户结构」（P4-1-4，客户端生成，复用 `utils/csv.ts` 的 `downloadCsv`）；导出窗口选单第四项「自定义日期…」+ 起止日期弹层（任意起止日期） |
 
 ### 60.2 口径与接口
 
-- 查询：`campusSalesStats(range: String)`，`range ∈ today | 7d | 30d`（非法值回退 `7d`）；权限同履约看板 `CampusPermissions.CampusViewDispatch`；非平台超管按 `ctx.channelId` 隔离。
+- 查询：`campusSalesStats(range: String, from: String, to: String)`，`range ∈ today | 7d | 30d`（非法值回退 `7d`）；`from`/`to` 传 `YYYY-MM-DD` 时按**自定义任意起止日期**统计（响应 `range=custom`）。权限同履约看板 `CampusPermissions.CampusViewDispatch`；非平台超管按 `ctx.channelId` 隔离。
 - 窗口：`today` = 校园时区（UTC+8）今日 0 点起；`7d` / `30d` = **对齐自然日**的「近 N 个自然日 0 点起」（含今日），保证日趋势补零区间与总单量自洽。
+- 自定义区间（`custom`）：`from` 当天 0 点 ~ `to` **次日** 0 点（含首尾两天）；上一窗口为紧邻的等长区间（`start - (end - start) → start`）；日趋势按实际天数逐日补零。参数校验：`from`/`to` 必须同时传、格式须为日期、结束不得早于开始、跨度上限 **366 天**，违规抛 `UserInputError`（前端展示后端 message）。
 - 环比：`7d/30d` 对比紧邻等长窗口；`today` 对比「昨日 0 点 → 昨日同刻」；`compare` 为百分比数值，上期为 0 时返回 0（前端据 `prev.orders` 是否为 0 显示「—」）。
 - 销售单：排除 `Draft / AddingItems / ArrangingPayment / Cancelled`，并排除跑腿单（`customFields.errandKind` 非空，跑腿无商品会污染四象限与客单价）。
 - KPI：`orders` 有效单量；`gmvFen` = 订单 `totalWithTax` 汇总（**含配送费/打包费**）；`aovFen = gmvFen / orders`；`customers` 去重客户数（游客单不计）；`newCustomers` = 该客户全历史首单落在本窗口内；`repurchaseRate` = 窗口内 ≥2 单客户 / 下单客户。
@@ -2936,6 +2937,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 菜品四象限：十字线取 `medianQuantity` / `medianGmvFen`，散点按象限着色，四角标注 利润/明星/滞销/引流；下方 Top 10 商品表（名称、销量、销售额、象限）。
 - 复购分群：1 单 / 2-4 单 / 5+ 单三条横向进度条，右侧显示人数与占比。
 - 金额字段单位「分」，页面统一经既有 `src/utils/money.ts` 的 `fenToYuanFixed` 转元展示。
+- 导出窗口（含自定义）：三类导出点击后先弹「今日 / 近 7 日 / 近 30 日 / 自定义日期…」；选前三档按该窗口重新请求；选「自定义日期…」再弹起止日期层（`picker mode="date"` 两个，默认最近 7 个自然日，含起止两天，跨度 >366 天或结束早于开始就地 toast 拦截），确定后按 `campusSalesStats(null, from, to)` 取数，文件名后缀为 `-YYYYMMDD至YYYYMMDD`；任一步取消都不发起请求。
 
 ### 60.4 验证记录
 
@@ -2954,11 +2956,15 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 导出（P4-1-4）：线上点「导出 CSV」→ 下载 `商品结构明细-20261028.csv`，**9 行数据**，表头 `名称,销量,销售额,象限`，首行 `酒店测试-豪华套房,1,888.00,利润`（金额两位小数、象限已本地化）。
 - 导出（P4-1-4 扩展 · 用户结构）：复购分群卡片「导出用户结构」→ 先选导出窗口（今日 / 近 7 日 / 近 30 日，与页面当前窗口解耦）→ 下载 `用户结构明细-近 30 日-20261028.csv`，**7 行数据**，表头 `分群,人数,占比(%)`；近 30 日实得 `下单客户（合计）11 / 新客 9（81.8%）/ 老客 2（18.2%）/ 复购客户（≥2 单）6（54.5%）/ 1 单 5（45.5%）/ 2-4 单 4（36.4%）/ 5+ 单 2（18.2%）`，分群三档人数合计 11 = 下单客户数、复购占比 54.5% = 页面复购率、新客+老客 = 合计，均自洽。取证：`09-admin-sales-export-range.png`（窗口弹层）、`10-admin-sales-export-toast.png` + `用户结构明细-近 30 日-20261028.csv`（`web-admin/scripts/shots-p4-exports2.cjs`）。
 - 用户结构导出口径：占比基数 = 窗口内下单客户数（游客下单不计入，与 KPI 客户口径一致）；「复购客户（≥2 单）」= 2-4 单 + 5+ 单；今日档无成交时按钮不展示。
-- 导出窗口（P4-1-4 扩展）：商品结构 / 用户结构 / 经营趋势三类导出点击后均先弹「今日 / 近 7 日 / 近 30 日」选择，选非当前窗口时按该窗口重新请求 `campusSalesStats(range)` 再生成 CSV，文件名带窗口后缀（如 `-近 30 日`）；取消弹层不发起请求。
+- 导出窗口（P4-1-4 扩展）：商品结构 / 用户结构 / 经营趋势三类导出点击后均先弹「今日 / 近 7 日 / 近 30 日 / 自定义日期…」选择，选前三档时按该窗口重新请求 `campusSalesStats(range)` 再生成 CSV，文件名带窗口后缀（如 `-近 30 日`）；选「自定义日期…」走下方任意起止日期链路；取消弹层不发起请求。
 - 导出（P4-1-4 扩展 · 经营趋势）：趋势卡片「导出趋势」→ 选窗口 → 下载 `经营趋势明细-近 30 日-20261028.csv`，近 30 日 **30 行**（含无成交日补 0），表头 `时段/日期,单量,金额(元)`，单量列合计 81 = KPI 单量；今日档导出 24 行、首列为 `HH:00`。取证：`07-admin-sales-trend-export.png` + `经营趋势明细-20261028.csv`。
 - 修复记录（本轮上线中发现并已修复）：
   1. 初次上线日趋势单量和（81）≠ 总单量（83）：7d/30d 原为滚动窗口，与自然日补零区间错位 → 改为「近 N 个自然日」对齐，复测 81 = 81；
   2. Top 商品显示 `#85`：`Product.name` 非实体列（走翻译表）→ 补 join `product.translations` 并按中文取名称，复测显示「可乐鸡排饭」。
+- 任意起止日期（本轮新增）：
+  - 单测：`vitest run src/sales-stats.service.spec.ts` → **18/18 通过**，新增 4 例覆盖：`customSalesWindow` 口径（`from` 0 点 ~ `to` 次日 0 点、上一窗口紧邻等长）、首尾日订单都计入而区间外（`to` 次日 0 点、`from` 前一刻）不计入当前区间（跨界的 `from` 前一刻订单只进上期）、区间整体在过去（`windowEnd < now`）时按实际天数补零、非法入参（空/非日期/倒序/超 366 天）抛 `UserInputError`。
+  - 线上探针（`verify-custom-range.cjs`，平台超管会话）：`from=今天-6 & to=今天` 与 `range=7d` 的 `kpis`/`prev`/`dailyTrend` **完全一致**（自动断言 `true`），即自定义口径与预设窗口对齐；过去区间 `10-08~10-14` 返回 7 天补零、6 单 / GMV ¥512.10；错误分支三例分别返回「结束日期不能早于开始日期」「自定义区间需同时传 from 与 to」「自定义区间不能超过 366 天」。
+  - 后台线上取证（`web-admin/scripts/shots-sales-custom-range.cjs`，390×844 dpr=2，产物目录 `docs/screenshots/waimai/p24-sales-bi/`）：`11-admin-sales-export-custom-entry.png`（动作面板 4 项 + 取消）、`12-admin-sales-export-custom-sheet.png`（自定义导出区间：说明「按自然日统计，含起止两天，最长 366 天」、默认 `2026-10-22 ~ 2026-10-28`、取消/确定）、`13-admin-sales-export-custom-toast.png` + `经营趋势明细-20261022至20261028-20261028.csv`（**7 行**，10-22 ~ 10-28 逐日补零，10-23 为 1 单 ¥2.05，与接口数据一致）。
 
 ### 60.5 边界与已知限制
 
@@ -2969,13 +2975,15 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - **租户隔离同履约看板**：平台超管看全渠道汇总，店铺级账号只看本渠道（避免跨店数据泄露）。
 - **四象限中位数含全部有销量商品**，列表只展示 Top 50；冷门商品不会因未展示而漏算分档线。
 - **今日未来时段为 0**：时段热力不做预测，仅展示已发生数据。
+- **任意起止日期仅作用于导出**：页面主视图仍是今日/7 日/30 日三档（避免把任意区间误当全站筛选）；自定义区间上限 366 天，超出由后端拦截；区间整体在过去时「今日档」语义不适用，导出趋势固定走逐日口径。
 
 ### 60.6 部署记录（2026-10-28）
 
 | 端 | 动作 | 结果 |
 |---|---|---|
 | 后端 | 提交 `0f89aba8e`（P4-1 后端聚合）→ `004372f65`（窗口对齐自然日）→ `3e08a50fb`（商品名取翻译）→ `git push origin master` → 服务器 `git pull` + `pm2 restart vendure` | 三档接口均 200 且自洽断言 PASS；pm2 `vendure` online（重启计数 371+） |
-| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61678 KB；nginx 检查通过 + 重载；`deploy done` |
+| 后端（任意起止日期） | 提交 `4ed5a1eac`（`campusSalesStats(from,to)` + `customSalesWindow`）→ 服务器 `git fetch + git checkout origin/master -- packages/campus-delivery-plugin/{src,lib}` + `pm2 restart vendure --update-env` | pm2 `vendure` online；线上探针 `custom == 7d` 断言 PASS、三类非法参数均按预期报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61678 → 61724 KB；nginx 检查通过 + 重载；`deploy done` |
 
 ---
 
