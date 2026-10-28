@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLaunch, onShow } from '@dcloudio/uni-app';
+import { onLaunch, onShow, onHide } from '@dcloudio/uni-app';
 import { watch } from 'vue';
 import { useTenantStore } from './stores/tenant';
 import { useAuthStore } from './stores/auth';
@@ -8,6 +8,7 @@ import { setupRouteGuard } from './composables/useAuthGuard';
 import { applyNavTitle, setupNavTitleInterceptor, startNavTitleWatch } from './i18n/nav-titles';
 import { getActiveOrder } from './api/queries/order';
 import { openTenantGate, setSessionToken } from './api/client';
+import { flush, installTelemetry } from './utils/telemetry';
 
 // 模板库主题令牌 → 根节点 CSS 变量（H5；小程序由 uni.scss 兜底编译色）
 function applyThemeTokens(tokens: Record<string, any>) {
@@ -33,7 +34,13 @@ onShow(() => {
     startNavTitleWatch();
 });
 
+// 切后台/退出页面时冲一次埋点队列，减少事件丢失
+onHide(() => flush());
+
 onLaunch(async (options: any) => {
+    // P4-4 埋点/错误上报：尽早在启动阶段装好，后续导航与异常都能采到
+    installTelemetry();
+
     // 导航标题 i18n：四类导航成功后按目标页应用当前语言标题；启动页同样处理
     setupNavTitleInterceptor();
     applyNavTitle(String(options?.path || 'pages/home/index'));

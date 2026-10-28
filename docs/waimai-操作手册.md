@@ -3037,4 +3037,63 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后端 | 提交 `21f1b6f00`（P4-2 后端）→ `95983386a`（Alert Node 接口/PaginatedList 修正）→ `3a54f3705`（词典补「凉的/凉透」）→ `git push origin master` → 服务器 `git checkout origin/master -- packages/review-plugin/{src,lib}/src/review-alert.*` + `pm2 restart vendure` | 冒烟 6/6 PASS；`pm2` 中 `vendure` online（重启计数 389） |
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61699 KB；nginx 检查通过 + 重载；`deploy done` |
 
+## 62. P4-4 前端埋点 + 错误上报闭环（2026-10-28）
+
+> 本轮补齐「C 端/后台行为埋点 → 服务端批量落库 → 后台监控看板」的全链路，并让前端异常自动上报，替代此前靠日志翻查的排障方式。
+
+### 62.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | 新增 `telemetry.entities.ts`（`CampusTrackEvent` / `CampusErrorReport`）、`migrations/p11-telemetry.ts`（幂等建表 + 渠道/时间索引）、`telemetry.ts`（纯函数：字段裁剪、批内去重、批量上限、7 日趋势补零、UTC+8 归日）、`telemetry.service.ts`、`telemetry.resolver.ts`（`TelemetryShopResolver` 匿名上报 / `TelemetryAdminResolver` 统计查询）、单测 `telemetry.spec.ts` 10 例 |
+| C 端（waimai-v39） | 新增 `src/utils/telemetry.ts`（5s 批量队列 / 队列上限 10 / 单会话错误上限 10 / 页面自动 `page_view` / H5 `error`+`unhandledrejection`+`uni.onError` 兜底）；`App.vue` 启动即 `installTelemetry()`、`onHide` 冲队列；`main.ts` 注册 `app.config.errorHandler`；加购、下单、支付成功、提交评价 4 个关键动作埋点 |
+| 后台（web-admin） | 新增 `src/utils/telemetry.ts`（与 C 端同构，`source=admin`）；`pages/campus/monitor.vue` 系统监控页（4 KPI + 7 日柱状 + Top 事件 + 埋点明细/错误上报双页签）；`src/apis/telemetry.ts`；菜单与 `pages.json`/`nav-titles.ts` 注册；中英 i18n |
+
+### 62.2 口径与接口
+
+- **上报接口（shop，匿名可用）**：`campusTrackEvents(input:{events:[{eventName,page,sessionId,props,createdAt}]})` 返回入库条数；`campusReportError(input:{source,level,message,stack,page,url})` 返回布尔。渠道按 `ctx.channelId` 自动归属，登录态额外写 `customerId`。
+- **去重**：批内按「事件名 + 页面 + 会话 + 属性」去重；错误按「消息 + 页面」在 60 秒窗口内只落一条，避免同一个异常刷屏。
+- **限额**：单批最多 50 条、字段裁剪（`eventName` 64 / `page` 128 / `props` 2KB / `message` 1KB / `stack` 4KB）；C 端队列 10 条、单会话错误上限 10 条。
+- **统计接口（admin）**：`campusTrackEventStats` 返回 `todayEvents / totalEvents / todayErrors / totalErrors / affectedUsers`（今日去重顾客，游客不计）+ `trend`（固定 7 天，缺日补 0，按 UTC+8 归日）+ `topEvents`；`campusTrackEventList(eventName,skip,take)`、`campusErrorReportList(level,skip,take)` 为分页明细。
+- **埋点事件**：`page_view`（每次导航自动）、`add_to_cart`、`submit_order`、`pay_success`、`review_submit`、`monitor_open` / `monitor_tab_switch`（后台自身）。
+
+### 62.3 后台交互
+
+- 入口：后台「系统 → 系统监控」（`pages/campus/monitor`）。
+- 顶部 4 格 KPI：今日事件 / 今日错误 / 今日活跃用户 / 累计事件；下接 7 日柱状图（悬停看当日条数）。
+- 「Top 事件」按次数倒序；下方双页签：埋点明细（事件名 / 时间 / 页面 / 属性 JSON）、错误上报（来源 · 级别 / 时间 / 消息 / 页面 / 栈首行）。
+- 页面自身也上报 `monitor_open` 与切换页签的 `monitor_tab_switch`，可作为「上报链路是否通畅」的自检信号。
+
+### 62.4 验证记录
+
+- 单测：`telemetry.spec.ts` **10/10** 通过（裁剪、批内去重、批量截断、非法入参、错误归一、趋势补零与跨零点归日）。
+- 插件构建：`npx tsc -p tsconfig.build.json` 通过；`lib` 打包上传 + `pm2 restart vendure`。
+- 线上冒烟（真实站点，非伪造请求）：
+  - C 端：真实外卖站点 `https://www.yourbao.cn/waimai/#/pages/shop/menu?token=canteen-a-token&cid=113` 加购 → 入库 `add_to_cart`（channel 113 / page `/pages/shop/menu`）+ `page_view`；随后在页面内抛未捕获 Promise 异常 → 入库 `c-end · error`「P4-4 站点冒烟：未捕获 Promise 异常（购物车同步）」。
+  - 后台：监控页自上报 `monitor_open` / `monitor_tab_switch`；切换渠道 `canteen-a` 后统计随渠道隔离。
+  - 数据库核对（`campus_track_event` / `campus_error_report` 分组统计）：`add_to_cart` 3 条、`page_view` 8 条、`submit_order` / `pay_success` 各 2 条、`review_submit` 1 条；错误 4 条（`c-end` 3 条 + `admin` 1 条），`page` 字段均已非空。
+- 截图取证：
+  - C 端 `D:\zhao\waimai-v39\docs\screenshots\p44-telemetry\`：`01-c-end-add-to-cart.png`（真实外卖店铺页加购）、`02-c-end-cart-page.png`（加购后进结算）。
+  - 后台 `D:\zhao\vshop\docs\screenshots\waimai\p44-telemetry\`：`01-admin-monitor-overview.png`（KPI「20 今日事件 / 4 今日错误 / 1 今日活跃用户 / 20 累计事件」+ 7 日柱状）、`02-admin-monitor-top-events.png`、`03-admin-monitor-events.png`（明细首行即真实 C 端 `page_view` / `add_to_cart` 13:10 `/pages/shop/menu`）、`04-admin-monitor-errors.png`（错误首条即真实未捕获 Promise 异常）。
+- 修复记录（本轮上线中发现并已修复）：
+  1. `type CampusTrackEvent` / `CampusErrorReport` 未 `implements Node`，与 `PaginatedList.items: [Node!]!` 冲突，Vendure 启动即报 GraphQL 校验错误并反复重启（公网 503）；补 `implements Node` 后恢复；
+  2. `onLaunch` 阶段页面栈为空，首条 `page_view` 的 `page` 为空串；`currentPagePath()` 增加 `location.hash` 兜底（`#/pages/...`），C 端与后台同步修复；
+  3. 登录态造数需覆盖「今日活跃用户」，改用冒烟账号 `smoke-order@yourbao.cn` 带 `Authorization: Bearer` 上报后 KPI 才非 0（游客不计入活跃）。
+
+### 62.5 边界与已知限制
+
+- **埋点非强一致**：队列 5 秒批量、切后台/关页面可能丢失最后一批；`props` 只保留 2KB，超限会被截断并标记。
+- **不支持自定义事件名**：后台只按已知事件做 Top 统计，新增事件需在代码里加 `track()` 调用，无需改后端。
+- **错误上报有采样上限**：单会话 10 条，避免异常循环把库写满；需要全量排查时应看服务器日志。
+- **活跃用户口径**：按 `customerId` 去重，未登录游客的事件会计入事件数但不计入活跃用户。
+- **明细无清理任务**：`campus_track_event` 会持续增长，量大后需按 `createdAt` 归档（当前数据规模可忽略）。
+
+### 62.6 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `af7c448b6`（P4-4 后端）→ `git push origin master`；服务器 `npx tsc -p tsconfig.build.json` → tar `lib` → scp 覆盖 `packages/campus-delivery-plugin/lib` → `pm2 restart vendure --update-env` | `ss -ltnp` 确认监听 3020；`https://www.yourbao.cn/shop-api` 返回 `{"data":{"__typename":"Query"}}` |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61712 KB；nginx 检查通过 + 重载；`deploy done` |
+| C 端 | 提交 `197892c`（P4-4 C 端埋点）→ `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` | 产物校验 3833 KB；远端解压 + 备份轮转；站点返回 200 |
+
 

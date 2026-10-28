@@ -7,6 +7,7 @@ import { installRouteGuard } from './utils/routeGuard';
 import { useLocaleStore } from './stores/localeStore';
 import { useAuthStore } from './stores/authStore';
 import { applyNavTitle, applyNavTitleForCurrentPage, setupNavTitleInterceptor, startNavTitleWatch } from './i18n/nav-titles';
+import { installTelemetry } from './utils/telemetry';
 
 onShow(() => {
   // 启动期路由观察：覆盖深链直载/前进后退等不走 uni 导航 API 的入口（仅前 5 秒）
@@ -14,6 +15,8 @@ onShow(() => {
 });
 
 onLaunch((options: any) => {
+  // P4-4 埋点/错误上报（source=admin）
+  installTelemetry();
   useLocaleStore().ensure();
   // 导航标题 i18n：四类导航成功后按目标页应用当前语言标题；启动页同样处理
   setupNavTitleInterceptor();

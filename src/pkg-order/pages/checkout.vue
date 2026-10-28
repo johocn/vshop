@@ -324,6 +324,7 @@ import { getMyMarketplaceSellerOrders, payMarketplaceSellerOrder } from '../../a
 import { getEligiblePaymentMethods, getActiveCustomer } from '../../api/queries/user';
 import { getPickupLocations, getEmployeePickupLocations } from '../../api/queries/pickup';
 import { setOrderShippingAddress, setOrderShippingMethod, transitionOrderToState, addPaymentToOrder, setOrderPickupLocation } from '../../api/mutations/checkout';
+import { track } from '../../utils/telemetry';
 import { addItemToOrder, removeAllOrderLines } from '../../api/mutations/cart';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { getMyBalance } from '../../api/mutations/recharge';
@@ -1123,6 +1124,8 @@ async function prepareOrderAddressAndShipping(): Promise<boolean> {
  * 返回跳转用的订单号（在线支付前最后一笔订单号）
  */
 async function payCurrentOrder(method: string): Promise<string> {
+    // P4-4 下单埋点
+    track('submit_order', { method });
     // payment metadata：openid 由服务端客户档案推导，前端不再传
     const paymentMetadata: Record<string, any> = {};
     // Add payment
@@ -1133,6 +1136,7 @@ async function payCurrentOrder(method: string): Promise<string> {
         if (method === 'balance-pay' && order.state !== 'PaymentSettled') {
             throw new Error(t('payment.balancePayIncomplete'));
         }
+        track('pay_success', { method, code: order.code, state: order.state });
         return order.code;
     }
     // 从最新一笔 payment 取 metadata（后端在 payment.metadata 中返回支付参数）
@@ -1147,6 +1151,7 @@ async function payCurrentOrder(method: string): Promise<string> {
         orderCode: order?.code,
         orderState: order?.state,
     });
+    if (result.success) track('pay_success', { method, code: order?.code, state: order?.state });
     return result.success ? order?.code : '';
 }
 

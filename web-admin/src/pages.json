@@ -65,6 +65,7 @@
     { "path": "pages/campus/dispatch", "style": { "navigationBarTitleText": "调度中心" } },
     { "path": "pages/campus/stats", "style": { "navigationBarTitleText": "配送看板" } },
     { "path": "pages/campus/sales", "style": { "navigationBarTitleText": "经营分析" } },
+    { "path": "pages/campus/monitor", "style": { "navigationBarTitleText": "系统监控" } },
     { "path": "pages/campus/address-changes", "style": { "navigationBarTitleText": "改址台账" } },
     { "path": "pages/campus/buildings", "style": { "navigationBarTitleText": "楼栋坐标" } },
     { "path": "pages/campus/ops", "style": { "navigationBarTitleText": "运营中心" } },
