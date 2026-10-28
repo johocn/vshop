@@ -3104,4 +3104,34 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61712 KB；nginx 检查通过 + 重载；`deploy done` |
 | C 端 | 提交 `197892c`（P4-4 C 端埋点）→ `cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` | 产物校验 3833 KB；远端解压 + 备份轮转；站点返回 200 |
 
+## 63. C 端日常功能补强：订单快捷操作 + 店内搜索空态（2026-10-28）
+
+### 63.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| C 端（waimai） | `src/pages/orders/index.vue`：订单卡片快捷区新增「催单」「申请售后」直达（复用 `api/mutations/campus.urgeOrder` 与 `pkg-order/pages/after-sale-create`）；`src/pages/shop/menu.vue`：店内搜索无结果改为专属空态 + 热搜 chips 兜底；i18n 新增 `menu.emptySearch` 中英各 1 条（其余复用 `orderDetail.urgeBtn / afterSaleBtn / urgeTitle…`） |
+
+### 63.2 口径与交互
+
+- **催单**：`customFields.deliveryStatus` 存在且不属于 `delivered / exception`、且本单未催过才显示；点击弹二次确认 → `urgeOrder(order.id)` → 成功后就地打 `urged` 标记，按钮即时消失（与订单详情页 `canUrge` 同口径）。
+- **申请售后**：仅「已送达 24 小时内 + 无进行中售后单 + 订单未取消」显示，点击进 `/pkg-order/pages/after-sale-create?code=…`；已有售后单的订单仍走上方的「售后处理中」标记直达详情。
+- **搜索空态**：关键词非空且当前分类筛完为 0 时显示「没有找到与「{k}」相关的商品」，并展示店铺热搜词（取热销商品名），点词直接替换关键词；分类本身为空仍显示「该分类暂无商品」。
+
+### 63.3 验证记录（线上 www.yourbao.cn/waimai）
+
+- 搜索：输入「不存在的菜品zzz」→ 空态文案正确、热搜 chips 为 `可乐鸡排饭 / 麻辣拌面 / 校园跑腿服务`（`01-menu-search-empty.png`）。
+- 订单列表：登录 smoke-order 账号可见 20 张卡片；将一笔订单造数为 `deliveryStatus=in_progress` 后出现「催单 追踪骑手 开发票 再来一单」，一笔刚送达订单出现「申请售后 开发票 再来一单」（`02-orders-quick-actions.png`）。
+- 造数用备份还原了两笔订单的 `customFieldsDeliverystatus / customFieldsDeliveredat`，远端与本地临时脚本均已删除；其余 18 张卡片仍只有「开发票 / 再来一单」，无多余按钮（回归通过）。
+
+### 63.4 边界
+
+- 催单仅对校园履约单生效（需有 `deliveryStatus`）；第三方配送/自提单不显示。
+- 列表售后入口只做直达，不替代详情页完整申请流程；超过 24h 后入口隐藏，需走客服/详情页处理。
+- 热搜为空时（新店无销量）只显示空态文案，不展示 chips。
+
+### 63.5 部署记录
+
+- C 端：`cd D:\zhao\waimai-v39 && node .secrets/deploy-waimai.mjs` → 产物校验 3835 KB、远端解压 + 备份轮转、站点返回 200。
+
 
