@@ -12,6 +12,15 @@
       </button>
     </view>
 
+    <!-- 沽清次日自动恢复：避免打烊沽清后忘恢复，第二天开市仍售罄 -->
+    <view class="auto">
+      <view class="auto__text">
+        <text class="auto__title">{{ $t('campusProducts.autoRestore') }}</text>
+        <text class="auto__hint">{{ $t('campusProducts.autoRestoreHint').replace('{n}', String(autoPending)) }}</text>
+      </view>
+      <switch :checked="autoEnabled" :disabled="autoBusy" color="#ff6b35" @change="onAutoRestoreChange" />
+    </view>
+
     <!-- R5 跑腿载体商品初始化：新店铺/新校区首次开跑腿前必须执行（幂等） -->
     <view class="errand">
       <text class="errand-hint">{{ $t('campusProducts.errandHint') }}</text>
@@ -159,7 +168,9 @@
 // 一键沽清：商品售罄仅影响 C 端加购，仍保留菜单展示（避免频繁上下架打断装修/搜索索引）。
 import { onMounted, ref } from 'vue';
 import {
-  fetchMerchantProducts, setMerchantProductSoldOut, setMerchantAllProductsSoldOut, setMerchantProductPackingFee, ensureErrandProducts,
+  fetchMerchantProducts, setMerchantProductSoldOut, setMerchantAllProductsSoldOut,
+  getMerchantSoldOutAutoRestore, setMerchantSoldOutAutoRestore,
+  setMerchantProductPackingFee, ensureErrandProducts,
   setMerchantProductAddonGroups, setMerchantProductCombo,
   type MerchantProduct, type AddonGroupConfig, type ComboItemConfig,
 } from '../../apis/campus-ops';
@@ -180,7 +191,41 @@ const search = ref('');
 const loading = ref(false);
 const busy = ref<Record<string, boolean>>({});
 const errandBusy = ref(false);
-const allBusy = ref(false);
+const autoEnabled = ref(true);
+const autoPending = ref(0);
+const autoBusy = ref(false);
+
+/** 读取沽清自动恢复开关与待恢复件数 */
+async function loadAutoRestore(): Promise<void> {
+  try {
+    const r = await getMerchantSoldOutAutoRestore();
+    autoEnabled.value = !!r?.enabled;
+    autoPending.value = Number(r?.pending || 0);
+  } catch {
+    // 开关读取失败不阻塞商品列表
+  }
+}
+
+/** 切换「次日 04:00 自动恢复」 */
+async function onAutoRestoreChange(e: any): Promise<void> {
+  if (autoBusy.value) return;
+  const next = !!e?.detail?.value;
+  autoBusy.value = true;
+  try {
+    const r = await setMerchantSoldOutAutoRestore(next);
+    autoEnabled.value = !!r?.enabled;
+    autoPending.value = Number(r?.pending || 0);
+    uni.showToast({
+      title: locale.t(next ? 'campusProducts.autoRestoreOn' : 'campusProducts.autoRestoreOff'),
+      icon: 'none',
+    });
+  } catch (err: any) {
+    autoEnabled.value = !next;
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    autoBusy.value = false;
+  }
+}
 
 /** 全店批量沽清/恢复（打烊场景）：二次确认后执行并刷新列表 */
 function bulkSoldOut(next: boolean): void {
@@ -513,6 +558,7 @@ async function clearCombo(): Promise<void> {
 
 onMounted(() => {
   void load(true);
+  void loadAutoRestore();
 });
 </script>
 
@@ -525,6 +571,11 @@ onMounted(() => {
       background: $wa-card; color: $wa-accent; border: 1.5rpx solid $wa-accent; border-radius: $wa-radius; }
     &__btn--out { color: $wa-danger; border-color: $wa-danger; }
     &__btn[disabled] { opacity: .5; } }
+  .auto { display: flex; align-items: center; gap: 16rpx; background: $wa-card; border-radius: $wa-radius;
+    padding: 20rpx 24rpx; margin-bottom: 20rpx;
+    &__text { flex: 1; display: flex; flex-direction: column; gap: 6rpx; }
+    &__title { font-size: 26rpx; color: $wa-ink; }
+    &__hint { font-size: 22rpx; color: $wa-muted; } }
   .errand { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx;
     .errand-hint { flex: 1; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
