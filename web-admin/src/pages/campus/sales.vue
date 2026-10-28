@@ -150,6 +150,27 @@
         </view>
       </view>
     </view>
+
+    <!-- 商品结构导出：按分类筛选（仅影响行范围，KPI 与卡片不变） -->
+    <view v-if="catOpen" class="mask" @tap="closeCat(null)">
+      <view class="sheet" @tap.stop>
+        <text class="stitle">{{ $t('campusSales.catTitle') }}</text>
+        <text class="shint">{{ $t('campusSales.catHint') }}</text>
+        <scroll-view scroll-y class="catlist">
+          <view
+            v-for="c in catOptions"
+            :key="c.id || 'all'"
+            class="catchip"
+            :class="{ on: catPicked === c.id }"
+            @tap="catPicked = c.id"
+          >{{ c.name }}</view>
+        </scroll-view>
+        <view class="dacts">
+          <text class="dbtn ghost" @tap="closeCat(null)">{{ $t('campusSales.cancel') }}</text>
+          <text class="dbtn primary" @tap="confirmCat">{{ $t('campusSales.confirm') }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -421,11 +442,50 @@ async function pickExportData(): Promise<{ r: ExportChoice; tag: string; s: Camp
   }
 }
 
-/** P4-1-4 导出：商品结构明细（口径与页面一致，金额单位元、固定两位小数） */
+// ===== 商品结构导出：按分类筛选 =====
+const catOpen = ref(false);
+const catOptions = ref<Array<{ id: string; name: string }>>([]);
+const catPicked = ref('');
+let catDone: ((v: { id: string; name: string } | null) => void) | null = null;
+
+/** 分类候选取自本次导出窗口的商品数据（不额外请求）；无任何分类时直接返回「全部分类」 */
+function askCategory(products: CampusSalesStats['products']): Promise<{ id: string; name: string } | null> {
+  const map = new Map<string, string>();
+  for (const p of products) for (const c of p.categories ?? []) map.set(c.id, c.name);
+  const all = { id: '', name: locale.t('campusSales.catAll') };
+  if (!map.size) return Promise.resolve(all);
+  const list = [...map.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  catOptions.value = [all, ...list];
+  catPicked.value = '';
+  catOpen.value = true;
+  return new Promise((resolve) => {
+    catDone = resolve;
+  });
+}
+
+function closeCat(v: { id: string; name: string } | null): void {
+  catOpen.value = false;
+  const fn = catDone;
+  catDone = null;
+  fn?.(v);
+}
+
+function confirmCat(): void {
+  const hit = catOptions.value.find((c) => c.id === catPicked.value) ?? catOptions.value[0];
+  closeCat(hit ?? null);
+}
+
+/** P4-1-4 导出：商品结构明细（口径与页面一致，金额单位元、固定两位小数）；可选按分类筛选行范围 */
 async function exportProducts(): Promise<void> {
   const picked = await pickExportData();
   if (!picked) return;
-  const list = picked.s.products;
+  if (!picked.s.products.length) {
+    uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const cat = await askCategory(picked.s.products);
+  if (!cat) return;
+  const list = cat.id ? picked.s.products.filter((p) => (p.categories ?? []).some((c) => c.id === cat.id)) : picked.s.products;
   if (!list.length) {
     uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
     return;
@@ -436,8 +496,9 @@ async function exportProducts(): Promise<void> {
     fenToYuanFixed(x.gmvFen),
     locale.t(quadLabel(x.quadrant)),
   ]);
+  const catTag = cat.id ? `-${cat.name}` : '';
   downloadCsv(
-    `${locale.t('campusSales.exportFileName')}${picked.tag}-${todayStamp()}.csv`,
+    `${locale.t('campusSales.exportFileName')}${picked.tag}${catTag}-${todayStamp()}.csv`,
     [
       locale.t('campusSales.colName'),
       locale.t('campusSales.colQty'),
@@ -634,6 +695,10 @@ load();
     .dacts { display: flex; gap: 20rpx; margin-top: 32rpx;
       .dbtn { flex: 1; text-align: center; padding: 22rpx 0; border-radius: $wa-radius; font-size: 28rpx;
         &.ghost { background: $wa-bg; color: $wa-muted; }
-        &.primary { background: $wa-accent; color: #fff; font-weight: 600; } } } }
+        &.primary { background: $wa-accent; color: #fff; font-weight: 600; } } }
+    .catlist { max-height: 420rpx; margin-top: 16rpx;
+      .catchip { display: inline-flex; align-items: center; justify-content: center; padding: 14rpx 26rpx;
+        margin: 10rpx 12rpx 0 0; border-radius: 999rpx; background: $wa-bg; color: $wa-ink; font-size: 26rpx;
+        &.on { background: $wa-accent; color: #fff; font-weight: 600; } } } }
 }
 </style>

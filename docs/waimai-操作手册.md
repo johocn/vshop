@@ -2957,14 +2957,20 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 导出（P4-1-4 扩展 · 用户结构）：复购分群卡片「导出用户结构」→ 先选导出窗口（今日 / 近 7 日 / 近 30 日，与页面当前窗口解耦）→ 下载 `用户结构明细-近 30 日-20261028.csv`，**7 行数据**，表头 `分群,人数,占比(%)`；近 30 日实得 `下单客户（合计）11 / 新客 9（81.8%）/ 老客 2（18.2%）/ 复购客户（≥2 单）6（54.5%）/ 1 单 5（45.5%）/ 2-4 单 4（36.4%）/ 5+ 单 2（18.2%）`，分群三档人数合计 11 = 下单客户数、复购占比 54.5% = 页面复购率、新客+老客 = 合计，均自洽。取证：`09-admin-sales-export-range.png`（窗口弹层）、`10-admin-sales-export-toast.png` + `用户结构明细-近 30 日-20261028.csv`（`web-admin/scripts/shots-p4-exports2.cjs`）。
 - 用户结构导出口径：占比基数 = 窗口内下单客户数（游客下单不计入，与 KPI 客户口径一致）；「复购客户（≥2 单）」= 2-4 单 + 5+ 单；今日档无成交时按钮不展示。
 - 导出窗口（P4-1-4 扩展）：商品结构 / 用户结构 / 经营趋势三类导出点击后均先弹「今日 / 近 7 日 / 近 30 日 / 自定义日期…」选择，选前三档时按该窗口重新请求 `campusSalesStats(range)` 再生成 CSV，文件名带窗口后缀（如 `-近 30 日`）；选「自定义日期…」走下方任意起止日期链路；取消弹层不发起请求。
+- 商品结构导出（按分类）：窗口选完后弹「按分类筛选」层，候选取自该窗口商品数据（不额外请求），「全部分类」= 不过滤；仅过滤 CSV 行，卡片与 KPI 仍为全店数据。
 - 导出（P4-1-4 扩展 · 经营趋势）：趋势卡片「导出趋势」→ 选窗口 → 下载 `经营趋势明细-近 30 日-20261028.csv`，近 30 日 **30 行**（含无成交日补 0），表头 `时段/日期,单量,金额(元)`，单量列合计 81 = KPI 单量；今日档导出 24 行、首列为 `HH:00`。取证：`07-admin-sales-trend-export.png` + `经营趋势明细-20261028.csv`。
 - 修复记录（本轮上线中发现并已修复）：
   1. 初次上线日趋势单量和（81）≠ 总单量（83）：7d/30d 原为滚动窗口，与自然日补零区间错位 → 改为「近 N 个自然日」对齐，复测 81 = 81；
   2. Top 商品显示 `#85`：`Product.name` 非实体列（走翻译表）→ 补 join `product.translations` 并按中文取名称，复测显示「可乐鸡排饭」。
 - 任意起止日期（本轮新增）：
-  - 单测：`vitest run src/sales-stats.service.spec.ts` → **18/18 通过**，新增 4 例覆盖：`customSalesWindow` 口径（`from` 0 点 ~ `to` 次日 0 点、上一窗口紧邻等长）、首尾日订单都计入而区间外（`to` 次日 0 点、`from` 前一刻）不计入当前区间（跨界的 `from` 前一刻订单只进上期）、区间整体在过去（`windowEnd < now`）时按实际天数补零、非法入参（空/非日期/倒序/超 366 天）抛 `UserInputError`。
+  - 单测：`vitest run src/sales-stats.service.spec.ts` → **19/19 通过**，新增 4 例覆盖：`customSalesWindow` 口径（`from` 0 点 ~ `to` 次日 0 点、上一窗口紧邻等长）、首尾日订单都计入而区间外（`to` 次日 0 点、`from` 前一刻）不计入当前区间（跨界的 `from` 前一刻订单只进上期）、区间整体在过去（`windowEnd < now`）时按实际天数补零、非法入参（空/非日期/倒序/超 366 天）抛 `UserInputError`；另 1 例覆盖商品行 `categories`（多分类全量带出、名称优先中文、无分类为空数组）。
   - 线上探针（node 直连 admin-api，平台超管会话）：`from=今天-6 & to=今天` 与 `range=7d` 的 `kpis`/`prev`/`dailyTrend` **完全一致**（自动断言 `true`），即自定义口径与预设窗口对齐；过去区间 `10-08~10-14` 返回 7 天补零、6 单 / GMV ¥512.10；错误分支三例分别返回「结束日期不能早于开始日期」「自定义区间需同时传 from 与 to」「自定义区间不能超过 366 天」。
   - 后台线上取证（`web-admin/scripts/shots-sales-custom-range.cjs`，390×844 dpr=2，产物目录 `docs/screenshots/waimai/p24-sales-bi/`）：`11-admin-sales-export-custom-entry.png`（动作面板 4 项 + 取消）、`12-admin-sales-export-custom-sheet.png`（自定义导出区间：说明「按自然日统计，含起止两天，最长 366 天」、默认 `2026-10-22 ~ 2026-10-28`、取消/确定）、`13-admin-sales-export-custom-toast.png` + `经营趋势明细-20261022至20261028-20261028.csv`（**7 行**，10-22 ~ 10-28 逐日补零，10-23 为 1 单 ¥2.05，与接口数据一致）。
+- 商品结构导出按分类筛选（本轮新增）：
+  - 接口：商品行新增 `categories { id name }`（所属 `Collection`，可能多个）；归类关系取 `ProductVariant.collections`（Vendure 3 已无 `Product.collections` 关系，首次按 `product.collections` join 被 `Relation with property path collections in entity was not found` 拒绝后修正），分类名取 `collection_translations` 中文优先。
+  - 交互：商品结构导出在选完窗口后弹「按分类筛选」层，候选取自本次导出窗口的商品数据（不额外请求），选中后仅过滤 CSV 行，卡片与 KPI 仍为全店数据；文件名追加 `-<分类名>`（未选分类则不加）。
+  - 线上探针：`range=30d` 共 9 个商品，其中 7 个带分类、`可乐鸡排饭` 未分类（该商品 `collections` 与 `tenantCategoryRef` 均为空）。
+  - 后台线上取证（`web-admin/scripts/shots-sales-category.cjs`）：`14-admin-sales-export-category-sheet.png`（14 个候选项，含「全部分类」）、选「水产海鲜」→ `15-admin-sales-export-category-toast.png` + `商品结构明细-近 30 日-水产海鲜-20261028.csv`（**1 行**：`鲜活小龙虾,8,406.00,明星`）。
 
 ### 60.5 边界与已知限制
 
@@ -2976,6 +2982,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - **四象限中位数含全部有销量商品**，列表只展示 Top 50；冷门商品不会因未展示而漏算分档线。
 - **今日未来时段为 0**：时段热力不做预测，仅展示已发生数据。
 - **任意起止日期仅作用于导出**：页面主视图仍是今日/7 日/30 日三档（避免把任意区间误当全站筛选）；自定义区间上限 366 天，超出由后端拦截；区间整体在过去时「今日档」语义不适用，导出趋势固定走逐日口径。
+- **分类筛选只覆盖已归类商品**：分类取自 Collection 归属（Vendure 3 落在 `ProductVariant` 上），未归类商品只出现在「全部分类」导出里；候选项仅列出本窗口内出现过的分类，故不同窗口的候选可能不同。
 
 ### 60.6 部署记录（2026-10-28）
 
@@ -2983,6 +2990,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 |---|---|---|
 | 后端 | 提交 `0f89aba8e`（P4-1 后端聚合）→ `004372f65`（窗口对齐自然日）→ `3e08a50fb`（商品名取翻译）→ `git push origin master` → 服务器 `git pull` + `pm2 restart vendure` | 三档接口均 200 且自洽断言 PASS；pm2 `vendure` online（重启计数 371+） |
 | 后端（任意起止日期） | 提交 `4ed5a1eac`（`campusSalesStats(from,to)` + `customSalesWindow`）→ 服务器 `git fetch + git checkout origin/master -- packages/campus-delivery-plugin/{src,lib}` + `pm2 restart vendure --update-env` | pm2 `vendure` online；线上探针 `custom == 7d` 断言 PASS、三类非法参数均按预期报错 |
+| 后端（分类筛选） | 提交 `bbb8838d7`（`categories` 字段/SDL）→ `6e77f75ac`（改走 `ProductVariant.collections`）→ 服务器同法更新 + `pm2 restart vendure` | pm2 `vendure` online（重启计数 435）；线上探针 `range=30d` 9 个商品中 7 个带分类，`水产海鲜(29)` 等名称中文正确 |
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61678 → 61724 KB；nginx 检查通过 + 重载；`deploy done` |
 
 ---

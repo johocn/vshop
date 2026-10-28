@@ -3445,6 +3445,9 @@
     "customRangeInvalid": "结束日期不能早于开始日期",
     "customRangeTooLong": "区间不能超过 366 天",
     "customRangeJoin": "至",
+    "catTitle": "按分类筛选",
+    "catHint": "仅影响本文件的行范围，卡片与 KPI 仍为全店数据",
+    "catAll": "全部分类",
     "cancel": "取消",
     "confirm": "确定"
   },

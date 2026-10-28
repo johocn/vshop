@@ -3447,6 +3447,9 @@
     "customRangeInvalid": "End date cannot be earlier than start date",
     "customRangeTooLong": "Range cannot exceed 366 days",
     "customRangeJoin": "to",
+    "catTitle": "Filter by category",
+    "catHint": "Affects CSV rows only; cards and KPIs stay store-wide",
+    "catAll": "All categories",
     "cancel": "Cancel",
     "confirm": "OK"
   },
