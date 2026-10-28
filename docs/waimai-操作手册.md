@@ -2972,3 +2972,69 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后端 | 提交 `0f89aba8e`（P4-1 后端聚合）→ `004372f65`（窗口对齐自然日）→ `3e08a50fb`（商品名取翻译）→ `git push origin master` → 服务器 `git pull` + `pm2 restart vendure` | 三档接口均 200 且自洽断言 PASS；pm2 `vendure` online（重启计数 371+） |
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61678 KB；nginx 检查通过 + 重载；`deploy done` |
 
+---
+
+## 61. P4-2 评价品质闭环（差评预警 / 归因 / 自动致歉券，2026-10-28）
+
+> 本轮边界：评价的「先审后显 + 差评申诉审核」为既有能力（§6 / §45），**未重复开发**；本轮补的是「差评落库 → 自动归因 → 自动补偿 → 后台回评/关闭」的闭环。
+
+### 61.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端（vendure） | 新增 `review-alert.ts`（纯函数归因词典 + 预警判定）、`review-alert.entity.ts`（`CampusReviewAlertRule` / `CampusReviewAlert`）、`review-alert.service.ts`、`review-alert.resolver.ts`、`migrations/p10-review-alert.ts`（幂等建表 + 唯一索引）；`ReviewService.createReview` 落库后调用 `recordFromReview`（try/catch 不阻断主流程）；admin SDL 新增 `ReviewAlertRule` / `ReviewAlert` / `ReviewAlertList` / `ReviewAlertStats` 4 类型 + 4 Query + 4 Mutation；单测 `review-alert.spec.ts` 22 例 |
+| 后台（web-admin） | 评价管理页新增「品质预警」页签（`pages/review/list/index.vue`）：统计 KPI、规则摘要与「调整规则」弹窗、状态筛选、预警卡片；`apis/review.ts` 新增 7 个预警接口与类型；中英 i18n 命名空间 `review.alert` 40+ 键 |
+
+### 61.2 口径与接口
+
+- **触发**：`rating <= rule.maxRating`（默认 2 星，可调 1/2/3）**或** 正文命中严重项（`异物` / `变质`，覆盖「5 星 + 正文写头发」的高星差评）。
+- **归因标签**：10 类（异物 / 变质 / 少送漏送 / 口味差 / 分量少 / 不新鲜 / 变凉 / 配送慢 / 包装差 / 态度差），按词典顺序去重取前 3；纯子串匹配，英文词一并覆盖。
+- **自动致歉券**：规则里配置 `couponTemplateId` 时，预警落库后立即以 `GRANT` 渠道给该顾客发一张券；发放失败/未配模板不阻断评价，`couponStatus` 记 `failed` / `none`，后台可「补发券」重试。
+- **状态机**：`new`（待处理）→ `replied`（一键回评，同时写回 `Review.reply` + `repliedAt`）/ `closed`（无需回评时的兜底，可留处置备注）。
+- **接口**：Query `reviewAlertRule` / `reviewAlerts(options:{skip,take,status})` / `reviewAlert(id)` / `reviewAlertStats`；Mutation `updateReviewAlertRule` / `replyReviewAlert` / `resendReviewAlertCoupon` / `closeReviewAlert`。规则每渠道一条，所有查询按 `ctx.channelId` 隔离。
+- **统计**：`newCount` 待处理、`totalCount` 累计、`compensatedCount` 已发券、`last7dCount` 近 7 天。
+
+### 61.3 后台交互
+
+- 入口：后台「订单 → 评价管理 → 品质预警」页签。
+- 顶部 4 格 KPI（待处理 / 累计预警 / 已补偿 / 近 7 天）+ 规则摘要行（`≤ N 星自动预警 · 致歉券模板 #id`），右侧「调整规则」。
+- 「调整规则」弹窗：启用开关、触发星级 1/2/3、致歉券模板 ID（留空=只预警不发券），保存即生效。
+- 状态筛选：待处理 / 已回评 / 已关闭 / 全部。
+- 预警卡片：星级、商品名、评价时间、正文、归因标签（橙色小标签）、致歉券行（已发放显示券码，失败提示可补发）、处置说明。
+- 操作：一键回评（3 条场景模板：异物致歉 / 口味温度 / 配送少送，可自由编辑，最多 500 字）、补发券（仅未发放/失败时出现）、关闭预警（可填说明）。
+
+### 61.4 验证记录
+
+- 单测：`pnpm --filter @vendure/review-plugin test` → `review-alert.spec.ts` **22/22**、`review.service.spec.ts` **19/19** 全部通过（e2e 套件需 `--package` 参数，属既有约定，非本轮回归）。
+- 插件构建：`pnpm --filter @vendure/review-plugin build` 通过（rimraf lib + tsc）。
+- 线上冒烟（`scripts/_p4_2_alert_smoke.py`，真实站点 + 真实登录）：
+  - 造数：`smoke-order@yourbao.cn` 已送达订单 `X959KY3VGE68XBUZ`（line 460，商品「可乐鸡排饭」）提交 1 星评价「菜里有一根头发，米饭也是凉的，太失望了」；
+  - 结果：预警 id 3 生成、标签 `["异物","变凉"]`、`couponStatus=issued` 券码 `C-XPCL-PYK4`、`reviewAlertStats={new:1,total:1,compensated:1,last7d:1}`、`productName=可乐鸡排饭`；
+  - **6/6 PASS**：预警已生成 / 标签命中(异物+变凉) / 致歉券已发 / 券包可见(含券码) / 待处理计数>0 / 商品名已解析。
+- 后台线上取证（`web-admin/scripts/shots-p25-review-alert.cjs`，390×844 dpr=2，产物目录 `docs/screenshots/waimai/p25-review-alert/`）：
+  - `01-admin-review-alert-list.png`：KPI「1 待处理 / 1 累计 / 1 已补偿 / 1 近 7 天」、规则行、卡片含「异物 / 变凉」标签与券码 `C-XPCL-PYK4`；
+  - `02-admin-review-alert-rule.png`：规则弹窗（启用开关 / 1-3 星 / 模板 ID）；
+  - `03-admin-review-alert-reply-sheet.png`：一键回评弹窗，选中「异物致歉」模板后正文自动填充；
+  - `04-admin-review-alert-replied.png`：提交后「已回评」页签，卡片状态转绿、待处理计数归 0；
+  - `05-c-end-coupon-wallet.png`：C 端「我的优惠券 → 未使用」可见「差评致歉券-冒烟 ¥5 满 0 可用，有效期至 2026.11.11」。
+- 修复记录（本轮上线中发现并已修复）：
+  1. 冒烟首跑标签只命中「异物」，「米饭也是凉的」未命中 `变凉`：词典只有「凉了/冷了」，补「凉的 / 凉透」并加单测，重新构建部署后复测 6/6 PASS；
+  2. 部署脚本一度重启 `nshop`（youshop 前端服务）而非 `vendure`（API 服务），导致新词典未生效；经 `pm2 jlist` 确认 API 进程名为 `vendure`、cwd `packages/dev-server`，重启后生效。
+
+### 61.5 边界与已知限制
+
+- **归因靠关键词**：词典为子串匹配，方言/反讽（如「凉得真快，谢谢啊」）可能误判；`tags` 仅作分诊提示，最终处置仍由商家判断。
+- **致歉券需先建券模板**：后台填的是券模板 ID，模板本身仍在「优惠券 → 模板」里维护（类型建议 `FULL` + `claimable=false` + `distributionChannels=GRANT`）。
+- **同一订单行只能评价一次**：复测需另造未评价的已送达订单行（或清理该评价），不能重复提交。
+- **同一评价只生成一条预警**（`reviewId` 唯一索引），补发券不会重复发预警。
+- **回评内容写在评价上**：`replyReviewAlert` 同步 `Review.reply`，C 端展示位与普通「回复」一致；预警记录只留状态与处置备注。
+- **规则每渠道一条**：多店铺各自配置，平台超管切换渠道后看到的是当前渠道规则。
+
+### 61.6 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 提交 `21f1b6f00`（P4-2 后端）→ `95983386a`（Alert Node 接口/PaginatedList 修正）→ `3a54f3705`（词典补「凉的/凉透」）→ `git push origin master` → 服务器 `git checkout origin/master -- packages/review-plugin/{src,lib}/src/review-alert.*` + `pm2 restart vendure` | 冒烟 6/6 PASS；`pm2` 中 `vendure` online（重启计数 389） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61699 KB；nginx 检查通过 + 重载；`deploy done` |
+
+
