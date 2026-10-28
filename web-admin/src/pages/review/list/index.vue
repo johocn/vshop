@@ -352,13 +352,35 @@ function onAlertStatus(s: string) {
   void loadAlerts();
 }
 
-/** P4-2 导出：品质预警明细（跟随当前状态筛选，最多 200 条，时间/星级/商品/归因/券/状态/正文） */
+/** 导出时间段：全部 / 近 7 天 / 近 30 天（返回 from 与文件名后缀） */
+function pickExportRange(): Promise<{ from?: string; tag: string } | null> {
+  const opts = [
+    { label: locale.t('review.alert.rangeAll'), days: 0 },
+    { label: locale.t('review.alert.range7d'), days: 7 },
+    { label: locale.t('review.alert.range30d'), days: 30 },
+  ];
+  return new Promise((resolve) => {
+    uni.showActionSheet({
+      itemList: opts.map((o) => o.label),
+      success: (res) => {
+        const o = opts[res.tapIndex] ?? opts[0];
+        resolve(o.days ? { from: new Date(Date.now() - o.days * 86400_000).toISOString(), tag: `-${o.label}` } : { tag: '' });
+      },
+      fail: () => resolve(null),
+    });
+  });
+}
+
+/** P4-2 导出：品质预警明细（跟随当前状态 + 时间段，最多 500 条，时间/星级/商品/归因/券/状态/正文） */
 async function exportAlerts() {
+  const range = await pickExportRange();
+  if (!range) return;
   try {
     const res = await fetchReviewAlertPage({
       skip: 0,
-      take: 200,
+      take: 500,
       status: alertStatus.value === 'all' ? undefined : alertStatus.value,
+      ...(range.from ? { from: range.from } : {}),
     });
     const rows = res.items;
     if (!rows.length) {
@@ -369,7 +391,7 @@ async function exportAlerts() {
     const now = new Date();
     const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
     downloadCsv(
-      `${locale.t('review.alert.exportFileName')}-${stamp}.csv`,
+      `${locale.t('review.alert.exportFileName')}${range.tag}-${stamp}.csv`,
       [
         locale.t('review.alert.colTime'),
         locale.t('review.alert.colRating'),
