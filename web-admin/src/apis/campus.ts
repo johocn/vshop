@@ -246,8 +246,22 @@ export interface MerchantBoardOrder {
   lines: MerchantBoardLine[];
 }
 
+/** 营业时间自动切换（自动开门 / 自动打烊）：服务端按 UTC+8 计算 */
+export interface CampusBusinessTransition {
+  action: 'open' | 'close'; // open=到点自动开门，close=到点自动打烊
+  at: string; // 切换时刻 HH:mm
+  inMinutes: number; // 距切换分钟数（>=1）
+  today: boolean; // false=明天
+}
+
 export interface CampusMerchantBoard {
   paused: boolean;
+  /** 营业时段内且未临时休息（自动开关门生效依据） */
+  openNow: boolean;
+  /** 本店营业时间（空=全天营业） */
+  businessHours: string | null;
+  /** 下一次自动开门/打烊（null=全天营业） */
+  nextTransition: CampusBusinessTransition | null;
   merchantConfirmEnabled: boolean;
   printMode: string; // 'off' | 'onPaid' | 'onAccepted'
   /** 打印通道（P1-4）：local / feie / yilianyun */
@@ -278,6 +292,8 @@ export interface MerchantStoreProfile {
   storePhone: string | null;
   paused: boolean;
   openNow: boolean; // 营业时段内且未临时休息（服务端按 UTC+8 判定）
+  /** 下一次自动开门/打烊（null=全天营业），供经营设置页倒计时与打烊前提醒 */
+  nextTransition: CampusBusinessTransition | null;
 }
 
 /** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
@@ -311,7 +327,8 @@ const ORDER_FIELDS =
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
     `query { campusMerchantBoard {
-      paused merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
+      paused openNow businessHours nextTransition { action at inMinutes today }
+      merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }
@@ -358,7 +375,8 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
   return res.campusMerchantSetPaused.ok;
 }
 
-const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow';
+const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow'
+  + ' nextTransition { action at inMinutes today }';
 
 /** 商家自助经营：门店资料 */
 export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {

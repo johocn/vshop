@@ -3281,6 +3281,70 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 后端：`878155494`（首版）→ `756a9682e`（修正），服务器 checkout `src/lib` + `pm2 restart vendure`。
 - 后台：`cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` → 产物 61731 KB，nginx reload 成功。
 
+## 67. 营业时间自动开关门 + 打烊前提醒（2026-10-28）
+
+营业时段外「不可下单」的下单闸门与 C 端「休息中」展示此前已存在，缺的是**商家侧不可见**：看不到什么时候自动打烊、临打烊没人提醒、C 端页面停留时状态不刷新。本轮补齐这三处。
+
+### 67.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | `business-hours.ts` 新增纯函数 `nextBusinessTransition(raw, now)`：返回「下一次自动开门 / 自动打烊」的 `action / at / inMinutes / today`，作为前后端唯一时间口径；`merchant-admin.service` 的 `campusMerchantBoard` 增加 `openNow / businessHours / nextTransition`，`campusMerchantStoreProfile` 增加 `nextTransition`；`campus-delivery.plugin.ts` 新增 GraphQL 类型 `CampusBusinessTransition` |
+| 后台 | 新增 `web-admin/src/utils/closing-reminder.ts`（打烊前 15 分钟橙色横幅 + 语音播报，与 `orderAlertHub` 相互独立）；商家工作台顶栏下新增倒计时条「今日 21:00 自动打烊 · 还剩 12 分钟」/「明日 10:00 自动开门 · 还剩 674 分钟」，≤15 分钟变橙；营业状态开关文案三分支（营业中 / 已打烊（临时休息）/ 已打烊（非营业时段））；经营设置页「营业时间」下方展示下次切换文案，并新增「打烊前提醒」开关，页面挂载后每分钟回读一次 profile |
+| C 端 | `pages/shop/menu.vue` 的 30s 轮询从「固定刷新」改为「跨边界回读」：比较 `getStoreStatus().state === 'closed'` 是否翻转，翻转即重拉店铺信息，页面停留时也能在开门/打烊瞬间切换「休息中」 |
+
+### 67.2 口径与契约
+
+- `nextBusinessTransition`：在相邻三天（k=-1/0/+1）内把每个时段 `start` 视作「开门」、`end` 视作「打烊」，取**严格大于当前分钟**的最小边界；未配置营业时间返回 `null`。
+- 时区固定 UTC+8（`campusNowMinutes`），支持多时段与跨零点（如 `18:00-02:00`）。
+- **营业状态是「算出来」的，不是定时任务写出来的**：`openNow` 由营业时段 + 当前时间实时计算，下单闸门同样实时校验，因此不存在「定时任务漏跑导致状态卡死」的问题。
+- `openNow` 与 `paused` 正交：`paused=true` 是商家手动「临时休息」，`openNow=false` 是营业时段外；后台按此分文案，C 端统一呈现「休息中」。
+- 提醒阈值 `CLOSING_WARN_MIN = 15`：仅 `nextTransition.action === 'close' && inMinutes <= 15` 触发；去重键 `${today?'T':'N'}|${at}` 存 `localStorage.closingWarnFiredAt`，同一场次只提醒一次；语音 12s 互斥（`closingWarnTtsLock`）、横幅 15s 自动隐藏；`localStorage.closingWarnMuted` 记录开关关闭态。
+
+### 67.3 权限与校验
+
+- 读：`campusMerchantBoard` / `campusMerchantStoreProfile` 沿用既有商家权限，原生 SQL 按 `ctx.channelId` 过滤，跨店铺不可见。
+- 写：本轮未新增写接口，营业时间仍由 `updateStoreProfile` 写入渠道自定义字段。
+- 下单闸门：`order-gate.process.ts` 在 `toState=ArrangingPayment` 时校验营业时间（跑腿单豁免），打烊抛 `UserInputError('店铺已打烊（营业时间 ...），暂不可下单')`——本轮未改动，只补商家端可见性。
+
+### 67.4 数据库变更
+
+无。复用既有渠道自定义字段。**踩坑**：生产库实际列名为全小写 `customFieldsWaimaibusinesshours`（TypeORM 建列时对 customFields 转小写），原生 SQL 写成驼峰会报 `42703 column "customFieldsWaimaiBusinessHours" does not exist`。
+
+### 67.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `vitest run src/business-hours.spec.ts` → 14 tests passed（`nextBusinessTransition` 5 组：未配置→null / 营业中→close / 打烊后→今日·明日 open / 跨零点 / 整点边界） |
+| 编译 | `tsc -p tsconfig.build.json` exit 0，`lib/` 随提交入库 |
+| 线上探针（t2 `10:00-22:55`，当时 22:46） | board / profile 均 `openNow:true`，`nextTransition:{action:"close",at:"22:55",inMinutes:9,today:true}` |
+| 线上探针（t2 `10:00-22:00`） | `openNow:false`，`nextTransition:{action:"open",at:"10:00",inMinutes:674,today:false}` |
+| 还原 t2 营业时间 | `businessHours:null, openNow:true, nextTransition:null` |
+| 后台截图（`docs/screenshots/waimai/p17-business-clock/`，脚本 `web-admin/scripts/shots-p17-business-clock.cjs`） | `01-admin-board-closing-soon.png`：clock「今日 21:00 自动打烊 · 还剩 12 分钟」、warn=true、横幅「打烊提醒：营业时间 21:00 结束，还有 12 分钟，请及时处理未完成订单」；`02-admin-board-closed-by-hours.png`：「明日 10:00 自动开门 · 还剩 674 分钟」、开关「已打烊」；`03-admin-settings-next-close.png`：经营设置下次切换文案 +「临时休息 / 打烊前提醒」两行 |
+| 线上产物哈希 | C 端 `pages-shop-menu.EewP3qNt.js` 本地/线上 MD5 均 `042430AB8F19B0FFB06D7804B25B2B50`；后台 `pages-campus-store-settings.DuaRdXyU.js` 均 `AFEC444F1B6F333FA29F6F74E5C923A5` |
+
+### 67.6 边界与已知限制
+
+- 提醒只在页面打开时生效（商家工作台 / 经营设置页在前台）：关掉浏览器收不到任何提醒，需要不漏提醒得接公众号模板消息或短信。
+- C 端靠 30s 轮询 + `onShow` 刷新，不是长连接；开门瞬间最长约 30s 展示滞后，但下单闸门是服务端实时校验，不会误下单。
+- 营业时段为单档配置（每天相同），不支持节假日 / 单日例外。
+- 时区固定 UTC+8，多时区门店不适用。
+- 打烊后已支付订单不受影响，仍按既有流程履约。
+
+### 67.7 部署记录（2026-10-28）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `7b2b609d5`（功能）+ `9cd6a9ac1`（原生 SQL 列名修正）→ `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online；探针通过 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61736 KB；nginx reload 成功 |
+| C 端 | `npx uni build` → `WA_SKIP_BUILD=1 node .secrets/deploy-waimai.mjs` | `DONE Build complete.`；部署 3842 KB，`200 deploy done` |
+| 线上 | `https://e.joho.cn/guanli/`、`https://www.yourbao.cn/waimai/` | 均 HTTP 200（后台域名是 `e.joho.cn`；`www.yourbao.cn/guanli/` 会走 nginx fallback 返回 562B HTML，不能用于产物校验） |
+
+操作入口：
+- 商家工作台：顶部状态开关下方倒计时条；临近打烊（≤15 分钟）自动弹橙色横幅 + 语音播报。
+- 经营设置：营业时间下方「下次 21:00 自动打烊」提示 + 「打烊前提醒」开关（关掉后不再横幅/播报）。
+- C 端店铺页：页面停留跨过开门/打烊时刻，30s 内自动切换「休息中」或恢复可下单。
+
 
 
 
