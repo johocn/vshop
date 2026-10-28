@@ -82,7 +82,10 @@
 
       <!-- Top 商品表 -->
       <view class="card">
-        <text class="sec">{{ $t('campusSales.productsTitle') }}</text>
+        <view class="secrow">
+          <text class="sec">{{ $t('campusSales.productsTitle') }}</text>
+          <text v-if="products.length" class="expo" @tap="exportProducts">{{ $t('campusSales.exportCsv') }}</text>
+        </view>
         <view v-if="products.length" class="thead">
           <text class="hname">{{ $t('campusSales.colName') }}</text>
           <text class="hqty">{{ $t('campusSales.colQty') }}</text>
@@ -125,10 +128,13 @@
 // 口径：销售单=已付款未取消且非跑腿；GMV/aov 单位「分」，展示走 utils/money 统一转元。
 import { computed, ref } from 'vue';
 import { campusSalesStats, type CampusSalesStats } from '../../apis/campus';
+import { downloadCsv } from '../../utils/csv';
 import { fenToYuanFixed } from '../../utils/money';
+import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
 
 usePermGuard('CampusViewDispatch');
+const locale = useLocaleStore();
 
 const TOP_N = 10;
 
@@ -269,6 +275,37 @@ function quadLabel(q: string): string {
   return QUADRANT_LABEL[q] || QUADRANT_LABEL.slow;
 }
 
+/** P4-1-4 导出：商品结构明细（口径与页面一致，金额单位元、固定两位小数） */
+function exportProducts(): void {
+  if (!products.value.length) {
+    uni.showToast({ title: locale.t('campusSales.exportEmpty'), icon: 'none' });
+    return;
+  }
+  const p = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+  const rows = products.value.map((x) => [
+    x.name,
+    String(x.quantity),
+    fenToYuanFixed(x.gmvFen),
+    locale.t(quadLabel(x.quadrant)),
+  ]);
+  downloadCsv(
+    `${locale.t('campusSales.exportFileName')}-${stamp}.csv`,
+    [
+      locale.t('campusSales.colName'),
+      locale.t('campusSales.colQty'),
+      locale.t('campusSales.colGmv'),
+      locale.t('campusSales.colQuadrant'),
+    ],
+    rows,
+  );
+  uni.showToast({
+    title: locale.t('campusSales.exportDone').replace('{n}', String(rows.length)),
+    icon: 'none',
+  });
+}
+
 // ===== 复购分群 =====
 const cohortTotal = computed(() => stats.value.cohorts.once + stats.value.cohorts.twiceToFour + stats.value.cohorts.loyal);
 
@@ -313,6 +350,9 @@ load();
         &.down .pct { color: $wa-danger; } } } }
 
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 24rpx; margin-bottom: 20rpx;
+    .secrow { display: flex; align-items: center; justify-content: space-between;
+      .sec { margin-bottom: 0; }
+      .expo { font-size: 24rpx; color: $wa-accent; } }
     .sec { display: block; font-size: 28rpx; color: $wa-ink; font-weight: 600; margin-bottom: 20rpx; }
 
     .tmeta { display: flex; align-items: center; gap: 20rpx; margin-bottom: 16rpx;
