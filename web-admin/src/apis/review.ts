@@ -219,11 +219,13 @@ export async function updateReviewAlertRule(input: {
   return updateReviewAlertRule;
 }
 
-/** 预警分页列表：status 为空时返回全部 */
+/** 预警分页列表：status 为空时返回全部；from/to 为创建时间范围（ISO 字符串） */
 export async function fetchReviewAlertPage(p: {
   skip: number;
   take: number;
   status?: string;
+  from?: string;
+  to?: string;
 }): Promise<{ items: ReviewAlertRow[]; total: number }> {
   const { reviewAlerts } = await getAdminClient().request<{
     reviewAlerts: { items: ReviewAlertRow[]; totalItems: number };
@@ -239,6 +241,8 @@ export async function fetchReviewAlertPage(p: {
         skip: p.skip,
         take: p.take,
         ...(p.status ? { status: p.status } : {}),
+        ...(p.from ? { from: p.from } : {}),
+        ...(p.to ? { to: p.to } : {}),
       },
     },
   );

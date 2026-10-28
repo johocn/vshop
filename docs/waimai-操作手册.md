@@ -2987,7 +2987,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 端 | 内容 |
 |---|---|
 | 后端（vendure） | 新增 `review-alert.ts`（纯函数归因词典 + 预警判定）、`review-alert.entity.ts`（`CampusReviewAlertRule` / `CampusReviewAlert`）、`review-alert.service.ts`、`review-alert.resolver.ts`、`migrations/p10-review-alert.ts`（幂等建表 + 唯一索引）；`ReviewService.createReview` 落库后调用 `recordFromReview`（try/catch 不阻断主流程）；admin SDL 新增 `ReviewAlertRule` / `ReviewAlert` / `ReviewAlertList` / `ReviewAlertStats` 4 类型 + 4 Query + 4 Mutation；单测 `review-alert.spec.ts` 22 例 |
-| 后台（web-admin） | 评价管理页新增「品质预警」页签（`pages/review/list/index.vue`）：统计 KPI、规则摘要与「调整规则」弹窗、状态筛选、预警卡片；`apis/review.ts` 新增 7 个预警接口与类型；中英 i18n 命名空间 `review.alert` 40+ 键；预警明细「导出预警」CSV（P4-2 扩展，跟随当前状态筛选） |
+| 后台（web-admin） | 评价管理页新增「品质预警」页签（`pages/review/list/index.vue`）：统计 KPI、规则摘要与「调整规则」弹窗、状态筛选、预警卡片；`apis/review.ts` 新增 7 个预警接口与类型；中英 i18n 命名空间 `review.alert` 40+ 键；预警明细「导出预警」CSV（P4-2 扩展，跟随当前状态 + 时间段筛选，上限 500 条） |
 
 ### 61.2 口径与接口
 
@@ -3021,7 +3021,10 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
   - `03-admin-review-alert-reply-sheet.png`：一键回评弹窗，选中「异物致歉」模板后正文自动填充；
   - `04-admin-review-alert-replied.png`：提交后「已回评」页签，卡片状态转绿、待处理计数归 0；
   - `05-c-end-coupon-wallet.png`：C 端「我的优惠券 → 未使用」可见「差评致歉券-冒烟 ¥5 满 0 可用，有效期至 2026.11.11」。
-- 导出（P4-2 扩展）：品质预警页签「导出预警」（跟随当前状态筛选，单次最多 200 条）→ 下载 `品质预警明细-20261028.csv`，实得 1 行：`2026-10-28 08:57,1,可乐鸡排饭,异物/变凉,致歉券已发放：C-XPCL-PYK4,已回评,菜里有一根头发，米饭也是凉的，太失望了`；表头 `时间,星级,商品,归因,致歉券,状态,评价正文`，标签以 `/` 连接、正文压空白并截 300 字。取证：`06-admin-review-alert-export.png` + `品质预警明细-20261028.csv`（`web-admin/scripts/shots-p4-exports.cjs`）。
+- 导出（P4-2 扩展）：品质预警页签「导出预警」→ 弹层选时间段（全部时间 / 近 7 天 / 近 30 天），跟随当前状态筛选，单次最多 500 条（后端 `ReviewAlertListOptions.from/to`，非法时间报 `起始时间不合法`）。
+  - 线上点「全部时间」→ `品质预警明细-20261028.csv`，1 行：`2026-10-28 08:57,1,可乐鸡排饭,异物/变凉,致歉券已发放：C-XPCL-PYK4,已回评,菜里有一根头发，米饭也是凉的，太失望了`；
+  - 点「近 7 天」→ `品质预警明细-近7天-20261028.csv`，同样 1 行；接口侧另验 `from=明日 → 0 条`、`from=一年前 → 1 条`、`from=非法 → USER_INPUT_ERROR`。
+  - 表头 `时间,星级,商品,归因,致歉券,状态,评价正文`，标签以 `/` 连接、正文压空白并截 300 字；取证 `06-admin-review-alert-export.png`、`07-admin-review-alert-export-range.png`、`08-admin-review-alert-export-toast.png`（`web-admin/scripts/shots-p4-exports.cjs` / `shots-p25-alert-range.cjs`）。
 - 修复记录（本轮上线中发现并已修复）：
   1. 冒烟首跑标签只命中「异物」，「米饭也是凉的」未命中 `变凉`：词典只有「凉了/冷了」，补「凉的 / 凉透」并加单测，重新构建部署后复测 6/6 PASS；
   2. 部署脚本一度重启 `nshop`（youshop 前端服务）而非 `vendure`（API 服务），导致新词典未生效；经 `pm2 jlist` 确认 API 进程名为 `vendure`、cwd `packages/dev-server`，重启后生效。
