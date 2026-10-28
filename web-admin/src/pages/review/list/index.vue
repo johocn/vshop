@@ -104,7 +104,10 @@
 
       <view class="a-rule">
         <text class="a-rule__text">{{ ruleText }}</text>
-        <text class="a-rule__btn" @tap="openRuleSheet">{{ $t('review.alert.adjustRule') }}</text>
+        <view class="a-rule__ops">
+          <text class="a-rule__btn" @tap="exportAlerts">{{ $t('review.alert.exportAlerts') }}</text>
+          <text class="a-rule__btn" @tap="openRuleSheet">{{ $t('review.alert.adjustRule') }}</text>
+        </view>
       </view>
 
       <view class="filters">
@@ -228,6 +231,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
+import { downloadCsv } from '../../../utils/csv';
 import {
   fetchReviewPage, approveReview, rejectReview, replyReview,
   fetchReviewAppeals, approveReviewAppeal, rejectReviewAppeal,
@@ -346,6 +350,49 @@ function onAlertStatus(s: string) {
   if (alertStatus.value === s) return;
   alertStatus.value = s;
   void loadAlerts();
+}
+
+/** P4-2 导出：品质预警明细（跟随当前状态筛选，最多 200 条，时间/星级/商品/归因/券/状态/正文） */
+async function exportAlerts() {
+  try {
+    const res = await fetchReviewAlertPage({
+      skip: 0,
+      take: 200,
+      status: alertStatus.value === 'all' ? undefined : alertStatus.value,
+    });
+    const rows = res.items;
+    if (!rows.length) {
+      toast(locale.t('review.alert.exportEmpty'));
+      return;
+    }
+    const p = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+    downloadCsv(
+      `${locale.t('review.alert.exportFileName')}-${stamp}.csv`,
+      [
+        locale.t('review.alert.colTime'),
+        locale.t('review.alert.colRating'),
+        locale.t('review.alert.colProduct'),
+        locale.t('review.alert.colTags'),
+        locale.t('review.alert.colCoupon'),
+        locale.t('review.alert.colStatus'),
+        locale.t('review.alert.colContent'),
+      ],
+      rows.map((a) => [
+        fmtTime(a.createdAt),
+        String(a.rating),
+        a.productName || `#${a.productId}`,
+        (a.tags || []).join('/'),
+        couponText(a),
+        alertStatusText(a.status),
+        String(a.content || '').replace(/\s+/g, ' ').slice(0, 300),
+      ]),
+    );
+    toast(locale.t('review.alert.exportDone').replace('{n}', String(rows.length)));
+  } catch (e: any) {
+    toast(e?.message || locale.t('review.list.opFailed'));
+  }
 }
 
 function alertStatusText(s?: string | null): string {
@@ -657,6 +704,7 @@ onLoad(() => {
   .a-rule { display: flex; align-items: center; justify-content: space-between; gap: 16rpx;
     background: $wa-card; border-radius: $wa-radius; padding: 20rpx 24rpx; margin-bottom: 20rpx;
     &__text { flex: 1; font-size: 24rpx; color: $wa-muted; line-height: 1.5; }
+    &__ops { display: flex; align-items: center; gap: 20rpx; white-space: nowrap; }
     &__btn { font-size: 24rpx; color: $wa-accent; white-space: nowrap; } }
   .chip--warn { color: #b45309; background: #fdf3e0; }
   .a-coupon { font-size: 24rpx; border-radius: $wa-radius; padding: 12rpx 18rpx; background: $wa-bg; color: $wa-muted;
