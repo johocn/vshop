@@ -50,6 +50,10 @@
           <text class="m edit" @tap="openPacking(p)">{{ $t('campusProducts.packingEdit') }}</text>
         </view>
         <view class="meta">
+          <text class="m">{{ $t('campusProducts.limitLabel') }} {{ limitText(p) }}</text>
+          <text class="m edit" @tap="openLimit(p)">{{ $t('campusProducts.limitEdit') }}</text>
+        </view>
+        <view class="meta">
           <text class="m edit" @tap="openAddon(p)">{{ $t('campusProducts.addonEntry') }} {{ addonGroupCount(p) }}</text>
           <text class="m edit" @tap="openCombo(p)">{{ $t('campusProducts.comboEntry') }} {{ comboItemCount(p) }}</text>
         </view>
@@ -71,6 +75,32 @@
       v-if="products.length < total" class="more" :disabled="loading"
       @tap="load(false)"
     >{{ loading ? $t('campusProducts.loading') : $t('campusProducts.loadMore') }}</button>
+
+    <!-- 每日限量 / 每人限购（§68）：留空 = 不限；额度按当日已支付订单实时统计 -->
+    <view v-if="limitOpen" class="mask" @tap.self="limitOpen = false">
+      <view class="sheet">
+        <view class="sheet__hd">
+          <text class="sheet__t">{{ $t('campusProducts.limitTitle') }}</text>
+          <text class="sheet__x" @tap="limitOpen = false">✕</text>
+        </view>
+        <text class="sheet__sub">{{ limitTarget?.name }}</text>
+        <text class="sheet__hint">{{ $t('campusProducts.limitHint').replace('{n}', String(limitTarget?.soldToday ?? 0)) }}</text>
+        <view class="limit-row">
+          <text class="limit-row__lbl">{{ $t('campusProducts.limitDaily') }}</text>
+          <input v-model="limitDaily" class="sheet__input limit-row__input" type="number" :placeholder="$t('campusProducts.limitPh')" />
+        </view>
+        <view class="limit-row">
+          <text class="limit-row__lbl">{{ $t('campusProducts.limitPerUser') }}</text>
+          <input v-model="limitPerUser" class="sheet__input limit-row__input" type="number" :placeholder="$t('campusProducts.limitPh')" />
+        </view>
+        <view class="sheet__ops">
+          <text class="sheet__clear" @tap="clearLimit">{{ $t('campusProducts.limitClear') }}</text>
+          <button class="sheet__save" :disabled="limitBusy" @tap="saveLimit">
+            {{ limitBusy ? $t('campusProducts.loading') : $t('campusProducts.limitSave') }}
+          </button>
+        </view>
+      </view>
+    </view>
 
     <!-- 商品级打包费（覆盖店铺单价；留空=沿用店铺配置金额） -->
     <view v-if="packingOpen" class="mask" @tap.self="packingOpen = false">
@@ -171,6 +201,7 @@ import {
   fetchMerchantProducts, setMerchantProductSoldOut, setMerchantAllProductsSoldOut,
   getMerchantSoldOutAutoRestore, setMerchantSoldOutAutoRestore,
   setMerchantProductPackingFee, ensureErrandProducts,
+  setMerchantProductLimit,
   setMerchantProductAddonGroups, setMerchantProductCombo,
   type MerchantProduct, type AddonGroupConfig, type ComboItemConfig,
 } from '../../apis/campus-ops';
@@ -351,6 +382,77 @@ async function savePacking(): Promise<void> {
 async function clearPacking(): Promise<void> {
   packingYuan.value = '';
   await savePacking();
+}
+
+// ===== 每日限量 / 每人限购（§68）=====
+const limitOpen = ref(false);
+const limitTarget = ref<MerchantProduct | null>(null);
+const limitDaily = ref('');
+const limitPerUser = ref('');
+const limitBusy = ref(false);
+
+/** 卡片文案：不限 / 每日 X 份（已售 S，剩 R）· 每人 Y 份 */
+function limitText(p: MerchantProduct): string {
+  const parts: string[] = [];
+  if (p.dailyLimit != null) {
+    parts.push(locale.t('campusProducts.limitDailyText')
+      .replace('{d}', String(p.dailyLimit))
+      .replace('{s}', String(p.soldToday ?? 0))
+      .replace('{n}', String(p.remaining ?? 0)));
+  }
+  if (p.perUserLimit != null) {
+    parts.push(locale.t('campusProducts.limitPerUserText').replace('{n}', String(p.perUserLimit)));
+  }
+  return parts.length ? parts.join(' · ') : locale.t('campusProducts.limitNone');
+}
+
+function openLimit(p: MerchantProduct): void {
+  limitTarget.value = p;
+  limitDaily.value = p.dailyLimit != null ? String(p.dailyLimit) : '';
+  limitPerUser.value = p.perUserLimit != null ? String(p.perUserLimit) : '';
+  limitOpen.value = true;
+}
+
+/** 空 → 不限(null)；正整数 → 该值；非法返回 undefined */
+function toLimit(v: string): number | null | undefined {
+  const s = String(v ?? '').trim();
+  if (s === '') return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return undefined;
+  return n > 0 ? n : null;
+}
+
+async function saveLimit(): Promise<void> {
+  const p = limitTarget.value;
+  if (!p || limitBusy.value) return;
+  const daily = toLimit(limitDaily.value);
+  const perUser = toLimit(limitPerUser.value);
+  if (daily === undefined || perUser === undefined
+    || (daily != null && perUser != null && perUser > daily)) {
+    uni.showToast({ title: locale.t('campusProducts.limitBad'), icon: 'none' });
+    return;
+  }
+  limitBusy.value = true;
+  try {
+    const r = await setMerchantProductLimit(p.productId, daily, perUser);
+    p.dailyLimit = r.dailyLimit;
+    p.perUserLimit = r.perUserLimit;
+    p.soldToday = r.soldToday;
+    p.remaining = r.remaining;
+    limitOpen.value = false;
+    uni.showToast({ title: locale.t('campusProducts.limitSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusProducts.setFailed')), icon: 'none' });
+  } finally {
+    limitBusy.value = false;
+  }
+}
+
+/** 清空两项 = 取消限量 */
+async function clearLimit(): Promise<void> {
+  limitDaily.value = '';
+  limitPerUser.value = '';
+  await saveLimit();
 }
 
 // ===== 加料组（P1-2）=====
@@ -639,4 +741,7 @@ onMounted(() => {
 .add-group { display: block; text-align: center; font-size: 26rpx; color: $wa-accent;
   border: 1.5px dashed $wa-accent; border-radius: $wa-radius; padding: 16rpx 0; margin-top: 8rpx; }
 .page .meta .edit { color: $wa-accent; }
+.limit-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx;
+  &__lbl { flex: none; width: 160rpx; font-size: 26rpx; color: $wa-ink; }
+  &__input { flex: 1; } }
 </style>
