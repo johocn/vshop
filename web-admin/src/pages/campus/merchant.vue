@@ -15,6 +15,11 @@
           <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : (board.openNow ? $t('campusMerchant.open') : $t('campusMerchant.closedByHours')) }}</text>
         </view>
       </view>
+      <!-- 休业日未出餐提醒（§71）：休业当天仍有待接单/备餐中订单，点击直达对应栏 -->
+      <view v-if="board.closedToday && board.unfinishedOrders > 0" class="closedbar" @tap="goUnfinished">
+        <text class="c-lbl">{{ closedUnfinishedText }}</text>
+        <text class="c-chev">›</text>
+      </view>
       <!-- 营业时间自动开关门：下次开门/打烊倒计时；打烊前 15 分钟标橙 -->
       <view v-if="clockText" class="clockbar" :class="{ warn: closingSoon }">
         <text>{{ clockText }}</text>
@@ -220,6 +225,9 @@ const board = ref<CampusMerchantBoard>({
   scheduled: [],
   completedToday: 0,
   completedTodayAmount: 0,
+  closedToday: false,
+  closureNote: null,
+  unfinishedOrders: 0,
 });
 const tab = ref<TabKey>('pending');
 const actingId = ref('');
@@ -233,6 +241,18 @@ const closingSoon = computed(() => {
 });
 let timer: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setInterval> | null = null;
+
+/** 休业日未出餐提醒文案（§71）：今日休业（备注），仍有 N 单未出餐 */
+const closedUnfinishedText = computed(() =>
+  locale.t('campusMerchant.closedWithUnfinished')
+    .replace('{note}', board.value.closureNote ? `（${board.value.closureNote}）` : '')
+    .replace('{n}', String(board.value.unfinishedOrders)),
+);
+
+/** 点击休业提醒：跳到有未出餐订单的栏（优先待接单） */
+function goUnfinished() {
+  tab.value = board.value.pending.length ? 'pending' : 'cooking';
+}
 
 // ===== 小票打印（C-Lodop）=====
 // 增强版：串行队列防丢票、失败可见可重试、连接断开自动重探（商家可能刚开电脑/刚装服务）
@@ -819,6 +839,11 @@ onUnmounted(() => {
     padding: 14rpx 24rpx; margin-bottom: 20rpx;
     text { font-size: 24rpx; color: #ad4e00; font-weight: 600; }
     &.warn { background: #fff1e6; border-color: #d4380d; text { color: #d4380d; } }
+  }
+  .closedbar { display: flex; align-items: center; gap: 12rpx; background: #fff1f0;
+    border: 1.5px solid #ff4d4f; border-radius: $wa-radius; padding: 18rpx 24rpx; margin-bottom: 20rpx;
+    .c-lbl { flex: 1; font-size: 25rpx; color: #cf1322; font-weight: 700; line-height: 1.5; }
+    .c-chev { font-size: 32rpx; color: #cf1322; font-weight: 700; }
   }
   .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;

@@ -3566,6 +3566,64 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：后台「经营设置」→「营业日历」→ 选择日期（今天起 90 天内）+ 填备注（选填）→「+ 添加」→ 可删除已有日期 →「保存休业日历」。今日命中休业时，卡片 pill 与「营业状态」pill 均显示「今日休业」并给出恢复说明。
 
+## 71. 休业日未出餐订单提醒（2026-10-29）
+
+§70 的边界里留了一条：登记休业不会通知顾客，**休业当天已下单未出餐的订单仍需人工处理**。商家往往在休业日不看工作台，导致 `待接单 / 备餐中` 的存量单一直挂着，顾客等到超时。本轮把这条边界变成可见提醒：休业当天只要有未出餐订单，商家工作台顶部与经营设置营业日历卡都会醒目提示，并支持一键跳到对应栏。
+
+### 71.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | `merchant-admin.service.ts` 的 `MerchantBoard` / `MerchantStoreProfile` 各新增 `unfinishedOrders`，`MerchantBoard` 另加 `closedToday` / `closureNote`；`board()` 用已算出的 `pending/cooking` 列表计数（`pending.length + cooking.length`），`storeProfile()` 用一条 `getCount()`（`hallStatus IN ('pending_merchant','accepted')`）轻量计数；GraphQL schema 为 `CampusMerchantBoard` 与 `MerchantStoreProfile` 补三个字段 |
+| 后台 | `pages/campus/merchant.vue` 新增红色提醒条（今日休业且有未出餐时显示，点击切到「待接单」或「备餐中」栏）；`pages/campus/store-settings.vue` 营业日历卡新增同款红字提示；`apis/campus.ts` 扩字段与查询；中英 i18n 各 2 个 key（`campusMerchant.closedWithUnfinished` / `campusStoreSettings.closureUnfinished`） |
+| C 端 | 无改动（提醒只面向商家） |
+
+### 71.2 口径与契约
+
+- **未出餐 = 待接单 + 备餐中**：`unfinishedOrders = pending_merchant + accepted` 的条数；出餐完成（`open`，进入大厅/待取货）即退出该计数，配送中、待推送等栏不计。避免把「已交给骑手」的单误报成「没出餐」。
+- **只在休业日提示**：前端条件是 `closedToday && unfinishedOrders > 0`；非休业日即使有未接单也不弹这个提醒（工作台本来就有「待接单」角标与语音播报）。
+- **提示不阻断操作**：休业只是停止**新单**，存量单仍需正常接单/出餐/拒单，因此提醒条只做跳转引导，不提供禁用按钮。
+- **与 C 端口径同源**：`closedToday` / `closureNote` 复用 `closedToday(safeClosureDates(cfg.closureDates))`，与 §70 的 C 端「今日休业」、下单闸门完全一致，不会出现「C 端休业、后台以为营业」。
+- **计数实时性**：工作台 10s 轮询 board，经营设置进入页面即读 storeProfile，刷新粒度与既有工作台一致。
+
+### 71.3 权限与校验
+
+- `campusMerchantBoard` / `campusMerchantStoreProfile` 均为 `CampusMerchant` 权限，渠道由 `ctx.channelId` 决定，只统计本店订单，与现有查询共用同一渠道隔离。
+
+### 71.4 数据库变更
+
+无（新增字段全部为运行时聚合，不落库）。
+
+### 71.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 编译 | 后端 `npm run build`（`rimraf lib && tsc -p tsconfig.build.json`）exit 0，`lib/` 随提交入库；后台 `npm run build:h5`（uni build）`DONE Build complete.` |
+| 单测 | `vitest --run` 全量 628 例：610 passed / 18 failed —— 18 个失败均为既有历史用例（`waimai-store.service.spec` 云打印校验前置、`rider-task.service.spec` 飞书告警断言），与 §71 改动文件无关；`closure-calendar.spec` 9 例仍全绿 |
+| 线上 admin-api（渠道 `canteen-a`） | 现状 `{closedToday:false, closureNote:null, unfinishedOrders:0, closureDates:[]}`；临时登记今日休业「§71探针」→ `storeProfile{closedToday:true, closureNote:'§71探针', unfinishedOrders:0}`、`board{closedToday:true, closureNote:'§71探针', unfinishedOrders:0}`，字段全部可解析 |
+| 计数一致性 | `board.unfinishedOrders === board.pending.length + board.cooking.length`（探针时均为 0，`ok:true`） |
+| 还原 | 回写原空列表 → `{closedToday:false, closureNote:null, closureDates:[]}`，生产无残留 |
+| 后台截图（`docs/screenshots/waimai/p71-closure-unfinished/`，脚本 `web-admin/scripts/shots-p71-closure-unfinished.cjs`） | `01`：商家工作台顶部红色条「今日休业（设备检修），仍有 3 单未出餐，请尽快处理 ›」，下方「待接单 2 / 备餐中 1」与两张待接单卡片；`02`：经营设置·营业日历卡内红字「今日休业仍有 3 单未出餐，请到商家工作台「待接单/备餐中」尽快处理。」 |
+
+### 71.6 边界与已知限制
+
+- **只提醒不代处理**：不会自动接单、不会自动拒单；休业日存量单如何处置（照做 / 拒单退款）仍由商家决定。
+- **口径不含配送环节**：`待推送快递 / 外部快递中 / 待自营接单 / 配送中` 均不计入「未出餐」；若这些环节也卡单，需看对应栏角标。
+- **依赖工作台轮询**：提醒依赖页面刷新（10s 轮询或进入页面），不是推送通知；商家完全不开页面时不会看到。
+- **休业登记本身不通知顾客**：§70 的边界仍在，本轮只减少商家漏处理，不改变对顾客的告知方式。
+
+### 71.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `319afb03c` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online，重启无报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61758 KB；nginx reload 成功（`signal process started`） |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台（「商家接单」页）顶部出现红色条「今日休业（备注），仍有 N 单未出餐，请尽快处理」，点击即跳到「待接单」（无待接单时跳「备餐中」）；经营设置 →「营业日历」卡内同样有红字提示，便于设置休业时先看还有没有存量单。
+
+
 
 
 
