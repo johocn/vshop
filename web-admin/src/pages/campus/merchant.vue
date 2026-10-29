@@ -64,16 +64,32 @@
       <view class="tabs">
         <view
           v-for="t in TABS" :key="t.key"
-          class="tab" :class="{ on: tab === t.key }" @tap="tab = t.key"
+          class="tab" :class="{ on: tab === t.key }" @tap="switchTab(t.key)"
         >
           <text>{{ $t(t.label) }}</text>
-          <text v-if="listOf(t.key).length" class="badge">{{ listOf(t.key).length }}</text>
+          <text v-if="tab === t.key && isPickable(t.key) && picked.length" class="pick-badge">{{ picked.length }}</text>
+          <text v-else-if="listOf(t.key).length" class="badge">{{ listOf(t.key).length }}</text>
         </view>
       </view>
 
+      <!-- 批量操作条（§73）：待接单/备餐中可多选，一次接单或出餐，失败单跳过并回报 -->
+      <view v-if="pickableTab && listOf(tab).length" class="batchbar">
+        <view class="b-all" @tap="togglePickAll">
+          <text class="b-box" :class="{ on: allPicked }">{{ allPicked ? '✓' : '' }}</text>
+          <text class="b-lbl">{{ $t('campusMerchant.batchSelectAll') }}</text>
+        </view>
+        <text class="b-count">{{ $t('campusMerchant.batchPicked').replace('{n}', String(picked.length)) }}</text>
+        <button class="b-act" :disabled="batchBusy || !picked.length" @tap="runBatch(tab === 'pending' ? 'accept' : 'cook')">
+          {{ batchBusy ? $t('campusMerchant.batchBusy') : (tab === 'pending' ? $t('campusMerchant.batchAccept') : $t('campusMerchant.batchCookingDone')) }}
+        </button>
+      </view>
+
       <view v-if="!listOf(tab).length" class="hint">{{ $t('campusMerchant.emptyTab') }}</view>
-      <view v-for="o in listOf(tab)" :key="o.id" class="card">
+      <view v-for="o in listOf(tab)" :key="o.id" class="card" :class="{ selected: isPicked(o) }">
         <view class="row head">
+          <view v-if="pickableTab" class="pick" :class="{ on: isPicked(o) }" @tap.stop="togglePick(o)">
+            <text v-if="isPicked(o)">✓</text>
+          </view>
           <text class="code">{{ o.code }}</text>
           <text v-if="isUnprinted(o)" class="unprinted">{{ $t('campusMerchant.printUnprinted') }}</text>
           <text class="time">{{ hhmm(o.createdAt) }}</text>
@@ -163,6 +179,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   campusMerchantAcceptOrder,
   campusMerchantAcceptOwned,
+  campusMerchantBatchAcceptOrders,
+  campusMerchantBatchCookingDoneOrders,
   campusMerchantBoard,
   campusMerchantCancelExternal,
   campusMerchantCloudPrint,
@@ -230,6 +248,14 @@ const board = ref<CampusMerchantBoard>({
   unfinishedOrders: 0,
 });
 const tab = ref<TabKey>('pending');
+// 批量接单/出餐（§73）：只有待接单/备餐中可多选；换栏清空，避免跨栏误操作
+const picked = ref<string[]>([]);
+const batchBusy = ref(false);
+const pickableTab = computed(() => isPickable(tab.value));
+const allPicked = computed(() => {
+  const list = listOf(tab.value);
+  return list.length > 0 && list.every(o => picked.value.includes(o.id));
+});
 const actingId = ref('');
 const printingId = ref(''); // 手动补打中的订单
 const lastPendingCount = ref(0);
@@ -331,6 +357,32 @@ const printModeKey = computed(() =>
 
 const listOf = (key: TabKey): MerchantBoardOrder[] =>
   (board.value[key] as MerchantBoardOrder[]) ?? [];
+
+/** 可多选的栏：仅待接单/备餐中支持批量状态机动作 */
+function isPickable(key: TabKey): boolean {
+  return key === 'pending' || key === 'cooking';
+}
+
+function switchTab(key: TabKey) {
+  if (tab.value === key) return;
+  tab.value = key;
+  picked.value = [];
+}
+
+function isPicked(o: MerchantBoardOrder): boolean {
+  return picked.value.includes(o.id);
+}
+
+function togglePick(o: MerchantBoardOrder) {
+  const i = picked.value.indexOf(o.id);
+  if (i >= 0) picked.value.splice(i, 1);
+  else picked.value.push(o.id);
+}
+
+function togglePickAll() {
+  const list = listOf(tab.value);
+  picked.value = allPicked.value ? [] : list.map(o => o.id);
+}
 
 function hhmm(iso: string): string {
   const d = new Date(iso);
@@ -634,6 +686,9 @@ async function refresh(initial = false) {
     }
     lastPendingCount.value = pendingCount;
     board.value = b;
+    // 勾选集合随看板收敛：已流转/已取消的单自动移出批量选择，避免对过期单重复操作
+    const alive = new Set(listOf(tab.value).map(o => o.id));
+    picked.value = picked.value.filter(id => alive.has(id));
     maybeClosingReminder(b.nextTransition);
     // 本地通道才探 C-Lodop（云打印由服务端直连，无需浏览器插件）
     if (isLocal.value && lodopReady.value === 'probing') void probePrinter();
@@ -692,6 +747,53 @@ async function cookingDone(o: MerchantBoardOrder) {
   } finally {
     actingId.value = '';
   }
+}
+
+/** 批量接单/出餐（§73）：二次确认 → 后端逐单执行（失败单跳过）→ 汇总提示 + 刷新 */
+async function runBatch(kind: 'accept' | 'cook') {
+  const ids = [...picked.value];
+  if (!ids.length || batchBusy.value) return;
+  const isAccept = kind === 'accept';
+  const action = locale.t(isAccept ? 'campusMerchant.batchAcceptAction' : 'campusMerchant.batchCookingAction');
+  uni.showModal({
+    title: locale.t(isAccept ? 'campusMerchant.batchAcceptConfirmTitle' : 'campusMerchant.batchCookingConfirmTitle'),
+    content: locale.t('campusMerchant.batchConfirmBody')
+      .replace('{n}', String(ids.length))
+      .replace('{action}', action),
+    confirmText: locale.t(isAccept ? 'campusMerchant.batchAccept' : 'campusMerchant.batchCookingDone'),
+    success: async (r: any) => {
+      if (!r.confirm) return;
+      batchBusy.value = true;
+      const targets = listOf(tab.value).filter(o => ids.includes(o.id));
+      try {
+        const res = isAccept
+          ? await campusMerchantBatchAcceptOrders(ids)
+          : await campusMerchantBatchCookingDoneOrders(ids);
+        const failIds = new Set((res.failed ?? []).map(f => String(f.orderId)));
+        picked.value = [];
+        // onAccepted 模式：本地通道逐张出票（云通道由后端接单即出票，无需前端再打）
+        if (isAccept && board.value.printMode === 'onAccepted') {
+          for (const o of targets) if (!failIds.has(o.id)) enqueuePrint(o);
+        }
+        await refresh();
+        if (res.failed?.length) {
+          uni.showToast({
+            title: locale.t('campusMerchant.batchPartial')
+              .replace('{ok}', String(res.ok))
+              .replace('{n}', String(res.failed.length))
+              .replace('{msg}', res.failed[0].message),
+            icon: 'none',
+          });
+        } else {
+          uni.showToast({ title: locale.t('campusMerchant.batchDone').replace('{n}', String(res.ok)), icon: 'success' });
+        }
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+      } finally {
+        batchBusy.value = false;
+      }
+    },
+  });
 }
 
 /** 拒单/缺货：原因选择 → 二次确认 → 全额退款并取消（接单前/备餐中均可用） */
@@ -878,11 +980,35 @@ onUnmounted(() => {
       .badge { min-width: 36rpx; height: 36rpx; border-radius: 999rpx; background: #ff4d4f;
         color: #fff; font-size: 20rpx; display: flex; align-items: center; justify-content: center;
         padding: 0 8rpx; box-sizing: border-box; }
+      // 已选角标（§73）：当前栏勾选数，replace 掉数量红点避免两个角标并排
+      .pick-badge { min-width: 36rpx; height: 36rpx; border-radius: 999rpx; background: $wa-accent;
+        color: #fff; font-size: 20rpx; display: flex; align-items: center; justify-content: center;
+        padding: 0 8rpx; box-sizing: border-box; }
     }
   }
+  // 批量操作条（§73）：全选 / 已选 N 单 / 批量接单·批量出餐
+  .batchbar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx;
+    .b-all { display: flex; align-items: center; gap: 10rpx;
+      .b-box { width: 34rpx; height: 34rpx; border-radius: 8rpx; border: 1.5px solid $wa-rule;
+        color: #fff; font-size: 22rpx; line-height: 1; display: flex; align-items: center;
+        justify-content: center;
+        &.on { background: $wa-accent; border-color: $wa-accent; } }
+      .b-lbl { font-size: 24rpx; color: $wa-muted; }
+    }
+    .b-count { flex: 1; font-size: 24rpx; color: $wa-ink; font-weight: 600; }
+    .b-act { background: $wa-accent; color: #fff; font-size: 24rpx; border-radius: 999rpx;
+      padding: 0 28rpx; line-height: 56rpx; &[disabled] { opacity: .45; } }
+  }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
+    // 勾选态描边（§73）：inset 描边避免占位导致卡片抖动
+    &.selected { box-shadow: inset 0 0 0 1.5px $wa-accent; }
     .row { display: flex; align-items: center; gap: 16rpx; }
-    .head { .code { font-size: 28rpx; color: $wa-ink; font-weight: 700; flex: 1; }
+    .head { .pick { width: 40rpx; height: 40rpx; border-radius: 10rpx; border: 1.5px solid $wa-rule;
+        flex: none; display: flex; align-items: center; justify-content: center;
+        text { font-size: 24rpx; color: #fff; line-height: 1; }
+        &.on { background: $wa-accent; border-color: $wa-accent; } }
+      .code { font-size: 28rpx; color: $wa-ink; font-weight: 700; flex: 1; }
       .unprinted { font-size: 20rpx; color: #d4380d; border: 1px solid #ffb4b0; background: #fff5f4;
         border-radius: 8rpx; padding: 2rpx 10rpx; }
       .time { font-size: 24rpx; color: $wa-muted; }

@@ -371,6 +371,38 @@ export async function campusMerchantCookingDone(orderId: string): Promise<boolea
   return res.campusMerchantCookingDone.ok;
 }
 
+/** 批量操作失败明细（§73）：失败单跳过、不影响已成功单 */
+export interface CampusMerchantBatchFailure {
+  orderId: string;
+  message: string;
+}
+
+/** 批量操作结果：ok=成功单数；failed=失败单明细（逐单回报） */
+export interface CampusMerchantBatchResult {
+  ok: number;
+  failed: CampusMerchantBatchFailure[];
+}
+
+const BATCH_FIELDS = 'ok failed { orderId message }';
+
+/** 工作台批量接单（§73）：多选待接单一次接单，逐单走既有状态机 */
+export async function campusMerchantBatchAcceptOrders(orderIds: string[]): Promise<CampusMerchantBatchResult> {
+  const res = await getAdminClient().request<{ campusMerchantBatchAcceptOrders: CampusMerchantBatchResult }>(
+    `mutation ($orderIds: [ID!]!) { campusMerchantBatchAcceptOrders(orderIds: $orderIds) { ${BATCH_FIELDS} } }`,
+    { orderIds },
+  );
+  return res.campusMerchantBatchAcceptOrders;
+}
+
+/** 工作台批量出餐（§73）：多选备餐中一次出餐，失败单跳过并在结果中回报 */
+export async function campusMerchantBatchCookingDoneOrders(orderIds: string[]): Promise<CampusMerchantBatchResult> {
+  const res = await getAdminClient().request<{ campusMerchantBatchCookingDoneOrders: CampusMerchantBatchResult }>(
+    `mutation ($orderIds: [ID!]!) { campusMerchantBatchCookingDoneOrders(orderIds: $orderIds) { ${BATCH_FIELDS} } }`,
+    { orderIds },
+  );
+  return res.campusMerchantBatchCookingDoneOrders;
+}
+
 /** 商家拒单/缺货：全额退款并取消订单（接单前或备餐中可用，必须填原因） */
 export async function campusMerchantRejectOrder(orderId: string, reason: string): Promise<boolean> {
   const res = await getAdminClient().request<{ campusMerchantRejectOrder: { ok: boolean } }>(
