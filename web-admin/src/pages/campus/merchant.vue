@@ -72,8 +72,30 @@
         </view>
       </view>
 
+      <!-- 订单检索/筛选（§74）：单号（可后 4 位）/楼栋/手机尾号/备注 + 区域 chips + 按楼栋分组拣单 -->
+      <view class="searchbar">
+        <input v-model="kw" class="s-input" :placeholder="$t('campusMerchant.searchPlaceholder')" />
+        <text v-if="kw" class="s-clear" @tap="clearFilters">✕</text>
+      </view>
+      <view class="filters">
+        <view class="f-chip" :class="{ on: !activeZone }" @tap="setZone('')">
+          <text>{{ $t('campusMerchant.searchZoneAll') }}</text>
+        </view>
+        <view v-for="z in zones" :key="z" class="f-chip" :class="{ on: activeZone === z }" @tap="setZone(z)">
+          <text>{{ z }}</text>
+        </view>
+        <view class="f-group" :class="{ on: groupByBuilding }" @tap="toggleGroup">
+          <text class="g-box" :class="{ on: groupByBuilding }">{{ groupByBuilding ? '✓' : '' }}</text>
+          <text class="g-lbl">{{ $t('campusMerchant.groupByBuilding') }}</text>
+        </view>
+      </view>
+      <view v-if="filterActive" class="countbar">
+        <text class="c-txt">{{ searchCountText }}</text>
+        <text class="c-clear" @tap="clearFilters">{{ $t('campusMerchant.searchClear') }}</text>
+      </view>
+
       <!-- 批量操作条（§73）：待接单/备餐中可多选，一次接单或出餐，失败单跳过并回报 -->
-      <view v-if="pickableTab && listOf(tab).length" class="batchbar">
+      <view v-if="pickableTab && shownList.length" class="batchbar">
         <view class="b-all" @tap="togglePickAll">
           <text class="b-box" :class="{ on: allPicked }">{{ allPicked ? '✓' : '' }}</text>
           <text class="b-lbl">{{ $t('campusMerchant.batchSelectAll') }}</text>
@@ -84,90 +106,108 @@
         </button>
       </view>
 
-      <view v-if="!listOf(tab).length" class="hint">{{ $t('campusMerchant.emptyTab') }}</view>
-      <view v-for="o in listOf(tab)" :key="o.id" class="card" :class="{ selected: isPicked(o) }">
-        <view class="row head">
-          <view v-if="pickableTab" class="pick" :class="{ on: isPicked(o) }" @tap.stop="togglePick(o)">
-            <text v-if="isPicked(o)">✓</text>
+      <!-- 检索无结果专属空态（§74）：与「本栏暂无订单」区分，避免商家误以为没单 -->
+      <view v-if="filterActive && !shownList.length" class="hint empty">
+        <text>{{ $t('campusMerchant.searchEmpty') }}</text>
+        <button class="empty-act" @tap="clearFilters">{{ $t('campusMerchant.searchClear') }}</button>
+      </view>
+      <view v-else-if="!listOf(tab).length" class="hint">{{ $t('campusMerchant.emptyTab') }}</view>
+      <view v-for="g in groups" :key="g.key">
+        <!-- 分组组头（§74）：楼栋 + 单数 + 最早等待分钟，便于按楼栋集中拣单 -->
+        <view v-if="groupByBuilding && g.label" class="group-head">
+          <text class="gh-name">{{ g.label }}</text>
+          <text class="gh-num">{{ $t('campusMerchant.groupOrders').replace('{n}', String(g.orders.length)) }}</text>
+          <text v-if="g.waitMin != null" class="gh-wait">{{ $t('campusMerchant.groupEarliest').replace('{n}', String(g.waitMin)) }}</text>
+        </view>
+        <view v-for="o in g.orders" :key="o.id" class="card" :class="{ selected: isPicked(o) }">
+          <view class="row head">
+            <view v-if="pickableTab" class="pick" :class="{ on: isPicked(o) }" @tap.stop="togglePick(o)">
+              <text v-if="isPicked(o)">✓</text>
+            </view>
+            <text class="code">{{ o.code }}</text>
+            <text v-if="isUnprinted(o)" class="unprinted">{{ $t('campusMerchant.printUnprinted') }}</text>
+            <text class="time">{{ hhmm(o.createdAt) }}</text>
+            <text v-if="o.route" class="route">{{ o.route }}</text>
           </view>
-          <text class="code">{{ o.code }}</text>
-          <text v-if="isUnprinted(o)" class="unprinted">{{ $t('campusMerchant.printUnprinted') }}</text>
-          <text class="time">{{ hhmm(o.createdAt) }}</text>
-          <text v-if="o.route" class="route">{{ o.route }}</text>
-        </view>
-        <view v-if="o.provider || o.thirdPartyNo" class="row ext">
-          <text class="ext-txt">{{ providerLabel(o.provider) }}</text>
-          <text v-if="o.thirdPartyNo" class="ext-no">{{ o.thirdPartyNo }}</text>
-        </view>
-        <!-- 交接码：第一段送达交接点后生成，交给取货骑手核对（防丢餐扯皮） -->
-        <view v-if="o.handoverCode" class="row code-row">
-          <text class="code-label">{{ $t('campusMerchant.handoverCode') }}</text>
-          <text class="code-val">{{ o.handoverCode }}</text>
-        </view>
-        <view class="row dest">
-          <text class="dest-txt">{{ o.zone }} {{ o.building }}</text>
-          <text v-if="o.slotText" class="slot">{{ o.slotText }}</text>
-        </view>
-        <view v-if="o.note" class="row note">
-          <text class="note-txt">{{ $t('campusMerchant.noteLabel') }}：{{ o.note }}</text>
-        </view>
-        <view class="lines">
-          <view v-for="(l, i) in o.lines" :key="i" class="line">
-            <text class="l-name">{{ l.name }}</text>
-            <text class="l-qty">×{{ l.quantity }}</text>
+          <view v-if="o.provider || o.thirdPartyNo" class="row ext">
+            <text class="ext-txt">{{ providerLabel(o.provider) }}</text>
+            <text v-if="o.thirdPartyNo" class="ext-no">{{ o.thirdPartyNo }}</text>
           </view>
-        </view>
-        <view class="row foot">
-          <text v-if="o.riderName" class="rider">{{ $t('campusMerchant.rider') }}{{ o.riderName }}</text>
-          <text class="total">¥{{ fenToYuan(o.total) }}</text>
-          <button
-            class="act ghost" :disabled="printingId === o.id"
-            @tap="reprint(o)"
-          >{{ printingId === o.id ? $t('campusMerchant.printing') : $t('campusMerchant.printBtn') }}</button>
-          <button
-            v-if="tab === 'pending'"
-            class="act" :disabled="actingId === o.id"
-            @tap="accept(o)"
-          >{{ $t('campusMerchant.accept') }}</button>
-          <button
-            v-else-if="tab === 'cooking'"
-            class="act" :disabled="actingId === o.id"
-            @tap="cookingDone(o)"
-          >{{ $t('campusMerchant.cookingDone') }}</button>
-          <template v-else-if="tab === 'pendingDispatch'">
-            <button class="act" :disabled="actingId === o.id" @tap="pushExternal(o, 'dada')">
-              {{ $t('campusMerchant.pushDada') }}
-            </button>
-            <button class="act ghost" :disabled="actingId === o.id" @tap="pushExternal(o, 'meituan')">
-              {{ $t('campusMerchant.pushMeituan') }}
-            </button>
-          </template>
-          <template v-else-if="tab === 'thirdParty'">
-            <button class="act ghost" :disabled="actingId === o.id" @tap="cancelExternal(o)">
-              {{ $t('campusMerchant.cancelExternal') }}
-            </button>
-          </template>
-          <button
-            v-else-if="tab === 'ownedPool'"
-            class="act" :disabled="actingId === o.id"
-            @tap="acceptOwned(o)"
-          >{{ $t('campusMerchant.acceptOwned') }}</button>
-          <button
-            v-else-if="tab === 'ownedDispatched'"
-            class="act" :disabled="actingId === o.id"
-            @tap="markOwnedArrived(o)"
-          >{{ $t('campusMerchant.markOwnedArrived') }}</button>
-          <button
-            v-else-if="tab === 'merchantDelivering'"
-            class="act" :disabled="actingId === o.id"
-            @tap="markHandoverArrived(o)"
-          >{{ $t('campusMerchant.markHandoverArrived') }}</button>
-          <!-- 拒单/缺货：接单前与备餐中均可，二次确认后全额退款并取消（独立链，勿并入上方 v-else-if） -->
-          <button
-            v-if="tab === 'pending' || tab === 'cooking'"
-            class="act ghost reject" :disabled="actingId === o.id"
-            @tap="reject(o)"
-          >{{ $t('campusMerchant.reject') }}</button>
+          <!-- 交接码：第一段送达交接点后生成，交给取货骑手核对（防丢餐扯皮） -->
+          <view v-if="o.handoverCode" class="row code-row">
+            <text class="code-label">{{ $t('campusMerchant.handoverCode') }}</text>
+            <text class="code-val">{{ o.handoverCode }}</text>
+          </view>
+          <view class="row dest">
+            <text class="dest-txt">{{ o.zone }} {{ o.building }}</text>
+            <text v-if="o.slotText" class="slot">{{ o.slotText }}</text>
+          </view>
+          <!-- 顾客手机（§74）：仅脱敏号，点击复制便于与顾客对单；明文不出服务端 -->
+          <view v-if="o.customerPhone" class="row phone" @tap="copyPhone(o)">
+            <text class="phone-lbl">{{ $t('campusMerchant.customerPhoneLabel') }}：{{ o.customerPhone }}</text>
+            <text class="phone-copy">⧉</text>
+          </view>
+          <view v-if="o.note" class="row note">
+            <text class="note-txt">{{ $t('campusMerchant.noteLabel') }}：{{ o.note }}</text>
+          </view>
+          <view class="lines">
+            <view v-for="(l, i) in o.lines" :key="i" class="line">
+              <text class="l-name">{{ l.name }}</text>
+              <text class="l-qty">×{{ l.quantity }}</text>
+            </view>
+          </view>
+          <view class="row foot">
+            <text v-if="o.riderName" class="rider">{{ $t('campusMerchant.rider') }}{{ o.riderName }}</text>
+            <text class="total">¥{{ fenToYuan(o.total) }}</text>
+            <button
+              class="act ghost" :disabled="printingId === o.id"
+              @tap="reprint(o)"
+            >{{ printingId === o.id ? $t('campusMerchant.printing') : $t('campusMerchant.printBtn') }}</button>
+            <button
+              v-if="tab === 'pending'"
+              class="act" :disabled="actingId === o.id"
+              @tap="accept(o)"
+            >{{ $t('campusMerchant.accept') }}</button>
+            <button
+              v-else-if="tab === 'cooking'"
+              class="act" :disabled="actingId === o.id"
+              @tap="cookingDone(o)"
+            >{{ $t('campusMerchant.cookingDone') }}</button>
+            <template v-else-if="tab === 'pendingDispatch'">
+              <button class="act" :disabled="actingId === o.id" @tap="pushExternal(o, 'dada')">
+                {{ $t('campusMerchant.pushDada') }}
+              </button>
+              <button class="act ghost" :disabled="actingId === o.id" @tap="pushExternal(o, 'meituan')">
+                {{ $t('campusMerchant.pushMeituan') }}
+              </button>
+            </template>
+            <template v-else-if="tab === 'thirdParty'">
+              <button class="act ghost" :disabled="actingId === o.id" @tap="cancelExternal(o)">
+                {{ $t('campusMerchant.cancelExternal') }}
+              </button>
+            </template>
+            <button
+              v-else-if="tab === 'ownedPool'"
+              class="act" :disabled="actingId === o.id"
+              @tap="acceptOwned(o)"
+            >{{ $t('campusMerchant.acceptOwned') }}</button>
+            <button
+              v-else-if="tab === 'ownedDispatched'"
+              class="act" :disabled="actingId === o.id"
+              @tap="markOwnedArrived(o)"
+            >{{ $t('campusMerchant.markOwnedArrived') }}</button>
+            <button
+              v-else-if="tab === 'merchantDelivering'"
+              class="act" :disabled="actingId === o.id"
+              @tap="markHandoverArrived(o)"
+            >{{ $t('campusMerchant.markHandoverArrived') }}</button>
+            <!-- 拒单/缺货：接单前与备餐中均可，二次确认后全额退款并取消（独立链，勿并入上方 v-else-if） -->
+            <button
+              v-if="tab === 'pending' || tab === 'cooking'"
+              class="act ghost reject" :disabled="actingId === o.id"
+              @tap="reject(o)"
+            >{{ $t('campusMerchant.reject') }}</button>
+          </view>
         </view>
       </view>
     </template>
@@ -175,7 +215,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   campusMerchantAcceptOrder,
   campusMerchantAcceptOwned,
@@ -253,7 +293,7 @@ const picked = ref<string[]>([]);
 const batchBusy = ref(false);
 const pickableTab = computed(() => isPickable(tab.value));
 const allPicked = computed(() => {
-  const list = listOf(tab.value);
+  const list = shownList.value;
   return list.length > 0 && list.every(o => picked.value.includes(o.id));
 });
 const actingId = ref('');
@@ -380,8 +420,99 @@ function togglePick(o: MerchantBoardOrder) {
 }
 
 function togglePickAll() {
-  const list = listOf(tab.value);
+  // 全选只作用于当前可见单（§74）：筛选/分组后的列表，避免把隐藏单一起选中
+  const list = shownList.value;
   picked.value = allPicked.value ? [] : list.map(o => o.id);
+}
+
+// ===== 订单检索 / 筛选 / 按楼栋分组（§74）=====
+// 关键词一次匹配多字段（单号含后 4/8 位、楼栋、区域、备注、脱敏手机号数字段）；
+// 区域另设 chips，分组开关只影响展示顺序，均不改变后端查询（看板本就只拉活跃单）。
+const kw = ref('');
+const activeZone = ref('');
+const groupByBuilding = ref(false);
+const filterActive = computed(() => !!kw.value.trim() || !!activeZone.value);
+/** 区域 chips：取自当前栏全量单（不受自身筛选影响，避免选中后 chip 消失） */
+const zones = computed(() => Array.from(new Set(listOf(tab.value).map(o => o.zone).filter(Boolean))));
+/** 关键词匹配：脱敏号里的星号段无法匹配（明文不出服务端），只比对可见数字 */
+function matchKeyword(o: MerchantBoardOrder): boolean {
+  const k = kw.value.trim().toLowerCase();
+  if (!k) return true;
+  if (o.code.toLowerCase().includes(k)) return true;
+  if (o.building && o.building.toLowerCase().includes(k)) return true;
+  if (o.zone && o.zone.toLowerCase().includes(k)) return true;
+  if (o.note && o.note.toLowerCase().includes(k)) return true;
+  const digits = k.replace(/\D/g, '');
+  if (digits) {
+    const phoneDigits = (o.customerPhone ?? '').replace(/\D/g, '');
+    if (phoneDigits && phoneDigits.includes(digits)) return true;
+  }
+  return false;
+}
+/** 当前栏可见单：区域 + 关键词过滤后结果（批量全选/计数/空态均以此为准） */
+const shownList = computed(() =>
+  listOf(tab.value).filter(o => (!activeZone.value || o.zone === activeZone.value) && matchKeyword(o)),
+);
+const searchCountText = computed(() =>
+  locale.t('campusMerchant.searchCount')
+    .replace('{n}', String(shownList.value.length))
+    .replace('{m}', String(listOf(tab.value).length)),
+);
+/** 分组渲染：关闭时单组（无组头），开启时按 区域+楼栋 分组、最早等待久的排前 */
+const groups = computed(() => {
+  const list = shownList.value;
+  if (!groupByBuilding.value) {
+    return [{ key: '__all', label: '', orders: list, waitMin: null as number | null }];
+  }
+  const map = new Map<string, MerchantBoardOrder[]>();
+  for (const o of list) {
+    const key = `${o.zone}|${o.building}`;
+    const arr = map.get(key);
+    if (arr) arr.push(o);
+    else map.set(key, [o]);
+  }
+  return [...map.entries()]
+    .map(([key, orders]) => {
+      const oldest = Math.min(...orders.map(o => new Date(o.createdAt).getTime()));
+      return {
+        key,
+        label: `${orders[0].zone} ${orders[0].building}`.trim(),
+        orders,
+        // 组内最早一单已等待分钟数：数字越大越该先做，故按此降序排
+        waitMin: Math.max(0, Math.floor((Date.now() - oldest) / 60_000)),
+      };
+    })
+    .sort((a, b) => b.waitMin - a.waitMin);
+});
+
+/** 过滤条件变化即清空勾选：避免勾中后切筛选把隐藏单一起提交 */
+watch([kw, activeZone], () => {
+  picked.value = [];
+});
+
+function setZone(z: string) {
+  if (z === activeZone.value) return;
+  activeZone.value = z;
+}
+
+function toggleGroup() {
+  groupByBuilding.value = !groupByBuilding.value;
+  picked.value = [];
+}
+
+function clearFilters() {
+  kw.value = '';
+  activeZone.value = '';
+  picked.value = [];
+}
+
+/** 点击卡片脱敏号复制：便于电话对单（复制的是脱敏文本，不产生明文泄露） */
+function copyPhone(o: MerchantBoardOrder) {
+  if (!o.customerPhone) return;
+  uni.setClipboardData({
+    data: o.customerPhone,
+    success: () => uni.showToast({ title: locale.t('campusMerchant.copyDone'), icon: 'none' }),
+  });
 }
 
 function hhmm(iso: string): string {
@@ -1000,6 +1131,44 @@ onUnmounted(() => {
     .b-act { background: $wa-accent; color: #fff; font-size: 24rpx; border-radius: 999rpx;
       padding: 0 28rpx; line-height: 56rpx; &[disabled] { opacity: .45; } }
   }
+  // 订单检索/筛选/分组（§74）
+  .searchbar { display: flex; align-items: center; gap: 12rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 8rpx 20rpx; margin-bottom: 16rpx;
+    .s-input { flex: 1; height: 68rpx; font-size: 26rpx; color: $wa-ink; }
+    .s-clear { font-size: 26rpx; color: $wa-muted; padding: 0 8rpx; }
+  }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12rpx; margin-bottom: 16rpx;
+    .f-chip { padding: 8rpx 22rpx; border-radius: 999rpx; background: $wa-card;
+      border: 1.5px solid transparent;
+      text { font-size: 24rpx; color: $wa-muted; }
+      &.on { border-color: $wa-accent; text { color: $wa-accent; font-weight: 600; } }
+    }
+    .f-group { margin-left: auto; display: flex; align-items: center; gap: 10rpx;
+      padding: 8rpx 20rpx; border-radius: 999rpx; background: $wa-card;
+      .g-box { width: 30rpx; height: 30rpx; border-radius: 8rpx; border: 1.5px solid $wa-rule;
+        color: #fff; font-size: 20rpx; line-height: 1; display: flex; align-items: center;
+        justify-content: center;
+        &.on { background: $wa-accent; border-color: $wa-accent; } }
+      .g-lbl { font-size: 24rpx; color: $wa-muted; }
+      &.on .g-lbl { color: $wa-accent; font-weight: 600; }
+    }
+  }
+  .countbar { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx; padding: 0 8rpx;
+    .c-txt { flex: 1; font-size: 24rpx; color: $wa-ink; font-weight: 600; }
+    .c-clear { font-size: 24rpx; color: $wa-accent; }
+  }
+  .hint.empty { display: flex; flex-direction: column; align-items: center; gap: 24rpx;
+    .empty-act { font-size: 24rpx; color: $wa-accent; background: transparent;
+      border: 1.5px solid $wa-accent; border-radius: 999rpx; padding: 0 32rpx; line-height: 56rpx; }
+  }
+  // 分组组头：楼栋 + 单数 + 最早等待
+  .group-head { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 12rpx;
+    border-left: 6rpx solid $wa-accent;
+    .gh-name { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 700; }
+    .gh-num { font-size: 22rpx; color: $wa-accent; }
+    .gh-wait { font-size: 22rpx; color: #c47b00; }
+  }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
     // 勾选态描边（§73）：inset 描边避免占位导致卡片抖动
     &.selected { box-shadow: inset 0 0 0 1.5px $wa-accent; }
@@ -1021,6 +1190,11 @@ onUnmounted(() => {
     .ext { padding-top: 10rpx; gap: 12rpx;
       .ext-txt { font-size: 22rpx; color: $wa-accent; }
       .ext-no { font-size: 22rpx; color: $wa-muted; word-break: break-all; }
+    }
+    // 顾客脱敏手机（§74）：点击复制，弱化展示避免与备注抢眼
+    .phone { padding-top: 8rpx; gap: 10rpx;
+      .phone-lbl { font-size: 24rpx; color: $wa-muted; letter-spacing: 2rpx; }
+      .phone-copy { font-size: 22rpx; color: $wa-accent; }
     }
     .code-row { padding-top: 10rpx;
       .code-label { font-size: 22rpx; color: $wa-muted; }
