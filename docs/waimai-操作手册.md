@@ -3544,6 +3544,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 线上 shop-api | 同一时刻 `waimaiStoreList` 对应店铺 `{openNow:false, closedToday:true, closureNote:'§70探针'}` —— C 端列表口径一致 |
 | 校验拒绝 | 过去日期 `2020-01-01` → `休业日期不能早于今天：2020-01-01`；假日期 `2026-02-30` → `休业日期格式不合法：「2026-02-30」（需 YYYY-MM-DD）` |
 | 还原 | 回写原空列表 → `{openNow:true, closedToday:false, closureNote:null}`，shop-api 同步恢复；测试渠道无残留 |
+| 线上 C 端（`https://www.yourbao.cn/waimai/` 店铺页，临时登记今日休业「设备检修」） | 顶部条幅「🌙 今日休业（设备检修） · 暂停接单，可先加购」；底部按钮文案变「已打烊」且置灰不可点；无 GraphQL 报错；取证后已清空休业日期并回读恢复正常 |
 | 后台截图（`docs/screenshots/waimai/p70-closure-calendar/`，脚本 `web-admin/scripts/shots-p70-closure-calendar.cjs`） | `01`：营业状态 pill「今日休业」+ 营业日历 pill「今日休业」+ 提示「今日休业（国庆假期）：C 端展示「今日休业」并停止下单，明日 0 点自动恢复营业。」+ 今日/明日两条列表；`02`：营业中 + pill「已设 2 天」+ 两条未来休业（校园运动会 / 设备检修）+ 新增表单与「保存休业日历」 |
 
 ### 70.6 边界与已知限制
