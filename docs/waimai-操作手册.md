@@ -3817,6 +3817,75 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页顶部 → 在检索框输入单号后几位 / 楼栋名 / 区域 / 手机可见数字 / 备注关键词（或点区域 chip 收窄）→ 顶部计数条显示「共 N / M 单」，右侧「清除筛选」一键复位 → 需要按楼栋集中拣单时打开「按楼栋分组」，组头即楼栋 + 单数 + 最早等待分钟 → 卡片「手机：138****1111 ⧉」点击即复制脱敏号。
 
+## 75. 商家今日已完成明细 + 对账（2026-10-29）
+
+打烊前要对账：今天做成了多少单、收了多少、退了多少，哪几单是刷单/异常单。本轮给商家加**「已完成对账」页**：按区间（今日 / 近 7 日 / 自定义）列出**已送达订单明细**（单号、时间、实收、楼栋、脱敏手机、菜品、备注），顶部 5 个汇总指标（完成单量 / 订单总额 / 退款金额 / 实收总额 / 客单价），列表支持关键词检索（同 §74 口径），并可**一键复制对账清单**到剪贴板发给老板或贴进表格。
+
+### 75.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | `merchant-admin.service.ts`：新增 `MerchantCompletedOrder` / `MerchantCompletedOrders` 类型与 `completedOrders(ctx, { from, to, take, skip })` 方法——区间汇总（`COUNT` + `SUM(subTotalWithTax + shippingWithTax)`）、明细分页（`lines`/`productVariant`/`customer` 关联，按 `deliveredAt` 倒序）、当页订单退款聚合（`refund` JOIN `payment`，排除 `Failed`）、区间退款总额、楼栋/骑手名批量补全、`privacy.mask` 脱敏手机；`merchant-admin.resolver.ts` 新增 Query `campusMerchantCompletedOrders`；`campus-delivery.plugin.ts` 新增 SDL 类型 `CampusMerchantCompletedOrder` / `CampusMerchantCompletedOrders` 并在 Query 中声明 |
+| 后台 | 新建 `pages/campus/completed-orders.vue`（区间切换 + 自定义日期 + 5 指标 + 检索 + 明细卡 + 复制清单 + 分页加载）；`pages/campus/merchant.vue` 顶部「今日完成（单）/（金额）」两个 stat 可点进对账页；`apis/campus.ts` 新增 `campusMerchantCompletedOrders` 查询与类型，并给 `ORDER_FIELDS` 补 `customerPhone`（§74 实际未请求该字段）；`pages.json` 注册新页；中英 i18n 新增 `campusCompleted` 命名空间 |
+| C 端 | 无改动 |
+
+### 75.2 口径与契约
+
+- **已完成口径**：`customFields.deliveryStatus = 'delivered'` **且** `customFields.deliveredAt` 落在区间内（与工作台「今日完成」同源，避免把退款后仍标 delivered 的异常单算进成交）。区间为**左闭右开**：`[start, end)`。
+- **校园时区日界**：区间按 UTC+8 自然日计算（`startOfCampusDay` / `campusDayKey`），不随部署服务器时区漂移；「今日」= 校园时区今天 0 点至当前时刻；「近 7 日」= 今天往前 6 个自然日 0 点至当前时刻；「自定义」= 起始日 0 点至结束日**次日** 0 点（含结束日当天）。
+- **金额口径（分）**：订单总额 = `subTotalWithTax + shippingWithTax`（即顾客实付口径的订单金额，含配送费）；退款金额 = 未失败退款单（`refund.state <> 'Failed'`）的 `total` 之和；实收总额 = 订单总额 − 退款金额；客单价 = 实收总额 / 完成单量（四舍五入取整分）。前端以 `fenToYuan` 展示。
+- **汇总与明细关系**：汇总（单量/总额/退款/客单）由**全区间**聚合查询得出，不受分页截断；明细按 `take`（默认 100，上限 300）分页追加，前端「加载更多」时保留服务端汇总不重算。
+- **退款按订单聚合**：当页订单先取 id 集合，再用一条原生 SQL 按 `payment."orderId"` 聚合退款（`GROUP BY`），避免 N+1；`Failed` 退款不计入，退款中的单不影响已完成口径。
+- **检索（复用 §74 口径）**：单号（含纯数字后 4/8 位）、脱敏手机可见数字、楼栋、区域、菜品行文本（`宫保鸡丁×1`）、备注、骑手名；不区分大小写，命中任一即保留。检索在内存内完成，不额外打 GraphQL。
+- **复制清单**：按**当前筛选结果**生成纯文本（抬头「外卖已完成对账清单」+ 区间 + 单量/总额/退款/实收/客单 + 逐单「单号 时间 实收 楼栋 菜品 手机」），走 `uni.setClipboardData`，粘贴即入表格；复制的是脱敏手机号文本。
+
+### 75.3 权限与校验
+
+- Query `campusMerchantCompletedOrders` 仅 `@Allow(CampusPermissions.CampusMerchant)`，与工作台同权限位；沿用 `ctx.channelId` 店铺隔离（`leftJoin order.channels` + channel 过滤），商家只能看本店单。
+- 服务端入参校验：`from`/`to` 非法日期 → `时间区间格式不合法`；`start >= end` → `结束时间必须晚于开始时间`；跨度 > 92 天 → `查询区间不能超过 92 天`（防止误传超长区间把工作台拖慢）；`take` 夹在 1..300、`skip >= 0`。
+- 手机号在服务端脱敏后才返回，前端拿不到明文；脱敏与 §74 同一 `PrivacyNumberService`。
+
+### 75.4 数据库变更
+
+无（不新增表/列/枚举/迁移；全部为既有表的聚合查询）。
+
+### 75.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0（`npm run build` 根构建会因无关的 `@vendure/dashboard` 失败，故按包构建）；`lib/` 随提交入库 |
+| 后端 SQL 口径（生产库直测） | `select count(*), count("customFieldsDeliveredat") from "order" where "customFieldsDeliverystatus"='delivered'` 可按渠道分组返回；`order` 表**无** `total` / `totalWithTax` 列（实体 getter），聚合必须落到 `subTotalWithTax + shippingWithTax` |
+| 首次上线问题（已修复） | 线上 Query 报 `syntax error at or near "order"` → 定位为 `SUM(order.total)` 引用 getter 无对应列，TypeORM 未替换别名；改为 `SUM(COALESCE("subTotalWithTax",0)+COALESCE("shippingWithTax",0))` 后恢复 |
+| 线上启动问题（已修复） | 服务器 `git checkout` 后 pm2 反复崩溃 `Cannot find module './migrations/p15-support-ticket-after-sales'` → 该迁移文件此前只存在于本地、未入库；补提交（`4cd4da32e`）并重新 checkout 后 `vendure` online、3020 端口正常监听 |
+| 线上 schema（`canteen-a-token` + Bearer 令牌） | `campusMerchantCompletedOrders(from, to, take)` 返回 200，`total/totalAmount/refundAmount/netAmount/avgTicket/start/end/items` 字段齐全，无 `FORBIDDEN`、无字段校验错误；非法区间分别返回对应中文校验错误 |
+| 线上数据现状 | 探针时 `canteen-a` 渠道 14 单 `delivered` 但 `customFields.deliveredAt` 全为 `NULL`（历史测试单在 `deliveredAt` 字段上线前产生），故返回空集 + 零汇总，属口径内正常表现；有真实送达单后即出现明细 |
+| 后台构建 | `node scripts/deploy.mjs`（内含 `build:h5`）`DONE Build complete.`；产物校验 61789 KB；nginx `syntax is ok` + reload，`deploy done` |
+| 截图脚本交互（`web-admin/scripts/shots-p75-completed-orders.cjs`） | `01`：今日区间 → KPI `8 完成单量 / ¥311.50 订单总额 / ¥26.00 退款金额 / ¥285.50 实收总额 / ¥35.69 客单价`、计数 `共 8 / 8 条`；`02`：输入「宿舍」→ `共 6 / 8 条`；`03`：输入 `zzz` → `共 0 / 8 条` + 空态文案「没有匹配的订单：试试单号后 4 位、楼栋名、手机尾号或商品关键词」；`04`：点「复制对账清单」→ `uni-toast` 渲染「已复制到剪贴板」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 后台截图（`docs/screenshots/waimai/p75-completed-orders/`） | `01` 今日汇总 + 明细列表（含退款单标签）；`02` 检索命中；`03` 检索空态；`04` 复制 toast |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 75.6 边界与已知限制
+
+- **依赖 `deliveredAt`**：历史单若只有 `deliveryStatus='delivered'` 而无 `deliveredAt`（字段上线前的旧单），不会进入对账；如需追溯旧单请用运营侧订单列表。
+- **以「送达时间」归属日期**：跨零点送达的单按送达日归账（例如 23:59 下单、00:05 送达算次日），与「下单日」统计口径不同。
+- **退款只看退款单金额**：部分退款按退款单 `total` 计入；退款失败（`Failed`）不计入实收扣减，订单仍按全额计入总额，实际到账以支付渠道为准。
+- **分页与汇总分离**：单量很大时明细需「加载更多」，但顶部汇总始终是全区间的；`take` 上限 300，超长区间（>92 天）被拒。
+- **检索为内存过滤**：只作用于**已加载**的明细，翻页后新数据不会自动重过滤（需重新加载/切区间）。
+- **无条件单量趋势图**：本轮只做列表 + 汇总 + 复制，趋势图仍在「经营设置」页的今日/近 7 日柱状里看。
+- **客单价为实收口径**：含退款扣减，与「订单总额 / 单量」的毛口径可能不同（有退款时略低）。
+
+### 75.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `ba990579c`（§75 主功能）→ `4cd4da32e`（补 p15 迁移文件，修复启动崩溃）→ `ba1e8e06d`（改用 `totalWithTax`）→ `45565daac`（改按 `subTotalWithTax + shippingWithTax` 聚合）；每次 `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | 最终 pm2 `vendure` online，`*:3020` 正常监听，admin-api 200 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61789 KB；nginx `syntax is ok` + reload `signal process started`，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页顶部 → 点「今日完成（单）」或「今日完成（金额）」任一卡片 → 进入「已完成对账」页 → 顶部切「今日 / 近 7 日 / 自定义」（自定义选起止日期）→ 看 5 个指标（完成单量、订单总额、退款金额、实收总额、客单价）→ 需要找某一单时在检索框输入单号后几位 / 楼栋 / 手机可见数字 / 菜品 / 备注 → 点右上「复制对账清单」，粘贴即得纯文本台账（含区间与汇总，手机号为脱敏）。
+
 
 
 
