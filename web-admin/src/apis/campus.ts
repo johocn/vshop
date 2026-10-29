@@ -407,6 +407,49 @@ export async function campusMerchantUpdateStore(input: {
   return res.campusMerchantUpdateStore;
 }
 
+/** 商家自动接单设置（§69）：acceptedToday=本校园日已自动接单数，openNow=false 时静默暂停 */
+export interface CampusMerchantAutoAccept {
+  enabled: boolean;
+  delaySeconds: number;
+  dailyLimit: number; // 0 = 不限
+  routes: string[]; // R1/R2/R3
+  acceptedToday: number;
+  openNow: boolean;
+  merchantConfirmEnabled: boolean;
+}
+
+const AUTO_ACCEPT_FIELDS = 'enabled delaySeconds dailyLimit routes acceptedToday openNow merchantConfirmEnabled';
+
+export async function campusMerchantAutoAccept(): Promise<CampusMerchantAutoAccept> {
+  const res = await getAdminClient().request<{ campusMerchantAutoAccept: CampusMerchantAutoAccept }>(
+    `query { campusMerchantAutoAccept { ${AUTO_ACCEPT_FIELDS} } }`,
+  );
+  return res.campusMerchantAutoAccept;
+}
+
+/** 保存自动接单设置：delaySeconds 0-600，dailyLimit 0=不限，routes 仅 R1/R2/R3 */
+export async function campusMerchantUpdateAutoAccept(input: {
+  enabled: boolean;
+  delaySeconds?: number | null;
+  dailyLimit?: number | null;
+  routes?: string[] | null;
+}): Promise<CampusMerchantAutoAccept> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateAutoAccept: CampusMerchantAutoAccept }>(
+    `mutation ($enabled: Boolean!, $delaySeconds: Int, $dailyLimit: Int, $routes: [String!]) {
+      campusMerchantUpdateAutoAccept(enabled: $enabled, delaySeconds: $delaySeconds, dailyLimit: $dailyLimit, routes: $routes) {
+        ${AUTO_ACCEPT_FIELDS}
+      }
+    }`,
+    {
+      enabled: input.enabled,
+      delaySeconds: input.delaySeconds ?? null,
+      dailyLimit: input.dailyLimit ?? null,
+      routes: input.routes ?? null,
+    },
+  );
+  return res.campusMerchantUpdateAutoAccept;
+}
+
 const REVENUE_BUCKET_FIELDS = 'orders gross avgTicket cancelled cancelledAmount';
 
 /** 经营数据：今日 / 近 7 日 / 逐日趋势 */

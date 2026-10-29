@@ -3419,6 +3419,85 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 后台商品管理：商品卡「限量」行 →「改限量」→ 填每日限量 / 每人限购（留空 = 不限）→ 保存；已售与剩余实时显示。
 - C 端店铺页：剩余 ≤10 份时商品名旁显示「仅剩 N 份」，售完自动变「售罄」；超限加购直接 toast 拦截。
 
+## 69. 商家自动接单（2026-10-29）
+
+「商家接单确认模式」（`merchantConfirmEnabled`）让支付后的订单先停在「待接单」，等人点确认。单量一多，高峰期商家来不及点，订单干等甚至触发超时兜底转自营。本轮补上**自动接单**：营业中且未临时休息时，新单在「延迟秒数」后自动确认进入备餐，与手动接单完全同一条状态机（出餐屏、云打印、用户通知一并生效）；休息 / 非营业 / 打到每日上限时静默退回人工。
+
+### 69.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | 新增 `auto-accept.ts`（纯函数 `normalizeAutoAcceptRoutes / isAutoAcceptDue / canAutoAcceptStatus` + 常量 `AUTO_ACCEPT_*`，前后端唯一口径）；`CampusFulfillmentConfig` 新增 4 列；`Order` 自定义字段新增 `autoAcceptedAt`；`merchant-admin.service` 抽出 `transitionToAccepted(ctx, orderId, trigger)`（手动/自动共用），新增 `autoAcceptSettings / updateAutoAccept / countAutoAcceptedToday`；新增 `auto-accept.job.ts`（15s 周期、首跑延迟 45s、按渠道咨询锁）；GraphQL `campusMerchantAutoAccept` 查询 + `campusMerchantUpdateAutoAccept` 变更；幂等迁移 `p13-auto-accept.ts` |
+| 后台 | `pages/campus/store-settings.vue` 营业状态卡后新增「自动接单」卡（启用开关 + 延迟秒数 + 每日上限 + 今日已自动接单数 + 适用路线 chips + 保存）；`apis/campus.ts` 新增两个接口；中英 i18n 各 22 个 key |
+| C 端 | 无改动：自动接单只改变商家侧状态，C 端仍按既有订单轮询看到「商家已接单」 |
+
+### 69.2 口径与契约
+
+- **触发内核与手动接单一致**：`transitionToAccepted` 用条件写 `hall.transitionFrom(ctx, orderId, ['pending_merchant'], { hallStatus:'accepted', autoAcceptedAt? })`，CAS 失败即视为已被人工接单 / 取消 / 超时兜底转出，自动任务直接跳过，**不会重复接单**。
+- **等待时长口径**：`enteredAt = customFieldsHallenteredat ?? createdAt`，`elapsed ≥ delaySeconds` 才接。延迟范围 0-600 秒，0 = 立即接；留出的窗口用于顾客改址 / 商家拒单。
+- **营业闸门**：`openNow = isWithinBusinessHours(channel.waimaiBusinessHours) && !cfg.paused`，与 C 端下单闸门、店铺页「营业中」同口径；休息或非营业时段**不自动接**（避免无人出餐），订单继续待接单等人工处理。
+- **每日上限**：`autoAcceptDailyLimit`（0-999，0 = 不限）按 **UTC+8 自然日** 统计当天 `autoAcceptedAt` 落在当日区间的订单数，达上限后本轮停止接单、新单回到人工；跨零点自动归零，无需定时重置任务。
+- **适用范围**：`autoAcceptRoutes` 只接受 `R1 / R2 / R3`（商户自送 / 第三方快递 / 校园传信者），未勾选路线的订单不自动接；空数组回落全选（不允许一条都不选）。
+- **前置条件**：店铺须开启「商家接单确认模式」——否则支付后订单直接进配送流程、不存在 `pending_merchant`，自动接单无处生效（后台卡片会显式提示）。
+- **多实例幂等**：每个渠道用 `pg_try_advisory_lock(hashtext('campus:autoaccept:<channelId>'))` 串行化，拿不到锁直接跳过本轮；单渠道单轮最多扫 50 单，积压按 id 升序先接最老的。
+- **接单即出票**：若 `printMode = onAccepted` 且打印通道非 local，自动接单同样触发云打印；用户通知走 `orderAccepted` 模板（未配置模板则静默跳过）。
+
+### 69.3 权限与校验
+
+- 读 `campusMerchantAutoAccept` / 写 `campusMerchantUpdateAutoAccept` 均为 `CampusMerchant` 权限，渠道由 `ctx.channelId` 决定，不能跨店。
+- `updateAutoAccept` 只组装 4 个白名单字段后走 `CampusConfigService.updateConfig`，复用其整型区间（延迟 0-600 / 上限 0-999）与路线合法性校验；非法路线整批拒绝。
+- 后台保存前本地再校验一次（整数、区间、至少勾一条路线），避免把明显错误送进服务端。
+
+### 69.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_fulfillment_config` | `"autoAcceptEnabled" boolean NOT NULL DEFAULT false`、`"autoAcceptDelaySeconds" int NOT NULL DEFAULT 30`、`"autoAcceptDailyLimit" int NOT NULL DEFAULT 0`、`"autoAcceptRoutes" text NOT NULL DEFAULT '["R1","R2","R3"]'`（simple-json 存 text） |
+| `order` | `"customFieldsAutoacceptedat" timestamp`（列名全小写，TypeORM 对 customFields 转小写） |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`，重复启动安全（生产 `synchronize: false`）。
+
+**踩坑（线上探针暴露后修复）**：p13 迁移最初把 4 个配置列写成全小写（`autoacceptenabled` 等），但 TypeORM 实体列物理名是 **camelCase 保留大小写**（同表既有 `"merchantConfirmEnabled"` 即为证据）。后端一上线，`getConfig` 的 SELECT 找不到列 → 商家经营设置 / 工作台 / 任何读履约配置的接口全部报 `column does not exist`。修复：①生产库 `ALTER TABLE ... RENAME COLUMN` 立即改名恢复线上；②迁移源码与 `auto-accept.job.ts` 的 `WHERE "autoAcceptEnabled" = true` 同步改为 camelCase（commit `8bdac7947`），重新部署后启动迁移因 `IF NOT EXISTS` 自动空跑。
+
+**同轮修掉的既有阻断**：`updateConfig` 的「开启超时赔付必须有券模板」校验原本无条件执行，而生产 28 个渠道全是「赔付默认开 + 无模板」，导致**任何**配置写入（临时休息、公告/电话、自动接单）都被拒。已把该收窄为**仅在本次 patch 触碰赔付字段时校验**（commit `4890f717f`），临时休息与设置保存恢复可用。
+
+### 69.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `vitest run src/auto-accept.spec.ts src/campus-config.service.spec.ts` → 7 + 20 tests passed（路线清洗 / 开关与休息 / 延迟边界含 0 秒 / 适用范围 / 日上限 19→20 卡点 / 状态判定；配置服务 20 项回归含新字段区间） |
+| 编译 | `npm run build`（`rimraf lib && tsc -p tsconfig.build.json`）exit 0，`lib/` 随提交入库 |
+| 生产库核验 | `information_schema`：4 列均为 camelCase 且存在；`order` 的 `customFieldsAutoacceptedat` 存在；改名后重启无列缺失报错 |
+| 线上 admin-api（28 个渠道逐个） | `campusMerchantAutoAccept` 全部返回 `{enabled:false,delaySeconds:30,dailyLimit:0,routes:["R1","R2","R3"],acceptedToday:0,openNow:true,...}` —— 证明 `getConfig` 恢复正常 |
+| 配置写入 | 测试渠道 `t1`：`campusMerchantUpdateAutoAccept(enabled:true,delaySeconds:5,dailyLimit:2)` → 回读一致；`campusMerchantSetPaused(paused:true)` → `{ok:true}`（赔付校验收窄生效） |
+| 真实自动接单 | 受控单 `order 25`（t1）置为 `pending_merchant`（入厅 60s 前）→ 下一轮 tick 自动变 `accepted`，`customFieldsAutoacceptedat` 落库；⚠ 首次测试时暂停开关尚未生效，订单在暂停前被接走，重做严格时序后结论成立 |
+| 临休不接 | t1 `paused=true` 期间把同一单置为 `pending_merchant`，等待 35s 仍为 `pending_merchant` 且 `autoacceptedat` 为空 |
+| 恢复后继续接 | t1 `paused=false` 后下一轮 tick（约 8s）订单变 `accepted`，`customFieldsAutoacceptedat` 落库 |
+| 日计数 | 回读 `acceptedToday:1`，与 `customFieldsAutoacceptedat` 当日订单数一致 |
+| 还原 | 订单 `customFields*` 清空回原状；t1 配置复位（enabled=false / 30s / 0 / 全路线 / paused=false），不留测试痕迹 |
+| 后台截图（`docs/screenshots/waimai/p69-auto-accept/`，脚本 `web-admin/scripts/shots-p69-auto-accept.cjs`） | `01`：关闭态「未启用」+ 提示「本店未开启「商家接单确认模式」，自动接单暂不生效」；`02`：开启态「已启用」、延迟 `5`、上限 `2`、「今日已自动接单 1 单」、三条路线全部高亮、按钮「保存自动接单」 |
+
+### 69.6 边界与已知限制
+
+- **需要接单确认模式**：未开启 `merchantConfirmEnabled` 的店铺没有 `pending_merchant` 环节，自动接单不生效（后台卡片有提示，不做隐式切换）。
+- **乐观并发**：自动任务与人工接单同时到达时由条件写兜底，只有一方成功；不会出现「重复接单」或「接单与拒单并存」。
+- **休息 / 非营业一律不接**：为保证「有人出餐」，休息时段、营业时段外都不自动接，订单积压到恢复营业后下一轮 tick 才处理。
+- **日上限按订单数**：计数口径是「当天被自动接单的订单条数」，同一单被人工接走不计入；上限 0 表示不限，跨零点自然归零。
+- **仅三步状态机**：自动接单只做 `pending_merchant → accepted`，不代替出餐 / 拒绝；接单后商家仍可拒单（走既有拒单退款）。
+- **local 打印通道不联动**：`printProvider = local` 依赖收银电脑页面，自动接单不保证出票，需切云打印才能「接单即出票」。
+
+### 69.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `3a1358ca3`（功能）+ `8bdac7947`（配置列名 camelCase 修复）+ `4890f717f`（赔付券校验收窄）→ `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online；`https://e.joho.cn/health` 200；启动日志无列缺失报错 |
+| 生产库 | `ALTER TABLE campus_fulfillment_config RENAME COLUMN "autoacceptenabled" TO "autoAcceptEnabled"`（另三列同理） | 4 列全部 camelCase；`getConfig` 与自动接单探测恢复正常 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs`（两次：首次带 `{n}` 未插值的卡片，修复后二次部署） | 产物校验 61748 KB；nginx reload 成功 |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：后台「经营设置」→「自动接单」卡片 → 打开「启用自动接单」→ 设延迟秒数（0-600）/ 每日上限（0 = 不限）→ 勾选适用配送方式 → 保存。卡片第一行会提示「本店未开启商家接单确认模式」时先联系运营开启确认模式。
+
 
 
 
