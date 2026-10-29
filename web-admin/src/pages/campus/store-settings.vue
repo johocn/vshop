@@ -33,6 +33,45 @@
         <text class="tip">{{ $t('campusStoreSettings.warnHint') }}</text>
       </view>
 
+      <!-- 自动接单（§69）：营业中 + 未临时休息时，新单延迟若干秒自动确认进入备餐 -->
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusStoreSettings.autoTitle') }}</text>
+          <view class="pill" :class="{ open: autoOn, off: !autoOn }">
+            <text>{{ autoOn ? $t('campusStoreSettings.autoOn') : $t('campusStoreSettings.autoOff') }}</text>
+          </view>
+        </view>
+        <view class="row">
+          <text class="row-lbl">{{ $t('campusStoreSettings.autoToggle') }}</text>
+          <switch class="sw" :checked="autoOn" :disabled="autoBusy" color="#ff6600" @change="onAutoToggle" />
+        </view>
+        <text class="tip">{{ $t('campusStoreSettings.autoHint') }}</text>
+        <text v-if="auto && !auto.merchantConfirmEnabled" class="next">{{ $t('campusStoreSettings.autoNeedConfirm') }}</text>
+        <view class="field">
+          <text class="row-lbl">{{ $t('campusStoreSettings.autoDelayLabel') }}</text>
+          <input v-model="autoForm.delaySeconds" class="ipt" type="number" :placeholder="$t('campusStoreSettings.autoDelayPh')" />
+          <text class="tip">{{ $t('campusStoreSettings.autoDelayHint') }}</text>
+        </view>
+        <view class="field">
+          <text class="row-lbl">{{ $t('campusStoreSettings.autoLimitLabel') }}</text>
+          <input v-model="autoForm.dailyLimit" class="ipt" type="number" :placeholder="$t('campusStoreSettings.autoLimitPh')" />
+          <text class="tip">{{ $t('campusStoreSettings.autoLimitHint').replace('{n}', String(auto ? auto.acceptedToday : 0)) }}</text>
+        </view>
+        <view class="field">
+          <text class="row-lbl">{{ $t('campusStoreSettings.autoScopeLabel') }}</text>
+          <view class="presets">
+            <text
+              v-for="r in AUTO_ROUTE_OPTIONS" :key="r.code" class="preset"
+              :class="{ on: autoForm.routes.includes(r.code) }" @tap="toggleAutoRoute(r.code)"
+            >{{ $t(r.key) }}</text>
+          </view>
+          <text class="tip">{{ $t('campusStoreSettings.autoScopeHint') }}</text>
+        </view>
+        <button class="save small" :disabled="autoBusy" @tap="saveAutoAccept">
+          {{ autoBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.autoSave') }}
+        </button>
+      </view>
+
       <!-- 门店信息：公告 / 电话（C 端店铺页直接展示） -->
       <view class="card">
         <text class="title">{{ $t('campusStoreSettings.infoTitle') }}</text>
@@ -109,10 +148,13 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import {
+  campusMerchantAutoAccept,
   campusMerchantRevenue,
   campusMerchantSetPaused,
   campusMerchantStoreProfile,
+  campusMerchantUpdateAutoAccept,
   campusMerchantUpdateStore,
+  type CampusMerchantAutoAccept,
   type MerchantRevenue,
   type MerchantStoreProfile,
 } from '../../apis/campus';
@@ -142,6 +184,26 @@ const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
 const warnOn = ref(closingWarnEnabled());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
+/** 自动接单（§69）：路由选项与标签；R1 商户自送 / R2 第三方快递 / R3 校园传信者 */
+const AUTO_ROUTE_OPTIONS = [
+  { code: 'R1', key: 'campusStoreSettings.autoRouteR1' },
+  { code: 'R2', key: 'campusStoreSettings.autoRouteR2' },
+  { code: 'R3', key: 'campusStoreSettings.autoRouteR3' },
+];
+const auto = ref<CampusMerchantAutoAccept | null>(null);
+const autoOn = computed(() => !!auto.value?.enabled);
+const autoBusy = ref(false);
+const autoForm = ref({ delaySeconds: '30', dailyLimit: '0', routes: ['R1', 'R2', 'R3'] as string[] });
+
+function applyAuto(a: CampusMerchantAutoAccept): void {
+  auto.value = a;
+  autoForm.value = {
+    delaySeconds: String(a.delaySeconds ?? 30),
+    dailyLimit: String(a.dailyLimit ?? 0),
+    routes: a.routes?.length ? [...a.routes] : ['R1', 'R2', 'R3'],
+  };
+}
+
 const bucket = computed(() => (range.value === 'today'
   ? revenue.value?.today
   : revenue.value?.last7) ?? { orders: 0, gross: 0, avgTicket: 0, cancelled: 0, cancelledAmount: 0 });
@@ -169,9 +231,14 @@ function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
 
 async function load(): Promise<void> {
   try {
-    const [p, r] = await Promise.all([campusMerchantStoreProfile(), campusMerchantRevenue()]);
+    const [p, r, a] = await Promise.all([
+      campusMerchantStoreProfile(),
+      campusMerchantRevenue(),
+      campusMerchantAutoAccept(),
+    ]);
     applyProfile(p);
     revenue.value = r;
+    applyAuto(a);
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.loadFailed')), icon: 'none' });
   } finally {
@@ -192,6 +259,65 @@ async function onPause(e: any): Promise<void> {
     await load();
   } finally {
     pauseBusy.value = false;
+  }
+}
+
+/** 自动接单开关：只切换 enabled（延迟/上限/范围沿用已保存配置），失败回读服务端状态 */
+async function onAutoToggle(e: any): Promise<void> {
+  const enabled = !!e.detail.value;
+  autoBusy.value = true;
+  try {
+    applyAuto(await campusMerchantUpdateAutoAccept({ enabled }));
+    uni.showToast({ title: locale.t('campusStoreSettings.saved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.opFailed')), icon: 'none' });
+    try { applyAuto(await campusMerchantAutoAccept()); } catch { /* 保留旧值 */ }
+  } finally {
+    autoBusy.value = false;
+  }
+}
+
+/** 适用范围至少保留一条路线（服务端会回落全部，这里先在本地拦住误操作） */
+function toggleAutoRoute(code: string): void {
+  const picked = autoForm.value.routes.includes(code)
+    ? autoForm.value.routes.filter(r => r !== code)
+    : [...autoForm.value.routes, code];
+  if (!picked.length) {
+    uni.showToast({ title: locale.t('campusStoreSettings.autoScopeMin'), icon: 'none' });
+    return;
+  }
+  autoForm.value.routes = picked;
+}
+
+/** 保存延迟/上限/范围：越界直接提示，不在本地静默截断（与服务端校验口径一致） */
+async function saveAutoAccept(): Promise<void> {
+  const delay = Number(autoForm.value.delaySeconds);
+  if (!Number.isInteger(delay) || delay < 0 || delay > 600) {
+    uni.showToast({ title: locale.t('campusStoreSettings.autoDelayBad'), icon: 'none' });
+    return;
+  }
+  const limit = Number(autoForm.value.dailyLimit);
+  if (!Number.isInteger(limit) || limit < 0 || limit > 999) {
+    uni.showToast({ title: locale.t('campusStoreSettings.autoLimitBad'), icon: 'none' });
+    return;
+  }
+  if (!autoForm.value.routes.length) {
+    uni.showToast({ title: locale.t('campusStoreSettings.autoScopeMin'), icon: 'none' });
+    return;
+  }
+  autoBusy.value = true;
+  try {
+    applyAuto(await campusMerchantUpdateAutoAccept({
+      enabled: autoOn.value,
+      delaySeconds: delay,
+      dailyLimit: limit,
+      routes: [...autoForm.value.routes],
+    }));
+    uni.showToast({ title: locale.t('campusStoreSettings.saved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.opFailed')), icon: 'none' });
+  } finally {
+    autoBusy.value = false;
   }
 }
 
@@ -313,11 +439,14 @@ onPullDownRefresh(async () => {
   .next { display: block; font-size: 22rpx; color: #fa8c16; font-weight: 600; margin-top: 10rpx; }
   .presets { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx;
     .preset { font-size: 22rpx; color: $wa-accent; border: 1.5px solid $wa-accent;
-      border-radius: 999rpx; padding: 8rpx 20rpx; }
+      border-radius: 999rpx; padding: 8rpx 20rpx;
+      &.on { background: $wa-accent; color: #fff; }
+    }
   }
   .save { background: $wa-accent; color: #fff; font-size: 30rpx; border-radius: $wa-radius;
     line-height: 88rpx; margin-bottom: 24rpx;
     &[disabled] { opacity: .6; }
+    &.small { font-size: 26rpx; line-height: 76rpx; margin-top: 24rpx; margin-bottom: 0; }
   }
   .seg { display: flex; gap: 12rpx; margin: 20rpx 0 8rpx;
     .seg-i { flex: 1; text-align: center; font-size: 24rpx; color: $wa-muted;
