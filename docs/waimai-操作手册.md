@@ -3498,6 +3498,74 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：后台「经营设置」→「自动接单」卡片 → 打开「启用自动接单」→ 设延迟秒数（0-600）/ 每日上限（0 = 不限）→ 勾选适用配送方式 → 保存。卡片第一行会提示「本店未开启商家接单确认模式」时先联系运营开启确认模式。
 
+## 70. 营业日历：指定日期休业（2026-10-29）
+
+营业时间管「每天几点到几点」，临时休息管「现在歇一会儿」，但都表达不了「国庆休 3 天」「设备检修一天」这类**按自然日**的停业。本轮补上**营业日历**：商家登记若干休业日期（可带备注），当天 C 端店铺页显示「今日休业（备注）」并禁止下单，次日 0 点自动恢复，无需人再手动开门。
+
+### 70.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | 新增 `closure-calendar.ts`（纯函数：`normalizeClosureDates` 写入严格校验 / `safeClosureDates` 读取宽松兜底 / `closedToday` / `nextClosure` + 常量 `MAX_CLOSURE_ENTRIES=30`、`CLOSURE_HORIZON_DAYS=90`、`CLOSURE_NOTE_MAX=40`）；`closure-calendar.spec.ts` 9 个用例；`CampusFulfillmentConfig` 新增 `closureDates`（simple-json text）；`campus-config.service` 白名单 + 写入校验；`waimai-store.service` 店铺列表新增 `closedToday / closureNote` 并统一 `openNow` 口径；`merchant-admin.service` 新增 `updateClosureDates`，`storeProfile / board / autoAcceptSettings` 三处 `openNow` 同步收紧；`order-gate.process` 新增 `findTodayClosure` 闸门（1b）；`auto-accept.job` 休业日不自动接单；resolver 新增 `campusMerchantSetClosureDates(dates: String)`（JSON 字符串入参）；幂等迁移 `p14-closure-calendar.ts` |
+| 后台 | `pages/campus/store-settings.vue` 营业状态卡后新增「营业日历」卡（pill 今日休业/已设 N 天、今日休业提示、休业列表删除、日期选择器 + 备注 + 添加、保存休业日历）；营业状态 pill 增加「今日休业」；`apis/campus.ts` 新增 `campusMerchantSetClosureDates` 并扩字段；中英 i18n 各 17 个 key |
+| C 端 | `api/queries/waimai.ts` 店铺列表查询加 `closedToday closureNote`；`pages/shop/menu.vue` 今日休业文案（含备注）+ 禁止结算、跨校园日自动回读；`pkg-order/pages/cart.vue` 购物车按店拦截并展示「今日休业 · 暂停接单」；`utils/store-filter.ts`「仅看营业中」过滤休业店铺；中英 i18n 各 2 个 key |
+
+### 70.2 口径与契约
+
+- **可下单三条件**：`openNow = 营业时段内 && 未临时休息 && 今日不在休业日历`。C 端列表、商家工作台/经营设置/自动接单设置、下单闸门、自动接单任务共用同一判定，不存在某一端「以为在营业」。
+- **按校园自然日（UTC+8）**：日期键 `YYYY-MM-DD` 由 `campusDayKey(now)` 生成，与营业时间、经营数据统计同一天口径；「次日自动恢复」即跨过 0 点日期键变化，不依赖定时任务。
+- **写入严格 / 读取宽松**：`campusMerchantSetClosureDates` 走 `normalizeClosureDates` —— 非数组、格式错、假日期（如 `2026-02-30`）、早于今天、超出今天起 90 天、备注超 40 字、超过 30 条，任一条都整批拒绝并回中文原因；读取侧 `safeClosureDates` 对脏条目（JSON 解析失败、字段缺失、已过期）逐条忽略，**绝不因为一条脏数据让整店营业判定失败**。
+- **整表覆盖语义**：接口入参是完整列表，传 `[]` 即清空；同日期重复时后者覆盖前者（前端「添加」时同日只更新备注并提示）。
+- **闸门文案**：命中休业时 `UserInputError("本店今日休业（备注），暂不可下单，请明日再来")`；跑腿单（errand）豁免，与营业时间校验同规则。
+- **与临时休息的区别**：临时休息（`paused`）立即生效且需人手动恢复，C 端文案「商家休息中」；休业日历按日期自动生效/自动恢复，文案「今日休业（备注）」，两者互不覆盖。
+
+### 70.3 权限与校验
+
+- 读写均为 `CampusMerchant` 权限；渠道由 `ctx.channelId` 决定，商家只能改本店日历。
+- `updateConfig` 白名单新增 `closureDates`，其余字段（营业时间/公告/电话/暂停/自动接单）仍沿用既有校验，互不影响。
+- 后台在提交前先本地校验（今天起 90 天内、30 条上限、备注 40 字），服务端仍做最终裁决，两侧口径一致。
+
+### 70.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `campus_fulfillment_config` | `"closureDates" text`（simple-json：`[{date:'YYYY-MM-DD', note?:string}]`，NULL/空 = 不启用） |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`；列名按实体 camelCase 保留大小写（§69 的踩坑结论），重复启动安全（生产 `synchronize: false`）。
+
+### 70.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `vitest run src/closure-calendar.spec.ts src/order-gate.process.spec.ts src/campus-config-validation.spec.ts src/schema-consistency.spec.ts` → 9 + 9 + 7 + 3 共 28 tests passed（含「今日休业拦截 + 备注文案」用例、假日期/过去日期/超范围拒绝、跨日恢复） |
+| 编译 | `tsc -p tsconfig.build.json --noEmit` exit 0；`npm run build`（`rimraf lib && tsc`）exit 0，`lib/` 随提交入库 |
+| 生产库核验 | `information_schema`：`campus_fulfillment_config."closureDates"` 存在（camelCase） |
+| 线上 admin-api | 渠道 `canteen-b`：`campusMerchantSetClosureDates([今日 §70探针, 明日 国庆假期])` → 回读 `{openNow:false, closedToday:true, closureNote:'§70探针', closureDates:2 条}` |
+| 线上 shop-api | 同一时刻 `waimaiStoreList` 对应店铺 `{openNow:false, closedToday:true, closureNote:'§70探针'}` —— C 端列表口径一致 |
+| 校验拒绝 | 过去日期 `2020-01-01` → `休业日期不能早于今天：2020-01-01`；假日期 `2026-02-30` → `休业日期格式不合法：「2026-02-30」（需 YYYY-MM-DD）` |
+| 还原 | 回写原空列表 → `{openNow:true, closedToday:false, closureNote:null}`，shop-api 同步恢复；测试渠道无残留 |
+| 后台截图（`docs/screenshots/waimai/p70-closure-calendar/`，脚本 `web-admin/scripts/shots-p70-closure-calendar.cjs`） | `01`：营业状态 pill「今日休业」+ 营业日历 pill「今日休业」+ 提示「今日休业（国庆假期）：C 端展示「今日休业」并停止下单，明日 0 点自动恢复营业。」+ 今日/明日两条列表；`02`：营业中 + pill「已设 2 天」+ 两条未来休业（校园运动会 / 设备检修）+ 新增表单与「保存休业日历」 |
+
+### 70.6 边界与已知限制
+
+- **只按日期、不按时段**：休业日历以自然日为单位（整天停业），半天休业请用「临时休息」。
+- **不校验营业时间**：休业日即使配置了营业时间也不营业；反之非营业时段即使没有休业记录也不可下单——两者是「与」关系。
+- **最多 30 条 / 90 天视界**：只覆盖今天起 90 天，超出会被拒绝；长假期需逐日登记（可一次提交多日）。
+- **不自动通知顾客**：登记休业不会推送消息；已下单未出餐的订单仍需人工处理（点击「拒单退款」）。
+- **跑腿单不受限**：与营业时间一致，跑腿代购不受休业日历限制。
+- **次日恢复依赖服务端时钟**：以 UTC+8 自然日为准；若服务器时间异常，恢复时点会偏移。
+
+### 70.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `555afb6bc` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online；启动迁移自动加列，无报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61756 KB；nginx reload 成功 |
+| C 端 | `npx uni build` → `node .secrets/deploy-waimai.mjs` | `DONE Build complete.`；产物校验 3845 KB，`200 deploy done` |
+
+操作入口：后台「经营设置」→「营业日历」→ 选择日期（今天起 90 天内）+ 填备注（选填）→「+ 添加」→ 可删除已有日期 →「保存休业日历」。今日命中休业时，卡片 pill 与「营业状态」pill 均显示「今日休业」并给出恢复说明。
+
+
 
 
 
