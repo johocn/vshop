@@ -337,7 +337,7 @@ export interface MerchantRevenue {
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode customerPhone lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
@@ -354,6 +354,55 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
     } }`,
   );
   return res.campusMerchantBoard;
+}
+
+/** 已完成订单明细（§75 对账）：金额单位与工作台一致，退款已单独列示 */
+export interface MerchantCompletedOrder {
+  id: string;
+  code: string;
+  /** 送达时间（对账归时点；历史脏数据可能为 null） */
+  deliveredAt: string | null;
+  createdAt: string;
+  total: number;
+  refundAmount: number;
+  netAmount: number;
+  building: string;
+  zone: string;
+  route: string;
+  riderName: string | null;
+  /** 顾客手机号（脱敏） */
+  customerPhone: string | null;
+  /** 商品摘要：宫保鸡丁×1、米饭×2 */
+  lineText: string;
+  note: string | null;
+}
+
+/** 已完成订单列表 + 区间汇总（汇总不受分页影响） */
+export interface MerchantCompletedOrders {
+  items: MerchantCompletedOrder[];
+  total: number;
+  totalAmount: number;
+  refundAmount: number;
+  netAmount: number;
+  avgTicket: number;
+  start: string;
+  end: string;
+}
+
+/** 今日/区间已完成订单明细（§75）：from/to 为空=今日 0 点（UTC+8）至当前 */
+export async function campusMerchantCompletedOrders(
+  params: { from?: string; to?: string; take?: number; skip?: number } = {},
+): Promise<MerchantCompletedOrders> {
+  const res = await getAdminClient().request<{ campusMerchantCompletedOrders: MerchantCompletedOrders }>(
+    `query ($from: String, $to: String, $take: Int, $skip: Int) {
+      campusMerchantCompletedOrders(from: $from, to: $to, take: $take, skip: $skip) {
+        items { id code deliveredAt createdAt total refundAmount netAmount building zone route riderName customerPhone lineText note }
+        total totalAmount refundAmount netAmount avgTicket start end
+      }
+    }`,
+    params,
+  );
+  return res.campusMerchantCompletedOrders;
 }
 
 export async function campusMerchantAcceptOrder(orderId: string): Promise<boolean> {

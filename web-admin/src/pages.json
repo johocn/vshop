@@ -71,6 +71,7 @@
     { "path": "pages/campus/ops", "style": { "navigationBarTitleText": "运营中心" } },
     { "path": "pages/campus/products", "style": { "navigationBarTitleText": "一键沽清" } },
     { "path": "pages/campus/store-settings", "style": { "navigationBarTitleText": "经营设置", "enablePullDownRefresh": true } },
+    { "path": "pages/campus/completed-orders", "style": { "navigationBarTitleText": "已完成对账", "enablePullDownRefresh": true } },
     { "path": "pages/campus/ads", "style": { "navigationBarTitleText": "广告投放" } },
     { "path": "pages/campus/locker", "style": { "navigationBarTitleText": "取餐柜与无人配送" } },
     { "path": "pages/campus/kitchen", "style": { "navigationBarTitleText": "出餐屏" } },

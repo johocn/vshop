@@ -3,11 +3,11 @@
     <view v-if="loading" class="hint">{{ $t('campusMerchant.loading') }}</view>
     <template v-else>
       <view class="topbar">
-        <view class="stat">
+        <view class="stat" @tap="goCompleted">
           <text class="stat-num">{{ board.completedToday }}</text>
           <text class="stat-lbl">{{ $t('campusMerchant.completedToday') }}</text>
         </view>
-        <view class="stat">
+        <view class="stat" @tap="goCompleted">
           <text class="stat-num">¥{{ fenToYuan(board.completedTodayAmount) }}</text>
           <text class="stat-lbl">{{ $t('campusMerchant.completedAmount') }}</text>
         </view>
@@ -841,6 +841,11 @@ function goSettings() {
 /** KDS 出餐屏（P1-4）：后厨大屏 */
 function goKitchen() {
   uni.navigateTo({ url: '/pages/campus/kitchen' });
+}
+
+/** 今日已完成对账（§75）：明细 + 区间汇总 + 一键复制 */
+function goCompleted() {
+  uni.navigateTo({ url: '/pages/campus/completed-orders' });
 }
 
 async function toggleOpen() {
