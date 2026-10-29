@@ -3685,6 +3685,71 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：后台「经营设置」→「营业日历」→「新增休业日期」选开始日期，再选结束日期（留空 = 仅当天）→ 填备注（选填，区间内共用）→「+ 添加」，一次写入区间内所有日期（已存在的日期自动改为该备注）→「保存休业日历」生效。
 
+## 73. 商家工作台：批量接单 / 批量出餐（2026-10-29）
+
+饭点高峰一批订单同时进店，工作台只能一单一单点「接单」「出餐完成」。本轮在「待接单」「备餐中」两栏加**多选 + 批量条**：勾选若干单后一次「批量接单」或「批量出餐」，后端逐单走**既有单笔状态机**（接单通知、接单即出票、按路线分流出餐全部复用），失败单跳过并在结果里回报，不会把已成功的单回滚。
+
+### 73.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | 新增 `batch-orders.ts` 纯函数 + `batch-orders.spec.ts`；`merchant-admin.service.ts` 新增 `batchAcceptOrders` / `batchCookingDone` / 私有 `runBatch`；`merchant-admin.resolver.ts` 新增 2 个 mutation；`campus-delivery.plugin.ts` schema 新增 `campusMerchantBatchAcceptOrders(orderIds: [ID!]!)` / `campusMerchantBatchCookingDoneOrders(orderIds: [ID!]!)` 与 `CampusMerchantBatchResult { ok: Int!, failed: [CampusMerchantBatchFailure!]! }` |
+| 后台 | `pages/campus/merchant.vue`：卡片勾选框（仅待接单/备餐中显示）、已选描边、当前栏「已选 N」角标、批量条（全选 / 已选 N 单 / 批量接单·批量出餐 / 处理中禁用）、二次确认弹窗、结果 Toast（全成功 / 部分失败带首条原因）；换栏与轮询自动收敛勾选集合；`apis/campus.ts` 新增 2 个接口封装与类型；中英 i18n 各 13 个 key |
+| C 端 | 无改动 |
+
+### 73.2 口径与契约
+
+- **逐单复用既有状态机**：批量接单内部就是循环调用 `acceptOrder`（`pending_merchant → accepted`，含顾客通知、`printMode=onAccepted` 的云打印、自动接单留痕口径不变）；批量出餐循环调用 `cookingDone`（按 `fulfillmentRoute`/`deliveryPlan` 分流到 `merchant_delivering / owned_dispatched / pending_dispatch / owned_pool / open`）。不新增任何状态，也不绕过条件写防并发。
+- **失败跳过、部分成功**：每单单独 `try/catch`，失败（状态已变更、已脱厅、订单不存在、非本店）只进 `failed[]`，后续单继续执行；返回 `{ ok: 成功单数, failed: [{ orderId, message }] }`，后台按 `ok + failed.length` 汇总提示。
+- **入参闸门**：`normalizeBatchOrderIds` 对 `orderIds` 去空白、去重（重复项不占上限名额）、保持勾选顺序；空集合 →「请选择要操作的订单」，超过 50 单 →「单次最多批量操作 50 单，请分批处理」（均以 `UserInputError` 回显后台）。
+- **本地打印口径**：`printMode=onAccepted` 且本地通道（C-Lodop）时，批量接单成功后前端对**成功单**逐张入打印队列（沿用串行队列 + 失败退避重试一次）；云通道由后端接单即出票，不重复打。
+- **勾选集合自动收敛**：切换 tab、或 10s 轮询后订单已流转/被取消时，失效 id 自动移出勾选，避免对过期单重复点批量。
+
+### 73.3 权限与校验
+
+- 两个新 mutation 均 `@Allow(CampusPermissions.CampusMerchant)`，且沿用 `assertChannelOrder` 的 `ctx.channelId` 店铺隔离——批量里混入其它店铺/不存在的单只会在 `failed[]` 里回报「订单不存在或不属于当前店铺」。
+- 前端拦截：未勾选时批量按钮禁用；批量执行中按钮禁用并显示「处理中…」；执行前必须过二次确认弹窗（文案含单数与被执行动作）。
+- 服务端拦截：空集合 / 超 50 单直接拒绝；单笔状态机自身的校验（状态不匹配、并发条件写失败）继续按原样生效。
+
+### 73.4 数据库变更
+
+无（不新增表/列/枚举，批量只是对既有 `hallStatus` 状态机的多次条件写）。
+
+### 73.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `npx vitest run src/batch-orders.spec.ts`：5 例全绿（去重保序、单值入参、空集合/全空白报错、恰好 50 可用 / 51 报错、重复项不占名额） |
+| 后端编译 | `npm run build`（`rimraf lib && tsc -p tsconfig.build.json`）exit 0，`lib/` 随提交入库 |
+| 后台构建 | `node scripts/deploy.mjs`（内含 `build:h5`）`DONE Build complete.`，仅 Sass legacy-js-api 弃用告警；产物校验 61766 KB |
+| 截图脚本交互 | `01`：点「全选」后状态 `count:"已选 2 单"`、`picks:2`、`selectedCodes:["A2400007","A2400008"]`、tab 角标 `2`；`02`：弹窗标题「确认批量接单」、正文「将对已选 2 单执行接单，失败订单会自动跳过并在结果中提示。」、按钮 `["取消","批量接单"]`；确认后 mock 按状态机把 2 单搬入备餐中，`03`：备餐中 3 单、`count:"已选 3 单"`、按钮「批量出餐」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 schema（`canteen-a-token`） | `__type(name:"Mutation")` 含 `campusMerchantBatchAcceptOrders` / `campusMerchantBatchCookingDoneOrders`；`CampusMerchantBatchResult` 字段 `["ok","failed"]` |
+| 线上入参闸门 | 空集合 → `"请选择要操作的订单"`；51 单 → `"单次最多批量操作 50 单，请分批处理"` |
+| 线上失败回报（不改真实单） | 两个不存在单号 → `{ok:0, failed:[{99990001,"订单不存在或不属于当前店铺"},{99990002,"订单不存在或不属于当前店铺"}]}`；探针时 `board{待接单 0, 备餐中 0}`，生产无残留 |
+| 后台截图（`docs/screenshots/waimai/p73-batch-orders/`，脚本 `web-admin/scripts/shots-p73-batch-orders.cjs`） | `01`：待接单 2 单全选，批量条「全选 · 已选 2 单 · 批量接单」，两张卡片橙色勾选 + 描边；`02`：批量接单二次确认弹窗；`03`：备餐中 3 单全选，批量条「批量出餐」 |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 73.6 边界与已知限制
+
+- **单次上限 50 单**：更多订单需分批；上限前后端同口径，前端多选不设上限也会被服务端拒绝（提示分批）。
+- **串行执行、非事务**：批量按顺序逐单处理，单笔失败不回滚已成功的单；网络中断时已处理的单已落库，未处理的停下，重试前请刷新看板。
+- **只覆盖两栏**：待推送快递 / 外部快递中 / 待自营接单 / 配送中等仍是一单一单操作（这些动作多为平台/骑手侧，不属商家批量场景）。
+- **不做批量拒单**：拒单涉及退款 + 取消，属不可逆高危操作，仍保持一单一确认，避免误退全款。
+- **打印耗时随单量线性**：本地 C-Lodop 通道批量接单后逐张出票，50 单会排队较久；大批量建议用云打印通道（服务端直连）。
+- **勾选不跨栏保留**：切到其它栏会清空勾选，防止把待接单的单带到备餐中按钮上执行。
+
+### 73.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `e7f9da366` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online（重启后 10s 内正常拉起） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61766 KB；nginx `syntax is ok` + reload `signal process started`，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → 选「待接单」或「备餐中」→ 批量条点「全选」或逐单点卡片左上角勾选框 → 点「批量接单」/「批量出餐」→ 确认弹窗点确认 → Toast 汇总（全成功提示「已成功 N 单」，有失败提示「成功 X 单，失败 Y 单（原因）」）。
+
 
 
 
