@@ -243,6 +243,7 @@ export interface MerchantBoardOrder {
   provider: string | null; // 外部快递：dada | meituan
   thirdPartyNo: string | null; // 外部快递平台单号
   handoverCode: string | null; // 交接码（第一段送达交接点后生成，骑手取货核对）
+  customerPhone: string | null; // 顾客手机号（脱敏，号码保护同口径）；工作台检索/联系用
   lines: MerchantBoardLine[];
 }
 
