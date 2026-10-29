@@ -60,14 +60,21 @@
         </view>
         <view class="field">
           <text class="row-lbl">{{ $t('campusStoreSettings.closureAddLabel') }}</text>
-          <picker mode="date" :value="newDate" :start="minDate" :end="maxDate" @change="onPickDate">
-            <view class="ipt picker" :class="{ picked: !!newDate }">{{ newDate || $t('campusStoreSettings.closureDatePh') }}</view>
-          </picker>
+          <view class="range-row">
+            <picker mode="date" :value="newDate" :start="minDate" :end="maxDate" @change="onPickDate">
+              <view class="ipt picker range-ipt" :class="{ picked: !!newDate }">{{ newDate || $t('campusStoreSettings.closureDatePh') }}</view>
+            </picker>
+            <text class="range-sep">~</text>
+            <picker mode="date" :value="newEndDate || newDate || minDate" :start="newDate || minDate" :end="maxDate" @change="onPickEndDate">
+              <view class="ipt picker range-ipt" :class="{ picked: !!newEndDate }">{{ newEndDate || $t('campusStoreSettings.closureRangeEndPh') }}</view>
+            </picker>
+          </view>
           <input
             v-model="newNote" class="ipt note-ipt" maxlength="40"
             :placeholder="$t('campusStoreSettings.closureNotePh')"
           />
           <button class="add-btn" @tap="addClosure">{{ $t('campusStoreSettings.closureAdd') }}</button>
+          <text class="tip">{{ $t('campusStoreSettings.closureRangeHint') }}</text>
           <text class="tip">{{ $t('campusStoreSettings.closureRuleHint') }}</text>
         </view>
         <button class="save small" :disabled="closureBusy" @tap="saveClosure">
@@ -230,6 +237,8 @@ let clockTimer: ReturnType<typeof setInterval> | null = null;
 /** 营业日历（§70）：休业日期本地列表（保存前可增删），date=YYYY-MM-DD */
 const closure = ref<Array<{ date: string; note: string }>>([]);
 const newDate = ref('');
+/** 区间批量添加（§72）的结束日期，留空 = 只添加开始日期当天 */
+const newEndDate = ref('');
 const newNote = ref('');
 const closureBusy = ref(false);
 
@@ -246,13 +255,37 @@ function applyClosure(p: MerchantStoreProfile): void {
 
 function onPickDate(e: any): void {
   newDate.value = String(e?.detail?.value ?? '');
+  // 开始日期后移时，已选的结束日期早于开始日期则清空，避免提交时才报错
+  if (newEndDate.value && newEndDate.value < newDate.value) newEndDate.value = '';
 }
 
-/** 本地添加（真校验在服务端）：今天起 90 天内、最多 30 条、备注 40 字，同日覆盖备注 */
+function onPickEndDate(e: any): void {
+  newEndDate.value = String(e?.detail?.value ?? '');
+}
+
+/** 起止日期展开为逐日日期串（含首尾，UTC 计算避免夏令时/时区漂移） */
+function expandDateRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  const from = Date.parse(`${start}T00:00:00Z`);
+  const to = Date.parse(`${end}T00:00:00Z`);
+  for (let t = from; t <= to; t += 86_400_000) out.push(new Date(t).toISOString().slice(0, 10));
+  return out;
+}
+
+/** 本地添加（真校验在服务端）：今天起 90 天内、最多 30 条、备注 40 字；支持起止区间批量添加 */
 function addClosure(): void {
-  const date = newDate.value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < minDate || date > maxDate) {
+  const start = newDate.value.trim();
+  const end = newEndDate.value.trim() || start;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || start < minDate || start > maxDate) {
     uni.showToast({ title: locale.t('campusStoreSettings.closureBadDate'), icon: 'none' });
+    return;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || end < minDate || end > maxDate) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureBadDate'), icon: 'none' });
+    return;
+  }
+  if (end < start) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureRangeBad'), icon: 'none' });
     return;
   }
   const note = newNote.value.trim();
@@ -260,19 +293,31 @@ function addClosure(): void {
     uni.showToast({ title: locale.t('campusStoreSettings.closureNoteMax'), icon: 'none' });
     return;
   }
-  const exist = closure.value.find(c => c.date === date);
-  if (exist) {
-    exist.note = note;
-    uni.showToast({ title: locale.t('campusStoreSettings.closureDuplicate'), icon: 'none' });
-  } else {
-    if (closure.value.length >= 30) {
-      uni.showToast({ title: locale.t('campusStoreSettings.closureMax'), icon: 'none' });
-      return;
-    }
-    closure.value.push({ date, note });
+  const dates = expandDateRange(start, end);
+  if (dates.length > 30) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureRangeMax'), icon: 'none' });
+    return;
   }
+  // 已存在的日期只更新备注，不重复占位
+  const fresh = dates.filter(d => !closure.value.some(c => c.date === d)).length;
+  if (closure.value.length + fresh > 30) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureMax'), icon: 'none' });
+    return;
+  }
+  dates.forEach(date => {
+    const exist = closure.value.find(c => c.date === date);
+    if (exist) exist.note = note;
+    else closure.value.push({ date, note });
+  });
   closure.value.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  uni.showToast({
+    title: fresh > 0
+      ? locale.t('campusStoreSettings.closureRangeAdded').replace('{n}', String(fresh))
+      : locale.t('campusStoreSettings.closureDuplicate'),
+    icon: 'none',
+  });
   newDate.value = '';
+  newEndDate.value = '';
   newNote.value = '';
 }
 
@@ -593,6 +638,10 @@ onPullDownRefresh(async () => {
     &.picked { color: $wa-ink; }
   }
   .note-ipt { margin-top: 16rpx; }
+  .range-row { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx;
+    .range-ipt { flex: 1; }
+    .range-sep { font-size: 26rpx; color: $wa-muted; }
+  }
   .seg { display: flex; gap: 12rpx; margin: 20rpx 0 8rpx;
     .seg-i { flex: 1; text-align: center; font-size: 24rpx; color: $wa-muted;
       background: $wa-bg; border-radius: $wa-radius; padding: 12rpx 0; border: 1.5px solid transparent;
