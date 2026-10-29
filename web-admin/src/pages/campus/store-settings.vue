@@ -33,6 +33,44 @@
         <text class="tip">{{ $t('campusStoreSettings.warnHint') }}</text>
       </view>
 
+      <!-- 营业日历（§70）：指定日期休业（节假日/临时休业），当天 C 端「今日休业」并禁止下单 -->
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusStoreSettings.closureTitle') }}</text>
+          <view class="pill" :class="{ off: !!profile?.closedToday }">
+            <text>{{ closurePillText }}</text>
+          </view>
+        </view>
+        <text v-if="profile?.closedToday" class="next">
+          {{ $t('campusStoreSettings.closureTodayHint').replace('{note}', profile.closureNote ? `（${profile.closureNote}）` : '') }}
+        </text>
+        <text v-else class="tip">{{ $t('campusStoreSettings.closureHint') }}</text>
+        <view v-if="closure.length" class="closure-list">
+          <view v-for="c in closure" :key="c.date" class="closure-item">
+            <view class="closure-main">
+              <text class="closure-date">{{ c.date }}</text>
+              <text class="closure-note">{{ c.note || $t('campusStoreSettings.closureNoNote') }}</text>
+            </view>
+            <text class="closure-del" @tap="removeClosure(c.date)">{{ $t('campusStoreSettings.closureDelete') }}</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="row-lbl">{{ $t('campusStoreSettings.closureAddLabel') }}</text>
+          <picker mode="date" :value="newDate" :start="minDate" :end="maxDate" @change="onPickDate">
+            <view class="ipt picker" :class="{ picked: !!newDate }">{{ newDate || $t('campusStoreSettings.closureDatePh') }}</view>
+          </picker>
+          <input
+            v-model="newNote" class="ipt note-ipt" maxlength="40"
+            :placeholder="$t('campusStoreSettings.closureNotePh')"
+          />
+          <button class="add-btn" @tap="addClosure">{{ $t('campusStoreSettings.closureAdd') }}</button>
+          <text class="tip">{{ $t('campusStoreSettings.closureRuleHint') }}</text>
+        </view>
+        <button class="save small" :disabled="closureBusy" @tap="saveClosure">
+          {{ closureBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.closureSave') }}
+        </button>
+      </view>
+
       <!-- 自动接单（§69）：营业中 + 未临时休息时，新单延迟若干秒自动确认进入备餐 -->
       <view class="card">
         <view class="head">
@@ -150,6 +188,7 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import {
   campusMerchantAutoAccept,
   campusMerchantRevenue,
+  campusMerchantSetClosureDates,
   campusMerchantSetPaused,
   campusMerchantStoreProfile,
   campusMerchantUpdateAutoAccept,
@@ -184,6 +223,76 @@ const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
 const warnOn = ref(closingWarnEnabled());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
+/** 营业日历（§70）：休业日期本地列表（保存前可增删），date=YYYY-MM-DD */
+const closure = ref<Array<{ date: string; note: string }>>([]);
+const newDate = ref('');
+const newNote = ref('');
+const closureBusy = ref(false);
+
+/** 校园日（UTC+8）日期键：offsetDays=0 为今天，与后端 campusDayKey 口径一致 */
+function campusDateKey(offsetDays = 0): string {
+  return new Date(Date.now() + 8 * 3600_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+const minDate = campusDateKey(0);
+const maxDate = campusDateKey(90);
+
+function applyClosure(p: MerchantStoreProfile): void {
+  closure.value = (p.closureDates ?? []).map(d => ({ date: d.date, note: d.note ?? '' }));
+}
+
+function onPickDate(e: any): void {
+  newDate.value = String(e?.detail?.value ?? '');
+}
+
+/** 本地添加（真校验在服务端）：今天起 90 天内、最多 30 条、备注 40 字，同日覆盖备注 */
+function addClosure(): void {
+  const date = newDate.value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < minDate || date > maxDate) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureBadDate'), icon: 'none' });
+    return;
+  }
+  const note = newNote.value.trim();
+  if (note.length > 40) {
+    uni.showToast({ title: locale.t('campusStoreSettings.closureNoteMax'), icon: 'none' });
+    return;
+  }
+  const exist = closure.value.find(c => c.date === date);
+  if (exist) {
+    exist.note = note;
+    uni.showToast({ title: locale.t('campusStoreSettings.closureDuplicate'), icon: 'none' });
+  } else {
+    if (closure.value.length >= 30) {
+      uni.showToast({ title: locale.t('campusStoreSettings.closureMax'), icon: 'none' });
+      return;
+    }
+    closure.value.push({ date, note });
+  }
+  closure.value.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  newDate.value = '';
+  newNote.value = '';
+}
+
+function removeClosure(date: string): void {
+  closure.value = closure.value.filter(c => c.date !== date);
+}
+
+/** 整表覆盖保存：服务端严格校验后会回读（今日休业状态随之刷新） */
+async function saveClosure(): Promise<void> {
+  closureBusy.value = true;
+  try {
+    const p = await campusMerchantSetClosureDates(
+      closure.value.map(c => ({ date: c.date, note: c.note || null })),
+    );
+    applyProfile(p, false);
+    applyClosure(p);
+    uni.showToast({ title: locale.t('campusStoreSettings.saved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.opFailed')), icon: 'none' });
+  } finally {
+    closureBusy.value = false;
+  }
+}
+
 /** 自动接单（§69）：路由选项与标签；R1 商户自送 / R2 第三方快递 / R3 校园传信者 */
 const AUTO_ROUTE_OPTIONS = [
   { code: 'R1', key: 'campusStoreSettings.autoRouteR1' },
@@ -209,14 +318,24 @@ const bucket = computed(() => (range.value === 'today'
   : revenue.value?.last7) ?? { orders: 0, gross: 0, avgTicket: 0, cancelled: 0, cancelledAmount: 0 });
 
 const statusText = computed(() => {
+  if (profile.value?.closedToday) return locale.t('campusStoreSettings.statusClosedToday');
   if (paused.value) return locale.t('campusStoreSettings.statusPaused');
   return profile.value?.openNow
     ? locale.t('campusStoreSettings.statusOpen')
     : locale.t('campusStoreSettings.statusOffHours');
 });
-const statusClass = computed(() => ({ open: !paused.value && !!profile.value?.openNow, off: paused.value }));
+const statusClass = computed(() => ({
+  open: !profile.value?.closedToday && !paused.value && !!profile.value?.openNow,
+  off: !!profile.value?.closedToday || paused.value,
+}));
 /** 下一次自动开门/打烊倒计时文案（自动开关门） */
 const nextText = computed(() => transitionText(profile.value?.nextTransition));
+/** 营业日历 pill：今日休业 > 已设 N 天 > 未设置 */
+const closurePillText = computed(() => {
+  if (profile.value?.closedToday) return locale.t('campusStoreSettings.closureToday');
+  if (closure.value.length) return locale.t('campusStoreSettings.closureCount').replace('{n}', String(closure.value.length));
+  return locale.t('campusStoreSettings.closureNone');
+});
 
 function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
   profile.value = p;
@@ -225,6 +344,7 @@ function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
     form.value.businessHours = p.businessHours ?? '';
     form.value.storeNotice = p.storeNotice ?? '';
     form.value.storePhone = p.storePhone ?? '';
+    applyClosure(p);
   }
   maybeClosingReminder(p.nextTransition);
 }
@@ -448,6 +568,25 @@ onPullDownRefresh(async () => {
     &[disabled] { opacity: .6; }
     &.small { font-size: 26rpx; line-height: 76rpx; margin-top: 24rpx; margin-bottom: 0; }
   }
+  .closure-list { margin-top: 16rpx; border-top: 1.5px solid $wa-rule;
+    .closure-item { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0;
+      border-bottom: 1.5px solid $wa-rule;
+      .closure-main { flex: 1; display: flex; flex-direction: column; gap: 6rpx;
+        .closure-date { font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+        .closure-note { font-size: 22rpx; color: $wa-muted; }
+      }
+      .closure-del { font-size: 24rpx; color: #d4380d; padding: 6rpx 16rpx;
+        border: 1.5px solid #d4380d; border-radius: 999rpx; }
+    }
+  }
+  .add-btn { margin-top: 16rpx; background: $wa-bg; color: $wa-accent; font-size: 26rpx;
+    font-weight: 600; border: 1.5px solid $wa-accent; border-radius: $wa-radius; line-height: 72rpx;
+    &::after { border: none; }
+  }
+  .picker { display: flex; align-items: center; min-height: 76rpx; color: $wa-muted;
+    &.picked { color: $wa-ink; }
+  }
+  .note-ipt { margin-top: 16rpx; }
   .seg { display: flex; gap: 12rpx; margin: 20rpx 0 8rpx;
     .seg-i { flex: 1; text-align: center; font-size: 24rpx; color: $wa-muted;
       background: $wa-bg; border-radius: $wa-radius; padding: 12rpx 0; border: 1.5px solid transparent;

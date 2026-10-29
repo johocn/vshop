@@ -291,7 +291,13 @@ export interface MerchantStoreProfile {
   storeNotice: string | null;
   storePhone: string | null;
   paused: boolean;
-  openNow: boolean; // 营业时段内且未临时休息（服务端按 UTC+8 判定）
+  openNow: boolean; // 营业时段内、未临时休息且今日不在休业日历（服务端按 UTC+8 判定）
+  /** 今日休业（§70 营业日历）：C 端展示「今日休业」并禁止下单 */
+  closedToday: boolean;
+  /** 今日休业备注（如「国庆假期」），null=无备注或未休业 */
+  closureNote: string | null;
+  /** 已登记的休业日期（升序，已过期的不返回） */
+  closureDates: Array<{ date: string; note: string | null }>;
   /** 下一次自动开门/打烊（null=全天营业），供经营设置页倒计时与打烊前提醒 */
   nextTransition: CampusBusinessTransition | null;
 }
@@ -376,6 +382,7 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
 }
 
 const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow'
+  + ' closedToday closureNote closureDates { date note }'
   + ' nextTransition { action at inMinutes today }';
 
 /** 商家自助经营：门店资料 */
@@ -405,6 +412,19 @@ export async function campusMerchantUpdateStore(input: {
     },
   );
   return res.campusMerchantUpdateStore;
+}
+
+/** 营业日历（§70）：整表覆盖保存休业日期；date=YYYY-MM-DD，note 可选，传空数组=清空 */
+export async function campusMerchantSetClosureDates(
+  dates: Array<{ date: string; note?: string | null }>,
+): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantSetClosureDates: MerchantStoreProfile }>(
+    `mutation ($dates: String) {
+      campusMerchantSetClosureDates(dates: $dates) { ${STORE_PROFILE_FIELDS} }
+    }`,
+    { dates: JSON.stringify(dates ?? []) },
+  );
+  return res.campusMerchantSetClosureDates;
 }
 
 /** 商家自动接单设置（§69）：acceptedToday=本校园日已自动接单数，openNow=false 时静默暂停 */
