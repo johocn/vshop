@@ -282,6 +282,12 @@ export interface CampusMerchantBoard {
   scheduled: MerchantBoardOrder[]; // 预约单（plan 3.1）：已支付未放量，到点前 30min 自动进入待接单/大厅
   completedToday: number;
   completedTodayAmount: number;
+  /** 今日休业（§70 营业日历），true 时 C 端「今日休业」且禁止下单 */
+  closedToday: boolean;
+  /** 今日休业备注（空=无备注或未休业） */
+  closureNote: string | null;
+  /** 未出餐订单数（§71）：待接单 + 备餐中 */
+  unfinishedOrders: number;
 }
 
 /** 商家自助经营：门店资料（营业时间/公告/电话/营业状态） */
@@ -300,6 +306,8 @@ export interface MerchantStoreProfile {
   closureDates: Array<{ date: string; note: string | null }>;
   /** 下一次自动开门/打烊（null=全天营业），供经营设置页倒计时与打烊前提醒 */
   nextTransition: CampusBusinessTransition | null;
+  /** 未出餐订单数（§71）：待接单 + 备餐中 */
+  unfinishedOrders: number;
 }
 
 /** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
@@ -335,6 +343,7 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
     `query { campusMerchantBoard {
       paused openNow businessHours nextTransition { action at inMinutes today }
       merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
+      closedToday closureNote unfinishedOrders
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }
@@ -383,7 +392,7 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
 
 const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow'
   + ' closedToday closureNote closureDates { date note }'
-  + ' nextTransition { action at inMinutes today }';
+  + ' nextTransition { action at inMinutes today } unfinishedOrders';
 
 /** 商家自助经营：门店资料 */
 export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {

@@ -45,6 +45,10 @@
           {{ $t('campusStoreSettings.closureTodayHint').replace('{note}', profile.closureNote ? `（${profile.closureNote}）` : '') }}
         </text>
         <text v-else class="tip">{{ $t('campusStoreSettings.closureHint') }}</text>
+        <!-- 休业日未出餐提醒（§71）：休业当天仍有待接单/备餐中订单 -->
+        <text v-if="profile?.closedToday && (profile?.unfinishedOrders ?? 0) > 0" class="unfinished">
+          {{ $t('campusStoreSettings.closureUnfinished').replace('{n}', String(profile?.unfinishedOrders ?? 0)) }}
+        </text>
         <view v-if="closure.length" class="closure-list">
           <view v-for="c in closure" :key="c.date" class="closure-item">
             <view class="closure-main">
@@ -557,6 +561,8 @@ onPullDownRefresh(async () => {
   }
   .tip { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 12rpx; line-height: 1.5; }
   .next { display: block; font-size: 22rpx; color: #fa8c16; font-weight: 600; margin-top: 10rpx; }
+  .unfinished { display: block; font-size: 23rpx; color: #cf1322; font-weight: 700; margin-top: 10rpx;
+    background: #fff1f0; border: 1.5px solid #ff4d4f; border-radius: $wa-radius; padding: 12rpx 18rpx; line-height: 1.5; }
   .presets { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx;
     .preset { font-size: 22rpx; color: $wa-accent; border: 1.5px solid $wa-accent;
       border-radius: 999rpx; padding: 8rpx 20rpx;
