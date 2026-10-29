@@ -3345,6 +3345,80 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 - 经营设置：营业时间下方「下次 21:00 自动打烊」提示 + 「打烊前提醒」开关（关掉后不再横幅/播报）。
 - C 端店铺页：页面停留跨过开门/打烊时刻，30s 内自动切换「休息中」或恢复可下单。
 
+## 68. 菜品每日限量 / 每人限购（2026-10-29）
+
+沽清（§65/§66）解决的是「卖完了就别卖」，但商家常需要「今天只做 20 份」「每人最多买 2 份」这类额度控制：既不想手动盯着剩几份再点沽清，也要防止单个顾客扫货。本轮补上商品级每日限量 + 每人限购，售完自动按沽清口径展示，次日随 §66 的自动恢复一起归零。
+
+### 68.1 交付清单
+
+| 端 | 内容 |
+|---|---|
+| 后端 | 新增 `daily-limit.ts`（纯函数 `normalizeLimit / remainingOf / checkDailyLimit / localDayRange` + 原生 SQL `queryDailySold / findDailyLimitViolation`，前后端唯一口径）；`Product` 自定义字段新增 `waimaiDailyLimit` / `waimaiPerUserLimit`；`merchant-admin.service` 商品列表返回 `dailyLimit / perUserLimit / soldToday / remaining` 并新增 `setProductLimit`；`waimai-store.service` 新增公开查询 `dailyStock`；`order-gate.process.ts` 在营业时间 / 黑名单 / 沽清之后追加第 4 道闸门；幂等迁移 `p12-daily-limit.ts` |
+| 后台 | `pages/campus/products.vue` 商品卡新增「限量 每日 20 份（已售 17，剩 3） · 每人限购 2 份」行与「改限量」入口，弹层内填每日限量 / 每人限购（留空 = 不限），带「清除 / 保存」；`apis/campus-ops.ts` 新增 `setMerchantProductLimit`；中英 i18n 新增 15 个 key |
+| C 端 | `pages/shop/menu.vue` 商品卡新增「仅剩 N 份」标签（剩余 ≤10 份才展示，售完走既有「售罄」样式）；加购前本地校验「每人限购 / 当日剩余」，命中即 toast 拦截；加购成功本地扣减额度；回前台 / 售罄同步时顺带刷新额度；`api/queries/waimai.ts` 新增 `fetchDailyStock` |
+
+### 68.2 口径与契约
+
+- **额度按 UTC+8 当日已支付订单实时聚合，不落用量表**：`localDayRange` 取本地日 `[00:00, 次日 00:00)`，统计 `orderPlacedAt` 落在区间内、`state ∈ PaymentAuthorized / PaymentSettled / PartiallyShipped / Shipped / PartiallyDelivered / Delivered` 的订单行数量。次日自然归零，**无需定时任务重置**（与 §66 的沽清自动恢复互不影响）。
+- **渠道口径**：Vendure `Order` 没有 `channelId` 列（渠道是多对多），按 `order_channels_channel` 关联过滤 —— 踩坑见 68.4。
+- **配置语义**：留空 / `null` / `0` / 负数 → 不限；上限 9999；`perUserLimit > dailyLimit` 拒绝保存。
+- **校验优先级**：`每人限购` 先于 `全店剩余`，文案分别为「商品「X」每人限购 N 份，您今日已购买 M 份」「商品「X」今日限量 N 份，还剩 R 份，请调整数量」；服务端闸门在结算时复核（本单不计入自身）。
+- **C 端展示阈值**：`LEFT_TAG_MAX = 10` —— `0 < remaining ≤ 10` 才显示「仅剩 N 份」，避免大额限量也刷成噪音；`remaining = 0` 直接走 `goodSoldOut`，与商家一键沽清同一样式。
+- **未登录**：`campusProductDailyStock` 的 `myToday / myRemaining` 返回 `null`，C 端只做全店剩余拦截，限购由服务端结算闸门兜底。
+
+### 68.3 权限与校验
+
+- 读：`campusMerchantProducts` 沿用 `CampusMerchant` 权限，`assertProductInChannel` 保证只能看到本渠道商品；`campusProductDailyStock` 为 `@Allow(Permission.Public)`，只返回当前渠道有限量配置的商品，不暴露成本/库存等其他字段。
+- 写：`campusMerchantSetProductLimit` 为 `CampusMerchant`，先校验商品归属渠道，再校验数值范围与「每人限购 ≤ 每日限量」。
+- 下单闸门：`order-gate.process.ts` 在 `toState = ArrangingPayment` 时依次校验营业时间（跑腿单豁免）→ 黑名单 → 沽清 → 每日限量 / 每人限购，命中抛 `UserInputError`，订单保持原状态。
+
+### 68.4 数据库变更
+
+| 表 | 变更 |
+|---|---|
+| `product` | 新增 `customFieldsWaimaidailylimit int`、`customFieldsWaimaiperuserlimit int`（列名全小写，TypeORM 对 customFields 转小写） |
+
+迁移形态：`OnApplicationBootstrap` + `ADD COLUMN IF NOT EXISTS`，逐条执行、单条失败只打日志不阻断启动，重复启动安全（生产 `synchronize: false`）。
+
+**踩坑（本轮两处，均在线上探针暴露后修复）**：
+1. `CampusProductDailyStock` 类型只写在 admin-api 扩展里，shop-api 引用后启动即崩：`extendSchema ERROR: Unknown type "CampusProductDailyStock"`，进程反复重启（`pm2` 重启计数飙升）。修复：类型在 admin / shop 两套扩展各自声明（commit `c850166d4`）。
+2. 当日销量 SQL 误用 `o."channelId"`：Vendure `Order` 无此列（渠道为多对多），报 `column o.channelId does not exist`。修复：改 `EXISTS (SELECT 1 FROM order_channels_channel occ WHERE occ."orderId" = o.id AND occ."channelId" = $1)`（commit `2f1368777`）。
+
+### 68.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `vitest run src/daily-limit.spec.ts` → 9 tests passed（`normalizeLimit` / `remainingOf` / `checkDailyLimit` / `localDayRange` 四组，含 UTC+8 跨日边界） |
+| 编译 | `tsc -p tsconfig.build.json` exit 0（`TSC OK`），`lib/` 随提交入库 |
+| 生产库核验 | `information_schema`：`product` 两列 `customFieldsWaimaidailylimit` / `customFieldsWaimaiperuserlimit` 均存在 |
+| 线上 shop-api | 未配置限量时 `campusProductDailyStock` → `[]`；临时把商品 83 设为「每日 5 / 每人 2」后 → `[{productId:"83",dailyLimit:5,perUserLimit:2,soldToday:0,remaining:5,myToday:null,myRemaining:null}]`（未登录 my 为 null） |
+| 线上 admin-api | `campusMerchantSetProductLimit(productId:"83",dailyLimit:5,perUserLimit:2)` → `{ok:true,dailyLimit:5,perUserLimit:2,soldToday:0,remaining:5}`；随后 `dailyLimit:null,perUserLimit:null` 还原 → `remaining:null`，shop-api 恢复 `[]` |
+| 后台截图（`docs/screenshots/waimai/p18-daily-limit/`，脚本 `web-admin/scripts/shots-p18-daily-limit.cjs`） | `01`：宫保鸡丁「限量 每日 20 份（已售 17，剩 3） · 每人限购 2 份」、米饭「每日 50（已售 46，剩 4） · 每人 5」、凉拌黄瓜「限量 不限」；`02`：弹层标题「每日限量 / 每人限购」、提示「额度按今日已支付订单实时统计（当前已售 17 份），次日自动归零」、两输入回填 `20` / `2` |
+| C 端截图（同上目录，本地 waimai dist + shop-api 全 mock） | `03`：商品卡「仅剩 3 份」「仅剩 8 份」；`04`：点凉拌黄瓜「+」→ toast「每人限购 1 份，您今日还可买 0 份」 |
+| 线上产物 | C 端 `assets/index-CKjOEQl4.js` 含「仅剩」；后台 `assets/index-53P1YYbk.js` 含「每日限量」 |
+
+### 68.6 边界与已知限制
+
+- **并发可略超额度**：额度是「下单前查已支付订单」的乐观校验，两个顾客同时结算可能各买到剩余份数，服务端闸门只做最终兜底，不是强一致性锁（与既有沽清同口径）。
+- **只统计已支付**：待付款 / 已取消订单不占额度；顾客下单不付 → 额度不减少，超时关闭后也不需回补。
+- **未登录不知自己已购**：C 端 `myRemaining` 为 null 时本地只能拦全店剩余，限购在结算时由服务端拦截。
+- **额度与多规格共享**：额度挂在商品（Product）上，多个规格共用同一份当日份数。
+- **不做跨日预约**：只按当日已支付统计，不支持「明天留 5 份」这类预约额度。
+- **不占库存**：限量是「可售份数」上限，不写入 Vendure StockLevel，库存与限量各自独立校验。
+
+### 68.7 部署记录（2026-10-29）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `51d30f2cc`（功能）+ `c850166d4`（shop-api 类型补声明）+ `2f1368777`（渠道关联 SQL 修正）→ `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib && pm2 restart vendure --update-env` | pm2 `vendure` online，启动日志无 `extendSchema` 报错；探针全通过 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 产物校验 61741 KB；nginx reload 成功 |
+| C 端 | `npx uni build` → `node .secrets/deploy-waimai.mjs` | `DONE Build complete.`；产物校验 3845 KB，`200 deploy done` |
+| 线上 | `https://e.joho.cn/guanli/`、`https://www.yourbao.cn/waimai/` | 均 HTTP 200（后台域名是 `e.joho.cn`） |
+
+操作入口：
+- 后台商品管理：商品卡「限量」行 →「改限量」→ 填每日限量 / 每人限购（留空 = 不限）→ 保存；已售与剩余实时显示。
+- C 端店铺页：剩余 ≤10 份时商品名旁显示「仅剩 N 份」，售完自动变「售罄」；超限加购直接 toast 拦截。
+
 
 
 

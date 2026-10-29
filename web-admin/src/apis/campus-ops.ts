@@ -98,6 +98,23 @@ export interface MerchantProduct {
   addonGroups?: string | null;
   /** 套餐内容 JSON 字符串（ComboConfig）；null = 非套餐 */
   combo?: string | null;
+  /** 每日限量（份）；null = 不限 */
+  dailyLimit?: number | null;
+  /** 每人限购（份）；null = 不限 */
+  perUserLimit?: number | null;
+  /** 今日已售份数（UTC+8 当日已支付订单） */
+  soldToday?: number;
+  /** 今日剩余可售份数；null = 不限 */
+  remaining?: number | null;
+}
+
+/** 每日限量/每人限购保存结果：remaining=null 表示不限 */
+export interface ProductLimitResult {
+  ok: boolean;
+  dailyLimit: number | null;
+  perUserLimit: number | null;
+  soldToday: number;
+  remaining: number | null;
 }
 
 /** 加料组（P1-2）：price 为单份加价（分）；min/max 为该组可选数量约束（0 = 不限） */
@@ -382,7 +399,7 @@ export async function fetchMerchantProducts(
   }>(
     `query CampusMerchantProducts($search: String, $skip: Int, $take: Int) {
       campusMerchantProducts(search: $search, skip: $skip, take: $take) {
-        items { productId name soldOut monthlySales variantCount packingFee addonGroups combo }
+        items { productId name soldOut monthlySales variantCount packingFee addonGroups combo dailyLimit perUserLimit soldToday remaining }
         total
       }
     }`,
@@ -461,6 +478,25 @@ export async function setMerchantProductPackingFee(
     { productId, packingFee },
   );
   return campusMerchantSetProductPackingFee?.packingFee ?? null;
+}
+
+/** 每日限量 / 每人限购（§68）：传 null 或 0 表示不限 */
+export async function setMerchantProductLimit(
+  productId: string,
+  dailyLimit: number | null,
+  perUserLimit: number | null,
+): Promise<ProductLimitResult> {
+  const { campusMerchantSetProductLimit } = await getAdminClient().request<{
+    campusMerchantSetProductLimit: ProductLimitResult;
+  }>(
+    `mutation CampusMerchantSetProductLimit($productId: ID!, $dailyLimit: Int, $perUserLimit: Int) {
+      campusMerchantSetProductLimit(productId: $productId, dailyLimit: $dailyLimit, perUserLimit: $perUserLimit) {
+        ok dailyLimit perUserLimit soldToday remaining
+      }
+    }`,
+    { productId, dailyLimit, perUserLimit },
+  );
+  return campusMerchantSetProductLimit;
 }
 
 /** 保存商品加料组：groups 传空数组 = 清除加料 */
