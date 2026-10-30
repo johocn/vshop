@@ -4262,6 +4262,86 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页 → ① 点「备餐汇总 ›」下方的「营业日报 ›」进入日报页；② 用「‹ / 日期 / ›」翻前一天、后一天，或点「今天 / 昨天」快捷切换（最远回看 30 天）；③ 看四块 KPI、两条对比（较昨日 / 较近 7 日均值）、时段柱状（橙色柱为全峰时段）与商品销量 Top5；④ 点底部「复制日报」得到纯文本日报，直接粘贴到群里或记事本。
 
+## §81 商家售后处理
+
+> 目标：售后闭环此前只打通了「顾客提交」这一半——C 端已能提交退款售后申请（后端 `@vendure/after-sales-plugin` 早就完整），但校区商家工作台没有任何售后入口，商家既不知道有谁申请了退款，也不能同意或驳回，只能等平台运营介入。本节新增「售后申请」页：按「待处理 / 已处理」两档列出本店售后单（单号、金额、状态、类型、顾客、原因、描述、凭证数、留言数、驳回理由、退款到账时间），待处理单可「同意退款」（仅退款单同意即原路退款到账）或「驳回」（理由必填、顾客可见并可申诉）。
+
+### 81.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | 新增 `MerchantAfterSalesRow` / `MerchantAfterSalesList`；`afterSalesList(ctx, state?)`、`afterSalesApprove(ctx, id)`、`afterSalesReject(ctx, id, reason)` 与私有 `assertChannelAfterSales` / `afterSalesOne` / `afterSalesMessageCounts` / `toAfterSalesRow`；惰性注入 `AfterSalesService` |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Query `campusMerchantAfterSales(state)` 与 Mutation `campusMerchantAfterSalesApprove(id)` / `campusMerchantAfterSalesReject(id, reason)`，均 `@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL 补 `CampusMerchantAfterSalesItem` / `CampusMerchantAfterSalesList` 与三条字段 |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型 `MerchantAfterSalesRow` / `MerchantAfterSalesList`；`campusMerchantAfterSales(state?)`、`campusMerchantAfterSalesApprove(id)`、`campusMerchantAfterSalesReject(id, reason)` |
+| 后台 | `web-admin/src/pages/campus/merchant-after-sales.vue`（新建） | 售后页：概览（待处理数 pill）+ 待处理/已处理分档 + 售后卡（含凭证/留言/驳回理由/到账时间）+ 同意（确认弹窗）/驳回（底部理由弹层） |
+| 后台 | `web-admin/src/pages.json` | 注册路由 `pages/campus/merchant-after-sales`（标题「售后申请」，支持下拉刷新） |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 工作台入口条「售后申请 ›」+ `goAfterSales()` |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusMerchant.afterSalesEntry`；新增命名空间 `campusMerchantAfterSales`（32 个文案） |
+| 截图 | `docs/screenshots/waimai/p81-merchant-after-sales/` | 6 张：工作台入口 / 待处理列表 / 驳回弹层 / 驳回成功 toast / 已处理终态 / 同意退款确认 |
+| 脚本 | `web-admin/scripts/shots-p81-after-sales.cjs` | 截图脚本（mock 5 条售后单，覆盖待处理 ×2、已退款、已驳回、退款失败） |
+
+### 81.2 口径与契约
+
+- **归属口径**：售后单本身挂了 `channels`，但列表以**订单渠道**为准（`leftJoin a.order → leftJoin o.channels`，`c.id = ctx.channelId`）并按「`o.customFields.hallStatus` 非空」限定外卖单——平台代建的售后单也能正确归到门店。
+- **排序与上限**：`createdAt DESC`，最多 50 条；`pendingCount` 不受 `state` 筛选影响（恒为 Pending 总数，供概览 pill），`total` 为本店售后单总数。
+- **同意语义**：委托 `AfterSalesService.approveRequest()`；`refund_only` 由插件链式 `Received → 执行退款 → Refunded`，即商家一次操作就退款到账（失败则落在 `RefundFailed`），前端按返回状态出「已退款到账 / 已同意，退款处理中」两种 toast。
+- **驳回语义**：`rejectRequest(ctx, id, reason)` 仅 `Pending` 可拒，理由落 `rejectReason`，顾客在 C 端售后详情可见并可申诉（申诉后状态变 `Appealed`，回到「已处理」档）。
+- **金额单位**：接口返回**分**，前端 `fenToYuanFixed()` 渲染为 `¥32.50`。
+- **一次拉全量**：前端只发一次 `campusMerchantAfterSales(null)`（不带 `state`），「待处理 / 已处理」在本地按 `state === 'Pending'` 分两档过滤，切档不产生额外请求。
+- **契约**：
+  - `campusMerchantAfterSales(state: String): CampusMerchantAfterSalesList!`（`state` 空=全部，`Pending`=待处理）
+  - `campusMerchantAfterSalesApprove(id: ID!): CampusMerchantAfterSalesItem!`
+  - `campusMerchantAfterSalesReject(id: ID!, reason: String!): CampusMerchantAfterSalesItem!`
+  - 行字段：`id orderId orderCode state type reason description refundAmount rejectReason evidenceImages messageCount customerName createdAt refundedAt`。
+
+### 81.3 权限与校验
+
+- 三条接口均 `@Allow(CampusPermissions.CampusMerchant)`；无 Bearer 访问返回 `FORBIDDEN: You are not currently authorized to perform this action`。
+- **渠道校验**（`assertChannelAfterSales`）：售后单自身或所属订单的 `channels` 命中 `ctx.channelId` 才允许操作，否则 `USER_INPUT_ERROR: 售后单不存在或不属于当前店铺`——越权与「猜 id」都被挡住。
+- **状态校验**：同意/驳回前都要求 `state === 'Pending'`，已处理单再点返回 `该售后申请已处理，不能重复操作`（防止重复退款）。
+- **理由校验**：空理由 → `请填写驳回理由（顾客可见）`；超过 200 字 → `驳回理由最多 200 字`（前端 `maxlength=200` 同步拦截）。
+- **插件缺失降级**：`AfterSalesService` 通过 `new Injector(this.moduleRef).get()` 惰性注入并缓存，取不到时打 `Logger.warn` 并抛 `售后插件未安装，暂不能处理售后申请`；留言数统计（原生 SQL `after_sales_message`）失败时降级为 0，不影响清单可用。
+- 前端 `usePermGuard('CampusMerchant')` 保护页面；失败统一 toast，不打断列表。
+
+### 81.4 数据库变更
+
+- **无变更**：复用售后插件既有表 `after_sales_request`（售后单）与 `after_sales_message`（协商留言），只做只读统计（留言条数），不新增表、不新增列、不新增迁移。
+
+### 81.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 编译产物随提交入库 |
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`（新页面与路由编译通过） |
+| 截图脚本交互（`shots-p81-after-sales.cjs`） | `01`：工作台入口条依次为「经营设置 / 出餐屏（后厨大屏）/ 备餐汇总 / 营业日报 / **售后申请** / 退款记录」；`02`：「待处理 2 单」，A2400001 `¥32.50`（凭证 2 张 · 留言 2 条）、A2400004 `¥2.00`（凭证 1 张），均带「驳回 / 同意退款」；`03`：点「驳回」→ 底部弹层「驳回售后」+ 理由输入框；`04`：填理由提交 → toast「已驳回该售后申请」，列表剩 1 单待处理、pill 变「待处理 1 单」；`05`：切「已处理」→ A2400004 已驳回（带驳回理由）、A2400005 已退款、A2400007 已驳回（带驳回理由）、A2400009 退款失败；`06`：切回「待处理」点「同意退款」→ 确认弹窗「订单 A2400001 将退款 ¥32.50，原路退回顾客支付账户，确认继续？」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantAfterSales` → HTTP 200、`errors` 为空、`pendingCount:1 total:3`，行内 `orderCode` 为真实单号（`6CBGCT4A2GVXLLHV` / `6F8NEP1E186B236A` / `B9EEVSFV7FQ6NH1A`）、`refundAmount:100`、`messageCount` 与 `evidenceImages` 正常；`state:"Pending"` → 只回 1 条 |
+| 线上校验分支 | `campusMerchantAfterSalesApprove(id: 99999999)` → `售后单不存在或不属于当前店铺`；`campusMerchantAfterSalesReject(id: 99999999, reason: "x")` → 同上；无 Bearer → `FORBIDDEN: You are not currently authorized to perform this action` |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → 产物校验 61856 KB → nginx `syntax is ok` + reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 81.6 边界与已知限制
+
+- **只处理「顾客已提交」的售后**：商家主动退款仍在「退款记录」页（§76/§77）；本页不新建售后单。
+- **换货/退货流程不由本页驱动**：`return_refund` / `exchange` 类型的单也会列出，但同意后仍走插件的后续（收货/换货）状态，商家只需在 C 端协商留言里沟通（本页只读展示留言条数，不提供回复入口）。
+- **同意即退款，无二次金额编辑**：金额由顾客申请值决定，商家不能在本页改小额退；需要按差额退款请走「退款记录」的部分退款。
+- **退款到账依赖支付渠道**：同意后状态可能短时停在 `Refunded` 之前的中间态（渠道异步回执），刷新即可看到最终态；`RefundFailed` 需人工排查（本页无重试按钮）。
+- **列表上限 50 条**：超过 50 条时更早的售后单不会出现（含「已处理」档），需要查更早记录暂无入口。
+- **无入口红点/角标**：工作台「售后申请 ›」入口不显示待处理数角标，需进页看 pill；后续可加。
+- **驳回理由 200 字上限**：超出前端截断、后端报错，长说明建议先在 C 端留言沟通。
+
+### 81.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `baeb9f0c5`（+ 修复单号的 `a1f8d0813`）→ `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `pm2 vendure online`（重启计数 638）、`admin-api` HTTP 200、探针字段全部可解析且单号非空 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61856 KB；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → ① 点「营业日报 ›」下方的「售后申请 ›」进入售后页，顶部 pill 显示「待处理 N 单」；② 默认在「待处理」档，看单号、金额、类型、顾客、原因与描述、凭证数/留言数；③ 同意退款：点「同意退款」→ 弹窗确认金额 → 确定后提示「已退款到账」并自动刷新；④ 驳回：点「驳回」→ 底部弹层填写理由（必填，顾客可见）→ 提交后 toast「已驳回该售后申请」；⑤ 切「已处理」档可看已退款（含到账时间）、已驳回（含驳回理由）、退款失败的终态单。
+
 
 
 

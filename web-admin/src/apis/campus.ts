@@ -862,6 +862,72 @@ export async function campusMerchantDailyReport(date?: string | null): Promise<C
   return res.campusMerchantDailyReport;
 }
 
+/** 售后申请行（§81 商家端处理）：金额单位分 */
+export interface MerchantAfterSalesRow {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  /** Pending=待处理 / Refunded=已退款 / Rejected=已驳回 / RefundFailed=退款失败 … */
+  state: string;
+  /** refund_only / return_refund / exchange */
+  type: string;
+  reason: string;
+  description: string | null;
+  /** 申请退款金额（分） */
+  refundAmount: number;
+  rejectReason: string | null;
+  evidenceImages: string[];
+  /** 协商留言条数 */
+  messageCount: number;
+  customerName: string | null;
+  createdAt: string;
+  refundedAt: string | null;
+}
+
+/** 售后申请清单（§81）：pendingCount 不受 state 筛选影响（入口红点用） */
+export interface MerchantAfterSalesList {
+  items: MerchantAfterSalesRow[];
+  pendingCount: number;
+  total: number;
+}
+
+/** 售后申请清单：state 为空=全部，Pending=待处理 */
+export async function campusMerchantAfterSales(state?: string | null): Promise<MerchantAfterSalesList> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSales: MerchantAfterSalesList }>(
+    `query ($state: String) { campusMerchantAfterSales(state: $state) {
+      items { id orderId orderCode state type reason description refundAmount rejectReason
+        evidenceImages messageCount customerName createdAt refundedAt }
+      pendingCount total
+    } }`,
+    { state: state ?? null },
+  );
+  return res.campusMerchantAfterSales;
+}
+
+/** 同意售后（§81）：仅退款单直接退款到账 */
+export async function campusMerchantAfterSalesApprove(id: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesApprove: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!) { campusMerchantAfterSalesApprove(id: $id) {
+      id orderId orderCode state type reason description refundAmount rejectReason
+      evidenceImages messageCount customerName createdAt refundedAt
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesApprove;
+}
+
+/** 驳回售后（§81）：reason 必填，顾客 C 端可见 */
+export async function campusMerchantAfterSalesReject(id: string, reason: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReject: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $reason: String!) { campusMerchantAfterSalesReject(id: $id, reason: $reason) {
+      id orderId orderCode state type reason description refundAmount rejectReason
+      evidenceImages messageCount customerName createdAt refundedAt
+    } }`,
+    { id, reason },
+  );
+  return res.campusMerchantAfterSalesReject;
+}
+
 
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
