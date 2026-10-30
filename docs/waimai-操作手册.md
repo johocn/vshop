@@ -3959,6 +3959,85 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页顶部 → 点「今日完成（单）」或「今日完成（金额）」→ 进入「已完成对账」页 → 找到需要售后的订单卡片 → 点「退款 · 可退 ¥x」→ 面板内填金额（点「全额退款」可一键填满可退金额）→ 填退款原因（20 字内说清问题）→ 点「确认退款」→ 弹窗二次确认 → 确认后顾客支付账户原路退回，页面「已退/可退」与顶部退款金额即时刷新。
 
+## §77 商家退款记录台账（含工作台可退款入口）
+
+> 目标：把 §76 的「商家发起退款」沉淀成可追溯的**退款台账**——商家在一个页面里看清区间内退了多少笔、退了多少钱、有没有失败单，并能从**工作台首屏**直接对已送达订单发起退款，而不必先进对账页再找单。退款面板与退款接口在「对账页 / 台账页 / 工作台」三处共用同一份实现，避免三套校验漂移。
+
+### 77.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | 新增 `refunds()`（区间+分页查退款单、按渠道隔离、汇总成功/失败笔数与金额、回填楼栋/区域、剥掉 `merchant refund` 前缀并判定来源）；新增 `MerchantRefundRow` / `MerchantRefundList` 接口 |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Query `campusMerchantRefunds(from, to, take, skip)`，`@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL：Query 声明 + 类型 `CampusMerchantRefundRow` / `CampusMerchantRefunds` |
+| 后台 | `web-admin/src/apis/campus.ts` | `MerchantRefundRow` / `MerchantRefundList` 类型 + `campusMerchantRefunds()` |
+| 后台 | `web-admin/src/components/campus/RefundSheet.vue`（新建） | **共用退款面板**：全额/部分金额、原因、本地校验、二次确认、调用 `campusMerchantRefundOrder`，emit `done` |
+| 后台 | `web-admin/src/pages/campus/refund-records.vue`（新建） | 退款台账页：区间（今日/近 7 日/自定义）+ 3 指标 + 失败提示 + 检索 + 复制台账 + 加载更多 |
+| 后台 | `web-admin/src/pages/campus/completed-orders.vue` | 重构：删掉内联退款面板与提交逻辑，改为复用 `RefundSheet` |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 新增「退款记录」入口 + 首屏「已送达 · 可退款」区块（最多 5 条）+ 复用 `RefundSheet` |
+| 后台 | `web-admin/src/pages.json` | 注册 `pages/campus/refund-records`（下拉刷新开启） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 `campusRefundSheet` / `campusRefundRecords` 命名空间；`campusMerchant` 补 4 个入口文案 |
+| 截图 | `docs/screenshots/waimai/p77-refund-records/` | 5 张：台账列表 / 检索命中 / 空态 / 工作台可退入口 / 工作台退款面板 |
+| 脚本 | `web-admin/scripts/shots-p77-refund-records.cjs` | 截图脚本（mock `campusMerchantRefunds` 与 `campusMerchantCompletedOrders`） |
+
+### 77.2 口径与契约
+
+- **退款单口径**：退款单经 `payment` 回落到 `order`，再判定订单是否属于 `ctx.channelId`；区间按退款单**创建时间** `refund."createdAt"` 过滤，左闭右开 `[start, end)`。与 §75「按送达时间」不同，台账回答的是「什么时候退的」，对账回答的是「哪天的单」。
+- **金额单位（分）**：`amount` = 订单金额；`total` = 笔数；`amount`（列表项）= 该笔退款金额；汇总 `amount` = 非 `Failed` 退款单 `total` 之和；`failedCount` / `failedAmount` 为 `state = 'Failed'` 的笔数与金额。前端统一 `fenToYuanFixed` 展示。
+- **失败单口径**：`Failed` 不计入退款笔数/退款金额（钱实际没退出去），单独计数并在页面顶部提示「另有退款失败 ¥x：未计入退款金额，请到平台侧核实支付渠道后重试」；但计入 `total`（列表可见）。
+- **列表项契约 `CampusMerchantRefundRow`**：`id / orderId / code / amount / state / reason / source / createdAt / building / zone`。`source` 由原因前缀判定：`merchant` = 商家在 §76 入口发起（`refund.reason` 形如 `merchant refund (<单号>): <原因>`），`platform` = 运营异常处置/无骑手自动退款等其他来源。
+- **原因展示**：服务端用正则 `/^merchant refund \([^)]*\):\s*/` 剥掉留痕前缀，前端展示纯原因；无原因显示「—」。
+- **楼栋/区域回填**：当页退款单先取 `orderId` 集合，再用仓储 `findByIds` + `CampusBuilding.findByIds` 批量回填 `building` / `zone`，避免逐行 N+1。
+- **汇总与明细分层**：汇总由一条 `COUNT(*) FILTER (WHERE r.state <> 'Failed')` / `SUM(...) FILTER` 聚合查询得出，覆盖**全区间**；明细 `take` 默认 100、上限 300，前端「加载更多」以 `skip = 已加载条数` 追加。
+- **检索**：单号（含纯数字后几位）、楼栋、区域、原因文本，客户端内存过滤，不额外打 GraphQL；复制台账只复制**当前检索结果**，汇总按非 `Failed` 口径现算。
+- **工作台可退款入口**：`merchant.vue` 用 `campusMerchantCompletedOrders({take:20})` 单独拉取（**不参与 10s 轮询**，避免每次轮询多打一条 Query），只展示 `refundable > 0` 的前 5 条，标题点击跳台账页，条目点击开共用 `RefundSheet`。
+
+### 77.3 权限与校验
+
+- Query `campusMerchantRefunds` 仅 `@Allow(CampusPermissions.CampusMerchant)`；沿用 `ctx.channelId` 店铺隔离——通过订单-渠道关联表 `order_channels_channel`（`orderId` / `channelId` 两列）`EXISTS` 判定，`EXISTS` 而非 JOIN 避免一单多渠道路径产生重复行。
+- 服务端入参校验沿用 §75 口径：`from`/`to` 非法 → `时间区间格式不合法`；`start >= end` → `结束时间必须晚于开始时间`；跨度 > 92 天 → `查询区间不能超过 92 天`；`take` 夹在 1..300，`skip >= 0`。
+- 退款动作仍走 §76 的 `campusMerchantRefundOrder`：面板本地先校验「金额 > 0、不超过可退、原因必填」，服务端锁内再复核余额，三处入口共用同一 Mutation，不存在绕过校验的通道。
+- 前端三处入口均受 `usePermGuard('CampusMerchant')` 保护，越权用户直接看不到页面。
+
+### 77.4 数据库变更
+
+无（不新增表/列/枚举/迁移）。读取既有 `refund`（`total` / `state` / `reason` / `createdAt`）、`payment`（`orderId`）、`order`（`code` / customFields）与关联表 `order_channels_channel`。
+
+### 77.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 随提交入库 |
+| 首次上线问题（已修复） | 线上 Query 报 `relation "order_channels" does not exist` → 直查生产库 `information_schema.tables` 发现 TypeORM 惯用命名为 `order_channels_channel`（列 `orderId` / `channelId`）；修正后提交 `1e1774198` 重新部署，错误消失 |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantRefunds(take:3)` 返回 200 且 `errors` 为空，`items/count/amount/failedCount/failedAmount/total/start/end` 字段齐全 |
+| 线上校验分支 | `from:2026-10-30,to:2026-10-01` → `结束时间必须晚于开始时间`；`from:2025-01-01,to:2026-10-30` → `查询区间不能超过 92 天`；不带 Bearer → `FORBIDDEN: You are not currently authorized to perform this action` |
+| 线上真实数据（宽区间 `2026-08-01 ~ 2026-10-30`） | 42 笔 / ¥591.51 / 失败 0；楼栋回填正常（如「桂1栋」）；来源判定正确——无骑手自动退款 `no_rider auto refund (...)` 归类 `platform` |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → 产物校验 61816 KB → nginx `syntax is ok` + reload → `deploy done` |
+| 截图脚本交互（`shots-p77-refund-records.cjs`） | `01`：台账 KPI `4 退款笔数 / ¥99.00 / 1 失败笔数`，失败提示「另有退款失败 ¥12.00…」，5 行明细含来源与原因；`02`：检索 `0001` → `共 1 / 5 笔`；`03`：近 7 日空态 → `共 0 / 0 笔` + 「该时间段暂无退款记录」；`04`：工作台出现 3 条可退款单（`A2400001 ¥24.50` / `A2400002 ¥2.00` / `A2400004 ¥41.00`）；`05`：点第一条开面板，金额框 `8`、原因已填 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 77.6 边界与已知限制
+
+- **按退款时间归账**：一笔退款归在「退款单创建日」，而非原订单日；与 §75 对账的「按送达日」口径不同，跨日退款两边数字会对不上，属预期。
+- **失败单只是留痕**：`Failed` 退款单不计入金额，需人工到支付渠道核实后重试，页面不会自动补偿。
+- **来源判定基于原因前缀**：只有 §76 入口写入 `merchant refund (<单号>): …` 前缀的才显示「商家发起」；运营手工在 Vendure 后台填的退款原因会被归为平台，属名称层面的近似。
+- **楼栋依赖 `CampusBuilding` 档案**：楼栋/区域来自订单 customFields 与楼栋表，档案缺失时显示「—」，不影响金额与原因。
+- **检索与复制仅作用于已加载明细**：翻页后不会自动重过滤（需重新加载或切区间）；复制的是当前筛选后的文本，无 Excel 导出。
+- **工作台只显示前 5 条可退款单**：更多需点标题「查看全部」进台账页；工作台区块不参与 10s 轮询，退款成功后仅局部刷新该区块与工作台主列表。
+- **无图表**：本轮不做退款趋势/来源占比图，只做列表 + 汇总 + 检索 + 复制。
+
+### 77.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `904349e6c`（§77 主功能）→ `1e1774198`（修正关联表名为 `order_channels_channel`）；两次均 `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | 最终 pm2 `vendure` online，`*:3020` 正常监听，`admin-api` 200 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61816 KB；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → ① 想直接给刚送达的单退款：看首屏「已送达 · 可退款」区块（最多 5 条，显示单号与楼栋）→ 点右侧「退款 · ¥x」→ 面板填金额/原因 → 确认；② 想看退款流水：点该区块标题或顶部「退款记录」入口 → 进「退款记录」页 → 切「今日 / 近 7 日 / 自定义」→ 看 3 个指标与失败提示 → 检索单号后几位 / 楼栋 / 区域 / 原因 → 「复制台账」粘成纯文本 → 列表底部「加载更多」翻历史；③ 需要看到全部可退单时点「查看全部」进「已完成对账」页。
+
 
 
 
