@@ -4324,7 +4324,7 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 ### 81.6 边界与已知限制
 
 - **只处理「顾客已提交」的售后**：商家主动退款仍在「退款记录」页（§76/§77）；本页不新建售后单。
-- **换货/退货流程不由本页驱动**：`return_refund` / `exchange` 类型的单也会列出，但同意后仍走插件的后续（收货/换货）状态，商家只需在 C 端协商留言里沟通（本页只读展示留言条数，不提供回复入口）。
+- **换货/退货流程不由本页驱动**：`return_refund` / `exchange` 类型的单也会列出，但同意后仍走插件的后续（收货/换货）状态，商家在详情面板的协商记录里沟通（回复能力见 §82）。
 - **同意即退款，无二次金额编辑**：金额由顾客申请值决定，商家不能在本页改小额退；需要按差额退款请走「退款记录」的部分退款。
 - **退款到账依赖支付渠道**：同意后状态可能短时停在 `Refunded` 之前的中间态（渠道异步回执），刷新即可看到最终态；`RefundFailed` 需人工排查（本页无重试按钮）。
 - **列表上限 50 条**：超过 50 条时更早的售后单不会出现（含「已处理」档），需要查更早记录暂无入口。
@@ -4340,7 +4340,84 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | C 端 | 无改动，未部署 | — |
 | 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
 
-操作入口：商家工作台「商家接单」页 → ① 点「营业日报 ›」下方的「售后申请 ›」进入售后页，顶部 pill 显示「待处理 N 单」；② 默认在「待处理」档，看单号、金额、类型、顾客、原因与描述、凭证数/留言数；③ 同意退款：点「同意退款」→ 弹窗确认金额 → 确定后提示「已退款到账」并自动刷新；④ 驳回：点「驳回」→ 底部弹层填写理由（必填，顾客可见）→ 提交后 toast「已驳回该售后申请」；⑤ 切「已处理」档可看已退款（含到账时间）、已驳回（含驳回理由）、退款失败的终态单。
+操作入口：商家工作台「商家接单」页 → ① 点「营业日报 ›」下方的「售后申请 ›」进入售后页，顶部 pill 显示「待处理 N 单」；② 默认在「待处理」档，看单号、金额、类型、顾客、原因与描述、凭证数/留言数；③ 同意退款：点「同意退款」→ 弹窗确认金额 → 确定后提示「已退款到账」并自动刷新；④ 驳回：点「驳回」→ 底部弹层填写理由（必填，顾客可见）→ 提交后 toast「已驳回该售后申请」；⑤ 切「已处理」档可看已退款（含到账时间）、已驳回（含驳回理由）、退款失败的终态单；⑥ 点任意一张卡打开详情面板（凭证大图 / 处理进度 / 协商记录），待处理与申诉单可在底部输入框直接回复顾客。
+
+## §82 售后详情面板（协商对话 + 凭证预览 + 状态时间线）
+
+> 目标：§81 只把售后做成「只读清单」——商家能看到有单、能同意或驳回，但看不到顾客传的凭证原图、看不到状态流转过程，也无法就「少送一份米饭」这类争议和顾客说清楚。本节把售后单升级成**可沟通的工单**：点卡片打开全屏详情面板，左中右三块一次看完「凭证九宫格（可点开原图）→ 处理进度时间线 → 协商记录气泡」，底部输入框直接回复顾客；同一条对话在顾客 C 端售后详情里同步可见并可继续留言。
+
+### 82.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `afterSalesDetail(ctx, id)`（售后单 + 留言 + 状态历史 + 退款失败留痕）、`afterSalesReply(ctx, id, content, images)`（渠道 + 状态校验后调 `AfterSalesService.addMessage(ctx, id, 'admin', …)`）；私有 `afterSalesMessageRows` / `afterSalesHistoryRows`（原生 SQL 直读 `after_sales_message` / `after_sales_state_history`，表缺失时降级空数组） |
+| 后端 | `.../src/merchant-admin.resolver.ts` | Query `campusMerchantAfterSalesDetail(id)`、Mutation `campusMerchantAfterSalesReply(id, content, images)`，均 `@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL：`CampusMerchantAfterSalesMessage` / `CampusMerchantAfterSalesHistory` / `CampusMerchantAfterSalesDetail` 及两条字段 |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型 `MerchantAfterSalesMessage` / `MerchantAfterSalesHistory` / `MerchantAfterSalesDetail`；`campusMerchantAfterSalesDetail(id)`、`campusMerchantAfterSalesReply(id, content, images?)` |
+| 后台 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 卡片 `@tap` 打开全屏详情面板（头部单号/金额、凭证九宫格 `uni.previewImage`、状态时间线、对话气泡左顾客右商家、底部输入框 + 发送、只读态提示）；列表卡非待处理行显示「点击查看详情 ›」 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusMerchantAfterSales` 增 18 条（详情/凭证/时间线/对话/发送/只读等） |
+| C 端 | `src/pkg-after-sale/pages/detail.vue` | 顶部状态/金额；凭证缩略图可点开原图；处理进度时间线；协商记录气泡（顾客右、商家左）；底部留言输入框（`Closed` 置灰提示）；原有「填退货物流」「取消申请」保留 |
+| C 端 | `src/api/mutations/after-sale.ts` | `addAfterSalesMessage(id, content, images?)`、`listAfterSalesMessages(id, take)` |
+| C 端 i18n | `src/i18n/locales/*.json`（5 语言） | `afterSaleDetail` 增 25 条（时间线/凭证/对话/发送/9 个状态名） |
+| 截图 | `docs/screenshots/waimai/p82-after-sales-chat/` | 6 张：列表详情入口 / 面板-凭证+时间线 / 面板-空对话 / 回复后气泡 / 已退款只读 / 凭证大图预览 |
+| 脚本 | `web-admin/scripts/shots-p82-after-sales-chat.cjs` | mock 3 单（2 待处理 + 1 已退款）含留言与状态历史；留言图片用内联 SVG data URL，避免外链 404 |
+
+### 82.2 口径与契约
+
+- **归属口径**：`afterSalesDetail` / `afterSalesReply` 都先走 `assertChannelAfterSales`（售后单自身或所属订单的 `channels` 命中 `ctx.channelId`），跨渠道 id 直接报 `售后单不存在或不属于当前店铺`。
+- **可回复状态**：仅「待处理 `Pending`」与「顾客申诉 `Appealed`」可回复；`Refunded` / `Rejected` / `RefundFailed` / `Closed` 只读——前端输入框换成「该售后已结束，仅可查看记录」，后端再兜一层（当前线上提交版本为 `Closed` 禁言，见 82.7）。
+- **留言上限**：正文必填、≤1000 字（插件 `MESSAGE_MAX_LENGTH`）、图片 ≤3 张（插件 `MESSAGE_MAX_IMAGES`）；后台输入框 `maxlength=200` 前置收敛，超限由后端返回可读错误。
+- **详情读出**：留言正序最多 100 条（`messageTotal` 同步回传）；状态历史正序最多 50 条，前端首条额外补「顾客提交售后申请」占位。
+- **降级**：`after_sales_message` / `after_sales_state_history` 查询异常一律返回空数组，详情照常打开（时间线只剩首条）。
+- **契约**：
+  - `campusMerchantAfterSalesDetail(id: ID!): CampusMerchantAfterSalesDetail!`
+  - `campusMerchantAfterSalesReply(id: ID!, content: String!, images: [String!]): CampusMerchantAfterSalesMessage!`
+  - `CampusMerchantAfterSalesDetail { request messages messageTotal stateHistory refundError actualRefundAmount timeoutHours }`
+  - 留言字段：`id senderType senderName content images createdAt`；历史字段：`fromState toState createdAt`。
+
+### 82.3 权限与校验
+
+- 两条接口均 `@Allow(CampusPermissions.CampusMerchant)`；无 Bearer 返回 `FORBIDDEN: You are not currently authorized to perform this action`。
+- `senderType` 由服务端固定写 `admin`（不接受前端传值），发送人姓名由插件按当前登录管理员解析，顾客侧看到的即门店/操作人名称。
+- 空内容 → `USER_INPUT_ERROR: Message content is required`；超 1000 字 / 超 3 图由插件拒绝，商家 service 包成 `留言失败：…`。
+- 越权与闭环双保险：渠道校验 → 状态校验 → 插件 `addMessage` 内的 `Closed` 禁言。
+- C 端只能看到自己的售后：插件 shop 侧 `listMessages` 以 `customerId` 隔离，`addAfterSalesMessage` 校验归属。
+
+### 82.4 数据库变更
+
+- **无变更**：读写沿用售后插件既有表 `after_sales_message`（协商留言）与 `after_sales_state_history`（状态流转），不新增表/列/迁移。
+
+### 82.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` → 通过；`lib/` 产物随提交入库 |
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`（新面板与新增文案编译通过） |
+| 截图脚本（`shots-p82-after-sales-chat.cjs`） | `01`：列表两张待处理卡（A2400001 `¥32.50`、A2400004 `¥2.00`）；`02`：点开 A2400001 → 面板「顾客凭证 3 张 / 处理进度（顾客提交售后申请 → 待处理）/ 协商记录 2 条（顾客左、商家右）」；`03`：切 A2400004 → 「协商记录 0」+ 空态提示「暂无协商记录，可在下方直接回复顾客」；`04`：输入「马上给您补一份米饭，师傅已重新出锅～」→ 发送 → 右侧新增商家气泡，协商记录 1、列表卡留言数同步 +1；`05`：切「已处理」点 A2400005（已退款）→ 时间线三条（提交 → 待退货 → 已退款），底部显示「该售后已结束，仅可查看记录」；`06`：点凭证缩略图 → `uni.previewImage` 大图覆盖层正常 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 schema 探针 | `campusMerchantAfterSalesDetail(id)` 返回 `request/messages/messageTotal/stateHistory/refundError/actualRefundAmount/timeoutHours`；`campusMerchantAfterSalesReply` 在待处理单可写入并返回 `senderType:"admin"` |
+| 线上校验分支 | 跨渠道/不存在 id → `售后单不存在或不属于当前店铺`；无 Bearer → `FORBIDDEN`；已结案单回复 → 禁言提示 |
+| 后台部署 | `node scripts/deploy.mjs` → 构建 + 产物校验 + nginx reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 82.6 边界与已知限制
+
+- **后台只能发文字**：面板输入框不带选图，商家侧图片消息仅做展示（顾客上传的凭证与留言图可点开原图）。
+- **C 端留言不做分页**：一次取 100 条，超出后更早消息不展示（插件列表本身支持 skip/take）。
+- **时间线不含操作人**：只展示「从什么状态 → 到什么状态 + 时间」，不显示由谁触发（插件历史表有 `operatorUserId`，未回传）。
+- **状态时间线与列表状态可能短暂不一致**：退款异步回执期间刷新详情即可。
+- **面板为前端覆盖层**：H5 下从页面头部下方开始铺满（`top: var(--window-top)`），App/小程序端全屏。
+
+### 82.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `f7f950a89`（售后详情/协商留言，随 §81 一并提交并推送）→ 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `admin-api` HTTP 200，`campusMerchantAfterSalesDetail` 字段可解析 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 构建通过、产物同步、nginx reload、`deploy done` |
+| C 端 | `src/pkg-after-sale/pages/detail.vue` + i18n 随 vshop 提交；未单独部署 H5 站点 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → 「售后申请 ›」→ ① 点任意售后卡（待处理卡直接点卡片，已处理卡点右下「点击查看详情 ›」）；② 面板自上而下看单号/金额/状态、顾客与原因、凭证九宫格（点图放大）、处理进度时间线、协商记录；③ 待处理/申诉单在底部输入框写回复 → 「发送」→ 右侧出现商家气泡，列表「留言 n 条」同步 +1；④ 已退款、已驳回、退款失败、已关闭的单底部显示「该售后已结束，仅可查看记录」；⑤ 顾客在小程序「售后详情」看到同一条对话，可继续留言（商家与平台回复以左侧气泡展示）。
 
 
 
