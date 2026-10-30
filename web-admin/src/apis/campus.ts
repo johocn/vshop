@@ -991,6 +991,18 @@ export async function campusMerchantAfterSalesReject(id: string, reason: string)
 }
 
 
+/** 售后退款失败重试（§84）：仅 RefundFailed 可调，后端 30 秒内同单只放行一次 */
+export async function campusMerchantAfterSalesRetryRefund(id: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRetryRefund: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!) { campusMerchantAfterSalesRetryRefund(id: $id) {
+      id orderId orderCode state type reason description refundAmount rejectReason
+      evidenceImages messageCount customerName createdAt refundedAt
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesRetryRefund;
+}
+
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
   orderId: string,
