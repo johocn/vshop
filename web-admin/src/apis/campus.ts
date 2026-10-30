@@ -365,6 +365,8 @@ export interface MerchantCompletedOrder {
   createdAt: string;
   total: number;
   refundAmount: number;
+  /** 剩余可退金额（分，§76）：已支付 − 已退；0 = 不可退 */
+  refundable: number;
   netAmount: number;
   building: string;
   zone: string;
@@ -396,13 +398,41 @@ export async function campusMerchantCompletedOrders(
   const res = await getAdminClient().request<{ campusMerchantCompletedOrders: MerchantCompletedOrders }>(
     `query ($from: String, $to: String, $take: Int, $skip: Int) {
       campusMerchantCompletedOrders(from: $from, to: $to, take: $take, skip: $skip) {
-        items { id code deliveredAt createdAt total refundAmount netAmount building zone route riderName customerPhone lineText note }
+        items { id code deliveredAt createdAt total refundAmount refundable netAmount building zone route riderName customerPhone lineText note }
         total totalAmount refundAmount netAmount avgTicket start end
       }
     }`,
     params,
   );
   return res.campusMerchantCompletedOrders;
+}
+
+/** 商家发起退款回执（§76）：金额单位分 */
+export interface CampusMerchantRefundResult {
+  ok: boolean;
+  /** 本次退款金额（分） */
+  amount: number;
+  /** 该单累计已退（分） */
+  refundedTotal: number;
+  /** 处理后剩余可退（分） */
+  refundable: number;
+}
+
+/** 商家发起退款（§76）：已送达订单整单/部分退款，amount 为分，必须填原因 */
+export async function campusMerchantRefundOrder(
+  orderId: string,
+  amount: number,
+  reason: string,
+): Promise<CampusMerchantRefundResult> {
+  const res = await getAdminClient().request<{ campusMerchantRefundOrder: CampusMerchantRefundResult }>(
+    `mutation ($orderId: ID!, $amount: Int!, $reason: String!) {
+      campusMerchantRefundOrder(orderId: $orderId, amount: $amount, reason: $reason) {
+        ok amount refundedTotal refundable
+      }
+    }`,
+    { orderId, amount, reason },
+  );
+  return res.campusMerchantRefundOrder;
 }
 
 export async function campusMerchantAcceptOrder(orderId: string): Promise<boolean> {

@@ -3886,6 +3886,79 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页顶部 → 点「今日完成（单）」或「今日完成（金额）」任一卡片 → 进入「已完成对账」页 → 顶部切「今日 / 近 7 日 / 自定义」（自定义选起止日期）→ 看 5 个指标（完成单量、订单总额、退款金额、实收总额、客单价）→ 需要找某一单时在检索框输入单号后几位 / 楼栋 / 手机可见数字 / 菜品 / 备注 → 点右上「复制对账清单」，粘贴即得纯文本台账（含区间与汇总，手机号为脱敏）。
 
+## §76 商家发起退款 / 部分退款
+
+> 目标：已送达订单出现少送、洒漏、品质问题时，商家不必等运营介入，可直接在工作台对**本店订单**发起整单或部分退款，金额原路退回顾客支付账户，退款原因随退款单留痕。
+
+### 76.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `completedOrders` 增加 `refundable`（已支付 − 已退）；新增 `merchantRefund()`（校验 → 订单级咨询锁 → 按支付单余额分摊退 → 售后触达 → 回执） |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Mutation `campusMerchantRefundOrder(orderId, amount, reason)`，`@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL：`CampusMerchantCompletedOrder.refundable: Int!`、新类型 `CampusMerchantRefundResult`、Mutation 声明 |
+| 后台 | `web-admin/src/apis/campus.ts` | `MerchantCompletedOrder.refundable` + `campusMerchantRefundOrder()` |
+| 后台 | `web-admin/src/pages/campus/completed-orders.vue` | 订单卡「退款 · 可退 ¥x」入口 + 退款面板（金额/全额退款/原因）+ 二次确认 + 成功刷新 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusCompleted` 新增 18 个退款文案键 |
+| 截图 | `docs/screenshots/waimai/p76-merchant-refund/` | 5 张：退款入口 / 全额面板 / 部分退款面板 / 二次确认 / 成功 toast |
+| 脚本 | `web-admin/scripts/shots-p76-merchant-refund.cjs` | 截图脚本（mock `campusMerchantRefundOrder` 并按金额扣减可退，验证列表即时刷新） |
+
+### 76.2 口径与契约
+
+- **可退余额 `refundable`（分）**：`已支付 − 已退`。已支付 = 该单 `payment.state in ('Settled','Authorized')` 的 `amount` 之和（与 `refundablePayments` 同口径）；已退 = 该单非 `Failed` 退款单 `total` 之和（与 §75 对账口径一致）。未支付、已全额退款订单返回 0，前端据此隐藏退款入口。
+- **退款金额入参**：`amount` 单位**分**（前端元输入 × 100 取整），必须为正整数且 ≤ 可退余额；提交前前端先做一次本地校验，服务端锁内再按最新余额复核。
+- **分摊规则**：一个订单可能有多张支付单（拆单支付/补差价），退款按「新→旧」逐张退、每张不超过该张剩余可退，累加凑够本次金额；每张单独走 `orderService.refundOrder` + `settleRefundOrMarkFailed`，与运营异常处置同一通道。
+- **留痕**：退款原因写入 Vendure `refund.reason`，格式 `merchant refund (<单号>): <商家填写的原因>`；退款单本身（金额/时间/状态/原因）即审计记录，可在 Vendure 后台与 `refund` 表追溯。
+- **回执 `CampusMerchantRefundResult`**：`ok` / `amount`（本次实际退款，分）/ `refundedTotal`（该单累计已退，排除 Failed）/ `refundable`（处理后剩余可退）。
+- **顾客触达**：退款成功后调用 `notify.user(..., 'afterSales', '商家退款 ¥x 已原路退回')`，走既有售后模板；未配置模板/短信网关时静默跳过，不影响退款结果。
+
+### 76.3 权限与校验
+
+- Mutation 仅 `@Allow(CampusPermissions.CampusMerchant)`；先按 `order.channels` 与 `ctx.channelId` 比对，**跨店订单直接拒绝**（`订单不存在或不属于当前店铺`）。
+- 状态校验：仅 `customFields.deliveryStatus = 'delivered'` 的订单可发起退款（`仅已送达订单可发起退款`）；在途单请走「拒单」（备餐中）或运营异常处置，避免配送与退款错位。
+- 入参校验：原因为空 → `请填写退款原因`；原因 > 200 字 → `退款原因不能超过 200 个字符`；金额 ≤ 0 或非数字 → `退款金额必须大于 0`。
+- 并发：对订单加 `pg_try_advisory_lock(hashtext('campus:refund:<orderId>'))`，占用中返回 `该订单正在退款处理中，请稍后重试`；与拒单/运营处置共用同一把锁，锁内重新统计余额，杜绝并发双退超退。
+- 余额校验：锁内 `remaining ≤ 0` → `该订单已无可退余额`；`amount > remaining` → `退款金额超过可退余额（最多可退 ¥x.xx）`。
+- 结算失败：`settleRefundOrMarkFailed` 将退款单置 `Failed`，不计入 `refundedTotal` 与可退扣减，回执如实返回剩余可退。
+
+### 76.4 数据库变更
+
+无（不新增表/列/枚举/迁移）。复用既有 `refund`（金额/原因/状态）、`payment`（订单归属/状态）与 `order.customFields.deliveryStatus`。
+
+### 76.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 随提交入库 |
+| 部署 | 提交 `6df534a3c` → `git push origin master` → 服务器 `git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env`；`*:3020` 监听正常，`admin-api` 200 |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantCompletedOrders(take:5){ items { refundable } }` 正常返回（新字段已上线）；`campusMerchantRefundOrder` 已注册 |
+| 线上校验分支 | `reason:"  "` → `请填写退款原因`；`amount:0` → `退款金额必须大于 0`；`orderId:"999999"` → `订单不存在或不属于当前店铺`（未对真实订单发起退款，避免污染生产数据） |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → nginx `syntax is ok` + reload → `deploy done` |
+| 截图脚本交互（`shots-p76-merchant-refund.cjs`） | `01`：5 单中 4 单显示「退款 · 可退 ¥32.50 / ¥2.00 / ¥61.00 / ¥29.00」，已全退的 `A2400003` 无入口；`02`：点「全额退款」金额自动填 `32.50`；`03`：部分退款输入 `8` + 原因；`04`：二次确认弹窗「将退款 ¥8.00，原路退回顾客支付账户，确认继续？」；`05`：确认后 toast「退款成功：¥8.00」，列表 KPI 退款金额 ¥71.00 → ¥79.00、`A2400004` 可退 ¥61.00 → ¥53.00 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 76.6 边界与已知限制
+
+- **仅已送达订单**：在途/备餐中订单不在本入口开放（备餐中请用「拒单」整单退；配送中异常请走运营异常处置），避免顾客仍在等餐时钱已退。
+- **不能退配送费以外的手续费**：退款金额按「已支付 − 已退」计算，含配送费；Vendure `refund.shipping/adjustment` 显式给 0，不做运费单独退。
+- **退款原因只做留痕**：不参与任何自动判定（不触发黑名单、不影响评分），仅供对账追溯。
+- **不自动关单/改单**：退款后订单仍保持 `delivered`，状态与送达记录不变；如需关单请走运营处置。
+- **退款渠道以支付单为准**：原路退回由支付 provider 决定；线下/现金单若未经过支付通道（无 `Settled` 支付单），可退余额为 0，无法在本入口退款。
+- **无独立退款记录页**：本轮只在订单卡与面板显示「已退/可退」，逐笔记录（时间/原因）在 Vendure 后台与 `refund` 表查看。
+- **单张支付单退款失败不自动重试**：该张置 `Failed` 后需重新发起（余额仍保留），不会自动补偿。
+
+### 76.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `6df534a3c` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | pm2 `vendure` online，`*:3020` 正常监听，`admin-api` 200 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页顶部 → 点「今日完成（单）」或「今日完成（金额）」→ 进入「已完成对账」页 → 找到需要售后的订单卡片 → 点「退款 · 可退 ¥x」→ 面板内填金额（点「全额退款」可一键填满可退金额）→ 填退款原因（20 字内说清问题）→ 点「确认退款」→ 弹窗二次确认 → 确认后顾客支付账户原路退回，页面「已退/可退」与顶部退款金额即时刷新。
+
 
 
 
