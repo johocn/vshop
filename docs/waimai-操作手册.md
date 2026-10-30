@@ -4185,6 +4185,83 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页 → ① 找到「出餐屏（后厨大屏）›」下方的「备餐汇总 ›」入口条，点开底部面板；② 面板按「要做的多」排序显示今日各商品的 `×待做份数`、`已出 n` 与加料份数（如「加辣 ×3 · 多花生 ×2」）；③ 点「刷新」拉取最新份数，点「复制备货清单」得到「今日备货清单 + 每行商品 ×待做（已出 n）」纯文本，粘贴发给后厨或采购即可备料。
 
+## §80 商家营业日报
+
+> 目标：此前商家只能看「今日 / 近 7 日」的四个总数（单量、营业额、客单价、退款），既不区分时段也看不到商品结构，更没法回看某一天。本节新增「营业日报」页：任选最近 30 天中的某一天，看单日 KPI、**与昨日 / 近 7 日均值的百分比对比**、**24 小时时段分布**、**商品销量 Top5**，并一键「复制日报」成纯文本（可直接发群里或存档）。
+
+### 80.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | 新增接口 `MerchantDailyHour` / `MerchantDailyProduct` / `MerchantDailyCompare` / `MerchantDailyReport`；新增 `dailyReport(ctx, date)` 单日聚合 |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Query `campusMerchantDailyReport(date)`，`@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL 补 `CampusDailyHourPoint` / `CampusDailyProductRow` / `CampusDailyCompare` / `CampusMerchantDailyReport` 与 Query 字段 |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型 `CampusDailyHourPoint` / `CampusDailyProductRow` / `CampusDailyCompare` / `CampusDailyReport`；`campusMerchantDailyReport(date)` |
+| 后台 | `web-admin/src/pages/campus/daily-report.vue`（新建） | 日报页：日期切换（前一天/日期选择/后一天 + 今天/昨天快捷）、KPI 四块、对比两条、时段柱状、Top5 列表、复制日报 |
+| 后台 | `web-admin/src/pages.json` | 注册路由 `pages/campus/daily-report`（标题「营业日报」，支持下拉刷新） |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 工作台入口条「营业日报 ›」+ `goDailyReport()` |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusMerchant.dailyReportEntry`；新增命名空间 `campusDailyReport`（18 个文案） |
+| 截图 | `docs/screenshots/waimai/p80-daily-report/` | 4 张：工作台入口 / 日报（今天）/ 日报（昨天）/ 复制 toast |
+| 脚本 | `web-admin/scripts/shots-p80-daily-report.cjs` | 截图脚本（mock `campusMerchantDailyReport` 两套数据，按 `date` 变量切换） |
+
+### 80.2 口径与契约
+
+- **单日口径**：完成单量/营业额按 `deliveryStatus='delivered'` 且 `deliveredAt` 落在所选校园日 `[00:00, 次日 00:00)`；跨零点订单计入**实际送达当天**（与经营设置页、工作台「今日完成」一致）。
+- **退款口径**：`state='Cancelled'` 按 `createdAt` 归日、金额取订单 `totalWithTax`（与 `merchantRevenue` 的「取消退款」同源）；即「取消单按下单日、完成单按送达日」，两个指标归日基准不同，页面文案写「退款（n 单）」避免误读。
+- **时段分布**：按 `deliveredAt` 的校园小时（UTC+8）分桶，`hourly` 数组 `{hour, orders, gross}`；**今天只出到当前小时**（0..now），历史日 **24 点全出**。
+- **商品 Top5**：以 `lines.productVariant.name` 聚合，`qty` = 份数（`line.quantity`），`amount` = 折后行小计（`linePriceWithTax` 汇总），按 `qty desc → amount desc → name` 取前 5。
+- **对比口径**：`prev` = 前一日同口径（零填充）；`last7Avg` = 前 7 日（不含当日）**日均**，其中 `orders`/`gross` 为 7 天均摊、`avgTicket` 为 7 日整体客单价。前端算百分比，基数为 0 时显示「—」（不做除零）。
+- **契约**：`campusMerchantDailyReport(date: String): CampusMerchantDailyReport!`；`date` 缺省 = 今天；`campusMerchantDailyReport { date orders gross avgTicket cancelled cancelledAmount hourly{hour orders gross} topProducts{name qty amount} prev{orders gross avgTicket} last7Avg{orders gross avgTicket} }`。
+- **一次查询**：单条 SQL 覆盖「所选日 + 前 7 日」窗口（`createdAt >= date-7d`），内存分桶，不做多次往返。
+- **复制格式**：`营业日报 YYYY-MM-DD` / KPI 一行 / 「较昨日：单量 ±x% · 营业额 ±x%」/「较近 7 日均值：…」/ 高峰时段 / Top5 商品名 ×份数 一行。
+
+### 80.3 权限与校验
+
+- Query `campusMerchantDailyReport` 仅 `@Allow(CampusPermissions.CampusMerchant)`；无 Bearer 访问返回 `FORBIDDEN: You are not currently authorized to perform this action`。
+- 渠道隔离：`leftJoin order.channels` + `channel.id = ctx.channelId`，只聚合本店订单。
+- 日期校验：格式非 `YYYY-MM-DD` → `USER_INPUT_ERROR: 日期格式不合法（YYYY-MM-DD）`；晚于今天 → `不能查看未来日期的营业日报`；早于今天-29 天 → `营业日报最多回看 30 天`。
+- 前端：`usePermGuard('CampusMerchant')`；日期箭头在边界处置灰（`canPrev/canNext`），picker `:end="todayKey"` 从源头上挡住未来日期；拉取失败 toast 不打断页面。
+- 只读查询，无写操作。
+
+### 80.4 数据库变更
+
+- **无变更**：纯查询聚合，复用既有 `order` / `order_line` 与 `customFields.hallStatus/deliveryStatus/deliveredAt`，不新增表、不新增列，不新增迁移。
+
+### 80.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 随提交入库 |
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`（新增页面与路由编译通过） |
+| 截图脚本交互（`shots-p80-daily-report.cjs`） | `01`：工作台入口条依次为「经营设置 / 出餐屏（后厨大屏）/ 备餐汇总 / **营业日报** / 退款记录」；`02`：日期 `2026-10-30`、「今天」高亮，KPI `23 / ¥684.00 / ¥29.74 / ¥26.00`（退款 1 单），对比「较昨日 单量 +15.0% · 营业额 +14.4%」「较近 7 日均值 单量 +9.5% · 营业额 +11.8%」，24 根时段柱且 12 点高亮为「高峰 12:00（7 单）」，Top5 宫保鸡丁 ×18 ¥1296.00 … 可乐 ×5 ¥25.00；`03`：切「昨天」→ 日期 `2026-10-29`、KPI `19 / ¥589.00 / ¥31.00 / ¥52.00`、对比转负（-20.8% / -18.9%）；`04`：点「复制日报」→ toast「日报已复制」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantDailyReport`（缺省=今天）→ HTTP 200、`errors` 为空、`date:"2026-10-30"`、`hourly` 20 点（只到当前小时）、`topProducts:[]`；`date:"2026-10-29"` → `date` 一致、`hourly` **24 点全出** |
+| 线上校验分支 | 未来日期 `2026-11-30` → `不能查看未来日期的营业日报`；`2020-01-01` → `营业日报最多回看 30 天`；`2026/10/30` → `日期格式不合法（YYYY-MM-DD）`；无 Bearer → `You are not currently authorized to perform this action`（`FORBIDDEN`） |
+| 线上数据现状 | 探针时该渠道今日/昨日均无完成单（KPI 全 0），属口径内正常表现；有真实送达单后即出数 |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → 产物校验 61839 KB → nginx `syntax is ok` + reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 80.6 边界与已知限制
+
+- **退款口径与完成口径归日不同**：取消单按下单日、完成单按送达日；同一笔「昨天下单、今天送达后取消」不会同时出现在两天的完成与退款里，但读数字时需注意两列不是同一基准。
+- **退款只算取消单**：部分退款（`Refund` 记录）不计入日报的退款金额——需要精确流水请看「退款记录」页（§77）。
+- **时段分布只看送达时间**：按送达小时分桶，不是下单小时；商家想看「什么时候下单多」需要另做口径。
+- **今天只到当前小时**：今天 15:00 打开只有 0–15 点柱，后面时段为空柱，不代表没单。
+- **对比为纯前端百分比**：基数为 0（昨日无单/近 7 日无单）时显示「—」，不显示 100%。
+- **回看上限 30 天**：更早的历史请用「经营设置」页近 30 日明细导出（§57）。
+- **不做自动推送**：日报不向公众号/短信推送，需要分享时用「复制日报」手动粘贴。
+
+### 80.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `a46f70f63` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `pm2 vendure online`（重启计数 636）、`admin-api` HTTP 200、探针通过 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61839 KB；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → ① 点「备餐汇总 ›」下方的「营业日报 ›」进入日报页；② 用「‹ / 日期 / ›」翻前一天、后一天，或点「今天 / 昨天」快捷切换（最远回看 30 天）；③ 看四块 KPI、两条对比（较昨日 / 较近 7 日均值）、时段柱状（橙色柱为全峰时段）与商品销量 Top5；④ 点底部「复制日报」得到纯文本日报，直接粘贴到群里或记事本。
+
 
 
 

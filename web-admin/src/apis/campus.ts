@@ -812,6 +812,56 @@ export async function campusMerchantPrepSummary(): Promise<CampusPrepItem[]> {
   return res.campusMerchantPrepSummary;
 }
 
+/** 营业日报（§80）：单日时段分布 */
+export interface CampusDailyHourPoint {
+  hour: number;
+  orders: number;
+  gross: number;
+}
+
+/** 营业日报（§80）：单日商品销量行 */
+export interface CampusDailyProductRow {
+  name: string;
+  qty: number;
+  amount: number;
+}
+
+/** 营业日报（§80）：对比口径（昨日 / 近 7 日均值） */
+export interface CampusDailyCompare {
+  orders: number;
+  gross: number;
+  avgTicket: number;
+}
+
+/** 营业日报（§80）：单日经营快照 */
+export interface CampusDailyReport {
+  date: string;
+  orders: number;
+  gross: number;
+  avgTicket: number;
+  cancelled: number;
+  cancelledAmount: number;
+  hourly: CampusDailyHourPoint[];
+  topProducts: CampusDailyProductRow[];
+  prev: CampusDailyCompare;
+  last7Avg: CampusDailyCompare;
+}
+
+/** 营业日报：单日 KPI + 时段分布 + 商品 Top5 + 对比昨日/近 7 日均值（date 缺省=今天） */
+export async function campusMerchantDailyReport(date?: string | null): Promise<CampusDailyReport> {
+  const res = await getAdminClient().request<{ campusMerchantDailyReport: CampusDailyReport }>(
+    `query ($date: String) { campusMerchantDailyReport(date: $date) {
+      date orders gross avgTicket cancelled cancelledAmount
+      hourly { hour orders gross }
+      topProducts { name qty amount }
+      prev { orders gross avgTicket }
+      last7Avg { orders gross avgTicket }
+    } }`,
+    { date: date ?? null },
+  );
+  return res.campusMerchantDailyReport;
+}
+
 
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(

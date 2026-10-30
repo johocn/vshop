@@ -44,6 +44,11 @@
         <text class="e-lbl">{{ $t('campusMerchant.prepEntry') }}</text>
         <text class="e-chev">›</text>
       </view>
+      <!-- 营业日报（§80）：单日 KPI + 时段分布 + 商品 Top5 + 对比昨日/近 7 日均值 -->
+      <view class="entrybar" @tap="goDailyReport">
+        <text class="e-lbl">{{ $t('campusMerchant.dailyReportEntry') }}</text>
+        <text class="e-chev">›</text>
+      </view>
       <!-- 退款记录台账（§77）：区间退款明细 + 汇总，与对账页退款同口径 -->
       <view class="entrybar" @tap="goRefundRecords">
         <text class="e-lbl">{{ $t('campusMerchant.refundRecordsEntry') }}</text>
@@ -950,6 +955,11 @@ function goCompleted() {
 /** 退款记录台账（§77）：区间退款明细 + 汇总 */
 function goRefundRecords() {
   uni.navigateTo({ url: '/pages/campus/refund-records' });
+}
+
+/** 营业日报（§80）：单日 KPI + 时段分布 + 商品 Top5 + 对比昨日/近 7 日均值 */
+function goDailyReport() {
+  uni.navigateTo({ url: '/pages/campus/daily-report' });
 }
 
 /** 已送达可退款（§77）：今日完成订单中仍有可退余额的（最多展示 5 条，详情去对账页） */
