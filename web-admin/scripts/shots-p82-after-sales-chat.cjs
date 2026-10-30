@@ -243,7 +243,7 @@ async function newPage(browser) {
     // 关闭面板，回到列表
     await page.locator('.panel__x').click();
     await page.waitForTimeout(600);
-    await page.locator('.seg-i', { hasText: '已处理' }).first().click();
+    await page.locator('.flt__i', { hasText: '已退款' }).first().click();
     await page.waitForTimeout(800);
     console.log('05 list', JSON.stringify(await readState()));
 
@@ -257,7 +257,7 @@ async function newPage(browser) {
     // ── 06 凭证大图预览（uni.previewImage，弹层留最后一张）───────────────────
     await page.locator('.panel__x').click();
     await page.waitForTimeout(500);
-    await page.locator('.seg-i', { hasText: '待处理' }).first().click();
+    await page.locator('.flt__i', { hasText: '待处理' }).first().click();
     await page.waitForTimeout(700);
     await page.locator('.as').first().click();
     await page.waitForSelector('.p-grid__i', { timeout: 20000 }).catch(() => undefined);

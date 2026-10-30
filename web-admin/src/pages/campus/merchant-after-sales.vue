@@ -8,19 +8,25 @@
           <text class="title">{{ $t('campusMerchantAfterSales.title') }}</text>
           <view class="pill"><text>{{ pillText }}</text></view>
         </view>
-        <view class="seg">
-          <text class="seg-i" :class="{ on: tab === 'pending' }" @tap="setTab('pending')">
-            {{ $t('campusMerchantAfterSales.segPending') }}
-          </text>
-          <text class="seg-i" :class="{ on: tab === 'done' }" @tap="setTab('done')">
-            {{ $t('campusMerchantAfterSales.segDone') }}
-          </text>
-        </view>
+        <!-- §84 状态筛选：退款失败置顶，超过一屏可横向滚动 -->
+        <scroll-view scroll-x class="flt" :show-scrollbar="false">
+          <view class="flt__row">
+            <text
+              v-for="f in filters"
+              :key="f.key"
+              class="flt__i"
+              :class="{ on: stateFilter === f.key }"
+              @tap="stateFilter = f.key"
+            >
+              {{ $t(f.label) }}
+            </text>
+          </view>
+        </scroll-view>
         <text class="tip">{{ $t('campusMerchantAfterSales.tip') }}</text>
       </view>
 
       <view v-if="!filtered.length" class="hint empty">
-        {{ tab === 'pending' ? $t('campusMerchantAfterSales.emptyPending') : $t('campusMerchantAfterSales.emptyDone') }}
+        {{ $t('campusMerchantAfterSales.emptyFilter') }}
       </view>
       <view v-else class="list">
         <view v-for="r in filtered" :key="r.id" class="as" @tap="openDetail(r)">
@@ -54,6 +60,13 @@
             <text class="op-reject" @tap.stop="openReject(r)">{{ $t('campusMerchantAfterSales.btnReject') }}</text>
             <button class="op-approve" :disabled="busyId === r.id" @tap.stop="approve(r)">
               {{ $t('campusMerchantAfterSales.btnApprove') }}
+            </button>
+          </view>
+          <!-- §84 退款失败：置顶告警 + 一键重试（失败原因在详情面板） -->
+          <view v-else-if="r.state === 'RefundFailed'" class="a-ops">
+            <text class="op-fail">{{ $t('campusMerchantAfterSales.retryFailHint') }}</text>
+            <button class="op-retry" :disabled="busyId === r.id" @tap.stop="retryRefund(r)">
+              {{ $t('campusMerchantAfterSales.retryBtn') }}
             </button>
           </view>
           <text v-else class="a-detail">{{ $t('campusMerchantAfterSales.detailTapHint') }} ›</text>
@@ -201,6 +214,7 @@ import {
   campusMerchantAfterSalesDetail,
   campusMerchantAfterSalesReject,
   campusMerchantAfterSalesReply,
+  campusMerchantAfterSalesRetryRefund,
   type MerchantAfterSalesDetail,
   type MerchantAfterSalesList,
   type MerchantAfterSalesRow,
@@ -215,8 +229,16 @@ usePermGuard('CampusMerchant');
 
 const locale = useLocaleStore();
 const loading = ref(true);
-/** 待处理 = 后端 state=Pending；已处理 = 全量但剔除 Pending（含已退款/已驳回/退款失败/申诉） */
-const tab = ref<'pending' | 'done'>('pending');
+/** §84 状态筛选（服务端一次拉全量，前端按状态过滤；退款失败永久置顶） */
+type StateFilter = 'all' | 'Pending' | 'Refunded' | 'Rejected' | 'RefundFailed';
+const stateFilter = ref<StateFilter>('all');
+const filters: Array<{ key: StateFilter; label: string }> = [
+  { key: 'all', label: 'campusMerchantAfterSales.fltAll' },
+  { key: 'Pending', label: 'campusMerchantAfterSales.fltPending' },
+  { key: 'Refunded', label: 'campusMerchantAfterSales.fltRefunded' },
+  { key: 'Rejected', label: 'campusMerchantAfterSales.fltRejected' },
+  { key: 'RefundFailed', label: 'campusMerchantAfterSales.fltFailed' },
+];
 const data = ref<MerchantAfterSalesList | null>(null);
 const busyId = ref('');
 const rejectTarget = ref<MerchantAfterSalesRow | null>(null);
@@ -252,9 +274,15 @@ const timeline = computed(() => {
 });
 
 const items = computed(() => data.value?.items ?? []);
-const filtered = computed(() =>
-  tab.value === 'pending' ? items.value.filter(r => r.state === 'Pending') : items.value.filter(r => r.state !== 'Pending'),
-);
+const filtered = computed(() => {
+  const list = stateFilter.value === 'all'
+    ? items.value
+    : items.value.filter(r => r.state === stateFilter.value);
+  // 退款失败单始终排最前，避免被已处理记录淹没
+  return [...list].sort(
+    (a, b) => Number(b.state === 'RefundFailed') - Number(a.state === 'RefundFailed'),
+  );
+});
 const pillText = computed(() => {
   const pending = data.value?.pendingCount ?? 0;
   if (!pending) return locale.t('campusMerchantAfterSales.pillNone');
@@ -308,10 +336,6 @@ async function reload(): Promise<void> {
   }
 }
 
-function setTab(next: 'pending' | 'done'): void {
-  tab.value = next;
-}
-
 /** 同意：仅退款单由后端链式退款到账，前端只需确认一次（金额写进弹窗避免误点） */
 function approve(r: MerchantAfterSalesRow): void {
   uni.showModal({
@@ -335,6 +359,36 @@ function approve(r: MerchantAfterSalesRow): void {
         await reload();
       } catch (err: any) {
         uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchantAfterSales.approveFailed')), icon: 'none' });
+      } finally {
+        busyId.value = '';
+      }
+    },
+  });
+}
+
+/** §84 退款失败重试：确认后调后端重试，成功即刷新（后端 30 秒内同单只放行一次，连点会被挡） */
+function retryRefund(r: MerchantAfterSalesRow): void {
+  uni.showModal({
+    title: locale.t('campusMerchantAfterSales.retryTitle'),
+    content: locale.t('campusMerchantAfterSales.retryBody')
+      .replace('{code}', r.orderCode)
+      .replace('{amount}', fenToYuanFixed(r.refundAmount)),
+    confirmText: locale.t('campusMerchantAfterSales.retryBtn'),
+    cancelText: locale.t('campusMerchantAfterSales.cancel'),
+    success: async res => {
+      if (!res.confirm) return;
+      busyId.value = r.id;
+      try {
+        const updated = await campusMerchantAfterSalesRetryRefund(r.id);
+        uni.showToast({
+          title: updated.state === 'Refunded'
+            ? locale.t('campusMerchantAfterSales.toastRetryOk')
+            : locale.t('campusMerchantAfterSales.toastRetryPending'),
+          icon: 'none',
+        });
+        await reload();
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchantAfterSales.retryFailed')), icon: 'none' });
       } finally {
         busyId.value = '';
       }
@@ -450,9 +504,10 @@ onPullDownRefresh(async () => {
     .pill { padding: 8rpx 24rpx; border-radius: 999rpx; background: $wa-rule;
       text { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
     }
-    .seg { display: flex; gap: 12rpx; margin: 20rpx 0 8rpx;
-      .seg-i { flex: 1; text-align: center; font-size: 24rpx; color: $wa-muted;
-        padding: 12rpx 0; border-radius: $wa-radius; background: $wa-bg;
+    .flt { margin: 20rpx 0 8rpx; white-space: nowrap;
+      &__row { display: flex; gap: 12rpx; }
+      &__i { flex: none; font-size: 22rpx; color: $wa-muted;
+        padding: 10rpx 20rpx; border-radius: 999rpx; background: $wa-bg;
         &.on { background: $wa-accent; color: #fff; font-weight: 600; }
       }
     }
@@ -490,6 +545,11 @@ onPullDownRefresh(async () => {
           border: 1.5px solid $wa-rule; border-radius: 999rpx; padding: 10rpx 32rpx; }
         .op-approve { flex: 1; margin: 0; height: 68rpx; line-height: 68rpx; background: $wa-accent;
           color: #fff; font-size: 26rpx; border-radius: 999rpx; border: none;
+          &[disabled] { opacity: .6; }
+        }
+        .op-fail { flex: 1; font-size: 24rpx; color: #d4380d; line-height: 1.4; }
+        .op-retry { flex: none; margin: 0; height: 68rpx; line-height: 68rpx; padding: 0 32rpx;
+          background: #d4380d; color: #fff; font-size: 26rpx; border-radius: 999rpx; border: none;
           &[disabled] { opacity: .6; }
         }
       }

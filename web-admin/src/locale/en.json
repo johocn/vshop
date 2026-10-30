@@ -4039,6 +4039,12 @@
     "tip": "Refund requests submitted by customers in the mini program. Approving refunds to the original payment method; rejecting requires a reason (visible to the customer, who may appeal).",
     "emptyPending": "No pending after-sales requests",
     "emptyDone": "No handled after-sales requests",
+    "fltAll": "All",
+    "fltPending": "Pending",
+    "fltRefunded": "Refunded",
+    "fltRejected": "Rejected",
+    "fltFailed": "Refund failed",
+    "emptyFilter": "No requests in this category",
     "anonCustomer": "Customer",
     "evidence": "{n} photo(s)",
     "msgCount": "{n} message(s)",
@@ -4086,7 +4092,14 @@
     "detailSent": "Sent",
     "detailSendFailed": "Failed to send",
     "detailRequired": "Please enter a reply",
-    "detailReadonly": "This request is closed and read-only"
+    "detailReadonly": "This request is closed and read-only",
+    "retryBtn": "Retry refund",
+    "retryTitle": "Retry refund",
+    "retryBody": "Retry refunding ¥{amount} for order {code} to the original payment method?",
+    "retryFailHint": "Refund failed — retry or contact the customer",
+    "toastRetryOk": "Retry succeeded, refund completed",
+    "toastRetryPending": "Retry submitted, refund processing",
+    "retryFailed": "Retry failed"
   },
   "campusDispatch": {
     "loading": "Loading…",

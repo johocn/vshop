@@ -4037,6 +4037,12 @@
     "tip": "顾客在小程序提交退款申请后进入此列表；同意即原路退款到账，驳回须写理由（顾客可见并可申诉）。",
     "emptyPending": "暂无待处理的售后申请",
     "emptyDone": "暂无已处理的售后申请",
+    "fltAll": "全部",
+    "fltPending": "待处理",
+    "fltRefunded": "已退款",
+    "fltRejected": "已驳回",
+    "fltFailed": "退款失败",
+    "emptyFilter": "该分类暂无售后单",
     "anonCustomer": "顾客",
     "evidence": "凭证 {n} 张",
     "msgCount": "留言 {n} 条",
@@ -4084,7 +4090,14 @@
     "detailSent": "已发送",
     "detailSendFailed": "发送失败",
     "detailRequired": "请先输入回复内容",
-    "detailReadonly": "该售后已结束，仅可查看记录"
+    "detailReadonly": "该售后已结束，仅可查看记录",
+    "retryBtn": "重试退款",
+    "retryTitle": "重试退款",
+    "retryBody": "订单 {code} 的 ¥{amount} 将再次尝试原路退款，确认继续？",
+    "retryFailHint": "退款失败，可重试或联系顾客",
+    "toastRetryOk": "重试成功，退款已到账",
+    "toastRetryPending": "已提交重试，退款处理中",
+    "retryFailed": "重试失败"
   },
   "campusDispatch": {
     "loading": "加载中…",

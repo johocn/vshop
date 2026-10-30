@@ -4419,6 +4419,74 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页 → 「售后申请 ›」→ ① 点任意售后卡（待处理卡直接点卡片，已处理卡点右下「点击查看详情 ›」）；② 面板自上而下看单号/金额/状态、顾客与原因、凭证九宫格（点图放大）、处理进度时间线、协商记录；③ 待处理/申诉单在底部输入框写回复 → 「发送」→ 右侧出现商家气泡，列表「留言 n 条」同步 +1；④ 已退款、已驳回、退款失败、已关闭的单底部显示「该售后已结束，仅可查看记录」；⑤ 顾客在小程序「售后详情」看到同一条对话，可继续留言（商家与平台回复以左侧气泡展示）。
 
+## §84 售后异常收口（退款失败置顶 + 一键重试 + 状态筛选）
+
+### 84.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/merchant-after-sales.vue` | ① 顶部五档筛选（全部 / 待处理 / 已退款 / 已驳回 / 退款失败），横向可滚动；② 退款失败单**始终置顶**；③ 失败卡显示「退款失败，可重试或联系顾客」+ 红色「重试退款」按钮；④ 点击后确认弹窗写明订单号与金额，成功后 toast 并刷新列表 |
+| 后台 | `web-admin/src/apis/campus.ts` | 新增 `campusMerchantAfterSalesRetryRefund(id)`（mutation，返回售后行） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 13 条：5 个筛选项 + 空态 + 重试按钮/标题/正文/提示/三条结果文案 |
+| 截图 | `docs/screenshots/waimai/p84-after-sales-retry/` | 4 张：失败卡置顶带重试 / 确认弹窗 / 重试成功 toast / 筛选「退款失败」 |
+| 脚本 | `web-admin/scripts/shots-p84-after-sales-retry.cjs` | mock 5 单（2 失败 + 1 驳回 + 1 已退款 + 1 待处理），重试后把目标单改为已退款 |
+
+### 84.2 口径与契约
+
+```graphql
+mutation campusMerchantAfterSalesRetryRefund(id: ID!): CampusMerchantAfterSalesItem!
+```
+
+- **仅 `RefundFailed` 可重试**：其他状态由后端 `assertChannelAfterSales(ctx, id, ['RefundFailed'])` 挡回。
+- **30 秒冷却**：同一售后单 30 秒内再次点击 → `退款重试过于频繁，请 30 秒后再试`（内存记录，重启即清）。
+- **重试复用插件退款核心**（`AfterSalesService.retryRefund`，按剩余可退额度继续退），失败原文透传：`退款重试失败：<原因>`。
+- **筛选口径**：一次拉全量（`state: null`），前端按状态过滤；`退款失败` 一档等价 `state === 'RefundFailed'`。`退款失败` 在「全部 / 已退款」等任何视图里都排最前。
+- **失败原因**：列表卡只给结论提示，具体错误原文在详情面板「退款失败：<原因>」一行（§82 已实现）。
+
+### 84.3 权限与校验
+
+| 场景 | 结果 |
+|---|---|
+| 未登录 / 无 Bearer | `FORBIDDEN` |
+| 非本店售后 id | `售后单不存在或不属于当前店铺`（`USER_INPUT_ERROR`） |
+| 非 `RefundFailed` 状态重试 | `该售后申请已处理，不能重复操作`（`assertChannelAfterSales(ctx, id, ['RefundFailed'])`，实测 `Appealed` 单返回此文案） |
+| 30 秒内重复重试 | `退款重试过于频繁，请 30 秒后再试` |
+| 权限点 | `CampusMerchant`（与售后列表/同意/驳回一致） |
+
+### 84.4 数据库变更
+
+无（复用 `after_sales_request` 既有 `state` / `refundError` 字段与插件状态机）。
+
+### 84.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图脚本 | `01`：A2400006（¥32.50）/ A2400007（¥12.00）两条退款失败卡置顶，均带「重试退款」；`02`：点重试 → 弹窗「订单 A2400006 的 ¥32.50 将再次尝试原路退款，确认继续？」；`03`：确认后 A2400006 变「已退款」并显示「退款到账 21:38」，toast「重试成功，退款已到账」；`04`：切「退款失败」筛选项 → 列表只剩 A2400007 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上后端探针 | `login(superadmin)` 200 取得 Bearer；`campusMerchantAfterSales` → `total: 3 / pendingCount: 2`（`27 Appealed` / `26 Refunded` / `25 Pending`）；`campusMerchantAfterSalesRetryRefund(27)` → `USER_INPUT_ERROR 该售后申请已处理，不能重复操作`；`(99999)` → `售后单不存在或不属于当前店铺`；无 Bearer → `FORBIDDEN` |
+| 线上后台产物 | `pages-campus-merchant-after-sales.WFIR3QTG.js` 与 `merchant-after-sales-BvKf_MhX.css` 均含 `op-retry` / `flt__i`；`/guanli/`、该 chunk、该 css 均 HTTP 200 |
+
+> 生产库当前没有 `RefundFailed` 状态的售后单，**成功重试链路只在 mock 截图里验证**（真实重试需等出现退款失败的实例）。
+
+
+### 84.6 边界与已知限制
+
+- **分页「加载更多」未做**：售后列表后端仍只接受 `state`（无 `skip/take`/`totalItems`），超过 50 条时一次性全量返回；计划里的分页筛选留到后端补 `options` 参数后再接。
+- **重试冷却在进程内存**：多实例部署时每实例独立计时，且重启即清；真正的幂等兜底靠插件退款核心。
+- **筛选是前端过滤**：全量一次拉回后本地过滤，单店售后量级（数百条）可接受；量再大需改为服务端筛选 + 分页。
+- **失败原因不在列表**：列表项不返回 `refundError`，需点卡片进详情面板查看原文（避免列表接口字段膨胀）。
+
+### 84.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `campusMerchantAfterSalesRetryRefund` 随 `vendure` 提交 `afe94345c` 入库；服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env`（服务器 HEAD `95983386a`） | pm2 `vendure ✓ online`；`lib/src/merchant-admin.resolver.js` 含 `campusMerchantAfterSalesRetryRefund`；探针可用（见 84.5） |
+| 后台 | `node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61871 KB` → nginx `configuration ... test is successful` + reload → `deploy done`；线上 chunk 含新类名 |
+
+操作入口：商家工作台「商家接单」页 → 「售后申请 ›」→ ① 顶部筛选条选「退款失败」只看失败单（不选则失败单自动置顶）；② 失败卡点「重试退款」→ 弹窗核对订单号与金额 → 确认；③ 成功 toast「重试成功，退款已到账」，卡片转「已退款」，30 秒内再点会被拦下。
+
+
 
 
 
