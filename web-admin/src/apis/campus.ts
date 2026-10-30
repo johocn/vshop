@@ -916,6 +916,68 @@ export async function campusMerchantAfterSalesApprove(id: string): Promise<Merch
   return res.campusMerchantAfterSalesApprove;
 }
 
+/** 协商留言行（§82）：顾客与商家双向可见 */
+export interface MerchantAfterSalesMessage {
+  id: string;
+  /** customer=顾客 / admin=商家 */
+  senderType: string;
+  senderName: string;
+  content: string;
+  images: string[];
+  createdAt: string;
+}
+
+/** 状态流转时间线（§82 售后详情） */
+export interface MerchantAfterSalesHistory {
+  fromState: string | null;
+  toState: string;
+  createdAt: string;
+}
+
+/** 售后详情（§82）：售后单 + 协商留言 + 状态时间线 + 退款失败留痕 */
+export interface MerchantAfterSalesDetail {
+  request: MerchantAfterSalesRow;
+  messages: MerchantAfterSalesMessage[];
+  messageTotal: number;
+  stateHistory: MerchantAfterSalesHistory[];
+  refundError: string | null;
+  actualRefundAmount: number | null;
+  timeoutHours: number;
+}
+
+/** 售后详情（§82）：点开卡片后加载对话与时间线 */
+export async function campusMerchantAfterSalesDetail(id: string): Promise<MerchantAfterSalesDetail> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesDetail: MerchantAfterSalesDetail }>(
+    `query ($id: ID!) { campusMerchantAfterSalesDetail(id: $id) {
+      request { id orderId orderCode state type reason description refundAmount rejectReason
+        evidenceImages messageCount customerName createdAt refundedAt overdue }
+      messages { id senderType senderName content images createdAt }
+      messageTotal
+      stateHistory { fromState toState createdAt }
+      refundError actualRefundAmount timeoutHours
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesDetail;
+}
+
+/** 商家协商留言（§82）：与顾客 C 端售后详情双向互通，Closed 后禁言 */
+export async function campusMerchantAfterSalesReply(
+  id: string,
+  content: string,
+  images?: string[] | null,
+): Promise<MerchantAfterSalesMessage> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReply: MerchantAfterSalesMessage }>(
+    `mutation ($id: ID!, $content: String!, $images: [String!]) {
+      campusMerchantAfterSalesReply(id: $id, content: $content, images: $images) {
+        id senderType senderName content images createdAt
+      }
+    }`,
+    { id, content, images: images?.length ? images : null },
+  );
+  return res.campusMerchantAfterSalesReply;
+}
+
 /** 驳回售后（§81）：reason 必填，顾客 C 端可见 */
 export async function campusMerchantAfterSalesReject(id: string, reason: string): Promise<MerchantAfterSalesRow> {
   const res = await getAdminClient().request<{ campusMerchantAfterSalesReject: MerchantAfterSalesRow }>(
