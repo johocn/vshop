@@ -4486,6 +4486,61 @@ mutation campusMerchantAfterSalesRetryRefund(id: ID!): CampusMerchantAfterSalesI
 
 操作入口：商家工作台「商家接单」页 → 「售后申请 ›」→ ① 顶部筛选条选「退款失败」只看失败单（不选则失败单自动置顶）；② 失败卡点「重试退款」→ 弹窗核对订单号与金额 → 确认；③ 成功 toast「重试成功，退款已到账」，卡片转「已退款」，30 秒内再点会被拦下。
 
+## §85 备餐汇总实时刷新
+
+### 85.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 备餐汇总面板打开即起 10s 轮询；连续 3 次份数无变化降到 30s，一有变化立刻回 10s；面板顶部显示「自动刷新 · 刚刚更新 / n 秒前 / n 分钟前」；关闭面板或页面切后台即停，保留手动「刷新」 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 3 条：`prepJustNow` / `prepAgoSec` / `prepAgoMin` |
+| 截图 | `docs/screenshots/waimai/p85-prep-live/` | 3 张：面板首屏（刚刚更新）/ 11s 后自动刷新份数上涨（未点任何按钮）/ 手动刷新 |
+| 脚本 | `web-admin/scripts/shots-p85-prep-live.cjs` | mock `campusMerchantPrepSummary` 每次调用份数 +1~2，真实等待 11s 验证无需点击 |
+
+### 85.2 口径与实现
+
+- 复用 `campusMerchantPrepSummary`（§79），**无新增接口、无后端改动**。
+- 计时用 `setTimeout` 链而非 `setInterval`：上一轮返回才排下一轮，天然不会并发重复请求（另有 `prepInFlight` 兜底）。
+- 指纹只比 `商品名|待做份数|已出份数|加料条数`，避免整表 JSON 深比较；连续 3 次相同 → 降频到 30s。
+- 相对时间文案由 1s 心跳 `prepTick` 驱动，只更新文字不发请求。
+- 轮询失败静默（不弹 toast 干扰后厨），计入「无变化」次数并继续降频；手动「刷新」立即拉取并重置计数。
+
+### 85.3 校验与边界
+
+| 场景 | 行为 |
+|---|---|
+| 面板打开 | 首屏 `loadPrep()` 立刻拉一次，随后 10s 一次 |
+| 面板关闭 / 页面卸载 | `stopPrepLive()` 清 `setTimeout` + 心跳，Network 归零 |
+| H5 标签页隐藏 | 该轮跳过请求，10s 后再判断（等价暂停） |
+| 连续 3 轮份数不变 | 间隔切 30s；任一商品份数变化立刻回 10s |
+| 请求挂起 | `prepInFlight` 拦住下一轮，不会叠加 |
+
+### 85.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 打开面板：`宫保鸡丁 ×3 / 香菇滑鸡饭 ×2 / 凉拌黄瓜 ×1`，顶部「自动刷新 · 刚刚更新」 |
+| 截图 02 | 不点任何按钮等 11s：份数变 `×5 / ×3 / ×2`（mock 每次 +1~2），文案仍「刚刚更新」——证明 10s 轮询生效 |
+| 截图 03 | 点「刷新」后 `×7 / ×4 / ×3`，节流计数重置 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上产物 | `pages-campus-merchant.C9SUmEht.js` + `merchant-CUB91zZE.css` 含 `ps-sync` |
+
+### 85.5 边界与限制
+
+- 面板只在前台可见时轮询；**工作台自身的 10s board 轮询不受影响**，两者叠加后单店每分钟约 8~12 次轻查询，可接受。
+- 降频只降「份数无变化」的面板轮询，board 仍是固定 10s（新单提醒不能被拖慢）。
+
+### 85.6 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61873 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200，chunk 含 `ps-sync` |
+
+操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部会显示「自动刷新 · 刚刚更新」，新单进来后份数自己涨（最多 10s 延迟）；后厨长时间无新单时自动降为 30s 一次；关掉面板即停止请求。
+
+
 
 
 

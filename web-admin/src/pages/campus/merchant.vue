@@ -267,6 +267,8 @@
             <text class="ps-close" @tap="prepOpen = false">✕</text>
           </view>
           <text class="ps-hint">{{ $t('campusMerchant.prepHint') }}</text>
+          <!-- 自动刷新状态（§85）：面板打开时轮询，连续无变化自动降频 -->
+          <text v-if="prepSyncText" class="ps-sync">{{ prepSyncText }}</text>
           <view v-if="prepBusy && !prepItems.length" class="ps-empty">{{ $t('campusMerchant.loading') }}</view>
           <view v-else-if="!prepItems.length" class="ps-empty">{{ $t('campusMerchant.prepEmpty') }}</view>
           <scroll-view v-else class="ps-list" scroll-y>
@@ -1004,16 +1006,102 @@ const prepOpen = ref(false);
 const prepBusy = ref(false);
 const prepItems = ref<CampusPrepItem[]>([]);
 
+/**
+ * 备餐汇总自动刷新（§85）：面板打开时 10s 轮询；连续 3 次份数无变化降到 30s，
+ * 一有变化立刻回到 10s；关闭面板 / 页面切后台即停，避免空转。
+ */
+const PREP_FAST_MS = 10_000;
+const PREP_SLOW_MS = 30_000;
+const PREP_SILENT_LIMIT = 3;
+let prepTimer: ReturnType<typeof setTimeout> | null = null;
+let prepTickTimer: ReturnType<typeof setInterval> | null = null;
+let prepSilent = 0;
+let prepInFlight = false;
+/** 最近一次成功拉到数据的时间（ms），驱动「刚刚更新 / n 秒前」文案 */
+const prepSyncAt = ref(0);
+const prepTick = ref(0);
+
+const prepSyncText = computed(() => {
+  void prepTick.value;
+  if (!prepSyncAt.value) return '';
+  const sec = Math.max(0, Math.floor((Date.now() - prepSyncAt.value) / 1000));
+  if (sec < 5) return locale.t('campusMerchant.prepJustNow');
+  if (sec < 60) return locale.t('campusMerchant.prepAgoSec').replace('{n}', String(sec));
+  return locale.t('campusMerchant.prepAgoMin').replace('{n}', String(Math.floor(sec / 60)));
+});
+
+/** 份数指纹：只比对份数/加料数量，避免整表 JSON 比较的开销 */
+function prepSignature(): string {
+  return prepItems.value.map(it => `${it.name}|${it.todoQty}|${it.doneQty}|${it.addons.length}`).join(';');
+}
+
+function schedulePrep(delay: number): void {
+  if (prepTimer) clearTimeout(prepTimer);
+  prepTimer = setTimeout(() => {
+    prepTimer = null;
+    if (!prepOpen.value) return;
+    // 页面切到后台（H5 标签页隐藏）暂停一轮，回来立刻拉
+    if (typeof document !== 'undefined' && document.hidden) {
+      schedulePrep(PREP_FAST_MS);
+      return;
+    }
+    void pollPrep();
+  }, delay);
+}
+
+/** 轮询一轮：上一次未返回不发下一次；失败静默（不打扰商家，等手动刷新或下一轮） */
+async function pollPrep(): Promise<void> {
+  if (prepInFlight) {
+    schedulePrep(PREP_FAST_MS);
+    return;
+  }
+  prepInFlight = true;
+  const before = prepSignature();
+  try {
+    prepItems.value = await campusMerchantPrepSummary();
+    prepSyncAt.value = Date.now();
+    prepSilent = prepSignature() === before ? prepSilent + 1 : 0;
+  } catch {
+    prepSilent += 1;
+  } finally {
+    prepInFlight = false;
+    schedulePrep(prepSilent >= PREP_SILENT_LIMIT ? PREP_SLOW_MS : PREP_FAST_MS);
+  }
+}
+
+function startPrepLive(): void {
+  prepSilent = 0;
+  prepSyncAt.value = Date.now();
+  if (prepTickTimer) clearInterval(prepTickTimer);
+  // 1s 心跳只更新相对时间文案，不发请求
+  prepTickTimer = setInterval(() => { prepTick.value += 1; }, 1000);
+  schedulePrep(PREP_FAST_MS);
+}
+
+function stopPrepLive(): void {
+  if (prepTimer) { clearTimeout(prepTimer); prepTimer = null; }
+  if (prepTickTimer) { clearInterval(prepTickTimer); prepTickTimer = null; }
+}
+
 async function loadPrep(): Promise<void> {
   prepBusy.value = true;
   try {
     prepItems.value = await campusMerchantPrepSummary();
+    prepSyncAt.value = Date.now();
+    prepSilent = 0;
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
   } finally {
     prepBusy.value = false;
+    // 手动刷新后重置节流，并重启一轮 10s 计时
+    if (prepOpen.value) schedulePrep(PREP_FAST_MS);
   }
 }
+
+watch(prepOpen, (open) => {
+  if (open) startPrepLive();
+  else stopPrepLive();
+});
 
 function openPrep(): void {
   prepOpen.value = true;
@@ -1239,6 +1327,8 @@ onUnmounted(() => {
   timer = null;
   if (reconnectTimer) clearInterval(reconnectTimer);
   reconnectTimer = null;
+  // 备餐面板轮询随页面卸载一起停（§85）
+  stopPrepLive();
   if (typeof window !== 'undefined') window.removeEventListener('pointerdown', unlockAudio);
 });
 </script>
@@ -1272,6 +1362,7 @@ onUnmounted(() => {
         .ps-close { font-size: 32rpx; color: $wa-muted; padding: 0 8rpx; }
       }
       .ps-hint { font-size: 22rpx; color: $wa-muted; line-height: 1.6; margin-bottom: 16rpx; }
+      .ps-sync { display: block; font-size: 21rpx; color: $wa-accent; margin-bottom: 14rpx; }
       .ps-empty { font-size: 24rpx; color: $wa-muted; text-align: center; padding: 48rpx 0; }
       .ps-list { flex: 1; min-height: 200rpx; max-height: 50vh;
         .ps-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0;
