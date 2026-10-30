@@ -4595,6 +4595,48 @@ campusMerchantBoard {
 
 操作入口：商家工作台「商家接单」页 → 顶部「今日待办」条 → 点「售后 2」跳售后列表（退款失败单已置顶）、点「催单 1」跳有催单的订单栏、点「出餐超时 1」进出餐屏；全部处理完后整条自动消失。
 
+## §86 每日日报推送（前端先行，后端未上线）
+
+### 86.1 交付清单（本批次只做前端）
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/apis/campus.ts` | `MerchantStoreProfile` 增 `dailyPushEnabled / dailyPushTime`；`STORE_PROFILE_FIELDS` 补两字段；新增 `campusMerchantUpdateDailyPush(enabled, time)` |
+| 后台 | `web-admin/src/pages/campus/store-settings.vue` | 新增「每日日报推送」卡片：开关 + 开启后展开「推送时间」（默认 21:30）+ 说明 + 「保存推送设置」；`applyProfile` 回填开关与时间 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 8 条：`dailyPushTitle/Toggle/Desc/TimeLabel/TimeHint/Save/Saved/BadTime` |
+| 截图 | `docs/screenshots/waimai/p86-daily-push/` | 3 张：关闭态 / 开启态（时间 21:30）/ 填 `2130` 保存被拦并提示 |
+| 脚本 | `web-admin/scripts/shots-p86-daily-push.cjs` | mock 门店资料 + 推送保存 mutation |
+
+### 86.2 契约（前端已按此形状调用）
+
+```graphql
+mutation { campusMerchantUpdateDailyPush(enabled: Boolean!, time: String) { ...MerchantStoreProfile } }
+type MerchantStoreProfile { ... dailyPushEnabled: Boolean! dailyPushTime: String! }
+```
+
+### 86.3 校验与边界
+
+- 时间用 `^([01]\d|2[0-3]):[0-5]\d$` 前端先拦，非法直接 toast「时间格式应为 HH:MM（如 21:30）」，不发请求。
+- 关闭开关时时间框隐藏、时间不参与校验，保存传 `enabled:false`。
+- 保存成功后用 `applyProfile(p, false)` 只回填开关/时间，不覆盖正在编辑的公告与电话。
+
+### 86.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 关闭态：标题「每日日报推送」、说明文案、`保存推送设置`，无时间框 |
+| 截图 02 | 点开关：开关变橙、展开「推送时间 = 21:30」、出现时间格式说明 |
+| 截图 03 | 填 `2130` 点保存：弹 toast「时间格式应为 HH:MM（如 21:30）」，未发请求 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+
+### 86.5 为什么没部署（重要）
+
+- 后端 `campusMerchantBoard/storeProfile` 目前**没有** `dailyPushEnabled / dailyPushTime` 字段，`campusMerchantUpdateDailyPush` mutation 也不存在（`git grep dailyPush origin/master` 无命中）。
+- 本批次前端一旦部署，经营设置页的 `campusMerchantStoreProfile` 查询会因「Cannot query field」整页加载失败，所以**只提交代码、不构建部署**。
+- 后端待补：新 job `daily-report-push.job.ts`（每 30 分钟扫到点渠道）+ Channel customFields（`dailyPushEnabled/dailyPushTime/dailyPushLastDate`）+ `campusMerchantUpdateDailyPush`；上表前端无需再改。
+
+
 
 
 

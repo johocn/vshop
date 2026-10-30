@@ -321,6 +321,10 @@ export interface MerchantStoreProfile {
   nextTransition: CampusBusinessTransition | null;
   /** 未出餐订单数（§71）：待接单 + 备餐中 */
   unfinishedOrders: number;
+  /** 每日日报推送开关（§86）：营业结束后把昨日日报推到商家群 */
+  dailyPushEnabled: boolean;
+  /** 日报推送时间 HH:MM（默认 21:30） */
+  dailyPushTime: string;
 }
 
 /** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
@@ -566,7 +570,8 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
 
 const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow'
   + ' closedToday closureNote closureDates { date note }'
-  + ' nextTransition { action at inMinutes today } unfinishedOrders';
+  + ' nextTransition { action at inMinutes today } unfinishedOrders'
+  + ' dailyPushEnabled dailyPushTime';
 
 /** 商家自助经营：门店资料 */
 export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {
@@ -595,6 +600,22 @@ export async function campusMerchantUpdateStore(input: {
     },
   );
   return res.campusMerchantUpdateStore;
+}
+
+/** 每日日报推送设置（§86）：enabled=开关，time=HH:MM（留空沿用 21:30） */
+export async function campusMerchantUpdateDailyPush(input: {
+  enabled: boolean;
+  time?: string | null;
+}): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateDailyPush: MerchantStoreProfile }>(
+    `mutation ($enabled: Boolean!, $time: String) {
+      campusMerchantUpdateDailyPush(enabled: $enabled, time: $time) {
+        ${STORE_PROFILE_FIELDS}
+      }
+    }`,
+    { enabled: input.enabled, time: input.time ?? null },
+  );
+  return res.campusMerchantUpdateDailyPush;
 }
 
 /** 营业日历（§70）：整表覆盖保存休业日期；date=YYYY-MM-DD，note 可选，传空数组=清空 */
