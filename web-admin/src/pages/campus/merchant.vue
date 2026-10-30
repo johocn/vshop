@@ -38,6 +38,12 @@
         <text class="e-lbl">{{ $t('campusMerchant.kitchenEntry') }}</text>
         <text class="e-chev">›</text>
       </view>
+
+      <!-- 备餐汇总（§79）：今日各商品待做/已做份数，按份备料并一键复制清单 -->
+      <view class="entrybar" @tap="openPrep">
+        <text class="e-lbl">{{ $t('campusMerchant.prepEntry') }}</text>
+        <text class="e-chev">›</text>
+      </view>
       <!-- 退款记录台账（§77）：区间退款明细 + 汇总，与对账页退款同口径 -->
       <view class="entrybar" @tap="goRefundRecords">
         <text class="e-lbl">{{ $t('campusMerchant.refundRecordsEntry') }}</text>
@@ -243,6 +249,34 @@
           </view>
         </view>
       </view>
+      <!-- 备餐汇总面板（§79）：待做份数 + 加料份数，底部一键复制备货清单 -->
+      <view v-if="prepOpen" class="prep-mask" @tap="prepOpen = false">
+        <view class="prep-sheet" @tap.stop>
+          <view class="ps-head">
+            <text class="ps-title">{{ $t('campusMerchant.prepTitle') }}</text>
+            <text class="ps-close" @tap="prepOpen = false">✕</text>
+          </view>
+          <text class="ps-hint">{{ $t('campusMerchant.prepHint') }}</text>
+          <view v-if="prepBusy && !prepItems.length" class="ps-empty">{{ $t('campusMerchant.loading') }}</view>
+          <view v-else-if="!prepItems.length" class="ps-empty">{{ $t('campusMerchant.prepEmpty') }}</view>
+          <scroll-view v-else class="ps-list" scroll-y>
+            <view v-for="it in prepItems" :key="it.name" class="ps-row">
+              <view class="ps-main">
+                <text class="ps-name">{{ it.name }}</text>
+                <text v-if="it.addons.length" class="ps-addons">{{ addonText(it) }}</text>
+              </view>
+              <view class="ps-qty">
+                <text class="ps-todo">×{{ it.todoQty }}</text>
+                <text class="ps-done">{{ $t('campusMerchant.prepDoneTag').replace('{n}', String(it.doneQty)) }}</text>
+              </view>
+            </view>
+          </scroll-view>
+          <view class="ps-foot">
+            <button class="ps-btn ghost" :disabled="prepBusy" @tap="loadPrep">{{ $t('campusMerchant.prepRefresh') }}</button>
+            <button class="ps-btn" :disabled="!prepItems.length" @tap="copyPrep">{{ $t('campusMerchant.prepCopy') }}</button>
+          </view>
+        </view>
+      </view>
       <!-- 退款面板（§77）：与对账页共用组件（同一套校验 + 同一 mutation） -->
       <RefundSheet :open="refundOpen" :target="refundTarget" @close="refundOpen = false" @done="onRefundDone" />
     </template>
@@ -267,9 +301,11 @@ import {
   campusMerchantMarkHandoverArrived,
   campusMerchantMarkOwnedArrived,
   campusMerchantMarkPrinted,
+  campusMerchantPrepSummary,
   campusMerchantRejectOrder,
   campusMerchantSetPaused,
   type CampusMerchantBoard,
+  type CampusPrepItem,
   type MerchantBoardOrder,
   type MerchantCompletedOrder,
 } from '../../apis/campus';
@@ -943,6 +979,43 @@ async function onRefundDone(): Promise<void> {
   await loadRecentDone();
 }
 
+/** 备餐汇总（§79）：今日商品份数聚合，打开面板时才拉取（不参与 10s 看板轮询） */
+const prepOpen = ref(false);
+const prepBusy = ref(false);
+const prepItems = ref<CampusPrepItem[]>([]);
+
+async function loadPrep(): Promise<void> {
+  prepBusy.value = true;
+  try {
+    prepItems.value = await campusMerchantPrepSummary();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    prepBusy.value = false;
+  }
+}
+
+function openPrep(): void {
+  prepOpen.value = true;
+  void loadPrep();
+}
+
+/** 加料/口味份数文案：加辣 ×3 · 多花生 ×1 */
+function addonText(it: CampusPrepItem): string {
+  return it.addons.map(a => `${a.name} ×${a.quantity}`).join(' · ');
+}
+
+/** 复制备货清单：一行一商品，含待做份数与今日已出参考（便于估算续做量） */
+function copyPrep(): void {
+  const head = locale.t('campusMerchant.prepCopyTitle');
+  const lines = prepItems.value.map(it =>
+    `${it.name} ×${it.todoQty}` + (it.doneQty > 0 ? `（已出 ${it.doneQty}）` : ''));
+  uni.setClipboardData({
+    data: [head, ...lines].join('\n'),
+    success: () => uni.showToast({ title: locale.t('campusMerchant.prepCopied'), icon: 'none' }),
+  });
+}
+
 async function toggleOpen() {
   const next = !board.value.paused;
   try {
@@ -1168,6 +1241,38 @@ onUnmounted(() => {
     padding: 20rpx 28rpx; margin-bottom: 20rpx;
     .e-lbl { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 600; }
     .e-chev { font-size: 32rpx; color: $wa-muted; }
+  }
+  // 备餐汇总面板（§79）：底部弹出，列表滚动，商品份数 + 加料份数
+  .prep-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45);
+    z-index: 900; display: flex; align-items: flex-end;
+    .prep-sheet { width: 100%; max-height: 76vh; background: $wa-card; border-radius: 28rpx 28rpx 0 0;
+      padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); display: flex; flex-direction: column;
+      .ps-head { display: flex; align-items: center; margin-bottom: 12rpx;
+        .ps-title { flex: 1; font-size: 30rpx; color: $wa-ink; font-weight: 700; }
+        .ps-close { font-size: 32rpx; color: $wa-muted; padding: 0 8rpx; }
+      }
+      .ps-hint { font-size: 22rpx; color: $wa-muted; line-height: 1.6; margin-bottom: 16rpx; }
+      .ps-empty { font-size: 24rpx; color: $wa-muted; text-align: center; padding: 48rpx 0; }
+      .ps-list { flex: 1; min-height: 200rpx; max-height: 50vh;
+        .ps-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0;
+          border-bottom: 1px solid $wa-rule;
+          .ps-main { flex: 1; display: flex; flex-direction: column; gap: 6rpx;
+            .ps-name { font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+            .ps-addons { font-size: 21rpx; color: $wa-muted; }
+          }
+          .ps-qty { display: flex; flex-direction: column; align-items: flex-end; gap: 4rpx;
+            .ps-todo { font-size: 30rpx; color: $wa-ink; font-weight: 700; }
+            .ps-done { font-size: 20rpx; color: $wa-muted; }
+          }
+        }
+      }
+      .ps-foot { display: flex; gap: 16rpx; margin-top: 20rpx;
+        .ps-btn { flex: 1; font-size: 26rpx; border-radius: 999rpx; background: $wa-accent; color: #fff;
+          &[disabled] { opacity: 0.5; }
+          &.ghost { background: $wa-rule; color: $wa-ink; }
+        }
+      }
+    }
   }
   .clockbar { background: #fff7e6; border: 1.5px solid #fa8c16; border-radius: $wa-radius;
     padding: 14rpx 24rpx; margin-bottom: 20rpx;
