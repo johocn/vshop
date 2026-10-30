@@ -295,6 +295,12 @@ export interface CampusMerchantBoard {
   unfinishedOrders: number;
   /** 待处理顾客催单数（§78） */
   urgedCount: number;
+  /** 待处理售后单数（§83 今日待办）：Pending + Appealed */
+  afterSalesPending: number;
+  /** 退款失败售后单数（§83 今日待办）：需商家人工重试 */
+  refundFailed: number;
+  /** 出餐超时订单数（§83 今日待办）：待接单/备餐中等待 ≥25 分钟 */
+  overdueOrders: number;
 }
 
 /** 商家自助经营：门店资料（营业时间/公告/电话/营业状态） */
@@ -352,6 +358,7 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
       merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
       closedToday closureNote unfinishedOrders
       urgedCount
+      afterSalesPending refundFailed overdueOrders
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }

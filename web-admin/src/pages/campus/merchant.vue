@@ -15,6 +15,16 @@
           <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : (board.openNow ? $t('campusMerchant.open') : $t('campusMerchant.closedByHours')) }}</text>
         </view>
       </view>
+      <!-- 今日待办（§83）：售后 / 催单 / 退款失败 / 超时，数字为 0 的项不显示，全 0 时整条不占位 -->
+      <view v-if="todoChips.length" class="todobar">
+        <text class="t-lbl">{{ $t('campusMerchant.todoTitle') }}</text>
+        <view class="t-chips">
+          <text
+            v-for="c in todoChips" :key="c.key" class="t-chip"
+            :class="{ warn: c.warn }" @tap="goTodo(c.key)"
+          >{{ c.label }} {{ c.n }}</text>
+        </view>
+      </view>
       <!-- 休业日未出餐提醒（§71）：休业当天仍有待接单/备餐中订单，点击直达对应栏 -->
       <view v-if="board.closedToday && board.unfinishedOrders > 0" class="closedbar" @tap="goUnfinished">
         <text class="c-lbl">{{ closedUnfinishedText }}</text>
@@ -52,11 +62,13 @@
       <!-- 售后申请（§81）：顾客 C 端提交的退款申请，商家同意即退款到账 / 驳回填理由 -->
       <view class="entrybar" @tap="goAfterSales">
         <text class="e-lbl">{{ $t('campusMerchant.afterSalesEntry') }}</text>
+        <text v-if="board.afterSalesPending > 0" class="e-badge">{{ board.afterSalesPending }}</text>
         <text class="e-chev">›</text>
       </view>
       <!-- 退款记录台账（§77）：区间退款明细 + 汇总，与对账页退款同口径 -->
       <view class="entrybar" @tap="goRefundRecords">
         <text class="e-lbl">{{ $t('campusMerchant.refundRecordsEntry') }}</text>
+        <text v-if="board.refundFailed > 0" class="e-badge">{{ board.refundFailed }}</text>
         <text class="e-chev">›</text>
       </view>
       <view class="voicebar">
@@ -402,6 +414,24 @@ const closedUnfinishedText = computed(() =>
     .replace('{note}', board.value.closureNote ? `（${board.value.closureNote}）` : '')
     .replace('{n}', String(board.value.unfinishedOrders)),
 );
+
+/** 今日待办（§83）：计数为 0 的项不显示；退款失败/出餐超时标红优先 */
+const todoChips = computed(() => {
+  const b = board.value;
+  const chips: Array<{ key: string; label: string; n: number; warn?: boolean }> = [];
+  if (b.afterSalesPending > 0) chips.push({ key: 'afterSales', label: locale.t('campusMerchant.todoAfterSales'), n: b.afterSalesPending });
+  if (b.urgedCount > 0) chips.push({ key: 'urged', label: locale.t('campusMerchant.todoUrged'), n: b.urgedCount });
+  if (b.refundFailed > 0) chips.push({ key: 'refundFailed', label: locale.t('campusMerchant.todoRefundFailed'), n: b.refundFailed, warn: true });
+  if (b.overdueOrders > 0) chips.push({ key: 'overdue', label: locale.t('campusMerchant.todoOverdue'), n: b.overdueOrders, warn: true });
+  return chips;
+});
+
+/** 待办项跳转：售后/退款失败 → 售后列表（失败单置顶），催单 → 对应栏，超时 → 出餐屏 */
+function goTodo(key: string) {
+  if (key === 'afterSales' || key === 'refundFailed') return goAfterSales();
+  if (key === 'urged') return goUrged();
+  return goKitchen();
+}
 
 /** 点击休业提醒：跳到有未出餐订单的栏（优先待接单） */
 function goUnfinished() {
@@ -1350,7 +1380,20 @@ onUnmounted(() => {
   .entrybar { display: flex; align-items: center; background: $wa-card; border-radius: $wa-radius;
     padding: 20rpx 28rpx; margin-bottom: 20rpx;
     .e-lbl { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+    // 入口角标（§83）：待处理数量，红底白字
+    .e-badge { min-width: 32rpx; padding: 0 10rpx; height: 32rpx; line-height: 32rpx; text-align: center;
+      border-radius: 999rpx; background: #d4380d; color: #fff; font-size: 20rpx; font-weight: 700;
+      margin-right: 10rpx; }
     .e-chev { font-size: 32rpx; color: $wa-muted; }
+  }
+  // 今日待办条（§83）：一行 chip，数量 0 的项不渲染
+  .todobar { display: flex; align-items: center; gap: 14rpx; background: $wa-card;
+    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx;
+    .t-lbl { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
+    .t-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 10rpx; }
+    .t-chip { font-size: 22rpx; color: $wa-accent; background: #fff3e8;
+      border-radius: 999rpx; padding: 8rpx 18rpx; font-weight: 600;
+      &.warn { color: #d4380d; background: #ffece8; } }
   }
   // 备餐汇总面板（§79）：底部弹出，列表滚动，商品份数 + 加料份数
   .prep-mask { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45);
