@@ -121,6 +121,24 @@
         </button>
       </view>
 
+      <!-- 每日日报推送（§86）：营业结束后把昨日日报推到商家群，商家不开后台也知道卖了多少 -->
+      <view class="card">
+        <text class="title">{{ $t('campusStoreSettings.dailyPushTitle') }}</text>
+        <view class="row">
+          <text class="row-lbl">{{ $t('campusStoreSettings.dailyPushToggle') }}</text>
+          <switch class="sw" :checked="dailyForm.enabled" :disabled="dailyBusy" color="#ff6600" @change="onDailyPushToggle" />
+        </view>
+        <view v-if="dailyForm.enabled" class="field">
+          <text class="row-lbl">{{ $t('campusStoreSettings.dailyPushTimeLabel') }}</text>
+          <input v-model="dailyForm.time" class="ipt" type="text" placeholder="21:30" />
+          <text class="tip">{{ $t('campusStoreSettings.dailyPushTimeHint') }}</text>
+        </view>
+        <text class="tip">{{ $t('campusStoreSettings.dailyPushDesc') }}</text>
+        <button class="save small" :disabled="dailyBusy" @tap="saveDailyPush">
+          {{ dailyBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.dailyPushSave') }}
+        </button>
+      </view>
+
       <!-- 门店信息：公告 / 电话（C 端店铺页直接展示） -->
       <view class="card">
         <text class="title">{{ $t('campusStoreSettings.infoTitle') }}</text>
@@ -203,6 +221,7 @@ import {
   campusMerchantSetPaused,
   campusMerchantStoreProfile,
   campusMerchantUpdateAutoAccept,
+  campusMerchantUpdateDailyPush,
   campusMerchantUpdateStore,
   type CampusMerchantAutoAccept,
   type MerchantRevenue,
@@ -231,6 +250,9 @@ const paused = ref(false);
 const revenue = ref<MerchantRevenue | null>(null);
 const range = ref<'today' | 'last7'>('today');
 const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
+/** 每日日报推送（§86）：开关 + HH:MM 时间，保存走 campusMerchantUpdateDailyPush */
+const dailyBusy = ref(false);
+const dailyForm = ref({ enabled: false, time: '21:30' });
 const warnOn = ref(closingWarnEnabled());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -389,6 +411,9 @@ const closurePillText = computed(() => {
 function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
   profile.value = p;
   paused.value = p.paused;
+  // 日报推送（§86）：与门店资料同源回填，避免开关状态和后台不一致
+  dailyForm.value.enabled = !!p.dailyPushEnabled;
+  dailyForm.value.time = p.dailyPushTime || '21:30';
   if (syncForm) {
     form.value.businessHours = p.businessHours ?? '';
     form.value.storeNotice = p.storeNotice ?? '';
@@ -456,6 +481,30 @@ function toggleAutoRoute(code: string): void {
     return;
   }
   autoForm.value.routes = picked;
+}
+
+/** 日报推送开关（§86）：只切本地态，点「保存推送设置」才落库 */
+function onDailyPushToggle(e: any): void {
+  dailyForm.value.enabled = !!(e?.detail?.value ?? e?.detail?.checked);
+}
+
+/** 保存日报推送设置：时间格式 HH:MM，非法直接提示（与服务端校验口径一致） */
+async function saveDailyPush(): Promise<void> {
+  const time = dailyForm.value.time.trim();
+  if (dailyForm.value.enabled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    uni.showToast({ title: locale.t('campusStoreSettings.dailyPushBadTime'), icon: 'none' });
+    return;
+  }
+  dailyBusy.value = true;
+  try {
+    const p = await campusMerchantUpdateDailyPush({ enabled: dailyForm.value.enabled, time: time || null });
+    applyProfile(p, false);
+    uni.showToast({ title: locale.t('campusStoreSettings.dailyPushSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.saveFail')), icon: 'none' });
+  } finally {
+    dailyBusy.value = false;
+  }
 }
 
 /** 保存延迟/上限/范围：越界直接提示，不在本地静默截断（与服务端校验口径一致） */
