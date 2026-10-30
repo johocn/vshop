@@ -20,6 +20,11 @@
         <text class="c-lbl">{{ closedUnfinishedText }}</text>
         <text class="c-chev">›</text>
       </view>
+      <!-- 顾客催单提醒（§78）：顾客点了「催一催」但商家还没确认，点一下直达有催单的栏 -->
+      <view v-if="board.urgedCount > 0" class="urgebar" @tap="goUrged">
+        <text class="u-lbl">{{ $t('campusMerchant.urgeBar').replace('{n}', String(board.urgedCount)) }}</text>
+        <text class="c-chev">›</text>
+      </view>
       <!-- 营业时间自动开关门：下次开门/打烊倒计时；打烊前 15 分钟标橙 -->
       <view v-if="clockText" class="clockbar" :class="{ warn: closingSoon }">
         <text>{{ clockText }}</text>
@@ -151,6 +156,12 @@
             <text class="time">{{ hhmm(o.createdAt) }}</text>
             <text v-if="o.route" class="route">{{ o.route }}</text>
           </view>
+          <!-- 顾客催单（§78）：商家确认「已知晓」后解除；顾客再次催单会重新出现 -->
+          <view v-if="o.urged" class="urge-row">
+            <text class="urge-tag">{{ $t('campusMerchant.urgeTag') }}</text>
+            <text v-if="o.urgedAt" class="urge-time">{{ $t('campusMerchant.urgeAt').replace('{t}', hhmm(o.urgedAt)) }}</text>
+            <button class="urge-ack" :disabled="actingId === o.id" @tap="ackUrge(o)">{{ $t('campusMerchant.urgeAck') }}</button>
+          </view>
           <view v-if="o.provider || o.thirdPartyNo" class="row ext">
             <text class="ext-txt">{{ providerLabel(o.provider) }}</text>
             <text v-if="o.thirdPartyNo" class="ext-no">{{ o.thirdPartyNo }}</text>
@@ -243,6 +254,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   campusMerchantAcceptOrder,
   campusMerchantAcceptOwned,
+  campusMerchantAckUrge,
   campusMerchantBatchAcceptOrders,
   campusMerchantBatchCookingDoneOrders,
   campusMerchantBoard,
@@ -313,6 +325,7 @@ const board = ref<CampusMerchantBoard>({
   closedToday: false,
   closureNote: null,
   unfinishedOrders: 0,
+  urgedCount: 0,
 });
 const tab = ref<TabKey>('pending');
 // 批量接单/出餐（§73）：只有待接单/备餐中可多选；换栏清空，避免跨栏误操作
@@ -345,6 +358,29 @@ const closedUnfinishedText = computed(() =>
 /** 点击休业提醒：跳到有未出餐订单的栏（优先待接单） */
 function goUnfinished() {
   tab.value = board.value.pending.length ? 'pending' : 'cooking';
+}
+
+/** 点击催单提醒（§78）：跳到第一个含待处理催单的栏 */
+function goUrged() {
+  for (const t of TABS) {
+    if (listOf(t.key).some(o => o.urged)) { switchTab(t.key); return; }
+  }
+}
+
+/** 商家确认已看到顾客催单（§78）：仅解除本店提醒，骑手端催单标记不受影响 */
+async function ackUrge(o: MerchantBoardOrder) {
+  if (actingId.value) return;
+  actingId.value = o.id;
+  try {
+    await campusMerchantAckUrge(o.id);
+    o.urged = false;
+    board.value.urgedCount = Math.max(0, board.value.urgedCount - 1);
+    uni.showToast({ title: locale.t('campusMerchant.urgeAcked'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.opFailed')), icon: 'none' });
+  } finally {
+    actingId.value = '';
+  }
 }
 
 // ===== 小票打印（C-Lodop）=====
@@ -1143,6 +1179,12 @@ onUnmounted(() => {
     .c-lbl { flex: 1; font-size: 25rpx; color: #cf1322; font-weight: 700; line-height: 1.5; }
     .c-chev { font-size: 32rpx; color: #cf1322; font-weight: 700; }
   }
+  // 顾客催单提醒（§78）：蓝色区分于休业红条，点击直达有催单的栏
+  .urgebar { display: flex; align-items: center; gap: 12rpx; background: #e6f4ff;
+    border: 1.5px solid #1677ff; border-radius: $wa-radius; padding: 18rpx 24rpx; margin-bottom: 20rpx;
+    .u-lbl { flex: 1; font-size: 25rpx; color: #0958d9; font-weight: 700; line-height: 1.5; }
+    .c-chev { font-size: 32rpx; color: #0958d9; font-weight: 700; }
+  }
   .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;
     .v-lbl { flex: 1; font-size: 24rpx; color: $wa-muted; }
@@ -1264,6 +1306,15 @@ onUnmounted(() => {
       .time { font-size: 24rpx; color: $wa-muted; }
       .route { font-size: 20rpx; color: $wa-accent; border: 1px solid $wa-accent;
         border-radius: 8rpx; padding: 2rpx 10rpx; }
+    }
+    // 顾客催单行（§78）：蓝色标签 + 催单时间 + 「已知晓」按钮
+    .urge-row { padding-top: 12rpx; display: flex; align-items: center; gap: 12rpx;
+      .urge-tag { font-size: 22rpx; color: #fff; background: #1677ff; border-radius: 8rpx;
+        padding: 2rpx 12rpx; font-weight: 600; }
+      .urge-time { flex: 1; font-size: 22rpx; color: #0958d9; }
+      .urge-ack { margin: 0; flex: none; height: 52rpx; line-height: 52rpx; padding: 0 20rpx;
+        background: #1677ff; color: #fff; font-size: 22rpx; border-radius: 999rpx; border: none;
+        &[disabled] { opacity: .45; } }
     }
     .dest { padding-top: 12rpx; .dest-txt { font-size: 26rpx; color: $wa-ink; flex: 1; }
       .slot { font-size: 22rpx; color: $wa-muted; }

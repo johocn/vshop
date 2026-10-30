@@ -4038,6 +4038,81 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页 → ① 想直接给刚送达的单退款：看首屏「已送达 · 可退款」区块（最多 5 条，显示单号与楼栋）→ 点右侧「退款 · ¥x」→ 面板填金额/原因 → 确认；② 想看退款流水：点该区块标题或顶部「退款记录」入口 → 进「退款记录」页 → 切「今日 / 近 7 日 / 自定义」→ 看 3 个指标与失败提示 → 检索单号后几位 / 楼栋 / 区域 / 原因 → 「复制台账」粘成纯文本 → 列表底部「加载更多」翻历史；③ 需要看到全部可退单时点「查看全部」进「已完成对账」页。
 
+## §78 顾客催单商家侧闭环
+
+> 目标：顾客在小程序点「催一催」后，此前只有骑手端能感知，商家工作台与后厨毫无提示。本节把催单信号接到**商家侧**：工作台首屏出现「有 N 笔顾客催单待确认」蓝色提醒条，单卡显示「顾客催单」标签 + 催单时间 + 「已知晓」按钮；后厨出餐屏同步显示「催单」统计并把催单票据置顶。商家点「已知晓」只解除商家侧提醒，不影响骑手端催单标记。
+
+### 78.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/migrations/p16-merchant-urge-ack.ts`（新建） | 幂等迁移：`CREATE TABLE IF NOT EXISTS campus_urge_ack` + 唯一索引 `(channelId, orderId)`，随 `onApplicationBootstrap` 执行（生产 `DB_SYNC=0`） |
+| 后端 | `.../src/merchant-admin.service.ts` | `MerchantBoardOrder` 加 `urged/urgedAt`；`MerchantBoard` 加 `urgedCount`；`KitchenTicket` 加 `urged`、`KitchenQueue` 加 `urgedCount`；新增 `ackUrge()`、私有 `urgeAckMap()`（批量取已知晓时间）、导出 `isUrgePending()`；`board()` 统计 `urgedCount`，`kitchenQueue()` 催单票置顶并统计 |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Mutation `campusMerchantAckUrge(orderId)`，`@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | 注册 `P16MerchantUrgeAckMigration` 到 providers；SDL 补 `urged/urgedAt/urgedCount` 字段与 Mutation |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型补 `urged/urgedAt/urgedCount`，Query 补字段；新增 `campusMerchantAckUrge(orderId)` |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 顶部蓝色 `urgebar` 提醒条 + 单卡 `urge-row`（催单标签/时间/已知晓）+ `goUrged()` / `ackUrge()` + 样式 |
+| 后台 | `web-admin/src/pages/campus/kitchen.vue` | 顶部「催单」统计（`stat.urge` 蓝色高亮）+ 票据催单标签 `tk-urged` + 样式 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusMerchant` 补 `urgeBar/urgeTag/urgeAt/urgeAck/urgeAcked`；`campusKitchen` 补 `urgedCount/urged` |
+| 截图 | `docs/screenshots/waimai/p78-merchant-urge/` | 3 张：出餐屏催单 / 工作台催单条与卡片 / 点已知晓后消失 |
+| 脚本 | `web-admin/scripts/shots-p78-merchant-urge.cjs` | 截图脚本（mock `campusMerchantBoard` / `campusMerchantKitchenQueue` / `campusMerchantAckUrge`） |
+
+### 78.2 口径与契约
+
+- **「待处理催单」定义**：`order.customFields.urged === true` 且 `urgedAt` 存在，并且「已知晓」时间 `ackedAt` 为空或早于 `urgedAt`。顾客再次催单会刷新 `urgedAt` → 若晚于上次 `ackedAt` 则重新变为待处理（`isUrgePending()` 单点判定）。
+- **独立小表，不改 order 结构**：商家「已知晓」时间落 `campus_urge_ack`（`channelId` / `orderId` / `ackedAt`）小表，唯一键 `(channelId, orderId)`；避免给高频读写的 `order` 加列、避开生产 `DB_SYNC=0` 的加列风险。
+- **只清商家侧**：`ackUrge` 只 upsert 小表，**不改** `order.customFields.urged/urgedAt`——骑手端催单标记、顾客端「已催」状态都不受影响，商家与骑手/顾客是两套认知。
+- **幂等 ack**：`INSERT … ON CONFLICT (channelId, orderId) DO UPDATE SET ackedAt = now()`，重复点「已知晓」不会报错，只更新时间。
+- **board 契约**：`CampusMerchantBoard.urgedCount` = 当前活跃列表里 `urged=true` 的单数；`MerchantBoardOrder.urged` 为布尔、`urgedAt` 为 `DateTime`（从未催单为 null）。
+- **出餐屏契约**：`CampusKitchenQueue.urgedCount`；`CampusKitchenTicket.urged`；`kitchenQueue()` 内 `tickets.sort((a,b)=> Number(b.urged)-Number(a.urged) || +a.createdAt - +b.createdAt)`——催单票置顶，同状态按支付先后。
+- **前端交互**：顶部 `urgebar`（`v-if urgedCount>0`，点击 `goUrged()` 跳到第一个含催单的栏）；卡片 `urge-row` 中的「已知晓」调 `campusMerchantAckUrge`，成功后本地 `o.urged=false`、`urgedCount-1`、toast「已确认收到催单」，不触发整板刷新。
+
+### 78.3 权限与校验
+
+- Mutation `campusMerchantAckUrge` 仅 `@Allow(CampusPermissions.CampusMerchant)`；无 Bearer 访问返回 `FORBIDDEN: You are not currently authorized to perform this action`。
+- 渠道隔离：先 `findOne(Order, {id, relations:['channels']})`，订单必须属于 `ctx.channelId`，否则 `USER_INPUT_ERROR: 订单不存在或不属于当前店铺`（不区分「不存在」与「非本店」，避免枚举他人订单）。
+- 状态校验：`cf.urged !== true || !cf.urgedAt` → `USER_INPUT_ERROR: 该订单没有待处理的顾客催单`。
+- 前端 `usePermGuard('CampusMerchant')` 保护两个页面；「已知晓」按钮以 `actingId` 防重复点击。
+
+### 78.4 数据库变更
+
+- 新增表 `campus_urge_ack`：`id serial PK`、`createdAt/updatedAt timestamptz`、`channelId integer`、`orderId integer`、`ackedAt timestamptz`，唯一索引 `campus_urge_ack_channel_order (channelId, orderId)`。
+- 由 `P16MerchantUrgeAckMigration` 在 `onApplicationBootstrap` 用 `CREATE TABLE/INDEX IF NOT EXISTS` 幂等创建（生产 `DB_SYNC=0` 不靠 schema sync）。
+- **不新增 `order` 列**，不碰既有 `customFields*` 列。
+
+### 78.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 随提交入库（提交 `091faf080`） |
+| 生产迁移 | `SELECT to_regclass('campus_urge_ack')` → `campus_urge_ack`；`information_schema.columns` 6 列（id/createdAt/updatedAt/channelId/orderId/ackedAt）齐全 |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantBoard { urgedCount pending{id code urged urgedAt} cooking{id urged} }` → HTTP 200、无 `errors`、`urgedCount:0`、`urged`/`urgedAt` 字段可解析 |
+| 线上校验分支 | `campusMerchantAckUrge(orderId:"999999999")` → `订单不存在或不属于当前店铺`（`USER_INPUT_ERROR`）；同一请求不带 Bearer → `FORBIDDEN` |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → 产物校验 61819 KB → nginx `syntax is ok` + reload → `deploy done` |
+| 截图脚本交互（`shots-p78-merchant-urge.cjs`） | `01`：出餐屏顶部 `2 待接单 / 1 备餐中 / 0 超时 / 1 催单`，`stat.urge` 蓝色高亮，`A2400002` 票据带蓝色「催单」标签且置顶；`02`：工作台顶部「有 1 笔顾客催单待确认，点击查看」，`A2400002` 卡片显示「顾客催单 / 12:59 催单 / 已知晓」；`03`：点「已知晓」后提醒条与催单行消失、toast「已确认收到催单」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 78.6 边界与已知限制
+
+- **仅活跃单提醒**：`urgedCount` 只统计活跃列（待接单/备餐中等），订单结束后催单不再展示，历史催单不回溯。
+- **商家与骑手两套认知**：商家「已知晓」不改变 `order.customFields.urged/urgedAt`，骑手端仍可见催单标记；同一催单在两端独立处理属预期。
+- **无主动推送**：不向商家发公众号/短信，仅工作台 10s 轮询与出餐屏 10s 轮询刷新；后厨若未开大屏则只能在刷新后看到。
+- **依赖骑手端催单频控**：`urgedAt` 由 C 端 `campusUrgeOrder`（骑手任务服务 `urgeOrder`，10 分钟频控）写入；短时间内重复催只刷新最后一次时间，不会产生多条待处理。
+- **店铺隔离**：ack 记录带 `channelId`，一店确认不影响另一店（同一物理订单只归属一个渠道时无差异）。
+- **无批量「全部已知晓」**：需逐单点确认；催单数通常很少，未做批量操作。
+
+### 78.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `091faf080` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | pm2 `vendure` online，迁移表已建，`admin-api` 200 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61819 KB；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → ① 若顶部出现蓝色「有 N 笔顾客催单待确认，点击查看」提醒条，点它自动跳到含催单的订单栏；② 在催单订单卡片上看到「顾客催单」标签与催单时间，点右侧「已知晓」即解除商家侧提醒（toast「已确认收到催单」）；③ 后厨「出餐屏」顶部「催单」统计变蓝、催单票据带「催单」标签并置顶，优先制作。
+
 
 
 
