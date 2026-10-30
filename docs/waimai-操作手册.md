@@ -4540,6 +4540,62 @@ mutation campusMerchantAfterSalesRetryRefund(id: ID!): CampusMerchantAfterSalesI
 
 操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部会显示「自动刷新 · 刚刚更新」，新单进来后份数自己涨（最多 10s 延迟）；后厨长时间无新单时自动降为 30s 一次；关掉面板即停止请求。
 
+## §83 商家工作台「今日待办」中心
+
+### 83.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `vendure` `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `board()` 增三个计数：`afterSalesPending`（Pending + Appealed 售后单）、`refundFailed`（RefundFailed）、`overdueOrders`（待接单/备餐中等待 ≥25 分钟，与出餐屏 `late` 同口径）；售后两个数字用**一次 groupBy 聚合**拿到，不为两个数字发两条 count |
+| 后端 | 同插件 `src/campus-delivery.plugin.ts` | SDL `CampusMerchantBoard` 补 `afterSalesPending / refundFailed / overdueOrders: Int!` |
+| 后台 | `web-admin/src/apis/campus.ts` | `CampusMerchantBoard` 类型与 board 查询补三字段 |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | ① 顶部「今日待办」条：售后 / 催单 / 退款失败 / 出餐超时 四个 chip，**数字 0 的项不渲染，全 0 时整条不占位**；② 点 chip 跳转：售后/退款失败 → 售后列表，催单 → 对应栏，超时 → 出餐屏；③ 入口条「售后申请」「退款记录」右侧红底白字角标 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 5 条：`todoTitle / todoAfterSales / todoUrged / todoRefundFailed / todoOverdue` |
+| 截图 | `docs/screenshots/waimai/p83-todo-center/` | 3 张：四类待办有数（含入口角标）/ 全部清零（待办条消失）/ 只剩售后+退款失败（0 的项不渲染） |
+| 脚本 | `web-admin/scripts/shots-p83-todo-center.cjs` | mock board 三种计数组合，靠整页 reload 切换状态（仅改 hash 不会重载应用） |
+
+### 83.2 口径与契约
+
+```graphql
+campusMerchantBoard {
+  ... afterSalesPending: Int! refundFailed: Int! overdueOrders: Int!
+}
+```
+
+- **渠道隔离**：三个计数都按 `ctx.channelId` 过滤；售后计数沿用 `afterSalesList` 的 `a→order→channels` join 与 `hallStatus IS NOT NULL`，与售后列表页口径一致。
+- **超时口径**：与出餐屏 `KDS_LATE_MINUTES = 25` 同源，只算 `pending_merchant` / `accepted` 两态，备餐完成即退出。
+- **零请求增量**：工作台已有 10s board 轮询，三个数字搭同一次请求刷新，不新增接口、不新增轮询。
+- **视觉优先**：`退款失败`、`出餐超时` 用红色 chip（`warn`），售后/催单用主题橙色。
+
+### 83.3 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 「今日待办」条一行放下 4 个 chip：`售后 2 · 催单 1 · 退款失败 1 · 出餐超时 1`，后两者红底；「售后申请」角标 `2`、「退款记录」角标 `1` |
+| 截图 02 | 四项全 0 → `.todobar` 不存在（`todoBar:false`），入口角标同时消失 |
+| 截图 03 | 只有售后 3 / 退款失败 2 → chip 只渲染 2 个，`出餐超时` 不出现 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上后端探针 | `campusMerchantBoard` → `afterSalesPending: 2 / refundFailed: 0 / overdueOrders: 0 / urgedCount: 0`；与 `campusMerchantAfterSales.pendingCount: 2` 同口径（列表为 `27:Appealed / 26:Refunded / 25:Pending`）；无 Bearer → `FORBIDDEN` |
+| 线上后台产物 | `pages-campus-merchant.CU7Fi7zh.js` + `merchant-c9lMlVT_.css` 含 `todobar` / `e-badge`；`/guanli/` HTTP 200 |
+
+### 83.4 边界与已知限制
+
+- **上线顺序**：三计数随 vendure `origin/master` `a016ced96` 上线，后台才是后部署的一侧；以后回滚后台到「早于本批次」的版本不受影响（旧版不请求这三个字段），但**回滚后端要先回滚后台**，否则 board 查询会报 `Cannot query field "afterSalesPending"`。
+- 待办数字是「全量待处理」，不是「今日新增」：跨天未处理的售后仍计入，直到处理完（与售后列表页的 `pendingCount` 一致）。
+- 超时只覆盖「待接单 + 备餐中」，配送段超时在各配送栏自身提示，不重复计入。
+
+### 83.5 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin packages/notification-plugin && pm2 restart vendure --update-env`（vendure `origin/master` = `a016ced96`） | pm2 `vendure ✓ online`；`lib/merchant-admin.service.js` 含 `afterSalesPending`、`lib/campus-delivery.plugin.js` 含 `overdueOrders`；探针可用（见 83.3） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61875 KB` → nginx `test is successful` + reload → `deploy done`；线上 chunk 含 `todobar` / `e-badge` |
+| 数据库 | 未执行 `vendure migrate`：生产未设 `DB_SYNC=0`，`dev-config.ts` 的 `synchronize: process.env.DB_SYNC !== '0'` 为 true，重启时由 TypeORM 自动同步 p17/p18 结构 | 启动无迁移报错，board 查询正常 |
+
+操作入口：商家工作台「商家接单」页 → 顶部「今日待办」条 → 点「售后 2」跳售后列表（退款失败单已置顶）、点「催单 1」跳有催单的订单栏、点「出餐超时 1」进出餐屏；全部处理完后整条自动消失。
+
+
 
 
 
