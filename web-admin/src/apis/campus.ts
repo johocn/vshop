@@ -244,6 +244,10 @@ export interface MerchantBoardOrder {
   thirdPartyNo: string | null; // 外部快递平台单号
   handoverCode: string | null; // 交接码（第一段送达交接点后生成，骑手取货核对）
   customerPhone: string | null; // 顾客手机号（脱敏，号码保护同口径）；工作台检索/联系用
+  /** 顾客催单待处理（§78）：顾客催过且商家未「已知晓」 */
+  urged: boolean;
+  /** 顾客最近一次催单时间（null=从未催单） */
+  urgedAt: string | null;
   lines: MerchantBoardLine[];
 }
 
@@ -289,6 +293,8 @@ export interface CampusMerchantBoard {
   closureNote: string | null;
   /** 未出餐订单数（§71）：待接单 + 备餐中 */
   unfinishedOrders: number;
+  /** 待处理顾客催单数（§78） */
+  urgedCount: number;
 }
 
 /** 商家自助经营：门店资料（营业时间/公告/电话/营业状态） */
@@ -337,7 +343,7 @@ export interface MerchantRevenue {
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode customerPhone lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode customerPhone urged urgedAt lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
@@ -345,6 +351,7 @@ export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
       paused openNow businessHours nextTransition { action at inMinutes today }
       merchantConfirmEnabled printMode printProvider cloudPrintConfigured storeName storePhone completedToday completedTodayAmount
       closedToday closureNote unfinishedOrders
+      urgedCount
       pending { ${ORDER_FIELDS} } cooking { ${ORDER_FIELDS} }
       awaitingRider { ${ORDER_FIELDS} } delivering { ${ORDER_FIELDS} }
       pendingDispatch { ${ORDER_FIELDS} } thirdParty { ${ORDER_FIELDS} }
@@ -663,6 +670,15 @@ export async function campusMerchantMarkPrinted(orderId: string): Promise<boolea
   return res.campusMerchantMarkPrinted.ok;
 }
 
+/** 顾客催单「已知晓」（§78）：商家确认后解除工作台/出餐屏催单提醒（顾客再催会重新提醒） */
+export async function campusMerchantAckUrge(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantAckUrge: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantAckUrge(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantAckUrge.ok;
+}
+
 /** ===== P1-4 云打印 / KDS 出餐屏 ===== */
 
 export interface CampusPrintResult {
@@ -739,6 +755,8 @@ export interface CampusKitchenTicket {
   note: string | null;
   printedAt: string | null;
   total: number;
+  /** 顾客催单待处理（§78）：出餐屏置顶并标红 */
+  urged: boolean;
   lines: CampusKitchenLine[];
 }
 
@@ -747,6 +765,8 @@ export interface CampusKitchenQueue {
   pendingCount: number;
   cookingCount: number;
   lateCount: number;
+  /** 待处理顾客催单数（§78） */
+  urgedCount: number;
   warnMinutes: number;
   lateMinutes: number;
 }
@@ -755,9 +775,9 @@ export interface CampusKitchenQueue {
 export async function campusMerchantKitchenQueue(): Promise<CampusKitchenQueue> {
   const res = await getAdminClient().request<{ campusMerchantKitchenQueue: CampusKitchenQueue }>(
     `query { campusMerchantKitchenQueue {
-      pendingCount cookingCount lateCount warnMinutes lateMinutes
+      pendingCount cookingCount lateCount urgedCount warnMinutes lateMinutes
       tickets {
-        id code stage createdAt waitingMinutes urgency zone building slotText note printedAt total
+        id code stage createdAt waitingMinutes urgency zone building slotText note printedAt total urged
         lines { name quantity addons }
       }
     } }`,

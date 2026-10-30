@@ -19,6 +19,11 @@
           <text class="n">{{ queue.lateCount }}</text>
           <text class="l">{{ $t('campusKitchen.lateCount') }}</text>
         </view>
+        <!-- 顾客催单（§78）：后厨大屏同步显示催单数，优先处理 -->
+        <view class="stat" :class="{ urge: queue.urgedCount > 0 }">
+          <text class="n">{{ queue.urgedCount }}</text>
+          <text class="l">{{ $t('campusKitchen.urgedCount') }}</text>
+        </view>
       </view>
       <view class="ops">
         <text class="upd">{{ updatedAt ? $t('campusKitchen.updatedAt').replace('{t}', updatedAt) : '' }}</text>
@@ -42,6 +47,7 @@
         <view v-for="tk in pendingTickets" :key="tk.id" class="ticket" :class="tk.urgency">
           <view class="tk-hd">
             <text class="tk-code">{{ tk.code }}</text>
+            <text v-if="tk.urged" class="tk-urged">{{ $t('campusKitchen.urged') }}</text>
             <text class="tk-wait">{{ waitText(tk) }}</text>
           </view>
           <view class="tk-meta">
@@ -74,6 +80,7 @@
         <view v-for="tk in cookingTickets" :key="tk.id" class="ticket" :class="tk.urgency">
           <view class="tk-hd">
             <text class="tk-code">{{ tk.code }}</text>
+            <text v-if="tk.urged" class="tk-urged">{{ $t('campusKitchen.urged') }}</text>
             <text class="tk-wait">{{ waitText(tk) }}</text>
           </view>
           <view class="tk-meta">
@@ -124,6 +131,7 @@ const queue = ref<CampusKitchenQueue>({
   pendingCount: 0,
   cookingCount: 0,
   lateCount: 0,
+  urgedCount: 0,
   warnMinutes: 15,
   lateMinutes: 25,
 });
@@ -221,6 +229,11 @@ onShow(() => {
         .n { color: #d4380d; }
         .l { color: #d4380d; }
       }
+      // 催单高亮（§78）：蓝色，与超时红区分
+      &.urge { background: #e6f4ff;
+        .n { color: #0958d9; }
+        .l { color: #0958d9; }
+      }
     }
   }
   .ops { display: flex; align-items: center; gap: 16rpx;
@@ -249,6 +262,9 @@ onShow(() => {
     &.late { border-left-color: #d4380d; background: #fff7f5; }
     .tk-hd { display: flex; align-items: center; gap: 16rpx;
       .tk-code { flex: 1; font-size: 32rpx; color: $wa-ink; font-weight: 700; letter-spacing: 1rpx; }
+      // 顾客催单标签（§78）：与单号同排醒目提示后厨优先处理
+      .tk-urged { font-size: 20rpx; color: #fff; background: #1677ff; border-radius: 6rpx;
+        padding: 2rpx 10rpx; font-weight: 600; flex: none; }
       .tk-wait { font-size: 24rpx; color: $wa-muted; background: $wa-bg; border-radius: 999rpx;
         padding: 4rpx 18rpx; }
     }
