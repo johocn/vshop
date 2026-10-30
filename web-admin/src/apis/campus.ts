@@ -435,6 +435,54 @@ export async function campusMerchantRefundOrder(
   return res.campusMerchantRefundOrder;
 }
 
+/** 退款记录行（§77 台账）：一笔退款单一行，金额单位分 */
+export interface MerchantRefundRow {
+  id: string;
+  orderId: string;
+  code: string;
+  amount: number;
+  /** 退款单状态：Pending/Settled/Failed 等 */
+  state: string;
+  /** 退款原因（后端已去掉「merchant refund (单号):」留痕前缀） */
+  reason: string;
+  /** merchant=商家发起 / platform=平台处置 */
+  source: string;
+  createdAt: string;
+  building: string;
+  zone: string;
+}
+
+/** 退款台账 + 区间汇总（§77，汇总不受分页影响） */
+export interface MerchantRefundList {
+  items: MerchantRefundRow[];
+  /** 区间退款笔数（排除 Failed） */
+  count: number;
+  /** 区间退款总额（分，排除 Failed） */
+  amount: number;
+  failedCount: number;
+  failedAmount: number;
+  /** 区间退款单总数（含失败，用于分页） */
+  total: number;
+  start: string;
+  end: string;
+}
+
+/** 退款记录台账（§77）：from/to 为空=今日 0 点（UTC+8）至当前 */
+export async function campusMerchantRefunds(
+  params: { from?: string; to?: string; take?: number; skip?: number } = {},
+): Promise<MerchantRefundList> {
+  const res = await getAdminClient().request<{ campusMerchantRefunds: MerchantRefundList }>(
+    `query ($from: String, $to: String, $take: Int, $skip: Int) {
+      campusMerchantRefunds(from: $from, to: $to, take: $take, skip: $skip) {
+        items { id orderId code amount state reason source createdAt building zone }
+        count amount failedCount failedAmount total start end
+      }
+    }`,
+    params,
+  );
+  return res.campusMerchantRefunds;
+}
+
 export async function campusMerchantAcceptOrder(orderId: string): Promise<boolean> {
   const res = await getAdminClient().request<{ campusMerchantAcceptOrder: { ok: boolean } }>(
     `mutation ($orderId: ID!) { campusMerchantAcceptOrder(orderId: $orderId) { ok } }`,

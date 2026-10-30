@@ -33,6 +33,11 @@
         <text class="e-lbl">{{ $t('campusMerchant.kitchenEntry') }}</text>
         <text class="e-chev">›</text>
       </view>
+      <!-- 退款记录台账（§77）：区间退款明细 + 汇总，与对账页退款同口径 -->
+      <view class="entrybar" @tap="goRefundRecords">
+        <text class="e-lbl">{{ $t('campusMerchant.refundRecordsEntry') }}</text>
+        <text class="e-chev">›</text>
+      </view>
       <view class="voicebar">
         <text class="v-lbl">{{ $t('campusMerchant.voiceTitle') }}</text>
         <view class="v-switch" :class="{ on: voiceEnabled }" @tap="toggleVoice">
@@ -58,6 +63,23 @@
             {{ $t('campusMerchant.printRetryFailed') }}
           </button>
           <button class="p-btn ghost" @tap="showPrintHelp">{{ $t('campusMerchant.printHelp') }}</button>
+        </view>
+      </view>
+
+      <!-- 已送达可退款（§77）：今日完成的订单直接在工作台发起退款，与对账页共用面板与 mutation -->
+      <view v-if="refundableDone.length" class="refund-box">
+        <view class="rb-head" @tap="goCompleted">
+          <text class="rb-title">{{ $t('campusMerchant.recentDoneTitle') }}</text>
+          <text class="rb-more">{{ $t('campusMerchant.recentDoneMore') }} ›</text>
+        </view>
+        <view v-for="o in refundableDone" :key="o.id" class="rb-row">
+          <view class="rb-main">
+            <text class="rb-code">{{ o.code }}</text>
+            <text class="rb-place">{{ o.zone }} {{ o.building }}</text>
+          </view>
+          <button class="rb-btn" @tap="openRefund(o)">
+            {{ $t('campusMerchant.recentDoneRefund') }} · ¥{{ fenToYuanFixed(o.refundable) }}
+          </button>
         </view>
       </view>
 
@@ -210,6 +232,8 @@
           </view>
         </view>
       </view>
+      <!-- 退款面板（§77）：与对账页共用组件（同一套校验 + 同一 mutation） -->
+      <RefundSheet :open="refundOpen" :target="refundTarget" @close="refundOpen = false" @done="onRefundDone" />
     </template>
   </view>
 </template>
@@ -225,6 +249,7 @@ import {
   campusMerchantCancelExternal,
   campusMerchantCloudPrint,
   campusMerchantCloudPrintTest,
+  campusMerchantCompletedOrders,
   campusMerchantCookingDone,
   campusMerchantDispatchExternal,
   campusMerchantMarkHandoverArrived,
@@ -234,8 +259,10 @@ import {
   campusMerchantSetPaused,
   type CampusMerchantBoard,
   type MerchantBoardOrder,
+  type MerchantCompletedOrder,
 } from '../../apis/campus';
-import { fenToYuan } from '../../utils/money';
+import RefundSheet from '../../components/campus/RefundSheet.vue';
+import { fenToYuan, fenToYuanFixed } from '../../utils/money';
 import { loadLodop, printReceipt58 } from '../../utils/lodop';
 import { maybeClosingReminder, transitionText } from '../../utils/closing-reminder';
 import { graphQlErrorMsg } from '../../apis/client';
@@ -848,6 +875,38 @@ function goCompleted() {
   uni.navigateTo({ url: '/pages/campus/completed-orders' });
 }
 
+/** 退款记录台账（§77）：区间退款明细 + 汇总 */
+function goRefundRecords() {
+  uni.navigateTo({ url: '/pages/campus/refund-records' });
+}
+
+/** 已送达可退款（§77）：今日完成订单中仍有可退余额的（最多展示 5 条，详情去对账页） */
+const recentDone = ref<MerchantCompletedOrder[]>([]);
+const refundableDone = computed(() => recentDone.value.filter(o => o.refundable > 0).slice(0, 5));
+const refundOpen = ref(false);
+const refundTarget = ref<MerchantCompletedOrder | null>(null);
+
+/** 加载今日已完成订单（只用于工作台退款入口，不参与 10s 看板轮询） */
+async function loadRecentDone(): Promise<void> {
+  try {
+    const res = await campusMerchantCompletedOrders({ take: 20 });
+    recentDone.value = res.items;
+  } catch {
+    // 退款入口加载失败不影响工作台主流程（可进入对账页操作）
+  }
+}
+
+function openRefund(o: MerchantCompletedOrder): void {
+  refundTarget.value = o;
+  refundOpen.value = true;
+}
+
+/** 退款成功：关闭面板并刷新可退款列表（看板单量/金额由轮询同步） */
+async function onRefundDone(): Promise<void> {
+  refundOpen.value = false;
+  await loadRecentDone();
+}
+
 async function toggleOpen() {
   const next = !board.value.paused;
   try {
@@ -1037,6 +1096,7 @@ async function markHandoverArrived(o: MerchantBoardOrder) {
 
 onMounted(() => {
   refresh(true);
+  void loadRecentDone();
   timer = setInterval(() => refresh(), 10_000);
   // 断连后每分钟自动重探（商家开电脑/启动 C-Lodop 服务即恢复；云通道不探）
   reconnectTimer = setInterval(() => {
@@ -1107,6 +1167,22 @@ onUnmounted(() => {
     }
     &.bad { border-color: #ffb4b0; background: #fff5f4;
       .p-mode { color: #d4380d; } }
+  }
+  .refund-box { background: $wa-card; border-radius: $wa-radius; padding: 20rpx 24rpx; margin-bottom: 24rpx;
+    .rb-head { display: flex; align-items: center; gap: 16rpx; margin-bottom: 12rpx;
+      .rb-title { flex: 1; font-size: 24rpx; color: $wa-ink; font-weight: 600; }
+      .rb-more { font-size: 22rpx; color: $wa-accent; }
+    }
+    .rb-row { display: flex; align-items: center; gap: 16rpx; padding: 12rpx 0;
+      border-top: 1.5px solid $wa-rule;
+      .rb-main { flex: 1; display: flex; flex-direction: column; gap: 4rpx;
+        .rb-code { font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+        .rb-place { font-size: 22rpx; color: $wa-muted; }
+      }
+      .rb-btn { margin: 0; flex: none; height: 56rpx; line-height: 56rpx; padding: 0 24rpx;
+        background: #fff1f0; color: #d4380d; font-size: 22rpx; border-radius: 999rpx; border: none;
+      }
+    }
   }
   .tabs { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx;
     .tab { flex: 1 1 30%; min-width: 200rpx; display: flex; align-items: center; justify-content: center; gap: 8rpx;
