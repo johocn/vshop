@@ -4395,8 +4395,8 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 | 后台构建 | `npm run build:h5` → `DONE Build complete.`（新面板与新增文案编译通过） |
 | 截图脚本（`shots-p82-after-sales-chat.cjs`） | `01`：列表两张待处理卡（A2400001 `¥32.50`、A2400004 `¥2.00`）；`02`：点开 A2400001 → 面板「顾客凭证 3 张 / 处理进度（顾客提交售后申请 → 待处理）/ 协商记录 2 条（顾客左、商家右）」；`03`：切 A2400004 → 「协商记录 0」+ 空态提示「暂无协商记录，可在下方直接回复顾客」；`04`：输入「马上给您补一份米饭，师傅已重新出锅～」→ 发送 → 右侧新增商家气泡，协商记录 1、列表卡留言数同步 +1；`05`：切「已处理」点 A2400005（已退款）→ 时间线三条（提交 → 待退货 → 已退款），底部显示「该售后已结束，仅可查看记录」；`06`：点凭证缩略图 → `uni.previewImage` 大图覆盖层正常 |
 | 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
-| 线上 schema 探针 | `campusMerchantAfterSalesDetail(id)` 返回 `request/messages/messageTotal/stateHistory/refundError/actualRefundAmount/timeoutHours`；`campusMerchantAfterSalesReply` 在待处理单可写入并返回 `senderType:"admin"` |
-| 线上校验分支 | 跨渠道/不存在 id → `售后单不存在或不属于当前店铺`；无 Bearer → `FORBIDDEN`；已结案单回复 → 禁言提示 |
+| 线上 schema 探针 | 实测 `https://e.joho.cn/admin-api/`（`vendure-token: canteen-a-token`，superadmin 登录）：`campusMerchantAfterSalesDetail(id="27")` 返回 `request{... overdue}` + `messages[1]` + `messageTotal:1` + `stateHistory`（`null→Pending→Rejected→Appealed`）+ `refundError:null` + `actualRefundAmount:null` + `timeoutHours:48`；`campusMerchantAfterSalesReply(id="25")`（待处理）→ 返回 `id:"6" senderType:"admin" senderName:"Super Admin" createdAt` 并写入成功，复查详情 `messages` 可见该条 |
+| 线上校验分支 | 不存在 id `999999` → `售后单不存在或不属于当前店铺`（`USER_INPUT_ERROR`）；无 Bearer → `You are not currently authorized to perform this action`（`FORBIDDEN`）；**回复状态边界实测为「仅 `Closed` 禁言」**：`Appealed`(id=27)、`Refunded`(id=26) 仍可写入 → 后端宽松、前端（`canReply`）只放行 `Pending`/`Appealed`，已结束单在 UI 上只读 |
 | 后台部署 | `node scripts/deploy.mjs` → 构建 + 产物校验 + nginx reload → `deploy done` |
 | 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
 
@@ -4412,9 +4412,9 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 | 端 | 动作 | 结果 |
 |---|---|---|
-| 后端 | `vendure` 提交 `f7f950a89`（售后详情/协商留言，随 §81 一并提交并推送）→ 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `admin-api` HTTP 200，`campusMerchantAfterSalesDetail` 字段可解析 |
-| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 构建通过、产物同步、nginx reload、`deploy done` |
-| C 端 | `src/pkg-after-sale/pages/detail.vue` + i18n 随 vshop 提交；未单独部署 H5 站点 | — |
+| 后端 | `vendure` 提交 `f7f950a89`（售后详情/协商留言，随 §81 一并提交并推送）→ 服务器执行 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `pm2 restart vendure` 返回 `[vendure](1) ✓ online`；`admin-api` 探针 `campusMerchantAfterSalesDetail` / `campusMerchantAfterSalesReply` 均可用（明细见 82.5） |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | 构建 `DONE Build complete.` → `[deploy] 产物校验通过: 61869 KB` → nginx `configuration ... test is successful` + reload → `deploy done` |
+| C 端 | `src/pkg-after-sale/pages/detail.vue` + i18n 随 vshop 提交 `0c7afbef`；未单独部署 H5 站点 | — |
 | 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
 
 操作入口：商家工作台「商家接单」页 → 「售后申请 ›」→ ① 点任意售后卡（待处理卡直接点卡片，已处理卡点右下「点击查看详情 ›」）；② 面板自上而下看单号/金额/状态、顾客与原因、凭证九宫格（点图放大）、处理进度时间线、协商记录；③ 待处理/申诉单在底部输入框写回复 → 「发送」→ 右侧出现商家气泡，列表「留言 n 条」同步 +1；④ 已退款、已驳回、退款失败、已关闭的单底部显示「该售后已结束，仅可查看记录」；⑤ 顾客在小程序「售后详情」看到同一条对话，可继续留言（商家与平台回复以左侧气泡展示）。
