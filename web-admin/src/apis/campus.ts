@@ -785,6 +785,33 @@ export async function campusMerchantKitchenQueue(): Promise<CampusKitchenQueue> 
   return res.campusMerchantKitchenQueue;
 }
 
+/** 备餐汇总（§79）：某商品今日份数分布 + 加料份数 */
+export interface CampusPrepAddon {
+  name: string;
+  quantity: number;
+}
+
+export interface CampusPrepItem {
+  name: string;
+  pendingQty: number;
+  cookingQty: number;
+  doneQty: number;
+  todoQty: number;
+  totalQty: number;
+  addons: CampusPrepAddon[];
+}
+
+/** 备餐汇总：今日待接单/备餐中/已送达商品份数，后厨按份备料 */
+export async function campusMerchantPrepSummary(): Promise<CampusPrepItem[]> {
+  const res = await getAdminClient().request<{ campusMerchantPrepSummary: CampusPrepItem[] }>(
+    `query { campusMerchantPrepSummary {
+      name pendingQty cookingQty doneQty todoQty totalQty
+      addons { name quantity }
+    } }`,
+  );
+  return res.campusMerchantPrepSummary;
+}
+
 
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(

@@ -4113,6 +4113,78 @@ ALTER TABLE "customer" ADD COLUMN IF NOT EXISTS "customFieldsTasteprofile" text;
 
 操作入口：商家工作台「商家接单」页 → ① 若顶部出现蓝色「有 N 笔顾客催单待确认，点击查看」提醒条，点它自动跳到含催单的订单栏；② 在催单订单卡片上看到「顾客催单」标签与催单时间，点右侧「已知晓」即解除商家侧提醒（toast「已确认收到催单」）；③ 后厨「出餐屏」顶部「催单」统计变蓝、催单票据带「催单」标签并置顶，优先制作。
 
+## §79 商家备餐汇总
+
+> 目标：后厨每天开工前都要盘「今天一共要做多少份什么、加料各多少份」，此前只能一单一单翻工作台卡片心算。本节在商家工作台加「备餐汇总」入口：按商品聚合**今日待做份数**（待接单 + 备餐中）、**今日已出餐份数**，并把加料/口味按份累加；「复制备货清单」得到纯文本，可直接发给后厨或采购备料。
+
+### 79.1 交付清单
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | 新增接口 `MerchantPrepAddon` / `MerchantPrepItem`；新增 `prepSummary(ctx)` 聚合今日份数 |
+| 后端 | `.../src/merchant-admin.resolver.ts` | 新增 Query `campusMerchantPrepSummary`，`@Allow(CampusPermissions.CampusMerchant)` |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL 补 `CampusMerchantPrepAddon` / `CampusMerchantPrepItem` 类型与 Query 字段 |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型 `CampusPrepAddon` / `CampusPrepItem`；`campusMerchantPrepSummary()` |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 「备餐汇总 ›」入口条 + 底部抽屉面板（行内「商品名 / 加料份数 / ×待做 / 已出 n」）+ `刷新` / `复制备货清单` |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | `campusMerchant` 补 `prepEntry/prepTitle/prepHint/prepEmpty/prepDoneTag/prepRefresh/prepCopy/prepCopied/prepCopyTitle` |
+| 截图 | `docs/screenshots/waimai/p79-prep-summary/` | 2 张：备餐汇总面板 / 复制成功 toast |
+| 脚本 | `web-admin/scripts/shots-p79-prep-summary.cjs` | 截图脚本（mock `campusMerchantBoard` / `campusMerchantPrepSummary`） |
+
+### 79.2 口径与契约
+
+- **「待做」定义**：`order.customFields.hallStatus ∈ ('pending_merchant','accepted')`——与出餐屏 `kitchenQueue()` 同源，即还没出餐的单；按 `hallStatus` 拆成 `pendingQty`（待接单）与 `cookingQty`（备餐中），`todoQty = pending + cooking`。
+- **「已做」定义**：`order.customFields.deliveryStatus = 'delivered'` 且 `deliveredAt >= startOfCampusDay(now)`——与工作台「今日完成」同一校园日界，跨 0 点自动归零。
+- **按商品聚合**：以 `lines.productVariant.name` 为键，份数取 `line.quantity`（同一商品多规格/多行会累加到同名商品）。
+- **加料份数**：`addonDisplayText(line.customFields.waimaiAddons)` 按 `' / '` 切分得到单项加料名，每项按该行 `quantity` 累加（如「加辣 ×3」= 3 份该商品各加了辣）。
+- **排序**：`todoQty desc → totalQty desc → name`——要做的多的排前面，便于按优先级备料。
+- **契约**：`campusMerchantPrepSummary: [CampusMerchantPrepItem!]!`，`CampusMerchantPrepItem { name pendingQty cookingQty doneQty todoQty totalQty addons { name quantity } }`；`totalQty = todoQty + doneQty`。
+- **前端交互**：入口条点开即拉一次（`openPrep()` → `loadPrep()`），**不参与工作台 10s 轮询**——避免为空看板增加高频查询；面板内「刷新」手动重拉。
+- **复制格式**：首行「今日备货清单」，每行 `商品名 ×待做份数`（`doneQty>0` 追加「（已出 n）」作为续做参考）；加料份数只在面板内展示，不写入复制文本（后厨按份备料已够用）。
+
+### 79.3 权限与校验
+
+- Query `campusMerchantPrepSummary` 仅 `@Allow(CampusPermissions.CampusMerchant)`；无 Bearer 访问返回 `FORBIDDEN: You are not currently authorized to perform this action`。
+- 渠道隔离：两次查询都 `leftJoin order.channels` 并 `channel.id = ctx.channelId`，只聚合本店订单。
+- 前端 `usePermGuard('CampusMerchant')` 保护页面；拉取失败用 `graphQlErrorMsg(err, opFailed)` toast，不打断看板。
+- 只读查询，无写操作、无副作用（不建表、不改状态）。
+
+### 79.4 数据库变更
+
+- **无变更**：本节为纯查询聚合，复用既有 `order` / `order_line` 与 `customFields.hallStatus/deliveryStatus/deliveredAt/waimaiAddons`，不新增表、不新增列，因此不新增 `p17` 迁移。
+
+### 79.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `cd packages/campus-delivery-plugin && npx tsc -p tsconfig.build.json` exit 0；`lib/` 随提交入库（提交 `14f303c41`） |
+| 线上 schema 探针（`canteen-a-token` + superadmin Bearer） | `campusMerchantPrepSummary { name pendingQty cookingQty doneQty todoQty totalQty addons { name quantity } }` → HTTP 200、`errors` 为空、字段全部可解析 |
+| 线上数据现状 | 探针时该渠道今日活跃单与今日达单单均为 0，故返回空数组 `[]`（口径内正常表现，有单后即出现明细） |
+| 线上校验分支 | 同一请求不带 Bearer → `You are not currently authorized to perform this action`（`FORBIDDEN`） |
+| 后台构建部署 | `node scripts/deploy.mjs`：`DONE Build complete.` → 产物校验 61825 KB → nginx `syntax is ok` + reload → `deploy done` |
+| 截图脚本交互（`shots-p79-prep-summary.cjs`） | `01`：面板标题「今日备餐汇总」，3 行：宫保鸡丁 `×3` / `已出 5` / `加辣 ×3 · 多花生 ×2`、香菇滑鸡饭 `×1` / `已出 2` / `加饭 ×2`、米饭 `×4` / `已出 7`，底部「刷新」「复制备货清单」；`02`：点「复制备货清单」→ toast「清单已复制」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上 | `https://e.joho.cn/guanli/` HTTP 200 |
+
+### 79.6 边界与已知限制
+
+- **只统计同商品同名聚合**：聚合键是 `productVariant.name`，不同规格（如「大份/小份」）若同名会被合并；规格命名不同则各自成行。
+- **已出餐只算今日**：按 `deliveredAt` 与校园日界计算，历史单不回溯；`deliveredAt` 为 `NULL` 的老单不计入「已出」。
+- **不做备料消耗/库存联动**：仅份数汇总，不扣原材料库存、不生成采购单。
+- **加料仅统计已下单加料**：`waimaiAddons` 为空的商品行不显示加料区；顾客备注文本不参与聚合。
+- **无实时推送**：面板打开即拉一次 + 手动刷新，不随新单自动增量刷新（要看最新需再点「刷新」）。
+- **复制为纯文本**：不含价格与小计，仅商品名 × 份数（+已出参考），便于贴进群里或记事本。
+
+### 79.7 部署记录（2026-10-30）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `vendure` 提交 `14f303c41` → `git push origin master` → 服务器 `git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | pm2 `vendure` online；`admin-api` 200，探针字段可解析 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `DONE Build complete.`；产物校验 61825 KB；nginx `syntax is ok` + reload，`deploy done` |
+| C 端 | 无改动，未部署 | — |
+| 线上 | `https://e.joho.cn/guanli/` | HTTP 200 |
+
+操作入口：商家工作台「商家接单」页 → ① 找到「出餐屏（后厨大屏）›」下方的「备餐汇总 ›」入口条，点开底部面板；② 面板按「要做的多」排序显示今日各商品的 `×待做份数`、`已出 n` 与加料份数（如「加辣 ×3 · 多花生 ×2」）；③ 点「刷新」拉取最新份数，点「复制备货清单」得到「今日备货清单 + 每行商品 ×待做（已出 n）」纯文本，粘贴发给后厨或采购即可备料。
+
 
 
 
