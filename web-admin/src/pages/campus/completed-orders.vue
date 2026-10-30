@@ -92,11 +92,51 @@
             <text class="o-total">{{ $t('campusCompleted.orderTotal') }} ¥{{ fenToYuanFixed(o.total) }}</text>
           </view>
           <text v-if="o.note" class="o-note">{{ $t('campusCompleted.noteLabel') }}：{{ o.note }}</text>
+          <!-- 退款（§76）：仅有可退余额的已送达订单展示；整单/部分退款原路退回 -->
+          <view v-if="o.refundable > 0" class="o-ops">
+            <button class="refund-btn" @tap.stop="openRefund(o)">
+              {{ $t('campusCompleted.refundBtn') }} · {{ $t('campusCompleted.refundable') }} ¥{{ fenToYuanFixed(o.refundable) }}
+            </button>
+          </view>
         </view>
       </view>
       <button v-if="hasMore" class="more" :disabled="loadingMore" @tap="loadMore">
         {{ loadingMore ? $t('campusCompleted.loadingMore') : $t('campusCompleted.loadMore') }}
       </button>
+
+      <!-- 退款面板：金额（元）+ 原因，二次确认后提交；金额单位分 -->
+      <view v-if="refundOpen" class="mask" @tap.self="refundOpen = false">
+        <view class="sheet">
+          <view class="sheet__hd">
+            <text class="sheet__t">{{ $t('campusCompleted.refundTitle') }}</text>
+            <text class="sheet__x" @tap="refundOpen = false">✕</text>
+          </view>
+          <text class="sheet__sub">{{ refundTarget?.code }} · {{ refundTarget ? placeText(refundTarget) : '' }}</text>
+          <view class="sheet__kpis">
+            <text>{{ $t('campusCompleted.refundTotal') }} ¥{{ fenToYuanFixed(refundTarget?.total ?? 0) }}</text>
+            <text>{{ $t('campusCompleted.refundDone') }} ¥{{ fenToYuanFixed(refundTarget?.refundAmount ?? 0) }}</text>
+            <text class="max">{{ $t('campusCompleted.refundable') }} ¥{{ fenToYuanFixed(refundTarget?.refundable ?? 0) }}</text>
+          </view>
+          <text class="sheet__hint">{{ $t('campusCompleted.refundHint') }}</text>
+          <text class="sheet__label">{{ $t('campusCompleted.refundAmountLabel') }}</text>
+          <view class="amount-row">
+            <input v-model="refundYuan" class="sheet__input" type="digit" :placeholder="$t('campusCompleted.refundAmountPh')" />
+            <text class="all-btn" @tap="fillFullRefund">{{ $t('campusCompleted.refundAll') }}</text>
+          </view>
+          <text class="sheet__label">{{ $t('campusCompleted.refundReasonLabel') }}</text>
+          <textarea
+            v-model="refundReason"
+            class="sheet__area"
+            :maxlength="200"
+            :placeholder="$t('campusCompleted.refundReasonPh')"
+          />
+          <view class="sheet__ops">
+            <button class="sheet__save" :disabled="refundBusy" @tap="submitRefund">
+              {{ $t('campusCompleted.refundSubmit') }}
+            </button>
+          </view>
+        </view>
+      </view>
     </template>
   </view>
 </template>
@@ -106,6 +146,7 @@ import { computed, onMounted, ref } from 'vue';
 import { onPullDownRefresh } from '@dcloudio/uni-app';
 import {
   campusMerchantCompletedOrders,
+  campusMerchantRefundOrder,
   type MerchantCompletedOrder,
   type MerchantCompletedOrders,
 } from '../../apis/campus';
@@ -127,6 +168,12 @@ const fromDate = ref('');
 const toDate = ref('');
 const kw = ref('');
 const data = ref<MerchantCompletedOrders | null>(null);
+/** 退款面板（§76）：目标订单 / 金额（元输入）/ 原因 / 提交中 */
+const refundOpen = ref(false);
+const refundTarget = ref<MerchantCompletedOrder | null>(null);
+const refundYuan = ref('');
+const refundReason = ref('');
+const refundBusy = ref(false);
 
 /** 校园日（UTC+8）日期键：offsetDays=0 为今天 */
 function campusDateKey(offsetDays = 0): string {
@@ -300,6 +347,65 @@ function copyPhone(o: MerchantCompletedOrder): void {
   });
 }
 
+/** 打开退款面板：清空上次输入，避免误用旧金额/原因 */
+function openRefund(o: MerchantCompletedOrder): void {
+  refundTarget.value = o;
+  refundYuan.value = '';
+  refundReason.value = '';
+  refundOpen.value = true;
+}
+
+/** 全额退款：直接填入剩余可退金额（元） */
+function fillFullRefund(): void {
+  refundYuan.value = fenToYuanFixed(refundTarget.value?.refundable ?? 0);
+}
+
+/** 提交退款：本地校验 → 二次确认 → 请求（金额转分，与后端口径一致） */
+function submitRefund(): void {
+  const max = refundTarget.value?.refundable ?? 0;
+  const fen = Math.round(Number(refundYuan.value || 0) * 100);
+  if (!Number.isFinite(fen) || fen <= 0) {
+    uni.showToast({ title: locale.t('campusCompleted.refundAmountBad'), icon: 'none' });
+    return;
+  }
+  if (fen > max) {
+    uni.showToast({ title: locale.t('campusCompleted.refundAmountOver'), icon: 'none' });
+    return;
+  }
+  const reason = refundReason.value.trim();
+  if (!reason) {
+    uni.showToast({ title: locale.t('campusCompleted.refundReasonEmpty'), icon: 'none' });
+    return;
+  }
+  uni.showModal({
+    title: locale.t('campusCompleted.refundConfirmTitle'),
+    content: locale.t('campusCompleted.refundConfirmBody').replace('{amount}', fenToYuanFixed(fen)),
+    success: res => {
+      if (res.confirm) void doRefund(fen, reason);
+    },
+  });
+}
+
+/** 真正退款：成功后关闭面板并刷新列表（可退余额/已退金额随之更新） */
+async function doRefund(fen: number, reason: string): Promise<void> {
+  const target = refundTarget.value;
+  if (!target || refundBusy.value) return;
+  refundBusy.value = true;
+  try {
+    const r = await campusMerchantRefundOrder(target.id, fen, reason);
+    refundOpen.value = false;
+    uni.showToast({
+      title: locale.t('campusCompleted.refundOk').replace('{amount}', fenToYuanFixed(r.amount)),
+      icon: 'none',
+    });
+    await reload();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusCompleted.refundFail')), icon: 'none' });
+  } finally {
+    refundBusy.value = false;
+  }
+}
+
 onMounted(() => {
   void reload();
 });
@@ -373,10 +479,46 @@ onPullDownRefresh(async () => {
         .o-total { font-size: 22rpx; color: $wa-muted; }
       }
       .o-note { font-size: 22rpx; color: #fa8c16; }
+      .o-ops { display: flex; justify-content: flex-end; margin-top: 4rpx;
+        .refund-btn { margin: 0; height: 60rpx; line-height: 60rpx; padding: 0 28rpx;
+          background: #fff1f0; color: #d4380d; font-size: 24rpx; border-radius: 999rpx; border: none;
+        }
+      }
     }
   }
   .more { background: $wa-card; color: $wa-accent; font-size: 26rpx; border-radius: $wa-radius;
     line-height: 76rpx; margin-top: 24rpx; &[disabled] { opacity: .6; }
+  }
+  .mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300;
+    display: flex; align-items: flex-end;
+  }
+  .sheet { width: 100%; background: $wa-card; border-radius: 24rpx 24rpx 0 0; padding: 28rpx 32rpx 40rpx;
+    box-sizing: border-box;
+    &__hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+    &__t { font-size: 30rpx; font-weight: 600; color: $wa-ink; }
+    &__x { font-size: 32rpx; color: $wa-muted; padding: 4rpx 8rpx; }
+    &__sub { display: block; font-size: 26rpx; color: $wa-ink; margin-bottom: 12rpx; }
+    &__kpis { display: flex; align-items: center; gap: 24rpx; font-size: 22rpx; color: $wa-muted;
+      background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx; margin-bottom: 16rpx;
+      .max { color: #1a7f37; font-weight: 600; }
+    }
+    &__hint { display: block; font-size: 22rpx; color: $wa-muted; line-height: 1.5; margin-bottom: 16rpx; }
+    &__label { display: block; font-size: 24rpx; color: $wa-ink; margin-bottom: 10rpx; }
+    &__input { height: 72rpx; background: $wa-bg; border-radius: $wa-radius; padding: 0 20rpx;
+      font-size: 28rpx; box-sizing: border-box; }
+    &__area { width: 100%; height: 140rpx; background: $wa-bg; border-radius: $wa-radius;
+      padding: 16rpx 20rpx; font-size: 26rpx; box-sizing: border-box; }
+    &__ops { display: flex; align-items: center; gap: 20rpx; margin-top: 24rpx; }
+    &__save { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; background: $wa-accent;
+      color: #fff; font-size: 28rpx; border-radius: $wa-radius; border: none;
+      &[disabled] { opacity: .6; }
+    }
+  }
+  .amount-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 20rpx;
+    .sheet__input { flex: 1; }
+    .all-btn { flex: none; font-size: 24rpx; color: $wa-accent; background: $wa-bg;
+      border-radius: 999rpx; padding: 12rpx 24rpx;
+    }
   }
 }
 </style>
