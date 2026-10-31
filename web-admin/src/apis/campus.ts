@@ -2578,6 +2578,38 @@ export async function campusMerchantAfterSalesExportByIds(ids: string[], kind: '
   return res.campusMerchantAfterSalesExportByIds ?? '';
 }
 
+export interface MerchantAfterSalesStaffStat {
+  operatorUserId: string;
+  operatorName: string;
+  handled: number;
+  resolved: number;
+  firstActionAvgMinutes: number;
+  resolveAvgMinutes: number;
+  overdueCount: number;
+  escalatedCount: number;
+  /** 完结率，0~100 整数（后端已按百分比取整） */
+  resolveRate: number;
+  reviewCount: number;
+  reviewAvgScore: number;
+}
+
+/** 员工处理绩效（§104）：按操作人统计处理量 / 完结 / 首响与完结耗时 / 超时 / 升级 / 评价 */
+export async function campusMerchantAfterSalesStaffStats(
+  from: string,
+  to: string,
+): Promise<MerchantAfterSalesStaffStat[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesStaffStats: MerchantAfterSalesStaffStat[] }>(
+    `query ($from: String!, $to: String!) {
+      campusMerchantAfterSalesStaffStats(from: $from, to: $to) {
+        operatorUserId operatorName handled resolved firstActionAvgMinutes resolveAvgMinutes
+        overdueCount escalatedCount resolveRate reviewCount reviewAvgScore
+      }
+    }`,
+    { from, to },
+  );
+  return res.campusMerchantAfterSalesStaffStats ?? [];
+}
+
 /* ================= §105 售后自动化 ================= */
 
 export interface MerchantAfterSalesAutoRule {

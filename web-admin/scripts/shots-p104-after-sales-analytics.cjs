@@ -6,9 +6,10 @@
 //   05 商品退款 Top
 //   06 售后评价满意度
 //   07 高频售后顾客
-//   08 退款流水 + 加载更多
-//   09 导出 CSV 弹层
-//   10 售后申请页新增入口（售后分析 / 售后自动化）
+//   08 员工处理绩效
+//   09 退款流水 + 加载更多
+//   10 导出 CSV 弹层
+//   11 售后申请页新增入口（售后分析 / 售后自动化）
 //   node scripts/shots-p104-after-sales-analytics.cjs
 const fs = require('node:fs');
 const path = require('node:path');
@@ -130,6 +131,13 @@ const CUSTOMERS = [
   { customerId: 'c4', name: '赵同学', phone: '136****4444', count: 2, refundAmount: 4400, blacklisted: false },
 ];
 
+const STAFF = [
+  { operatorUserId: '160', operatorName: '张伟（店长）', handled: 11, resolved: 9, firstActionAvgMinutes: 3, resolveAvgMinutes: 96, overdueCount: 1, escalatedCount: 2, resolveRate: 82, reviewCount: 8, reviewAvgScore: 4.4 },
+  { operatorUserId: '161', operatorName: '李静（客服）', handled: 9, resolved: 6, firstActionAvgMinutes: 5, resolveAvgMinutes: 142, overdueCount: 1, escalatedCount: 1, resolveRate: 67, reviewCount: 6, reviewAvgScore: 4.0 },
+  { operatorUserId: '1', operatorName: 'SuperAdmin', handled: 8, resolved: 2, firstActionAvgMinutes: 12, resolveAvgMinutes: 246, overdueCount: 2, escalatedCount: 0, resolveRate: 25, reviewCount: 5, reviewAvgScore: 3.6 },
+  { operatorUserId: '162', operatorName: '王强（后厨）', handled: 3, resolved: 0, firstActionAvgMinutes: 28, resolveAvgMinutes: 0, overdueCount: 0, escalatedCount: 0, resolveRate: 0, reviewCount: 0, reviewAvgScore: 0 },
+];
+
 const REFUNDS = [
   { id: 'r1', orderCode: 'A2400001', type: 'refund_only', reason: '出餐超时 35 分钟', amount: 3250, refundedAt: at(600), refundTransactionId: 'TX20261031001' },
   { id: 'r2', orderCode: 'A2400005', type: 'return_refund', reason: '餐品撒漏', amount: 4200, refundedAt: at(2880), refundTransactionId: 'TX20261030002' },
@@ -157,6 +165,7 @@ function makeRoute() {
 
     if (raw.includes('myTenantAccess')) return fulfill({ myTenantAccess: ACCESS });
     if (raw.includes('newOrderSignal')) return fulfill({ newOrderSignal: { count: 0, latestCreatedAt: null } });
+    if (raw.includes('campusMerchantAfterSalesStaffStats')) return fulfill({ campusMerchantAfterSalesStaffStats: STAFF });
     if (raw.includes('campusMerchantAfterSalesStats')) return fulfill({ campusMerchantAfterSalesStats: STATS });
     if (raw.includes('campusMerchantAfterSalesReasonReport')) return fulfill({ campusMerchantAfterSalesReasonReport: REASONS });
     if (raw.includes('campusMerchantAfterSalesProductReport')) return fulfill({ campusMerchantAfterSalesProductReport: PRODUCTS });
@@ -215,6 +224,8 @@ async function newPage(browser) {
     products: Array.from(document.querySelectorAll('.prod .p-name')).map((n) => n.textContent.trim()),
     refunds: Array.from(document.querySelectorAll('.refund .rf-code')).map((n) => n.textContent.trim()),
     customers: Array.from(document.querySelectorAll('.cust .c-name')).map((n) => n.textContent.trim()),
+    staff: Array.from(document.querySelectorAll('.staff .s-name')).map((n) => n.textContent.trim()),
+    staffMeta: Array.from(document.querySelectorAll('.staff')).map((n) => n.textContent.replace(/\s+/g, ' ').trim()),
     sheet: document.querySelector('.sheet__t')?.textContent?.trim() || '',
     kinds: Array.from(document.querySelectorAll('.kind')).map((n) => n.textContent.trim()),
     entries: Array.from(document.querySelectorAll('.oe-i')).map((n) => n.textContent.trim()),
@@ -266,16 +277,21 @@ async function newPage(browser) {
   console.log('07 state', JSON.stringify(await readState()));
   await shot(page, '07-analytics-top-customers.png');
 
-  // ── 08 退款流水 + 加载更多 ────────────────────────────────────────────────
-  await scrollToCard('退款流水');
+  // ── 08 员工处理绩效 ───────────────────────────────────────────────────────
+  await scrollToCard('员工处理绩效');
   console.log('08 state', JSON.stringify(await readState()));
-  await shot(page, '08-analytics-refunds.png');
+  await shot(page, '08-analytics-staff.png');
+
+  // ── 09 退款流水 + 加载更多 ────────────────────────────────────────────────
+  await scrollToCard('退款流水');
+  console.log('09 state', JSON.stringify(await readState()));
+  await shot(page, '09-analytics-refunds.png');
   await page.locator('.more').first().click();
   await page.waitForTimeout(900);
-  console.log('08b state', JSON.stringify(await readState()));
-  await shot(page, '08b-analytics-refunds-more.png');
+  console.log('09b state', JSON.stringify(await readState()));
+  await shot(page, '09b-analytics-refunds-more.png');
 
-  // ── 09 导出弹层 ───────────────────────────────────────────────────────────
+  // ── 10 导出弹层 ───────────────────────────────────────────────────────────
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await page.locator('.card .act').first().click();
@@ -283,15 +299,15 @@ async function newPage(browser) {
   await page.waitForTimeout(500);
   await page.locator('.kind').nth(1).click();
   await page.waitForTimeout(300);
-  console.log('09 state', JSON.stringify(await readState()));
-  await shot(page, '09-analytics-export-sheet.png');
+  console.log('10 state', JSON.stringify(await readState()));
+  await shot(page, '10-analytics-export-sheet.png');
 
-  // ── 10 售后申请页新增入口 ─────────────────────────────────────────────────
+  // ── 11 售后申请页新增入口 ─────────────────────────────────────────────────
   await page.goto(BASE + '?r=104#/pages/campus/merchant-after-sales', { waitUntil: 'load', timeout: 60000 });
   await page.waitForSelector('.ops-entry', { timeout: 30000 }).catch(() => undefined);
   await page.waitForTimeout(1000);
-  console.log('10 state', JSON.stringify(await readState()));
-  await shot(page, '10-merchant-after-sales-entries.png');
+  console.log('11 state', JSON.stringify(await readState()));
+  await shot(page, '11-merchant-after-sales-entries.png');
 
   await ctx.close();
   await browser.close();
