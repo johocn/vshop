@@ -338,6 +338,8 @@ export interface MerchantRevenueBucket {
 
 export interface MerchantRevenueDay {
   date: string; // MM-DD
+  /** 完整日期 YYYY-MM-DD（自定义区间导出跨年可区分） */
+  dateFull: string;
   orders: number;
   gross: number;
   cancelled: number;
@@ -682,11 +684,24 @@ export async function campusMerchantRevenue(): Promise<MerchantRevenue> {
     `query { campusMerchantRevenue {
       today { ${REVENUE_BUCKET_FIELDS} }
       last7 { ${REVENUE_BUCKET_FIELDS} }
-      days { date orders gross cancelled cancelledAmount }
-      days30 { date orders gross cancelled cancelledAmount }
+      days { date dateFull orders gross cancelled cancelledAmount }
+      days30 { date dateFull orders gross cancelled cancelledAmount }
     } }`,
   );
   return res.campusMerchantRevenue;
+}
+
+/** 自定义区间逐日经营数据（§89 导出）：from/to 为 YYYY-MM-DD，含起止两日，最长 366 天 */
+export async function campusMerchantRevenueRange(from: string, to: string): Promise<MerchantRevenueDay[]> {
+  const res = await getAdminClient().request<{ campusMerchantRevenueRange: MerchantRevenueDay[] }>(
+    `query RevenueRange($from: String!, $to: String!) {
+      campusMerchantRevenueRange(from: $from, to: $to) {
+        date dateFull orders gross cancelled cancelledAmount
+      }
+    }`,
+    { from, to },
+  );
+  return res.campusMerchantRevenueRange ?? [];
 }
 
 /** 小票打印回执：打印成功后回写 waimaiPrintedAt（防重打 + 补打依据） */

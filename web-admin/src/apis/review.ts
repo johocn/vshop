@@ -149,6 +149,17 @@ export async function rejectReviewAppeal(id: string, note?: string): Promise<Rev
   return rejectReviewAppeal;
 }
 
+/** 撤销申诉通过：评价恢复展示并重新计入评分聚合（撤销原因必填） */
+export async function revokeReviewAppeal(id: string, note: string): Promise<ReviewRow> {
+  const { revokeReviewAppeal } = await getAdminClient().request<{ revokeReviewAppeal: ReviewRow }>(
+    `mutation RevokeReviewAppeal($id: ID!, $note: String) {
+      revokeReviewAppeal(id: $id, note: $note) { ${REVIEW_FIELDS} }
+    }`,
+    { id, note },
+  );
+  return revokeReviewAppeal;
+}
+
 // ---------------------------------------------------------------------------
 // P4-2 评价品质闭环：差评预警
 //   - Query reviewAlertRule / reviewAlerts(options) / reviewAlert(id) / reviewAlertStats
