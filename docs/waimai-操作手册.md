@@ -5588,8 +5588,8 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 端 | 动作 | 结果 |
 |---|---|---|
 | 后端 | `npx tsc -p tsconfig.build.json` → 覆盖 `/www/apps/vendure/packages/campus-delivery-plugin/lib/src/merchant-admin.service.js(+.map)` → `pm2 restart vendure` | restarts 826，status online；探针 1 PASS |
-| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62185 KB` → nginx `test is successful` + reload → `deploy done` |
-| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.Bz7N-Qct.js` 200 / 26394 B、`after-sales-analytics-DAEtPRTp.css` 200 / 12748 B、`pages-campus-after-sales-automation.co_GwJ1r.js` 200 / 19606 B、`after-sales-automation-B1zkRaqb.css` 200 / 6023 B、`pages-campus-after-sales-ops.BcMui0RV.js` 200 / 42909 B、`after-sales-ops-BxpQuLWM.css` 200 / 11126 B |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（二次部署含值班 chip 两行布局修正） | `[deploy] 产物校验通过: 62186 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.CfiB_vK3.js` 200 / 26394 B、`after-sales-analytics-DAEtPRTp.css` 200 / 12748 B、`pages-campus-after-sales-automation.D58hP-9A.js` 200 / 19606 B、`after-sales-automation-B1zkRaqb.css` 200 / 6023 B、`pages-campus-after-sales-ops.Bk2PJl9v.js` 200 / 42959 B、`after-sales-ops-BdptS6WB.css` 200 / 11362 B |
 
 操作入口：售后分析页「导出」→ 选「员工处理绩效」；「售后申请」→ 值班排班（chip 处理参考）；「售后申请」→ 售后自动化 → 自动分配卡（建议分配参考）。
 
