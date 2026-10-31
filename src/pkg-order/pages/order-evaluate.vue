@@ -1,5 +1,6 @@
 <template>
   <view class="oe-page">
+    <TrustSignatureCard v-if="blocks.length" />
     <view v-if="!blocks.length && loaded" class="oe-empty">
       <EmptyState :text="t('review.reviewed')" />
     </view>
@@ -32,6 +33,20 @@
         </view>
       </view>
 
+      <!-- 仅 1-3 星显示改进项：只评「好」时不追问「哪些需要改进」 -->
+      <view v-if="b.rating <= 3" class="oe-improve">
+        <text class="oe-improve__title">{{ t('review.improveTitle') }}</text>
+        <view class="oe-improve__tags">
+          <text
+            v-for="tag in IMPROVE_TAGS"
+            :key="tag"
+            class="oe-improve__tag"
+            :class="{ on: b.improvePicked.includes(tag) }"
+            @click="toggleImprove(b, tag)"
+          >{{ t(IMPROVE_LABELS[tag]) }}</text>
+        </view>
+      </view>
+
       <textarea
         v-model="b.content"
         class="oe-textarea"
@@ -48,6 +63,21 @@
       </view>
     </view>
 
+    <!-- 好评送礼：仅全部好评时出现，选项固定为 质量 / 服务 / 时间 三项 -->
+    <view v-if="blocks.length && allGood" class="oe-gift">
+      <text class="oe-gift__title">{{ t('review.giftTitle') }}</text>
+      <text class="oe-gift__hint">{{ t('review.giftHint') }}</text>
+      <view class="oe-gift__opts">
+        <text
+          v-for="g in GIFT_OPTIONS"
+          :key="g.value"
+          class="oe-gift__opt"
+          :class="{ on: giftChoice === g.value }"
+          @click="giftChoice = g.value"
+        >{{ t(g.labelKey) }}</text>
+      </view>
+    </view>
+
     <view v-if="blocks.length" class="oe-bar">
       <button class="oe-submit" :disabled="submitting" @click="onSubmit">
         {{ submitting ? t('review.submit') + '...' : t('review.submit') }}
@@ -57,7 +87,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { getOrderByCode } from '../../api/queries/order';
 import { getMyReviews, createReview } from '../../api/queries/review';
@@ -66,6 +97,24 @@ import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import ImageUpload from '../../components/ImageUpload.vue';
 import EmptyState from '../../components/EmptyState.vue';
+import TrustSignatureCard from '../../components/TrustSignatureCard.vue';
+
+/** 改进项：仅 1-3 星出现；值为提交后端的原始中文 tag，展示走 i18n */
+const IMPROVE_TAGS = ['口味一般', '分量不足', '配送慢', '包装破损', '性价比低'];
+const IMPROVE_LABELS: Record<string, string> = {
+    '口味一般': 'review.improveTaste',
+    '分量不足': 'review.improvePortion',
+    '配送慢': 'review.improveDelivery',
+    '包装破损': 'review.improvePacking',
+    '性价比低': 'review.improveValue',
+};
+
+/** 好评送礼：选项固定三项，不提供通用项 */
+const GIFT_OPTIONS = [
+    { value: '质量', labelKey: 'review.giftQuality' },
+    { value: '服务', labelKey: 'review.giftService' },
+    { value: '时间', labelKey: 'review.giftTime' },
+];
 
 interface Block {
     lineId: string;
@@ -77,6 +126,7 @@ interface Block {
     price: number;
     quantity: number;
     rating: number;
+    improvePicked: string[];
     content: string;
     images: string[];
     isAnonymous: boolean;
@@ -87,6 +137,17 @@ const auth = useAuthStore();
 const blocks = ref<Block[]>([]);
 const loaded = ref(false);
 const submitting = ref(false);
+/** 好评送礼选择（纯前端展示，后端无对应字段，不随提交上行） */
+const giftChoice = ref('');
+
+/** 全部商品行均为好评（4-5 星）才展示好评送礼 */
+const allGood = computed(() => blocks.value.length > 0 && blocks.value.every((b) => b.rating >= 4));
+
+function toggleImprove(b: Block, tag: string) {
+    const i = b.improvePicked.indexOf(tag);
+    if (i >= 0) b.improvePicked.splice(i, 1);
+    else b.improvePicked.push(tag);
+}
 
 /** 星级 → 档位文案，与 usemall 一致：1 差评、2/3 中评、4/5 好评 */
 function ratingHint(rating: number): string {
@@ -95,11 +156,10 @@ function ratingHint(rating: number): string {
     return t('review.good');
 }
 
-onMounted(async () => {
+// H5 下无 getCurrentPages 全局，路由参数统一走 onLoad(options)（mp 与 H5 同一入口）
+onLoad(async (q: any) => {
     // 先解析 code，再判登录：要求登录时能把 code 带进 redirect，登录后回到本单
-    const pages = getCurrentPages();
-    const page = pages[pages.length - 1] as any;
-    const code = page?.options?.code;
+    const code = q?.code;
     if (!code) return;
     if (!auth.isLoggedIn) {
         auth.requireLogin('/pkg-order/pages/order-evaluate?code=' + code);
@@ -133,6 +193,7 @@ onMounted(async () => {
             price: line.unitPriceWithTax || 0,
             quantity: line.quantity || 1,
             rating: 5,
+            improvePicked: [],
             content: '',
             images: [],
             isAnonymous: false,
@@ -173,6 +234,7 @@ async function onSubmit() {
                 variantId: b.variantId,
                 rating: b.rating,
                 content: b.content.trim(),
+                tags: b.improvePicked.length ? b.improvePicked : undefined,
                 images: b.images,
                 isAnonymous: b.isAnonymous,
             });
@@ -228,6 +290,21 @@ async function onSubmit() {
 .oe-upload-label { display: block; margin: 16rpx 0 8rpx; font-size: 24rpx; color: $text-color-secondary; }
 .oe-anon { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx;
     &__text { font-size: 26rpx; color: $text-color; }
+}
+.oe-improve { margin-top: 16rpx;
+    &__title { display: block; font-size: 24rpx; color: $text-color-secondary; margin-bottom: 10rpx; }
+    &__tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
+    &__tag { font-size: 22rpx; color: #666; background: #f7f7f7; border: 1rpx solid #e3e6ea; border-radius: 999rpx; padding: 6rpx 20rpx;
+        &.on { color: #e34d59; border-color: #e34d59; background: #fdecee; }
+    }
+}
+.oe-gift { background: #fff; border-radius: $radius-md; padding: 20rpx 24rpx; margin-bottom: 20rpx;
+    &__title { display: block; font-size: 26rpx; font-weight: bold; color: $text-color; }
+    &__hint { display: block; font-size: 22rpx; color: #999; margin-top: 6rpx; }
+    &__opts { display: flex; gap: 16rpx; margin-top: 14rpx; }
+    &__opt { flex: 1; text-align: center; font-size: 24rpx; color: $brand-color; background: $brand-color-light; border: 1rpx solid transparent; border-radius: $radius-sm; padding: 12rpx 0;
+        &.on { border-color: $brand-color; background: #fff; font-weight: bold; }
+    }
 }
 .oe-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 16rpx 20rpx calc(16rpx + env(safe-area-inset-bottom)); background: #fff; }
 .oe-submit { width: 100%; height: 84rpx; font-size: 30rpx; border-radius: $radius-md; border: none; background: $brand-color; color: #fff; }

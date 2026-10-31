@@ -1,5 +1,6 @@
 <template>
   <view class="mr-page">
+    <TrustSignatureCard class="mr-trust" />
     <view class="mr-tabs">
       <text
         v-for="tab in tabs"
@@ -37,6 +38,7 @@ import { getProductsByIds } from '../../api/queries/product';
 import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import EmptyState from '../../components/EmptyState.vue';
+import TrustSignatureCard from '../../components/TrustSignatureCard.vue';
 
 type TabKey = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -106,6 +108,7 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .mr-page { padding: 0 20rpx 40rpx; }
+.mr-trust { margin-top: 20rpx; }
 .mr-tabs { display: flex; background: #fff; border-radius: $radius-md; margin: 20rpx 0; }
 .mr-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 24rpx; color: $text-color-secondary;
     &.active { color: $brand-color; font-weight: bold; }
