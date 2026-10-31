@@ -1,5 +1,9 @@
 <template>
   <view class="home">
+    <!-- 未绑定诊所：整页引导态（统计/快捷入口/患者列表均依赖诊所绑定） -->
+    <NotBoundClinic v-if="loaded && !staffList.length" />
+
+    <template v-else-if="loaded">
     <!-- 馆切换（多馆） -->
     <scroll-view v-if="staffList.length > 1" scroll-x class="clinic-bar">
       <view v-for="s in staffList" :key="s.id" class="clinic-chip" :class="{ on: s.clinicId === currentClinicId }" @tap="switchClinic(s)">
@@ -38,6 +42,7 @@
       </view>
     </view>
     <view v-if="!filteredPatients.length" class="empty">{{ t('common.empty') }}</view>
+    </template>
   </view>
 </template>
 
@@ -46,12 +51,14 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { api, todayStartIso } from '../../services/api'
 import { t } from '../../utils/i18n'
+import NotBoundClinic from '../../components/NotBoundClinic.vue'
 
 const staffList = ref([])
 const currentClinicId = ref(null)
 const patients = ref([])
 const encounters = ref([])
 const keyword = ref('')
+const loaded = ref(false)
 
 const stat = computed(() => ({
   pending: encounters.value.filter(e => e.status === 'PENDING').length,
@@ -69,12 +76,18 @@ onShow(refresh)
 async function refresh() {
   staffList.value = await api.myStaff()
   if (!currentClinicId.value && staffList.value.length) currentClinicId.value = staffList.value[0].clinicId
-  const [profiles, encs] = await Promise.all([
-    api.patientProfiles(0, 50),
-    api.encounters(0, 100, todayStartIso()),
-  ])
-  patients.value = profiles.items
-  encounters.value = encs.items
+  if (staffList.value.length) {
+    const [profiles, encs] = await Promise.all([
+      api.patientProfiles(0, 50),
+      api.encounters(0, 100, todayStartIso()),
+    ])
+    patients.value = profiles.items
+    encounters.value = encs.items
+  } else {
+    patients.value = []
+    encounters.value = []
+  }
+  loaded.value = true
 }
 
 function switchClinic(s) { currentClinicId.value = s.clinicId }

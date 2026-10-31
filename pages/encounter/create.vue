@@ -1,29 +1,34 @@
 <template>
   <view>
-    <view class="section-title">{{ t('encounter.pickPatient') }}</view>
-    <view class="card" v-if="selected">
-      <view class="sel-name">{{ selected.customerName }}</view>
-      <view class="sel-phone">{{ selected.customerPhone || '--' }}</view>
-    </view>
-    <input v-if="!preselected" class="input search-input" :placeholder="t('home.searchPlaceholder')" v-model="keyword" />
-    <scroll-view scroll-y class="picker-list">
-      <view class="card patient" v-for="p in filteredPatients" :key="p.id" @tap="pick(p)">
-        <view class="p-name">{{ p.customerName }}</view>
-        <view class="p-phone">{{ p.customerPhone || '--' }}</view>
-      </view>
-      <view v-if="!filteredPatients.length" class="empty">{{ t('common.empty') }}</view>
-    </scroll-view>
+    <template v-if="loaded">
+      <NotBoundClinic v-if="!bound" />
+      <template v-else>
+        <view class="section-title">{{ t('encounter.pickPatient') }}</view>
+        <view class="card" v-if="selected">
+          <view class="sel-name">{{ selected.customerName }}</view>
+          <view class="sel-phone">{{ selected.customerPhone || '--' }}</view>
+        </view>
+        <input v-if="!preselected" class="input search-input" :placeholder="t('home.searchPlaceholder')" v-model="keyword" />
+        <scroll-view scroll-y class="picker-list">
+          <view class="card patient" v-for="p in filteredPatients" :key="p.id" @tap="pick(p)">
+            <view class="p-name">{{ p.customerName }}</view>
+            <view class="p-phone">{{ p.customerPhone || '--' }}</view>
+          </view>
+          <view v-if="!filteredPatients.length" class="empty">{{ t('common.empty') }}</view>
+        </scroll-view>
 
-    <view class="section-title">{{ t('encounter.type') }}</view>
-    <view class="card type-row">
-      <view v-for="tp in types" :key="tp.value" class="type-chip" :class="{ on: type === tp.value }" @tap="type = tp.value">
-        {{ t('encounter.' + tp.value) }}
-      </view>
-    </view>
+        <view class="section-title">{{ t('encounter.type') }}</view>
+        <view class="card type-row">
+          <view v-for="tp in types" :key="tp.value" class="type-chip" :class="{ on: type === tp.value }" @tap="type = tp.value">
+            {{ t('encounter.' + tp.value) }}
+          </view>
+        </view>
 
-    <view class="btn-primary create-btn" :class="{ disabled: !selected }" @tap="create">
-      {{ t('encounter.create') }}
-    </view>
+        <view class="btn-primary create-btn" :class="{ disabled: !selected }" @tap="create">
+          {{ t('encounter.create') }}
+        </view>
+      </template>
+    </template>
   </view>
 </template>
 
@@ -32,6 +37,8 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { api } from '../../services/api'
 import { t } from '../../utils/i18n'
+import { useClinicBinding } from '../../composables/useClinicBinding'
+import NotBoundClinic from '../../components/NotBoundClinic.vue'
 
 const types = [{ value: 'FIRST' }, { value: 'RETURN' }, { value: 'HOUSE_CALL' }]
 
@@ -41,6 +48,7 @@ const patients = ref([])
 const keyword = ref('')
 const type = ref('FIRST')
 const clinicId = ref(null)
+const { bound, loaded, check } = useClinicBinding()
 
 const filteredPatients = computed(() => {
   const kw = keyword.value.trim()
@@ -56,6 +64,7 @@ onLoad(async (q) => {
     if (found) { selected.value = found; preselected.value = true }
   }
   if (q.clinicId) clinicId.value = Number(q.clinicId)
+  await check(patients.value.length)
 })
 
 function pick(p) { selected.value = p }

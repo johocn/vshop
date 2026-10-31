@@ -1,13 +1,16 @@
 <template>
   <view>
-    <view class="card" v-for="r in records" :key="r.id" @tap="goDetail(r)">
-      <view class="row-between">
-        <view class="r-diag">{{ r.diagnosis }}</view>
-        <text class="tag tag-green">v{{ r.version }}</text>
+    <template v-if="loaded">
+      <view class="card" v-for="r in records" :key="r.id" @tap="goDetail(r)">
+        <view class="row-between">
+          <view class="r-diag">{{ r.diagnosis }}</view>
+          <text class="tag tag-green">v{{ r.version }}</text>
+        </view>
+        <view class="r-cc">{{ r.chiefComplaint }}</view>
       </view>
-      <view class="r-cc">{{ r.chiefComplaint }}</view>
-    </view>
-    <view v-if="!records.length" class="empty">{{ t('common.empty') }}</view>
+      <NotBoundClinic v-if="!bound" />
+      <view v-else-if="!records.length" class="empty">{{ t('common.empty') }}</view>
+    </template>
   </view>
 </template>
 
@@ -16,12 +19,16 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { api } from '../../services/api'
 import { t } from '../../utils/i18n'
+import { useClinicBinding } from '../../composables/useClinicBinding'
+import NotBoundClinic from '../../components/NotBoundClinic.vue'
 
 const records = ref([])
+const { bound, loaded, check } = useClinicBinding()
 onShow(refresh)
 async function refresh() {
   const res = await api.medicalRecords(0, 50)
   records.value = res.items
+  await check(records.value.length)
 }
 function goDetail(r) { uni.navigateTo({ url: `/pages/record/detail?id=${r.id}` }) }
 </script>

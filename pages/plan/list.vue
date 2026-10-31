@@ -1,33 +1,38 @@
 <template>
   <view>
-    <view class="btn-ghost create-btn" @tap="showCreate = !showCreate">{{ t('plan.create') }}</view>
+    <template v-if="loaded">
+      <template v-if="bound">
+        <view class="btn-ghost create-btn" @tap="showCreate = !showCreate">{{ t('plan.create') }}</view>
 
-    <view v-if="showCreate" class="card">
-      <picker :range="patientNames" @change="onPickPatient">
-        <view class="input">{{ newPlan.patientName || t('plan.pickPatient') }}</view>
-      </picker>
-      <input class="input mt8" :placeholder="t('plan.titlePh')" v-model="newPlan.text" />
-      <view class="date-row">
-        <picker mode="date" @change="e => newPlan.start = e.detail.value"><view class="input">{{ newPlan.start || t('plan.cycle') + '起' }}</view></picker>
-        <picker mode="date" @change="e => newPlan.end = e.detail.value"><view class="input">{{ newPlan.end || t('plan.cycle') + '止' }}</view></picker>
-      </view>
-      <view class="btn-primary mt8" @tap="createPlan">{{ t('common.submit') }}</view>
-    </view>
+        <view v-if="showCreate" class="card">
+          <picker :range="patientNames" @change="onPickPatient">
+            <view class="input">{{ newPlan.patientName || t('plan.pickPatient') }}</view>
+          </picker>
+          <input class="input mt8" :placeholder="t('plan.titlePh')" v-model="newPlan.text" />
+          <view class="date-row">
+            <picker mode="date" @change="e => newPlan.start = e.detail.value"><view class="input">{{ newPlan.start || t('plan.cycle') + '起' }}</view></picker>
+            <picker mode="date" @change="e => newPlan.end = e.detail.value"><view class="input">{{ newPlan.end || t('plan.cycle') + '止' }}</view></picker>
+          </view>
+          <view class="btn-primary mt8" @tap="createPlan">{{ t('common.submit') }}</view>
+        </view>
 
-    <view class="card" v-for="p in plans" :key="p.id" @tap="goDetail(p)">
-      <view class="row-between">
-        <view class="pl-title">{{ p.title }}</view>
-        <text class="tag" :class="statusClass(p.status)">{{ t('plan.status_' + p.status) }}</text>
-      </view>
-      <view class="pl-patient">{{ patientName(p.patientProfileId) }}</view>
-      <view class="pl-cycle">{{ (p.cycleStart || '').slice(0, 10) }} ~ {{ (p.cycleEnd || '').slice(0, 10) }}</view>
-      <view class="actions" @tap.stop>
-        <view v-if="p.status === 'DRAFT'" class="btn-ghost" @tap="transition(p, 'ACTIVE')">{{ t('plan.toActive') }}</view>
-        <view v-if="p.status === 'ACTIVE'" class="btn-ghost" @tap="transition(p, 'PAUSED')">{{ t('plan.toPaused') }}</view>
-        <view v-if="p.status === 'ACTIVE' || p.status === 'PAUSED'" class="btn-danger" @tap="transition(p, 'CLOSED')">{{ t('plan.toClosed') }}</view>
-      </view>
-    </view>
-    <view v-if="!plans.length" class="empty">{{ t('common.empty') }}</view>
+        <view class="card" v-for="p in plans" :key="p.id" @tap="goDetail(p)">
+          <view class="row-between">
+            <view class="pl-title">{{ p.title }}</view>
+            <text class="tag" :class="statusClass(p.status)">{{ t('plan.status_' + p.status) }}</text>
+          </view>
+          <view class="pl-patient">{{ patientName(p.patientProfileId) }}</view>
+          <view class="pl-cycle">{{ (p.cycleStart || '').slice(0, 10) }} ~ {{ (p.cycleEnd || '').slice(0, 10) }}</view>
+          <view class="actions" @tap.stop>
+            <view v-if="p.status === 'DRAFT'" class="btn-ghost" @tap="transition(p, 'ACTIVE')">{{ t('plan.toActive') }}</view>
+            <view v-if="p.status === 'ACTIVE'" class="btn-ghost" @tap="transition(p, 'PAUSED')">{{ t('plan.toPaused') }}</view>
+            <view v-if="p.status === 'ACTIVE' || p.status === 'PAUSED'" class="btn-danger" @tap="transition(p, 'CLOSED')">{{ t('plan.toClosed') }}</view>
+          </view>
+        </view>
+        <view v-if="!plans.length" class="empty">{{ t('common.empty') }}</view>
+      </template>
+      <NotBoundClinic v-else />
+    </template>
   </view>
 </template>
 
@@ -36,11 +41,14 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { api } from '../../services/api'
 import { t } from '../../utils/i18n'
+import { useClinicBinding } from '../../composables/useClinicBinding'
+import NotBoundClinic from '../../components/NotBoundClinic.vue'
 
 const showCreate = ref(false)
 const plans = ref([])
 const patients = ref([])
 const newPlan = ref({ patientProfileId: null, patientName: '', text: '', start: '', end: '' })
+const { bound, loaded, check } = useClinicBinding()
 
 const patientNames = ref([])
 const patientName = (id) => {
@@ -55,6 +63,7 @@ async function refresh() {
   plans.value = plansRes.items
   patients.value = profilesRes.items
   patientNames.value = patients.value.map(p => p.customerName)
+  await check(plans.value.length)
 }
 
 function onPickPatient(e) {
