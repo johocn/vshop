@@ -203,7 +203,18 @@
           </view>
         </view>
         <view class="export">
-          <button class="export-btn" @tap="exportCsv">{{ $t('campusStoreSettings.exportCsv') }}</button>
+          <view class="export-range">
+            <picker mode="date" :value="exportFrom" :end="exportTo" @change="onExportFrom">
+              <text class="range-chip">{{ exportFrom }}</text>
+            </picker>
+            <text class="range-join">{{ $t('campusStoreSettings.exportRangeJoin') }}</text>
+            <picker mode="date" :value="exportTo" :start="exportFrom" :end="campusDateKey(0)" @change="onExportTo">
+              <text class="range-chip">{{ exportTo }}</text>
+            </picker>
+          </view>
+          <button class="export-btn" :disabled="exporting" @tap="exportCsv">
+            {{ exporting ? $t('campusStoreSettings.exporting') : $t('campusStoreSettings.exportCsv') }}
+          </button>
           <text class="tip">{{ $t('campusStoreSettings.exportHint') }}</text>
         </view>
       </view>
@@ -217,6 +228,7 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import {
   campusMerchantAutoAccept,
   campusMerchantRevenue,
+  campusMerchantRevenueRange,
   campusMerchantSetClosureDates,
   campusMerchantSetPaused,
   campusMerchantStoreProfile,
@@ -580,33 +592,72 @@ function barHeight(gross: number): string {
   return `${Math.max(4, Math.round((gross / maxGross.value) * 160))}rpx`;
 }
 
-/** P3-2 经营数据导出：近 30 日逐日明细（口径与页面一致，金额固定两位小数） */
-function exportCsv(): void {
-  const days = revenue.value?.days30 ?? [];
-  if (!days.length) {
-    uni.showToast({ title: locale.t('campusStoreSettings.exportEmpty'), icon: 'none' });
+/** §89 导出区间：默认近 30 日（含今日），可选任意起止日期（最长 366 天） */
+const exporting = ref(false);
+const exportFrom = ref(campusDateKey(-29));
+const exportTo = ref(campusDateKey(0));
+
+function onExportFrom(e: any): void {
+  const v = String(e?.detail?.value ?? '');
+  if (!v) return;
+  exportFrom.value = v;
+  if (exportTo.value < v) exportTo.value = v;
+}
+
+function onExportTo(e: any): void {
+  const v = String(e?.detail?.value ?? '');
+  if (!v) return;
+  exportTo.value = v;
+}
+
+/** §89 经营数据导出：按所选起止日期逐日明细（口径与页面一致，日期列含年份） */
+async function exportCsv(): Promise<void> {
+  const from = exportFrom.value;
+  const to = exportTo.value;
+  if (!from || !to) return;
+  if (to < from) {
+    uni.showToast({ title: locale.t('campusStoreSettings.exportRangeInvalid'), icon: 'none' });
     return;
   }
-  const p = (n: number) => String(n).padStart(2, '0');
-  const now = new Date();
-  const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
-  downloadCsv(
-    `${locale.t('campusStoreSettings.exportFileName')}-${stamp}.csv`,
-    [
-      locale.t('campusStoreSettings.csvDate'),
-      locale.t('campusStoreSettings.csvOrders'),
-      locale.t('campusStoreSettings.csvGross'),
-      locale.t('campusStoreSettings.csvCancelled'),
-      locale.t('campusStoreSettings.csvCancelledAmount'),
-    ],
-    days.map((x) => [
-      x.date,
-      String(x.orders),
-      fenToYuanFixed(x.gross),
-      String(x.cancelled),
-      fenToYuanFixed(x.cancelledAmount),
-    ]),
-  );
+  const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+  if (span > 366) {
+    uni.showToast({ title: locale.t('campusStoreSettings.exportRangeTooLong'), icon: 'none' });
+    return;
+  }
+  if (exporting.value) return;
+  exporting.value = true;
+  try {
+    const days = await campusMerchantRevenueRange(from, to);
+    if (!days.length) {
+      uni.showToast({ title: locale.t('campusStoreSettings.exportEmpty'), icon: 'none' });
+      return;
+    }
+    downloadCsv(
+      `${locale.t('campusStoreSettings.exportFileName')}-${from.replace(/-/g, '')}-${to.replace(/-/g, '')}.csv`,
+      [
+        locale.t('campusStoreSettings.csvDate'),
+        locale.t('campusStoreSettings.csvOrders'),
+        locale.t('campusStoreSettings.csvGross'),
+        locale.t('campusStoreSettings.csvCancelled'),
+        locale.t('campusStoreSettings.csvCancelledAmount'),
+      ],
+      days.map((x) => [
+        x.dateFull,
+        String(x.orders),
+        fenToYuanFixed(x.gross),
+        String(x.cancelled),
+        fenToYuanFixed(x.cancelledAmount),
+      ]),
+    );
+    uni.showToast({
+      title: locale.t('campusStoreSettings.exportDone').replace('{n}', String(days.length)),
+      icon: 'success',
+    });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.exportFail')), icon: 'none' });
+  } finally {
+    exporting.value = false;
+  }
 }
 
 onMounted(() => {
@@ -709,6 +760,12 @@ onPullDownRefresh(async () => {
     .trend-t { font-size: 24rpx; color: $wa-muted; }
   }
   .export { margin-top: 28rpx; padding-top: 24rpx; border-top: 1.5px solid $wa-rule;
+    .export-range { display: flex; align-items: center; gap: 12rpx; margin-bottom: 16rpx;
+      .range-chip { flex: 1; text-align: center; font-size: 24rpx; color: $wa-ink;
+        background: $wa-bg; border: 1.5px solid $wa-rule; border-radius: $wa-radius;
+        padding: 14rpx 10rpx; }
+      .range-join { font-size: 22rpx; color: $wa-muted; }
+    }
     .export-btn { background: $wa-bg; color: $wa-accent; font-size: 26rpx; font-weight: 600;
       border: 1.5px solid $wa-accent; border-radius: $wa-radius; line-height: 76rpx; }
   }

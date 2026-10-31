@@ -76,6 +76,10 @@
           <button class="op main" @tap="onApproveAppeal(r)">{{ $t('review.list.approveAppealBtn') }}</button>
           <button class="op" @tap="onRejectAppeal(r)">{{ $t('review.list.rejectAppealBtn') }}</button>
         </view>
+        <!-- 已通过可撤销：评价恢复展示并重新计入评分 -->
+        <view class="ops" v-else-if="r.appealStatus === 'approved'">
+          <button class="op" @tap="onRevokeAppeal(r)">{{ $t('review.list.revokeAppealBtn') }}</button>
+        </view>
       </view>
       <view v-if="appealLoading" class="empty">{{ $t('review.list.loading') }}</view>
       <view v-else-if="!appeals.length" class="empty">{{ $t('review.list.emptyAppeal') }}</view>
@@ -158,11 +162,11 @@
     <!-- 申诉审核弹窗（自绘：H5 原生 editable 弹窗内容与输入框会重叠） -->
     <view v-if="appealDialog" class="am-mask" @tap="closeAppealDialog">
       <view class="am-sheet" @tap.stop>
-        <text class="am-sheet__title">{{ $t('review.list.' + (appealDialog.kind === 'approve' ? 'approveAppealTitle' : 'rejectAppealTitle')) }}</text>
-        <text class="am-sheet__desc">{{ $t('review.list.' + (appealDialog.kind === 'approve' ? 'approveAppealContent' : 'rejectAppealContent')) }}</text>
+        <text class="am-sheet__title">{{ appealDialogTitle }}</text>
+        <text class="am-sheet__desc">{{ appealDialogContent }}</text>
         <textarea
           class="am-sheet__area" v-model="appealNote" :maxlength="200"
-          :placeholder="$t('review.list.appealNotePlaceholder')"
+          :placeholder="appealDialogPlaceholder"
         />
         <view class="am-sheet__ops">
           <button class="am-btn" :disabled="appealBusy" @tap="closeAppealDialog">{{ $t('review.list.cancel') }}</button>
@@ -235,7 +239,7 @@ import { useListPage } from '../../../composables/useListPage';
 import { downloadCsv } from '../../../utils/csv';
 import {
   fetchReviewPage, approveReview, rejectReview, replyReview,
-  fetchReviewAppeals, approveReviewAppeal, rejectReviewAppeal,
+  fetchReviewAppeals, approveReviewAppeal, rejectReviewAppeal, revokeReviewAppeal,
   fetchReviewAlertRule, updateReviewAlertRule, fetchReviewAlertPage, fetchReviewAlertStats,
   replyReviewAlert, resendReviewAlertCoupon, closeReviewAlert,
   type ReviewRow, type ReviewAlertRow, type ReviewAlertRule, type ReviewAlertStats,
@@ -686,12 +690,29 @@ function onReply(r: ReviewRow) {
   });
 }
 
-/** 申诉审核：自绘弹窗（确认说明 + 审核说明选填） */
-const appealDialog = ref<{ row: ReviewRow; kind: 'approve' | 'reject' } | null>(null);
+/** 申诉审核：自绘弹窗（确认说明 + 审核说明选填 / 撤销原因必填） */
+const appealDialog = ref<{ row: ReviewRow; kind: 'approve' | 'reject' | 'revoke' } | null>(null);
 const appealNote = ref('');
 const appealBusy = ref(false);
 
-function askAppealDecision(r: ReviewRow, kind: 'approve' | 'reject') {
+/** 弹窗文案按动作取键，避免模板里堆三元表达式 */
+const appealKeyMap = {
+  approve: { title: 'approveAppealTitle', content: 'approveAppealContent', note: 'appealNotePlaceholder' },
+  reject: { title: 'rejectAppealTitle', content: 'rejectAppealContent', note: 'appealNotePlaceholder' },
+  revoke: { title: 'revokeAppealTitle', content: 'revokeAppealContent', note: 'revokeAppealNotePlaceholder' },
+} as const;
+
+const appealDialogTitle = computed(() =>
+  appealDialog.value ? locale.t('review.list.' + appealKeyMap[appealDialog.value.kind].title) : '',
+);
+const appealDialogContent = computed(() =>
+  appealDialog.value ? locale.t('review.list.' + appealKeyMap[appealDialog.value.kind].content) : '',
+);
+const appealDialogPlaceholder = computed(() =>
+  appealDialog.value ? locale.t('review.list.' + appealKeyMap[appealDialog.value.kind].note) : '',
+);
+
+function askAppealDecision(r: ReviewRow, kind: 'approve' | 'reject' | 'revoke') {
   appealNote.value = '';
   appealDialog.value = { row: r, kind };
 }
@@ -705,15 +726,20 @@ function closeAppealDialog() {
 async function submitAppealDialog() {
   const dlg = appealDialog.value;
   if (!dlg || appealBusy.value) return;
-  appealBusy.value = true;
   const { row, kind } = dlg;
   const note = appealNote.value.trim();
+  // 撤销通过必须填原因：留痕里要能追溯为什么恢复展示
+  if (kind === 'revoke' && !note) {
+    toast(locale.t('review.list.revokeAppealEmpty'));
+    return;
+  }
+  appealBusy.value = true;
   try {
-    await (kind === 'approve' ? approveReviewAppeal(row.id, note) : rejectReviewAppeal(row.id, note));
-    uni.showToast({
-      title: locale.t(kind === 'approve' ? 'review.list.appealApproved' : 'review.list.appealRejected'),
-      icon: 'success',
-    });
+    if (kind === 'approve') await approveReviewAppeal(row.id, note);
+    else if (kind === 'reject') await rejectReviewAppeal(row.id, note);
+    else await revokeReviewAppeal(row.id, note);
+    const okKey = kind === 'approve' ? 'appealApproved' : kind === 'reject' ? 'appealRejected' : 'appealRevoked';
+    uni.showToast({ title: locale.t('review.list.' + okKey), icon: 'success' });
     appealDialog.value = null;
     appealNote.value = '';
     await loadAppeals();
@@ -730,6 +756,10 @@ function onApproveAppeal(r: ReviewRow) {
 
 function onRejectAppeal(r: ReviewRow) {
   askAppealDecision(r, 'reject');
+}
+
+function onRevokeAppeal(r: ReviewRow) {
+  askAppealDecision(r, 'revoke');
 }
 
 onLoad(() => {

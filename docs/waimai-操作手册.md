@@ -4706,6 +4706,197 @@ mutation ($orderId: ID!) { campusMerchantCloudPrint(orderId: $orderId) { ok prov
 | 后端 | 无（复用既有 `campusMerchantPrintJobs` / `campusMerchantCloudPrint`，无需迁移） | 探针即验证 |
 | 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61883 KB` → nginx `test is successful` + reload → `deploy done`；线上 `index-DxmZBuUk.js`（200 / 894154 B）与 `pages-campus-merchant.YvwqWM2o.js`（200 / 40631 B）均命中 `printJobsEntry`；`https://e.joho.cn/guanli/` 200 |
 
+## §88 评价申诉「撤销通过」（已上线）
+
+此前平台审核通过申诉后评价被置为 `hidden`，一旦误判只能人工改库恢复：后台没有任何撤销入口，评分聚合也不会回补。本段补平台侧撤销：恢复展示、回补评分、留痕（操作人/原因/时间），并把申诉状态回退为「已驳回」，商家侧看到的状态同步回退。
+
+### 88.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `review-plugin/src/review.service.ts` | 新增 `revokeReviewAppeal(ctx, id, note)`：校验 `appealStatus === 'approved'` 且 `status === 'hidden'` → 原因必填且 ≤300 字 → 状态回退 `rejected`、`appealResult` 追加「撤销通过：原因」、写 `appealReviewedBy/At` → 评价恢复 `approved` → 主评（`parentId` 为空）重算商品评分 |
+| 后端 | `review-plugin/src/review-admin.resolver.ts` / `plugin.ts` | adminSchema 增 `Mutation.revokeReviewAppeal(id: ID!, note: String): Review!`；resolver `@Allow(Permission.UpdateOrder)`；`lib/` 同步编译产物 |
+| 后台 | `web-admin/src/apis/review.ts` | 新增 `revokeReviewAppeal(id, note)`（mutation `revokeReviewAppeal`，返回 `id status appealStatus appealResult appealReviewedAt`） |
+| 后台 | `web-admin/src/pages/review/list/index.vue` | 申诉卡在「待审核（通过/驳回按钮）」之外补 `appealStatus === 'approved'` 分支的「撤销通过」按钮；`appealDialog.kind` 扩为 `approve / reject / revoke`，标题/说明/占位按 kind 切换；提交时 revoke 原因必填 |
+| 后台 | `locale/zh-Hans.json` / `en.json` | 新增 6 条：`revokeAppealBtn / revokeAppealTitle / revokeAppealContent / revokeAppealNotePlaceholder / revokeAppealEmpty / appealRevoked` |
+| 截图 | `docs/screenshots/waimai/p88-appeal-revoke/` | 4 张：已通过卡片撤销入口 / 撤销弹窗（原因必填）/ 撤销成功 toast / 切「已驳回」后状态回退并留痕 |
+| 脚本 | `web-admin/scripts/shots-p88-p90.cjs` | mock `reviewAppeals`（按 `options.status` 过滤）+ `revokeReviewAppeal`（回写 rejected/approved 与留痕） |
+
+### 88.2 契约（前后端一致）
+
+```graphql
+mutation ($id: ID!, $note: String) {
+  revokeReviewAppeal(id: $id, note: $note) { id status appealStatus appealResult appealReviewedBy appealReviewedAt }
+}
+```
+
+- `note` 在 schema 上可空，但服务端强制必填（空串报「请填写撤销原因」），避免无因撤销。
+- 复用既有 appeal 字段，不新增 customFields / 表列，无需改库。
+
+### 88.3 校验与边界
+
+- 两道前置校验顺序固定：先 `仅已通过的申诉可撤销`（`appealStatus !== 'approved'`），再 `评价当前不是隐藏态，无需撤销`（`status !== 'hidden'`）——即「已通过但评价已被别处恢复」也不会重复回补评分。
+- 原因长度上限 300 字（与申诉理由同常量 `MAX_APPEAL_REASON`）。
+- 留痕拼接前先剥掉上一段末尾标点（`。；;，,`），最终形如 `已通过：…评价隐藏；撤销通过：经复核该申诉证据不足，恢复评价展示`，不会出现「。；」。
+- 只对主评重算评分：追评（`parentId` 非空）不进聚合，撤销追评不做评分回补。
+- 前端按钮只在 `appealStatus === 'approved'` 卡片出现；「已驳回」卡片不再显示任何操作，防止反复撤销。
+- 撤销成功后原地刷新列表（不整页重载），并把用户当前筛选保持不动，本次截图即用「已驳回」筛选复核结果。
+
+### 88.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后端编译 | `tsc -p packages/review-plugin/tsconfig.json` → exit 0 |
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 评价管理 →「差评申诉」→ 筛选「已通过」：2 张卡均显示状态「已通过（评价已隐藏）」，操作区只有 `撤销通过` |
+| 截图 02 | 点「撤销通过」：弹窗标题「撤销通过该申诉」、说明「撤销后该评价恢复展示并重新计入商品评分，申诉状态回退为「已驳回」。」、`取消 / 确定` |
+| 截图 03 | 填原因「经复核该申诉证据不足，恢复评价展示」→ 确定：toast「已撤销通过」，列表剩余 1 张已通过卡片 |
+| 截图 04 | 切「已驳回」：同一评价显示「已驳回」，申诉说明末段为「…评价隐藏；撤销通过：经复核该申诉证据不足，恢复评价展示」 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+
+### 88.5 生产探针（admin-api，`canteen-a` 渠道）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `reviews(options:{take:5})` 带 Bearer | 返回 5 条（`9:deleted / 11:pending / 12:approved`），字段正常 PASS |
+| 2 | `revokeReviewAppeal(id:"9", note:"探针验证")`（`appealStatus=null`） | `errors[0] = 仅已通过的申诉可撤销`，数据未变 PASS |
+| 3 | 同一单 `note:""` | 同样在第一步被拦（未走到原因校验），说明校验顺序正确 PASS |
+| 4 | `revokeReviewAppeal(id:"9999999")` | `No Review with the id "9999999" could be found` PASS |
+| 5 | 同 mutation 不带 Bearer | `You are not currently authorized to perform this action` PASS |
+
+生产库当前没有「已通过且隐藏」的真实评价（探针 2 返回 `appealStatus=null`），因此**未对生产数据执行真实撤销**；正向路径由后台 mock 截图与本地逻辑覆盖。
+
+### 88.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | vendure `4515d0931 feat(review): 评价申诉撤销通过（§88）`（`packages/review-plugin/src` + `lib`）→ `git push origin master` → 服务器 `git fetch + reset --hard origin/master` + `pm2 restart vendure --update-env` | `HEAD is now at 4515d0931`；修复下条缺列后 `pm2 vendure online`、`/health` 200、`https://e.joho.cn/admin-api` 200 |
+| 数据库 | 重启首轮进入崩溃循环：`QueryFailedError: column Channel.customFieldsWaimaiaftersalesmonthlypushenabled does not exist`（本批之前 §94~§97 的 customFields 只在代码里，生产 `DB_SYNC=0` 从未补列）→ `/tmp/fix-cols.js` 用 `pg` 直连 `vendure` 库，把 p24/p25/p26/p27 的幂等 DDL（`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`）逐条执行 | p24 5 条 / p25 7 条 / p26 12 条 / p27 4 条全 ok；`information_schema` 确认 channel 的 4 个月度推送列存在，重启后不再报错 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61889 KB` → nginx `test is successful` + reload → `deploy done`；线上 `pages-review-list-index.QBkNb1MQ.js`（200 / 27172 B）命中 `revokeReviewAppeal` |
+
+**踩坑**：`p25`~`p27` 都是 `OnApplicationBootstrap` 迁移，救不了「启动期 `ChannelService.initChannels` 查询」；只要代码先上线、列还没补，进程就会一直重启（`↺` 逐秒上涨、`/health` 000、admin-api 503）。顺序必须是「先补列 → 再重启」。
+
+## §89 经营数据导出自定义起止日期（已上线）
+
+§57 的经营数据导出固定 30 日窗口，日期列只有 `MM-DD`，跨年无法区分，商家想导「上个月」或「某个活动周期」只能导全部。本段补起止日期选择、完整日期列与区间校验。
+
+### 89.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端（已在线，本段验证） | `campus-delivery-plugin/src/merchant-admin.service.ts` | `MerchantRevenueDay` 增 `dateFull`（`YYYY-MM-DD`）；新增 `revenueRange(ctx, from, to)`：`^\d{4}-\d{2}-\d{2}$` 校验、`to < from` 报错、区间 >366 天报错，逐日聚合并补 0，口径与 `revenue().days30` 一致 |
+| 后端（已在线，本段验证） | `merchant-admin.resolver.ts` / `campus-delivery.plugin.ts` | `campusMerchantRevenueRange(from: String!, to: String!): [CampusMerchantRevenueDay!]!`，权限 `CampusMerchant` |
+| 后台 | `web-admin/src/apis/campus.ts` | `MerchantRevenueDay` 增 `dateFull`；`revenue`/`days30` 查询补 `dateFull`；新增 `campusMerchantRevenueRange(from, to)` |
+| 后台 | `web-admin/src/pages/campus/store-settings.vue` | 导出区新增两个 `picker mode="date"` 起止选择（默认 `今日-29天 ~ 今日`，结束日上限今天）、`至` 分隔、按钮文案「导出 CSV（所选区间）」、`exporting` 期间按钮禁用；`exportCsv()` 改 async：先拦非法区间 → 拉 `campusMerchantRevenueRange` → CSV 用 `dateFull` → 文件名带区间 → toast「已导出 {n} 天」 |
+| 后台 | `locale/zh-Hans.json` / `en.json` | 新增 7 条：`exportRangeJoin / exporting / exportRangeInvalid / exportRangeTooLong / exportFail / exportDone`（`已导出 {n} 天`），改 `exportCsv`（导出 CSV（所选区间））、`exportHint`、`exportFileName`（经营数据）、`csvDate`（日期(YYYY-MM-DD)） |
+| 截图 | `docs/screenshots/waimai/p89-export-range/` | 3 张：区间条（`2026-10-02 至 2026-10-31` + 区间按钮 + 提示）/ 导出后 toast「已导出 30 天」/ 真实下载 CSV 的预览（表头与 30 行逐日明细） |
+| 脚本 | `web-admin/scripts/shots-p88-p90.cjs` | mock `campusMerchantRevenueRange` 按 `from/to` 逐日造数；用 `page.waitForEvent('download')` 真抓 CSV，再据其内容渲染预览页截图 |
+
+### 89.2 契约（前后端一致）
+
+```graphql
+query ($from: String!, $to: String!) {
+  campusMerchantRevenueRange(from: $from, to: $to) { date dateFull orders gross cancelled cancelledAmount }
+}
+```
+
+CSV 列：`日期(YYYY-MM-DD),完成单量,营业额(元),取消单量,退款金额(元)`；文件名 `经营数据-<FROM 紧凑>-<TO 紧凑>.csv`（如 `经营数据-20261002-20261031.csv`），BOM + CRLF，Excel 直接双击可读。
+
+### 89.3 校验与边界
+
+- 前端先拦：`to < from` → 「结束日期不能早于开始日期」；区间 >366 天 → 「导出区间不能超过 366 天」；均不发请求。
+- 后端同口径二次校验（`日期格式须为 YYYY-MM-DD` / `结束日期不能早于开始日期` / `导出区间不能超过 366 天`），前端被绕过也拦得住。
+- 起止「含首尾两天」，缺单日为 0 行，保证行数 = 区间天数；实测 `2026-10-02 ~ 2026-10-31` = 30 行。
+- 日期列改 `dateFull` 后，跨年区间（如 `2025-12-20 ~ 2026-01-10`）不会再出现重复的 `12-20`/`01-10`。
+- 结束日期 picker 的 `:end` 绑今天，避免导出未来空区间；开始日期不做下限，历史数据可任意回溯（上限由 366 天规则兜住）。
+- **已知限制（截图取舍）**：uni-app H5 的 `picker` 在 headless 下是原生弹层（`.uni-picker-container` 常驻 `display:none`，click/tap 均不展开），所以没有「日期选择器展开」截图，改为「区间条 + 真实 CSV 导出结果」两张证据。
+
+### 89.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 导出区：`2026-10-02 至 2026-10-31` 两枚日期 chip、按钮「导出 CSV（所选区间）」、提示「…区间最长 366 天。」 |
+| 截图 02 | 点导出：`page.waitForEvent('download')` 捕获成功，250ms 后截图，toast「已导出 30 天」，按钮未置灰 |
+| 截图 03 | 真实 CSV 内容：文件名 `经营数据-20261002-20261031.csv`、表头 `日期(YYYY-MM-DD),完成单量,营业额(元),取消单量,退款金额(元)`、30 行，首行 `2026-10-02,26,756.60,2,52.00` |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+
+### 89.5 生产探针（admin-api，`canteen-a` 渠道）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `from:"2026-10-01" to:"2026-10-31"` | 31 行，`first { date:"10-01", dateFull:"2026-10-01" }`、`last { date:"10-31", dateFull:"2026-10-31" }`（生产该渠道当前无单，金额均为 0）PASS |
+| 2 | `from:"2026-10-31" to:"2026-10-01"` | `结束日期不能早于开始日期` PASS |
+| 3 | `from:"2024-01-01" to:"2026-12-31"` | `导出区间不能超过 366 天` PASS |
+| 4 | `from:"2026/10/01"` | `日期格式须为 YYYY-MM-DD` PASS |
+| 5 | 同一 query 不带 Bearer | `You are not currently authorized to perform this action` PASS |
+
+### 89.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增（`campusMerchantRevenueRange` / `dateFull` 随 §88 前的 vendure 基线已在线上，本轮仅重启复核） | 探针 1 返回 31 行带 `dateFull`，见 89.5 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61889 KB` → nginx `test is successful` + reload → `deploy done`；线上 `pages-campus-store-settings.BeO0qkzn.js`（200 / 22049 B）命中 `exportRangeJoin`，公共 `index-DK33Wkvj.js`（200 / 895616 B）命中 `exportDone` |
+
+操作入口：商家工作台 →「经营设置」→「经营数据」卡 → 选起止日期 → 「导出 CSV（所选区间）」。
+
+## §90 广告素材后台上传（已上线）
+
+§P9-3 的广告投放只允许手填图片 URL，商家手头没有图床就无法投放。本段复用已有媒体库（`MediaLibraryModal` + `assetLibrary` 上传能力）：可直接在弹层上传新图，也可从已上传素材里选，选完自动回填 URL 并出缩略预览。
+
+### 90.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/ads.vue` | 「图片地址」cell 重排为纵向：URL 输入框（整行）+ 第二行「从媒体库选图」按钮 + 缩略预览（`image`，点开 `uni.previewImage`）+ 第三行小字提示；底部挂 `<MediaLibraryModal v-model:visible="mediaOpen" :max="1" media-type="image" @confirm="onPickAsset" />`；`onPickAsset` 取 `assets[0].source` 回填 `imageUrl` 并 `pickSeq += 1` |
+| 后台 | `locale/zh-Hans.json` / `en.json` | 新增 2 条：`pickImage`（从媒体库选图）、`pickHint`（可在弹层内上传新图或选已有素材，自动回填地址） |
+| 截图 | `docs/screenshots/waimai/p90-ad-media/` | 3 张：图片地址行（按钮+提示）/ 媒体库弹层（3 张素材、`已选 0/1`、含上传入口）/ 选中后回填 URL + 缩略图（`已选 1/1`） |
+| 脚本 | `web-admin/scripts/shots-p88-p90.cjs` | mock `assetLibrary` / `assetTags`（3 条 SVG 素材，静态服务直出）+ `campusAdSlots` |
+
+### 90.2 契约（复用已有接口，无新增）
+
+```graphql
+query ($take: Int, $skip: Int, $tags: [String!], $ids: [ID!]) { assetLibrary(take: $take, skip: $skip, tags: $tags, ids: $ids) { items { id name preview source mimeType width height assetTags } totalItems } }
+```
+
+提交投放仍走原 `campusMerchantCreateAd(..., imageUrl: String)`，只是 `imageUrl` 由选图回填，不再靠手抄。
+
+### 90.3 校验与边界
+
+- `:max="1"` + `media-type="image"`：单选且只列图片素材，避免把 PDF/视频塞进 Banner。
+- 回填取 `source`（原图地址）而不是 `preview`（缩略图），C 端按原图渲染。
+- 手动粘贴 URL 仍可用（输入框保留），选图只是快捷路径；`imageUrl` 为空时提交仍按旧逻辑传 `null`。
+- **uni H5 输入框占位层**：`<input>` 编译成 `uni-input`，其 placeholder 是否隐藏取决于组件内部状态，程序化改值后 placeholder 会残留；选图后把输入框 `:key` 换成 `pickSeq` 强制重挂载，值来自 prop 初始化即正常显示（打字时不动 key，不会丢焦点）。
+- 行内塞「输入框 + 按钮 + 提示 + 缩略图」会把输入框挤成 0 宽（长 URL 不可见），因此改成上下三行布局。
+
+### 90.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 广告投放「新建投放」：「图片地址」行显示 URL 输入框占位「可选填，http(s) 图片地址」+「从媒体库选图」+ 提示文案 |
+| 截图 02 | 点按钮：媒体库弹层打开，3 条素材（`广告素材-1/2/3.svg`）、底部「已选 0/1」 |
+| 截图 03 | 选第 1 张 → 确定：弹层关闭，URL 输入框显示回填地址、右侧缩略图出现、`已选 1/1` |
+| 回归 | 重跑脚本时翻出「URL 已回填但输入框显示占位」的旧问题，按 90.3 第二条修正后复测通过 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+
+### 90.5 生产探针
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 纯前端改造（复用 `assetLibrary` / `campusMerchantCreateAd`），无新 GraphQL 字段 | 无需后端探针 |
+| 2 | 线上 chunk | `pages-campus-ads.wcuTqoat.js` 200 / 13709 B，命中 `pickImage` 与媒体库组件 `MediaLibraryModal` |
+
+### 90.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无 | — |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61889 KB` → nginx `test is successful` + reload → `deploy done`；线上 `pages-campus-ads.wcuTqoat.js`（200 / 13709 B）命中 `pickImage` |
+
+操作入口：商家工作台 →「广告投放」→「新建投放」→ 图片地址行点「从媒体库选图」→ 上传或选素材 → 确定后自动回填。
+
+
 
 
 
