@@ -15,6 +15,16 @@
         </picker>
       </view>
       <view class="field">
+        <text class="label">{{ $t('pickupEdit.storeLabel') }}</text>
+        <picker :range="storeLabels" @change="onStoreChange">
+          <view class="ipt vpicker">
+            <text>{{ storeLabel }}</text>
+            <text class="caret">▾</text>
+          </view>
+        </picker>
+        <text class="tip">{{ $t('pickupEdit.storeTip') }}</text>
+      </view>
+      <view class="field">
         <text class="label">{{ $t('pickupEdit.contactLabel') }}</text>
         <input class="ipt" v-model="form.contactPerson" :placeholder="$t('pickupEdit.contactPh')" />
       </view>
@@ -136,6 +146,7 @@ import {
   fetchPickupLocation, createPickupLocation, updatePickupLocation,
   PickupLocationType,
 } from '../../../apis/pickup-location';
+import { fetchMerchantStores, type MerchantStoreItem } from '../../../apis/merchant-admin';
 import { fetchDistricts, reverseGeocode, fetchMapSdkConfig, DistrictNode } from '../../../apis/map';
 import ImagePicker from '../../../components/ImagePicker.vue';
 import { useAuthStore } from '../../../stores/authStore';
@@ -157,8 +168,22 @@ const form = ref({
   name: '', type: 'point' as PickupLocationType, contactPerson: '', phoneNumber: '',
   businessHours: '早8:30至16:30', province: '', city: '', district: '', street: '', address: '',
   lat: '', lng: '', remark: '', sortOrder: '0', enabled: true, isPublic: false,
+  merchantStoreId: '',
 });
 const photos = ref<string[]>([]);
+
+// ---- 关联门店 ----
+const stores = ref<MerchantStoreItem[]>([]);
+const storeLabels = computed(() => [locale.t('pickupEdit.storeUnlink'), ...stores.value.map((s) => `${s.name}（${s.code}）`)]);
+const storeLabel = computed(() => {
+  if (!form.value.merchantStoreId) return locale.t('pickupEdit.storeUnlink');
+  const s = stores.value.find((x) => String(x.id) === String(form.value.merchantStoreId));
+  return s ? `${s.name}（${s.code}）` : `#${form.value.merchantStoreId}`;
+});
+function onStoreChange(e: any) {
+  const idx = Number(e.detail.value);
+  form.value.merchantStoreId = idx === 0 ? '' : String(stores.value[idx - 1]?.id ?? '');
+}
 
 // ---- 省市区联动 ----
 const provinces = ref<DistrictNode[]>([]);
@@ -325,10 +350,13 @@ onLoad((query: any) => {
   if (query?.type && ['store', 'point', 'employee'].includes(query.type)) {
     form.value.type = query.type as PickupLocationType;
   }
+  // 从门店详情「新增自提点」跳入时预选关联门店
+  if (query?.merchantStoreId) form.value.merchantStoreId = String(query.merchantStoreId);
 });
 
 onMounted(async () => {
   provinces.value = await fetchDistricts(null).catch(() => []);
+  stores.value = (await fetchMerchantStores({ take: 200 }).catch(() => ({ items: [] }))).items;
   if (id.value) {
     const s = await fetchPickupLocation(id.value);
     if (s) {
@@ -341,6 +369,7 @@ onMounted(async () => {
         lng: s.coordinates?.lng != null ? String(s.coordinates.lng) : '',
         remark: s.remark || '', sortOrder: String(s.sortOrder ?? 0),
         enabled: s.enabled !== false, isPublic: s.isPublic || false,
+        merchantStoreId: s.merchantStoreId ? String(s.merchantStoreId) : '',
       };
       photos.value = s.photos || [];
       // 联动预载：已填省份时拉取对应市/区
@@ -392,6 +421,8 @@ async function onSave() {
     sortOrder: Number(form.value.sortOrder) || 0,
     enabled: form.value.enabled,
     isPublic: form.value.isPublic,
+    // 显式传 null 才能解除已有门店关联
+    merchantStoreId: form.value.merchantStoreId || null,
     photos: photos.value.length ? photos.value : undefined,
     ...(coordinates ? { coordinates } : {}),
   };

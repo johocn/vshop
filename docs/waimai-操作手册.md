@@ -5593,6 +5593,51 @@ query ($from: String!, $to: String!, $kind: String!) {
 
 操作入口：售后分析页「导出」→ 选「员工处理绩效」；「售后申请」→ 值班排班（chip 处理参考）；「售后申请」→ 售后自动化 → 自动分配卡（建议分配参考）。
 
+## §107 自提点 ↔ 门店关联与列表检索（已上线）
+
+后端在 §76-§81 阶段已给 `pickup_location` 加了 `merchantStoreId`（实体 + 索引 + 迁移回填），但后台一直没接：建点时选不了门店、列表看不到归属、点多了只能滚动找。本节把「建点关联门店 → 列表按门店标记 → 关键字/城市检索」补齐，并与平台端门店详情（§108）共用同一份 API。
+
+### 107.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后台 API | `web-admin/src/apis/pickup-location.ts` | `PickupLocationItem` / `CreatePickupLocationInput` 增 `merchantStoreId`；`FIELDS` 增该字段；列表 `take` 100 → 500；新增 `fetchPickupLocationsByStore(storeId)`（服务端 `filter.merchantStoreId`，避免只在前 100 条里筛） |
+| 后台页 | `web-admin/src/pages/pickup/edit/index.vue` | 类型下方新增「关联门店」picker（首项「不关联门店」）；`onLoad` 支持 `?merchantStoreId=` 预选（门店详情「新增自提点」跳入）；保存显式传 `null` 才能解除已有绑定 |
+| 后台页 | `web-admin/src/pages/pickup/index.vue` | 「本店 / 全局池」两个 tab 都加搜索框 + 城市 picker；卡片 meta 行显示 `🏬 门店名`；空态区分「暂无」与「没有匹配的自提点」 |
+| i18n | `zh-Hans.json` / `en.json` | `pickupPage.searchPh/allCities/emptyMatch`、`pickupEdit.storeLabel/storeTip/storeUnlink` |
+| 截图 | `docs/screenshots/waimai/pickup-store-link/` | 8 张：列表带门店标签 / 关键字命中 / 城市筛选 / 无匹配 / 全局池筛选 / 编辑页未关联 / 关联门店弹层 / 已关联回显 |
+| 脚本 | `web-admin/scripts/shots-pickup-store-link.cjs` | mock `pickupLocations`（按 `filter: { isPublic` 区分本店与全局池）、`merchantStores`、`pickupLocation`；390×844 dpr2 |
+
+### 107.2 契约与口径
+
+- **列表上限**：`take: 500`。门店数 + 自提点数在同一租户内远小于 500；超过时仍只取首页，属已知限制。
+- **门店名展示**：`loadStoreNames()` 只在首次 `reload()` 时拉一次 `merchantStores(take:500)` 建 `id → name` 映射；失败时静默隐藏门店标签，不阻断列表。
+- **筛选为前端过滤**：对已加载数组按 `city` 精确匹配 + 关键字命中 `name/address/city/district/street/contactPerson/phoneNumber`；城市存「城市名」而非 picker 索引，避免列表增删后索引漂移指向别的城市。
+- **解除绑定**：`merchantStoreId` 必须显式传 `null`（`undefined` 会被后端视为「不修改」），前端保存时用 `form.merchantStoreId || null`。
+- **跳入预选**：`pages/pickup/edit/index?merchantStoreId=xx` 仅填充表单，不改后端；门店详情页的「新增自提点」按钮走该入口（§108）。
+
+### 107.3 校验与边界
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 列表默认态：4 条自提点中 3 条有关联门店，meta 行显示 `🏬 第一食堂` / `🏬 第二食堂` / `🏬 西门便利店`，无关联的一条不显示 | PASS |
+| 2 | 关键字「西门」→ 仅剩「西门便利店取货点」 | PASS |
+| 3 | 城市切「上海市」→ 剩 2 条（西门便利店 / 南区快递驿站） | PASS |
+| 4 | 关键字「不存在的点」→ 空态「没有匹配的自提点」（非「暂无自提点」） | PASS |
+| 5 | 全局池 tab：筛选条可用，2 条全局点正常展示 | PASS |
+| 6 | 编辑页（`id=pl4`，未关联）：picker 显示「不关联门店」，说明文案完整 | PASS |
+| 7 | 编辑页打开关联门店弹层：选项为「不关联门店 / 第一食堂（C01）/ 第二食堂（C02）/ 西门便利店（S01）」 | PASS |
+| 8 | 编辑页（`id=pl3`，已关联）：picker 回显「西门便利店（S01）」 | PASS |
+| 9 | 截图脚本 `shots-pickup-store-link.cjs` 全程无 `pageerror` / `console error` | PASS |
+
+### 107.4 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62186 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-pickup-index.l0yd-ykU.js` 200 / 8098 B、`pages-pickup-edit-index.1eCuTald.js` 200 / 14829 B、`pickup-location.Dfh16vF2.js` 200 / 2073 B |
+
+
 
 
 

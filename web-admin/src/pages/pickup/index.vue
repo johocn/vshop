@@ -6,10 +6,16 @@
     </view>
 
     <template v-if="tab === 'mine'">
+      <view class="filters">
+        <input class="search" v-model="keyword" :placeholder="$t('pickupPage.searchPh')" />
+        <picker :range="cityLabels" @change="onCityChange('mine', $event)">
+          <view class="city">{{ cityText('mine') }}</view>
+        </picker>
+      </view>
       <view class="toolbar">
         <button class="add" @tap="onCreate">＋ {{ $t('pickupPage.add') }}</button>
       </view>
-      <view class="card" v-for="s in items" :key="s.id">
+      <view class="card" v-for="s in filteredItems" :key="s.id">
         <view class="row">
           <view class="info">
             <view class="head">
@@ -20,6 +26,7 @@
             </view>
             <text v-if="s.address" class="addr">{{ s.address }}</text>
             <view class="meta">
+              <text v-if="s.merchantStoreId && storeNames[s.merchantStoreId]" class="pm">🏬 {{ storeNames[s.merchantStoreId] }}</text>
               <text v-if="s.phoneNumber" class="pm">☎ {{ s.phoneNumber }}</text>
               <text v-if="s.businessHours" class="pm">🕘 {{ s.businessHours }}</text>
             </view>
@@ -33,12 +40,18 @@
           <text v-if="!s.isPublic" class="del" @tap="onDel(s)">{{ $t('pickupPage.delete') }}</text>
         </view>
       </view>
-      <view v-if="!items.length" class="empty">{{ $t('pickupPage.emptyMine') }}</view>
+      <view v-if="!filteredItems.length" class="empty">{{ items.length ? $t('pickupPage.emptyMatch') : $t('pickupPage.emptyMine') }}</view>
     </template>
 
     <template v-else>
       <view class="hint">{{ $t('pickupPage.poolHint') }}</view>
-      <view class="card" v-for="g in pool" :key="g.id">
+      <view class="filters">
+        <input class="search" v-model="keyword" :placeholder="$t('pickupPage.searchPh')" />
+        <picker :range="cityLabels" @change="onCityChange('pool', $event)">
+          <view class="city">{{ cityText('pool') }}</view>
+        </picker>
+      </view>
+      <view class="card" v-for="g in filteredPool" :key="g.id">
         <view class="row">
           <view class="info">
             <view class="head">
@@ -56,24 +69,34 @@
           <text v-else class="assigned">{{ $t('pickupPage.assigned') }}</text>
         </view>
       </view>
-      <view v-if="!pool.length" class="empty">{{ $t('pickupPage.emptyPool') }}</view>
+      <view v-if="!filteredPool.length" class="empty">{{ pool.length ? $t('pickupPage.emptyMatch') : $t('pickupPage.emptyPool') }}</view>
     </template>
 
     <view style="height: 120rpx" />
   </view>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { fetchPickupLocations, updatePickupLocation, deletePickupLocation, assignToChannel, removeFromChannel, promoteToListPublic, PickupLocationItem } from '../../apis/pickup-location';
+import { fetchMerchantStores } from '../../apis/merchant-admin';
 
 const tab = ref<'mine' | 'pool'>('mine');
 const items = ref<PickupLocationItem[]>([]);
 const pool = ref<PickupLocationItem[]>([]);
 const auth = useAuthStore();
 const locale = useLocaleStore();
+// 关联门店名称映射，用于列表展示（按需一次加载）
+const storeNames = ref<Record<string, string>>({});
+async function loadStoreNames() {
+  if (Object.keys(storeNames.value).length) return;
+  try {
+    const res = await fetchMerchantStores({ take: 500 });
+    storeNames.value = Object.fromEntries(res.items.map((s) => [String(s.id), s.name]));
+  } catch { /* 门店列表不可用时仅隐藏门店名 */ }
+}
 
 const TYPE_LABEL: Record<string, string> = { store: 'pickupPage.typeStore', point: 'pickupPage.typePoint', employee: 'pickupPage.typeEmployee' };
 const typeLabel = (t: string) => (TYPE_LABEL[t] ? locale.t(TYPE_LABEL[t]) : t);
@@ -81,7 +104,42 @@ const assigned = (id: string) => items.value.some((s) => s.id === id);
 // 全局点租户只读：可编辑的仅自身租户级点，或超管编辑全局点
 const editable = (s: PickupLocationItem) => !s.isPublic || auth.isSuperAdmin;
 
-async function reload() { items.value = await fetchPickupLocations(); }
+// ---- 列表筛选（对已加载数据做前端过滤）：关键字 + 城市 ----
+const keyword = ref('');
+// 存城市名而非索引：列表增删后索引会指向另一个城市，存值可避免筛选结果漂移
+const cityFilter = ref({ mine: '', pool: '' });
+const cityLabels = computed(() => {
+  const set = new Set<string>();
+  for (const s of [...items.value, ...pool.value]) {
+    const c = (s.city || '').trim();
+    if (c) set.add(c);
+  }
+  return [locale.t('pickupPage.allCities'), ...[...set].sort()];
+});
+function onCityChange(scope: 'mine' | 'pool', e: any) {
+  const index = Number(e.detail.value) || 0;
+  cityFilter.value[scope] = index > 0 ? cityLabels.value[index] ?? '' : '';
+}
+function cityText(scope: 'mine' | 'pool') {
+  return cityFilter.value[scope] || locale.t('pickupPage.allCities');
+}
+function filterList(list: PickupLocationItem[], scope: 'mine' | 'pool'): PickupLocationItem[] {
+  const kw = keyword.value.trim().toLowerCase();
+  const city = cityFilter.value[scope];
+  return list.filter((s) => {
+    if (city && (s.city || '').trim() !== city) return false;
+    if (!kw) return true;
+    return [s.name, s.address, s.city, s.district, s.street, s.contactPerson, s.phoneNumber]
+      .some((v) => String(v || '').toLowerCase().includes(kw));
+  });
+}
+const filteredItems = computed(() => filterList(items.value, 'mine'));
+const filteredPool = computed(() => filterList(pool.value, 'pool'));
+
+async function reload() {
+  items.value = await fetchPickupLocations();
+  await loadStoreNames();
+}
 async function switchTab(t: 'mine' | 'pool') {
   tab.value = t;
   if (t === 'mine') await reload();
@@ -150,6 +208,10 @@ function onDel(s: PickupLocationItem) {
     }
   }
   .hint { background: #fff7f0; border: 1px solid #ffe0c4; color: #b05000; font-size: 24rpx; border-radius: 16rpx; padding: 18rpx 22rpx; margin-bottom: 20rpx; }
+  .filters { display: flex; align-items: center; margin-bottom: 20rpx;
+    .search { flex: 1; background: $wa-card; border-radius: $wa-radius; padding: 16rpx 22rpx; font-size: 26rpx; color: $wa-ink; margin-right: 16rpx; }
+    .city { background: $wa-card; border-radius: $wa-radius; padding: 16rpx 22rpx; font-size: 26rpx; color: $wa-ink; min-width: 170rpx; text-align: center; }
+  }
   .toolbar .add { width: 260rpx; background: $wa-accent; color: #fff; font-size: 28rpx; border-radius: $wa-radius; margin-bottom: 24rpx; }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: flex-start;
