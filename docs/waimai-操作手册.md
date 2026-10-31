@@ -5735,6 +5735,75 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 截图 | `docs/screenshots/promotion/coupon-cards/` | 7 张 390×844 dpr2：`01` 首字兜底 / `02` 带图券卡 / `03` 我的卡包 / `04` 券商城领券 / `05` 海报卡 / `06` 券商城卡包 / `07` 券详情弹层 |
 | 截图脚本 | `scripts/_shots_coupons.cjs` | 本地 http 服务 `dist/build/h5`（hash 路由）+ `page.route` 按 GraphQL 操作名 mock；复跑两次结果一致 |
 
+---
+
+## §110 售后列表服务端分页 / 失败原因直显 / 商家回复配图（已上线）
+
+**操作入口**：后台「售后管理」（经营 › 售后管理 › 售后申请）。
+
+售后列表原先一次性拉全量再在前端过滤：单量一多首屏就卡，且「哪些单退款失败、为什么失败」要逐条点进详情才看得到，商家协商时也只能发文字。本版改为**服务端分页 + 服务端状态筛选**（每页 20 条，chip 上带全店计数），**退款失败原因直接印在列表卡上**，并把商家回复升级为**可发图（≤6 张）**。
+
+### 110.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后台页面 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 列表改用 `campusMerchantAfterSalesWorkItems`（`state` + `skip` + `take=20`）；筛选 chip 显示计数并改 `pickFilter` 服务端重查；失败卡新增 `.a-fail` 原因条；底部新增 `.more`（加载更多 / 已显示全部）；详情面板回复区改为「图片条 + ＋号 + 输入框 + 发送」 |
+| 后台 API | `web-admin/src/apis/campus.ts` | `MerchantAfterSalesRow` 增加 `refundError: string \| null`；工作台清单 items 选择集补 `refundError`；approve/reject/retry/detail 查询同步补齐 |
+| 后台 i18n | `web-admin/src/locale/zh-Hans.json`、`en.json` | `campusMerchantAfterSales` 新增 7 键：`refundFailReason` / `loadMore` / `loadingMore` / `noMore` / `imageLimit` / `imageUploading` / `imageUploadFailed` |
+| 后端 | `vendure/packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `MerchantAfterSalesRow` 增 `refundError`；`toAfterSalesRow()` 回传 `row.refundError ?? null`（SDL `CampusMerchantAfterSalesItem.refundError: String` 同批落位） |
+| 截图 | `docs/screenshots/waimai/p110-after-sales-list/` | 4 张 390×844 dpr2：`01` 首屏分页+计数+失败原因 / `02` 加载更多后已到底 / `03` 筛选退款失败 / `04` 回复配图 |
+| 截图脚本 | `web-admin/scripts/shots-p110-after-sales-list.cjs` | 本地静态服务 `dist/build/h5`（`/guanli/`）+ `page.route('**/admin-api')` 按 GraphQL 操作名 mock（含 `stateCounts` / `skip` / `take` / `createAssets` 上传） |
+
+### 110.2 口径与契约
+
+- **分页**：`PAGE = 20`，首次 `skip=0`；「加载更多」用 `skip = 已加载条数` 追加，`items.length >= total` 时按钮换成「已显示全部」。
+- **筛选**：切 chip 即回 `skip=0` 重查（不叠加本地过滤）；chip 数字来自 `stateCounts`（**全店计数，不受分页影响**），「全部」为各状态求和。
+- **失败置顶**：`RefundFailed` 在**当前已加载页内**置顶排序，不是跨页全局置顶（翻页后新加载的失败单同样会排到本页最前）。
+- **失败原因**：仅 `state === 'RefundFailed'` 且 `refundError` 非空时渲染「退款失败原因：…」；成功重试后该行自然消失（状态变 `Refunded`）。
+- **回复配图**：上限 6 张；选图后先 `uploadAsset`（资产库 multipart）拿到 `asset.source` 再显示缩略图，发送时随 `images` 一并提交；单图失败仅 toast，不回滚已选图。
+- **可回复态**：仅 `Pending` / `Appealed` 可写（与后端 `AFTER_SALES_PENDING_STATES` 一致），其余状态面板底部只读。
+
+### 110.3 权限与校验
+
+- 页面 `usePermGuard('CampusMerchant')`；后端 `campusMerchantAfterSales` 一律按 `ctx.channelId` 限定本店，跨店不可见。
+- 回复留言走既有 `campusMerchantAfterSalesReply`：非待处理态直接拒绝；`content` 必填（纯图片不带文字会提示「请先输入回复内容」），`images` 为 URL 数组（≤6 由前端约束）。
+- 图片白名单沿用资产库：png/jpeg/webp/gif、单图 ≤10MB；上传者记为当前管理员。
+
+### 110.4 数据库变更
+
+- 本次**本功能无新增表/列**：`refundError` 为售后单既有列，只是补到列表回传。
+- 同批部署另带上 R5/R7 的 `p37-support-ticket-system` 迁移（`campus_support_ticket` 增 `source`/`dedupeKey`、`customerId` 改可空、唯一索引；订单补 `customFieldsExceptionresolvedat`），由插件 bootstrap 幂等执行，与本页无耦合。
+
+### 110.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 后台 `npm run build:h5` | PASS（仅 sass legacy-js-api 弃用告警） |
+| 2 | 首屏 25 单：chip「全部25 / 待处理2 / 已退款20 / 已驳回0 / 退款失败3」，前 3 条失败单置顶，2 条带红色原因条，底部「加载更多」 | PASS（`cardCount=20`） |
+| 3 | 点「加载更多」 | PASS（`cardCount=25`、`.more__end`=「已显示全部」） |
+| 4 | 点「退款失败」chip | PASS（服务端返回 `total=3`，chip 高亮） |
+| 5 | 打开 Pending 单详情 → ＋号选图并上传 | PASS（`.r-img=1`、输入框占位正常、按钮「发送」） |
+| 6 | 线上内省 `CampusMerchantAfterSalesItem` | PASS（`admin-api` 含 `refundError`；`shop-api` 不含，符合仅商家可见） |
+| 7 | 线上 chunk | PASS（`assets/pages-campus-merchant-after-sales.Dui7VNo_.js` 200 / 19137 B，正文含 `refundFailReason`、`loadMore`） |
+| 8 | 后端 `tsc -p tsconfig.build.json` + `vitest`（support / dispatch-job / hall / feishu） | PASS（4 文件 169 用例） |
+
+### 110.6 边界与已知限制
+
+1. 本页只提供**状态**筛选；关键词 / 金额区间 / 标签 / 负责人 / 风险等高级筛选仍在「售后工作台」（§101）。
+2. 「加载更多」按已加载条数取 `skip`：若翻页期间有新单进入，可能出现个别重复或漏项；下拉刷新即从第一页重查。
+3. 失败单置顶只在**已加载页内**生效，跨页不是全局排序；想只看失败单请用「退款失败」chip。
+4. 回复必须带文字（纯图发不出），如需只发图请先打一句说明。
+5. 回复图片存资产库（可被图库管理页看到），不随售后单删除而级联清理。
+
+### 110.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `git push origin master`（`83b5afa5b`）→ 服务器 `git fetch origin master` + `git checkout origin/master -- packages/campus-delivery-plugin` + `pm2 restart vendure --update-env` | 上线成功，`grep refundError` 命中 5 处；启动日志无报错，p37 迁移随 bootstrap 执行 |
+| 后台 | `npm run build:h5` → `node scripts/deploy.mjs`（含 `nginx -t` + reload） | 产物校验通过 62191 KB，`deploy done` |
+| 线上标记 | `https://e.joho.cn/guanli/assets/…` | 页面 chunk 200 / 19137 B，含 `refundFailReason`、`loadMore` |
+| 截图 | `docs/screenshots/waimai/p110-after-sales-list/` | 4 张（`01` 首屏 / `02` 已到底 / `03` 筛失败 / `04` 回复配图） |
+
 
 
 
