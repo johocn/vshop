@@ -22,6 +22,8 @@ export interface PickupLocationItem {
   sortOrder?: number;
   enabled?: boolean;
   isPublic?: boolean;
+  /** 关联门店 ID（merchant-plugin 的 merchant_store） */
+  merchantStoreId?: string | null;
   province?: string | null;
   city?: string | null;
   district?: string | null;
@@ -41,6 +43,7 @@ export interface CreatePickupLocationInput {
   sortOrder?: number;
   enabled?: boolean;
   isPublic?: boolean;
+  merchantStoreId?: string | null;
   province?: string;
   city?: string;
   district?: string;
@@ -49,18 +52,31 @@ export interface CreatePickupLocationInput {
 
 export type UpdatePickupLocationInput = Partial<CreatePickupLocationInput> & { id: string };
 
-const FIELDS = `id name type address contactPerson phoneNumber businessHours coordinates photos remark sortOrder enabled isPublic province city district street`;
+const FIELDS = `id name type address contactPerson phoneNumber businessHours coordinates photos remark sortOrder enabled isPublic merchantStoreId province city district street`;
 
 export async function fetchPickupLocations(isPublic?: boolean): Promise<PickupLocationItem[]> {
   const filter = isPublic === undefined ? '' : `, filter: { isPublic: { eq: ${isPublic} } }`;
   const { pickupLocations } = await getAdminClient().request<{
     pickupLocations: { items: PickupLocationItem[]; totalItems: number };
   }>(`query PickupLocations {
-    pickupLocations(options: { take: 100, skip: 0, sort: { createdAt: DESC }${filter} }) {
+    pickupLocations(options: { take: 500, skip: 0, sort: { createdAt: DESC }${filter} }) {
       items { ${FIELDS} }
       totalItems
     }
   }`);
+  return pickupLocations.items ?? [];
+}
+
+/** 按关联门店查询自提点（服务端过滤，避免只在前 100 条里筛选） */
+export async function fetchPickupLocationsByStore(merchantStoreId: string): Promise<PickupLocationItem[]> {
+  const { pickupLocations } = await getAdminClient().request<{
+    pickupLocations: { items: PickupLocationItem[]; totalItems: number };
+  }>(`query PickupLocationsByStore($storeId: String!) {
+    pickupLocations(options: { take: 500, skip: 0, sort: { createdAt: DESC }, filter: { merchantStoreId: { eq: $storeId } } }) {
+      items { ${FIELDS} }
+      totalItems
+    }
+  }`, { storeId: merchantStoreId });
   return pickupLocations.items ?? [];
 }
 
