@@ -4986,6 +4986,102 @@ mutation ($id: ID!) { campusMerchantDeleteAfterSalesCompensationPlan(id: $id) { 
 
 操作入口：商家工作台 →「售后申请」→ 顶部「操作审计 / 值班排班 / 补偿挽留」→ 对应 Tab 筛选、导出、排班或维护方案。
 
+## §101 售后工作台：待办概览 / 批量处置 / 一键补偿（已上线）
+
+§100 解决的是“看得见历史动作”和“排班 / 方案配置”，但商家每天的处置动作仍是逐单点开：不知道今天有多少单待同意、哪些已经超时、退款失败要不要补跑；同意 / 驳回也只能一单一单来。本段新增 `after-sales-workbench.vue`，在「售后申请」页顶部加「售后工作台」入口，把线上已有的 `campusMerchantAfterSalesWorkbench` / `AfterSalesTasks` / 批量 / 补偿发放接口接出来，做成“概览 → 筛选 → 勾选 → 批量处置 → 一键补偿”的闭环。
+
+### 101.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/after-sales-workbench.vue` | 新页，四块：① 待办概览 9 个计数（待同意 / 待收货 / 退款失败 / 待回复 / 已超时 / 即将超时 / 回访到期 / SLA 暂停 / 已升级），点前 7 个即按对应状态或 `attention` 筛选，卡底显示「最久待处理 N 小时」；② 自动化任务（待执行 / 执行失败 / 全部 分段，`take` 10 ↔ 50，「立即执行」补跑失败任务，失败行展示 `第 n/m 次失败原因`）；③ 售后单列表（关键词搜索订单号 / 顾客 / 手机号、状态分段带计数、关注项 chip 可清除、全选本页、分页 `take:20`）；④ 固定底栏：批量同意 / 批量驳回 / 批量关闭 / 批量指派 / 补偿挽留 |
+| 后台 | `web-admin/src/apis/campus.ts` | 新增 9 个封装与类型：`campusMerchantAfterSalesWorkbench` / `campusMerchantAfterSalesTasks` / `campusMerchantAfterSalesRunTask` / `campusMerchantAfterSalesWorkItems`（`campusMerchantAfterSales` + `attention`）/ `campusMerchantAfterSalesBatchApprove` / `BatchReject` / `BatchClose` / `BatchAssign` / `campusMerchantAfterSalesApplyCompensation`（插在 `campusMerchantDispatchExternal` 之前） |
+| 后台 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 顶部新增 `.wb-entry` 入口条「售后工作台 ›」，`uni.navigateTo('/pages/campus/after-sales-workbench')` |
+| 后台 | `web-admin/src/pages.json` | 注册 `pages/campus/after-sales-workbench`（`navigationBarTitleText: 售后工作台`、`enablePullDownRefresh: true`） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增命名空间 `campusAfterSalesWorkbench`（中 / 英各约 80 条），覆盖概览 chip、任务状态与类型、9 个售后状态、批量与补偿全部提示 |
+| 截图 | `docs/screenshots/waimai/p101-after-sales-workbench/` | 7 张：概览 / 批量操作条 / 批量驳回 sheet / 批量指派 sheet / 补偿方案 sheet / 退款失败筛选 / 任务全部 |
+| 脚本 | `web-admin/scripts/shots-p101-after-sales-workbench.cjs` | mock `Workbench`（9 项计数 + 最久 10 小时）、`Tasks`（待执行 / 失败 / 已执行 4 条）、`Assignees`（张伟、李娜）、`CompensationPlans`（3 条含停用）、`campusMerchantAfterSales`（6 条含超时 / 风险 / 升级 / 待复核 / SLA 暂停 / 换货物流） |
+
+### 101.2 契约
+
+```graphql
+query { campusMerchantAfterSalesWorkbench {
+  toApprove toReceive refundFailed pendingReply overdue dueSoon slaPaused followUpDue escalated
+  oldestPendingAt oldestPendingHours } }
+
+query ($status: String, $skip: Int, $take: Int) {
+  campusMerchantAfterSalesTasks(status: $status, skip: $skip, take: $take) {
+    items { id type requestId status dueAt attempt maxAttempt retryCount lastError executedAt } total } }
+mutation ($id: ID!) { campusMerchantAfterSalesRunTask(id: $id) { ...同上字段 } }
+
+query ($state: String, $attention: String, $keyword: String, $skip: Int, $take: Int, ...) {
+  campusMerchantAfterSales(state: $state, attention: $attention, keyword: $keyword, skip: $skip, take: $take) {
+    items { id orderCode state type refundAmount customerName createdAt overdue unread dueSoon tags
+            assigneeUserId assigneeName riskReason slaPaused slaPausedReason escalated
+            refundReviewPending exchangeTrackingNo exchangeCarrier }
+    pendingCount total stateCounts { state count } skip take } }
+
+mutation ($ids: [ID!]!) { campusMerchantAfterSalesBatchApprove(ids: $ids) { id success state message } }
+mutation ($ids: [ID!]!, $reason: String!) { campusMerchantAfterSalesBatchReject(ids: $ids, reason: $reason) { id success state message } }
+mutation ($ids: [ID!]!, $reason: String!) { campusMerchantAfterSalesBatchClose(ids: $ids, reason: $reason) { id success state message } }
+mutation ($ids: [ID!]!, $userId: ID) { campusMerchantAfterSalesBatchAssign(ids: $ids, userId: $userId) { id success state message } }
+
+mutation ($id: ID!, $planId: ID!) {
+  campusMerchantAfterSalesApplyCompensation(id: $id, planId: $planId) { ok refundAmount couponGranted message } }
+```
+
+**批量接口返回的是逐条回执，不是整批成败。** 单条失败（已处置 / 状态不允许 / 大额转复核）只体现在该条的 `success:false` + `message`，不影响其余单据；前端按 `成功 x 单，失败 y 单` 汇总，全失败时直接显示首条 `message`。
+
+**`attention` 四个取值**：`overdue`（已超时）/ `dueSoon`（即将超时）/ `unread`（有新留言待回复）/ `followUp`（回访到期），与概览 chip 一一对应；`slaPaused` / `escalated` 只做展示（后端没有对应的 attention 值），不参与筛选。
+
+**`ApplyCompensation` 的服务端语义**：只接受 `Pending` 态单据与已启用方案；先按方案的 `refundAmount` 退款，退款失败则降级为“只发券”，随后关闭售后单、通知顾客并写审计。返回 `ok / refundAmount（分）/ couponGranted / message`，`couponGranted=false` 时用 `message` 向商家说明降级原因。
+
+### 101.3 校验与边界
+
+- **单批上限 50**：前端选到第 51 条即提示「单批最多选择 50 单」，`全选本页` 也只取前 50 条；后端 `normalizeBatchIds` 同样做去重、正整数、≤50 校验，超限直接报错。
+- **驳回 / 关闭必须填原因**：sheet 内 textarea `maxlength=200`，`trim()` 后为空不提交（提示「请填写原因」）；整批共用同一原因。
+- **补偿挽留只能单选**：多选时点「补偿挽留」直接提示「补偿挽留仅支持单张售后单」，不打开 sheet；停用方案可点但提示「该方案已停用」，不会选中。
+- **确认弹窗带金额**：`compConfirmBody` 为「将退款 ¥x.xx 并关闭售后单，确认继续？」，金额来自方案 `refundAmount` 的 分→元 转换（`fenToYuanFixed`），避免商家误按大额方案。
+- **任务可执行范围**：仅 `pending` / `failed` 显示「立即执行」；`executed` / `cancelled` 只读，后端也会拒绝重复执行。执行后本地刷新任务列表与概览计数。
+- **分页与计数**：列表 `take:20` 游标式「加载更多」，`hasMore = 已加载 < total`；状态分段上的数字取自 `stateCounts`，「全部」为各状态合计，与概览计数口径一致。
+- **筛选叠加**：点概览 chip 会重置状态与关注项后重新拉取；关键词搜索可与状态、关注项叠加；清除关注项 chip 只清 `attention`，保留状态筛选。
+- **权限**：页面入口 `usePermGuard('CampusMerchant')`，仅商家渠道管理员可见可操作。
+
+### 101.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 概览 9 个计数（6/2/3/4/2/3/2/1/1）+「最久待处理 10 小时，请优先处置」+ 任务卡 2 条待执行 + 售后单「共 6 单」 |
+| 截图 02 | 勾选 2 单：行首变选中态，底栏出现「已选 2 单」与 5 个批量按钮 |
+| 截图 03 | 批量驳回 sheet：标题「批量驳回」、原因 textarea（回填测试原因）、取消 / 提交 |
+| 截图 04 | 批量指派 sheet：「取消指派 / 张伟 zhangwei / 李娜 lina」三项，确认按钮 |
+| 截图 05 | 补偿方案 sheet：3 条方案（¥5 + 券 / 仅发券 / ¥15 停用），顶部显示「已选 1 单」，底部提示退款失败会降级只发券 |
+| 截图 06 | 切「退款失败」分段：列表只剩 1 条 `A2400003`（¥2.00，退款失败 + 新留言 + 风险） |
+| 截图 07 | 任务切「全部」：4 条（待执行 2、失败 1 带「第 2/3 次失败原因：微信退款通道返回 SYSTEMERROR」、已执行 1） |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+| 首次失败 | ① 第 03 步 `fill('.area')` 命中 `uni-textarea` 外层节点报 `Element is not an <input>` → 改为 `.area textarea`；② 第 07 步原用「显示全部」只扩大 `take` 不切状态，仍只 2 条 → 改为点任务「全部」分段，复测通过 |
+
+### 101.5 生产探针（admin-api，`canteen-a` 渠道，只读）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesWorkbench` | `toApprove:2, toReceive:0, refundFailed:0, pendingReply:0, overdue:1, dueSoon:0, slaPaused:0, followUpDue:0, escalated:0, oldestPendingHours:582` PASS |
+| 2 | `campusMerchantAfterSalesTasks(status:"pending", take:5)` | `items: [], total: 0`（该渠道当日无待执行任务）PASS |
+| 3 | 同上 `status:"failed"` | `items: [], total: 0` PASS |
+| 4 | `campusMerchantAfterSales(attention:"overdue", take:5)` | 命中 1 条（`id:25`，`state:Pending`，`overdue:true`），`pendingCount:2`、`stateCounts: Appealed 1 / Pending 1 / Refunded 1` PASS |
+| 5 | `attention:"dueSoon" / "unread" / "followUp"` | 均 `items:[]`、无错误，筛选链路生效 PASS |
+| 6 | 8 个字段存在性（introspection） | `Workbench` / `Tasks` 在 Query，`BatchApprove / BatchReject / BatchClose / BatchAssign / ApplyCompensation / RunTask` 在 Mutation PASS（**只做 introspection，未调用任何写接口**） |
+
+### 101.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增（工作台 / 任务 / 批量 / 补偿发放随 vendure 既有版本已在线上） | 探针 1~6 全部命中，见 101.5 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（脚本内部先构建） | `[deploy] 产物校验通过: 61970 KB` → nginx `test is successful` + reload → `deploy done`；线上 `https://e.joho.cn/guanli/` 200，`assets/pages-campus-after-sales-workbench.USLz48W-.js` 200 / 21059 B、`assets/after-sales-workbench-R70qd06W.css` 200 / 9802 B |
+
+操作入口：商家工作台 →「售后申请」→ 顶部「售后工作台 ›」→ 点概览计数筛选、勾选单据后走底部批量处置，或单选一张后「补偿挽留」按方案一键退款 / 发券并关闭。
+
 
 
 
