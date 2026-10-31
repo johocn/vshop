@@ -5876,6 +5876,72 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 外卖 C 端 | `node .secrets/deploy-waimai.mjs`（本地 `pnpm build:h5` → 校验 3851 KB → tar/scp → 服务器解压 + 备份轮转） | `https://www.yourbao.cn/waimai/` 返回 200；`pkg-order-pages-review-create.CZjriyrY.js` 正文含 `trustQuality` / `giftQuality` |
 | 截图 | `docs/screenshots/waimai/p111-review-rules/` | 4 张（`01` 好评 / `02` 中评 / `03` 评价列表 / `04` 我的评价） |
 
+## §112 外卖 C 端补接信任签名卡：店铺评价页 / 我的评价页（已上线）
+
+**操作入口**：外卖 C 端 `https://www.yourbao.cn/waimai/` 店铺首页 ›「评论」Tab；「我的」› 我的评价。
+
+§111 已给 C 端（vshop）三个评价页接上信任签名卡，但外卖 C 端（waimai-v39）只改了「写评价」页，店铺评价 Tab 与「我的评价」页仍是旧版式（§111.6 已知限制 2）。本节把这两页补齐，口径与 §111 完全一致：**质量 → 服务 → 时间 固定顺序**、**徽章缺数据即隐藏**。
+
+### 112.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 外卖 C 端组件 | `src/components/TrustSignatureCard.vue`（新建） | 三行固定顺序（`ROWS` 常量）+ 徽章（平均分 / 好评率 / 真实评价）；未传 `averageRating` / `goodRate` 时对应徽章隐藏 |
+| 店铺评价 Tab | `src/pages/shop/menu.vue` | 评论面板顶部接入签名卡；徽章取 `channelReviewStats` 的 `averageRating` / `goodRate`，`totalCount = 0` 时传 `null`（不展示「0 分 / 0%」） |
+| 我的评价 | `src/pkg-order/pages/my-reviews.vue` | 页面顶部接入签名卡（只读，仅「真实评价」徽章），位于加载态/空态之上 |
+| 国际文案 | `src/locale/{zh-Hans,en}.json` | 新增 `reviewTrust` 块 10 键（`title` / `real` / `scoreUnit` / `goodRate` / `quality*` / `service*` / `time*`） |
+| 截图 | `docs/screenshots/common-features-v43/` | 2 张 390×844 dpr2：`01` 店铺评价 Tab（canteen-a，有 1 条评价 → 三徽章）/ `02` 我的评价（仅「真实评价」） |
+
+### 112.2 口径与契约
+
+- **固定顺序**：`ROWS` 常量恒为「质量 → 服务 → 时间」，不随评分或数据动态排序。
+- **纯前端文案**：三维文案、徽章均不读后端字段；后端 `review` 仍只有 `rating` / `tags` / `giftGranted`，本轮不新增字段与接口。
+- **徽章**：平均分（`4 分`）、好评率（`好评率 100%`）、`真实评价`；缺数据即隐藏。店铺评价 Tab 的数据源是**整店（渠道）维度** `channelReviewStats`，不是单商品维度。
+- **零数据不伪造**：`reviewStats.totalCount = 0` 时 `trustAvg` / `trustGoodRate` 计算为 `null`，只留「真实评价」徽章（canteen-b 无评价即此态）。
+- **只读语义**：「我的评价」页只读展示信任承诺，不提供送礼/改进项交互（那两项只属于写评价页）。
+- **与摘要卡共存**：店铺评价 Tab 的签名卡在评分摘要卡之上，摘要卡继续承担星级分布；两处数字同源同值。
+
+### 112.3 权限与校验
+
+- `channelReviewStats` / `channelReviews` 为 public（按 `vendure-token` 渠道），`myReviews` 走既有登录态；**无新增权限点**。
+- 卡片为纯展示组件，不产生写操作，无入参校验需求；`averageRating` / `goodRate` 由页面按 `totalCount` 收口为 `null`。
+- 无路由参数改动（两页均为固定入口）。
+
+### 112.4 数据库变更
+
+- **无**：未新增表/列，未新增 GraphQL 字段。
+
+### 112.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `npm run build:h5`（waimai-v39） | PASS（仅 sass `legacy-js-api` 弃用告警） |
+| 2 | `npm test`（waimai-v39） | PASS（7 文件 / 87 用例全绿） |
+| 3 | 店铺评价 Tab（canteen-a，1 条评价） | PASS（`信任签名=true / 真实评价=true / 好评率=true`；截图 `01` 徽章为「4 分 / 好评率 100% / 真实评价」，三行顺序正确） |
+| 4 | 店铺评价 Tab（canteen-b，0 条评价） | PASS（只显示「真实评价」，不出现「0 分 / 0%」；空态文案正常） |
+| 5 | 我的评价（登录态用户） | PASS（`信任签名=true / 真实评价=true / 好评率=false`，符合只读口径；3 条评价与筛选不受遮挡，截图 `02`） |
+| 6 | 部署 | PASS（`deploy-waimai.mjs` 产物校验 3854 KB，`deploy done`） |
+| 7 | 线上 chunk | PASS（清单见 112.7，体积与本地一致） |
+
+截图取数方式：本地静态服务 `dist/build/h5`（挂在 `/waimai` 前缀）+ 同源 `POST /shop-api` 代理到 `https://www.yourbao.cn/shop-api`，真实数据直出，不做 mock。
+
+### 112.6 边界与已知限制
+
+1. 店铺评价 Tab 的徽章与评分摘要卡同屏展示均分/好评率，信息有重复；保留摘要卡是因为星级分布图仍需要它，若后续要合并需先定版式。
+2. 「我的评价」页无统计口径（按用户维度不聚合评分），因此永远只有「真实评价」徽章，与 §111.6 第 5 条一致。
+3. 三维文案仍是全店统一固定口径，不随店铺/商品差异（后端无字段支撑）。
+4. 店铺评价 Tab 的统计按**渠道（整店）**口径，不是当前筛选 chip（有图/好评/差评）下的子集口径；切换筛选不会改变徽章数字。
+5. §111.6 已知限制 2（外卖 C 端评价列表/我的评价未接入签名卡）**已收敛**，本节无新增限制。
+
+### 112.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 外卖 C 端 | `node .secrets/deploy-waimai.mjs`（本地 `pnpm build:h5` → 校验 3854 KB → tar/scp → 服务器解压 + 备份轮转） | `deploy done`；`https://www.yourbao.cn/waimai/` 200 |
+| 线上 chunk | `https://www.yourbao.cn/waimai/assets/…` | `index-CzRMHcLX.js` 200 / 677456 B（与本地一致）、`pages-shop-menu.DjFq9wCB.js` 200 / 73013 B、`pkg-order-pages-my-reviews.txiKwfWy.js` 200 / 8712 B、`TrustSignatureCard.hRGW-oBM.js` 200 / 1512 B（正文含 `reviewTrust`）、`TrustSignatureCard-BrCLHOCA.css` 200 / 859 B、`my-reviews-D1D4h_W1.css` 200 / 4958 B |
+| 截图 | `docs/screenshots/common-features-v43/` | 2 张（`01` 店铺评价 Tab / `02` 我的评价） |
+| C 端（vshop） | 无需重新部署 | 本节仅改外卖 C 端；§111 验收脚本重跑 4 张截图字节无变化 |
+
 
 
 
