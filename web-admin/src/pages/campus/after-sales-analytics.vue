@@ -640,7 +640,7 @@ function onPickTo(e: any): void {
 }
 
 /* ---------- 导出 CSV（§104） ---------- */
-type ExportKind = 'requests' | 'refunds' | 'escalations';
+type ExportKind = 'requests' | 'refunds' | 'escalations' | 'staff';
 const exportOpen = ref(false);
 const exportKind = ref<ExportKind>('requests');
 const exporting = ref(false);
@@ -648,6 +648,7 @@ const kinds: Array<{ value: ExportKind; label: string }> = [
   { value: 'requests', label: 'campusAfterSalesAnalytics.kindRequests' },
   { value: 'refunds', label: 'campusAfterSalesAnalytics.kindRefunds' },
   { value: 'escalations', label: 'campusAfterSalesAnalytics.kindEscalations' },
+  { value: 'staff', label: 'campusAfterSalesAnalytics.kindStaff' },
 ];
 
 function openExport(): void {

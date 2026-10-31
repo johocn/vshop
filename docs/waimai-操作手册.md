@@ -5376,7 +5376,7 @@ query ($from: String!, $to: String!) { campusMerchantAfterSalesStaffStats(from: 
   operatorUserId operatorName handled resolved firstActionAvgMinutes resolveAvgMinutes
   overdueCount escalatedCount resolveRate reviewCount reviewAvgScore } }
 
-# 导出：kind = requests | refunds | escalations（返回 CSV 文本，含 UTF-8 BOM）
+# 导出：kind = requests | refunds | escalations | staff（返回 CSV 文本，含 UTF-8 BOM）
 query ($from: String!, $to: String!, $kind: String!, $state: String, $type: String,
        $keyword: String, $assigneeUserId: ID) {
   campusMerchantAfterSalesExport(from: $from, to: $to, kind: $kind,
@@ -5385,7 +5385,7 @@ query ($from: String!, $to: String!, $kind: String!, $state: String, $type: Stri
 query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: $ids, kind: $kind) }
 ```
 
-**`kind` 取值严格受限**：条件导出 `requests | refunds | escalations`，按选中单导出 `requests | refunds`（传其它值后端拒绝）。
+**`kind` 取值严格受限**：条件导出 `requests | refunds | escalations | staff`（`staff` = 员工处理绩效，见 §106），按选中单导出 `requests | refunds`（传其它值后端拒绝）。
 
 **员工绩效已接入页面（2026-10-31）**：`campusMerchantAfterSalesStaffStats` 的 SQL 参数位缺陷已于 2026-10-31 热修（详见 103.5 / 103.6），随后新增前端封装 `campusMerchantAfterSalesStaffStats(from, to)` 并在「高频售后顾客」之后渲染「员工处理绩效」卡片，展示 11 字段：处理人（`operatorName`）、处理量（`handled`）、完结数（`resolved`）、完结率（`resolveRate`，后端已是 0~100 整数，前端直接拼 `%`）、首响均时（`firstActionAvgMinutes`）、完结均时（`resolveAvgMinutes`）、在途超时（`overdueCount`）、升级仲裁（`escalatedCount`）、评价数与均分（`reviewCount / reviewAvgScore`）。列表按处理量倒序；完结率 < 60% 标红，超时 > 0 标红、升级 > 0 标橙，无评价显示「暂无评价」。
 
@@ -5410,7 +5410,7 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 | 截图 06 / 07 | 评价满意度（均分 / 低分占比 / 星级分布 / 高频标签）、高频顾客（含是否拉黑） |
 | 截图 08 | 员工绩效：4 行（张伟（店长）/ 李静（客服）/ SuperAdmin / 王强（后厨）），处理量、完结率（82% / 67% / 25% / 0%）、完结数、首响均时、完结均时（96 分钟→1.6 小时）、在途超时 / 升级仲裁 / 评价数与均分、无评价显示「暂无评价」 |
 | 截图 09 / 09b | 退款流水首屏 + 「加载更多」第二页 |
-| 截图 10 | 导出 sheet「导出售后数据」：三种导出内容（售后单明细 / 退款流水 / 升级仲裁记录）+ 区间回显 + 「导出」按钮 |
+| 截图 10 | 导出 sheet「导出售后数据」：四种导出内容（售后单明细 / 退款流水 / 升级仲裁记录 / 员工处理绩效，后项见 §106）+ 区间回显 + 「导出」按钮 |
 | 截图 11 | 商家售后页顶部入口出现「售后分析」胶囊 |
 | 页面报错 | 无 `pageerror` / `console error` |
 
@@ -5504,7 +5504,7 @@ query { campusMerchantStoreProfile {
 | 截图 01 | 规则列表：空态提示 + 「新增规则」入口 |
 | 截图 02 / 03 | 规则 sheet 空态与填充态：名称「小额仅退款自动同意（试用）」、动作「自动同意退款」、匹配「全部售后类型」、金额 0.01~20、优先级 15、启用开关 |
 | 截图 04 / 05 | 保存后列表出现新规则；行内启用开关切换成功 |
-| 截图 06 | 自动分配卡：开关 + 单人在办上限 |
+| 截图 06 | 自动分配卡：开关 + 单人在办上限 + 近 7 日「建议分配参考」Top5（按处理量→完结率排序，见 §106） |
 | 截图 07 | 异常预警卡：退款率阈值 + 超时单量阈值 |
 | 截图 08 / 08b | 月度推送卡：开关 + 日期 picker + 时间 picker |
 | 截图 09 | 商家售后页顶部入口「售后自动化」胶囊 |
@@ -5527,6 +5527,71 @@ query { campusMerchantStoreProfile {
 | 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-automation.CikEJVr7.js` 200 / 18301 B、`after-sales-automation-DsEu8Lff.css` 200 / 5456 B、`pages-campus-merchant-after-sales.Co6tPiuc.js` 200 / 16344 B |
 
 操作入口：商家工作台 →「售后申请」→ 顶部入口「售后自动化」→ 维护自动分流规则、自动分配与异常预警、月度摘要推送。
+
+
+## §106 员工绩效联动：CSV 导出 / 值班排班 / 自动分配（已上线）
+
+### 106.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `vendure/packages/campus-delivery-plugin/src/merchant-admin.service.ts`（`afterSalesExport`） | 新增 `kind=staff` 分支：直接复用 `afterSalesStaffStats(ctx, from, to)` 的口径生成 CSV（11 列），不受状态 / 类型 / 关键词 / 处理人筛选影响 |
+| 后台 API | `web-admin/src/apis/campus.ts` | `campusMerchantAfterSalesExport` 的 `kind` 联合类型扩展为 `requests | refunds | escalations | staff` |
+| 售后分析页 | `web-admin/src/pages/campus/after-sales-analytics.vue` | 导出 sheet「导出内容」新增第 4 项「员工处理绩效」（`ExportKind` 同步扩展） |
+| 值班排班 | `web-admin/src/pages/campus/after-sales-ops.vue` | 值班 chip 追加「近 7 日处理量 · 完结率」小标签；进入 duty tab 时拉取一次 `campusMerchantAfterSalesStaffStats` |
+| 自动分配 | `web-admin/src/pages/campus/after-sales-automation.vue` | 自动分配卡新增「建议分配参考（近 7 日）」Top5 列表，按处理量倒序、同量再按完结率倒序 |
+| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | `campusAfterSalesAnalytics.kindStaff`；`campusAfterSalesAutomation.assignSuggest{Lbl,Meta,Empty,Tip}`；`campusAfterSalesOps.dutyStat{,Tip}`（中英各 6 键） |
+| 截图脚本 | `shots-p104-after-sales-analytics.cjs`（第 10 张改选「员工处理绩效」）、`shots-p105-after-sales-automation.cjs`（新增 staffStats mock + `.staff__row` 断言）、`shots-p100-after-sales-ops.cjs`（新增 staffStats mock） | — |
+| 截图 | `docs/screenshots/waimai/p104-after-sales-analytics/`、`p105-after-sales-automation/`、`p100-after-sales-ops/` | 10 导出 sheet（4 种导出内容）、06 自动分配建议参考、04/05 值班 chip 处理参考 |
+
+### 106.2 契约与口径
+
+```graphql
+# 与服务端同签名，新增 kind=staff（返回 CSV 文本，含 UTF-8 BOM）
+query ($from: String!, $to: String!, $kind: String!) {
+  campusMerchantAfterSalesExport(from: $from, to: $to, kind: $kind)
+}
+```
+
+- **导出列**：`操作人ID, 操作人, 处理量, 完结数, 完结率%, 首响均时(分), 完结均时(分), 在途超时, 升级仲裁, 评价数, 评价均分`（`resolveRate` 后端已是 0~100 整数，直接输出）。
+- **口径一致**：`kind=staff` 与 `campusMerchantAfterSalesStaffStats` 完全同源（同一区间、同一 SQL），因此页面卡片数值与导出文件必然一致。
+- **筛选不生效**：该类型按人聚合，`state/type/keyword/assigneeUserId` 一律忽略；`from/to` 仍受「最长一年」与「开始不晚于结束」校验。
+- **建议参考排序**：区间固定为近 7 日（`today-6 ~ today`，校园日 UTC+8）；`handled` 倒序 → 同量按 `resolveRate` 倒序 → 取前 5。
+- **值班 chip**：按值班条目 `userId` 查 `staffByUser` 映射，命中才渲染 `{h} 单 · 完结 {r}%`；接口失败整体降级为空映射，不影响排班读取与保存。
+
+### 106.3 校验与边界
+
+- **非法 kind** 仍由后端 `导出类型无效` 拒绝（白名单现为 `requests | refunds | escalations | staff`）。
+- **行数**：单次上限 5000 行（员工绩效行数等于当期有处理记录的操作人数，通常远低于上限）。
+- **空数据**：当期无人经手时 CSV 只有表头；页面建议参考为空时显示「近 7 日暂无处理记录」。
+- **权限**：三个页面均为 `usePermGuard('CampusMerchant')`。
+
+### 106.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 10（p104） | 导出 sheet 四选一：售后单明细 / 退款流水 / 升级仲裁记录 / **员工处理绩效**（默认选中该项） |
+| 截图 06（p105） | 自动分配卡：开关 + 单人在办上限 + 「建议分配参考（近 7 日）」#1 张伟 34 单 · 完结率 91%、#2 李静 28 单 · 完结率 93%、#3 王强 21 单 · 完结率 71%、#4 赵敏 12 单 · 完结率 92% |
+| 截图 04/05（p100） | 值班 chip 带处理参考：周一 09:00~15:00 张伟「34 单 · 完结 91%」、跨零点 18:00~次日 03:00 李娜「28 单 · 完结 93%」 |
+| 页面报错 | 三个脚本均无 `pageerror` / `console error` |
+| 首次失败 | `after-sales-ops.vue` 重复声明 `campusDateKey`（页内已有同名函数）导致 `build:h5` 报错 → 删除重复定义、复用既有函数后构建通过 |
+
+### 106.5 生产探针（admin-api，`canteen-a` 渠道，只读，区间 `2026-10-01 ~ 2026-10-31`）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesExport(kind:"staff")` | PASS：BOM 前缀 + 11 列表头 `操作人ID,操作人,处理量,完结数,完结率%,首响均时(分),完结均时(分),在途超时,升级仲裁,评价数,评价均分`；1 行数据 `160,操作人 #160,3,0,0,0,0,1,0,0,0` |
+
+### 106.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `npx tsc -p tsconfig.build.json` → 覆盖 `/www/apps/vendure/packages/campus-delivery-plugin/lib/src/merchant-admin.service.js(+.map)` → `pm2 restart vendure` | restarts 826，status online；探针 1 PASS |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62185 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.Bz7N-Qct.js` 200 / 26394 B、`after-sales-analytics-DAEtPRTp.css` 200 / 12748 B、`pages-campus-after-sales-automation.co_GwJ1r.js` 200 / 19606 B、`after-sales-automation-B1zkRaqb.css` 200 / 6023 B、`pages-campus-after-sales-ops.BcMui0RV.js` 200 / 42909 B、`after-sales-ops-BxpQuLWM.css` 200 / 11126 B |
+
+操作入口：售后分析页「导出」→ 选「员工处理绩效」；「售后申请」→ 值班排班（chip 处理参考）；「售后申请」→ 售后自动化 → 自动分配卡（建议分配参考）。
 
 
 

@@ -83,6 +83,7 @@
           <view class="pill"><text>{{ dutyPill }}</text></view>
         </view>
         <text class="tip">{{ $t('campusAfterSalesOps.dutyTip') }}</text>
+        <text class="tip">{{ $t('campusAfterSalesOps.dutyStatTip') }}</text>
         <text v-if="!assignees.length" class="tip warn">{{ $t('campusAfterSalesOps.dutyNoStaff') }}</text>
         <view v-for="w in weekRows" :key="w.weekday" class="duty-row">
           <text class="d-wd" :class="{ today: w.weekday === todayWeekday }">{{ w.label }}</text>
@@ -91,6 +92,7 @@
             <view v-for="it in w.items" :key="it.key" class="d-chip">
               <text class="d-time">{{ it.text }}</text>
               <text class="d-name">{{ it.userName || ('ID ' + it.userId) }}</text>
+              <text v-if="staffText(it.userId)" class="d-stat">{{ staffText(it.userId) }}</text>
               <text class="d-del" @tap="removeDuty(w.weekday, it.key)">✕</text>
             </view>
           </view>
@@ -450,6 +452,7 @@ import {
   campusMerchantAfterSalesReplyTemplates,
   campusMerchantAfterSalesReturnAddress,
   campusMerchantAfterSalesRules,
+  campusMerchantAfterSalesStaffStats,
   campusMerchantAfterSalesTags,
   campusMerchantDeleteAfterSalesCompensationPlan,
   campusMerchantDeleteAfterSalesReplyTemplate,
@@ -470,6 +473,7 @@ import {
   type MerchantAfterSalesDutyEntry,
   type MerchantAfterSalesReplyTemplate,
   type MerchantAfterSalesRules,
+  type MerchantAfterSalesStaffStat,
   type MerchantAfterSalesTag,
 } from '../../apis/campus';
 import { fetchCouponTemplates } from '../../apis/coupon';
@@ -709,6 +713,28 @@ const dutyLoading = ref(false);
 const savingDuty = ref(false);
 const dutyDirty = ref(false);
 const dutyRows = ref<DutyRow[]>([]);
+const staffByUser = ref<Record<string, MerchantAfterSalesStaffStat>>({});
+
+/** 近 7 日员工处理量 / 完结率（§89）：值班表按人给出处理参考，失败不阻塞排班 */
+async function loadStaffStats(): Promise<void> {
+  try {
+    const rows = await campusMerchantAfterSalesStaffStats(campusDateKey(-6), campusDateKey(0));
+    const map: Record<string, MerchantAfterSalesStaffStat> = {};
+    for (const r of rows) map[r.operatorUserId] = r;
+    staffByUser.value = map;
+  } catch {
+    staffByUser.value = {};
+  }
+}
+
+function staffText(userId: string): string {
+  const s = staffByUser.value[userId];
+  if (!s) return '';
+  return locale
+    .t('campusAfterSalesOps.dutyStat')
+    .replace('{h}', String(s.handled))
+    .replace('{r}', String(s.resolveRate));
+}
 
 const weekRows = computed(() =>
   weekdayNames.map((labelKey, weekday) => ({
@@ -740,6 +766,7 @@ function toDutyRows(entries: MerchantAfterSalesDutyEntry[]): DutyRow[] {
 
 async function reloadDuty(): Promise<void> {
   dutyLoading.value = true;
+  void loadStaffStats();
   try {
     dutyRows.value = toDutyRows(await campusMerchantAfterSalesDutyRoster());
     dutyDirty.value = false;
@@ -1496,6 +1523,8 @@ onPullDownRefresh(async () => {
         border-radius: $wa-radius; padding: 10rpx 18rpx;
         .d-time { font-size: 22rpx; color: $wa-ink; font-weight: 600; }
         .d-name { flex: 1; font-size: 22rpx; color: $wa-muted; }
+        .d-stat { flex: none; font-size: 20rpx; color: #1677ff; background: #eaf3ff;
+          border-radius: 999rpx; padding: 2rpx 12rpx; }
         .d-del { font-size: 24rpx; color: #d4380d; padding: 0 6rpx; }
       }
     }

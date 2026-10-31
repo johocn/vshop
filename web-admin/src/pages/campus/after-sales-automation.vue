@@ -59,6 +59,19 @@
         :placeholder="$t('campusAfterSalesAutomation.assignMaxPh')"
       />
       <text class="fld-tip">{{ $t('campusAfterSalesAutomation.assignMaxTip') }}</text>
+      <text class="fld-lbl">{{ $t('campusAfterSalesAutomation.assignSuggestLbl') }}</text>
+      <view v-if="staffLoading" class="fld-tip">{{ $t('campusAfterSalesAutomation.loading') }}</view>
+      <view v-else-if="!staffTop.length" class="fld-tip">{{ $t('campusAfterSalesAutomation.assignSuggestEmpty') }}</view>
+      <view v-else class="staff">
+        <view v-for="(s, i) in staffTop" :key="s.operatorUserId" class="staff__row">
+          <text class="staff__rank">#{{ i + 1 }}</text>
+          <text class="staff__name">{{ s.operatorName }}</text>
+          <text class="staff__meta">
+            {{ $t('campusAfterSalesAutomation.assignSuggestMeta').replace('{h}', String(s.handled)).replace('{r}', String(s.resolveRate)) }}
+          </text>
+        </view>
+      </view>
+      <text class="fld-tip">{{ $t('campusAfterSalesAutomation.assignSuggestTip') }}</text>
       <button class="save" :disabled="savingAssign" @tap="saveAssign">
         {{ savingAssign ? $t('campusAfterSalesAutomation.saving') : $t('campusAfterSalesAutomation.save') }}
       </button>
@@ -194,10 +207,12 @@ import {
   campusMerchantAfterSalesAutoRules,
   campusMerchantDeleteAfterSalesAutoRule,
   campusMerchantSaveAfterSalesAutoRule,
+  campusMerchantAfterSalesStaffStats,
   campusMerchantStoreProfile,
   campusMerchantUpdateAfterSalesAutomation,
   campusMerchantUpdateAfterSalesMonthlyPush,
   type MerchantAfterSalesAutoRule,
+  type MerchantAfterSalesStaffStat,
 } from '../../apis/campus';
 import { yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
@@ -417,6 +432,28 @@ const pushForm = ref({ enabled: false, day: 1, time: '21:30' });
 const savingAssign = ref(false);
 const savingAlert = ref(false);
 const savingPush = ref(false);
+const staffLoading = ref(false);
+const staffTop = ref<MerchantAfterSalesStaffStat[]>([]);
+
+function campusDateKey(offsetDays = 0): string {
+  return new Date(Date.now() + 8 * 3600_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** 近 7 日员工处理量 / 完结率（§89）：作为自动分配的建议排序参考，失败不阻塞设置 */
+async function loadStaffHint(): Promise<void> {
+  staffLoading.value = true;
+  try {
+    const rows = await campusMerchantAfterSalesStaffStats(campusDateKey(-6), campusDateKey(0));
+    staffTop.value = rows
+      .slice()
+      .sort((a, b) => b.handled - a.handled || b.resolveRate - a.resolveRate)
+      .slice(0, 5);
+  } catch {
+    staffTop.value = [];
+  } finally {
+    staffLoading.value = false;
+  }
+}
 
 const pushDayOptions = Array.from({ length: 28 }, (_, i) => ({
   value: i + 1,
@@ -535,6 +572,7 @@ async function savePush(): Promise<void> {
 onLoad(() => {
   void loadRules();
   void loadProfile();
+  void loadStaffHint();
 });
 
 onMounted(() => {
@@ -542,7 +580,7 @@ onMounted(() => {
 });
 
 onPullDownRefresh(async () => {
-  await Promise.all([loadRules(), loadProfile()]);
+  await Promise.all([loadRules(), loadProfile(), loadStaffHint()]);
   uni.stopPullDownRefresh();
 });
 </script>
@@ -559,6 +597,14 @@ onPullDownRefresh(async () => {
     .fld-lbl { display: block; font-size: 24rpx; color: $wa-ink; margin: 20rpx 0 8rpx; }
     .fld-tip { display: block; margin-top: 8rpx; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
     .inline-empty { font-size: 24rpx; color: $wa-muted; padding: 32rpx 0; text-align: center; }
+    .staff { display: flex; flex-direction: column; gap: 10rpx; margin-top: 4rpx;
+      &__row { display: flex; align-items: center; gap: 12rpx; background: $wa-bg;
+        border-radius: $wa-radius; padding: 14rpx 20rpx; }
+      &__rank { flex: none; font-size: 20rpx; color: $wa-accent; background: $wa-card;
+        border-radius: 999rpx; padding: 2rpx 12rpx; }
+      &__name { flex: 1; font-size: 24rpx; color: $wa-ink; }
+      &__meta { flex: none; font-size: 22rpx; color: $wa-muted; }
+    }
   }
   .ipt { background: $wa-bg; border-radius: $wa-radius; padding: 18rpx 24rpx;
     font-size: 26rpx; color: $wa-ink; box-sizing: border-box;
