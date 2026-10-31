@@ -251,7 +251,7 @@
     </template>
 
     <!-- 五、回复模板（§102）：售后快捷话术，详情页一键带入 -->
-    <template v-else>
+    <template v-else-if="tab === 'template'">
       <view class="card">
         <view class="head">
           <text class="title">{{ $t('campusAfterSalesOps.tplTitle') }}</text>
@@ -319,6 +319,120 @@
         </view>
       </view>
     </template>
+
+    <!-- 六、售后规则与退货地址（§103）：SLA 阈值、自动化开关与退货收件信息 -->
+    <template v-else-if="tab === 'rules'">
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesOps.rulesTitle') }}</text>
+          <text class="act" :class="{ busy: rulesSaving }" @tap="saveRules">
+            {{ rulesSaving ? $t('campusAfterSalesOps.saving') : $t('campusAfterSalesOps.rulesSave') }}
+          </text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesOps.rulesTip') }}</text>
+
+        <view class="form-grid">
+          <view v-for="f in ruleFields" :key="f.key" class="fld">
+            <text class="sheet__lbl">{{ $t(f.label) }}</text>
+            <input v-model="ruleForm[f.key]" class="ipt wide" type="number" :placeholder="$t(f.ph)" />
+            <text class="fld-tip">{{ $t(f.tip) }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesOps.addrTitle') }}</text>
+          <text class="act" :class="{ busy: addrSaving }" @tap="saveAddress">
+            {{ addrSaving ? $t('campusAfterSalesOps.saving') : $t('campusAfterSalesOps.addrSave') }}
+          </text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesOps.addrTip') }}</text>
+        <text class="sheet__lbl">{{ $t('campusAfterSalesOps.addrName') }}</text>
+        <input v-model="addrForm.fullName" class="ipt wide" maxlength="20" :placeholder="$t('campusAfterSalesOps.addrNamePh')" />
+        <text class="sheet__lbl">{{ $t('campusAfterSalesOps.addrPhone') }}</text>
+        <input v-model="addrForm.phoneNumber" class="ipt wide" maxlength="20" :placeholder="$t('campusAfterSalesOps.addrPhonePh')" />
+        <text class="sheet__lbl">{{ $t('campusAfterSalesOps.addrDetail') }}</text>
+        <input v-model="addrForm.address" class="ipt wide" maxlength="80" :placeholder="$t('campusAfterSalesOps.addrDetailPh')" />
+        <view class="sheet__ops">
+          <text class="sheet__clear" @tap="clearAddress">{{ $t('campusAfterSalesOps.addrClear') }}</text>
+        </view>
+      </view>
+    </template>
+
+    <!-- 七、顾客黑名单（§103）：本店维度拉黑，解除后可继续售后 -->
+    <template v-else>
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesOps.blTitle') }}</text>
+          <text class="act" :class="{ busy: blLoading }" @tap="loadBlacklist">
+            {{ blLoading ? $t('campusAfterSalesOps.loading') : $t('campusAfterSalesOps.blRefresh') }}
+          </text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesOps.blTip') }}</text>
+      </view>
+
+      <view v-if="blLoading" class="hint">{{ $t('campusAfterSalesOps.loading') }}</view>
+      <view v-else-if="!blList.length" class="hint empty">{{ $t('campusAfterSalesOps.blEmpty') }}</view>
+      <view v-else class="list">
+        <view v-for="b in blList" :key="b.id" class="plan">
+          <view class="pl-head">
+            <text class="pl-name">{{ b.customerName || b.phone || $t('campusAfterSalesOps.blAnon') }}</text>
+            <text class="pl-state danger">{{ $t('campusAfterSalesOps.blTag') }}</text>
+          </view>
+          <text v-if="b.phone" class="pl-content">{{ b.phone }}</text>
+          <text v-if="b.reason" class="pl-content">{{ $t('campusAfterSalesOps.blReason').replace('{r}', b.reason) }}</text>
+          <text class="pl-sort">{{ timeText(b.createdAt) }}</text>
+          <view class="pl-ops">
+            <text v-if="b.customerId" class="pl-edit" @tap="openProfile(b.customerId)">{{ $t('campusAfterSalesOps.blProfile') }}</text>
+            <text v-if="b.customerId" class="pl-del" @tap="unblacklist(b)">{{ $t('campusAfterSalesOps.blRemove') }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="profileOpen" class="mask" @tap.self="closeProfile">
+        <view class="sheet">
+          <view class="sheet__hd">
+            <text class="sheet__t">{{ $t('campusAfterSalesOps.profTitle') }}</text>
+            <text class="sheet__x" @tap="closeProfile">✕</text>
+          </view>
+          <view v-if="profileLoading" class="hint">{{ $t('campusAfterSalesOps.loading') }}</view>
+          <view v-else-if="profileErr" class="hint">{{ profileErr }}</view>
+          <view v-else-if="profile" class="prof">
+            <view class="prof-head">
+              <text class="prof-name">{{ profile.name }}</text>
+              <text class="prof-phone">{{ profile.phone || '—' }}</text>
+            </view>
+            <view class="prof-kpis">
+              <view class="pk"><text class="pk-n">{{ profile.requestCount }}</text><text class="pk-l">{{ $t('campusAfterSalesOps.profReq') }}</text></view>
+              <view class="pk"><text class="pk-n">{{ profile.refundedCount }}</text><text class="pk-l">{{ $t('campusAfterSalesOps.profRefunded') }}</text></view>
+              <view class="pk"><text class="pk-n">{{ fenToYuanFixed(profile.refundAmount) }}</text><text class="pk-l">{{ $t('campusAfterSalesOps.profAmount') }}</text></view>
+            </view>
+            <text v-if="profile.lastAt" class="tip">
+              {{ $t('campusAfterSalesOps.profLast').replace('{t}', timeText(profile.lastAt)) }}
+            </text>
+            <text class="sheet__lbl">{{ $t('campusAfterSalesOps.profRecent') }}</text>
+            <view v-if="!profile.recent.length" class="hint small">{{ $t('campusAfterSalesOps.profNoRecent') }}</view>
+            <view v-else class="prof-list">
+              <view v-for="r in profile.recent" :key="r.id" class="prof-row">
+                <text class="pr-code">{{ r.orderCode }}</text>
+                <text class="pr-amount">¥{{ fenToYuanFixed(r.amount) }}</text>
+                <text class="pr-time">{{ timeText(r.createdAt) }}</text>
+              </view>
+            </view>
+          </view>
+          <view class="sheet__ops">
+            <text class="sheet__clear" @tap="closeProfile">{{ $t('campusAfterSalesOps.cancel') }}</text>
+            <button
+              v-if="profile && !profile.blacklisted"
+              class="sheet__save danger"
+              :disabled="profSaving"
+              @tap="blacklistFromProfile"
+            >{{ profSaving ? $t('campusAfterSalesOps.saving') : $t('campusAfterSalesOps.profBlacklist') }}</button>
+          </view>
+        </view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -329,9 +443,13 @@ import {
   campusMerchantAfterSalesAssignees,
   campusMerchantAfterSalesAuditExport,
   campusMerchantAfterSalesAuditLogs,
+  campusMerchantAfterSalesBlacklist,
   campusMerchantAfterSalesCompensationPlans,
+  campusMerchantAfterSalesCustomerProfile,
   campusMerchantAfterSalesDutyRoster,
   campusMerchantAfterSalesReplyTemplates,
+  campusMerchantAfterSalesReturnAddress,
+  campusMerchantAfterSalesRules,
   campusMerchantAfterSalesTags,
   campusMerchantDeleteAfterSalesCompensationPlan,
   campusMerchantDeleteAfterSalesReplyTemplate,
@@ -340,11 +458,18 @@ import {
   campusMerchantSaveAfterSalesReplyTemplate,
   campusMerchantSaveAfterSalesTag,
   campusMerchantSetAfterSalesDutyRoster,
+  campusMerchantBlacklistAfterSalesCustomer,
+  campusMerchantUnblacklistAfterSalesCustomer,
+  campusMerchantUpdateAfterSalesReturnAddress,
+  campusMerchantUpdateAfterSalesRules,
   type MerchantAfterSalesAssignee,
   type MerchantAfterSalesAuditRow,
+  type MerchantAfterSalesBlacklistEntry,
   type MerchantAfterSalesCompensationPlan,
+  type MerchantAfterSalesCustomerProfile,
   type MerchantAfterSalesDutyEntry,
   type MerchantAfterSalesReplyTemplate,
+  type MerchantAfterSalesRules,
   type MerchantAfterSalesTag,
 } from '../../apis/campus';
 import { fetchCouponTemplates } from '../../apis/coupon';
@@ -357,13 +482,15 @@ import { usePermGuard } from '../../composables/usePermGuard';
 usePermGuard('CampusMerchant');
 
 const locale = useLocaleStore();
-type TabKey = 'audit' | 'duty' | 'plan' | 'tag' | 'template';
+type TabKey = 'audit' | 'duty' | 'plan' | 'tag' | 'template' | 'rules' | 'blacklist';
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'audit', label: 'campusAfterSalesOps.tabAudit' },
   { key: 'duty', label: 'campusAfterSalesOps.tabDuty' },
   { key: 'plan', label: 'campusAfterSalesOps.tabPlan' },
   { key: 'tag', label: 'campusAfterSalesOps.tabTag' },
   { key: 'template', label: 'campusAfterSalesOps.tabTemplate' },
+  { key: 'rules', label: 'campusAfterSalesOps.tabRules' },
+  { key: 'blacklist', label: 'campusAfterSalesOps.tabBlacklist' },
 ];
 const tab = ref<TabKey>('audit');
 
@@ -1032,6 +1159,197 @@ function removeTpl(t: MerchantAfterSalesReplyTemplate): void {
   });
 }
 
+/* ---------- 六、售后规则与退货地址（§103） ---------- */
+const ruleFields: Array<{ key: keyof MerchantAfterSalesRules; label: string; ph: string; tip: string }> = [
+  { key: 'timeoutHours', label: 'campusAfterSalesOps.ruleTimeout', ph: '48', tip: 'campusAfterSalesOps.ruleTimeoutTip' },
+  { key: 'autoApproveHours', label: 'campusAfterSalesOps.ruleAutoApprove', ph: '0', tip: 'campusAfterSalesOps.ruleAutoApproveTip' },
+  { key: 'refundAutoRetry', label: 'campusAfterSalesOps.ruleRetry', ph: '1', tip: 'campusAfterSalesOps.ruleRetryTip' },
+  { key: 'firstResponseTargetHours', label: 'campusAfterSalesOps.ruleFirstResp', ph: '0', tip: 'campusAfterSalesOps.ruleFirstRespTip' },
+  { key: 'resolveTargetHours', label: 'campusAfterSalesOps.ruleResolve', ph: '0', tip: 'campusAfterSalesOps.ruleResolveTip' },
+  { key: 'dueSoonHours', label: 'campusAfterSalesOps.ruleDueSoon', ph: '12', tip: 'campusAfterSalesOps.ruleDueSoonTip' },
+  { key: 'refundReviewThreshold', label: 'campusAfterSalesOps.ruleReview', ph: '0', tip: 'campusAfterSalesOps.ruleReviewTip' },
+];
+const ruleForm = ref<Record<string, string>>({});
+const rulesSaving = ref(false);
+
+function fillRules(r: MerchantAfterSalesRules | null): void {
+  const next: Record<string, string> = {};
+  for (const f of ruleFields) {
+    const v = (r?.[f.key] as number | undefined) ?? 0;
+    next[f.key] = f.key === 'refundReviewThreshold' ? fenToYuan(v) : String(v);
+  }
+  ruleForm.value = next;
+}
+
+async function loadRules(): Promise<void> {
+  try {
+    fillRules(await campusMerchantAfterSalesRules());
+  } catch (e) {
+    uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+  }
+  await loadAddress();
+}
+
+async function saveRules(): Promise<void> {
+  if (rulesSaving.value) return;
+  const payload: Partial<MerchantAfterSalesRules> = {};
+  for (const f of ruleFields) {
+    if (f.key === 'refundReviewThreshold') {
+      const fen = yuanToFen(ruleForm.value[f.key] ?? '0');
+      if (fen == null) {
+        uni.showToast({ title: locale.t('campusAfterSalesOps.ruleInvalid'), icon: 'none' });
+        return;
+      }
+      payload.refundReviewThreshold = fen;
+      continue;
+    }
+    const n = Number(ruleForm.value[f.key]);
+    if (!Number.isFinite(n) || n < 0) {
+      uni.showToast({ title: locale.t('campusAfterSalesOps.ruleInvalid'), icon: 'none' });
+      return;
+    }
+    (payload as any)[f.key] = Math.floor(n);
+  }
+  rulesSaving.value = true;
+  try {
+    fillRules(await campusMerchantUpdateAfterSalesRules(payload));
+    uni.showToast({ title: locale.t('campusAfterSalesOps.rulesSaved'), icon: 'none' });
+  } catch (e) {
+    uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+  } finally {
+    rulesSaving.value = false;
+  }
+}
+
+const addrForm = ref({ fullName: '', phoneNumber: '', address: '' });
+const addrSaving = ref(false);
+
+async function loadAddress(): Promise<void> {
+  try {
+    const a = await campusMerchantAfterSalesReturnAddress();
+    addrForm.value = {
+      fullName: a?.fullName ?? '',
+      phoneNumber: a?.phoneNumber ?? '',
+      address: a?.address ?? '',
+    };
+  } catch {
+    addrForm.value = { fullName: '', phoneNumber: '', address: '' };
+  }
+}
+
+async function saveAddress(): Promise<void> {
+  if (addrSaving.value) return;
+  const { fullName, phoneNumber, address } = addrForm.value;
+  if (!address.trim()) {
+    uni.showToast({ title: locale.t('campusAfterSalesOps.addrRequired'), icon: 'none' });
+    return;
+  }
+  addrSaving.value = true;
+  try {
+    await campusMerchantUpdateAfterSalesReturnAddress(JSON.stringify({ fullName, phoneNumber, address }));
+    uni.showToast({ title: locale.t('campusAfterSalesOps.addrSaved'), icon: 'none' });
+  } catch (e) {
+    uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+  } finally {
+    addrSaving.value = false;
+  }
+}
+
+async function clearAddress(): Promise<void> {
+  addrSaving.value = true;
+  try {
+    await campusMerchantUpdateAfterSalesReturnAddress('');
+    addrForm.value = { fullName: '', phoneNumber: '', address: '' };
+    uni.showToast({ title: locale.t('campusAfterSalesOps.addrCleared'), icon: 'none' });
+  } catch (e) {
+    uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+  } finally {
+    addrSaving.value = false;
+  }
+}
+
+/* ---------- 七、顾客黑名单与档案（§103） ---------- */
+const blList = ref<MerchantAfterSalesBlacklistEntry[]>([]);
+const blLoading = ref(false);
+
+async function loadBlacklist(): Promise<void> {
+  blLoading.value = true;
+  try {
+    blList.value = await campusMerchantAfterSalesBlacklist(0, 50);
+  } catch (e) {
+    uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+  } finally {
+    blLoading.value = false;
+  }
+}
+
+function unblacklist(b: MerchantAfterSalesBlacklistEntry): void {
+  if (!b.customerId) return;
+  uni.showModal({
+    title: locale.t('campusAfterSalesOps.blRemoveTitle'),
+    content: locale.t('campusAfterSalesOps.blRemoveHint'),
+    success: async r => {
+      if (!r.confirm) return;
+      try {
+        await campusMerchantUnblacklistAfterSalesCustomer(b.customerId as string);
+        uni.showToast({ title: locale.t('campusAfterSalesOps.blRemoved'), icon: 'none' });
+        await loadBlacklist();
+      } catch (e) {
+        uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+      }
+    },
+  });
+}
+
+const profileOpen = ref(false);
+const profileLoading = ref(false);
+const profileErr = ref('');
+const profile = ref<MerchantAfterSalesCustomerProfile | null>(null);
+const profSaving = ref(false);
+const profileCustomerId = ref('');
+
+async function openProfile(customerId: string): Promise<void> {
+  profileCustomerId.value = customerId;
+  profileOpen.value = true;
+  profile.value = null;
+  profileErr.value = '';
+  profileLoading.value = true;
+  try {
+    profile.value = await campusMerchantAfterSalesCustomerProfile(customerId);
+  } catch (e) {
+    profileErr.value = graphQlErrorMsg(e);
+  } finally {
+    profileLoading.value = false;
+  }
+}
+
+function closeProfile(): void {
+  profileOpen.value = false;
+}
+
+function blacklistFromProfile(): void {
+  const id = profileCustomerId.value;
+  if (!id) return;
+  uni.showModal({
+    title: locale.t('campusAfterSalesOps.profBlacklistTitle'),
+    content: locale.t('campusAfterSalesOps.profBlacklistHint'),
+    success: async r => {
+      if (!r.confirm) return;
+      profSaving.value = true;
+      try {
+        await campusMerchantBlacklistAfterSalesCustomer(id, locale.t('campusAfterSalesOps.profBlacklistReason'));
+        profile.value = profile.value ? { ...profile.value, blacklisted: true } : null;
+        uni.showToast({ title: locale.t('campusAfterSalesOps.blAdded'), icon: 'none' });
+        await loadBlacklist();
+      } catch (e) {
+        uni.showToast({ title: graphQlErrorMsg(e), icon: 'none' });
+      } finally {
+        profSaving.value = false;
+      }
+    },
+  });
+}
+
 /* ---------- 生命周期 ---------- */
 function setTab(next: TabKey): void {
   tab.value = next;
@@ -1040,6 +1358,8 @@ function setTab(next: TabKey): void {
   if (next === 'plan' && !plans.value.length) void loadPlans();
   if (next === 'tag' && !tagList.value.length) void loadTags();
   if (next === 'template' && !tplAll.value.length) void loadTemplates();
+  if (next === 'rules' && !ruleForm.value.timeoutHours) void loadRules();
+  if (next === 'blacklist' && !blList.value.length) void loadBlacklist();
 }
 
 async function reloadAll(): Promise<void> {
@@ -1049,11 +1369,13 @@ async function reloadAll(): Promise<void> {
   if (tab.value === 'plan') await loadPlans();
   if (tab.value === 'tag') await loadTags();
   if (tab.value === 'template') await loadTemplates();
+  if (tab.value === 'rules') await loadRules();
+  if (tab.value === 'blacklist') await loadBlacklist();
 }
 
 onLoad((options: any) => {
   const t = String(options?.tab || '');
-  if (t === 'duty' || t === 'plan' || t === 'audit' || t === 'tag' || t === 'template') tab.value = t;
+  if (['duty', 'plan', 'audit', 'tag', 'template', 'rules', 'blacklist'].includes(t)) tab.value = t as TabKey;
   void reloadAll();
 });
 
@@ -1179,6 +1501,32 @@ onPullDownRefresh(async () => {
     }
     .d-add { flex: none; font-size: 28rpx; color: $wa-accent; padding: 4rpx 12rpx; }
   }
+  .pl-state.danger { color: #a8071a; background: #fff1f0; }
+  .form-grid { display: flex; flex-direction: column; gap: 20rpx; margin-top: 16rpx;
+    .fld { display: flex; flex-direction: column; gap: 8rpx;
+      .fld-tip { font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
+    }
+  }
+  .prof { display: flex; flex-direction: column; gap: 16rpx;
+    .prof-head { display: flex; align-items: baseline; gap: 16rpx;
+      .prof-name { font-size: 32rpx; font-weight: 700; color: $wa-ink; }
+      .prof-phone { font-size: 24rpx; color: $wa-muted; }
+    }
+    .prof-kpis { display: flex; gap: 16rpx;
+      .pk { flex: 1; background: $wa-bg; border-radius: $wa-radius; padding: 16rpx; text-align: center;
+        .pk-n { display: block; font-size: 32rpx; font-weight: 700; color: $wa-ink; }
+        .pk-l { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 4rpx; }
+      }
+    }
+    .prof-list { display: flex; flex-direction: column;
+      .prof-row { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0;
+        border-top: 1px solid $wa-rule;
+        .pr-code { flex: 1; font-size: 24rpx; color: $wa-ink; }
+        .pr-amount { font-size: 24rpx; color: #d4380d; font-weight: 600; }
+        .pr-time { font-size: 22rpx; color: $wa-muted; }
+      }
+    }
+  }
 }
 
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300;
@@ -1203,6 +1551,7 @@ onPullDownRefresh(async () => {
   &__save { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; background: $wa-accent;
     color: #fff; font-size: 28rpx; border-radius: $wa-radius; border: none;
     &[disabled] { opacity: .6; }
+    &.danger { background: #d4380d; }
   }
   .area { display: block; width: 100%; min-height: 200rpx; box-sizing: border-box; background: $wa-bg;
     border-radius: $wa-radius; padding: 18rpx 24rpx; font-size: 26rpx; color: $wa-ink; line-height: 1.6;

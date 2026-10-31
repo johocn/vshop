@@ -34,6 +34,11 @@
           <text class="oe-i" @tap="goOps('duty')">{{ $t('campusAfterSalesOps.entryDuty') }}</text>
           <text class="oe-i" @tap="goOps('plan')">{{ $t('campusAfterSalesOps.entryPlan') }}</text>
         </view>
+        <!-- §104 售后分析（报表/导出）+ §105 售后自动化（分流规则/分配/预警/月度推送） -->
+        <view class="ops-entry">
+          <text class="oe-i" @tap="goAnalytics">{{ $t('campusAfterSalesAnalytics.entryShort') }}</text>
+          <text class="oe-i" @tap="goAutomation">{{ $t('campusAfterSalesAutomation.entryShort') }}</text>
+        </view>
       </view>
 
       <view v-if="!filtered.length" class="hint empty">
@@ -438,6 +443,16 @@ function goOps(tab: 'audit' | 'duty' | 'plan'): void {
 /** §101 售后工作台：待办概览 / 批量处置 / 一键补偿 */
 function goWorkbench(): void {
   uni.navigateTo({ url: '/pages/campus/after-sales-workbench' });
+}
+
+/** §104 售后分析：区间报表 / 原因与商品 / 满意度 / 退款流水 / 导出 */
+function goAnalytics(): void {
+  uni.navigateTo({ url: '/pages/campus/after-sales-analytics' });
+}
+
+/** §105 售后自动化：自动分流规则 / 自动分配 / 异常预警 / 月度推送 */
+function goAutomation(): void {
+  uni.navigateTo({ url: '/pages/campus/after-sales-automation' });
 }
 
 /** 凭证/对话图片看原图 */

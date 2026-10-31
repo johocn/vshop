@@ -25,6 +25,26 @@
       </text>
     </view>
 
+    <!-- 处理人负载（§103）：未完结 / 超时 / 临期 -->
+    <view v-if="loads.length" class="card">
+      <view class="head">
+        <text class="title">{{ $t('campusAfterSalesWorkbench.loadTitle') }}</text>
+        <text class="act" @tap="reloadLoads">{{ $t('campusAfterSalesWorkbench.refresh') }}</text>
+      </view>
+      <view class="loads">
+        <view v-for="l in loads" :key="l.assigneeUserId" class="ld">
+          <text class="ld-name">{{ l.assigneeName }}</text>
+          <text class="ld-n">{{ l.openCount }}</text>
+          <text class="ld-s" :class="{ hot: l.overdueCount > 0 }">
+            {{ $t('campusAfterSalesWorkbench.loadOverdue').replace('{n}', String(l.overdueCount)) }}
+          </text>
+          <text class="ld-s" :class="{ warn: l.dueSoonCount > 0 }">
+            {{ $t('campusAfterSalesWorkbench.loadDueSoon').replace('{n}', String(l.dueSoonCount)) }}
+          </text>
+        </view>
+      </view>
+    </view>
+
     <!-- 自动化任务：超时提醒 / 自动同意 / 退款重试 -->
     <view class="card">
       <view class="head">
@@ -158,6 +178,95 @@
       <text class="bar-b" @tap="openReason('close')">{{ $t('campusAfterSalesWorkbench.batchClose') }}</text>
       <text class="bar-b" @tap="openAssign">{{ $t('campusAfterSalesWorkbench.batchAssign') }}</text>
       <text class="bar-b" @tap="openComp">{{ $t('campusAfterSalesWorkbench.compensate') }}</text>
+      <text class="bar-b" @tap="openMore">{{ $t('campusAfterSalesWorkbench.batchMore') }}</text>
+    </view>
+
+    <!-- 更多批量工具（§103）：备注 / 催办 / 打标 / 打印小票 -->
+    <view v-if="moreOpen" class="mask" @tap="moreOpen = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-t">{{ $t('campusAfterSalesWorkbench.batchMoreTitle') }}</text>
+          <text class="sheet-x" @tap="moreOpen = false">✕</text>
+        </view>
+        <view class="opts">
+          <view class="opt" @tap="startNote"><text class="opt-t">{{ $t('campusAfterSalesWorkbench.batchNote') }}</text></view>
+          <view class="opt" @tap="startRemind"><text class="opt-t">{{ $t('campusAfterSalesWorkbench.batchRemind') }}</text></view>
+          <view class="opt" @tap="startTag"><text class="opt-t">{{ $t('campusAfterSalesWorkbench.batchTag') }}</text></view>
+          <view class="opt" @tap="startPrint"><text class="opt-t">{{ $t('campusAfterSalesWorkbench.batchPrint') }}</text></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 批量备注 -->
+    <view v-if="noteOpen" class="mask" @tap="!noteBusy && (noteOpen = false)">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-t">{{ $t('campusAfterSalesWorkbench.batchNote') }}</text>
+          <text class="sheet-x" @tap="!noteBusy && (noteOpen = false)">✕</text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesWorkbench.batchNoteTip') }}</text>
+        <textarea v-model="noteText" class="area" :placeholder="$t('campusAfterSalesWorkbench.batchNotePh')" maxlength="200" />
+        <button class="save" :disabled="noteBusy" @tap="submitNote">
+          {{ noteBusy ? $t('campusAfterSalesWorkbench.submitting') : $t('campusAfterSalesWorkbench.confirm') }}
+        </button>
+      </view>
+    </view>
+
+    <!-- 批量催办 -->
+    <view v-if="remindOpen" class="mask" @tap="!remindBusy && (remindOpen = false)">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-t">{{ $t('campusAfterSalesWorkbench.batchRemind') }}</text>
+          <text class="sheet-x" @tap="!remindBusy && (remindOpen = false)">✕</text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesWorkbench.batchRemindTip') }}</text>
+        <textarea v-model="remindText" class="area" :placeholder="$t('campusAfterSalesWorkbench.batchRemindPh')" maxlength="120" />
+        <button class="save" :disabled="remindBusy" @tap="submitRemind">
+          {{ remindBusy ? $t('campusAfterSalesWorkbench.submitting') : $t('campusAfterSalesWorkbench.confirm') }}
+        </button>
+      </view>
+    </view>
+
+    <!-- 批量打标签 -->
+    <view v-if="tagOpen" class="mask" @tap="!tagBusy && (tagOpen = false)">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-t">{{ $t('campusAfterSalesWorkbench.batchTag') }}</text>
+          <text class="sheet-x" @tap="!tagBusy && (tagOpen = false)">✕</text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesWorkbench.batchTagTip') }}</text>
+        <view v-if="!tags.length" class="tip warn">{{ $t('campusAfterSalesWorkbench.batchTagEmpty') }}</view>
+        <view v-else class="chips">
+          <text
+            v-for="t in tags"
+            :key="t.id"
+            class="chip"
+            :class="{ on: batchTagIds.includes(t.id) }"
+            @tap="toggleBatchTag(t.id)"
+          ># {{ t.name }}</text>
+        </view>
+        <button class="save" :disabled="tagBusy || !tags.length" @tap="submitTags">
+          {{ tagBusy ? $t('campusAfterSalesWorkbench.submitting') : $t('campusAfterSalesWorkbench.confirm') }}
+        </button>
+      </view>
+    </view>
+
+    <!-- 批量打印小票 -->
+    <view v-if="printOpen" class="mask" @tap="printOpen = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-t">{{ $t('campusAfterSalesWorkbench.batchPrint') }}</text>
+          <text class="sheet-x" @tap="printOpen = false">✕</text>
+        </view>
+        <view v-if="printLoading" class="tip">{{ $t('campusAfterSalesWorkbench.loading') }}</view>
+        <text v-else-if="printErr" class="tip warn">{{ printErr }}</text>
+        <scroll-view v-else class="slips" scroll-y>
+          <text class="slip">{{ printText }}</text>
+        </scroll-view>
+        <button class="save" :disabled="printLoading || !printText" @tap="copySlips">
+          {{ $t('campusAfterSalesWorkbench.batchPrintCopy') }}
+        </button>
+      </view>
     </view>
 
     <!-- 驳回 / 关闭原因 -->
@@ -261,12 +370,20 @@ import {
   campusMerchantAfterSalesApplyCompensation,
   campusMerchantAfterSalesAssignees,
   campusMerchantAfterSalesCompensationPlans,
+  campusMerchantAfterSalesAssigneeLoad,
+  campusMerchantAfterSalesBatchNote,
+  campusMerchantAfterSalesBatchRemind,
+  campusMerchantAfterSalesBatchTag,
+  campusMerchantAfterSalesPrintSlips,
+  campusMerchantAfterSalesTags,
   type MerchantAfterSalesWorkbench,
   type MerchantAfterSalesTask,
   type MerchantAfterSalesWorkItem,
   type MerchantAfterSalesBatchResult,
   type MerchantAfterSalesAssignee,
+  type MerchantAfterSalesAssigneeLoad,
   type MerchantAfterSalesCompensationPlan,
+  type MerchantAfterSalesTag,
 } from '../../apis/campus';
 import { fenToYuanFixed } from '../../utils/money';
 import { formatDateTime } from '../../utils/inventoryFormat';
@@ -482,9 +599,147 @@ async function loadList(reset: boolean): Promise<void> {
   }
 }
 
+/* ---------- §103 处理人负载 ---------- */
+const loads = ref<MerchantAfterSalesAssigneeLoad[]>([]);
+
+async function reloadLoads(): Promise<void> {
+  try {
+    loads.value = await campusMerchantAfterSalesAssigneeLoad();
+  } catch {
+    loads.value = [];
+  }
+}
+
+/* ---------- §103 更多批量工具 ---------- */
+const moreOpen = ref(false);
+const noteOpen = ref(false);
+const noteText = ref('');
+const noteBusy = ref(false);
+const remindOpen = ref(false);
+const remindText = ref('');
+const remindBusy = ref(false);
+const tagOpen = ref(false);
+const tagBusy = ref(false);
+const tags = ref<MerchantAfterSalesTag[]>([]);
+const batchTagIds = ref<string[]>([]);
+const printOpen = ref(false);
+const printLoading = ref(false);
+const printErr = ref('');
+const printText = ref('');
+
+function openMore(): void {
+  if (!selectedIds.value.length) return;
+  moreOpen.value = true;
+}
+
+function startNote(): void {
+  moreOpen.value = false;
+  noteText.value = '';
+  noteOpen.value = true;
+}
+
+async function submitNote(): Promise<void> {
+  const text = noteText.value.trim();
+  if (!text) {
+    uni.showToast({ title: locale.t('campusAfterSalesWorkbench.batchNoteRequired'), icon: 'none' });
+    return;
+  }
+  noteBusy.value = true;
+  try {
+    batchDone(await campusMerchantAfterSalesBatchNote([...selectedIds.value], text));
+    noteOpen.value = false;
+    await reloadAll();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesWorkbench.batchAllFail')), icon: 'none' });
+  } finally {
+    noteBusy.value = false;
+  }
+}
+
+function startRemind(): void {
+  moreOpen.value = false;
+  remindText.value = '';
+  remindOpen.value = true;
+}
+
+async function submitRemind(): Promise<void> {
+  remindBusy.value = true;
+  try {
+    const note = remindText.value.trim();
+    batchDone(await campusMerchantAfterSalesBatchRemind([...selectedIds.value], note || null));
+    remindOpen.value = false;
+    await reloadAll();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesWorkbench.batchAllFail')), icon: 'none' });
+  } finally {
+    remindBusy.value = false;
+  }
+}
+
+async function startTag(): Promise<void> {
+  moreOpen.value = false;
+  batchTagIds.value = [];
+  tagOpen.value = true;
+  if (!tags.value.length) {
+    try {
+      tags.value = await campusMerchantAfterSalesTags();
+    } catch {
+      tags.value = [];
+    }
+  }
+}
+
+function toggleBatchTag(id: string): void {
+  const idx = batchTagIds.value.indexOf(id);
+  if (idx >= 0) batchTagIds.value.splice(idx, 1);
+  else if (batchTagIds.value.length >= 5) {
+    uni.showToast({ title: locale.t('campusAfterSalesWorkbench.batchTagLimit'), icon: 'none' });
+  } else batchTagIds.value.push(id);
+}
+
+async function submitTags(): Promise<void> {
+  if (!batchTagIds.value.length) {
+    uni.showToast({ title: locale.t('campusAfterSalesWorkbench.batchTagRequired'), icon: 'none' });
+    return;
+  }
+  tagBusy.value = true;
+  try {
+    batchDone(await campusMerchantAfterSalesBatchTag([...selectedIds.value], [...batchTagIds.value]));
+    tagOpen.value = false;
+    await reloadAll();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesWorkbench.batchAllFail')), icon: 'none' });
+  } finally {
+    tagBusy.value = false;
+  }
+}
+
+async function startPrint(): Promise<void> {
+  moreOpen.value = false;
+  printOpen.value = true;
+  printLoading.value = true;
+  printErr.value = '';
+  printText.value = '';
+  try {
+    const slips = await campusMerchantAfterSalesPrintSlips([...selectedIds.value]);
+    printText.value = slips.filter(Boolean).join('\n\n');
+  } catch (err: any) {
+    printErr.value = graphQlErrorMsg(err, locale.t('campusAfterSalesWorkbench.batchAllFail'));
+  } finally {
+    printLoading.value = false;
+  }
+}
+
+function copySlips(): void {
+  uni.setClipboardData({
+    data: printText.value,
+    success: () => uni.showToast({ title: locale.t('campusAfterSalesWorkbench.batchPrintCopied'), icon: 'none' }),
+  });
+}
+
 async function reloadAll(): Promise<void> {
   loading.value = true;
-  await Promise.all([loadWorkbench(), loadTasks(), loadList(true)]);
+  await Promise.all([loadWorkbench(), loadTasks(), loadList(true), reloadLoads()]);
   loading.value = false;
 }
 
@@ -826,6 +1081,17 @@ onPullDownRefresh(async () => {
   }
   .more { background: $wa-card; color: $wa-accent; font-size: 26rpx; border-radius: $wa-radius;
     line-height: 76rpx; margin-top: 24rpx; &[disabled] { opacity: .6; } }
+  .loads { display: flex; flex-direction: column; gap: 12rpx;
+    .ld { display: flex; align-items: center; gap: 12rpx; background: $wa-bg;
+      border-radius: $wa-radius; padding: 14rpx 20rpx;
+      .ld-name { flex: 1; font-size: 26rpx; color: $wa-ink; }
+      .ld-n { font-size: 30rpx; font-weight: 700; color: $wa-ink; }
+      .ld-s { font-size: 22rpx; color: $wa-muted;
+        &.hot { color: #a8071a; }
+        &.warn { color: #d46b08; }
+      }
+    }
+  }
   .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     display: flex; align-items: center; gap: 18rpx; padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
     background: $wa-card; box-shadow: 0 -4rpx 16rpx rgba(0,0,0,.06);
@@ -857,6 +1123,16 @@ onPullDownRefresh(async () => {
           .opt-s { font-size: 22rpx; color: $wa-muted; }
           .opt-note { font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
         }
+      }
+      .chips { display: flex; flex-wrap: wrap; gap: 12rpx;
+        .chip { font-size: 24rpx; color: $wa-muted; background: $wa-bg; border-radius: 999rpx;
+          padding: 10rpx 22rpx; border: 2rpx solid transparent;
+          &.on { color: $wa-accent; border-color: $wa-accent; background: #fff; }
+        }
+      }
+      .slips { max-height: 48vh; background: $wa-bg; border-radius: $wa-radius; padding: 16rpx 20rpx;
+        box-sizing: border-box;
+        .slip { font-size: 24rpx; color: $wa-ink; line-height: 1.7; white-space: pre-wrap; }
       }
       .save { margin-top: 8rpx; background: $wa-accent; color: #fff; font-size: 28rpx;
         border-radius: $wa-radius; line-height: 80rpx; border: none; &[disabled] { opacity: .5; } }
