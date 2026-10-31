@@ -18,16 +18,18 @@
     <view v-if="tab === 'center'">
       <view v-if="availableCoupons.length > 0">
         <view v-for="c in availableCoupons" :key="c.id" class="coupon-card">
-          <view class="coupon-card__left" :class="{ 'coupon-card__left--disabled': !canClaim(c) }">
-            <view class="coupon-card__amount-row">
-              <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
-              <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
-              <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
-            </view>
-            <text class="coupon-card__left-tip">{{ couponTypeTip(c.type) }}</text>
+          <view class="coupon-card__thumb">
+            <image v-if="c.activityImage" :src="c.activityImage" mode="aspectFill" class="coupon-card__thumb-img" />
+            <view v-else class="coupon-card__thumb-fb">{{ couponInitial(c.name) }}</view>
           </view>
           <view class="coupon-card__right">
             <view class="coupon-card__info">
+              <view class="coupon-card__amount-row">
+                <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
+                <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
+                <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
+                <text class="coupon-card__type-tip">{{ couponTypeTip(c.type) }}</text>
+              </view>
               <text class="coupon-card__name">{{ c.name }}</text>
               <text class="coupon-card__cond">{{ formatCondition(c) }}</text>
               <text class="coupon-card__date">{{ formatDateRange(c) }}</text>
@@ -54,16 +56,18 @@
       </view>
       <view v-if="storeCoupons.length > 0">
         <view v-for="c in storeCoupons" :key="c.id" class="coupon-card">
-          <view class="coupon-card__left" :class="{ 'coupon-card__left--disabled': !canClaim(c) }">
-            <view class="coupon-card__amount-row">
-              <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
-              <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
-              <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
-            </view>
-            <text class="coupon-card__left-tip">{{ couponTypeTip(c.type) }}</text>
+          <view class="coupon-card__thumb">
+            <image v-if="c.activityImage" :src="c.activityImage" mode="aspectFill" class="coupon-card__thumb-img" />
+            <view v-else class="coupon-card__thumb-fb">{{ couponInitial(c.name) }}</view>
           </view>
           <view class="coupon-card__right">
             <view class="coupon-card__info">
+              <view class="coupon-card__amount-row">
+                <text class="coupon-card__symbol" v-if="c.type === 'FIXED' || c.type === 'FULL'">¥</text>
+                <text class="coupon-card__amount">{{ formatAmount(c) }}</text>
+                <text class="coupon-card__unit">{{ formatUnit(c) }}</text>
+                <text class="coupon-card__type-tip">{{ couponTypeTip(c.type) }}</text>
+              </view>
               <text class="coupon-card__name">{{ c.name }}</text>
               <text class="coupon-card__cond">{{ formatCondition(c) }} · {{ t('coupons.storeUseTip') }}</text>
               <text class="coupon-card__date">{{ formatDateRange(c) }}</text>
@@ -101,16 +105,18 @@
             class="coupon-card"
             :class="{ 'coupon-card--disabled': mc.status !== 'UNUSED' }"
           >
-            <view class="coupon-card__left">
-              <view class="coupon-card__amount-row">
-                <text class="coupon-card__symbol" v-if="myCouponType(mc) === 'FIXED' || myCouponType(mc) === 'FULL'">¥</text>
-                <text class="coupon-card__amount">{{ formatMyAmount(mc) }}</text>
-                <text class="coupon-card__unit">{{ myCouponType(mc) === 'FREE_SHIPPING' || myCouponType(mc) === 'PERCENT' ? '' : t('coupons.unitYuan') }}</text>
-              </view>
-              <text class="coupon-card__left-tip">{{ couponTypeTip(myCouponType(mc)) }}</text>
+            <view class="coupon-card__thumb">
+              <image v-if="mc.template?.activityImage" :src="mc.template.activityImage" mode="aspectFill" class="coupon-card__thumb-img" />
+              <view v-else class="coupon-card__thumb-fb">{{ couponInitial(mc.template?.name) }}</view>
             </view>
             <view class="coupon-card__right">
               <view class="coupon-card__info">
+                <view class="coupon-card__amount-row">
+                  <text class="coupon-card__symbol" v-if="myCouponType(mc) === 'FIXED' || myCouponType(mc) === 'FULL'">¥</text>
+                  <text class="coupon-card__amount">{{ formatMyAmount(mc) }}</text>
+                  <text class="coupon-card__unit">{{ myCouponType(mc) === 'FREE_SHIPPING' || myCouponType(mc) === 'PERCENT' ? '' : t('coupons.unitYuan') }}</text>
+                  <text class="coupon-card__type-tip">{{ couponTypeTip(myCouponType(mc)) }}</text>
+                </view>
                 <text class="coupon-card__name">{{ mc.template?.name || t('coupons.nameFallback') }}</text>
                 <text class="coupon-card__cond">{{ formatMyCondition(mc) }}</text>
                 <text class="coupon-card__code">{{ t('coupons.codeColon', { code: mc.code }) }}</text>
@@ -390,7 +396,12 @@ async function removeCode() {
 
 // ===== 格式化工具 =====
 
-/** 券类型文案（左侧 tip）：FIXED=立减 / PERCENT=折扣 / FULL=直减 / FREE_SHIPPING=免配送费 */
+/** 活动图缺失时的兜底字：券名首字；无券名用「优惠券」本地化字样首字 */
+function couponInitial(name?: string): string {
+    return (name || t('coupons.nameFallback')).trim().slice(0, 1);
+}
+
+/** 券类型文案（FIXED=立减 / PERCENT=折扣 / FULL=直减 / FREE_SHIPPING=免配送费） */
 function couponTypeTip(type?: string): string {
     if (type === 'FREE_SHIPPING') return t('promotion.freeShipping');
     if (type === 'FULL') return t('coupons.tipFull');
@@ -522,20 +533,27 @@ onMounted(async () => {
 
 .coupon-card {
     display: flex; background: #fff; border-radius: $radius-md; margin-bottom: 20rpx;
-    overflow: hidden; position: relative;
+    overflow: hidden; position: relative; min-height: 200rpx;
     &--disabled { opacity: 0.65; }
 
-    &__left {
-        width: 200rpx; background: linear-gradient(135deg, $brand-color, #8a6fff);
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        padding: 24rpx 0; color: #fff;
-        &--disabled { background: linear-gradient(135deg, #bbb, #999); }
+    &__thumb {
+        width: 180rpx; flex-shrink: 0; align-self: stretch;
+        background: #f2f3f5; overflow: hidden;
     }
-    &__amount-row { display: flex; align-items: baseline; }
-    &__symbol { font-size: 28rpx; font-weight: bold; }
-    &__amount { font-size: 56rpx; font-weight: bold; line-height: 1; }
-    &__unit { font-size: 24rpx; margin-left: 4rpx; }
-    &__left-tip { font-size: 22rpx; margin-top: 10rpx; opacity: 0.9; }
+    &__thumb-img { width: 100%; height: 100%; display: block; }
+    &__thumb-fb {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        font-size: 40rpx; font-weight: bold; color: #c9ccd1;
+    }
+
+    &__amount-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6rpx; }
+    &__symbol { font-size: 24rpx; font-weight: bold; color: $brand-color; }
+    &__amount { font-size: 40rpx; font-weight: bold; line-height: 1.1; color: $brand-color; }
+    &__unit { font-size: 22rpx; color: $brand-color; margin-left: 2rpx; }
+    &__type-tip {
+        font-size: 20rpx; color: $brand-color; border: 1rpx solid $brand-color;
+        border-radius: 6rpx; padding: 0 8rpx;
+    }
 
     &__right {
         flex: 1; padding: 20rpx 24rpx; display: flex; flex-direction: column;
