@@ -414,6 +414,26 @@
           </picker>
         </template>
 
+        <template v-else-if="sheet === 'printSlip'">
+          <view v-if="slipLoading" class="t-warn">{{ $t('campusAfterSalesDetail.loading') }}</view>
+          <scroll-view v-else class="slip-box" scroll-y>
+            <text class="slip-t">{{ slipText }}</text>
+          </scroll-view>
+        </template>
+
+        <template v-else-if="sheet === 'suggest'">
+          <view v-if="suggestLoading" class="t-warn">{{ $t('campusAfterSalesDetail.loading') }}</view>
+          <view v-else-if="!suggestions.length" class="t-warn">{{ $t('campusAfterSalesDetail.suggestEmpty') }}</view>
+          <view v-else class="opts">
+            <view v-for="s in suggestions" :key="s.id" class="opt" @tap="useSuggest(s)">
+              <text class="opt__t">{{ s.content }}</text>
+              <text class="opt__s">
+                {{ $t('campusAfterSalesDetail.suggestScore').replace('{n}', String(s.score)) }}
+              </text>
+            </view>
+          </view>
+        </template>
+
         <template v-else>
           <textarea
             v-model="form.text"
@@ -423,10 +443,16 @@
           />
         </template>
 
-        <view class="sheet__ops">
+        <view v-if="sheet !== 'suggest'" class="sheet__ops">
           <text class="sheet__clear" @tap="closeSheet">{{ $t('campusAfterSalesDetail.cancel') }}</text>
-          <button class="sheet__save" :disabled="busy" @tap="submitSheet">
-            {{ busy ? $t('campusAfterSalesDetail.submitting') : $t('campusAfterSalesDetail.confirm') }}
+          <button
+            class="sheet__save"
+            :disabled="busy"
+            @tap="sheet === 'printSlip' ? copySlip() : submitSheet()"
+          >
+            {{ sheet === 'printSlip'
+              ? $t('campusAfterSalesDetail.slipCopy')
+              : busy ? $t('campusAfterSalesDetail.submitting') : $t('campusAfterSalesDetail.confirm') }}
           </button>
         </view>
       </view>
@@ -453,6 +479,7 @@ import {
   campusMerchantAfterSalesNotes,
   campusMerchantAfterSalesOfflineRefund,
   campusMerchantAfterSalesPauseSla,
+  campusMerchantAfterSalesPrintSlip,
   campusMerchantAfterSalesRecordReturnLogistics,
   campusMerchantAfterSalesRefundReviews,
   campusMerchantAfterSalesReject,
@@ -464,7 +491,11 @@ import {
   campusMerchantAfterSalesReturnLogistics,
   campusMerchantAfterSalesRemind,
   campusMerchantAfterSalesRetryRefund,
+  campusMerchantAfterSalesRiskClear,
+  campusMerchantAfterSalesRiskFlag,
   campusMerchantAfterSalesRules,
+  campusMerchantAfterSalesScheduleRefundRetry,
+  campusMerchantAfterSalesSuggestedReplies,
   campusMerchantSetAfterSalesTags,
   campusMerchantAfterSalesTags,
   campusMerchantAfterSalesTransfer,
@@ -476,6 +507,7 @@ import {
   type MerchantAfterSalesReplyTemplate,
   type MerchantAfterSalesReturnLogistics,
   type MerchantAfterSalesRules,
+  type MerchantAfterSalesSuggestedReply,
   type MerchantAfterSalesTag,
 } from '../../apis/campus';
 import { fenToYuanFixed, yuanToFen } from '../../utils/money';
@@ -502,6 +534,10 @@ const busy = ref(false);
 const sending = ref(false);
 const replyText = ref('');
 const showTpl = ref(false);
+const suggestions = ref<MerchantAfterSalesSuggestedReply[]>([]);
+const suggestLoading = ref(false);
+const slipText = ref('');
+const slipLoading = ref(false);
 
 const todayKey = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
 
@@ -630,7 +666,7 @@ const timeline = computed(() => {
 /** 按状态给出可用动作；风险动作（驳回/关闭）用红色区分 */
 const actions = computed(() => {
   const st = d.value?.request.state ?? '';
-  const out: Array<{ key: SheetKey | 'approve' | 'retry' | 'resumeSla'; label: string; main?: boolean; danger?: boolean }> = [];
+  const out: Array<{ key: string; label: string; main?: boolean; danger?: boolean }> = [];
   if (st === 'Pending' || st === 'Appealed') {
     out.push({ key: 'approve', label: 'campusAfterSalesDetail.actApprove', main: true });
     out.push({ key: 'reject', label: 'campusAfterSalesDetail.actReject', danger: true });
@@ -641,6 +677,7 @@ const actions = computed(() => {
   }
   if (st === 'RefundFailed') {
     out.push({ key: 'retry', label: 'campusAfterSalesDetail.actRetry', main: true });
+    out.push({ key: 'scheduleRetry', label: 'campusAfterSalesDetail.actScheduleRetry' });
   }
   if (st === 'Pending' || st === 'Received' || st === 'RefundFailed') {
     out.push({ key: 'offline', label: 'campusAfterSalesDetail.actOffline' });
@@ -653,6 +690,10 @@ const actions = computed(() => {
   if (!d.value?.request.escalated) out.push({ key: 'escalate', label: 'campusAfterSalesDetail.actEscalate' });
   out.push({ key: 'assign', label: 'campusAfterSalesDetail.actAssign' });
   out.push({ key: 'transfer', label: 'campusAfterSalesDetail.actTransfer' });
+  out.push({ key: 'printSlip', label: 'campusAfterSalesDetail.actPrintSlip' });
+  out.push({ key: 'suggest', label: 'campusAfterSalesDetail.actSuggest' });
+  if (d.value?.request.riskReason) out.push({ key: 'riskClear', label: 'campusAfterSalesDetail.actRiskClear' });
+  else out.push({ key: 'riskFlag', label: 'campusAfterSalesDetail.actRiskFlag' });
   if (st === 'Pending' || st === 'Received' || st === 'RefundFailed') {
     out.push({ key: 'close', label: 'campusAfterSalesDetail.actClose', danger: true });
   }
@@ -678,7 +719,10 @@ type SheetKey =
   | 'assign'
   | 'transfer'
   | 'reviewPass'
-  | 'reviewReject';
+  | 'reviewReject'
+  | 'riskFlag'
+  | 'printSlip'
+  | 'suggest';
 
 const sheet = ref<SheetKey>('');
 const form = ref({
@@ -744,6 +788,9 @@ const sheetTitle = computed(() => {
     transfer: 'campusAfterSalesDetail.transferTitle',
     reviewPass: 'campusAfterSalesDetail.reviewPassTitle',
     reviewReject: 'campusAfterSalesDetail.reviewRejectTitle',
+    riskFlag: 'campusAfterSalesDetail.riskTitle',
+    printSlip: 'campusAfterSalesDetail.slipTitle',
+    suggest: 'campusAfterSalesDetail.suggestTitle',
   };
   return map[sheet.value] ? locale.t(map[sheet.value]) : '';
 });
@@ -767,6 +814,9 @@ const sheetHint = computed(() => {
     transfer: 'campusAfterSalesDetail.transferHint',
     reviewPass: 'campusAfterSalesDetail.reviewHint',
     reviewReject: 'campusAfterSalesDetail.reviewHint',
+    riskFlag: 'campusAfterSalesDetail.riskHint',
+    printSlip: 'campusAfterSalesDetail.slipHint',
+    suggest: 'campusAfterSalesDetail.suggestHint',
   };
   return map[sheet.value] ? locale.t(map[sheet.value]) : '';
 });
@@ -781,6 +831,7 @@ const sheetPlaceholder = computed(() => {
     note: 'campusAfterSalesDetail.noteSheetPh',
     reviewPass: 'campusAfterSalesDetail.reviewPh',
     reviewReject: 'campusAfterSalesDetail.reviewPh',
+    riskFlag: 'campusAfterSalesDetail.riskPh',
   };
   return map[sheet.value] ? locale.t(map[sheet.value]) : '';
 });
@@ -805,6 +856,8 @@ function openSheet(key: SheetKey): void {
   if (key === 'offline' && d.value) form.value.amount = fenToYuanFixed(d.value.request.refundAmount);
   if (key === 'assign' || key === 'transfer') void loadAssignees();
   if (key === 'tags') void loadTags();
+  if (key === 'printSlip') void loadSlip();
+  if (key === 'suggest') void loadSuggestions();
 }
 
 function closeSheet(): void {
@@ -900,6 +953,8 @@ function runAction(key: string): void {
   if (key === 'approve') return doApprove();
   if (key === 'retry') return doRetry();
   if (key === 'resumeSla') return doResumeSla();
+  if (key === 'riskClear') return doRiskClear();
+  if (key === 'scheduleRetry') return doScheduleRetry();
   openSheet(key as SheetKey);
 }
 
@@ -980,6 +1035,98 @@ async function doResumeSla(): Promise<void> {
   }
 }
 
+function doRiskClear(): void {
+  const cur = d.value;
+  if (!cur) return;
+  uni.showModal({
+    title: locale.t('campusAfterSalesDetail.actRiskClear'),
+    content: locale.t('campusAfterSalesDetail.riskClearBody').replace('{code}', cur.request.orderCode),
+    confirmText: locale.t('campusAfterSalesDetail.confirm'),
+    cancelText: locale.t('campusAfterSalesDetail.cancel'),
+    success: async r => {
+      if (!r.confirm) return;
+      busy.value = true;
+      try {
+        await campusMerchantAfterSalesRiskClear(cur.request.id);
+        uni.showToast({ title: locale.t('campusAfterSalesDetail.riskCleared'), icon: 'none' });
+        await reloadAll();
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesDetail.actionFailed')), icon: 'none' });
+      } finally {
+        busy.value = false;
+      }
+    },
+  });
+}
+
+function doScheduleRetry(): void {
+  const cur = d.value;
+  if (!cur) return;
+  uni.showModal({
+    title: locale.t('campusAfterSalesDetail.actScheduleRetry'),
+    content: locale.t('campusAfterSalesDetail.scheduleRetryBody')
+      .replace('{code}', cur.request.orderCode)
+      .replace('{amt}', money(cur.request.refundAmount)),
+    confirmText: locale.t('campusAfterSalesDetail.confirm'),
+    cancelText: locale.t('campusAfterSalesDetail.cancel'),
+    success: async r => {
+      if (!r.confirm) return;
+      busy.value = true;
+      try {
+        await campusMerchantAfterSalesScheduleRefundRetry(cur.request.id);
+        uni.showToast({ title: locale.t('campusAfterSalesDetail.scheduleRetryOk'), icon: 'none' });
+        await reloadAll();
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesDetail.actionFailed')), icon: 'none' });
+      } finally {
+        busy.value = false;
+      }
+    },
+  });
+}
+
+async function loadSlip(): Promise<void> {
+  const id = d.value?.request.id;
+  if (!id) return;
+  slipText.value = '';
+  slipLoading.value = true;
+  try {
+    slipText.value = await campusMerchantAfterSalesPrintSlip(id);
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesDetail.actionFailed')), icon: 'none' });
+  } finally {
+    slipLoading.value = false;
+  }
+}
+
+function copySlip(): void {
+  if (!slipText.value) return;
+  uni.setClipboardData({
+    data: slipText.value,
+    success: () => uni.showToast({ title: locale.t('campusAfterSalesDetail.slipCopied'), icon: 'none' }),
+  });
+}
+
+async function loadSuggestions(): Promise<void> {
+  const id = d.value?.request.id;
+  if (!id) return;
+  suggestions.value = [];
+  suggestLoading.value = true;
+  try {
+    suggestions.value = await campusMerchantAfterSalesSuggestedReplies(id);
+  } catch {
+    suggestions.value = [];
+  } finally {
+    suggestLoading.value = false;
+  }
+}
+
+function useSuggest(s: MerchantAfterSalesSuggestedReply): void {
+  replyText.value = s.content;
+  sheet.value = '';
+  uni.showToast({ title: locale.t('campusAfterSalesDetail.suggestApplied'), icon: 'none' });
+}
+
 function needText(): string | null {
   const t = form.value.text.trim();
   if (!t) {
@@ -1027,6 +1174,9 @@ async function submitSheet(): Promise<void> {
       if (!why) return;
       await campusMerchantAfterSalesPauseSla(id, why);
       uni.showToast({ title: locale.t('campusAfterSalesDetail.slaPaused'), icon: 'none' });
+    } else if (mode === 'riskFlag') {
+      await campusMerchantAfterSalesRiskFlag(id, form.value.text.trim() || null);
+      uni.showToast({ title: locale.t('campusAfterSalesDetail.riskFlagged'), icon: 'none' });
     } else if (mode === 'remind') {
       await campusMerchantAfterSalesRemind(id, form.value.text.trim() || null);
       uni.showToast({ title: locale.t('campusAfterSalesDetail.reminded'), icon: 'none' });
@@ -1324,6 +1474,10 @@ onPullDownRefresh(async () => {
     color: #fff; font-size: 28rpx; border-radius: $wa-radius; border: none;
     &[disabled] { opacity: .6; }
   }
+  .slip-box { max-height: 46vh; background: $wa-bg; border-radius: $wa-radius;
+    padding: 20rpx 24rpx; margin-top: 8rpx; box-sizing: border-box; }
+  .slip-t { display: block; font-size: 24rpx; color: $wa-ink; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all; }
   .t-warn { display: block; font-size: 24rpx; color: #fa8c16; line-height: 1.5; }
   .area { width: 100%; height: 160rpx; background: $wa-bg; border-radius: $wa-radius;
     padding: 20rpx 24rpx; font-size: 26rpx; color: $wa-ink; box-sizing: border-box; margin-top: 12rpx; }

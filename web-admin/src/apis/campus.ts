@@ -325,6 +325,22 @@ export interface MerchantStoreProfile {
   dailyPushEnabled: boolean;
   /** 日报推送时间 HH:MM（默认 21:30） */
   dailyPushTime: string;
+  /** 售后月度摘要推送开关（§105） */
+  monthlyPushEnabled: boolean;
+  /** 月度推送日（1-28，默认 1） */
+  monthlyPushDay: number;
+  /** 月度推送时间 HH:MM（默认 21:30） */
+  monthlyPushTime: string;
+  /** 售后自动分配开关（§105） */
+  autoAssignEnabled: boolean;
+  /** 自动分配单人未完结上限（0=不限） */
+  autoAssignMax: number;
+  /** 售后异常预警推送开关（§105） */
+  alertEnabled: boolean;
+  /** 退款率预警阈值（百分比，0=关闭该项） */
+  alertRefundRate: number;
+  /** 超时待处理预警阈值（单，0=关闭该项） */
+  alertOverdueCount: number;
 }
 
 /** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
@@ -573,7 +589,9 @@ export async function campusMerchantSetPaused(paused: boolean): Promise<boolean>
 const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone paused openNow'
   + ' closedToday closureNote closureDates { date note }'
   + ' nextTransition { action at inMinutes today } unfinishedOrders'
-  + ' dailyPushEnabled dailyPushTime';
+  + ' dailyPushEnabled dailyPushTime'
+  + ' monthlyPushEnabled monthlyPushDay monthlyPushTime'
+  + ' autoAssignEnabled autoAssignMax alertEnabled alertRefundRate alertOverdueCount';
 
 /** 商家自助经营：门店资料 */
 export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {
@@ -2046,9 +2064,635 @@ export async function campusMerchantAfterSalesReturnAddress(): Promise<MerchantA
   }
 }
 
+/* ================= §103 售后运营增强包 ================= */
+
+/** 售后规则阈值保存（§103）：仅传需要修改的项，0=关闭对应自动化 */
+export async function campusMerchantUpdateAfterSalesRules(
+  input: Partial<MerchantAfterSalesRules>,
+): Promise<MerchantAfterSalesRules | null> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateAfterSalesRules: MerchantAfterSalesRules | null }>(
+    `mutation ($timeoutHours: Int, $autoApproveHours: Int, $refundAutoRetry: Int,
+               $firstResponseTargetHours: Int, $resolveTargetHours: Int, $dueSoonHours: Int, $refundReviewThreshold: Int) {
+      campusMerchantUpdateAfterSalesRules(
+        timeoutHours: $timeoutHours, autoApproveHours: $autoApproveHours, refundAutoRetry: $refundAutoRetry,
+        firstResponseTargetHours: $firstResponseTargetHours, resolveTargetHours: $resolveTargetHours,
+        dueSoonHours: $dueSoonHours, refundReviewThreshold: $refundReviewThreshold
+      ) { timeoutHours autoApproveHours refundAutoRetry firstResponseTargetHours resolveTargetHours dueSoonHours refundReviewThreshold }
+    }`,
+    {
+      timeoutHours: input.timeoutHours ?? null,
+      autoApproveHours: input.autoApproveHours ?? null,
+      refundAutoRetry: input.refundAutoRetry ?? null,
+      firstResponseTargetHours: input.firstResponseTargetHours ?? null,
+      resolveTargetHours: input.resolveTargetHours ?? null,
+      dueSoonHours: input.dueSoonHours ?? null,
+      refundReviewThreshold: input.refundReviewThreshold ?? null,
+    },
+  );
+  return res.campusMerchantUpdateAfterSalesRules ?? null;
+}
+
+/** 退货收件地址保存（§103）：address 为 JSON 字符串，空串=清除 */
+export async function campusMerchantUpdateAfterSalesReturnAddress(address: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateAfterSalesReturnAddress: boolean }>(
+    'mutation ($address: String!) { campusMerchantUpdateAfterSalesReturnAddress(address: $address) }',
+    { address },
+  );
+  return !!res.campusMerchantUpdateAfterSalesReturnAddress;
+}
+
+/** 批量内部备注（§103）：逐单返回结果 */
+export async function campusMerchantAfterSalesBatchNote(
+  ids: string[],
+  content: string,
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchNote: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $content: String!) {
+      campusMerchantAfterSalesBatchNote(ids: $ids, content: $content) { id success state message }
+    }`,
+    { ids, content },
+  );
+  return res.campusMerchantAfterSalesBatchNote;
+}
+
+/** 批量催办（§103）：给顾客/处理人推催办提醒，逐单返回结果 */
+export async function campusMerchantAfterSalesBatchRemind(
+  ids: string[],
+  note?: string | null,
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchRemind: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $note: String) {
+      campusMerchantAfterSalesBatchRemind(ids: $ids, note: $note) { id success state message }
+    }`,
+    { ids, note: note ?? null },
+  );
+  return res.campusMerchantAfterSalesBatchRemind;
+}
+
+/** 批量打标签（§103）：整体替换为所选标签 */
+export async function campusMerchantAfterSalesBatchTag(
+  ids: string[],
+  tagIds: string[],
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchTag: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $tagIds: [ID!]!) {
+      campusMerchantAfterSalesBatchTag(ids: $ids, tagIds: $tagIds) { id success state message }
+    }`,
+    { ids, tagIds },
+  );
+  return res.campusMerchantAfterSalesBatchTag;
+}
+
+/** 单张小票（§103）：返回可打印的纯文本凭证 */
+export async function campusMerchantAfterSalesPrintSlip(id: string): Promise<string> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesPrintSlip: string }>(
+    'query ($id: ID!) { campusMerchantAfterSalesPrintSlip(id: $id) }',
+    { id },
+  );
+  return res.campusMerchantAfterSalesPrintSlip ?? '';
+}
+
+/** 批量小票（§103）：返回按入参顺序的纯文本凭证 */
+export async function campusMerchantAfterSalesPrintSlips(ids: string[]): Promise<string[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesPrintSlips: string[] }>(
+    'query ($ids: [ID!]!) { campusMerchantAfterSalesPrintSlips(ids: $ids) }',
+    { ids },
+  );
+  return res.campusMerchantAfterSalesPrintSlips ?? [];
+}
+
+/** 风险标记（§103）：给售后单打风险原因（空则用默认文案） */
+export async function campusMerchantAfterSalesRiskFlag(id: string, reason?: string | null): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRiskFlag: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $reason: String) {
+      campusMerchantAfterSalesRiskFlag(id: $id, reason: $reason) { ${AFTER_SALES_ITEM_FIELDS} }
+    }`,
+    { id, reason: reason ?? null },
+  );
+  return res.campusMerchantAfterSalesRiskFlag;
+}
+
+/** 解除风险标记（§103） */
+export async function campusMerchantAfterSalesRiskClear(id: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRiskClear: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!) { campusMerchantAfterSalesRiskClear(id: $id) { ${AFTER_SALES_ITEM_FIELDS} } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesRiskClear;
+}
+
+/** 本店拉黑顾客（§103）：customerId 取自顾客档案 */
+export async function campusMerchantBlacklistAfterSalesCustomer(customerId: string, reason?: string | null): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantBlacklistAfterSalesCustomer: boolean }>(
+    `mutation ($customerId: ID!, $reason: String) {
+      campusMerchantBlacklistAfterSalesCustomer(customerId: $customerId, reason: $reason)
+    }`,
+    { customerId, reason: reason ?? null },
+  );
+  return !!res.campusMerchantBlacklistAfterSalesCustomer;
+}
+
+/** 解除拉黑（§103） */
+export async function campusMerchantUnblacklistAfterSalesCustomer(customerId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantUnblacklistAfterSalesCustomer: boolean }>(
+    'mutation ($customerId: ID!) { campusMerchantUnblacklistAfterSalesCustomer(customerId: $customerId) }',
+    { customerId },
+  );
+  return !!res.campusMerchantUnblacklistAfterSalesCustomer;
+}
+
+/** 本店拉黑名单（§103） */
+export interface MerchantAfterSalesBlacklistEntry {
+  id: string;
+  customerId: string | null;
+  customerName: string | null;
+  phone: string | null;
+  reason: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export async function campusMerchantAfterSalesBlacklist(skip = 0, take = 50): Promise<MerchantAfterSalesBlacklistEntry[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBlacklist: MerchantAfterSalesBlacklistEntry[] }>(
+    `query ($skip: Int, $take: Int) {
+      campusMerchantAfterSalesBlacklist(skip: $skip, take: $take) {
+        id customerId customerName phone reason createdBy createdAt
+      }
+    }`,
+    { skip, take },
+  );
+  return res.campusMerchantAfterSalesBlacklist ?? [];
+}
+
+/** 顾客售后档案（§103） */
+export interface MerchantAfterSalesCustomerProfile {
+  customerId: string;
+  name: string;
+  phone: string | null;
+  blacklisted: boolean;
+  requestCount: number;
+  refundedCount: number;
+  refundAmount: number;
+  firstAt: string | null;
+  lastAt: string | null;
+  recent: Array<{ id: string; orderCode: string; type: string; state: string; amount: number; createdAt: string }>;
+}
+
+export async function campusMerchantAfterSalesCustomerProfile(customerId: string): Promise<MerchantAfterSalesCustomerProfile> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesCustomerProfile: MerchantAfterSalesCustomerProfile }>(
+    `query ($customerId: ID!) {
+      campusMerchantAfterSalesCustomerProfile(customerId: $customerId) {
+        customerId name phone blacklisted requestCount refundedCount refundAmount firstAt lastAt
+        recent { id orderCode type state amount createdAt }
+      }
+    }`,
+    { customerId },
+  );
+  return res.campusMerchantAfterSalesCustomerProfile;
+}
+
+/** 智能话术推荐（§103）：按售后单原因/类型匹配的快捷回复 */
+export interface MerchantAfterSalesSuggestedReply {
+  id: string;
+  content: string;
+  score: number;
+}
+
+export async function campusMerchantAfterSalesSuggestedReplies(id: string): Promise<MerchantAfterSalesSuggestedReply[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesSuggestedReplies: MerchantAfterSalesSuggestedReply[] }>(
+    'query ($id: ID!) { campusMerchantAfterSalesSuggestedReplies(id: $id) { id content score } }',
+    { id },
+  );
+  return res.campusMerchantAfterSalesSuggestedReplies ?? [];
+}
+
+/** 处理人负载（§103）：未完结 / 超时 / 临期 单数 */
+export interface MerchantAfterSalesAssigneeLoad {
+  assigneeUserId: string;
+  assigneeName: string;
+  openCount: number;
+  overdueCount: number;
+  dueSoonCount: number;
+}
+
+export async function campusMerchantAfterSalesAssigneeLoad(): Promise<MerchantAfterSalesAssigneeLoad[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAssigneeLoad: MerchantAfterSalesAssigneeLoad[] }>(
+    `query { campusMerchantAfterSalesAssigneeLoad {
+      assigneeUserId assigneeName openCount overdueCount dueSoonCount
+    } }`,
+  );
+  return res.campusMerchantAfterSalesAssigneeLoad ?? [];
+}
+
+/** 退款流水（§103）：按退款时间倒序 */
+export interface MerchantAfterSalesRefundRow {
+  id: string;
+  orderCode: string | null;
+  type: string;
+  reason: string;
+  amount: number;
+  refundedAt: string | null;
+  refundTransactionId: string | null;
+}
+
+export async function campusMerchantAfterSalesRefunds(opts?: {
+  from?: string | null;
+  to?: string | null;
+  skip?: number;
+  take?: number;
+}): Promise<{ items: MerchantAfterSalesRefundRow[]; total: number }> {
+  const res = await getAdminClient().request<{
+    campusMerchantAfterSalesRefunds: { items: MerchantAfterSalesRefundRow[]; total: number };
+  }>(
+    `query ($from: String, $to: String, $skip: Int, $take: Int) {
+      campusMerchantAfterSalesRefunds(from: $from, to: $to, skip: $skip, take: $take) {
+        items { id orderCode type reason amount refundedAt refundTransactionId }
+        total
+      }
+    }`,
+    { from: opts?.from ?? null, to: opts?.to ?? null, skip: opts?.skip ?? 0, take: opts?.take ?? 20 },
+  );
+  return res.campusMerchantAfterSalesRefunds;
+}
+
+/** 退款失败重试排期（§103） */
+export async function campusMerchantAfterSalesScheduleRefundRetry(id: string): Promise<MerchantAfterSalesTask> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesScheduleRefundRetry: MerchantAfterSalesTask }>(
+    `mutation ($id: ID!) {
+      campusMerchantAfterSalesScheduleRefundRetry(id: $id) {
+        id type requestId status dueAt attempt maxAttempt retryCount lastError executedAt
+      }
+    }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesScheduleRefundRetry;
+}
+
+/* ================= §104 售后数据报表与导出 ================= */
+
+export interface MerchantAfterSalesStats {
+  pending: number;
+  overdue: number;
+  timeoutHours: number;
+  todayHandled: number;
+  todayRefunded: number;
+  todayRefundAmount: number;
+  pendingReply: number;
+  dueSoon: number;
+  dueSoonHours: number;
+}
+
+export async function campusMerchantAfterSalesStats(): Promise<MerchantAfterSalesStats> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesStats: MerchantAfterSalesStats }>(
+    `query { campusMerchantAfterSalesStats {
+      pending overdue timeoutHours todayHandled todayRefunded todayRefundAmount pendingReply dueSoon dueSoonHours
+    } }`,
+  );
+  return res.campusMerchantAfterSalesStats;
+}
+
+export interface MerchantAfterSalesReport {
+  from: string;
+  to: string;
+  total: number;
+  byType: Array<{ type: string; count: number }>;
+  byState: Array<{ state: string; count: number }>;
+  refunded: number;
+  refundAmount: number;
+  overdue: number;
+  byDay: Array<{ date: string; count: number; refunded: number; refundAmount: number }>;
+  reasons: Array<{ reason: string; count: number }>;
+  rejectReasons: Array<{ reason: string; count: number }>;
+  firstResponseAvgMinutes: number;
+  firstResponseMaxMinutes: number;
+  resolveAvgMinutes: number;
+  resolveMaxMinutes: number;
+  firstResponseOnTargetRate: number;
+  resolveOnTargetRate: number;
+  firstResponseOverdue: number;
+  resolveOverdue: number;
+  previousTotal: number;
+  previousRefunded: number;
+  previousRefundAmount: number;
+  previousOverdue: number;
+}
+
+export async function campusMerchantAfterSalesReport(from: string, to: string): Promise<MerchantAfterSalesReport> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReport: MerchantAfterSalesReport }>(
+    `query ($from: String!, $to: String!) {
+      campusMerchantAfterSalesReport(from: $from, to: $to) {
+        from to total byType { type count } byState { state count }
+        refunded refundAmount overdue
+        byDay { date count refunded refundAmount }
+        reasons { reason count } rejectReasons { reason count }
+        firstResponseAvgMinutes firstResponseMaxMinutes resolveAvgMinutes resolveMaxMinutes
+        firstResponseOnTargetRate resolveOnTargetRate firstResponseOverdue resolveOverdue
+        previousTotal previousRefunded previousRefundAmount previousOverdue
+      }
+    }`,
+    { from, to },
+  );
+  return res.campusMerchantAfterSalesReport;
+}
+
+export interface MerchantAfterSalesReasonRow {
+  reason: string;
+  requestCount: number;
+  refundCount: number;
+  refundAmount: number;
+  share: number;
+  previousCount: number;
+  changeRate: number | null;
+}
+
+export async function campusMerchantAfterSalesReasonReport(
+  from: string,
+  to: string,
+  limit = 10,
+): Promise<MerchantAfterSalesReasonRow[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReasonReport: MerchantAfterSalesReasonRow[] }>(
+    `query ($from: String!, $to: String!, $limit: Int) {
+      campusMerchantAfterSalesReasonReport(from: $from, to: $to, limit: $limit) {
+        reason requestCount refundCount refundAmount share previousCount changeRate
+      }
+    }`,
+    { from, to, limit },
+  );
+  return res.campusMerchantAfterSalesReasonReport ?? [];
+}
+
+export interface MerchantAfterSalesProductRow {
+  productId: string;
+  productName: string;
+  requestCount: number;
+  refundCount: number;
+  refundAmount: number;
+  requestRate: number;
+}
+
+export async function campusMerchantAfterSalesProductReport(
+  from: string,
+  to: string,
+  limit = 10,
+): Promise<MerchantAfterSalesProductRow[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesProductReport: MerchantAfterSalesProductRow[] }>(
+    `query ($from: String!, $to: String!, $limit: Int) {
+      campusMerchantAfterSalesProductReport(from: $from, to: $to, limit: $limit) {
+        productId productName requestCount refundCount refundAmount requestRate
+      }
+    }`,
+    { from, to, limit },
+  );
+  return res.campusMerchantAfterSalesProductReport ?? [];
+}
+
+export interface MerchantAfterSalesProductRateRow {
+  productId: string;
+  productName: string;
+  soldQuantity: number;
+  requestCount: number;
+  refundCount: number;
+  refundAmount: number;
+  afterSalesRate: number;
+}
+
+export interface MerchantAfterSalesProductAnalysis {
+  items: MerchantAfterSalesProductRateRow[];
+  totalRequests: number;
+  totalRefundAmount: number;
+  totalSold: number;
+}
+
+export async function campusMerchantAfterSalesProductAnalysis(
+  from: string,
+  to: string,
+): Promise<MerchantAfterSalesProductAnalysis> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesProductAnalysis: MerchantAfterSalesProductAnalysis }>(
+    `query ($from: String!, $to: String!) {
+      campusMerchantAfterSalesProductAnalysis(from: $from, to: $to) {
+        totalRequests totalRefundAmount totalSold
+        items { productId productName soldQuantity requestCount refundCount refundAmount afterSalesRate }
+      }
+    }`,
+    { from, to },
+  );
+  return res.campusMerchantAfterSalesProductAnalysis;
+}
+
+export interface MerchantAfterSalesReviewSummary {
+  total: number;
+  avgScore: number;
+  distribution: Array<{ score: number; count: number }>;
+  lowScoreCount: number;
+  lowScores: Array<{
+    id: string;
+    requestId: string;
+    orderCode: string;
+    customerName: string | null;
+    score: number;
+    comment: string | null;
+    followedUp: boolean;
+    createdAt: string;
+  }>;
+  topTags: Array<{ tag: string; count: number }>;
+}
+
+export async function campusMerchantAfterSalesReviewSummary(
+  from: string,
+  to: string,
+): Promise<MerchantAfterSalesReviewSummary> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReviewSummary: MerchantAfterSalesReviewSummary }>(
+    `query ($from: String!, $to: String!) {
+      campusMerchantAfterSalesReviewSummary(from: $from, to: $to) {
+        total avgScore lowScoreCount
+        distribution { score count }
+        lowScores { id requestId orderCode customerName score comment followedUp createdAt }
+        topTags { tag count }
+      }
+    }`,
+    { from, to },
+  );
+  return res.campusMerchantAfterSalesReviewSummary;
+}
+
+export interface MerchantAfterSalesTopCustomer {
+  customerId: string;
+  name: string;
+  phone: string;
+  count: number;
+  refundAmount: number;
+  blacklisted: boolean;
+}
+
+export async function campusMerchantAfterSalesTopCustomers(
+  from: string,
+  to: string,
+  limit = 10,
+): Promise<MerchantAfterSalesTopCustomer[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesTopCustomers: MerchantAfterSalesTopCustomer[] }>(
+    `query ($from: String!, $to: String!, $limit: Int) {
+      campusMerchantAfterSalesTopCustomers(from: $from, to: $to, limit: $limit) {
+        customerId name phone count refundAmount blacklisted
+      }
+    }`,
+    { from, to, limit },
+  );
+  return res.campusMerchantAfterSalesTopCustomers ?? [];
+}
+
+/** 售后导出（§104）：kind = requests | refunds | escalations，返回 CSV 文本 */
+export async function campusMerchantAfterSalesExport(input: {
+  from: string;
+  to: string;
+  kind: 'requests' | 'refunds' | 'escalations';
+  state?: string;
+  type?: string;
+  keyword?: string;
+  assigneeUserId?: string;
+}): Promise<string> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesExport: string }>(
+    `query ($from: String!, $to: String!, $kind: String!, $state: String, $type: String, $keyword: String, $assigneeUserId: String) {
+      campusMerchantAfterSalesExport(
+        from: $from, to: $to, kind: $kind, state: $state, type: $type, keyword: $keyword, assigneeUserId: $assigneeUserId
+      )
+    }`,
+    {
+      from: input.from,
+      to: input.to,
+      kind: input.kind,
+      state: input.state ?? null,
+      type: input.type ?? null,
+      keyword: input.keyword ?? null,
+      assigneeUserId: input.assigneeUserId ?? null,
+    },
+  );
+  return res.campusMerchantAfterSalesExport ?? '';
+}
+
+/** 按选中售后单导出（§104）：kind = requests | refunds */
+export async function campusMerchantAfterSalesExportByIds(ids: string[], kind: 'requests' | 'refunds'): Promise<string> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesExportByIds: string }>(
+    `query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: $ids, kind: $kind) }`,
+    { ids, kind },
+  );
+  return res.campusMerchantAfterSalesExportByIds ?? '';
+}
+
+/* ================= §105 售后自动化 ================= */
+
+export interface MerchantAfterSalesAutoRule {
+  id: string;
+  name: string;
+  priority: number;
+  enabled: boolean;
+  matchType: string;
+  matchReason: string | null;
+  minAmount: number | null;
+  maxAmount: number | null;
+  action: string;
+  rejectReason: string | null;
+  createdAt: string;
+}
+
+const AUTO_RULE_FIELDS = 'id name priority enabled matchType matchReason minAmount maxAmount action rejectReason createdAt';
+
+export async function campusMerchantAfterSalesAutoRules(): Promise<MerchantAfterSalesAutoRule[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAutoRules: MerchantAfterSalesAutoRule[] }>(
+    `query { campusMerchantAfterSalesAutoRules { ${AUTO_RULE_FIELDS} } }`,
+  );
+  return res.campusMerchantAfterSalesAutoRules ?? [];
+}
+
+/** 保存自动分流规则（§105）：id 为空=新增；action = approve | reject | escalate */
+export async function campusMerchantSaveAfterSalesAutoRule(input: {
+  id?: string | null;
+  name: string;
+  action: string;
+  priority?: number | null;
+  enabled?: boolean | null;
+  matchType?: string | null;
+  matchReason?: string | null;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  rejectReason?: string | null;
+}): Promise<MerchantAfterSalesAutoRule> {
+  const res = await getAdminClient().request<{ campusMerchantSaveAfterSalesAutoRule: MerchantAfterSalesAutoRule }>(
+    `mutation ($id: ID, $name: String!, $action: String!, $priority: Int, $enabled: Boolean,
+               $matchType: String, $matchReason: String, $minAmount: Int, $maxAmount: Int, $rejectReason: String) {
+      campusMerchantSaveAfterSalesAutoRule(
+        id: $id, name: $name, action: $action, priority: $priority, enabled: $enabled,
+        matchType: $matchType, matchReason: $matchReason, minAmount: $minAmount, maxAmount: $maxAmount,
+        rejectReason: $rejectReason
+      ) { ${AUTO_RULE_FIELDS} }
+    }`,
+    {
+      id: input.id ?? null,
+      name: input.name,
+      action: input.action,
+      priority: input.priority ?? null,
+      enabled: input.enabled ?? null,
+      matchType: input.matchType ?? null,
+      matchReason: input.matchReason ?? null,
+      minAmount: input.minAmount ?? null,
+      maxAmount: input.maxAmount ?? null,
+      rejectReason: input.rejectReason ?? null,
+    },
+  );
+  return res.campusMerchantSaveAfterSalesAutoRule;
+}
+
+export async function campusMerchantDeleteAfterSalesAutoRule(id: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantDeleteAfterSalesAutoRule: boolean }>(
+    'mutation ($id: ID!) { campusMerchantDeleteAfterSalesAutoRule(id: $id) }',
+    { id },
+  );
+  return !!res.campusMerchantDeleteAfterSalesAutoRule;
+}
+
+/** 售后自动化设置（§105）：仅传需要修改的项，阈值 0=关闭该项 */
+export async function campusMerchantUpdateAfterSalesAutomation(input: {
+  autoAssignEnabled?: boolean;
+  autoAssignMax?: number;
+  alertEnabled?: boolean;
+  alertRefundRate?: number;
+  alertOverdueCount?: number;
+}): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateAfterSalesAutomation: MerchantStoreProfile }>(
+    `mutation ($autoAssignEnabled: Boolean, $autoAssignMax: Int, $alertEnabled: Boolean,
+               $alertRefundRate: Int, $alertOverdueCount: Int) {
+      campusMerchantUpdateAfterSalesAutomation(
+        autoAssignEnabled: $autoAssignEnabled, autoAssignMax: $autoAssignMax, alertEnabled: $alertEnabled,
+        alertRefundRate: $alertRefundRate, alertOverdueCount: $alertOverdueCount
+      ) { ${STORE_PROFILE_FIELDS} }
+    }`,
+    {
+      autoAssignEnabled: input.autoAssignEnabled ?? null,
+      autoAssignMax: input.autoAssignMax ?? null,
+      alertEnabled: input.alertEnabled ?? null,
+      alertRefundRate: input.alertRefundRate ?? null,
+      alertOverdueCount: input.alertOverdueCount ?? null,
+    },
+  );
+  return res.campusMerchantUpdateAfterSalesAutomation;
+}
+
+/** 售后月度摘要推送（§105）：day = 1-28，time = HH:MM */
+export async function campusMerchantUpdateAfterSalesMonthlyPush(input: {
+  enabled: boolean;
+  day?: number;
+  time?: string;
+}): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateAfterSalesMonthlyPush: MerchantStoreProfile }>(
+    `mutation ($enabled: Boolean!, $day: Int, $time: String) {
+      campusMerchantUpdateAfterSalesMonthlyPush(enabled: $enabled, day: $day, time: $time) { ${STORE_PROFILE_FIELDS} }
+    }`,
+    { enabled: input.enabled, day: input.day ?? null, time: input.time ?? null },
+  );
+  return res.campusMerchantUpdateAfterSalesMonthlyPush;
+}
+
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
-  orderId: string,
   provider: 'dada' | 'meituan',
 ): Promise<{ ok: boolean; provider: string | null; thirdPartyNo: string | null; already: boolean | null }> {
   const res = await getAdminClient().request<{ campusMerchantDispatchExternal: any }>(

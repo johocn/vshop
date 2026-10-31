@@ -78,6 +78,8 @@
     { "path": "pages/campus/after-sales-ops", "style": { "navigationBarTitleText": "售后管理", "enablePullDownRefresh": true } },
     { "path": "pages/campus/after-sales-workbench", "style": { "navigationBarTitleText": "售后工作台", "enablePullDownRefresh": true } },
     { "path": "pages/campus/after-sales-detail", "style": { "navigationBarTitleText": "售后处置", "enablePullDownRefresh": true } },
+    { "path": "pages/campus/after-sales-analytics", "style": { "navigationBarTitleText": "售后分析", "enablePullDownRefresh": true } },
+    { "path": "pages/campus/after-sales-automation", "style": { "navigationBarTitleText": "售后自动化", "enablePullDownRefresh": true } },
     { "path": "pages/campus/ads", "style": { "navigationBarTitleText": "广告投放" } },
     { "path": "pages/campus/locker", "style": { "navigationBarTitleText": "取餐柜与无人配送" } },
     { "path": "pages/campus/kitchen", "style": { "navigationBarTitleText": "出餐屏" } },

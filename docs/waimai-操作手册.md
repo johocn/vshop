@@ -5212,6 +5212,319 @@ query { campusMerchantAfterSalesReturnAddress }                   # 后端为 JS
 操作入口：商家工作台 →「售后申请」→ 售后工作台或列表行「处置 ›」→ 售后处置详情页（选动作、编辑标签、登记回访 / 备注 / 轨迹、复核退款）；运营页 →「售后标签」「回复模板」两个 tab 维护分类与话术。
 
 
+## §103 售后运营增强包（已上线）
+
+### 103.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 API | `web-admin/src/apis/campus.ts`（§103 段） | 规则阈值保存、退货收件地址保存、批量备注 / 催办 / 打标、单张 / 批量处理小票、风险标记 / 解除、本店黑名单增删查、顾客售后档案、智能话术推荐、处理人负载、退款流水、退款失败重试排期 |
+| 运营页 | `web-admin/src/pages/campus/after-sales-ops.vue` | 新增「售后规则」「顾客黑名单」两个 tab：7 项 SLA 阈值表单 + 退货收件地址表单（保存 / 清除）；黑名单列表 + 顾客售后档案 sheet（单数 / 已退款 / 累计金额 / 最近售后） |
+| 工作台 | `web-admin/src/pages/campus/after-sales-workbench.vue` | 「处理人负载」卡（未完结 / 超时 / 临期）；批量工具栏「更多」二级 sheet：批量备注 / 批量催办 / 批量打标 / 打印处理小票 |
+| 详情页 | `web-admin/src/pages/campus/after-sales-detail.vue` | 动作区新增「打印处理小票」「智能话术」「标记风险」；小票纯文本 sheet、话术推荐 sheet（点击填入回复框） |
+| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | `campusAfterSalesOps` 新增 tabRules / rules / addr / bl / prof 键；`campusAfterSalesWorkbench` 新增 batchMore；`campusAfterSalesDetail` 新增 slip / suggest / risk 键 |
+| 截图脚本 | `web-admin/scripts/shots-p103-after-sales-ops-plus.cjs` | 13 张（390×844 dpr2，本地静态服务器 + playwright mock admin-api） |
+| 截图 | `docs/screenshots/waimai/p103-after-sales-ops-plus/` | 01~13（规则 / 保存 / 退货地址 / 黑名单 / 顾客档案 / 负载 / 批量工具 4 张 / 详情动作 / 小票 / 话术） |
+
+### 103.2 契约
+
+```graphql
+# 规则阈值（0 = 关闭该项自动化）
+mutation ($timeoutHours: Int, $autoApproveHours: Int, $refundAutoRetry: Int,
+          $firstResponseTargetHours: Int, $resolveTargetHours: Int, $dueSoonHours: Int, $refundReviewThreshold: Int) {
+  campusMerchantUpdateAfterSalesRules(...) {
+    timeoutHours autoApproveHours refundAutoRetry firstResponseTargetHours
+    resolveTargetHours dueSoonHours refundReviewThreshold
+  }
+}
+# 退货收件地址：入参为 JSON 字符串（空串 = 清除）
+mutation ($address: String!) { campusMerchantUpdateAfterSalesReturnAddress(address: $address) }
+query { campusMerchantAfterSalesReturnAddress }   # 标量 JSON 字符串，未配置为 ""
+
+# 批量工具：逐单返回成功/失败
+mutation campusMerchantAfterSalesBatchNote(ids: [ID!]!, content: String!)   { id success state message }
+mutation campusMerchantAfterSalesBatchRemind(ids: [ID!]!, note: String)     { id success state message }
+mutation campusMerchantAfterSalesBatchTag(ids: [ID!]!, tagIds: [ID!]!)      { id success state message }
+
+# 小票（纯文本，批量按入参顺序返回）
+query campusMerchantAfterSalesPrintSlip(id: ID!)
+query campusMerchantAfterSalesPrintSlips(ids: [ID!]!)
+
+# 风控
+mutation campusMerchantAfterSalesRiskFlag(id: ID!, reason: String)   # 空原因用后端默认文案
+mutation campusMerchantAfterSalesRiskClear(id: ID!)
+
+# 本店顾客黑名单
+mutation campusMerchantBlacklistAfterSalesCustomer(customerId: ID!, reason: String)
+mutation campusMerchantUnblacklistAfterSalesCustomer(customerId: ID!)
+query campusMerchantAfterSalesBlacklist(skip: Int, take: Int) {
+  id customerId customerName phone reason createdBy createdAt
+}
+query campusMerchantAfterSalesCustomerProfile(customerId: ID!) {
+  customerId name phone blacklisted requestCount refundedCount refundAmount
+  firstAt lastAt recent { id orderCode type state amount createdAt }
+}
+
+# 智能话术 / 负载 / 退款流水 / 重试排期
+query campusMerchantAfterSalesSuggestedReplies(id: ID!) { id content score }
+query campusMerchantAfterSalesAssigneeLoad { assigneeUserId assigneeName openCount overdueCount dueSoonCount }
+query campusMerchantAfterSalesRefunds(from: String, to: String, skip: Int, take: Int) {
+  items { id orderCode type reason amount refundedAt refundTransactionId } total
+}
+mutation campusMerchantAfterSalesScheduleRefundRetry(id: ID!) {
+  id type requestId status dueAt attempt maxAttempt retryCount lastError executedAt
+}
+```
+
+**金额口径**：`refundReviewThreshold` 后端为「分」，表单展示与输入为「元」（`fenToYuan` / `yuanToFen`）；规则其余阈值均为整数小时 / 次数，`0` 表示关闭。
+
+**`campusMerchantAfterSalesAuditLogs` 返回的是行数组**（`[CampusMerchantAfterSalesAuditRow]`），不是 `{ items, total }` 分页对象；前端按数组消费（探针 6 已确认）。
+
+**`campusMerchantAfterSalesBlacklist` 的 `customerId` 可为 `null`**（仅手机号维度拉黑，如批量导入数据），此时列表页隐藏「查看档案 / 解除」入口。
+
+### 103.3 校验与边界
+
+- **规则表单**：7 项全部 `type="number"`，保存时仅提交有值项；后端二次校验，失败用 `graphQlErrorMsg` 弹 toast。
+- **退货地址**：必填「详细地址」，前端 `JSON.stringify({ fullName, phoneNumber, address })` 提交；「清除地址」提交空串，C 端随即隐藏退货地址区块。
+- **批量工具**：一次最多对已勾选单批量执行；结果逐单返回 `success / message`，部分失败时 toast 汇总成功数，不中断。
+- **批量打标是整体替换**：提交完整 `tagIds`（与单张详情页标签语义一致），不是追加。
+- **小票**：后端返回纯文本凭证，前端原样渲染在等宽 `white-space: pre` 的 sheet 内，不解析样式。
+- **风险标记**：`reason` 留空用后端默认文案；解除不带原因；标记后列表与详情展示「风险」标识，便于优先复核。
+- **顾客档案**只读聚合（售后单数 / 已退款单 / 累计退款 / 最近售后），不做写操作；拉黑与解除从档案或黑名单行发起。
+- **负载统计**仅覆盖未完结（`openCount`）、超时（`overdueCount`）、临期（`dueSoonCount`），含「未指派」一行。
+- **权限**：全部页面 `usePermGuard('CampusMerchant')`。
+
+### 103.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`（仅 Sass legacy-js-api 弃用告警） |
+| 截图 01/02 | 规则 tab：7 项阈值回填 `48/0/1/4/24/12/0`，改「处理时限」为 24 后保存成功并保持新值 |
+| 截图 03 | 退货地址卡：收货人「张伟」、电话 `13800001111`、详细地址「第一食堂 1 号档口 · 退货暂存柜」正确回填 |
+| 截图 04/05 | 黑名单 2 条（王同学 / 赵同学）；点「查看档案」打开「顾客售后档案」：5 售后单 / 4 已退款 / ¥86.00 累计退款 |
+| 截图 06 | 工作台「处理人负载」：张伟 未完结 6 / 超时 2 / 临期 1；李娜 3 / 0 / 2 |
+| 截图 07~10 | 勾选 2 单 →「更多批量工具」四项（批量备注 / 批量催办 / 批量打标 / 打印处理小票）逐个打开 sheet 正常 |
+| 截图 11 | 详情动作区 12 个按钮含「打印处理小票」「智能话术」「标记风险」 |
+| 截图 12 | 「处理小票」sheet 正常展示纯文本凭证 |
+| 截图 13 | 「智能话术推荐」3 条推荐话术，可按分数排序展示 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 首次失败 | ① `shots` 脚本 `page.on('pageerror', ...)` 少一个右括号导致 SyntaxError → 补齐；② `.card .ipt` 是 `uni-input` 包装层，`fill()` 报 "Element is not an <input>" → 改 `.fld input` / `.card input`；③ 退货地址三输入框始终为空、且 mock 端 `returnAddress` 仅在详情页被请求 → 定位为 `after-sales-ops.vue` 漏 import `campusMerchantAfterSalesReturnAddress`，`loadAddress()` 静默抛 ReferenceError；补齐 import 后重新构建、重跑截图正常 |
+
+### 103.5 生产探针（admin-api，`canteen-a` 渠道，只读）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesRules` | `timeoutHours:48, autoApproveHours:0, refundAutoRetry:1, firstResponseTargetHours:0, resolveTargetHours:0, dueSoonHours:12, refundReviewThreshold:0` PASS |
+| 2 | `campusMerchantAfterSalesReturnAddress` | `""`（未配置，正常态）PASS |
+| 3 | `campusMerchantAfterSalesBlacklist(skip:0,take:5)` | 2 条（`customerId:null`、仅手机号 `138****0000/0001`）PASS |
+| 4 | `campusMerchantAfterSalesAssigneeLoad` | `未指派 openCount:2 overdueCount:2 dueSoonCount:0` PASS |
+| 5 | `campusMerchantAfterSalesRefunds(skip:0,take:3)` | `total:1`（`#26 6F8NEP1E186B236A` refund_only 少送 ¥1.00）PASS |
+| 6 | `campusMerchantAfterSalesAuditLogs(skip:0,take:5)` | `[]` PASS；**确认返回行数组而非分页对象** |
+| 7 | `campusMerchantAfterSalesTags` / `campusMerchantAfterSalesReplyTemplates` | `[]` / `[]`（未配置正常态）PASS |
+| 8 | `campusMerchantAfterSalesStaffStats(from,to)` | **ERR `could not determine data type of parameter $2`**（后端 resolver SQL 参数类型缺失，字段为 `handled / reviewCount / firstActionAvgMinutes / resolveAvgMinutes`）→ 员工绩效不做 UI，§104 只记录，待后端修复 |
+
+### 103.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增（§103 查询 / 变更随 vendure 既有版本在线） | 探针 1~8 见 103.5，其中 1 项后端缺陷待修 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（脚本内部先构建） | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-ops.Cwu_hajP.js` 200 / 42406 B、`pages-campus-after-sales-workbench.eZYO0HIe.js` 200 / 29391 B、`pages-campus-after-sales-detail.Cs_SC49J.js` 200 / 45064 B、`after-sales-ops-BXfLTzro.css` 200 / 10956 B |
+
+操作入口：商家工作台 →「售后申请」→ 运营页新增「售后规则」「顾客黑名单」两个 tab；售后工作台勾选多单 → 批量栏「更多」→ 批量备注 / 催办 / 打标 / 打印处理小票；售后详情 → 动作区「打印处理小票」「智能话术」「标记风险」。
+
+
+## §104 售后数据报表与导出（已上线）
+
+### 104.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 API | `web-admin/src/apis/campus.ts`（§104 段） | 当前态势（stats）、区间报表（report，含环比）、原因分布、商品退款排行、评价满意度、高频顾客、退款流水（分页）、CSV 导出（按条件 / 按选中单） |
+| 新页 | `web-admin/src/pages/campus/after-sales-analytics.vue` | 统计区间（今日 / 近 7 日 / 近 30 日 / 自定义）→ 当前态势 → 区间概览（含环比）→ 时效（首响 / 完结 / 达标率）→ 按天趋势 → 类型 / 状态分布 → 原因分布 → 商品退款 Top10 → 评价满意度 → 高频顾客 → 退款流水分页 → 导出 sheet |
+| 注册 | `web-admin/src/pages.json` | `pages/campus/after-sales-analytics`，`enablePullDownRefresh: true` |
+| 入口 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 顶部入口胶囊新增「售后分析」（与「售后自动化」并列） |
+| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | 新增 `campusAfterSalesAnalytics`（101 键） |
+| 截图脚本 | `web-admin/scripts/shots-p104-after-sales-analytics.cjs` | 10 张 |
+| 截图 | `docs/screenshots/waimai/p104-after-sales-analytics/` | 01~08b + 09 导出 sheet + 10 入口 |
+
+### 104.2 契约
+
+```graphql
+query campusMerchantAfterSalesStats {
+  pending overdue timeoutHours todayHandled todayRefunded todayRefundAmount
+  pendingReply dueSoon dueSoonHours
+}
+
+query ($from: String!, $to: String!) { campusMerchantAfterSalesReport(from: $from, to: $to) {
+  from to total byType { type count } byState { state count } refunded refundAmount overdue
+  byDay { date count refunded refundAmount } reasons { reason count } rejectReasons { reason count }
+  firstResponseAvgMinutes resolveAvgMinutes firstResponseOnTargetRate resolveOnTargetRate
+  firstResponseOverdue resolveOverdue
+  previousTotal previousRefunded previousRefundAmount previousOverdue
+} }
+
+query ($from: String!, $to: String!) { campusMerchantAfterSalesReasonReport(from: $from, to: $to, limit: Int) {
+  reason requestCount refundCount refundAmount share changeRate } }
+query ($from: String!, $to: String!) { campusMerchantAfterSalesProductReport(from: $from, to: $to, limit: Int) {
+  productId productName requestCount refundCount refundAmount requestRate } }
+query ($from: String!, $to: String!) { campusMerchantAfterSalesReviewSummary(from: $from, to: $to) {
+  total avgScore lowScoreCount distribution { score count } topTags { tag count } } }
+query ($from: String!, $to: String!) { campusMerchantAfterSalesTopCustomers(from: $from, to: $to, limit: Int) {
+  customerId name phone count refundAmount blacklisted } }
+
+# 导出：kind = requests | refunds | escalations（返回 CSV 文本，含 UTF-8 BOM）
+query ($from: String!, $to: String!, $kind: String!, $state: String, $type: String,
+       $keyword: String, $assigneeUserId: ID) {
+  campusMerchantAfterSalesExport(from: $from, to: $to, kind: $kind,
+    state: $state, type: $type, keyword: $keyword, assigneeUserId: $assigneeUserId) }
+# 按选中单导出：kind 仅 requests | refunds
+query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: $ids, kind: $kind) }
+```
+
+**`kind` 取值严格受限**：条件导出 `requests | refunds | escalations`，按选中单导出 `requests | refunds`（传其它值后端拒绝）。
+
+**员工绩效未接入 UI**：`campusMerchantAfterSalesStaffStats` 生产报 `could not determine data type of parameter $2`（见 104.5 与 103.5），页面不渲染员工维度，待后端修复后再补。
+
+### 104.3 校验与边界
+
+- **区间口径**：`from/to` 为校园日 `YYYY-MM-DD`，`to` 含当日全天；自定义区间以 `picker mode="date"` 选择，切换区间即整体重查。
+- **环比**：`previous*` 字段为上一等长区间，页面用 `(本期 - 上期) / 上期` 计算涨跌，上期为 0 时显示「—」。
+- **百分比字段**：`firstResponseOnTargetRate` / `resolveOnTargetRate` / `share` / `requestRate` 后端为百分比数值，前端直接拼 `%`，不再 ×100。
+- **退款流水分页**：`skip/take` 增量加载（「加载更多」），到底后按钮变「没有更多」。
+- **CSV 导出**：`exportCsv` 返回含 BOM 的文本，前端 `Blob` + `a.download` 落盘；文件名带区间与 kind 中文名。
+- **空态**：各卡片独立空态（「暂无数据」），单个查询失败不影响其它卡片。
+- **权限**：`usePermGuard('CampusMerchant')`。
+
+### 104.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 概览：区间 today/7d/30d/custom 分段 + 当前态势 KPI + 区间总单量 / 退款 / 超时 + 环比 |
+| 截图 02 | 时效：首响均时 / 完结核均时 / 首响达标率 / 完结达标率 / 超时数 |
+| 截图 03 / 04 / 05 | 按天趋势、原因分布（含退款占比）、商品退款 Top10 |
+| 截图 06 / 07 | 评价满意度（均分 / 低分占比 / 星级分布 / 高频标签）、高频顾客（含是否拉黑） |
+| 截图 08 / 08b | 退款流水首屏 + 「加载更多」第二页 |
+| 截图 09 | 导出 sheet「导出售后数据」：三种导出内容（售后单明细 / 退款流水 / 升级仲裁记录）+ 区间回显 + 「导出」按钮 |
+| 截图 10 | 商家售后页顶部入口出现「售后分析」胶囊 |
+| 页面报错 | 无 `pageerror` / `console error` |
+
+### 104.5 生产探针（admin-api，`canteen-a` 渠道，只读，区间 `2026-10-01 ~ 2026-10-31`）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesStats` | `pending:2, overdue:1, timeoutHours:48, dueSoonHours:12`，其余为 0 PASS |
+| 2 | `campusMerchantAfterSalesReport` | `total:3`；`byType:[refund_only×3]`；`byState:[Appealed 1 / Pending 1 / Refunded 1]` PASS |
+| 3 | `campusMerchantAfterSalesReasonReport` | `少送 requestCount:3 refundCount:1 refundAmount:100 share:100 changeRate:null` PASS |
+| 4 | `campusMerchantAfterSalesProductReport` | `可乐鸡排饭 requestCount:3 refundCount:1 refundAmount:100 requestRate:4` PASS |
+| 5 | `campusMerchantAfterSalesReviewSummary` | `total:0`，星级分布 1~5 全 0，`topTags:[]`（区间内无评价）PASS |
+| 6 | `campusMerchantAfterSalesTopCustomers` | `下单冒烟 customerId:149 count:3 refundAmount:300 blacklisted:false` PASS |
+| 7 | `campusMerchantAfterSalesRefunds` | `total:1`（`#26` refund_only 少送 ¥1.00）PASS |
+| 8 | `campusMerchantAfterSalesExport(kind:"requests")` | `CSV_LEN=292`，首行 BOM + `售后单号,订单号,类型,状态,申请原因,驳回/关闭原因,申请时间,退款金额(元),退款时间` PASS |
+| 9 | `campusMerchantAfterSalesStaffStats(from,to)` | **ERR `could not determine data type of parameter $2`**（已知后端 bug，页面不接入） |
+
+### 104.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增 | 探针 1~9 见 104.5 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.B51yK-3p.js` 200 / 24036 B、`after-sales-analytics-BXvDcWX3.css` 200 / 11533 B |
+
+操作入口：商家工作台 →「售后申请」→ 顶部入口「售后分析」→ 选择区间查看报表；右上「导出」选择导出内容与区间，生成 CSV。
+
+
+## §105 售后自动化（已上线）
+
+### 105.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 API | `web-admin/src/apis/campus.ts`（§105 段） | 自动分流规则增删改查、自动化设置（自动分配 / 异常预警）、月度摘要推送 |
+| 新页 | `web-admin/src/pages/campus/after-sales-automation.vue` | 规则列表（启用开关 / 优先级 / 动作 / 匹配条件）→ 规则编辑 sheet → 自动分配设置卡 → 异常预警设置卡 → 月度推送设置卡 |
+| 注册 | `web-admin/src/pages.json` | `pages/campus/after-sales-automation`，`enablePullDownRefresh: true` |
+| 入口 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 顶部入口胶囊「售后自动化」 |
+| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | 新增 `campusAfterSalesAutomation`（79 键） |
+| 截图脚本 | `web-admin/scripts/shots-p105-after-sales-automation.cjs` | 10 张 |
+| 截图 | `docs/screenshots/waimai/p105-after-sales-automation/` | 01~09（规则列表 / 编辑 sheet 空与填充 / 保存 / 开关 / 自动分配 / 预警 / 月度推送 / 入口） |
+
+### 105.2 契约
+
+```graphql
+query { campusMerchantAfterSalesAutoRules {
+  id name priority enabled matchType matchReason minAmount maxAmount action rejectReason createdAt } }
+
+# id 为空 = 新增；action = approve | reject | escalate
+mutation ($id: ID, $name: String!, $action: String!, $priority: Int, $enabled: Boolean,
+          $matchType: String, $matchReason: String, $minAmount: Int, $maxAmount: Int, $rejectReason: String) {
+  campusMerchantSaveAfterSalesAutoRule(...) {
+    id name priority enabled matchType matchReason minAmount maxAmount action rejectReason createdAt } }
+mutation ($id: ID!) { campusMerchantDeleteAfterSalesAutoRule(id: $id) }
+
+# 自动化设置（仅传需修改项，阈值 0 = 关闭）
+mutation ($autoAssignEnabled: Boolean, $autoAssignMax: Int, $alertEnabled: Boolean,
+          $alertRefundRate: Int, $alertOverdueCount: Int) {
+  campusMerchantUpdateAfterSalesAutomation(...) {
+    autoAssignEnabled autoAssignMax alertEnabled alertRefundRate alertOverdueCount
+    monthlyPushEnabled monthlyPushDay monthlyPushTime } }
+
+# 月度摘要推送：day 1-28，time HH:MM
+mutation ($enabled: Boolean!, $day: Int, $time: String) {
+  campusMerchantUpdateAfterSalesMonthlyPush(enabled: $enabled, day: $day, time: $time) { ...同 StoreProfile } }
+
+# 只读设置
+query { campusMerchantStoreProfile {
+  autoAssignEnabled autoAssignMax alertEnabled alertRefundRate alertOverdueCount
+  monthlyPushEnabled monthlyPushDay monthlyPushTime } }
+```
+
+**单位约定**：`minAmount` / `maxAmount` 为「分」（表单输入元，提交转分）；`alertRefundRate` 为**百分比整数**（如 8 = 8%），不是小数；`monthlyPushDay` 取 1~28。
+
+### 105.3 校验与边界
+
+- **动作枚举**：`approve`（自动同意退款）/ `reject`（自动驳回）/ `escalate`（自动升级仲裁）；picker label 必须走 `locale.t()`，直接渲染键名会显示原始 i18n key（已修复，见 105.4）。
+- **匹配条件**：`matchType`（全部售后类型 / 仅退款 / 退货退款 …）+ `matchReason` 关键词 + 金额区间，任一为空表示不限。
+- **优先级**：数字越小越先命中；同优先级按创建先后。
+- **启用开关**：列表行内即时切换 `enabled`，失败回滚并 toast。
+- **自动分配**：`autoAssignEnabled` + `autoAssignMax`（单人在办上限），0 或关闭即不自动分配。
+- **异常预警**：`alertRefundRate`（退款率百分比阈值）与 `alertOverdueCount`（超时单量阈值），任一 0 表示关闭该指标。
+- **月度推送**：`day` 1~28（避免月末缺失），`time` `HH:MM`（picker mode="time"），关闭仅传 `enabled=false`。
+- **权限**：`usePermGuard('CampusMerchant')`。
+
+### 105.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 规则列表：空态提示 + 「新增规则」入口 |
+| 截图 02 / 03 | 规则 sheet 空态与填充态：名称「小额仅退款自动同意（试用）」、动作「自动同意退款」、匹配「全部售后类型」、金额 0.01~20、优先级 15、启用开关 |
+| 截图 04 / 05 | 保存后列表出现新规则；行内启用开关切换成功 |
+| 截图 06 | 自动分配卡：开关 + 单人在办上限 |
+| 截图 07 | 异常预警卡：退款率阈值 + 超时单量阈值 |
+| 截图 08 / 08b | 月度推送卡：开关 + 日期 picker + 时间 picker |
+| 截图 09 | 商家售后页顶部入口「售后自动化」胶囊 |
+| 页面报错 | 无 `pageerror` / `console.error` |
+| 首次失败 | 规则 sheet 的 picker 显示原始键名 `campusAfterSalesAutomation.actApprove` / `matchAny`（静态数组 label 存的是 key）→ 改为基于 `actionKeys` / `matchTypeKeys` 的 computed + `locale.t()`，并同步 3 处 `.value` 引用；重新构建后截图正确 |
+
+### 105.5 生产探针（admin-api，`canteen-a` 渠道，只读）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesAutoRules` | `[]`（未配置规则，正常态）PASS |
+| 2 | `campusMerchantStoreProfile` | `autoAssignEnabled:false autoAssignMax:0 alertEnabled:false alertRefundRate:0 alertOverdueCount:0 monthlyPushEnabled:false monthlyPushDay:1 monthlyPushTime:"21:30"` PASS |
+
+### 105.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增 | 探针 1~2 见 105.5 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-automation.CikEJVr7.js` 200 / 18301 B、`after-sales-automation-DsEu8Lff.css` 200 / 5456 B、`pages-campus-merchant-after-sales.Co6tPiuc.js` 200 / 16344 B |
+
+操作入口：商家工作台 →「售后申请」→ 顶部入口「售后自动化」→ 维护自动分流规则、自动分配与异常预警、月度摘要推送。
+
+
 
 
 
