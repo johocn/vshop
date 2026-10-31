@@ -5321,13 +5321,13 @@ mutation campusMerchantAfterSalesScheduleRefundRetry(id: ID!) {
 | 5 | `campusMerchantAfterSalesRefunds(skip:0,take:3)` | `total:1`（`#26 6F8NEP1E186B236A` refund_only 少送 ¥1.00）PASS |
 | 6 | `campusMerchantAfterSalesAuditLogs(skip:0,take:5)` | `[]` PASS；**确认返回行数组而非分页对象** |
 | 7 | `campusMerchantAfterSalesTags` / `campusMerchantAfterSalesReplyTemplates` | `[]` / `[]`（未配置正常态）PASS |
-| 8 | `campusMerchantAfterSalesStaffStats(from,to)` | **ERR `could not determine data type of parameter $2`**（后端 resolver SQL 参数类型缺失，字段为 `handled / reviewCount / firstActionAvgMinutes / resolveAvgMinutes`）→ 员工绩效不做 UI，§104 只记录，待后端修复 |
+| 8 | `campusMerchantAfterSalesStaffStats(from,to)` | **已修复（2026-10-31）**：原报 `could not determine data type of parameter $2`，根因为 `escalatedRows` / `reviewRows` 两条 SQL 沿用 `>= $3 AND < $4` 却只传 3 个参数（`$2` 未被引用 → PG 无法推断类型）；改为 `$2/$3` 后返回 `operatorUserId / operatorName / handled / resolved / firstActionAvgMinutes / resolveAvgMinutes / overdueCount / escalatedCount / resolveRate / reviewCount / reviewAvgScore`，实测 3 行 PASS |
 
 ### 103.6 部署记录
 
 | 端 | 动作 | 结果 |
 |---|---|---|
-| 后端 | 无新增（§103 查询 / 变更随 vendure 既有版本在线） | 探针 1~8 见 103.5，其中 1 项后端缺陷待修 |
+| 后端 | **热修 2026-10-31**：改 `packages/campus-delivery-plugin/src/merchant-admin.service.ts` 两处 SQL 参数位（`$3/$4` → `$2/$3`），`npx tsc -p tsconfig.build.json` 编译，仅覆盖上传 `lib/src/merchant-admin.service.js` → `pm2 restart vendure`（restarts 824，status online，admin-api 200）；修复后 staffStats 实测返回 3 行 | PASS |
 | 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（脚本内部先构建） | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
 | 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-ops.Cwu_hajP.js` 200 / 42406 B、`pages-campus-after-sales-workbench.eZYO0HIe.js` 200 / 29391 B、`pages-campus-after-sales-detail.Cs_SC49J.js` 200 / 45064 B、`after-sales-ops-BXfLTzro.css` 200 / 10956 B |
 
@@ -5384,7 +5384,7 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 
 **`kind` 取值严格受限**：条件导出 `requests | refunds | escalations`，按选中单导出 `requests | refunds`（传其它值后端拒绝）。
 
-**员工绩效未接入 UI**：`campusMerchantAfterSalesStaffStats` 生产报 `could not determine data type of parameter $2`（见 104.5 与 103.5），页面不渲染员工维度，待后端修复后再补。
+**员工绩效接口已可用、页面暂未接入**：`campusMerchantAfterSalesStaffStats` 的 SQL 参数位缺陷已于 2026-10-31 热修（详见 103.5 / 103.6），接口回归 PASS；为避免与 §103 同步上线的大范围改动叠加，§104 页面暂不渲染员工维度，后续可按 11 字段（`operatorUserId / operatorName / handled / resolved / firstActionAvgMinutes / resolveAvgMinutes / overdueCount / escalatedCount / resolveRate / reviewCount / reviewAvgScore`）直接接入。
 
 ### 104.3 校验与边界
 
@@ -5422,13 +5422,13 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 | 6 | `campusMerchantAfterSalesTopCustomers` | `下单冒烟 customerId:149 count:3 refundAmount:300 blacklisted:false` PASS |
 | 7 | `campusMerchantAfterSalesRefunds` | `total:1`（`#26` refund_only 少送 ¥1.00）PASS |
 | 8 | `campusMerchantAfterSalesExport(kind:"requests")` | `CSV_LEN=292`，首行 BOM + `售后单号,订单号,类型,状态,申请原因,驳回/关闭原因,申请时间,退款金额(元),退款时间` PASS |
-| 9 | `campusMerchantAfterSalesStaffStats(from,to)` | **ERR `could not determine data type of parameter $2`**（已知后端 bug，页面不接入） |
+| 9 | `campusMerchantAfterSalesStaffStats(from,to)` | **已修复（2026-10-31 热修，详见 103.5/103.6）**：返回 3 行（`operatorUserId:160 handled:3 overdueCount:1`、`operatorUserId:1 SuperAdmin handled:2 resolved:1` 等）PASS；字段为 `operatorUserId / operatorName / handled / resolved / firstActionAvgMinutes / resolveAvgMinutes / overdueCount / escalatedCount / resolveRate / reviewCount / reviewAvgScore` |
 
 ### 104.6 部署记录
 
 | 端 | 动作 | 结果 |
 |---|---|---|
-| 后端 | 无新增 | 探针 1~9 见 104.5 |
+| 后端 | 热修 2026-10-31（同 §103.6）：`campus-delivery-plugin` 两处 SQL 参数位改为 `$2/$3`，编译后覆盖 `lib/src/merchant-admin.service.js` 并 `pm2 restart vendure` | 探针 1~9 全部 PASS |
 | 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
 | 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.B51yK-3p.js` 200 / 24036 B、`after-sales-analytics-BXvDcWX3.css` 200 / 11533 B |
 
