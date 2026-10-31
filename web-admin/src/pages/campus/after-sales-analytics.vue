@@ -303,6 +303,43 @@
         <text class="tip">{{ $t('campusAfterSalesAnalytics.customerTip') }}</text>
       </view>
 
+      <!-- 员工处理绩效 -->
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesAnalytics.staffTitle') }}</text>
+          <text class="sub">{{ $t('campusAfterSalesAnalytics.staffSub').replace('{n}', String(staffStats.length)) }}</text>
+        </view>
+        <view v-if="!staffStats.length" class="inline-empty">{{ $t('campusAfterSalesAnalytics.staffEmpty') }}</view>
+        <view v-for="s in staffStats" :key="s.operatorUserId" class="staff">
+          <view class="s-head">
+            <text class="s-name">{{ s.operatorName }}</text>
+            <text class="s-handled">{{ $t('campusAfterSalesAnalytics.staffHandled').replace('{n}', String(s.handled)) }}</text>
+            <text class="s-rate" :class="{ low: s.resolveRate < 60 }">
+              {{ $t('campusAfterSalesAnalytics.staffRate').replace('{n}', String(s.resolveRate)) }}
+            </text>
+          </view>
+          <view class="s-meta">
+            <text class="s-m">{{ $t('campusAfterSalesAnalytics.staffResolved').replace('{n}', String(s.resolved)) }}</text>
+            <text class="s-m">{{ $t('campusAfterSalesAnalytics.staffFirstAvg').replace('{n}', minutesText(s.firstActionAvgMinutes)) }}</text>
+            <text class="s-m">{{ $t('campusAfterSalesAnalytics.staffResolveAvg').replace('{n}', minutesText(s.resolveAvgMinutes)) }}</text>
+          </view>
+          <view class="s-tags">
+            <text class="s-tag" :class="{ bad: s.overdueCount > 0 }">
+              {{ $t('campusAfterSalesAnalytics.staffOverdue').replace('{n}', String(s.overdueCount)) }}
+            </text>
+            <text class="s-tag" :class="{ warn: s.escalatedCount > 0 }">
+              {{ $t('campusAfterSalesAnalytics.staffEscalated').replace('{n}', String(s.escalatedCount)) }}
+            </text>
+            <text class="s-tag muted">
+              {{ s.reviewCount
+                ? $t('campusAfterSalesAnalytics.staffReview').replace('{n}', String(s.reviewCount)).replace('{score}', s.reviewAvgScore.toFixed(1))
+                : $t('campusAfterSalesAnalytics.staffNoReview') }}
+            </text>
+          </view>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesAnalytics.staffTip') }}</text>
+      </view>
+
       <!-- 退款流水 -->
       <view class="card">
         <view class="head">
@@ -369,6 +406,7 @@ import {
   campusMerchantAfterSalesRefunds,
   campusMerchantAfterSalesReport,
   campusMerchantAfterSalesReviewSummary,
+  campusMerchantAfterSalesStaffStats,
   campusMerchantAfterSalesStats,
   campusMerchantAfterSalesTopCustomers,
   type MerchantAfterSalesProductRow,
@@ -376,6 +414,7 @@ import {
   type MerchantAfterSalesRefundRow,
   type MerchantAfterSalesReport,
   type MerchantAfterSalesReviewSummary,
+  type MerchantAfterSalesStaffStat,
   type MerchantAfterSalesStats,
   type MerchantAfterSalesTopCustomer,
 } from '../../apis/campus';
@@ -447,6 +486,7 @@ const reasons = ref<MerchantAfterSalesReasonRow[]>([]);
 const products = ref<MerchantAfterSalesProductRow[]>([]);
 const review = ref<MerchantAfterSalesReviewSummary>(emptyReview());
 const topCustomers = ref<MerchantAfterSalesTopCustomer[]>([]);
+const staffStats = ref<MerchantAfterSalesStaffStat[]>([]);
 const refunds = ref<MerchantAfterSalesRefundRow[]>([]);
 const refundTotal = ref(0);
 const loadingMore = ref(false);
@@ -530,18 +570,20 @@ async function loadLive(): Promise<void> {
 async function loadAll(): Promise<void> {
   const from = fromKey.value;
   const to = toKey.value;
-  const [rep, rea, prod, rv, cust] = await Promise.all([
+  const [rep, rea, prod, rv, cust, staff] = await Promise.all([
     campusMerchantAfterSalesReport(from, to),
     campusMerchantAfterSalesReasonReport(from, to, 10),
     campusMerchantAfterSalesProductReport(from, to, 10),
     campusMerchantAfterSalesReviewSummary(from, to),
     campusMerchantAfterSalesTopCustomers(from, to, 10),
+    campusMerchantAfterSalesStaffStats(from, to),
   ]);
   report.value = rep;
   reasons.value = rea;
   products.value = prod;
   review.value = rv;
   topCustomers.value = cust;
+  staffStats.value = staff;
   const page = await campusMerchantAfterSalesRefunds({ from, to, skip: 0, take: 20 });
   refunds.value = page.items;
   refundTotal.value = page.total;
@@ -804,6 +846,26 @@ onPullDownRefresh(async () => {
     .c-nums { display: flex; flex-direction: column; align-items: flex-end; gap: 4rpx;
       .c-count { font-size: 22rpx; color: $wa-muted; }
       .c-amt { font-size: 24rpx; color: #d4380d; font-weight: 600; }
+    }
+  }
+  .staff { padding: 14rpx 0; border-top: 1px solid $wa-rule;
+    .s-head { display: flex; align-items: center; gap: 12rpx;
+      .s-name { flex: 1; font-size: 26rpx; color: $wa-ink; font-weight: 600; }
+      .s-handled { font-size: 22rpx; color: $wa-muted; }
+      .s-rate { font-size: 22rpx; color: #237804; font-weight: 600;
+        &.low { color: #d4380d; }
+      }
+    }
+    .s-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx 20rpx; margin-top: 6rpx;
+      .s-m { font-size: 20rpx; color: $wa-muted; }
+    }
+    .s-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 10rpx; margin-top: 8rpx;
+      .s-tag { font-size: 20rpx; color: #237804; background: #f6ffed;
+        border-radius: 999rpx; padding: 2rpx 14rpx;
+        &.bad { color: #a8071a; background: #fff1f0; }
+        &.warn { color: #ad6800; background: #fff7e6; }
+        &.muted { color: $wa-muted; background: $wa-bg; }
+      }
     }
   }
   .refund { padding: 14rpx 0; border-top: 1px solid $wa-rule;

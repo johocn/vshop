@@ -5340,13 +5340,13 @@ mutation campusMerchantAfterSalesScheduleRefundRetry(id: ID!) {
 
 | 端 | 文件 | 内容 |
 |---|---|---|
-| 后台 API | `web-admin/src/apis/campus.ts`（§104 段） | 当前态势（stats）、区间报表（report，含环比）、原因分布、商品退款排行、评价满意度、高频顾客、退款流水（分页）、CSV 导出（按条件 / 按选中单） |
-| 新页 | `web-admin/src/pages/campus/after-sales-analytics.vue` | 统计区间（今日 / 近 7 日 / 近 30 日 / 自定义）→ 当前态势 → 区间概览（含环比）→ 时效（首响 / 完结 / 达标率）→ 按天趋势 → 类型 / 状态分布 → 原因分布 → 商品退款 Top10 → 评价满意度 → 高频顾客 → 退款流水分页 → 导出 sheet |
+| 后台 API | `web-admin/src/apis/campus.ts`（§104 段） | 当前态势（stats）、区间报表（report，含环比）、原因分布、商品退款排行、评价满意度、高频顾客、员工绩效（staffStats）、退款流水（分页）、CSV 导出（按条件 / 按选中单） |
+| 新页 | `web-admin/src/pages/campus/after-sales-analytics.vue` | 统计区间（今日 / 近 7 日 / 近 30 日 / 自定义）→ 当前态势 → 区间概览（含环比）→ 时效（首响 / 完结 / 达标率）→ 按天趋势 → 类型 / 状态分布 → 原因分布 → 商品退款 Top10 → 评价满意度 → 高频顾客 → 员工绩效 → 退款流水分页 → 导出 sheet |
 | 注册 | `web-admin/src/pages.json` | `pages/campus/after-sales-analytics`，`enablePullDownRefresh: true` |
 | 入口 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 顶部入口胶囊新增「售后分析」（与「售后自动化」并列） |
-| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | 新增 `campusAfterSalesAnalytics`（101 键） |
-| 截图脚本 | `web-admin/scripts/shots-p104-after-sales-analytics.cjs` | 10 张 |
-| 截图 | `docs/screenshots/waimai/p104-after-sales-analytics/` | 01~08b + 09 导出 sheet + 10 入口 |
+| i18n | `web-admin/src/locale/{zh-Hans,en}.json` | 新增 `campusAfterSalesAnalytics`（114 键） |
+| 截图脚本 | `web-admin/scripts/shots-p104-after-sales-analytics.cjs` | 11 张 |
+| 截图 | `docs/screenshots/waimai/p104-after-sales-analytics/` | 01~07 + 08 员工绩效 + 09/09b 退款流水 + 10 导出 sheet + 11 入口 |
 
 ### 104.2 契约
 
@@ -5372,6 +5372,9 @@ query ($from: String!, $to: String!) { campusMerchantAfterSalesReviewSummary(fro
   total avgScore lowScoreCount distribution { score count } topTags { tag count } } }
 query ($from: String!, $to: String!) { campusMerchantAfterSalesTopCustomers(from: $from, to: $to, limit: Int) {
   customerId name phone count refundAmount blacklisted } }
+query ($from: String!, $to: String!) { campusMerchantAfterSalesStaffStats(from: $from, to: $to) {
+  operatorUserId operatorName handled resolved firstActionAvgMinutes resolveAvgMinutes
+  overdueCount escalatedCount resolveRate reviewCount reviewAvgScore } }
 
 # 导出：kind = requests | refunds | escalations（返回 CSV 文本，含 UTF-8 BOM）
 query ($from: String!, $to: String!, $kind: String!, $state: String, $type: String,
@@ -5384,7 +5387,7 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 
 **`kind` 取值严格受限**：条件导出 `requests | refunds | escalations`，按选中单导出 `requests | refunds`（传其它值后端拒绝）。
 
-**员工绩效接口已可用、页面暂未接入**：`campusMerchantAfterSalesStaffStats` 的 SQL 参数位缺陷已于 2026-10-31 热修（详见 103.5 / 103.6），接口回归 PASS；为避免与 §103 同步上线的大范围改动叠加，§104 页面暂不渲染员工维度，后续可按 11 字段（`operatorUserId / operatorName / handled / resolved / firstActionAvgMinutes / resolveAvgMinutes / overdueCount / escalatedCount / resolveRate / reviewCount / reviewAvgScore`）直接接入。
+**员工绩效已接入页面（2026-10-31）**：`campusMerchantAfterSalesStaffStats` 的 SQL 参数位缺陷已于 2026-10-31 热修（详见 103.5 / 103.6），随后新增前端封装 `campusMerchantAfterSalesStaffStats(from, to)` 并在「高频售后顾客」之后渲染「员工处理绩效」卡片，展示 11 字段：处理人（`operatorName`）、处理量（`handled`）、完结数（`resolved`）、完结率（`resolveRate`，后端已是 0~100 整数，前端直接拼 `%`）、首响均时（`firstActionAvgMinutes`）、完结均时（`resolveAvgMinutes`）、在途超时（`overdueCount`）、升级仲裁（`escalatedCount`）、评价数与均分（`reviewCount / reviewAvgScore`）。列表按处理量倒序；完结率 < 60% 标红，超时 > 0 标红、升级 > 0 标橙，无评价显示「暂无评价」。
 
 ### 104.3 校验与边界
 
@@ -5405,9 +5408,10 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 | 截图 02 | 时效：首响均时 / 完结核均时 / 首响达标率 / 完结达标率 / 超时数 |
 | 截图 03 / 04 / 05 | 按天趋势、原因分布（含退款占比）、商品退款 Top10 |
 | 截图 06 / 07 | 评价满意度（均分 / 低分占比 / 星级分布 / 高频标签）、高频顾客（含是否拉黑） |
-| 截图 08 / 08b | 退款流水首屏 + 「加载更多」第二页 |
-| 截图 09 | 导出 sheet「导出售后数据」：三种导出内容（售后单明细 / 退款流水 / 升级仲裁记录）+ 区间回显 + 「导出」按钮 |
-| 截图 10 | 商家售后页顶部入口出现「售后分析」胶囊 |
+| 截图 08 | 员工绩效：4 行（张伟（店长）/ 李静（客服）/ SuperAdmin / 王强（后厨）），处理量、完结率（82% / 67% / 25% / 0%）、完结数、首响均时、完结均时（96 分钟→1.6 小时）、在途超时 / 升级仲裁 / 评价数与均分、无评价显示「暂无评价」 |
+| 截图 09 / 09b | 退款流水首屏 + 「加载更多」第二页 |
+| 截图 10 | 导出 sheet「导出售后数据」：三种导出内容（售后单明细 / 退款流水 / 升级仲裁记录）+ 区间回显 + 「导出」按钮 |
+| 截图 11 | 商家售后页顶部入口出现「售后分析」胶囊 |
 | 页面报错 | 无 `pageerror` / `console error` |
 
 ### 104.5 生产探针（admin-api，`canteen-a` 渠道，只读，区间 `2026-10-01 ~ 2026-10-31`）
@@ -5429,8 +5433,8 @@ query ($ids: [ID!]!, $kind: String!) { campusMerchantAfterSalesExportByIds(ids: 
 | 端 | 动作 | 结果 |
 |---|---|---|
 | 后端 | 热修 2026-10-31（同 §103.6）：`campus-delivery-plugin` 两处 SQL 参数位改为 `$2/$3`，编译后覆盖 `lib/src/merchant-admin.service.js` 并 `pm2 restart vendure` | 探针 1~9 全部 PASS |
-| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62177 KB` → nginx `test is successful` + reload → `deploy done` |
-| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.B51yK-3p.js` 200 / 24036 B、`after-sales-analytics-BXvDcWX3.css` 200 / 11533 B |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62182 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-campus-after-sales-analytics.8H2RRkqu.js` 200 / 26334 B、`after-sales-analytics-MwjnbohM.css` 200 / 12748 B（员工绩效接入后重新部署） |
 
 操作入口：商家工作台 →「售后申请」→ 顶部入口「售后分析」→ 选择区间查看报表；右上「导出」选择导出内容与区间，生成 CSV。
 
