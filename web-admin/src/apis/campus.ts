@@ -1468,6 +1468,584 @@ export async function campusMerchantAfterSalesApplyCompensation(
   return res.campusMerchantAfterSalesApplyCompensation;
 }
 
+/* ================= §102 售后处置详情 / 标签 / 回复模板 ================= */
+
+/** 订单商品行（§102 详情页只读展示） */
+export interface MerchantAfterSalesOrderLine {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+/** 收货地址（§102 详情页只读展示） */
+export interface MerchantAfterSalesAddress {
+  fullName: string;
+  phoneNumber: string;
+  address: string;
+}
+
+/** 指派/转交留痕（§102） */
+export interface MerchantAfterSalesAssignLog {
+  fromUserId: string | null;
+  fromName: string | null;
+  toUserId: string | null;
+  toName: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+/** 回访记录（§102）：method=电话/短信/微信…，result=已解决/未解决/待跟进 */
+export interface MerchantAfterSalesFollowUp {
+  id: string;
+  method: string;
+  result: string;
+  note: string | null;
+  nextAt: string | null;
+  operatorName: string | null;
+  createdAt: string;
+}
+
+/** SLA 暂停记录（§102）：resumedAt 为空=仍在暂停 */
+export interface MerchantAfterSalesSlaPause {
+  id: string;
+  reason: string;
+  pausedAt: string;
+  resumedAt: string | null;
+  pausedMs: number;
+}
+
+/** 升级仲裁记录（§102）：status=open/resolved */
+export interface MerchantAfterSalesEscalation {
+  id: string;
+  requestId: string;
+  reason: string;
+  priority: string;
+  status: string;
+  createdBy: string | null;
+  creatorName: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolution: string | null;
+}
+
+/** 售后处置详情（§102）：在 §82 详情上补齐顾客信息、订单商品、指派/回访/SLA/升级 */
+export interface MerchantAfterSalesDisposalDetail extends MerchantAfterSalesDetail {
+  customerPhone: string | null;
+  shippingAddress: MerchantAfterSalesAddress | null;
+  orderItems: MerchantAfterSalesOrderLine[];
+  orderTotal: number;
+  assignHistory: MerchantAfterSalesAssignLog[];
+  followUps: MerchantAfterSalesFollowUp[];
+  slaPauses: MerchantAfterSalesSlaPause[];
+  escalations: MerchantAfterSalesEscalation[];
+}
+
+const AFTER_SALES_ITEM_FIELDS = `id orderId orderCode state type reason description refundAmount rejectReason
+  evidenceImages messageCount customerName createdAt refundedAt overdue unread dueSoon tags assigneeUserId
+  assigneeName riskReason slaPaused slaPausedReason escalated refundReviewPending exchangeTrackingNo exchangeCarrier`;
+
+/** 售后处置详情（§102）：详情页一次性取全量上下文 */
+export async function campusMerchantAfterSalesDisposalDetail(
+  id: string,
+): Promise<MerchantAfterSalesDisposalDetail> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesDetail: MerchantAfterSalesDisposalDetail }>(
+    `query ($id: ID!) { campusMerchantAfterSalesDetail(id: $id) {
+      request { ${AFTER_SALES_ITEM_FIELDS} }
+      messages { id senderType senderName content images createdAt }
+      messageTotal
+      stateHistory { fromState toState createdAt operatorUserId operatorName }
+      refundError actualRefundAmount timeoutHours
+      customerPhone
+      shippingAddress { fullName phoneNumber address }
+      orderItems { name quantity unitPrice }
+      orderTotal
+      assignHistory { fromUserId fromName toUserId toName reason createdAt }
+      followUps { id method result note nextAt operatorName createdAt }
+      slaPauses { id reason pausedAt resumedAt pausedMs }
+      escalations { id requestId reason priority status createdBy creatorName createdAt resolvedAt resolution }
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesDetail;
+}
+
+/** 售后标签（§102）：usedCount=被多少单使用，删除前可提示 */
+export interface MerchantAfterSalesTag {
+  id: string;
+  name: string;
+  usedCount: number;
+}
+
+/** 标签清单（§102） */
+export async function campusMerchantAfterSalesTags(): Promise<MerchantAfterSalesTag[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesTags: MerchantAfterSalesTag[] }>(
+    'query { campusMerchantAfterSalesTags { id name usedCount } }',
+  );
+  return res.campusMerchantAfterSalesTags ?? [];
+}
+
+/** 新增/改名标签（§102）：id 为空=新建 */
+export async function campusMerchantSaveAfterSalesTag(input: {
+  id?: string | null;
+  name: string;
+}): Promise<MerchantAfterSalesTag> {
+  const res = await getAdminClient().request<{ campusMerchantSaveAfterSalesTag: MerchantAfterSalesTag }>(
+    `mutation ($id: ID, $name: String!) {
+      campusMerchantSaveAfterSalesTag(id: $id, name: $name) { id name usedCount }
+    }`,
+    { id: input.id ?? null, name: input.name },
+  );
+  return res.campusMerchantSaveAfterSalesTag;
+}
+
+/** 删除标签（§102）：已打标的售后单会同时解除该标签 */
+export async function campusMerchantDeleteAfterSalesTag(id: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantDeleteAfterSalesTag: boolean }>(
+    'mutation ($id: ID!) { campusMerchantDeleteAfterSalesTag(id: $id) }',
+    { id },
+  );
+  return !!res.campusMerchantDeleteAfterSalesTag;
+}
+
+/** 给售后单打标（§102）：整组覆盖，返回标签名列表 */
+export async function campusMerchantSetAfterSalesTags(id: string, tagIds: string[]): Promise<string[]> {
+  const res = await getAdminClient().request<{ campusMerchantSetAfterSalesTags: string[] }>(
+    'mutation ($id: ID!, $tagIds: [ID!]!) { campusMerchantSetAfterSalesTags(id: $id, tagIds: $tagIds) }',
+    { id, tagIds },
+  );
+  return res.campusMerchantSetAfterSalesTags ?? [];
+}
+
+/** 回复模板（§102）：快捷话术，可按分类/关键词检索 */
+export interface MerchantAfterSalesReplyTemplate {
+  id: string;
+  content: string;
+  createdAt: string;
+  category: string | null;
+  keywords: string | null;
+  sortOrder: number;
+}
+
+/** 回复模板清单（§102） */
+export async function campusMerchantAfterSalesReplyTemplates(opts?: {
+  category?: string | null;
+  keyword?: string | null;
+}): Promise<MerchantAfterSalesReplyTemplate[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReplyTemplates: MerchantAfterSalesReplyTemplate[] }>(
+    `query ($category: String, $keyword: String) {
+      campusMerchantAfterSalesReplyTemplates(category: $category, keyword: $keyword) {
+        id content createdAt category keywords sortOrder
+      }
+    }`,
+    { category: opts?.category ?? null, keyword: opts?.keyword ?? null },
+  );
+  return res.campusMerchantAfterSalesReplyTemplates ?? [];
+}
+
+/** 新增/编辑回复模板（§102）：id 为空=新建 */
+export async function campusMerchantSaveAfterSalesReplyTemplate(input: {
+  id?: string | null;
+  content: string;
+  category?: string | null;
+  keywords?: string | null;
+  sortOrder?: number | null;
+}): Promise<MerchantAfterSalesReplyTemplate> {
+  const res = await getAdminClient().request<{ campusMerchantSaveAfterSalesReplyTemplate: MerchantAfterSalesReplyTemplate }>(
+    `mutation ($id: ID, $content: String!, $category: String, $keywords: String, $sortOrder: Int) {
+      campusMerchantSaveAfterSalesReplyTemplate(id: $id, content: $content, category: $category,
+        keywords: $keywords, sortOrder: $sortOrder) { id content createdAt category keywords sortOrder }
+    }`,
+    {
+      id: input.id ?? null,
+      content: input.content,
+      category: input.category ?? null,
+      keywords: input.keywords ?? null,
+      sortOrder: input.sortOrder ?? null,
+    },
+  );
+  return res.campusMerchantSaveAfterSalesReplyTemplate;
+}
+
+/** 删除回复模板（§102） */
+export async function campusMerchantDeleteAfterSalesReplyTemplate(id: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantDeleteAfterSalesReplyTemplate: boolean }>(
+    'mutation ($id: ID!) { campusMerchantDeleteAfterSalesReplyTemplate(id: $id) }',
+    { id },
+  );
+  return !!res.campusMerchantDeleteAfterSalesReplyTemplate;
+}
+
+/** 内部备注（§102）：仅商家可见，不发给顾客 */
+export interface MerchantAfterSalesNote {
+  id: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+/** 内部备注清单（§102） */
+export async function campusMerchantAfterSalesNotes(id: string): Promise<MerchantAfterSalesNote[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesNotes: MerchantAfterSalesNote[] }>(
+    `query ($id: ID!) { campusMerchantAfterSalesNotes(id: $id) { id content createdBy createdAt } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesNotes ?? [];
+}
+
+/** 新增内部备注（§102） */
+export async function campusMerchantAfterSalesAddNote(id: string, content: string): Promise<MerchantAfterSalesNote> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAddNote: MerchantAfterSalesNote }>(
+    `mutation ($id: ID!, $content: String!) {
+      campusMerchantAfterSalesAddNote(id: $id, content: $content) { id content createdBy createdAt }
+    }`,
+    { id, content },
+  );
+  return res.campusMerchantAfterSalesAddNote;
+}
+
+/** 删除内部备注（§102） */
+export async function campusMerchantAfterSalesDeleteNote(id: string, noteId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesDeleteNote: boolean }>(
+    'mutation ($id: ID!, $noteId: ID!) { campusMerchantAfterSalesDeleteNote(id: $id, noteId: $noteId) }',
+    { id, noteId },
+  );
+  return !!res.campusMerchantAfterSalesDeleteNote;
+}
+
+/** 新增回访（§102）：返回该单全部回访记录 */
+export async function campusMerchantAfterSalesAddFollowUp(input: {
+  id: string;
+  method: string;
+  result: string;
+  note?: string | null;
+  nextAt?: string | null;
+}): Promise<MerchantAfterSalesFollowUp[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAddFollowUp: MerchantAfterSalesFollowUp[] }>(
+    `mutation ($id: ID!, $method: String!, $result: String!, $note: String, $nextAt: String) {
+      campusMerchantAfterSalesAddFollowUp(id: $id, method: $method, result: $result, note: $note, nextAt: $nextAt) {
+        id method result note nextAt operatorName createdAt
+      }
+    }`,
+    {
+      id: input.id,
+      method: input.method,
+      result: input.result,
+      note: input.note ?? null,
+      nextAt: input.nextAt ?? null,
+    },
+  );
+  return res.campusMerchantAfterSalesAddFollowUp ?? [];
+}
+
+/** 完成回访（§102）：把到期的回访标记为已处理 */
+export async function campusMerchantAfterSalesReviewFollowUp(id: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReviewFollowUp: boolean }>(
+    'mutation ($id: ID!) { campusMerchantAfterSalesReviewFollowUp(id: $id) }',
+    { id },
+  );
+  return !!res.campusMerchantAfterSalesReviewFollowUp;
+}
+
+/** 线下退款结果（§102）：金额单位分 */
+export interface MerchantAfterSalesOfflineRefundResult {
+  id: string;
+  state: string;
+  actualRefundAmount: number;
+  refundedAt: string;
+}
+
+/** 线下退款（§102）：现金/转账等线下渠道退给顾客，amount 单位分 */
+export async function campusMerchantAfterSalesOfflineRefund(input: {
+  id: string;
+  amount: number;
+  method: string;
+  note?: string | null;
+}): Promise<MerchantAfterSalesOfflineRefundResult> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesOfflineRefund: MerchantAfterSalesOfflineRefundResult }>(
+    `mutation ($id: ID!, $amount: Int!, $method: String!, $note: String) {
+      campusMerchantAfterSalesOfflineRefund(id: $id, amount: $amount, method: $method, note: $note) {
+        id state actualRefundAmount refundedAt
+      }
+    }`,
+    { id: input.id, amount: input.amount, method: input.method, note: input.note ?? null },
+  );
+  return res.campusMerchantAfterSalesOfflineRefund;
+}
+
+/** 退货确认收货（§102）：receivedQuantity 缺省=按申请件数全收 */
+export async function campusMerchantAfterSalesConfirmReturn(input: {
+  id: string;
+  receivedQuantity?: number | null;
+  note?: string | null;
+}): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesConfirmReturn: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $receivedQuantity: Int, $note: String) {
+      campusMerchantAfterSalesConfirmReturn(id: $id, receivedQuantity: $receivedQuantity, note: $note) {
+        ${AFTER_SALES_ITEM_FIELDS}
+      }
+    }`,
+    { id: input.id, receivedQuantity: input.receivedQuantity ?? null, note: input.note ?? null },
+  );
+  return res.campusMerchantAfterSalesConfirmReturn;
+}
+
+/** 换货发货（§102）：回填换货单号/承运商，顾客 C 端可查 */
+export async function campusMerchantAfterSalesExchangeShip(input: {
+  id: string;
+  trackingNo: string;
+  carrier?: string | null;
+}): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesExchangeShip: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $trackingNo: String!, $carrier: String) {
+      campusMerchantAfterSalesExchangeShip(id: $id, trackingNo: $trackingNo, carrier: $carrier) {
+        ${AFTER_SALES_ITEM_FIELDS}
+      }
+    }`,
+    { id: input.id, trackingNo: input.trackingNo, carrier: input.carrier ?? null },
+  );
+  return res.campusMerchantAfterSalesExchangeShip;
+}
+
+/** 退货物流事件（§102） */
+export interface MerchantAfterSalesReturnLogisticsEvent {
+  status: string;
+  description: string;
+  occurredAt: string;
+  source: string;
+}
+
+/** 退货物流（§102）：type=return/exchange，events 为轨迹 */
+export interface MerchantAfterSalesReturnLogistics {
+  requestId: string;
+  orderCode: string;
+  type: string;
+  state: string;
+  trackingNo: string | null;
+  carrier: string | null;
+  events: MerchantAfterSalesReturnLogisticsEvent[];
+}
+
+/** 退货物流（§102） */
+export async function campusMerchantAfterSalesReturnLogistics(
+  id: string,
+): Promise<MerchantAfterSalesReturnLogistics | null> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReturnLogistics: MerchantAfterSalesReturnLogistics | null }>(
+    `query ($id: ID!) { campusMerchantAfterSalesReturnLogistics(id: $id) {
+      requestId orderCode type state trackingNo carrier
+      events { status description occurredAt source }
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesReturnLogistics ?? null;
+}
+
+/** 记录退货物流（§102）：手动补一条轨迹（如「已收到退回商品」） */
+export async function campusMerchantAfterSalesRecordReturnLogistics(input: {
+  id: string;
+  status: string;
+  description?: string | null;
+}): Promise<MerchantAfterSalesReturnLogistics> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRecordReturnLogistics: MerchantAfterSalesReturnLogistics }>(
+    `mutation ($id: ID!, $status: String!, $description: String) {
+      campusMerchantAfterSalesRecordReturnLogistics(id: $id, status: $status, description: $description) {
+        requestId orderCode type state trackingNo carrier
+        events { status description occurredAt source }
+      }
+    }`,
+    { id: input.id, status: input.status, description: input.description ?? null },
+  );
+  return res.campusMerchantAfterSalesRecordReturnLogistics;
+}
+
+/** 退款复核（§102）：大额退款需二次确认 */
+export interface MerchantAfterSalesRefundReview {
+  id: string;
+  requestId: string;
+  orderId: string;
+  orderCode: string;
+  amount: number;
+  /** pending / approved / rejected */
+  status: string;
+  requestedBy: string;
+  requestedByName: string | null;
+  requestedAt: string;
+  reviewedBy: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  note: string | null;
+  selfRequested: boolean;
+}
+
+const REFUND_REVIEW_FIELDS = `id requestId orderId orderCode amount status requestedBy requestedByName
+  requestedAt reviewedBy reviewedByName reviewedAt note selfRequested`;
+
+/** 退款复核队列（§102）：status 为空=全部 */
+export async function campusMerchantAfterSalesRefundReviews(
+  status?: string | null,
+): Promise<MerchantAfterSalesRefundReview[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRefundReviews: MerchantAfterSalesRefundReview[] }>(
+    `query ($status: String) { campusMerchantAfterSalesRefundReviews(status: $status) { ${REFUND_REVIEW_FIELDS} } }`,
+    { status: status ?? null },
+  );
+  return res.campusMerchantAfterSalesRefundReviews ?? [];
+}
+
+/** 复核退款（§102）：approve=true 通过并继续退款，false 驳回 */
+export async function campusMerchantAfterSalesResolveRefundReview(input: {
+  id: string;
+  approve: boolean;
+  note?: string | null;
+}): Promise<MerchantAfterSalesRefundReview> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesResolveRefundReview: MerchantAfterSalesRefundReview }>(
+    `mutation ($id: ID!, $approve: Boolean!, $note: String) {
+      campusMerchantAfterSalesResolveRefundReview(id: $id, approve: $approve, note: $note) { ${REFUND_REVIEW_FIELDS} }
+    }`,
+    { id: input.id, approve: input.approve, note: input.note ?? null },
+  );
+  return res.campusMerchantAfterSalesResolveRefundReview;
+}
+
+/** 升级仲裁（§102）：priority=normal/high/urgent，返回该单全部升级记录 */
+export async function campusMerchantAfterSalesEscalate(input: {
+  id: string;
+  reason: string;
+  priority?: string | null;
+}): Promise<MerchantAfterSalesEscalation[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesEscalate: MerchantAfterSalesEscalation[] }>(
+    `mutation ($id: ID!, $reason: String!, $priority: String) {
+      campusMerchantAfterSalesEscalate(id: $id, reason: $reason, priority: $priority) {
+        id requestId reason priority status createdBy creatorName createdAt resolvedAt resolution
+      }
+    }`,
+    { id: input.id, reason: input.reason, priority: input.priority ?? null },
+  );
+  return res.campusMerchantAfterSalesEscalate ?? [];
+}
+
+/** 完结升级（§102） */
+export async function campusMerchantAfterSalesEscalationResolve(input: {
+  id: string;
+  resolution?: string | null;
+}): Promise<MerchantAfterSalesEscalation[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesEscalationResolve: MerchantAfterSalesEscalation[] }>(
+    `mutation ($id: ID!, $resolution: String) {
+      campusMerchantAfterSalesEscalationResolve(id: $id, resolution: $resolution) {
+        id requestId reason priority status createdBy creatorName createdAt resolvedAt resolution
+      }
+    }`,
+    { id: input.id, resolution: input.resolution ?? null },
+  );
+  return res.campusMerchantAfterSalesEscalationResolve ?? [];
+}
+
+/** 暂停 SLA（§102）：等待顾客/快递等外部原因时暂停计时，避免误判超时 */
+export async function campusMerchantAfterSalesPauseSla(id: string, reason: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesPauseSla: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $reason: String!) { campusMerchantAfterSalesPauseSla(id: $id, reason: $reason) {
+      ${AFTER_SALES_ITEM_FIELDS}
+    } }`,
+    { id, reason },
+  );
+  return res.campusMerchantAfterSalesPauseSla;
+}
+
+/** 恢复 SLA（§102） */
+export async function campusMerchantAfterSalesResumeSla(id: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesResumeSla: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!) { campusMerchantAfterSalesResumeSla(id: $id) { ${AFTER_SALES_ITEM_FIELDS} } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesResumeSla;
+}
+
+/** 催办提醒（§102）：给顾客发一条催办/进度提醒 */
+export async function campusMerchantAfterSalesRemind(id: string, note?: string | null): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRemind: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $note: String) { campusMerchantAfterSalesRemind(id: $id, note: $note) {
+      ${AFTER_SALES_ITEM_FIELDS}
+    } }`,
+    { id, note: note ?? null },
+  );
+  return res.campusMerchantAfterSalesRemind;
+}
+
+/** 指派处理人（§102）：userId 为空=取消指派 */
+export async function campusMerchantAfterSalesAssign(id: string, userId: string | null): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAssign: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $userId: ID) { campusMerchantAfterSalesAssign(id: $id, userId: $userId) {
+      ${AFTER_SALES_ITEM_FIELDS}
+    } }`,
+    { id, userId },
+  );
+  return res.campusMerchantAfterSalesAssign;
+}
+
+/** 转交处理人（§102）：必须指定新处理人并填写原因 */
+export async function campusMerchantAfterSalesTransfer(
+  id: string,
+  userId: string,
+  reason: string,
+): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesTransfer: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $userId: ID!, $reason: String!) { campusMerchantAfterSalesTransfer(id: $id, userId: $userId, reason: $reason) {
+      ${AFTER_SALES_ITEM_FIELDS}
+    } }`,
+    { id, userId, reason },
+  );
+  return res.campusMerchantAfterSalesTransfer;
+}
+
+/** 关闭售后（§102）：reason 必填 */
+export async function campusMerchantAfterSalesCloseOne(id: string, reason: string): Promise<MerchantAfterSalesRow> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesClose: MerchantAfterSalesRow }>(
+    `mutation ($id: ID!, $reason: String!) { campusMerchantAfterSalesClose(id: $id, reason: $reason) {
+      ${AFTER_SALES_ITEM_FIELDS}
+    } }`,
+    { id, reason },
+  );
+  return res.campusMerchantAfterSalesClose;
+}
+
+/** 售后规则（§102）：SLA 阈值等，详情页据此提示超时口径 */
+export interface MerchantAfterSalesRules {
+  timeoutHours: number;
+  autoApproveHours: number;
+  refundAutoRetry: number;
+  firstResponseTargetHours: number;
+  resolveTargetHours: number;
+  dueSoonHours: number;
+  refundReviewThreshold: number;
+}
+
+/** 售后规则（§102） */
+export async function campusMerchantAfterSalesRules(): Promise<MerchantAfterSalesRules | null> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRules: MerchantAfterSalesRules | null }>(
+    `query { campusMerchantAfterSalesRules {
+      timeoutHours autoApproveHours refundAutoRetry firstResponseTargetHours resolveTargetHours dueSoonHours refundReviewThreshold
+    } }`,
+  );
+  return res.campusMerchantAfterSalesRules ?? null;
+}
+
+/** 退货收件地址（§102）：后端为 JSON 字符串，空串表示未配置 */
+export async function campusMerchantAfterSalesReturnAddress(): Promise<MerchantAfterSalesAddress | null> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesReturnAddress: string | null }>(
+    'query { campusMerchantAfterSalesReturnAddress }',
+  );
+  const raw = res.campusMerchantAfterSalesReturnAddress;
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as Partial<MerchantAfterSalesAddress> & { name?: string; phone?: string };
+    return {
+      fullName: o.fullName ?? o.name ?? '',
+      phoneNumber: o.phoneNumber ?? o.phone ?? '',
+      address: o.address ?? '',
+    };
+  } catch {
+    return { fullName: '', phoneNumber: '', address: raw };
+  }
+}
+
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
   orderId: string,

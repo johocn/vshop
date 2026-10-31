@@ -142,6 +142,8 @@
           <text v-for="tg in r.tags.slice(0, 3)" :key="tg" class="r-tagv">{{ tg }}</text>
         </view>
         <text v-if="r.reason" class="r-reason">{{ r.reason }}</text>
+        <!-- §102 进入处置详情页（行本身仍用于批量勾选） -->
+        <text class="r-go" @tap.stop="goDetail(r)">{{ $t('campusAfterSalesWorkbench.dispose') }}</text>
       </view>
     </view>
     <button v-if="hasMore" class="more" :disabled="listLoadingMore" @tap="loadMore">
@@ -698,6 +700,11 @@ async function runTask(t: MerchantAfterSalesTask): Promise<void> {
 }
 
 /* ---------- 生命周期 ---------- */
+/** §102 打开处置详情（订单维度：标签/处置动作/回访/备注/物流/复核） */
+function goDetail(r: MerchantAfterSalesWorkItem): void {
+  uni.navigateTo({ url: `/pages/campus/after-sales-detail?id=${encodeURIComponent(r.id)}` });
+}
+
 onLoad(() => {
   void reloadAll();
 });
@@ -814,6 +821,7 @@ onPullDownRefresh(async () => {
           border-radius: 999rpx; padding: 2rpx 12rpx; }
       }
       .r-reason { font-size: 24rpx; color: $wa-muted; line-height: 1.5; }
+      .r-go { align-self: flex-end; font-size: 24rpx; color: $wa-accent; padding: 4rpx 0 0; }
     }
   }
   .more { background: $wa-card; color: $wa-accent; font-size: 26rpx; border-radius: $wa-radius;

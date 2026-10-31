@@ -133,7 +133,7 @@
     </template>
 
     <!-- 三、补偿挽留方案（§100）：部分退款 + 优惠券，可增删改与启停 -->
-    <template v-else>
+    <template v-else-if="tab === 'plan'">
       <view class="card">
         <view class="head">
           <text class="title">{{ $t('campusAfterSalesOps.planTitle') }}</text>
@@ -203,6 +203,122 @@
         </view>
       </view>
     </template>
+
+    <!-- 四、售后标签（§102）：给售后单分组，工作台可按标签筛选 -->
+    <template v-else-if="tab === 'tag'">
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesOps.tagTitle') }}</text>
+          <text class="act" @tap="openTagSheet(null)">+ {{ $t('campusAfterSalesOps.tagAdd') }}</text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesOps.tagTip') }}</text>
+      </view>
+
+      <view v-if="tagLoading" class="hint">{{ $t('campusAfterSalesOps.loading') }}</view>
+      <view v-else-if="!tagList.length" class="hint empty">{{ $t('campusAfterSalesOps.tagEmpty') }}</view>
+      <view v-else class="list">
+        <view v-for="t in tagList" :key="t.id" class="plan">
+          <view class="pl-head">
+            <text class="pl-name"># {{ t.name }}</text>
+            <text class="pl-state on">{{ $t('campusAfterSalesOps.tagUsed').replace('{n}', String(t.usedCount)) }}</text>
+          </view>
+          <view class="pl-ops">
+            <text class="pl-edit" @tap="openTagSheet(t)">{{ $t('campusAfterSalesOps.tagEdit') }}</text>
+            <text class="pl-del" @tap="removeTag(t)">{{ $t('campusAfterSalesOps.tagDelete') }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="tagSheet" class="mask" @tap.self="closeTagSheet">
+        <view class="sheet">
+          <view class="sheet__hd">
+            <text class="sheet__t">
+              {{ tagForm.id ? $t('campusAfterSalesOps.tagEditTitle') : $t('campusAfterSalesOps.tagAddTitle') }}
+            </text>
+            <text class="sheet__x" @tap="closeTagSheet">✕</text>
+          </view>
+          <text class="sheet__hint">{{ $t('campusAfterSalesOps.tagFormHint') }}</text>
+          <text class="sheet__lbl">{{ $t('campusAfterSalesOps.tagName') }}</text>
+          <input v-model="tagForm.name" class="ipt wide" maxlength="20" :placeholder="$t('campusAfterSalesOps.tagNamePh')" />
+          <view class="sheet__ops">
+            <text class="sheet__clear" @tap="closeTagSheet">{{ $t('campusAfterSalesOps.cancel') }}</text>
+            <button class="sheet__save" :disabled="tagSaving" @tap="submitTag">
+              {{ tagSaving ? $t('campusAfterSalesOps.saving') : $t('campusAfterSalesOps.tagSave') }}
+            </button>
+          </view>
+        </view>
+      </view>
+    </template>
+
+    <!-- 五、回复模板（§102）：售后快捷话术，详情页一键带入 -->
+    <template v-else>
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusAfterSalesOps.tplTitle') }}</text>
+          <text class="act" @tap="openTplSheet(null)">+ {{ $t('campusAfterSalesOps.tplAdd') }}</text>
+        </view>
+        <text class="tip">{{ $t('campusAfterSalesOps.tplTip') }}</text>
+        <view class="tpl-search">
+          <input
+            v-model="tplKeyword"
+            class="s-ipt"
+            type="text"
+            :placeholder="$t('campusAfterSalesOps.tplSearchPh')"
+          />
+          <picker mode="selector" :range="tplCategoryOptions" range-key="label" :value="tplCategoryIdx" @change="onPickTplCategory">
+            <view class="ipt picker cat">{{ $t(tplCategoryOptions[tplCategoryIdx].label) }}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view v-if="tplLoading" class="hint">{{ $t('campusAfterSalesOps.loading') }}</view>
+      <view v-else-if="!tplFiltered.length" class="hint empty">{{ $t('campusAfterSalesOps.tplEmpty') }}</view>
+      <view v-else class="list">
+        <view v-for="t in tplFiltered" :key="t.id" class="plan">
+          <text class="pl-content">{{ t.content }}</text>
+          <view class="pl-tags">
+            <text v-if="t.category" class="pl-tag">{{ t.category }}</text>
+            <text v-if="t.keywords" class="pl-tag kw">{{ t.keywords }}</text>
+            <text class="pl-sort">#{{ t.sortOrder }}</text>
+          </view>
+          <view class="pl-ops">
+            <text class="pl-edit" @tap="openTplSheet(t)">{{ $t('campusAfterSalesOps.tplEdit') }}</text>
+            <text class="pl-del" @tap="removeTpl(t)">{{ $t('campusAfterSalesOps.tplDelete') }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="tplSheet" class="mask" @tap.self="closeTplSheet">
+        <view class="sheet">
+          <view class="sheet__hd">
+            <text class="sheet__t">
+              {{ tplForm.id ? $t('campusAfterSalesOps.tplEditTitle') : $t('campusAfterSalesOps.tplAddTitle') }}
+            </text>
+            <text class="sheet__x" @tap="closeTplSheet">✕</text>
+          </view>
+          <text class="sheet__hint">{{ $t('campusAfterSalesOps.tplFormHint') }}</text>
+          <text class="sheet__lbl">{{ $t('campusAfterSalesOps.tplContent') }}</text>
+          <textarea
+            v-model="tplForm.content"
+            class="area"
+            maxlength="300"
+            :placeholder="$t('campusAfterSalesOps.tplContentPh')"
+          />
+          <text class="sheet__lbl">{{ $t('campusAfterSalesOps.tplCategory') }}</text>
+          <input v-model="tplForm.category" class="ipt wide" maxlength="20" :placeholder="$t('campusAfterSalesOps.tplCategoryPh')" />
+          <text class="sheet__lbl">{{ $t('campusAfterSalesOps.tplKeywords') }}</text>
+          <input v-model="tplForm.keywords" class="ipt wide" maxlength="60" :placeholder="$t('campusAfterSalesOps.tplKeywordsPh')" />
+          <text class="sheet__lbl">{{ $t('campusAfterSalesOps.tplSort') }}</text>
+          <input v-model="tplForm.sortOrder" class="ipt wide" type="number" :placeholder="$t('campusAfterSalesOps.tplSortPh')" />
+          <view class="sheet__ops">
+            <text class="sheet__clear" @tap="closeTplSheet">{{ $t('campusAfterSalesOps.cancel') }}</text>
+            <button class="sheet__save" :disabled="tplSaving" @tap="submitTpl">
+              {{ tplSaving ? $t('campusAfterSalesOps.saving') : $t('campusAfterSalesOps.tplSave') }}
+            </button>
+          </view>
+        </view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -215,13 +331,21 @@ import {
   campusMerchantAfterSalesAuditLogs,
   campusMerchantAfterSalesCompensationPlans,
   campusMerchantAfterSalesDutyRoster,
+  campusMerchantAfterSalesReplyTemplates,
+  campusMerchantAfterSalesTags,
   campusMerchantDeleteAfterSalesCompensationPlan,
+  campusMerchantDeleteAfterSalesReplyTemplate,
+  campusMerchantDeleteAfterSalesTag,
   campusMerchantSaveAfterSalesCompensationPlan,
+  campusMerchantSaveAfterSalesReplyTemplate,
+  campusMerchantSaveAfterSalesTag,
   campusMerchantSetAfterSalesDutyRoster,
   type MerchantAfterSalesAssignee,
   type MerchantAfterSalesAuditRow,
   type MerchantAfterSalesCompensationPlan,
   type MerchantAfterSalesDutyEntry,
+  type MerchantAfterSalesReplyTemplate,
+  type MerchantAfterSalesTag,
 } from '../../apis/campus';
 import { fetchCouponTemplates } from '../../apis/coupon';
 import { fenToYuan, fenToYuanFixed, yuanToFen } from '../../utils/money';
@@ -233,11 +357,13 @@ import { usePermGuard } from '../../composables/usePermGuard';
 usePermGuard('CampusMerchant');
 
 const locale = useLocaleStore();
-type TabKey = 'audit' | 'duty' | 'plan';
+type TabKey = 'audit' | 'duty' | 'plan' | 'tag' | 'template';
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'audit', label: 'campusAfterSalesOps.tabAudit' },
   { key: 'duty', label: 'campusAfterSalesOps.tabDuty' },
   { key: 'plan', label: 'campusAfterSalesOps.tabPlan' },
+  { key: 'tag', label: 'campusAfterSalesOps.tabTag' },
+  { key: 'template', label: 'campusAfterSalesOps.tabTemplate' },
 ];
 const tab = ref<TabKey>('audit');
 
@@ -727,12 +853,193 @@ function removePlan(p: MerchantAfterSalesCompensationPlan): void {
   });
 }
 
+/* ---------- 四、售后标签（§102） ---------- */
+const tagLoading = ref(false);
+const tagSaving = ref(false);
+const tagList = ref<MerchantAfterSalesTag[]>([]);
+const tagSheet = ref(false);
+const tagForm = ref({ id: '', name: '' });
+
+async function loadTags(): Promise<void> {
+  tagLoading.value = true;
+  try {
+    tagList.value = await campusMerchantAfterSalesTags();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.loadFailed')), icon: 'none' });
+  } finally {
+    tagLoading.value = false;
+  }
+}
+
+function openTagSheet(t: MerchantAfterSalesTag | null): void {
+  tagForm.value = t ? { id: t.id, name: t.name } : { id: '', name: '' };
+  tagSheet.value = true;
+}
+
+function closeTagSheet(): void {
+  if (tagSaving.value) return;
+  tagSheet.value = false;
+}
+
+async function submitTag(): Promise<void> {
+  if (tagSaving.value) return;
+  const name = tagForm.value.name.trim();
+  if (!name) {
+    uni.showToast({ title: locale.t('campusAfterSalesOps.tagRequired'), icon: 'none' });
+    return;
+  }
+  tagSaving.value = true;
+  try {
+    const saved = await campusMerchantSaveAfterSalesTag({ id: tagForm.value.id || null, name });
+    const idx = tagList.value.findIndex(t => t.id === saved.id);
+    if (idx >= 0) tagList.value.splice(idx, 1, saved);
+    else tagList.value.push(saved);
+    tagSheet.value = false;
+    uni.showToast({ title: locale.t('campusAfterSalesOps.tagSaved'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.saveFailed')), icon: 'none' });
+  } finally {
+    tagSaving.value = false;
+  }
+}
+
+function removeTag(t: MerchantAfterSalesTag): void {
+  uni.showModal({
+    title: locale.t('campusAfterSalesOps.tagDeleteTitle'),
+    content: locale.t('campusAfterSalesOps.tagDeleteBody').replace('{name}', t.name).replace('{n}', String(t.usedCount)),
+    confirmText: locale.t('campusAfterSalesOps.tagDelete'),
+    cancelText: locale.t('campusAfterSalesOps.cancel'),
+    success: async res => {
+      if (!res.confirm) return;
+      try {
+        await campusMerchantDeleteAfterSalesTag(t.id);
+        tagList.value = tagList.value.filter(r => r.id !== t.id);
+        uni.showToast({ title: locale.t('campusAfterSalesOps.tagDeleted'), icon: 'none' });
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.saveFailed')), icon: 'none' });
+      }
+    },
+  });
+}
+
+/* ---------- 五、回复模板（§102） ---------- */
+const tplLoading = ref(false);
+const tplSaving = ref(false);
+const tplAll = ref<MerchantAfterSalesReplyTemplate[]>([]);
+const tplKeyword = ref('');
+const tplCategoryIdx = ref(0);
+const tplSheet = ref(false);
+const tplForm = ref({ id: '', content: '', category: '', keywords: '', sortOrder: '' });
+
+/** 分类下拉：全部 + 现有模板的分类去重 */
+const tplCategoryOptions = computed(() => {
+  const cats = Array.from(new Set(tplAll.value.map(t => t.category).filter((c): c is string => !!c)));
+  return [
+    { value: '', label: 'campusAfterSalesOps.tplAllCategory' },
+    ...cats.map(c => ({ value: c, label: c })),
+  ];
+});
+
+/** 本地过滤（分类 + 关键词），避免每次输入都打接口 */
+const tplFiltered = computed(() => {
+  const cat = tplCategoryOptions.value[tplCategoryIdx.value]?.value ?? '';
+  const kw = tplKeyword.value.trim().toLowerCase();
+  return tplAll.value.filter(t => {
+    if (cat && (t.category ?? '') !== cat) return false;
+    if (!kw) return true;
+    return `${t.content} ${t.category ?? ''} ${t.keywords ?? ''}`.toLowerCase().includes(kw);
+  });
+});
+
+async function loadTemplates(): Promise<void> {
+  tplLoading.value = true;
+  try {
+    tplAll.value = await campusMerchantAfterSalesReplyTemplates();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.loadFailed')), icon: 'none' });
+  } finally {
+    tplLoading.value = false;
+  }
+}
+
+function onPickTplCategory(e: any): void {
+  tplCategoryIdx.value = Number(e?.detail?.value ?? 0);
+}
+
+function openTplSheet(t: MerchantAfterSalesReplyTemplate | null): void {
+  tplForm.value = t
+    ? {
+      id: t.id,
+      content: t.content,
+      category: t.category ?? '',
+      keywords: t.keywords ?? '',
+      sortOrder: String(t.sortOrder ?? 0),
+    }
+    : { id: '', content: '', category: '', keywords: '', sortOrder: '' };
+  tplSheet.value = true;
+}
+
+function closeTplSheet(): void {
+  if (tplSaving.value) return;
+  tplSheet.value = false;
+}
+
+async function submitTpl(): Promise<void> {
+  if (tplSaving.value) return;
+  const content = tplForm.value.content.trim();
+  if (!content) {
+    uni.showToast({ title: locale.t('campusAfterSalesOps.tplRequired'), icon: 'none' });
+    return;
+  }
+  const sortRaw = tplForm.value.sortOrder.trim();
+  tplSaving.value = true;
+  try {
+    const saved = await campusMerchantSaveAfterSalesReplyTemplate({
+      id: tplForm.value.id || null,
+      content,
+      category: tplForm.value.category.trim() || null,
+      keywords: tplForm.value.keywords.trim() || null,
+      sortOrder: sortRaw ? Number(sortRaw) : null,
+    });
+    const idx = tplAll.value.findIndex(t => t.id === saved.id);
+    if (idx >= 0) tplAll.value.splice(idx, 1, saved);
+    else tplAll.value.unshift(saved);
+    tplSheet.value = false;
+    uni.showToast({ title: locale.t('campusAfterSalesOps.tplSaved'), icon: 'none' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.saveFailed')), icon: 'none' });
+  } finally {
+    tplSaving.value = false;
+  }
+}
+
+function removeTpl(t: MerchantAfterSalesReplyTemplate): void {
+  uni.showModal({
+    title: locale.t('campusAfterSalesOps.tplDeleteTitle'),
+    content: locale.t('campusAfterSalesOps.tplDeleteBody'),
+    confirmText: locale.t('campusAfterSalesOps.tplDelete'),
+    cancelText: locale.t('campusAfterSalesOps.cancel'),
+    success: async res => {
+      if (!res.confirm) return;
+      try {
+        await campusMerchantDeleteAfterSalesReplyTemplate(t.id);
+        tplAll.value = tplAll.value.filter(r => r.id !== t.id);
+        uni.showToast({ title: locale.t('campusAfterSalesOps.tplDeleted'), icon: 'none' });
+      } catch (err: any) {
+        uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusAfterSalesOps.saveFailed')), icon: 'none' });
+      }
+    },
+  });
+}
+
 /* ---------- 生命周期 ---------- */
 function setTab(next: TabKey): void {
   tab.value = next;
   if (next === 'audit' && !logs.value.length) void reloadAudit();
   if (next === 'duty' && !dutyRows.value.length) void reloadDuty();
   if (next === 'plan' && !plans.value.length) void loadPlans();
+  if (next === 'tag' && !tagList.value.length) void loadTags();
+  if (next === 'template' && !tplAll.value.length) void loadTemplates();
 }
 
 async function reloadAll(): Promise<void> {
@@ -740,11 +1047,13 @@ async function reloadAll(): Promise<void> {
   if (tab.value === 'audit') await reloadAudit();
   if (tab.value === 'duty') await reloadDuty();
   if (tab.value === 'plan') await loadPlans();
+  if (tab.value === 'tag') await loadTags();
+  if (tab.value === 'template') await loadTemplates();
 }
 
 onLoad((options: any) => {
   const t = String(options?.tab || '');
-  if (t === 'duty' || t === 'plan' || t === 'audit') tab.value = t;
+  if (t === 'duty' || t === 'plan' || t === 'audit' || t === 'tag' || t === 'template') tab.value = t;
   void reloadAll();
 });
 
@@ -762,11 +1071,17 @@ onPullDownRefresh(async () => {
 .page { min-height: 100vh; background: $wa-bg; padding: 32rpx;
   .hint { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
   .hint.empty { padding: 60rpx 32rpx; line-height: 1.6; }
-  .tabs { display: flex; gap: 12rpx; margin-bottom: 24rpx;
-    .tab { flex: 1; text-align: center; font-size: 26rpx; color: $wa-muted;
+  .tabs { display: flex; gap: 12rpx; margin-bottom: 24rpx; overflow-x: auto;
+    .tab { flex: 1 0 auto; min-width: 124rpx; text-align: center; font-size: 26rpx; color: $wa-muted;
       padding: 16rpx 0; border-radius: $wa-radius; background: $wa-card;
       &.on { background: $wa-accent; color: #fff; font-weight: 600; }
     }
+  }
+  .tpl-search { display: flex; gap: 12rpx; margin-top: 16rpx;
+    .s-ipt { flex: 1; background: $wa-bg; border-radius: $wa-radius; padding: 18rpx 24rpx;
+      font-size: 26rpx; color: $wa-ink; box-sizing: border-box;
+    }
+    .picker.cat { flex: none; min-width: 160rpx; text-align: center; }
   }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 24rpx;
     .head { display: flex; align-items: center; gap: 16rpx;
@@ -826,6 +1141,14 @@ onPullDownRefresh(async () => {
           border-radius: 999rpx; padding: 4rpx 16rpx; }
       }
       .pl-note { font-size: 24rpx; color: $wa-muted; line-height: 1.5; }
+      .pl-content { font-size: 26rpx; color: $wa-ink; line-height: 1.6; }
+      .pl-tags { display: flex; align-items: center; gap: 10rpx; flex-wrap: wrap;
+        .pl-tag { font-size: 22rpx; color: #1677ff; background: #eaf3ff;
+          border-radius: 999rpx; padding: 4rpx 16rpx;
+          &.kw { color: $wa-muted; background: $wa-bg; }
+        }
+        .pl-sort { font-size: 22rpx; color: $wa-muted; margin-left: auto; }
+      }
       .pl-ops { display: flex; align-items: center; gap: 28rpx; margin-top: 4rpx;
         .pl-edit { font-size: 24rpx; color: $wa-accent; }
         .pl-toggle { font-size: 24rpx; color: $wa-ink; }
@@ -880,6 +1203,9 @@ onPullDownRefresh(async () => {
   &__save { flex: 1; margin: 0; height: 76rpx; line-height: 76rpx; background: $wa-accent;
     color: #fff; font-size: 28rpx; border-radius: $wa-radius; border: none;
     &[disabled] { opacity: .6; }
+  }
+  .area { display: block; width: 100%; min-height: 200rpx; box-sizing: border-box; background: $wa-bg;
+    border-radius: $wa-radius; padding: 18rpx 24rpx; font-size: 26rpx; color: $wa-ink; line-height: 1.6;
   }
 }
 .sw { width: 84rpx; height: 44rpx; border-radius: 999rpx; background: $wa-rule;
