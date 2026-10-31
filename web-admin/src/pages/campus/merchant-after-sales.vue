@@ -16,9 +16,9 @@
               :key="f.key"
               class="flt__i"
               :class="{ on: stateFilter === f.key }"
-              @tap="stateFilter = f.key"
+              @tap="pickFilter(f.key)"
             >
-              {{ $t(f.label) }}
+              {{ $t(f.label) }}<text v-if="filterCount(f.key)" class="flt__n">{{ filterCount(f.key) }}</text>
             </text>
           </view>
         </scroll-view>
@@ -72,6 +72,10 @@
           <text v-if="r.refundedAt" class="a-refunded">
             {{ $t('campusMerchantAfterSales.refundedTip').replace('{t}', timeText(r.refundedAt)) }}
           </text>
+          <!-- §110 退款失败原因：列表直接展示，免进详情排查 -->
+          <text v-if="r.state === 'RefundFailed' && r.refundError" class="a-fail">
+            {{ $t('campusMerchantAfterSales.refundFailReason') }}：{{ r.refundError }}
+          </text>
           <view v-if="r.state === 'Pending'" class="a-ops">
             <text class="op-reject" @tap.stop="openReject(r)">{{ $t('campusMerchantAfterSales.btnReject') }}</text>
             <button class="op-approve" :disabled="busyId === r.id" @tap.stop="approve(r)">
@@ -87,6 +91,13 @@
           </view>
           <text v-else class="a-detail">{{ $t('campusMerchantAfterSales.detailTapHint') }} ›</text>
         </view>
+      </view>
+      <!-- §110 服务端分页：一次 20 条，按需加载更多 -->
+      <view v-if="items.length" class="more">
+        <button v-if="items.length < total" class="more__btn" :disabled="loadingMore" @tap="loadMore">
+          {{ loadingMore ? $t('campusMerchantAfterSales.loadingMore') : $t('campusMerchantAfterSales.loadMore') }}
+        </button>
+        <text v-else class="more__end">{{ $t('campusMerchantAfterSales.noMore') }}</text>
       </view>
     </template>
 
@@ -179,7 +190,16 @@
       </scroll-view>
 
       <view class="panel__ft">
-        <template v-if="canReply">
+        <view v-if="canReply && replyImages.length" class="r-imgs">
+          <view v-for="(url, i) in replyImages" :key="url" class="r-img">
+            <image class="r-img__v" :src="url" mode="aspectFill" @tap="previewEvidence(url, i, replyImages)" />
+            <text class="r-img__x" @tap="removeReplyImage(i)">✕</text>
+          </view>
+        </view>
+        <view v-if="canReply" class="r-row">
+          <text v-if="replyImages.length < 6" class="r-add" :class="{ busy: uploading }" @tap="pickReplyImages">
+            {{ uploading ? $t('campusMerchantAfterSales.imageUploading') : '＋' }}
+          </text>
           <input
             v-model="replyText"
             class="panel__ipt"
@@ -190,7 +210,7 @@
           <button class="panel__send" :disabled="sending" @tap="sendReply">
             {{ sending ? $t('campusMerchantAfterSales.detailSending') : $t('campusMerchantAfterSales.detailSend') }}
           </button>
-        </template>
+        </view>
         <text v-else class="panel__ro">{{ $t('campusMerchantAfterSales.detailReadonly') }}</text>
       </view>
     </view>
@@ -225,16 +245,16 @@
 import { computed, onMounted, ref } from 'vue';
 import { onPullDownRefresh } from '@dcloudio/uni-app';
 import {
-  campusMerchantAfterSales,
   campusMerchantAfterSalesApprove,
   campusMerchantAfterSalesDetail,
   campusMerchantAfterSalesReject,
   campusMerchantAfterSalesReply,
   campusMerchantAfterSalesRetryRefund,
+  campusMerchantAfterSalesWorkItems,
   type MerchantAfterSalesDetail,
-  type MerchantAfterSalesList,
   type MerchantAfterSalesRow,
 } from '../../apis/campus';
+import { uploadAsset } from '../../apis/asset';
 import { fenToYuanFixed } from '../../utils/money';
 import { formatDateTime } from '../../utils/inventoryFormat';
 import { graphQlErrorMsg } from '../../apis/client';
@@ -245,8 +265,9 @@ usePermGuard('CampusMerchant');
 
 const locale = useLocaleStore();
 const loading = ref(true);
-/** §84 状态筛选（服务端一次拉全量，前端按状态过滤；退款失败永久置顶） */
+/** §110 服务端状态筛选 + 分页（一次 20 条，退款失败仍置顶本页） */
 type StateFilter = 'all' | 'Pending' | 'Refunded' | 'Rejected' | 'RefundFailed';
+const PAGE = 20;
 const stateFilter = ref<StateFilter>('all');
 const filters: Array<{ key: StateFilter; label: string }> = [
   { key: 'all', label: 'campusMerchantAfterSales.fltAll' },
@@ -255,7 +276,11 @@ const filters: Array<{ key: StateFilter; label: string }> = [
   { key: 'Rejected', label: 'campusMerchantAfterSales.fltRejected' },
   { key: 'RefundFailed', label: 'campusMerchantAfterSales.fltFailed' },
 ];
-const data = ref<MerchantAfterSalesList | null>(null);
+const items = ref<MerchantAfterSalesRow[]>([]);
+const total = ref(0);
+const pendingCount = ref(0);
+const stateCounts = ref<Array<{ state: string; count: number }>>([]);
+const loadingMore = ref(false);
 const busyId = ref('');
 const rejectTarget = ref<MerchantAfterSalesRow | null>(null);
 const rejectReason = ref('');
@@ -265,6 +290,9 @@ const detailOpen = ref(false);
 const detailLoading = ref(false);
 const detail = ref<MerchantAfterSalesDetail | null>(null);
 const replyText = ref('');
+/** §110 商家回复可带图（≤6 张）：先上传到资产库再调留言 */
+const replyImages = ref<string[]>([]);
+const uploading = ref(false);
 const sending = ref(false);
 
 /** 可回复：待处理 / 顾客申诉（已退款、已驳回、已关闭均只读） */
@@ -289,21 +317,22 @@ const timeline = computed(() => {
   ];
 });
 
-const items = computed(() => data.value?.items ?? []);
-const filtered = computed(() => {
-  const list = stateFilter.value === 'all'
-    ? items.value
-    : items.value.filter(r => r.state === stateFilter.value);
-  // 退款失败单始终排最前，避免被已处理记录淹没
-  return [...list].sort(
+/** 本页数据（服务端已按状态筛选与分页）：退款失败单在本页内置顶 */
+const filtered = computed(() =>
+  [...items.value].sort(
     (a, b) => Number(b.state === 'RefundFailed') - Number(a.state === 'RefundFailed'),
-  );
-});
+  ));
 const pillText = computed(() => {
-  const pending = data.value?.pendingCount ?? 0;
+  const pending = pendingCount.value;
   if (!pending) return locale.t('campusMerchantAfterSales.pillNone');
   return locale.t('campusMerchantAfterSales.pillPending').replace('{n}', String(pending));
 });
+
+/** 筛选 chip 上的数量：全部=各状态合计，按状态=该状态全店计数（不受分页影响） */
+function filterCount(key: StateFilter): number {
+  if (key === 'all') return stateCounts.value.reduce((s, x) => s + x.count, 0);
+  return stateCounts.value.find(x => x.state === key)?.count ?? 0;
+}
 
 function timeText(raw?: string | null): string {
   const s = formatDateTime(raw);
@@ -340,16 +369,44 @@ function typeText(type: string): string {
   return map[type] ?? type;
 }
 
-async function reload(): Promise<void> {
-  const initial = !data.value;
-  if (initial) loading.value = true;
+/** §110 拉取一页：reset=从 0 重新拉（切筛选/刷新），否则接着已加载条数追加 */
+async function loadPage(reset: boolean): Promise<void> {
+  if (reset) loading.value = !items.value.length;
+  else loadingMore.value = true;
+  const skip = reset ? 0 : items.value.length;
   try {
-    data.value = await campusMerchantAfterSales(null);
+    const res = await campusMerchantAfterSalesWorkItems({
+      state: stateFilter.value === 'all' ? null : stateFilter.value,
+      skip,
+      take: PAGE,
+    });
+    items.value = reset ? res.items : [...items.value, ...res.items];
+    total.value = res.total;
+    pendingCount.value = res.pendingCount;
+    stateCounts.value = res.stateCounts;
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchantAfterSales.loadFailed')), icon: 'none' });
   } finally {
     loading.value = false;
+    loadingMore.value = false;
   }
+}
+
+function reload(): Promise<void> {
+  return loadPage(true);
+}
+
+/** 切状态筛选：服务端重查第一页 */
+function pickFilter(key: StateFilter): void {
+  if (stateFilter.value === key) return;
+  stateFilter.value = key;
+  void loadPage(true);
+}
+
+/** 加载更多：还有未加载的单才请求 */
+function loadMore(): void {
+  if (loadingMore.value || items.value.length >= total.value) return;
+  void loadPage(false);
 }
 
 /** 同意：仅退款单由后端链式退款到账，前端只需确认一次（金额写进弹窗避免误点） */
@@ -418,6 +475,7 @@ async function openDetail(r: MerchantAfterSalesRow): Promise<void> {
   detailLoading.value = true;
   detail.value = null;
   replyText.value = '';
+  replyImages.value = [];
   try {
     detail.value = await campusMerchantAfterSalesDetail(r.id);
   } catch (err: any) {
@@ -433,6 +491,7 @@ function closeDetail(): void {
   detailOpen.value = false;
   detail.value = null;
   replyText.value = '';
+  replyImages.value = [];
 }
 
 /** §100 售后管理三入口：审计日志 / 值班排班 / 补偿方案（同一页按 tab 切换） */
@@ -461,6 +520,51 @@ function previewEvidence(url: string, index: number, urls?: string[]): void {
   uni.previewImage({ urls: list, current: list[index] ?? url });
 }
 
+/** §110 选图结果转 File：H5 下 uni.chooseImage 可能只给 blob 路径，需 fetch 一次 */
+async function toReplyFile(tf: any): Promise<{ file: File; name: string }> {
+  const raw: File | undefined = tf?.file || tf?.originalFile;
+  if (raw) return { file: raw, name: raw.name || `after-sales-${Date.now()}.jpg` };
+  const path: string = String(tf?.path || '');
+  const res = await fetch(path);
+  const blob = await res.blob();
+  const ext = (blob.type.split('/')[1] || 'jpg').replace('+', '');
+  const name = `after-sales-${Date.now()}.${ext}`;
+  return { file: new File([blob], name, { type: blob.type || 'image/jpeg' }), name };
+}
+
+function chooseReplyImages(remain: number): Promise<any[]> {
+  return new Promise((resolve, reject) =>
+    uni.chooseImage({ count: remain, success: (r: any) => resolve(r.tempFiles || []), fail: reject }),
+  );
+}
+
+/** §110 商家回复配图：先传资产库再拿 URL，上限 6 张 */
+async function pickReplyImages(): Promise<void> {
+  if (uploading.value || sending.value) return;
+  const remain = 6 - replyImages.value.length;
+  if (remain <= 0) {
+    uni.showToast({ title: locale.t('campusMerchantAfterSales.imageLimit'), icon: 'none' });
+    return;
+  }
+  uploading.value = true;
+  try {
+    const files = await chooseReplyImages(remain);
+    for (const tf of files.slice(0, remain)) {
+      const { file, name } = await toReplyFile(tf);
+      const asset = await uploadAsset(file, name);
+      if (asset?.source && !replyImages.value.includes(asset.source)) replyImages.value.push(asset.source);
+    }
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || locale.t('campusMerchantAfterSales.imageUploadFailed'), icon: 'none' });
+  } finally {
+    uploading.value = false;
+  }
+}
+
+function removeReplyImage(index: number): void {
+  replyImages.value.splice(index, 1);
+}
+
 /** 发送协商留言：成功后本地追加气泡，并把列表卡「留言 n 条」+1 */
 async function sendReply(): Promise<void> {
   const target = detail.value;
@@ -472,13 +576,15 @@ async function sendReply(): Promise<void> {
   }
   sending.value = true;
   try {
-    const msg = await campusMerchantAfterSalesReply(target.request.id, content);
+    const images = replyImages.value.slice();
+    const msg = await campusMerchantAfterSalesReply(target.request.id, content, images);
     target.messages.push(msg);
     target.messageTotal += 1;
     target.request.messageCount += 1;
-    const row = data.value?.items.find(i => i.id === target.request.id);
+    const row = items.value.find(i => i.id === target.request.id);
     if (row) row.messageCount += 1;
     replyText.value = '';
+    replyImages.value = [];
     uni.showToast({ title: locale.t('campusMerchantAfterSales.detailSent'), icon: 'none' });
   } catch (err: any) {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchantAfterSales.detailSendFailed')), icon: 'none' });
@@ -546,6 +652,8 @@ onPullDownRefresh(async () => {
         padding: 10rpx 20rpx; border-radius: 999rpx; background: $wa-bg;
         &.on { background: $wa-accent; color: #fff; font-weight: 600; }
       }
+      /* §110 筛选 chip 上的全店计数 */
+      &__n { margin-left: 6rpx; font-size: 20rpx; opacity: .8; }
     }
     .tip { display: block; margin-top: 12rpx; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
     .wb-entry { display: flex; align-items: center; gap: 12rpx; margin-top: 16rpx;
@@ -584,6 +692,9 @@ onPullDownRefresh(async () => {
       }
       .a-reject { font-size: 24rpx; color: #d4380d; line-height: 1.5; }
       .a-refunded { font-size: 22rpx; color: #237804; }
+      /* §110 退款失败原因（列表直显） */
+      .a-fail { font-size: 22rpx; color: #d4380d; line-height: 1.5; background: #fdecec;
+        border-radius: 10rpx; padding: 8rpx 14rpx; }
       .a-detail { font-size: 22rpx; color: $wa-muted; text-align: right; }
       .a-ops { display: flex; align-items: center; gap: 20rpx; margin-top: 4rpx;
         .op-reject { flex: none; font-size: 26rpx; color: $wa-muted;
@@ -600,6 +711,13 @@ onPullDownRefresh(async () => {
       }
     }
   }
+  /* §110 服务端分页：加载更多 / 已到底 */
+  .more { display: flex; justify-content: center; padding: 8rpx 0 24rpx;
+    &__btn { margin: 0; height: 64rpx; line-height: 64rpx; padding: 0 48rpx; font-size: 24rpx;
+      background: $wa-card; color: $wa-ink; border: 1.5px solid $wa-rule; border-radius: 999rpx;
+      &[disabled] { opacity: .6; } }
+    &__end { font-size: 22rpx; color: $wa-muted; }
+  }
 }
 .panel { position: fixed; left: 0; right: 0; bottom: 0; top: var(--window-top, 0); z-index: 320; background: $wa-bg; display: flex; flex-direction: column;
   &__hd { display: flex; align-items: center; gap: 16rpx; padding: 24rpx 32rpx; background: $wa-card;
@@ -610,8 +728,22 @@ onPullDownRefresh(async () => {
   &__amount { font-size: 30rpx; color: #d4380d; font-weight: 700; }
   &__x { font-size: 32rpx; color: $wa-muted; padding: 4rpx 8rpx; }
   &__body { flex: 1; height: 0; padding: 24rpx 32rpx; box-sizing: border-box; }
-  &__ft { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 32rpx 32rpx;
-    background: $wa-card; border-top: 1px solid $wa-rule; }
+  &__ft { display: flex; flex-direction: column; align-items: stretch; gap: 12rpx;
+    padding: 20rpx 32rpx 32rpx; background: $wa-card; border-top: 1px solid $wa-rule;
+    /* §110 商家回复配图：已选缩略图 + 加号入口 */
+    .r-imgs { display: flex; flex-wrap: wrap; gap: 12rpx; }
+    .r-img { position: relative; width: 120rpx; height: 120rpx; border-radius: 10rpx;
+      &__v { width: 120rpx; height: 120rpx; display: block; border-radius: 10rpx; }
+      &__x { position: absolute; top: 0; right: 0; width: 36rpx; height: 36rpx; line-height: 36rpx;
+        text-align: center; font-size: 22rpx; color: #fff; background: rgba(0,0,0,.45);
+        border-radius: 0 10rpx 0 10rpx; }
+    }
+    .r-row { display: flex; align-items: center; gap: 16rpx; }
+    .r-add { flex: none; width: 76rpx; height: 76rpx; line-height: 72rpx; text-align: center;
+      font-size: 36rpx; color: $wa-muted; background: $wa-bg; border-radius: $wa-radius;
+      border: 1.5px dashed $wa-rule;
+      &.busy { opacity: .5; } }
+  }
   &__ipt { flex: 1; height: 76rpx; background: $wa-bg; border-radius: $wa-radius;
     padding: 0 20rpx; font-size: 26rpx; box-sizing: border-box; }
   &__send { flex: none; margin: 0; height: 72rpx; line-height: 72rpx; padding: 0 32rpx;

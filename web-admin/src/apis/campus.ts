@@ -1,4 +1,4 @@
-// 拾光达（校内配送）域 admin-api 调用：店铺配置列表 + upsert
+﻿// 拾光达（校内配送）域 admin-api 调用：店铺配置列表 + upsert
 // 后端：campus-delivery-plugin admin-api（campusStoreConfigs / campusUpdateStoreConfig，
 // 权限 CampusConfig）。金额字段均为「分」，页面层用 utils/money 做分↔元转换。
 import { getAdminClient } from './client';
@@ -943,6 +943,8 @@ export interface MerchantAfterSalesRow {
   customerName: string | null;
   createdAt: string;
   refundedAt: string | null;
+  /** 退款失败原因（§110）：仅 RefundFailed 有值 */
+  refundError: string | null;
 }
 
 /** 售后申请清单（§81）：pendingCount 不受 state 筛选影响（入口红点用） */
@@ -957,7 +959,7 @@ export async function campusMerchantAfterSales(state?: string | null): Promise<M
   const res = await getAdminClient().request<{ campusMerchantAfterSales: MerchantAfterSalesList }>(
     `query ($state: String) { campusMerchantAfterSales(state: $state) {
       items { id orderId orderCode state type reason description refundAmount rejectReason
-        evidenceImages messageCount customerName createdAt refundedAt }
+        evidenceImages messageCount customerName createdAt refundedAt refundError }
       pendingCount total
     } }`,
     { state: state ?? null },
@@ -970,7 +972,7 @@ export async function campusMerchantAfterSalesApprove(id: string): Promise<Merch
   const res = await getAdminClient().request<{ campusMerchantAfterSalesApprove: MerchantAfterSalesRow }>(
     `mutation ($id: ID!) { campusMerchantAfterSalesApprove(id: $id) {
       id orderId orderCode state type reason description refundAmount rejectReason
-      evidenceImages messageCount customerName createdAt refundedAt
+      evidenceImages messageCount customerName createdAt refundedAt refundError
     } }`,
     { id },
   );
@@ -1011,7 +1013,7 @@ export async function campusMerchantAfterSalesDetail(id: string): Promise<Mercha
   const res = await getAdminClient().request<{ campusMerchantAfterSalesDetail: MerchantAfterSalesDetail }>(
     `query ($id: ID!) { campusMerchantAfterSalesDetail(id: $id) {
       request { id orderId orderCode state type reason description refundAmount rejectReason
-        evidenceImages messageCount customerName createdAt refundedAt overdue }
+        evidenceImages messageCount customerName createdAt refundedAt refundError overdue }
       messages { id senderType senderName content images createdAt }
       messageTotal
       stateHistory { fromState toState createdAt }
@@ -1044,7 +1046,7 @@ export async function campusMerchantAfterSalesReject(id: string, reason: string)
   const res = await getAdminClient().request<{ campusMerchantAfterSalesReject: MerchantAfterSalesRow }>(
     `mutation ($id: ID!, $reason: String!) { campusMerchantAfterSalesReject(id: $id, reason: $reason) {
       id orderId orderCode state type reason description refundAmount rejectReason
-      evidenceImages messageCount customerName createdAt refundedAt
+      evidenceImages messageCount customerName createdAt refundedAt refundError
     } }`,
     { id, reason },
   );
@@ -1057,7 +1059,7 @@ export async function campusMerchantAfterSalesRetryRefund(id: string): Promise<M
   const res = await getAdminClient().request<{ campusMerchantAfterSalesRetryRefund: MerchantAfterSalesRow }>(
     `mutation ($id: ID!) { campusMerchantAfterSalesRetryRefund(id: $id) {
       id orderId orderCode state type reason description refundAmount rejectReason
-      evidenceImages messageCount customerName createdAt refundedAt
+      evidenceImages messageCount customerName createdAt refundedAt refundError
     } }`,
     { id },
   );
@@ -1369,7 +1371,7 @@ export async function campusMerchantAfterSalesWorkItems(
         items {
           id orderId orderCode state type reason description refundAmount rejectReason evidenceImages messageCount
           customerName createdAt refundedAt overdue unread dueSoon tags assigneeUserId assigneeName riskReason
-          slaPaused slaPausedReason escalated refundReviewPending exchangeTrackingNo exchangeCarrier
+          slaPaused slaPausedReason escalated refundReviewPending exchangeTrackingNo exchangeCarrier refundError
         }
         pendingCount total stateCounts { state count } skip take
       }
@@ -1559,7 +1561,7 @@ export interface MerchantAfterSalesDisposalDetail extends MerchantAfterSalesDeta
 }
 
 const AFTER_SALES_ITEM_FIELDS = `id orderId orderCode state type reason description refundAmount rejectReason
-  evidenceImages messageCount customerName createdAt refundedAt overdue unread dueSoon tags assigneeUserId
+  evidenceImages messageCount customerName createdAt refundedAt refundError overdue unread dueSoon tags assigneeUserId
   assigneeName riskReason slaPaused slaPausedReason escalated refundReviewPending exchangeTrackingNo exchangeCarrier`;
 
 /** 售后处置详情（§102）：详情页一次性取全量上下文 */

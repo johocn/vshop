@@ -4880,7 +4880,14 @@
     "retryFailHint": "退款失败，可重试或联系顾客",
     "toastRetryOk": "重试成功，退款已到账",
     "toastRetryPending": "已提交重试，退款处理中",
-    "retryFailed": "重试失败"
+    "retryFailed": "重试失败",
+    "refundFailReason": "退款失败原因",
+    "loadMore": "加载更多",
+    "loadingMore": "加载中…",
+    "noMore": "已显示全部",
+    "imageLimit": "最多上传 6 张图片",
+    "imageUploading": "上传中…",
+    "imageUploadFailed": "图片上传失败"
   },
   "campusDispatch": {
     "loading": "加载中…",

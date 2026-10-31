@@ -4882,7 +4882,14 @@
     "retryFailHint": "Refund failed — retry or contact the customer",
     "toastRetryOk": "Retry succeeded, refund completed",
     "toastRetryPending": "Retry submitted, refund processing",
-    "retryFailed": "Retry failed"
+    "retryFailed": "Retry failed",
+    "refundFailReason": "Refund failure reason",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "noMore": "All loaded",
+    "imageLimit": "Up to 6 images",
+    "imageUploading": "Uploading…",
+    "imageUploadFailed": "Image upload failed"
   },
   "campusDispatch": {
     "loading": "Loading…",
