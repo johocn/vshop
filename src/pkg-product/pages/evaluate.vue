@@ -9,10 +9,13 @@
         @click="switchTab(tab.key)"
       >{{ t(tab.labelKey) }}（{{ tabCount(tab.key) }}）</text>
     </view>
-    <view class="review-summary" v-if="stats">
-      <text class="review-summary__score">{{ stats.averageRating }} {{ t('review.scoreUnit') }}</text>
-      <text class="review-summary__rate">{{ t('review.goodRate') }} {{ stats.goodRate }}%</text>
-    </view>
+    <!-- 信任签名卡：质量 → 服务 → 时间 固定顺序 + 好评率/真实评价徽章 -->
+    <TrustSignatureCard
+      v-if="stats"
+      class="review-page__trust"
+      :average-rating="stats.averageRating"
+      :good-rate="stats.goodRate"
+    />
 
     <scroll-view class="review-page__scroll" scroll-y @scrolltolower="loadMore">
       <ReviewItem
@@ -32,12 +35,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { onReachBottom } from '@dcloudio/uni-app';
+import { computed, ref } from 'vue';
+import { onLoad, onReachBottom } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { getProduct } from '../../api/queries/product';
 import { getProductReviews, getReviewStats } from '../../api/queries/review';
 import ReviewItem from '../../components/ReviewItem.vue';
+import TrustSignatureCard from '../../components/TrustSignatureCard.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
@@ -87,10 +91,9 @@ function tabCount(key: TabKey): number {
     return sum(1, 2);
 }
 
-onMounted(async () => {
-    const pages = getCurrentPages();
-    const page = pages[pages.length - 1] as any;
-    const slug = page?.options?.slug;
+// H5 下无 getCurrentPages 全局，路由参数统一走 onLoad(options)
+onLoad(async (q: any) => {
+    const slug = q?.slug;
     if (!slug) return;
     try {
         const res: any = await getProduct(slug);
@@ -147,14 +150,11 @@ function switchTab(key: TabKey) {
 .review-page { display: flex; flex-direction: column; height: 100vh; background: #f5f5f5;
     &__scroll { flex: 1; padding: 0 20rpx; }
     &__footer { padding: 30rpx; text-align: center; }
+    &__trust { margin: 20rpx 20rpx 0; }
 }
 .review-tabs { display: flex; background: #fff; border-bottom: 1rpx solid $border-color; }
 .review-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 25rpx; color: $text-color-secondary;
     &.active { color: $brand-color; font-weight: bold; }
-}
-.review-summary { display: flex; align-items: center; gap: 16rpx; background: #fff; padding: 16rpx 24rpx;
-    &__score { font-size: 28rpx; color: $price-color; font-weight: bold; }
-    &__rate { font-size: 24rpx; color: $text-color-secondary; }
 }
 .footer-text { font-size: 24rpx; color: #999; }
 </style>

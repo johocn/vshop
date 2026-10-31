@@ -5804,6 +5804,78 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 线上标记 | `https://e.joho.cn/guanli/assets/…` | 页面 chunk 200 / 19137 B，含 `refundFailReason`、`loadMore` |
 | 截图 | `docs/screenshots/waimai/p110-after-sales-list/` | 4 张（`01` 首屏 / `02` 已到底 / `03` 筛失败 / `04` 回复配图） |
 
+---
+
+## §111 评价页三条规则：信任签名卡 / 好评送礼仅三项 / 仅差评展示改进项（已上线）
+
+**操作入口**：顾客端「写评价」（订单详情 › 去评价）、「商品评价列表」（商品详情 › 评价）、「我的评价」；外卖 C 端 `https://www.yourbao.cn/waimai/` 写评价页。
+
+评价页此前只有星级 + 一组通用标签，既没有「这家店凭什么值得信」的固定口径，也会在顾客打 5 星时仍展示「哪些需要改进」暗示不满意；「好评送礼」则完全缺失。本版统一三条规则：**信任签名卡按「质量 → 服务 → 时间」固定顺序**、**好评送礼只保留质量/服务/时间三项**、**只有 1~3 星才展示「哪些需要改进」**。
+
+### 111.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| C 端组件 | `src/components/TrustSignatureCard.vue`（新建） | 三行固定顺序（`quality` → `service` → `time`）+ 徽章（平均分 / 好评率 / 真实评价）；未传 `averageRating` / `goodRate` 时对应徽章隐藏 |
+| 写评价 | `src/pkg-order/pages/order-evaluate.vue` | 顶部 `TrustSignatureCard`；每行星级 `≤3` 时展示「哪些需要改进」5 标签（与正面标签互斥）；全部 `≥4` 星时展示好评送礼 3 项；`tags` 提交合并；路由参数改 `onLoad` |
+| 商品评价列表 | `src/pkg-product/pages/evaluate.vue` | 原 `.review-summary` 统计块替换为签名卡（带平均分 / 好评率）；`slug` 改由 `onLoad` 读取 |
+| 我的评价 | `src/pkg-user/pages/my-reviews.vue` | 顶部签名卡（只读，仅「真实评价」徽章） |
+| 外卖 C 端 | `waimai-v39/src/pkg-order/pages/review-create.vue` | 页面内联签名卡三行；`rating ≤3` 展示改进项并隐藏正面标签；`rating ≥4` 展示好评送礼 3 项；`watch(rating)` 互斥清空；`submitTags()` 合并提交 |
+| 国际文案（C 端） | `src/i18n/locales/{zh-CN,zh-TW,en,ja,ko}.json` | `review` 块新增 20 键（`trust*` / `gift*` / `improve*`） |
+| 国际文案（外卖 C 端） | `waimai-v39/src/locale/{zh-Hans,en}.json` | `reviewCreate` 块新增同名 20 键 |
+| 截图 | `docs/screenshots/waimai/p111-review-rules/` | 4 张 390×844 dpr2：`01` 5 星好评 / `02` 2 星中评 / `03` 商品评价列表签名卡 / `04` 我的评价签名卡 |
+| 截图脚本 | `scripts/_shots_review_rules.cjs` | 本地静态服务 `dist/build/h5`（hash 路由）+ `page.route('**/*shop-api*')` 按 GraphQL 操作名 mock |
+
+### 111.2 口径与契约
+
+- **固定顺序**：信任签名卡恒为「质量 → 服务 → 时间」，由常量 `ROWS` 决定，不随数据或评分动态排序。
+- **纯前端文案**：三维文案与徽章均不读后端字段（后端 `review` 只有 `rating` / `tags` / `giftGranted`），本轮不新增字段与接口。
+- **徽章**：平均分（`4.8 分`）、好评率（`好评率 96%`）、`真实评价`；缺数据即隐藏，不伪造 `0` 或 `—`。写评价页与我的评价页无统计数据源 → 只显示「真实评价」。
+- **好评阈值**：4~5 星 = 好评，1~3 星 = 差评。
+- **好评送礼**：只保留「质量 / 服务 / 时间」三项，且仅在**本次所有商品都 ≥4 星**（`allGood`）时出现；`giftChoice` 只是前端选择，不上行、不落库，实际礼包发放仍由后端既有 `giftGranted` 流程控制。
+- **仅好评不推测不满意**：好评时改进块 `v-if` 不成立，页面不出现「哪些需要改进」。
+- **互斥**：`1~3` 星时正面标签块隐藏、改进块出现；`4~5` 星反之。改进标签 5 项（口味一般 / 分量不足 / 配送慢 / 包装破损 / 性价比低），提交时与正面 tags 合并进 `tags` 数组（互斥下至多一组）。
+
+### 111.3 权限与校验
+
+- 复用既有 `createReview`：`rating` 为 1~5 整数、`tags` 为字符串数组（可选）；**无新增权限点**。
+- 未登录点开写评价页：先跳登录页，登录后回跳 `auth.requireLogin('/pkg-order/pages/order-evaluate?code=…')`。
+- 路由参数统一走 `onLoad(options)`：H5 无 `getCurrentPages` 全局，旧写法在深链下取不到 `code` / `slug`，页面会空白（本轮一并修复）。
+
+### 111.4 数据库变更
+
+- **无**：未新增表/列，`customer_review.rating` / `tags` / `giftGranted` 沿用；三维签名、送礼选项均不落库。
+
+### 111.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | C 端 `npm run build:h5` | PASS（仅 sass `legacy-js-api` 弃用告警） |
+| 2 | 写评价页 5 星 | PASS（`trustRows` 依次为「质量…/服务…/时间…」；`giftOpts=质量/服务/时间`；`giftVisible=true`；`improveVisible=false`） |
+| 3 | 写评价页 2 星 | PASS（`giftVisible=false`；`improveTags` 5 项；正面标签块隐藏） |
+| 4 | 商品评价列表 | PASS（`trustBadges=4.8 分 / 好评率 96% / 真实评价`，三行顺序正确、无遮挡） |
+| 5 | 我的评价 | PASS（仅「真实评价」徽章，空态「暂无评价」正常，不遮挡 tab） |
+| 6 | 外卖 C 端 `pnpm build:h5` + 部署 | PASS（产物校验 3851 KB，`deploy done`） |
+| 7 | 线上 chunk | PASS（清单见 111.7） |
+| 8 | i18n JSON | PASS（7 个文件 `JSON.parse` 校验通过，键名一一对应） |
+
+### 111.6 边界与已知限制
+
+1. 好评阈值写在各自页面的 `allGood` computed（`>= 4`）；若要改成「5 星才算好」需同步改 C 端写评价页与外卖 C 端写评价页两处。
+2. 外卖 C 端本轮只改写评价页；其商品评价列表、我的评价页未接入签名卡。
+3. 「好评送礼」只是展示与选择，无后端发放记录（除既有 `giftGranted` 布尔），顾客选择什么不落库、也不产生券。
+4. 三维文案为全店统一固定口径，不随店铺/商品差异（无后端字段支撑）。
+5. 我的评价页与写评价页没有平均分 / 好评率来源，故只有「真实评价」徽章；带分数的徽章仅商品评价列表页生效。
+
+### 111.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| C 端 | `npm run build:h5` → `tar -czf`（727 KB）→ `scp joho:/tmp/h5_b111.tar.gz` → 解压至 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（解压前 `index.html` 备份为 `index.bak_<ts>.html`） | `tar` 退出码 2，仅 root 属主目录 utime/chmod 告警，文件内容已更新 |
+| 线上 chunk（C 端） | `https://e.joho.cn/assets/…` | `index-ncRLLn6V.js` 200 / 756981 B、`TrustSignatureCard.BU-u9aNY.js` 200 / 1563 B、`TrustSignatureCard-DdF_sL0o.css` 200 / 919 B、`pkg-order-pages-order-evaluate.UmlQE4B3.js` 200 / 6787 B、`pkg-product-pages-evaluate.C_cz_93R.js` 200 / 3338 B、`pkg-user-pages-my-reviews.Cy3iApJz.js` 200 / 3278 B、`order-evaluate-DmbNDPyP.css` 200 / 3254 B，体积与本地一致 |
+| 外卖 C 端 | `node .secrets/deploy-waimai.mjs`（本地 `pnpm build:h5` → 校验 3851 KB → tar/scp → 服务器解压 + 备份轮转） | `https://www.yourbao.cn/waimai/` 返回 200；`pkg-order-pages-review-create.CZjriyrY.js` 正文含 `trustQuality` / `giftQuality` |
+| 截图 | `docs/screenshots/waimai/p111-review-rules/` | 4 张（`01` 好评 / `02` 中评 / `03` 评价列表 / `04` 我的评价） |
+
 
 
 
