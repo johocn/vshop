@@ -23,6 +23,11 @@
           </view>
         </scroll-view>
         <text class="tip">{{ $t('campusMerchantAfterSales.tip') }}</text>
+        <!-- 售后工作台（§101）：待办概览 / 批量处置 / 一键补偿 -->
+        <view class="wb-entry" @tap="goWorkbench">
+          <text class="wb-e-t">{{ $t('campusAfterSalesWorkbench.entry') }}</text>
+          <text class="wb-e-a">›</text>
+        </view>
         <!-- 售后管理三入口（§100）：操作审计 / 值班排班 / 补偿挽留方案 -->
         <view class="ops-entry">
           <text class="oe-i" @tap="goOps('audit')">{{ $t('campusAfterSalesOps.entryAudit') }}</text>
@@ -430,6 +435,11 @@ function goOps(tab: 'audit' | 'duty' | 'plan'): void {
   uni.navigateTo({ url: `/pages/campus/after-sales-ops?tab=${tab}` });
 }
 
+/** §101 售后工作台：待办概览 / 批量处置 / 一键补偿 */
+function goWorkbench(): void {
+  uni.navigateTo({ url: '/pages/campus/after-sales-workbench' });
+}
+
 /** 凭证/对话图片看原图 */
 function previewEvidence(url: string, index: number, urls?: string[]): void {
   const list = urls?.length ? urls : detail.value?.request.evidenceImages ?? [url];
@@ -523,6 +533,11 @@ onPullDownRefresh(async () => {
       }
     }
     .tip { display: block; margin-top: 12rpx; font-size: 22rpx; color: $wa-muted; line-height: 1.5; }
+    .wb-entry { display: flex; align-items: center; gap: 12rpx; margin-top: 16rpx;
+      background: #fff7e6; border-radius: $wa-radius; padding: 16rpx 24rpx;
+      .wb-e-t { flex: 1; font-size: 26rpx; color: #ad6800; font-weight: 600; }
+      .wb-e-a { font-size: 28rpx; color: #ad6800; }
+    }
     .ops-entry { display: flex; gap: 12rpx; margin-top: 16rpx;
       .oe-i { flex: 1; text-align: center; font-size: 22rpx; color: $wa-accent;
         background: $wa-bg; border-radius: 999rpx; padding: 10rpx 0; }

@@ -1214,6 +1214,260 @@ export async function campusMerchantDeleteAfterSalesCompensationPlan(
   return res.campusMerchantDeleteAfterSalesCompensationPlan ?? [];
 }
 
+/** 售后工作台概览（§101）：各待办计数与最久待处理时长 */
+export interface MerchantAfterSalesWorkbench {
+  toApprove: number;
+  toReceive: number;
+  refundFailed: number;
+  pendingReply: number;
+  overdue: number;
+  dueSoon: number;
+  slaPaused: number;
+  followUpDue: number;
+  escalated: number;
+  oldestPendingAt: string | null;
+  oldestPendingHours: number;
+}
+
+/** 售后工作台概览（§101） */
+export async function campusMerchantAfterSalesWorkbench(): Promise<MerchantAfterSalesWorkbench> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesWorkbench: MerchantAfterSalesWorkbench }>(
+    `query { campusMerchantAfterSalesWorkbench {
+      toApprove toReceive refundFailed pendingReply overdue dueSoon slaPaused followUpDue escalated
+      oldestPendingAt oldestPendingHours
+    } }`,
+  );
+  return res.campusMerchantAfterSalesWorkbench;
+}
+
+/** 售后自动化任务（§101）：type = pending_remind / pending_auto_approve / refund_retry */
+export interface MerchantAfterSalesTask {
+  id: string;
+  type: string;
+  requestId: number;
+  /** pending / cancelled / executed / failed */
+  status: string;
+  dueAt: string;
+  attempt: number;
+  maxAttempt: number;
+  retryCount: number;
+  lastError: string | null;
+  executedAt: string | null;
+}
+
+/** 售后任务列表（§101） */
+export async function campusMerchantAfterSalesTasks(opts?: {
+  status?: string | null;
+  skip?: number;
+  take?: number;
+}): Promise<{ items: MerchantAfterSalesTask[]; total: number }> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesTasks: { items: MerchantAfterSalesTask[]; total: number } }>(
+    `query ($status: String, $skip: Int, $take: Int) {
+      campusMerchantAfterSalesTasks(status: $status, skip: $skip, take: $take) {
+        items { id type requestId status dueAt attempt maxAttempt retryCount lastError executedAt }
+        total
+      }
+    }`,
+    { status: opts?.status ?? null, skip: opts?.skip ?? 0, take: opts?.take ?? 20 },
+  );
+  const data = res.campusMerchantAfterSalesTasks;
+  return { items: data?.items ?? [], total: data?.total ?? 0 };
+}
+
+/** 立即执行售后任务（§101）：失败任务补跑；已执行/已作废不可重复执行 */
+export async function campusMerchantAfterSalesRunTask(id: string): Promise<MerchantAfterSalesTask> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesRunTask: MerchantAfterSalesTask }>(
+    `mutation ($id: ID!) { campusMerchantAfterSalesRunTask(id: $id) {
+      id type requestId status dueAt attempt maxAttempt retryCount lastError executedAt
+    } }`,
+    { id },
+  );
+  return res.campusMerchantAfterSalesRunTask;
+}
+
+/** 售后工作台行（§101）：在 §81 基础字段上增加超时/标签/负责人/风险等 */
+export interface MerchantAfterSalesWorkItem extends MerchantAfterSalesRow {
+  overdue: boolean;
+  unread: boolean;
+  dueSoon: boolean;
+  tags: string[];
+  assigneeUserId: string | null;
+  assigneeName: string | null;
+  riskReason: string | null;
+  slaPaused: boolean;
+  slaPausedReason: string | null;
+  escalated: boolean;
+  refundReviewPending: boolean;
+  exchangeTrackingNo: string | null;
+  exchangeCarrier: string | null;
+}
+
+export interface MerchantAfterSalesWorkFilter {
+  state?: string | null;
+  type?: string | null;
+  orderCode?: string | null;
+  keyword?: string | null;
+  tag?: string | null;
+  assignee?: string | null;
+  messageKeyword?: string | null;
+  /** overdue / dueSoon / unread / followUp */
+  attention?: string | null;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  risk?: string | null;
+  from?: string | null;
+  to?: string | null;
+  skip?: number;
+  take?: number;
+}
+
+/** 售后工作台清单（§101）：状态 + 关注项 + 关键词筛选，分页 */
+export async function campusMerchantAfterSalesWorkItems(
+  filter: MerchantAfterSalesWorkFilter = {},
+): Promise<{
+  items: MerchantAfterSalesWorkItem[];
+  pendingCount: number;
+  total: number;
+  stateCounts: Array<{ state: string; count: number }>;
+  skip: number;
+  take: number;
+}> {
+  const res = await getAdminClient().request<{
+    campusMerchantAfterSales: {
+      items: MerchantAfterSalesWorkItem[];
+      pendingCount: number;
+      total: number;
+      stateCounts: Array<{ state: string; count: number }>;
+      skip: number;
+      take: number;
+    };
+  }>(
+    `query ($state: String, $type: String, $orderCode: String, $keyword: String, $tag: ID, $assignee: String,
+      $messageKeyword: String, $attention: String, $minAmount: Int, $maxAmount: Int, $risk: String, $from: String, $to: String,
+      $skip: Int, $take: Int) {
+      campusMerchantAfterSales(state: $state, type: $type, orderCode: $orderCode, keyword: $keyword, tag: $tag,
+        assignee: $assignee, messageKeyword: $messageKeyword, attention: $attention, minAmount: $minAmount,
+        maxAmount: $maxAmount, risk: $risk, from: $from, to: $to, skip: $skip, take: $take) {
+        items {
+          id orderId orderCode state type reason description refundAmount rejectReason evidenceImages messageCount
+          customerName createdAt refundedAt overdue unread dueSoon tags assigneeUserId assigneeName riskReason
+          slaPaused slaPausedReason escalated refundReviewPending exchangeTrackingNo exchangeCarrier
+        }
+        pendingCount total stateCounts { state count } skip take
+      }
+    }`,
+    {
+      state: filter.state ?? null,
+      type: filter.type ?? null,
+      orderCode: filter.orderCode ?? null,
+      keyword: filter.keyword ?? null,
+      tag: filter.tag ?? null,
+      assignee: filter.assignee ?? null,
+      messageKeyword: filter.messageKeyword ?? null,
+      attention: filter.attention ?? null,
+      minAmount: filter.minAmount ?? null,
+      maxAmount: filter.maxAmount ?? null,
+      risk: filter.risk ?? null,
+      from: filter.from ?? null,
+      to: filter.to ?? null,
+      skip: filter.skip ?? 0,
+      take: filter.take ?? 20,
+    },
+  );
+  const data = res.campusMerchantAfterSales;
+  return {
+    items: data?.items ?? [],
+    pendingCount: data?.pendingCount ?? 0,
+    total: data?.total ?? 0,
+    stateCounts: data?.stateCounts ?? [],
+    skip: data?.skip ?? 0,
+    take: data?.take ?? 20,
+  };
+}
+
+/** 批量处置结果（§101）：单条失败不阻断整批 */
+export interface MerchantAfterSalesBatchResult {
+  id: string;
+  success: boolean;
+  state: string;
+  message: string | null;
+}
+
+/** 批量同意（§101）：单批上限 50；大额退款可能转入复核 */
+export async function campusMerchantAfterSalesBatchApprove(
+  ids: string[],
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchApprove: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!) { campusMerchantAfterSalesBatchApprove(ids: $ids) { id success state message } }`,
+    { ids },
+  );
+  return res.campusMerchantAfterSalesBatchApprove ?? [];
+}
+
+/** 批量驳回（§101）：整批共用同一原因（≤200 字） */
+export async function campusMerchantAfterSalesBatchReject(
+  ids: string[],
+  reason: string,
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchReject: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $reason: String!) {
+      campusMerchantAfterSalesBatchReject(ids: $ids, reason: $reason) { id success state message }
+    }`,
+    { ids, reason },
+  );
+  return res.campusMerchantAfterSalesBatchReject ?? [];
+}
+
+/** 批量关闭（§101）：整批共用同一原因 */
+export async function campusMerchantAfterSalesBatchClose(
+  ids: string[],
+  reason: string,
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchClose: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $reason: String!) {
+      campusMerchantAfterSalesBatchClose(ids: $ids, reason: $reason) { id success state message }
+    }`,
+    { ids, reason },
+  );
+  return res.campusMerchantAfterSalesBatchClose ?? [];
+}
+
+/** 批量指派（§101）：userId 为空=取消指派 */
+export async function campusMerchantAfterSalesBatchAssign(
+  ids: string[],
+  userId: string | null,
+): Promise<MerchantAfterSalesBatchResult[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesBatchAssign: MerchantAfterSalesBatchResult[] }>(
+    `mutation ($ids: [ID!]!, $userId: ID) {
+      campusMerchantAfterSalesBatchAssign(ids: $ids, userId: $userId) { id success state message }
+    }`,
+    { ids, userId },
+  );
+  return res.campusMerchantAfterSalesBatchAssign ?? [];
+}
+
+/** 一键发放补偿挽留结果（§101）：ok=false 时 message 为失败原因 */
+export interface MerchantAfterSalesCompensationResult {
+  ok: boolean;
+  refundAmount: number;
+  couponGranted: boolean;
+  message: string | null;
+}
+
+/** 一键发放补偿挽留（§101）：部分退款 + 券，随后关闭售后单 */
+export async function campusMerchantAfterSalesApplyCompensation(
+  id: string,
+  planId: string,
+): Promise<MerchantAfterSalesCompensationResult> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesApplyCompensation: MerchantAfterSalesCompensationResult }>(
+    `mutation ($id: ID!, $planId: ID!) {
+      campusMerchantAfterSalesApplyCompensation(id: $id, planId: $planId) { ok refundAmount couponGranted message }
+    }`,
+    { id, planId },
+  );
+  return res.campusMerchantAfterSalesApplyCompensation;
+}
+
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
   orderId: string,
