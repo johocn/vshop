@@ -1,5 +1,5 @@
 <template>
-  <view class="trust-card">
+  <view v-if="hasContent" class="trust-card">
     <view class="trust-card__head">
       <text class="trust-card__title">{{ t('review.trustTitle') }}</text>
       <view class="trust-card__badges">
@@ -8,18 +8,20 @@
         <text class="trust-card__badge">{{ t('review.trustReal') }}</text>
       </view>
     </view>
-    <!-- 固定顺序：质量 → 服务 → 时间 -->
+    <!-- 固定顺序：质量 → 服务 → 时间；关闭的行不展示，空文案回落默认 -->
     <view v-for="row in ROWS" :key="row.key" class="trust-card__row">
       <text class="trust-card__label">{{ t(row.labelKey) }}</text>
-      <text class="trust-card__text">{{ t(row.textKey) }}</text>
+      <text class="trust-card__text">{{ row.text }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { fetchStoreTrust, type StoreTrustCopy } from '../api/queries/trust';
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     /** 商品平均分（评价列表页有）,可空 */
     averageRating?: number | string | null;
     /** 好评率 0-100（评价列表页有），可空 */
@@ -31,12 +33,34 @@ withDefaults(defineProps<{
 
 const { t } = useI18n();
 
-/** 三项顺序固定为 质量 / 服务 / 时间，不随数据源变化 */
-const ROWS = [
-    { key: 'quality', labelKey: 'review.trustQuality', textKey: 'review.trustQualityText' },
-    { key: 'service', labelKey: 'review.trustService', textKey: 'review.trustServiceText' },
-    { key: 'time', labelKey: 'review.trustTime', textKey: 'review.trustTimeText' },
-];
+/** 店铺级信任文案（§113）：一次会话缓存；未配置/失败即三行默认文案 */
+const trust = ref<StoreTrustCopy>({
+    qualityEnabled: true,
+    qualityText: null,
+    serviceEnabled: true,
+    serviceText: null,
+    timeEnabled: true,
+    timeText: null,
+});
+
+onMounted(async () => {
+    trust.value = await fetchStoreTrust();
+});
+
+/** 三项顺序固定为 质量 / 服务 / 时间，不随数据源变化；顺带按店铺配置做开关与文案替换 */
+const ROWS = computed(() => {
+    const cfg = trust.value;
+    return [
+        { key: 'quality', labelKey: 'review.trustQuality', enabled: cfg.qualityEnabled, text: cfg.qualityText, fallbackKey: 'review.trustQualityText' },
+        { key: 'service', labelKey: 'review.trustService', enabled: cfg.serviceEnabled, text: cfg.serviceText, fallbackKey: 'review.trustServiceText' },
+        { key: 'time', labelKey: 'review.trustTime', enabled: cfg.timeEnabled, text: cfg.timeText, fallbackKey: 'review.trustTimeText' },
+    ]
+        .filter(row => row.enabled)
+        .map(row => ({ ...row, text: (row.text ?? '').trim() || t(row.fallbackKey) }));
+});
+
+/** 三行全关且无评分徽章时整卡不展示，避免只剩一个空标题 */
+const hasContent = computed(() => ROWS.value.length > 0 || props.averageRating != null || props.goodRate != null);
 </script>
 
 <style lang="scss" scoped>

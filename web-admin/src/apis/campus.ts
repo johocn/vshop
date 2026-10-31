@@ -341,6 +341,18 @@ export interface MerchantStoreProfile {
   alertRefundRate: number;
   /** 超时待处理预警阈值（单，0=关闭该项） */
   alertOverdueCount: number;
+  /** 信任文案（§113）：质量行开关（关=该行不展示） */
+  trustQualityEnabled: boolean;
+  /** 质量行自定义文案（null=回落 C 端默认文案） */
+  trustQualityText: string | null;
+  /** 服务行开关 */
+  trustServiceEnabled: boolean;
+  /** 服务行自定义文案（null=回落默认） */
+  trustServiceText: string | null;
+  /** 时间行开关 */
+  trustTimeEnabled: boolean;
+  /** 时间行自定义文案（null=回落默认） */
+  trustTimeText: string | null;
 }
 
 /** 经营数据分桶（分）：营业额=已送达订单实付；取消=全额退款口径 */
@@ -591,7 +603,8 @@ const STORE_PROFILE_FIELDS = 'storeName businessHours storeNotice storePhone pau
   + ' nextTransition { action at inMinutes today } unfinishedOrders'
   + ' dailyPushEnabled dailyPushTime'
   + ' monthlyPushEnabled monthlyPushDay monthlyPushTime'
-  + ' autoAssignEnabled autoAssignMax alertEnabled alertRefundRate alertOverdueCount';
+  + ' autoAssignEnabled autoAssignMax alertEnabled alertRefundRate alertOverdueCount'
+  + ' trustQualityEnabled trustQualityText trustServiceEnabled trustServiceText trustTimeEnabled trustTimeText';
 
 /** 商家自助经营：门店资料 */
 export async function campusMerchantStoreProfile(): Promise<MerchantStoreProfile> {
@@ -620,6 +633,35 @@ export async function campusMerchantUpdateStore(input: {
     },
   );
   return res.campusMerchantUpdateStore;
+}
+
+/** 信任文案（§113）：评价页信任签名卡三行开关 + 自定义文案，文案留空=回落 C 端默认 */
+export async function campusMerchantUpdateTrustCopy(input: {
+  qualityEnabled?: boolean | null;
+  qualityText?: string | null;
+  serviceEnabled?: boolean | null;
+  serviceText?: string | null;
+  timeEnabled?: boolean | null;
+  timeText?: string | null;
+}): Promise<MerchantStoreProfile> {
+  const res = await getAdminClient().request<{ campusMerchantUpdateTrustCopy: MerchantStoreProfile }>(
+    `mutation ($qualityEnabled: Boolean, $qualityText: String, $serviceEnabled: Boolean, $serviceText: String, $timeEnabled: Boolean, $timeText: String) {
+      campusMerchantUpdateTrustCopy(
+        qualityEnabled: $qualityEnabled, qualityText: $qualityText,
+        serviceEnabled: $serviceEnabled, serviceText: $serviceText,
+        timeEnabled: $timeEnabled, timeText: $timeText
+      ) { ${STORE_PROFILE_FIELDS} }
+    }`,
+    {
+      qualityEnabled: input.qualityEnabled ?? null,
+      qualityText: input.qualityText ?? null,
+      serviceEnabled: input.serviceEnabled ?? null,
+      serviceText: input.serviceText ?? null,
+      timeEnabled: input.timeEnabled ?? null,
+      timeText: input.timeText ?? null,
+    },
+  );
+  return res.campusMerchantUpdateTrustCopy;
 }
 
 /** 每日日报推送设置（§86）：enabled=开关，time=HH:MM（留空沿用 21:30） */

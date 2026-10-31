@@ -157,6 +157,27 @@
         </view>
       </view>
 
+      <!-- 信任文案（§113）：评价页「信任签名」卡三行，关闭某项则该行不展示；文案留空用默认 -->
+      <view class="card">
+        <view class="head">
+          <text class="title">{{ $t('campusStoreSettings.trustTitle') }}</text>
+        </view>
+        <text class="tip">{{ $t('campusStoreSettings.trustHint') }}</text>
+        <view v-for="row in TRUST_ROWS" :key="row.key" class="field">
+          <view class="row">
+            <text class="row-lbl">{{ $t(row.label) }}</text>
+            <switch class="sw" :checked="trustForm[row.enabled]" color="#ff6600" @change="onTrustToggle(row.enabled, $event)" />
+          </view>
+          <input
+            v-model="trustForm[row.text]" class="ipt" maxlength="80"
+            :disabled="!trustForm[row.enabled]" :placeholder="$t(row.placeholder)"
+          />
+        </view>
+        <button class="save small" :disabled="trustBusy" @tap="saveTrustCopy">
+          {{ trustBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.trustSave') }}
+        </button>
+      </view>
+
       <button class="save" :disabled="saving" @tap="save">
         {{ saving ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.save') }}
       </button>
@@ -235,6 +256,7 @@ import {
   campusMerchantUpdateAutoAccept,
   campusMerchantUpdateDailyPush,
   campusMerchantUpdateStore,
+  campusMerchantUpdateTrustCopy,
   type CampusMerchantAutoAccept,
   type MerchantRevenue,
   type MerchantStoreProfile,
@@ -267,6 +289,60 @@ const dailyBusy = ref(false);
 const dailyForm = ref({ enabled: false, time: '21:30' });
 const warnOn = ref(closingWarnEnabled());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
+
+/** 信任文案（§113）：评价页「信任签名」卡三行开关 + 自定义文案，留空=回落 C 端默认文案 */
+type TrustToggleKey = 'qualityEnabled' | 'serviceEnabled' | 'timeEnabled';
+const trustForm = ref({
+  qualityEnabled: true,
+  qualityText: '',
+  serviceEnabled: true,
+  serviceText: '',
+  timeEnabled: true,
+  timeText: '',
+});
+const trustBusy = ref(false);
+const TRUST_ROWS = [
+  { key: 'quality', enabled: 'qualityEnabled', text: 'qualityText', label: 'campusStoreSettings.trustQuality', placeholder: 'campusStoreSettings.trustQualityPh' },
+  { key: 'service', enabled: 'serviceEnabled', text: 'serviceText', label: 'campusStoreSettings.trustService', placeholder: 'campusStoreSettings.trustServicePh' },
+  { key: 'time', enabled: 'timeEnabled', text: 'timeText', label: 'campusStoreSettings.trustTime', placeholder: 'campusStoreSettings.trustTimePh' },
+] as const;
+
+function applyTrust(p: MerchantStoreProfile): void {
+  trustForm.value = {
+    qualityEnabled: p.trustQualityEnabled ?? true,
+    qualityText: p.trustQualityText ?? '',
+    serviceEnabled: p.trustServiceEnabled ?? true,
+    serviceText: p.trustServiceText ?? '',
+    timeEnabled: p.trustTimeEnabled ?? true,
+    timeText: p.trustTimeText ?? '',
+  };
+}
+
+function onTrustToggle(key: TrustToggleKey, e: any): void {
+  trustForm.value[key] = !!e?.detail?.value;
+}
+
+/** 保存信任文案：三条一起提交；服务端会把空串归一为 null（C 端回落默认文案） */
+async function saveTrustCopy(): Promise<void> {
+  trustBusy.value = true;
+  try {
+    const p = await campusMerchantUpdateTrustCopy({
+      qualityEnabled: trustForm.value.qualityEnabled,
+      qualityText: trustForm.value.qualityText.trim(),
+      serviceEnabled: trustForm.value.serviceEnabled,
+      serviceText: trustForm.value.serviceText.trim(),
+      timeEnabled: trustForm.value.timeEnabled,
+      timeText: trustForm.value.timeText.trim(),
+    });
+    profile.value = p;
+    applyTrust(p);
+    uni.showToast({ title: locale.t('campusStoreSettings.trustSaved'), icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusStoreSettings.opFailed')), icon: 'none' });
+  } finally {
+    trustBusy.value = false;
+  }
+}
 
 /** 营业日历（§70）：休业日期本地列表（保存前可增删），date=YYYY-MM-DD */
 const closure = ref<Array<{ date: string; note: string }>>([]);
@@ -431,6 +507,7 @@ function applyProfile(p: MerchantStoreProfile, syncForm = true): void {
     form.value.storeNotice = p.storeNotice ?? '';
     form.value.storePhone = p.storePhone ?? '';
     applyClosure(p);
+    applyTrust(p);
   }
   maybeClosingReminder(p.nextTransition);
 }

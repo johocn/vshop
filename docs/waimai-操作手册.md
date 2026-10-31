@@ -5942,6 +5942,114 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 截图 | `docs/screenshots/common-features-v43/` | 2 张（`01` 店铺评价 Tab / `02` 我的评价） |
 | C 端（vshop） | 无需重新部署 | 本节仅改外卖 C 端；§111 验收脚本重跑 4 张截图字节无变化 |
 
+## §113 信任文案店铺级配置：三行开关 + 自定义文案（已上线）
+
+**操作入口**：后台「经营设置」›「信任文案」卡；生效位置为 vshop 与外卖 C 端所有评价页的「信任签名」卡（商品评价列表 / 我的评价 / 写评价）。
+
+§111 / §112 把信任签名卡铺到了两端评价页，但文案写死在前端 i18n（全店统一、商家不可改，§112.6 第 3 条）。本节把「质量 / 服务 / 时间」三行下沉为**店铺级配置**：每行独立开关 + 自定义文案，后台改完 C 端即时生效；不改顺序、不改纯展示语义。
+
+### 113.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后端实体 | `packages/campus-delivery-plugin/src/campus-fulfillment-config.entity.ts` | 新增 6 列：`trustQualityEnabled/Text`、`trustServiceEnabled/Text`、`trustTimeEnabled/Text`；开关默认 `true`，文案 `varchar(80)` 可空；新增常量 `TRUST_TEXT_MAX_LENGTH = 80` |
+| 后端迁移 | `packages/campus-delivery-plugin/src/migrations/p39-trust-copy.ts`（新建） | 6 条 `ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS …`，幂等；注册进 `providers` |
+| 后端 admin API | `campus-delivery.plugin.ts` + `merchant-admin.service.ts` + `merchant-admin.resolver.ts` | `MerchantStoreProfile` 增加 6 字段；新增 Mutation `campusMerchantUpdateTrustCopy`（未传=保留旧值，空串归一 `null`，>80 字拒绝） |
+| 后端 shop API | `campus-delivery.plugin.ts` + `waimai-store.service.ts` + `waimai-shop.resolver.ts` | 新增 `type CampusStoreTrust` 与 Query `campusStoreTrust: CampusStoreTrust!`（Public，按 `ctx.channelId` 读） |
+| 后台 | `web-admin/src/apis/campus.ts` | `MerchantStoreProfile` 6 字段 + `STORE_PROFILE_FIELDS` 追加 + `campusMerchantUpdateTrustCopy()` |
+| 后台 | `web-admin/src/pages/campus/store-settings.vue` | 新增「信任文案」卡：三行（switch + 输入框，关闭即禁用输入）；「保存信任文案」独立提交 |
+| 后台 | `web-admin/src/locale/{zh-Hans,en}.json` | `campusStoreSettings` 新增 10 键（`trustTitle` / `trustHint` / 三行 label+placeholder / `trustSave` / `trustSaved`） |
+| 外卖 C 端 | `src/api/queries/trust.ts`（新建）+ `src/components/TrustSignatureCard.vue` | 走 `campusStoreTrust` 查询；模块级缓存一次会话；开关过滤 + 空文案回落 `reviewTrust.*` 默认 |
+| vshop C 端 | `src/api/queries/trust.ts`（新建）+ `src/components/TrustSignatureCard.vue` | 同上，默认文案回落 `review.*` |
+| 截图 | `docs/screenshots/waimai/p113-trust-copy/`（vshop 仓）+ `docs/screenshots/waimai/p113-trust-copy/`（waimai-v39 仓） | 4 张后台三态 + 3 张 vshop + 3 张外卖 C 端，390×844 dpr2 |
+
+### 113.2 口径与契约
+
+- **三项顺序固定**：质量 → 服务 → 时间，由组件 `ROWS` computed 的数组字面量决定，不随配置顺序或数据变化。
+- **开关语义**：`enabled = false` 该行整行不渲染（标签+文案）；文案输入框在后台同步禁用。默认三行全开（后端列 `default true`，向后兼容 §111/§112 表现）。
+- **文案语义**：`text = null / 空串 / 全空白` → 回落各语言默认文案；填写即原样展示（不做插值、不做换行）。自定义文案为**中文单值**，外语站点未填自定义时回落各自语言默认（不翻译商家中文）。
+- **整卡隐藏**：三行全关且页面未传 `averageRating` / `goodRate` 时，组件 `v-if="hasContent"` 为 false，卡片整体不渲染（不留空标题）；带评分徽章的页面仍展示徽章。
+- **GraphQL 契约**：
+  - Admin Query `campusMerchantStoreProfile` 返回 `trustQualityEnabled trustQualityText … trustTimeText` 6 字段；
+  - Admin Mutation `campusMerchantUpdateTrustCopy(qualityEnabled: Boolean, qualityText: String, serviceEnabled: Boolean, serviceText: String, timeEnabled: Boolean, timeText: String): MerchantStoreProfile!`；
+  - Shop Query `campusStoreTrust: CampusStoreTrust!` 返回同名 6 字段，按 `vendure-token` 对应渠道读 `campus_fulfillment_config`，无配置行时返回全开 + 空文案。
+- **字节契约（`campus_fulfillment_config` 新增列）**：
+
+| 列 | 类型 | 默认 | 可空 | 含义 |
+|---|---|---|---|---|
+| `trust_quality_enabled` | `boolean` | `true` | 否 | 质量行开关 |
+| `trust_quality_text` | `varchar(80)` | — | 是 | 质量行自定义文案（NULL=回落默认） |
+| `trust_service_enabled` | `boolean` | `true` | 否 | 服务行开关 |
+| `trust_service_text` | `varchar(80)` | — | 是 | 服务行自定义文案 |
+| `trust_time_enabled` | `boolean` | `true` | 否 | 时间行开关 |
+| `trust_time_text` | `varchar(80)` | — | 是 | 时间行自定义文案 |
+
+- **取数时机**：C 端模块级 Promise 缓存，一次会话只拉一次（切换店铺不重新拉，因为配置按渠道、会话内渠道固定）；请求失败静默回落默认，页面不空窗。
+
+### 113.3 权限与校验
+
+- **写**：`campusMerchantUpdateTrustCopy` 走 `@Allow(CampusPermissions.CampusMerchant)`，与「经营设置」其他商家自助接口同权；只能改本渠道配置（`ctx.channelId`），不能跨店。
+- **读**：`campusStoreTrust` 为 `@Allow(Permission.Public)`，C 端未登录也可读（评价页对游客可见）。
+- **长度校验**：`TRUST_TEXT_MAX_LENGTH = 80`，服务端 `trustText()` 逐项校验，超长抛 `UserInputError`（中文提示含行名）；前端输入框 `maxlength="80"` 同步限制。
+- **空值归一**：提交空串/纯空白 → 存 `NULL`（不是 `''`），C 端统一按「无自定义」处理。
+- **部分提交**：未传的字段保留旧值（`undefined` 跳过），因此后台可只改一行。
+
+### 113.4 数据库变更
+
+- 新增迁移 `P39TrustCopyMigration`（`src/migrations/p39-trust-copy.ts`），在 `OnApplicationBootstrap` 阶段以 `CREATE QueryRunner` 执行 6 条幂等 DDL：
+
+```sql
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS trust_quality_enabled boolean NOT NULL DEFAULT true;
+ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS trust_quality_text varchar(80);
+-- service / time 两行同构，共 6 条
+```
+
+- 生产 `synchronize:false`，只靠该迁移；重复启动安全（`IF NOT EXISTS`）。
+- 无数据回填：存量行由 `DEFAULT true` 自动获得「三行全开」，文案列 NULL 即回落默认，与上线前表现完全一致。
+
+### 113.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 后端 `tsc -p tsconfig.build.json`（插件目录直编，绕过 pnpm lockfile 既有报错） | PASS（`lib/src/migrations/p39-trust-copy.*` 已生成） |
+| 2 | 后端 `npm test`（campus-delivery-plugin） | PASS（60 文件 / 776 用例全绿） |
+| 3 | 后台 `npm run build:h5` | PASS（仅 sass 弃用告警） |
+| 4 | 外卖 C 端 `pnpm build:h5` | PASS |
+| 5 | vshop C 端 `npm run build:h5` | PASS |
+| 6 | 后台默认态（未配置） | PASS（三行开关全开、输入框空且带 placeholder；截图 `01-admin-trust-copy-default.png`） |
+| 7 | 后台关闭「质量」行 | PASS（该行 switch 关闭、输入框 `disabled=true`，其余两行不受影响；截图 `02-…-quality-off.png`） |
+| 8 | 后台自定义文案 | PASS（三行回填「食材当日采购…/口味不合心意…/高峰期 20 分钟…」；截图 `03-…-custom.png`） |
+| 9 | 后台保存 | PASS（toast「信任文案已保存」，资料回填一致；截图 `04-…-saved.png`） |
+| 10 | vshop 评价列表 · 默认 | PASS（三行=「食材新鲜，出品稳定 / 口味不合心意可随时联系商家 / 高峰期准时出餐，不拖延」，徽章 4.8 分 / 好评率 96%；截图 `05`） |
+| 11 | vshop 评价列表 · 自定义 | PASS（三行替换为自定义文案；截图 `06`） |
+| 12 | vshop 评价列表 · 三行全关 | PASS（行数 0，仅剩三个徽章，卡片不隐藏；截图 `07`） |
+| 13 | 外卖 C 端我的评价 · 默认 | PASS（三行默认文案 + 「真实评价」徽章；截图 `08`） |
+| 14 | 外卖 C 端我的评价 · 自定义 | PASS（三行替换；截图 `09`） |
+| 15 | 外卖 C 端我的评价 · 三行全关 | PASS（`cardVisible=false`，整卡隐藏（该页无评分徽章）；截图 `10`） |
+
+截图取数方式：本地静态服务 `dist/build/h5` + Playwright 拦截 `/admin-api`、`/shop-api`，按用例注入 `campusMerchantStoreProfile` / `campusStoreTrust` 三态，不依赖线上数据。
+
+### 113.6 边界与已知限制
+
+1. 自定义文案只有一档（中文单值），外语站点不做翻译；商家在英文站点看到的是该语言默认文案，除非把自定义文案写成通用短句。
+2. 配置按**渠道（店铺）**粒度，同一站点多店铺各自独立；不支持按商品/分类维度定制。
+3. C 端配置为会话级缓存，商家后台改完需顾客刷新页面（重进小程序）才生效，不做实时推送。
+4. 三行全关在带评分徽章的页面仍会保留卡片（只剩徽章），这是有意为之：避免评分信息一起消失。
+5. 文案仅做纯文本展示，不支持富文本、换行、表情符号特殊排版；80 字上限为服务端硬校验。
+6. 后台「保存信任文案」与页面底部「保存」是两个独立提交，信任文案不会被底部保存按钮连带提交。
+
+### 113.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 推送 `origin/master` → 服务器 `git fetch origin master` + `git checkout origin/master -- packages/campus-delivery-plugin` + `pm2 restart vendure --update-env` | 待部署 |
+| 后台 | `cd web-admin && npm run build:h5 && node scripts/deploy.mjs` | 待部署 |
+| 外卖 C 端 | `node .secrets/deploy-waimai.mjs` | 待部署 |
+| C 端（vshop） | `npm run build:h5` → tar/scp → 解压至 `…/sites/e.joho.cn/index` | 待部署 |
+| 线上 chunk | 三端 chunk 200 且体积与本地一致 | 待校验 |
+| 截图 | `docs/screenshots/waimai/p113-trust-copy/`（后台 4 张 + vshop 3 张） | 完成 |
+| 截图（外卖 C 端） | `waimai-v39/docs/screenshots/waimai/p113-trust-copy/`（3 张） | 完成 |
+
 
 
 
