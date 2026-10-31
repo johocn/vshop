@@ -1,6 +1,8 @@
 <template>
   <view v-if="visible && tpl" class="cds-mask" @click="$emit('close')">
     <view class="cds-sheet" @click.stop>
+      <!-- 活动大图：有图则顶部通栏展示，加载失败或无图则整块隐藏 -->
+      <image v-if="heroSrc" class="cds-hero" mode="aspectFill" :src="heroSrc" @error="heroFail = true" />
       <view class="cds-head">
         <view class="cds-left">
           <text class="cds-amount">{{ amountText }}</text>
@@ -62,7 +64,14 @@ defineEmits<{ (e: 'close'): void; (e: 'buy'): void }>();
 
 const { t, locale } = useI18n();
 const imgFail = ref(false);
-watch(() => props.visible, () => { imgFail.value = false; });
+const heroFail = ref(false);
+watch(() => [props.visible, props.tpl], () => { imgFail.value = false; heroFail.value = false; });
+
+/** 顶部活动大图：无图或加载失败时为空，不占位 */
+const heroSrc = computed(() => {
+    const src = String(props.tpl?.activityImage ?? '').trim();
+    return src && !heroFail.value ? src : '';
+});
 
 /** description（本地化字符串或 LocalizedText 映射）按当前语言取值后图文分段，映射缺当前语言回退任一语言 */
 const paragraphs = computed(() => {
@@ -105,6 +114,10 @@ const priceYuan = computed(() => {
     max-height: 72vh; overflow-y: auto; box-sizing: border-box;
 }
 .cds-head { display: flex; gap: 24rpx; }
+.cds-hero {
+    width: 100%; height: 300rpx; border-radius: $radius-md;
+    margin-bottom: 24rpx; display: block; background: #f2f3f5;
+}
 .cds-left {
     min-width: 180rpx; display: flex; flex-direction: column;
     align-items: center; justify-content: center;

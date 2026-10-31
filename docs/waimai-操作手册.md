@@ -5691,6 +5691,50 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62186 KB` → nginx `test is successful` + reload → `deploy done` |
 | 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-platform-merchants-index.BhdMBcCJ.js` 200 / 5202 B、`pages-platform-merchants-detail.BGpTCA1s.js` 200 / 17707 B、`pages-platform-stores-index.mZi0c3p4.js` 200 / 5573 B、`pages-platform-stores-detail.aMuDdIJN.js` 200 / 32130 B、`merchant-admin.DdqOc13G.js` 200 / 4019 B |
 
+## §109 券卡改版：活动图缩略 / 海报卡 / 券详情通栏大图（已上线）
+
+顾客端券卡原先左侧是一块固定渐变色价格牌（金额 + 券类型），券信息挤在右侧；券种类一多，列表辨识度低。本版把「活动图」`activityImage` 引到 C 端：左侧改为活动图缩略（无图时用券名首字兜底），价格与类型标签移入右侧信息区；券商城单券卡升级为通栏沉浸海报卡（顶部大图 + 券信息 + 购买按钮）；券详情弹层顶部增加活动通栏大图。
+
+### 109.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 查询层 | `src/api/queries/coupon.ts` | `COUPON_TEMPLATE_FIELDS` 增加 `activityImage`（券中心 / 我的卡包 / 券商城 / 积分商城 / 商品专属券 5 处查询同时生效） |
+| 组件 | `src/pkg-promotion/components/CouponDetailSheet.vue` | 顶部新增 `.cds-hero` 通栏活动大图（`heroSrc` 计算属性：无图或 `@error` 加载失败时整块隐藏、不占位）；`watch` 同时监听 `visible` 与 `tpl`，切换券时重置失败标记 |
+| 页面 | `src/pkg-promotion/pages/coupons.vue` | 领券中心 / 到店券 / 我的卡包三个列表的 `coupon-card__left` 渐变块改为 `coupon-card__thumb`（活动图 `aspectFill` 或首字兜底 `couponInitial`）；金额行与类型标签移入右侧 `__info` |
+| 页面 | `src/pkg-promotion/pages/coupon-mall.vue` | 领券 / 积分 / 卡包同样改缩略图；**券商城单券卡**改为 `coupon-card--poster`（`flex-direction: column`，活动图 100% × 320rpx 通栏，金额行移到券名下方） |
+
+### 109.2 契约与口径
+
+- **字段**：`CouponTemplate.activityImage`（后端 `varchar(1024) nullable`，由 `add-coupon-activity-image` 迁移幂等补列）；后台「优惠券编辑」页已可填写，空值合法。
+- **兜底口径**：`couponInitial(name)` 取券名首字；券名缺失时取 `t('coupons.nameFallback')` / `t('couponMall.nameFallback')`（中「优惠券」→「优」、英「Coupon」→「C」），不硬编码中文。
+- **图片失败**：列表卡不做逐项 error 兜底（保持灰底），仅券详情大图做整块隐藏，避免弹层顶部出现破图。
+- **版式**：普通券卡 `min-height: 200rpx`、缩略图 `180rpx` 宽 `align-self: stretch`；海报卡缩略图 100% 宽、高 `320rpx`、金额字号 `48rpx`（普通卡 `40rpx`）。
+- **兼容**：`saleTemplates` / `mc.template` 均可能为 `null`，全部用可选链读取 `activityImage` / `name`，无 template 时不报错。
+
+### 109.3 校验与边界
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 领券中心 3 张券（`activityImage = null`）：左侧灰底首字兜底「新 / 全 / 免」，金额行与类型标签在右侧 | PASS（`fallbackThumbs=3`、`imageThumbs=0`） |
+| 2 | 领券中心 mock 带图 3 张：活动图 `aspectFill` 铺满缩略区、无拉伸变形 | PASS |
+| 3 | 我的卡包（UNUSED 2 张）：1 张带图 + 1 张首字兜底「门」，已用券整体 `opacity .65` | PASS |
+| 4 | 券商城「领券」tab：3 张带图券卡，券名 + 场景标签 + 条件/时间齐全 | PASS |
+| 5 | 券商城「购券」tab：`posterCards=3` 通栏海报卡，活动图、券名、金额、库存进度、购买按钮均完整无裁切 | PASS |
+| 6 | 券商城「卡包」tab：临期券（带「剩 N 天」角标）+ 带图券各 1 张 | PASS |
+| 7 | 点击海报卡打开券详情：`cds-mask` / `cds-hero` 均出现，顶图 + 金额 + 券名 + 券介绍 + 适用范围 + 购买须知 + 底部购买按钮完整 | PASS |
+| 8 | 线上 `CouponTemplate` 内省：40 字段含 `activityImage`；`couponCentre` 返回 3 条、`activityImage` 均为 `null`（不影响渲染） | PASS |
+
+### 109.4 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| C 端 | `npm run build:h5` → `tar -czf` → `scp joho:/tmp/` → 解压至 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（解压前 `index.html` 备份为 `index.bak_<ts>.html`） | 产物 2373 KB / 725 KB 包，`DEPLOY_OK`（仅目录属主 root 导致 utime/chmod 告警，文件内容已更新） |
+| 线上 chunk | `https://e.joho.cn/assets/` | `index-C9ljofZU.js` 200 / 753499 B、`pkg-promotion-pages-coupons.c3R8-uvN.js` 200 / 14931 B、`pkg-promotion-pages-coupon-mall.fBI2dNA2.js` 200 / 28370 B、`coupon-mall-DQ8HRY_Z.css` 200 / 11920 B，Content-Length 与本地一致 |
+| 线上标记 | 抓取 chunk 正文 | CSS 含 `poster`（海报卡）、JS 含 `activityImage`（字段已带入查询） |
+| 截图 | `docs/screenshots/promotion/coupon-cards/` | 7 张 390×844 dpr2：`01` 首字兜底 / `02` 带图券卡 / `03` 我的卡包 / `04` 券商城领券 / `05` 海报卡 / `06` 券商城卡包 / `07` 券详情弹层 |
+| 截图脚本 | `scripts/_shots_coupons.cjs` | 本地 http 服务 `dist/build/h5`（hash 路由）+ `page.route` 按 GraphQL 操作名 mock；复跑两次结果一致 |
+
 
 
 

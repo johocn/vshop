@@ -8,7 +8,7 @@ const COUPON_TEMPLATE_FIELDS = `
     startsAt endsAt totalCount claimedCount pointsPrice perUserLimit
     scope categoryId variantId enabled shopId usageScene createdAt updatedAt
     claimable claimCode validDays newCustomerOnly memberLevel
-    distributionChannels salePrice
+    distributionChannels salePrice activityImage
 `;
 
 /** 领券中心：当前可领取的优惠券模板列表；scene: ONLINE（默认）| IN_STORE（到店券）| ALL */
