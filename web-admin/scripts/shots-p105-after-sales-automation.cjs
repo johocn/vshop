@@ -4,7 +4,7 @@
 //   03 新增规则弹层（已填写金额区间）
 //   04 保存后列表（新增规则已生效）
 //   05 规则启停（停用一条规则）
-//   06 自动分配到处理人
+//   06 自动分配到处理人（含近 7 日处理量/完结率建议参考）
 //   07 售后异常预警
 //   08 售后月度摘要推送
 //   09 售后申请页入口（售后分析 / 售后自动化）
@@ -53,6 +53,14 @@ const PROFILE = {
   alertEnabled: false, alertRefundRate: 0, alertOverdueCount: 0,
   monthlyPushEnabled: false, monthlyPushDay: 1, monthlyPushTime: '21:30',
 };
+
+// §89 员工绩效：近 7 日处理量 / 完结率，用于自动分配建议参考
+const STAFF = [
+  { operatorUserId: '160', operatorName: '张伟', handled: 34, resolved: 31, firstActionAvgMinutes: 4, resolveAvgMinutes: 27, overdueCount: 1, escalatedCount: 0, resolveRate: 91, reviewCount: 12, reviewAvgScore: 4.6 },
+  { operatorUserId: '161', operatorName: '李静', handled: 28, resolved: 26, firstActionAvgMinutes: 3, resolveAvgMinutes: 22, overdueCount: 0, escalatedCount: 1, resolveRate: 93, reviewCount: 9, reviewAvgScore: 4.8 },
+  { operatorUserId: '162', operatorName: '王强', handled: 21, resolved: 15, firstActionAvgMinutes: 9, resolveAvgMinutes: 41, overdueCount: 3, escalatedCount: 1, resolveRate: 71, reviewCount: 5, reviewAvgScore: 4.2 },
+  { operatorUserId: '163', operatorName: '赵敏', handled: 12, resolved: 11, firstActionAvgMinutes: 6, resolveAvgMinutes: 19, overdueCount: 0, escalatedCount: 0, resolveRate: 92, reviewCount: 4, reviewAvgScore: 4.7 },
+];
 
 function makeRoute() {
   return async (route) => {
@@ -105,6 +113,7 @@ function makeRoute() {
       return fulfill({ campusMerchantUpdateAfterSalesMonthlyPush: { ...PROFILE } });
     }
     if (raw.includes('campusMerchantStoreProfile')) return fulfill({ campusMerchantStoreProfile: { ...PROFILE } });
+    if (raw.includes('campusMerchantAfterSalesStaffStats')) return fulfill({ campusMerchantAfterSalesStaffStats: STAFF });
     if (raw.includes('campusMerchantAfterSalesWorkbench')) return fulfill({ campusMerchantAfterSalesWorkbench: {} });
     if (raw.includes('campusMerchantAfterSales')) return fulfill({ campusMerchantAfterSales: { items: [], total: 0, pendingCount: 0, stateCounts: [] } });
     if (raw.includes('me {')) return fulfill({ me: { id: '9' } });
@@ -153,6 +162,7 @@ async function newPage(browser) {
     sheet: document.querySelector('.sheet__t')?.textContent?.trim() || '',
     fields: Array.from(document.querySelectorAll('.sheet .ipt')).map((n) => (n.value || n.textContent || '').trim()),
     toast: document.querySelector('.uni-toast')?.textContent?.trim() || '',
+    staff: Array.from(document.querySelectorAll('.staff__row')).map((n) => n.textContent.replace(/\s+/g, ' ').trim()),
     entries: Array.from(document.querySelectorAll('.oe-i')).map((n) => n.textContent.trim()),
   }));
 

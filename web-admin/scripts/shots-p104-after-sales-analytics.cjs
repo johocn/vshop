@@ -291,13 +291,13 @@ async function newPage(browser) {
   console.log('09b state', JSON.stringify(await readState()));
   await shot(page, '09b-analytics-refunds-more.png');
 
-  // ── 10 导出弹层 ───────────────────────────────────────────────────────────
+  // ── 10 导出弹层（选中「员工处理绩效」，kind=staff） ──────────────────────
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await page.locator('.card .act').first().click();
   await page.waitForSelector('.sheet .kind', { timeout: 10000 }).catch(() => undefined);
   await page.waitForTimeout(500);
-  await page.locator('.kind').nth(1).click();
+  await page.locator('.kind').nth(3).click();
   await page.waitForTimeout(300);
   console.log('10 state', JSON.stringify(await readState()));
   await shot(page, '10-analytics-export-sheet.png');

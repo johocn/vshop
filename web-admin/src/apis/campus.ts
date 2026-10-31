@@ -2540,11 +2540,11 @@ export async function campusMerchantAfterSalesTopCustomers(
   return res.campusMerchantAfterSalesTopCustomers ?? [];
 }
 
-/** 售后导出（§104）：kind = requests | refunds | escalations，返回 CSV 文本 */
+/** 售后导出（§104）：kind = requests | refunds | escalations | staff，返回 CSV 文本 */
 export async function campusMerchantAfterSalesExport(input: {
   from: string;
   to: string;
-  kind: 'requests' | 'refunds' | 'escalations';
+  kind: 'requests' | 'refunds' | 'escalations' | 'staff';
   state?: string;
   type?: string;
   keyword?: string;

@@ -72,6 +72,13 @@ const COUPONS = [
     { id: 'c2', name: '满 30 减 8 券', enabled: true },
 ];
 
+// §89 员工绩效：值班表 chip 展示近 7 日处理量 / 完结率
+const STAFF = [
+    { operatorUserId: '3', operatorName: '张伟', handled: 34, resolved: 31, firstActionAvgMinutes: 4, resolveAvgMinutes: 27, overdueCount: 1, escalatedCount: 0, resolveRate: 91, reviewCount: 12, reviewAvgScore: 4.6 },
+    { operatorUserId: '5', operatorName: '李娜', handled: 28, resolved: 26, firstActionAvgMinutes: 3, resolveAvgMinutes: 22, overdueCount: 0, escalatedCount: 1, resolveRate: 93, reviewCount: 9, reviewAvgScore: 4.8 },
+    { operatorUserId: '7', operatorName: '王强', handled: 21, resolved: 15, firstActionAvgMinutes: 9, resolveAvgMinutes: 41, overdueCount: 3, escalatedCount: 1, resolveRate: 71, reviewCount: 5, reviewAvgScore: 4.2 },
+];
+
 function makeRoute() {
     return async (route) => {
         const raw = route.request().postData() || '';
@@ -88,6 +95,7 @@ function makeRoute() {
             duty = entries.map((e) => ({ ...e, userId: String(e.userId), userName: ASSIGNEES.find((a) => a.id === String(e.userId))?.name || '' }));
             return fulfill({ campusMerchantSetAfterSalesDutyRoster: duty });
         }
+        if (raw.includes('campusMerchantAfterSalesStaffStats')) return fulfill({ campusMerchantAfterSalesStaffStats: STAFF });
         if (raw.includes('campusMerchantAfterSalesDutyRoster')) return fulfill({ campusMerchantAfterSalesDutyRoster: duty });
         if (raw.includes('campusMerchantSaveAfterSalesCompensationPlan')) {
             const id = vars.id ? String(vars.id) : String(2000 + plans.length);
