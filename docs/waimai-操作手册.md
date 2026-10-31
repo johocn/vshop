@@ -5082,6 +5082,135 @@ mutation ($id: ID!, $planId: ID!) {
 
 操作入口：商家工作台 →「售后申请」→ 顶部「售后工作台 ›」→ 点概览计数筛选、勾选单据后走底部批量处置，或单选一张后「补偿挽留」按方案一键退款 / 发券并关闭。
 
+## §102 售后处置详情：单动作闭环 + 标签 / 回复模板配置（已上线）
+
+§101 解决了“批量处置”，但真正难处理的单子仍缺一个处置台：改派谁、SLA 要不要暂停、要不要升级仲裁、退款失败怎么补、退货物流回传了没、大额退款谁来复核——这些动作原来散落在列表弹层里或根本没有入口。本段新增 `after-sales-detail.vue` 作为单张售后单的处置工作台，把 P1 审计里缺的 9 类动作（指派 / 转交 / 升级仲裁 / SLA 暂停恢复 / 回访 / 线下退款 / 退款复核 / 退货换货 / 关闭）全部接出来；同时把「售后标签」「回复模板」两个配置并入运营页，让商家能自建分类与话术。
+
+### 102.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/after-sales-detail.vue` | 新页，11 张卡：① 概览（状态 pills / 顾客 / 地址 / 订单总额 / 实际退款 / SLA 剩余 / 原因 / 凭证图 / 超时提示）② 售后商品 ③ 售后标签（点「编辑标签」多选）④ 处置动作（按状态动态生成）⑤ 退款复核（`.attention` 高亮）⑥ 退货物流（仅非 `refund_only`，运单号 + 轨迹 + 收货地址）⑦ SLA 暂停记录 + 升级仲裁 ⑧ 回访记录 ⑨ 内部备注 ⑩ 协商沟通（快捷模板 + 发送）⑪ 状态时间线 + 指派留痕 |
+| 后台 | `web-admin/src/pages/campus/after-sales-ops.vue` | 新增「售后标签」「回复模板」两个 tab：标签卡（`# 名称` + `已用 n 单` + 编辑 / 删除）；模板卡（内容 + 分类 / 关键词标签 + 排序），模板带本地搜索 + 分类筛选 |
+| 后台 | `web-admin/src/pages/campus/after-sales-workbench.vue` | 列表行尾新增「处置 ›」入口，跳转 `after-sales-detail?id=` |
+| 后台 | `web-admin/src/pages.json` | 注册 `pages/campus/after-sales-detail`（`navigationBarTitleText: 售后处置`、`enablePullDownRefresh: true`） |
+| 后台 | `web-admin/src/apis/campus.ts` | §102 段新增类型（`MerchantAfterSalesDisposalDetail` / `Tag` / `ReplyTemplate` / `Note` / `OfflineRefundResult` / `ReturnLogistics` / `RefundReview` / `Rules` / `Address` / `Assignee`）与约 24 个封装（详见 102.2） |
+| i18n | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增命名空间 `campusAfterSalesDetail`（207 条）；`campusAfterSalesOps` 补 2 个 tab 与 44 条标签 / 模板文案；`campusAfterSalesWorkbench` 补 `dispose` |
+| 截图 | `docs/screenshots/waimai/p102-after-sales-detail/` | 11 张：概览 / 动作区 / 退款复核 / 指派 sheet / 线下退款 sheet / 标签 sheet / 退货单物流 / 运营页标签 tab / 模板 tab / 模板编辑 sheet / 工作台处置入口 |
+| 脚本 | `web-admin/scripts/shots-p102-after-sales-detail.cjs` | mock 处置详情 `D801`（Pending / 仅退款 / 超时 / 待复核）与 `D805`（Received / 退货退款 / SLA 暂停）、标签 / 模板 / 备注 / 退款复核 / 退货物流 / 收货地址 / 规则 / 指派对象；凭证图用 data-URI SVG，离线可跑 |
+
+### 102.2 契约
+
+```graphql
+query ($id: ID!) { campusMerchantAfterSalesDetail(id: $id) {
+  request { id orderId orderCode state type reason description refundAmount rejectReason
+            evidenceImages messageCount customerName createdAt refundedAt overdue unread
+            dueSoon tags assigneeUserId assigneeName riskReason slaPaused slaPausedReason
+            escalated refundReviewPending exchangeTrackingNo exchangeCarrier }
+  messages { id senderType senderName content images createdAt } messageTotal
+  stateHistory { fromState toState createdAt operatorUserId operatorName }
+  refundError actualRefundAmount timeoutHours customerPhone
+  shippingAddress { fullName phoneNumber address }
+  orderItems { name quantity unitPrice } orderTotal
+  assignHistory { fromUserId fromName toUserId toName reason createdAt }
+  followUps { id method result note nextAt operatorName createdAt }
+  slaPauses { id reason pausedAt resumedAt pausedMs }
+  escalations { id requestId reason priority status createdBy creatorName createdAt resolvedAt resolution }
+} }
+
+# 标签
+query { campusMerchantAfterSalesTags { id name usedCount } }
+mutation campusMerchantSaveAfterSalesTag(id, name) { id name usedCount }
+mutation campusMerchantDeleteAfterSalesTag(id)
+mutation campusMerchantSetAfterSalesTags(id, tagIds)   # 全量覆盖该单标签
+
+# 回复模板
+query ($category: String, $keyword: String) {
+  campusMerchantAfterSalesReplyTemplates(category: $category, keyword: $keyword) {
+    id content createdAt category keywords sortOrder } }
+mutation campusMerchantSaveAfterSalesReplyTemplate(id, content, category, keywords, sortOrder)
+mutation campusMerchantDeleteAfterSalesReplyTemplate(id)
+
+# 处置动作（均为 mutation，入参见 src/apis/campus.ts §102 段）
+campusMerchantAfterSalesAddFollowUp / ReviewFollowUp           # 回访登记 / 标记完成
+campusMerchantAfterSalesOfflineRefund                          # 线下退款：金额(分) + 方式 + 备注
+campusMerchantAfterSalesConfirmReturn / ExchangeShip           # 确认收货 / 换货发货
+campusMerchantAfterSalesRecordReturnLogistics                  # 回传运单 + 轨迹
+campusMerchantAfterSalesResolveRefundReview(id, approve, note) # 退款复核通过 / 驳回
+campusMerchantAfterSalesEscalate / EscalationResolve           # 升级仲裁 / 填写结论
+campusMerchantAfterSalesPauseSla / ResumeSla                   # SLA 暂停 / 恢复
+campusMerchantAfterSalesRemind                                 # 催办提醒
+campusMerchantAfterSalesAssign / Transfer                      # 指派 / 转交
+campusMerchantAfterSalesCloseOne                               # 关闭售后（复用 Close）
+campusMerchantAfterSalesAddNote / DeleteNote                   # 内部备注
+
+# 只读辅助
+query { campusMerchantAfterSalesAssignees { id name identifier } }
+query campusMerchantAfterSalesNotes(id)
+query campusMerchantAfterSalesReturnLogistics(id)
+query { campusMerchantAfterSalesRefundReviews(status) { ... } }   # status 枚举：Pending / Approved / Rejected
+query { campusMerchantAfterSalesRules { timeoutHours autoApproveHours refundAutoRetry
+        firstResponseTargetHours resolveTargetHours dueSoonHours refundReviewThreshold } }
+query { campusMerchantAfterSalesReturnAddress }                   # 后端为 JSON 字符串（空串=未配置）
+```
+
+**动作矩阵**（`state` + 标志位计算，17 种动作都收敛到同一个底部 sheet）：`Pending/Appealed` → 同意 / 驳回；`Received` → 确认收货 / 换货发货；`RefundFailed` → 重试退款；`Pending/Received/RefundFailed` → 线下退款 / 催办 / 关闭；`slaPaused` 时只给「恢复 SLA」，否则给「暂停 SLA」；未 `escalated` 才给「升级仲裁」；指派 / 转交对所有状态开放。
+
+**`campusMerchantAfterSalesRefundReviews` 的 `status` 必须是 PascalCase**（`Pending` / `Approved` / `Rejected`），传小写会被后端直接拒（见 102.5 探针 5）。
+
+**`campusMerchantAfterSalesReturnAddress` 是标量而非对象**：后端返回 JSON 字符串（未配置时为空串），前端 `campus.ts` 负责解析成 `{ fullName, phoneNumber, address }`；解析失败时把整串当 `address` 展示，空串则隐藏「退回地址」区块。
+
+### 102.3 校验与边界
+
+- **动作按状态收敛**：不在当前状态的动作不渲染，避免“点了才知道不允许”；后端仍会二次校验状态，失败时用 `graphQlErrorMsg` 弹出。
+- **标签全量覆盖**：标签 sheet 多选后一次 `SetAfterSalesTags`，提交的是完整 `tagIds` 数组（不是增量），清空全部标签即传空数组。
+- **模板搜索在前端**：`tplFiltered` 对已拉取列表做内容 / 关键词匹配，分类 picker 叠加过滤；编辑 sheet `maxlength=300`，`sortOrder` 仅接受整数。
+- **线下退款金额**：输入元、提交转分（`yuanToFen`），上限为当前可退金额；确认弹层文案带实际金额，避免误操作。
+- **退款复核**：仅 `status=Pending` 且 `requestId` 命中当前单才展示该卡；`selfRequested` 时提示“本人发起需他人复核”；通过即继续退款，驳回写 `note`。
+- **SLA 与升级互斥展示**：`slaPaused=true` 时动作区只出现「恢复 SLA」；`escalated=true` 后不再出现「升级仲裁」，历史记录仍完整展示（优先级 / 状态 / 结论）。
+- **退货物流入口**：`type === 'refund_only'` 时整张卡不渲染；`Received` 态才出现「确认收货 / 换货发货」。
+- **空态与失败**：`id` 缺失直接提示并给「重试」；`reload` 失败展示错误文案 + 重试按钮；侧表（备注 / 复核 / 物流 / 地址 / 规则）单个失败静默降级为空，不影响主详情。
+- **金额与时间口径**：全链路后端分、前端元（`fenToYuanFixed` / `yuanToFen`），时间统一 `formatDateTime`。
+- **权限**：`usePermGuard('CampusMerchant')`，仅商家渠道管理员可见可操作。
+
+### 102.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`（Sass legacy-js-api 弃用告警可忽略） |
+| 截图 01 | 概览：`A2400001` ¥32.50 + 7 个 pill（待处理 / 仅退款 / 已超时 / 新留言 / 待退款复核 / 配送超时 / 老客）+ 顾客 / 地址 / 订单总额 / 实际退款 / SLA 剩余 16 小时 + 2 张凭证缩略图 + 超时提示；商品 3 项；标签 2 个 |
+| 截图 02 | 动作区 11 个按钮（同意退款 / 驳回 / 线下退款 / 催办提醒 / 暂停 SLA / 升级仲裁 / 指派处理人 / 转交他人 / 关闭售后 / 复核通过 / 复核驳回），处理人「张伟」 |
+| 截图 03 | 退款复核卡 ¥32.50，申请人张伟，复核通过 / 复核驳回 |
+| 截图 04 | 指派 sheet：取消指派 / 张伟 / 李娜 / 王强 四项 |
+| 截图 05 | 线下退款 sheet：金额回填 20.00，方式选择器 |
+| 截图 06 | 标签 sheet：配送超时 / 少送漏送 / 异物投诉 / 老客，已选项高亮 |
+| 截图 07 | `id=805` 退货单：pills 待收货 / 退货退款 / 即将超时 / SLA 暂停 / 少送漏送；动作为确认收货 / 换货发货 / 恢复 SLA；退货物流卡运单号 `SF1234567890 · 顺丰` + 3 条轨迹 + 退回地址 |
+| 截图 08/09/10 | 运营页「售后标签」4 个、模板 3 条；模板编辑 sheet「新增回复模板」 |
+| 截图 11 | 工作台 2 行均出现「处置 ›」入口，点击跳转详情成功（`goCount:2, goOk:true`） |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 首次失败 | ① 标签卡按钮绑定了未定义的 `openTags`（sheet 打不开，`.sheet .opt` 超时）→ 改为 `openSheet('tags')`；② 第 07 步同页仅改 hash 不触发 `onLoad`，仍显示 801 数据 → 改为 `?r=805#/...` 强制重载；③ 01/02 截图完全相同（`scrollIntoViewIfNeeded` 判定“已可见”不滚动）→ 改 `scrollIntoView({block:'center'})` |
+
+### 102.5 生产探针（admin-api，`canteen-a` 渠道，只读）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesTags` | `[]`（标签表为空，属未配置正常态）PASS |
+| 2 | `campusMerchantAfterSalesReplyTemplates` | `[]`（模板表为空，属未配置正常态）PASS |
+| 3 | `campusMerchantAfterSalesRules` | `timeoutHours:48, autoApproveHours:0, refundAutoRetry:1, firstResponseTargetHours:0, resolveTargetHours:0, dueSoonHours:12, refundReviewThreshold:0` PASS |
+| 4 | `campusMerchantAfterSalesReturnAddress` | 首次按对象选择集查询报 `Field must not have a selection since type "String!"` → 确认后端为标量；改裸查询返回 `""`。**已按 JSON 字符串改造前端解析** |
+| 5 | `campusMerchantAfterSalesRefundReviews(status:"pending")` | 报 `复核状态只能是 Pending / Approved / Rejected` → 改传 `Pending` 后返回 `[]` PASS（**前端已同步改为 PascalCase**） |
+| 6 | `campusMerchantAfterSalesDetail(id)` | 复核队列为空，取不到 `requestId`，跳过（未构造假 id 触发副作用） |
+
+### 102.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增（§102 依赖的查询 / 变更随 vendure 既有版本在线） | 探针 1~6 见 102.5，其中 2 项契约差异已在前端适配 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（脚本内部先构建） | `[deploy] 产物校验通过: 62058 KB` → nginx `test is successful` + reload → `deploy done`；线上 `assets/pages-campus-after-sales-detail.B1Cg1378.js` 200 / 41171 B、`assets/after-sales-detail-BtnTCEj0.css` 200 / 9503 B |
+| 线上入口 | `https://e.joho.cn/guanli/` 首页 index.html | 入口 chunk 与本地构建一致（200） |
+
+操作入口：商家工作台 →「售后申请」→ 售后工作台或列表行「处置 ›」→ 售后处置详情页（选动作、编辑标签、登记回访 / 备注 / 轨迹、复核退款）；运营页 →「售后标签」「回复模板」两个 tab 维护分类与话术。
+
 
 
 
