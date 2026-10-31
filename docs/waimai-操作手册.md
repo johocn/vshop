@@ -5637,6 +5637,61 @@ query ($from: String!, $to: String!, $kind: String!) {
 | 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62186 KB` → nginx `test is successful` + reload → `deploy done` |
 | 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-pickup-index.l0yd-ykU.js` 200 / 8098 B、`pages-pickup-edit-index.1eCuTald.js` 200 / 14829 B、`pickup-location.Dfh16vF2.js` 200 / 2073 B |
 
+## §108 平台端商户管理 / 门店管理（已上线）
+
+平台角色（超管 / 运营）维护商户（Merchant）与门店（MerchantStore）：证照与主体信息、合作与结算、认领渠道、门店员工，以及门店名下的关联自提点。四个页面在 §76-§81 阶段已由后端 `merchant-plugin` 提供 resolver，但前端源文件一直未入库（菜单/路由/文案已接好），本节补齐页面并把两处缺陷修掉。
+
+### 108.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后台 API | `web-admin/src/apis/merchant-admin.ts` | `MerchantItem` / `MerchantStoreItem` / `MerchantStoreClaimItem` / `MerchantStoreStaffItem` 类型与 `MERCHANT_FIELDS` / `STORE_FIELDS`；`fetchMerchants` / `fetchMerchant` / `createMerchant` / `updateMerchant` / `fetchMerchantStores` / `fetchMerchantStore` / `createMerchantStore` / `updateMerchantStore` / `fetchStoreClaims` / `claimStore` / `revokeStoreClaim` / `fetchStoreStaff` / `upsertStoreStaff` |
+| 组件 | `web-admin/src/components/MediaUrlField.vue` | 媒体 URL 字段（单值 / 多值，`max` 控制上限），商户 logo、许可证、门店封面与相册复用 |
+| 后台页 | `web-admin/src/pages/platform/merchants/index.vue` | 商户列表：搜索（回车）+ 状态/认领筛选、状态与认领徽章、门店数量（`merchantStores(take:500)` 聚合）、编辑/查看门店/停用启用 |
+| 后台页 | `web-admin/src/pages/platform/merchants/detail.vue` | 商户详情 6 区块：基本信息 / 主体资质 / 联系方式 / 注册地址 / 合作与结算 / 下属门店（可跳新增门店） |
+| 后台页 | `web-admin/src/pages/platform/stores/index.vue` | 门店列表：搜索 + 商户/城市/状态筛选（`?merchantId=` 预选）、营业/停用/公开展示徽章、地址与坐标缺失提示、编辑/停用启用 |
+| 后台页 | `web-admin/src/pages/platform/stores/detail.vue` | 门店详情 9 区块（含券核销、配送能力）+ 关联自提点 + 门店员工 + 租户认领（仅超管），支持地图选点 |
+| 缺陷修复 | 同上两个 `index.vue` | ① 商户列表首次进入不加载（`onShow` 的 `firstShow` 直接 return）→ 改为每次 `onShow` 都 `load()`；② 搜索框回车 `@confirm="load"` 把事件对象当 `append` 传入 → 改为 `@confirm="load()"`，避免重复追加卡片 |
+| 截图 | `docs/screenshots/waimai/platform-merchant-store/` | 12 张：商户列表 / 关键字 / 状态筛选 / 商户详情基本 / 合作与结算 / 门店列表 / 按商户筛选 / 门店详情基本 / 营业配送 / 自提点+员工+认领 / 添加员工弹窗 / 新建门店空白表单 |
+| 脚本 | `web-admin/scripts/shots-platform-merchant-store.cjs` | mock `merchants` / `merchant` / `merchantStores` / `merchantStore` / `merchantStoreClaims` / `merchantStoreStaff` / `tenants` / `tenantAdministrators` / `pickupLocations`；按 `options` 的 keyword/status/claimStatus/merchantId/city 做过滤；390×844 dpr2 |
+
+### 108.2 契约与口径
+
+- **入口**：`constants/menus.ts` 平台组 `menu.merchantList` → `/pages/platform/merchants/index`、`menu.merchantStoreList` → `/pages/platform/stores/index`；四页已在 `pages.json` 注册，标题走 `i18n/nav-titles.ts`。
+- **GraphQL**：查询 `merchants(options)` / `merchant(id)` / `merchantStores(options)` / `merchantStore(id)` / `merchantStoreClaims(storeId)` / `merchantStoreStaff(storeId)`；变更 `createMerchant` / `updateMerchant` / `createMerchantStore` / `updateMerchantStore` / `claimMerchantStore` / `revokeMerchantStoreClaim` / `upsertMerchantStoreStaff`。
+- **金额口径**：门店 `deliveryFee` / `minOrderAmount` 后端存「分」，表单按「元」编辑，保存 `Math.round(元 * 100)`；展示 `cents / 100`。
+- **佣金口径**：后端存万分比，表单按百分比编辑：读 `commissionRate / 100`（8.5 → `0.085`%），存 `Math.round(百分比 * 100)`。
+- **门店数量**：商户列表每次 `load()` 拉一次 `merchantStores(take:500)` 聚合 `merchantId → 门店数`，失败静默不影响列表。
+- **关联自提点**：门店详情复用 §107 的 `fetchPickupLocationsByStore(storeId)`（服务端 `filter.merchantStoreId`）；「新增自提点」跳 `pages/pickup/edit/index?merchantStoreId=<storeId>`，回来自动刷新。
+- **员工候选**：超管走 `tenantAdministrators(首条认领渠道)`，普通租户管理员走 `tenantMyMembers()`；认领区块仅 `auth.isSuperAdmin` 可见。
+- **状态与删除**：停用/启用为 `enabled` 软开关（`updateMerchantStore({ enabled })`），商户停用为 `status: SUSPENDED`；均二次确认，不提供物理删除。
+
+### 108.3 校验与边界
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 商户列表默认态：3 户（正常/暂停/正常），认领徽章「已认领 / 已认领 / 未认领」，编码行带门店数「2 家 / 1 家 / 1 家」 | PASS |
+| 2 | 搜索「咖啡」回车 → 仅「南门咖啡工作室」1 条，无重复追加 | PASS |
+| 3 | 状态筛选「暂停」→ 仅「西门便利店」，操作项由「停用」变「启用」 | PASS |
+| 4 | 商户详情区块齐全：基本信息 / 主体资质 / 联系方式 / 注册地址 / 合作与结算 / 下属门店 · 共 2 家 | PASS |
+| 5 | 合作与结算回显：认领状态 `CLAIMED`、合同号、合作起止、佣金 `0.085`%、结算 `T+1`、开户行/户名/账号/税号 | PASS |
+| 6 | 门店列表 4 条：营业中 / 已关闭（+ 已停用）/ 营业中（不公开）/ 暂停营业，缺失经纬度一条显示「缺坐标」 | PASS |
+| 7 | `?merchantId=m1` → 仅第一食堂名下 2 家，商户筛选回显「第一食堂运营有限公司」 | PASS |
+| 8 | 门店详情 9 区块齐全，含经营信息、券核销、配送能力 | PASS |
+| 9 | 配送能力：配送费 ¥2、起送价 ¥0、预计送达 30 分钟（分→元换算正确） | PASS |
+| 10 | 关联自提点 2 条（其中 1 条标「停用」）；门店员工 2 条（经理 · 在职 / 店员 · 已停用）；租户认领 2 条（`ACTIVE` 有「撤销」，`PENDING` 无） | PASS |
+| 11 | 添加员工弹窗：后台用户 picker（王强 · 13900002222）、姓名、电话、门店角色、员工状态 + 取消/确定 | PASS |
+| 12 | 新建门店 `?merchantId=m1`：所属商户预选「第一食堂运营有限公司」，编码/名称留空 | PASS |
+| 13 | 截图脚本 `shots-platform-merchant-store.cjs` 全程无 `pageerror` / `console error` | PASS |
+
+### 108.4 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs` | `[deploy] 产物校验通过: 62186 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 chunk | `https://e.joho.cn/guanli/assets/` | `pages-platform-merchants-index.BhdMBcCJ.js` 200 / 5202 B、`pages-platform-merchants-detail.BGpTCA1s.js` 200 / 17707 B、`pages-platform-stores-index.mZi0c3p4.js` 200 / 5573 B、`pages-platform-stores-detail.aMuDdIJN.js` 200 / 32130 B、`merchant-admin.DdqOc13G.js` 200 / 4019 B |
+
+
 
 
 
