@@ -1046,6 +1046,174 @@ export async function campusMerchantAfterSalesRetryRefund(id: string): Promise<M
   return res.campusMerchantAfterSalesRetryRefund;
 }
 
+/** 售后处理人候选（§100）：本店渠道管理员，值班排班与审计筛选共用一个来源 */
+export interface MerchantAfterSalesAssignee {
+  id: string;
+  name: string;
+  identifier: string;
+}
+
+/** 处理人候选（§100）：值班排班与审计按处理人筛选用 */
+export async function campusMerchantAfterSalesAssignees(): Promise<MerchantAfterSalesAssignee[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAssignees: MerchantAfterSalesAssignee[] }>(
+    `query { campusMerchantAfterSalesAssignees { id name identifier } }`,
+  );
+  return res.campusMerchantAfterSalesAssignees ?? [];
+}
+
+/** 售后操作审计行（§100）：谁在什么时候对哪一单做了什么 */
+export interface MerchantAfterSalesAuditRow {
+  id: string;
+  requestId: string;
+  orderCode: string | null;
+  action: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface MerchantAfterSalesAuditFilter {
+  from?: string | null;
+  to?: string | null;
+  action?: string | null;
+  actorUserId?: string | null;
+}
+
+/** 售后操作审计检索（§100）：from/to 为 YYYY-MM-DD（校园日，to 含当日全天），take 默认后端 100 */
+export async function campusMerchantAfterSalesAuditLogs(
+  filter: MerchantAfterSalesAuditFilter & { take?: number; skip?: number },
+): Promise<MerchantAfterSalesAuditRow[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAuditLogs: MerchantAfterSalesAuditRow[] }>(
+    `query ($from: String, $to: String, $action: String, $actorUserId: ID, $take: Int, $skip: Int) {
+      campusMerchantAfterSalesAuditLogs(from: $from, to: $to, action: $action, actorUserId: $actorUserId, take: $take, skip: $skip) {
+        id requestId orderCode action actorUserId actorName detail createdAt
+      }
+    }`,
+    {
+      from: filter.from ?? null,
+      to: filter.to ?? null,
+      action: filter.action ?? null,
+      actorUserId: filter.actorUserId ?? null,
+      take: filter.take ?? null,
+      skip: filter.skip ?? null,
+    },
+  );
+  return res.campusMerchantAfterSalesAuditLogs ?? [];
+}
+
+/** 售后操作审计导出（§100）：后端直接返回带 BOM 的 CSV 文本 */
+export async function campusMerchantAfterSalesAuditExport(
+  filter: MerchantAfterSalesAuditFilter,
+): Promise<string> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesAuditExport: string }>(
+    `query ($from: String, $to: String, $action: String, $actorUserId: ID) {
+      campusMerchantAfterSalesAuditExport(from: $from, to: $to, action: $action, actorUserId: $actorUserId)
+    }`,
+    {
+      from: filter.from ?? null,
+      to: filter.to ?? null,
+      action: filter.action ?? null,
+      actorUserId: filter.actorUserId ?? null,
+    },
+  );
+  return res.campusMerchantAfterSalesAuditExport ?? '';
+}
+
+/** 售后值班条目（§100）：weekday 0=周日；endMin>1440 表示跨零点到次日 */
+export interface MerchantAfterSalesDutyEntry {
+  weekday: number;
+  startMin: number;
+  endMin: number;
+  userId: string;
+  userName: string | null;
+}
+
+/** 售后值班表（§100） */
+export async function campusMerchantAfterSalesDutyRoster(): Promise<MerchantAfterSalesDutyEntry[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesDutyRoster: MerchantAfterSalesDutyEntry[] }>(
+    `query { campusMerchantAfterSalesDutyRoster { weekday startMin endMin userId userName } }`,
+  );
+  return res.campusMerchantAfterSalesDutyRoster ?? [];
+}
+
+/** 整体替换售后值班表（§100）：entries 为 JSON 字符串，服务端整体覆盖 */
+export async function campusMerchantSetAfterSalesDutyRoster(
+  entries: Array<{ weekday: number; startMin: number; endMin: number; userId: string }>,
+): Promise<MerchantAfterSalesDutyEntry[]> {
+  const res = await getAdminClient().request<{ campusMerchantSetAfterSalesDutyRoster: MerchantAfterSalesDutyEntry[] }>(
+    `mutation ($entries: String!) {
+      campusMerchantSetAfterSalesDutyRoster(entries: $entries) { weekday startMin endMin userId userName }
+    }`,
+    { entries: JSON.stringify(entries) },
+  );
+  return res.campusMerchantSetAfterSalesDutyRoster ?? [];
+}
+
+/** 补偿挽留方案（§100）：部分退款 + 优惠券，refundAmount 单位分（0=只发券） */
+export interface MerchantAfterSalesCompensationPlan {
+  id: string;
+  name: string;
+  refundAmount: number;
+  couponTemplateId: string | null;
+  note: string | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+/** 补偿挽留方案列表（§100） */
+export async function campusMerchantAfterSalesCompensationPlans(): Promise<MerchantAfterSalesCompensationPlan[]> {
+  const res = await getAdminClient().request<{ campusMerchantAfterSalesCompensationPlans: MerchantAfterSalesCompensationPlan[] }>(
+    `query { campusMerchantAfterSalesCompensationPlans {
+      id name refundAmount couponTemplateId note enabled createdAt
+    } }`,
+  );
+  return res.campusMerchantAfterSalesCompensationPlans ?? [];
+}
+
+/** 保存补偿方案（§100）：id 为空=新增；返回全量列表 */
+export async function campusMerchantSaveAfterSalesCompensationPlan(input: {
+  id?: string | null;
+  name: string;
+  refundAmount: number;
+  couponTemplateId?: string | null;
+  note?: string | null;
+  enabled?: boolean | null;
+}): Promise<MerchantAfterSalesCompensationPlan[]> {
+  const res = await getAdminClient().request<{ campusMerchantSaveAfterSalesCompensationPlan: MerchantAfterSalesCompensationPlan[] }>(
+    `mutation ($id: ID, $name: String!, $refundAmount: Int!, $couponTemplateId: String, $note: String, $enabled: Boolean) {
+      campusMerchantSaveAfterSalesCompensationPlan(id: $id, name: $name, refundAmount: $refundAmount,
+        couponTemplateId: $couponTemplateId, note: $note, enabled: $enabled) {
+        id name refundAmount couponTemplateId note enabled createdAt
+      }
+    }`,
+    {
+      id: input.id ?? null,
+      name: input.name,
+      refundAmount: input.refundAmount,
+      couponTemplateId: input.couponTemplateId ?? null,
+      note: input.note ?? null,
+      enabled: input.enabled ?? null,
+    },
+  );
+  return res.campusMerchantSaveAfterSalesCompensationPlan ?? [];
+}
+
+/** 删除补偿方案（§100）：返回删除后的全量列表 */
+export async function campusMerchantDeleteAfterSalesCompensationPlan(
+  id: string,
+): Promise<MerchantAfterSalesCompensationPlan[]> {
+  const res = await getAdminClient().request<{ campusMerchantDeleteAfterSalesCompensationPlan: MerchantAfterSalesCompensationPlan[] }>(
+    `mutation ($id: ID!) {
+      campusMerchantDeleteAfterSalesCompensationPlan(id: $id) {
+        id name refundAmount couponTemplateId note enabled createdAt
+      }
+    }`,
+    { id },
+  );
+  return res.campusMerchantDeleteAfterSalesCompensationPlan ?? [];
+}
+
 /** 推送外部快递：provider = dada | meituan（运营中心/商家在派单时选择） */
 export async function campusMerchantDispatchExternal(
   orderId: string,

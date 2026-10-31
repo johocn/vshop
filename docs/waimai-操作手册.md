@@ -4896,6 +4896,96 @@ query ($take: Int, $skip: Int, $tags: [String!], $ids: [ID!]) { assetLibrary(tak
 
 操作入口：商家工作台 →「广告投放」→「新建投放」→ 图片地址行点「从媒体库选图」→ 上传或选素材 → 确定后自动回填。
 
+## §100 售后管理：操作审计 / 值班排班 / 补偿挽留（已上线）
+
+§100 的后端（vendure `4d73ead43`、`efaf872aa`）已在线上，但 web-admin 此前完全没有对应界面：商家看不到谁在什么时间对哪张售后单做了什么、无法维护售后值班人员，也无法沉淀常用的“退款 + 券”挽留方案。本段在「售后申请」页顶部加三个入口，落到同一新页 `after-sales-ops.vue`，用 `?tab=audit|duty|plan` 直达三块功能，避免工作台入口继续膨胀。
+
+### 100.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/after-sales-ops.vue` | 新页，三 Tab：① 操作审计（今日/近 7 日/自定义区间 + 动作下拉（全部/同意退款/驳回/关闭售后/转交/指派/重试退款/升级仲裁）+ 处理人下拉；`take:50` 游标式「加载更多」；「导出 CSV」按当前筛选条件落盘）② 值班排班（周视图 周日~周六 分组，行内显示 `09:00~15:00`，跨零点显示 `18:00~次日 03:00`；右下「新增值班」sheet + 「保存排班」整体覆盖）③ 补偿挽留（方案卡片：名称/启停标签/退款或“只发券”/券名/备注 + 编辑·启停·删除；sheet 表单：名称、退款金额（元，留空=只发券）、券模板选择、备注、启用开关） |
+| 后台 | `web-admin/src/apis/campus.ts` | 新增 §100 九组封装与类型：`campusMerchantAfterSalesAssignees` / `campusMerchantAfterSalesAuditLogs` / `campusMerchantAfterSalesAuditExport` / `campusMerchantAfterSalesDutyRoster` / `campusMerchantSetAfterSalesDutyRoster` / `campusMerchantAfterSalesCompensationPlans` / `campusMerchantSaveAfterSalesCompensationPlan` / `campusMerchantDeleteAfterSalesCompensationPlan`（插在 `campusMerchantDispatchExternal` 之前） |
+| 后台 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 顶部卡片内新增 `.ops-entry` 三个 chip：「操作审计 / 值班排班 / 补偿挽留」，点击 `uni.navigateTo('/pages/campus/after-sales-ops?tab=...')` |
+| 后台 | `web-admin/src/pages.json` | 注册 `pages/campus/after-sales-ops`（`navigationBarTitleText: 售后管理`、`enablePullDownRefresh: true`） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增命名空间 `campusAfterSalesOps`（中/英各 92 条），覆盖三块功能全部文案（含 7 个动作名、`wdSun..wdSat`、`dutyOvernight`、`dutyNoStaff`、方案表单与删除确认） |
+| 截图 | `docs/screenshots/waimai/p100-after-sales-ops/` | 7 张：售后申请页三入口 / 审计今日 / 审计自定义区间 / 值班周视图 / 新增值班 sheet / 补偿方案列表 / 编辑方案 sheet |
+| 脚本 | `web-admin/scripts/shots-p100-after-sales-ops.cjs` | mock `campusMerchantAfterSalesAssignees`（张伟、李娜）、`campusMerchantAfterSalesDutyRoster`（含两条跨零点班次）、`campusMerchantAfterSalesCompensationPlans`（3 条）、`campusMerchantAfterSalesAuditLogs`（5 条）、券模板列表 |
+
+### 100.2 契约
+
+```graphql
+query { campusMerchantAfterSalesAssignees { id name identifier } }            # 仅本店渠道角色管理员
+
+query ($from: String, $to: String, $action: String, $actorUserId: ID, $take: Int, $skip: Int) {
+  campusMerchantAfterSalesAuditLogs(from: $from, to: $to, action: $action, actorUserId: $actorUserId, take: $take, skip: $skip) {
+    id requestId orderCode action actorUserId actorName detail createdAt
+  }
+}
+query ($from: String, $to: String, $action: String, $actorUserId: ID) {
+  campusMerchantAfterSalesAuditExport(from: $from, to: $to, action: $action, actorUserId: $actorUserId)   # 返回 CSV 文本
+}
+
+query { campusMerchantAfterSalesDutyRoster { weekday startMin endMin userId userName } }
+mutation ($entries: String!) { campusMerchantSetAfterSalesDutyRoster(entries: $entries) { weekday startMin endMin userId userName } }
+
+query { campusMerchantAfterSalesCompensationPlans { id name refundAmount couponTemplateId note enabled createdAt } }
+mutation ($id: ID, $name: String!, $refundAmount: Int!, $couponTemplateId: String, $note: String, $enabled: Boolean) {
+  campusMerchantSaveAfterSalesCompensationPlan(id: $id, name: $name, refundAmount: $refundAmount,
+    couponTemplateId: $couponTemplateId, note: $note, enabled: $enabled) { id name refundAmount couponTemplateId note enabled createdAt }
+}
+mutation ($id: ID!) { campusMerchantDeleteAfterSalesCompensationPlan(id: $id) { ...同上字段 } }
+```
+
+**关键边界：`from` / `to` 是 `YYYY-MM-DD` 的“校园日”（UTC+8），不是 ISO 瞬时。** 后端 `campusDayStart` / `campusDayEnd` 会把 `to` 解释为“含当日全天”（`< 次日 0 点`）。首版前端误传 ISO 瞬时，生产直接报 `USER_INPUT_ERROR: 开始日期格式无效，应为 YYYY-MM-DD` 且查询返回 null；改为直接传日期键后恢复正常。前端「今日」传 `today=today`，「近 7 日」传 `campusDateKey(-6)~today`。
+
+`campusMerchantSetAfterSalesDutyRoster` 的 `entries` 是 **JSON 字符串**（前端在 API 层 `JSON.stringify`），保存语义为**整表替换**：传 `[]` 即清空。`weekday` 0=周日…6=周六，`startMin/endMin` 为当日分钟数，跨零点用 `endMin >= 1440`（如 18:00~次日 03:00 → 1080~1620）。
+
+### 100.3 校验与边界
+
+- **审计分页**：后端不返回总数，前端以“返回满 50 条则视为可能还有更多”推断 `hasMore`，`skip` 取当前已加载条数。
+- **审计区间**：选「自定义」时起止日期都为空则不请求（提示「请先选择起止日期」）；改开始日期后若结束日期早于它，自动清空结束日期。
+- **处理人为空**：`campusMerchantAfterSalesAssignees` 生产当前返回 `[]`（本店未分配渠道管理员）。此时值班 Tab 顶部显示橙色提示「本店暂无可排班的渠道管理员……」，提交新增值班时拦截并提示「请选择值班人员」；审计的处理人下拉只保留「全部处理人」。
+- **跨零点**：新增值班时 `end < start` 自动 `endMin += 1440` 并提示「结束时间早于开始时间，已按跨零点（次日）处理」；`end === start` 直接拒绝（「起止时间不能相同」）。
+- **整体覆盖**：值班保存把本地编辑后的整表一次性提交，不做增量 diff——避免“删了又加”出现重复班次。
+- **CSV 导出**：直接落后端返回的文本；缺 BOM 时前端补 `\uFEFF`（Excel 打开中文不乱码），文件名 `after-sales-audit-YYYYMMDD.csv`；筛选结果为空时提示「当前筛选条件下暂无可导出的记录」，不生成空文件。
+- **金额分↔元**：方案表单按“元”输入，提交前 `yuanToFen` 转换并校验两位小数；留空按 0 处理（= 只发券不退款），券模板也留空则显示「不发券」。
+
+### 100.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 售后申请页顶部出现「操作审计 / 值班排班 / 补偿挽留」三个 chip |
+| 截图 02 | 审计默认「今日」：列表 5 条，每条含售后单号、订单号、动作、处理人、详情、时间 |
+| 截图 03 | 切「自定义」：起止日期行出现且默认填今日，动作/处理人下拉可用 |
+| 截图 04 | 值班周视图：周一 `09:00~15:00 张伟` + `18:00~次日 03:00 李娜`，周五 `17:00~次日 02:00 张伟`，其余显示「未排班」 |
+| 截图 05 | 点「新增值班」：sheet 含星期、起止时间、值班人员选择器与「添加」按钮 |
+| 截图 06 | 补偿方案 3 条：宫保鸡丁套餐 ¥5 + 券、出餐超时 10 元券（只发券）、停用的「差评安抚」 |
+| 截图 07 | 点「编辑」：sheet 回填名称/金额/券模板/备注/启用开关 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+| 首次失败 | 脚本第 06 步用 `.mask` 点击关闭值班 sheet，被 `uni-page-head` 拦截 pointer events → 改点 `.sheet__x`（✕）后通过 |
+
+### 100.5 生产探针（admin-api，`canteen-a` 渠道）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantAfterSalesAuditLogs(from:"2026-10-24", to:"2026-10-31")` | `[]`，无错误（该渠道尚无售后操作记录）PASS |
+| 2 | 同上 + `action:"approve", actorUserId:"1"` | `[]`，无错误 PASS |
+| 3 | `campusMerchantAfterSalesAuditExport(from:"2026-10-24", to:"2026-10-31")` | 返回 CSV 文本，表头 `售后单号,订单号,操作,处理人,处理人ID,详情,操作时间`（带 BOM）PASS |
+| 4 | 传 ISO 瞬时（旧实现） | `USER_INPUT_ERROR: 开始日期格式无效，应为 YYYY-MM-DD`，返回 null → 已按 100.2 修正为日期键 |
+| 5 | `campusMerchantAfterSalesAssignees` / `DutyRoster` / `CompensationPlans` | 均 `[]`（本店未分配管理员、未排班、未建方案）PASS |
+| 6 | `campusMerchantSetAfterSalesDutyRoster(entries:"[{userId:\"1\",weekday:1,startMin:600,endMin:840}]")` 写入后复核 | 写入成功、读取回显一致；随后用 `entries:"[]"` 重置，复核已回到 `[]`（**探针写入了生产数据，已清理**） |
+
+### 100.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无新增（§100 resolver / service 随 vendure `4d73ead43`、`efaf872aa` 已在线上） | 探针 1~5 全部命中，见 100.5 |
+| 后台 | `node D:\zhao\vshop\web-admin\scripts\deploy.mjs`（脚本内部先构建） | `[deploy] 产物校验通过: 61929 KB` → nginx `test is successful` + reload → `deploy done`；线上 `https://e.joho.cn/guanli/` 200，`assets/pages-campus-after-sales-ops.C25BPx73.js` 200 / 21157 B、`assets/after-sales-ops-BEGlCMsQ.css` 200 / 8154 B |
+
+操作入口：商家工作台 →「售后申请」→ 顶部「操作审计 / 值班排班 / 补偿挽留」→ 对应 Tab 筛选、导出、排班或维护方案。
+
 
 
 
