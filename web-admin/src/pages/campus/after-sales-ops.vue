@@ -90,10 +90,12 @@
           <view class="d-items">
             <text v-if="!w.items.length" class="d-empty">{{ $t('campusAfterSalesOps.dutyNone') }}</text>
             <view v-for="it in w.items" :key="it.key" class="d-chip">
-              <text class="d-time">{{ it.text }}</text>
-              <text class="d-name">{{ it.userName || ('ID ' + it.userId) }}</text>
+              <view class="d-line">
+                <text class="d-time">{{ it.text }}</text>
+                <text class="d-name">{{ it.userName || ('ID ' + it.userId) }}</text>
+                <text class="d-del" @tap="removeDuty(w.weekday, it.key)">✕</text>
+              </view>
               <text v-if="staffText(it.userId)" class="d-stat">{{ staffText(it.userId) }}</text>
-              <text class="d-del" @tap="removeDuty(w.weekday, it.key)">✕</text>
             </view>
           </view>
           <text class="d-add" @tap="openDutySheet(w.weekday)">+</text>
@@ -1519,12 +1521,14 @@ onPullDownRefresh(async () => {
     }
     .d-items { flex: 1; display: flex; flex-direction: column; gap: 10rpx;
       .d-empty { font-size: 22rpx; color: $wa-muted; padding-top: 8rpx; }
-      .d-chip { display: flex; align-items: center; gap: 12rpx; background: $wa-bg;
+      .d-chip { display: flex; flex-direction: column; gap: 6rpx; background: $wa-bg;
         border-radius: $wa-radius; padding: 10rpx 18rpx;
-        .d-time { font-size: 22rpx; color: $wa-ink; font-weight: 600; }
-        .d-name { flex: 1; font-size: 22rpx; color: $wa-muted; }
-        .d-stat { flex: none; font-size: 20rpx; color: #1677ff; background: #eaf3ff;
-          border-radius: 999rpx; padding: 2rpx 12rpx; }
+        .d-line { display: flex; align-items: center; gap: 12rpx; }
+        .d-time { flex: none; font-size: 22rpx; color: $wa-ink; font-weight: 600; white-space: nowrap; }
+        .d-name { flex: 1; min-width: 0; font-size: 22rpx; color: $wa-muted;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .d-stat { align-self: flex-start; font-size: 20rpx; color: #1677ff; background: #eaf3ff;
+          border-radius: 999rpx; padding: 2rpx 12rpx; white-space: nowrap; }
         .d-del { font-size: 24rpx; color: #d4380d; padding: 0 6rpx; }
       }
     }
