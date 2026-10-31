@@ -95,6 +95,10 @@
           <button v-if="failedCount" class="p-btn" :disabled="isLocal && lodopReady !== 'ok'" @tap="retryFailed">
             {{ $t('campusMerchant.printRetryFailed') }}
           </button>
+          <!-- 云打印任务排障（§87）：最近留痕 + 失败原因 + 单条重打 -->
+          <button v-if="!isLocal" class="p-btn ghost" @tap="openPrintJobs">
+            {{ $t('campusMerchant.printJobsEntry') }}
+          </button>
           <button class="p-btn ghost" @tap="showPrintHelp">{{ $t('campusMerchant.printHelp') }}</button>
         </view>
       </view>
@@ -301,6 +305,41 @@
           </view>
         </view>
       </view>
+      <!-- 云打印任务排障（§87）：最近 20 条留痕，失败行展示服务商原因并可单条重打 -->
+      <view v-if="jobsOpen" class="prep-mask" @tap="jobsOpen = false">
+        <view class="prep-sheet" @tap.stop>
+          <view class="ps-head">
+            <text class="ps-title">{{ $t('campusMerchant.printJobsTitle') }}</text>
+            <text class="ps-close" @tap="jobsOpen = false">✕</text>
+          </view>
+          <text class="ps-hint">{{ $t('campusMerchant.printJobsHint') }}</text>
+          <view v-if="jobsBusy && !printJobs.length" class="ps-empty">{{ $t('campusMerchant.loading') }}</view>
+          <view v-else-if="!printJobs.length" class="ps-empty">{{ $t('campusMerchant.printJobsEmpty') }}</view>
+          <scroll-view v-else class="ps-list" scroll-y>
+            <view v-for="j in printJobs" :key="j.id" class="ps-row">
+              <view class="ps-main">
+                <text class="ps-name">{{ j.orderCode || $t('campusMerchant.printJobsTestJob') }}</text>
+                <text class="ps-addons">{{ jobMeta(j) }}</text>
+                <text v-if="j.errorMessage" class="pj-err">{{ j.errorMessage }}</text>
+              </view>
+              <view class="ps-qty">
+                <text class="pj-tag" :class="j.status">{{ jobStatusText(j) }}</text>
+                <button
+                  v-if="j.orderId"
+                  class="p-btn ghost pj-retry"
+                  :disabled="jobReprinting === j.orderId"
+                  @tap="reprintJob(j)"
+                >{{ $t('campusMerchant.printJobsReprint') }}</button>
+              </view>
+            </view>
+          </scroll-view>
+          <view class="ps-foot">
+            <button class="ps-btn ghost" :disabled="jobsBusy" @tap="loadPrintJobs">
+              {{ $t('campusMerchant.printJobsRefresh') }}
+            </button>
+          </view>
+        </view>
+      </view>
       <!-- 退款面板（§77）：与对账页共用组件（同一套校验 + 同一 mutation） -->
       <RefundSheet :open="refundOpen" :target="refundTarget" @close="refundOpen = false" @done="onRefundDone" />
     </template>
@@ -326,10 +365,12 @@ import {
   campusMerchantMarkOwnedArrived,
   campusMerchantMarkPrinted,
   campusMerchantPrepSummary,
+  campusMerchantPrintJobs,
   campusMerchantRejectOrder,
   campusMerchantSetPaused,
   type CampusMerchantBoard,
   type CampusPrepItem,
+  type CampusPrintJob,
   type MerchantBoardOrder,
   type MerchantCompletedOrder,
 } from '../../apis/campus';
@@ -804,6 +845,71 @@ async function testCloudPrint() {
     uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.printFailed')), icon: 'none' });
   } finally {
     cloudTesting.value = false;
+  }
+}
+
+/** ===== 云打印任务排障（§87）：最近留痕 + 失败原因 + 单条重打 ===== */
+const jobsOpen = ref(false);
+const jobsBusy = ref(false);
+const printJobs = ref<CampusPrintJob[]>([]);
+const jobReprinting = ref<string | null>(null);
+const JOB_TRIGGER_KEY: Record<string, string> = {
+  auto: 'campusMerchant.printJobsTriggerAuto',
+  manual: 'campusMerchant.printJobsTriggerManual',
+  test: 'campusMerchant.printJobsTriggerTest',
+};
+
+function jobStatusText(j: CampusPrintJob): string {
+  if (j.status === 'ok') return locale.t('campusMerchant.printJobsOk');
+  if (j.status === 'failed') return locale.t('campusMerchant.printJobsFailed');
+  return j.status;
+}
+
+/** 一行副标题：服务商 · 触发方式 · 联数 · 耗时 · 时间（干跑/失败原因另起一行） */
+function jobMeta(j: CampusPrintJob): string {
+  const parts = [
+    j.provider,
+    locale.t(JOB_TRIGGER_KEY[j.triggerType] ?? 'campusMerchant.printJobsTriggerManual'),
+    `${j.copies} ${locale.t('campusMerchant.printJobsCopiesUnit')}`,
+  ];
+  if (j.durationMs !== null) parts.push(`${j.durationMs}ms`);
+  if (j.dryRun) parts.push(locale.t('campusMerchant.printJobsDryRun'));
+  parts.push(hhmm(j.createdAt));
+  return parts.join(' · ');
+}
+
+async function loadPrintJobs() {
+  if (jobsBusy.value) return;
+  jobsBusy.value = true;
+  try {
+    printJobs.value = await campusMerchantPrintJobs(20);
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.printFailed')), icon: 'none' });
+  } finally {
+    jobsBusy.value = false;
+  }
+}
+
+function openPrintJobs() {
+  jobsOpen.value = true;
+  void loadPrintJobs();
+}
+
+/** 单条重打：按任务所属订单重新走一次云打印（成功由后端回写 printedAt） */
+async function reprintJob(j: CampusPrintJob) {
+  if (!j.orderId || jobReprinting.value) return;
+  jobReprinting.value = j.orderId;
+  try {
+    const r = await campusMerchantCloudPrint(j.orderId);
+    uni.showToast({
+      title: r.ok ? locale.t('campusMerchant.printJobsReprintOk') : r.error || locale.t('campusMerchant.printFailed'),
+      icon: r.ok ? 'success' : 'none',
+    });
+    void loadPrintJobs();
+  } catch (err: any) {
+    uni.showToast({ title: graphQlErrorMsg(err, locale.t('campusMerchant.printFailed')), icon: 'none' });
+  } finally {
+    jobReprinting.value = null;
   }
 }
 
@@ -1413,10 +1519,18 @@ onUnmounted(() => {
           .ps-main { flex: 1; display: flex; flex-direction: column; gap: 6rpx;
             .ps-name { font-size: 26rpx; color: $wa-ink; font-weight: 600; }
             .ps-addons { font-size: 21rpx; color: $wa-muted; }
+            .pj-err { font-size: 20rpx; color: #cf1322; line-height: 1.5; }
           }
           .ps-qty { display: flex; flex-direction: column; align-items: flex-end; gap: 4rpx;
             .ps-todo { font-size: 30rpx; color: $wa-ink; font-weight: 700; }
             .ps-done { font-size: 20rpx; color: $wa-muted; }
+            // 云打印任务排障（§87）：状态标签 + 失败原因 + 单条重打
+            .pj-tag { font-size: 20rpx; padding: 2rpx 12rpx; border-radius: 999rpx; background: $wa-rule; color: $wa-muted;
+              &.ok { background: #f6ffed; color: #389e0d; }
+              &.failed { background: #fff1f0; color: #cf1322; }
+            }
+            .pj-retry { margin-top: 8rpx; font-size: 22rpx; padding: 4rpx 18rpx; border-radius: 999rpx;
+              background: $wa-rule; color: $wa-ink; line-height: 1.4; }
           }
         }
       }

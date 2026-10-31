@@ -4654,6 +4654,58 @@ type MerchantStoreProfile { ... dailyPushEnabled: Boolean! dailyPushTime: String
 
 **踩坑**：新 customFields 一旦随 `lib` 上线，启动期就有查询命中 `Channel`，缺列会直接 `QueryFailedError: column Channel.customFieldsWaimaidailypushenabled does not exist` 打进重启循环（restarts 逐秒上涨、`/health` 无响应）；p23 迁移是 `OnApplicationBootstrap`，来不及救启动期查询，必须先在库里补列。**回滚注意**：先回滚后台（旧版不请求两字段）再回滚后端。
 
+## §87 云打印任务排障面板（已上线）
+
+后端 `campusMerchantPrintJobs` 与 `campusMerchantCloudPrint`（重打）此前已就绪，但后台没有任何入口：云打印失败后商家只能看到「未出票」，看不到服务商返回的真实原因，也无法按单重打。本段补一个纯前端面板。
+
+### 87.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | 打印条（云通道）新增「打印任务」按钮；新增面板：最近 20 条留痕（订单号 / 服务商 / 触发方式 / 联数 / 耗时 / 干跑标记 / 时间），失败行展示服务商原因并标红，行尾「重打」按订单重发出票；底部「刷新」 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 15 条：`printJobsEntry/Title/Hint/Empty/Refresh/Reprint/Ok/Failed/TestJob/CopiesUnit/DryRun/TriggerAuto/TriggerManual/TriggerTest/ReprintOk` |
+| 截图 | `docs/screenshots/waimai/p87-print-jobs/` | 3 张：入口按钮 / 面板（含失败行）/ 点重打后转成功并提示 |
+| 脚本 | `web-admin/scripts/shots-p87-print-jobs.cjs` | mock 看板（`printProvider=feie`）+ 打印留痕 + 重打 mutation |
+
+### 87.2 契约（前端直接复用已有后端）
+
+```graphql
+query ($limit: Int) { campusMerchantPrintJobs(limit: $limit) { id orderId orderCode provider deviceSn status triggerType copies dryRun errorMessage durationMs createdAt } }
+mutation ($orderId: ID!) { campusMerchantCloudPrint(orderId: $orderId) { ok provider dryRun jobId error } }
+```
+
+### 87.3 校验与边界
+
+- 入口仅云通道出现（`printProvider !== 'local'`）：本地 C-Lodop 通道的失败原因在浏览器侧（顶部打印条重试），没有服务端留痕可查。
+- 面板每次打开都重新拉取，翻页不做，固定 `limit: 20`（与后端默认一致，够排障不留冗余）。
+- 只有绑定订单的留痕（`orderId` 非空）才渲染「重打」；测试打印的行（`orderId = null`）只展示不断言。
+- 重打期间该行按钮 `disabled`（`jobReprinting` 单值锁），成功后自动刷新列表，失败直接 toast 服务商原因（`r.error` 优先，兜底「小票打印失败」）。
+- 失败原因原文展示、不截断也不改写：服务商错误码（如飞鹅 `1002 打印机不在线`）是商家排查电源/网络/SN 的直接依据。
+
+### 87.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 打印条：`自动打印：支付后出票 · 飞鹅云打印 · 已配置`，按钮 `测试打印 / 打印任务 / 使用说明` |
+| 截图 02 | 面板标题「云打印任务」+ 提示「最近 20 条出票留痕…」；5 行留痕，首行 `A2400002` 标「失败」并展示 `飞鹅云返回 1002：打印机不在线…`；「测试打印」行显示 `干跑` |
+| 截图 03 | 点首行「重打」→ toast「已重新出票」，该行转为「成功」（940ms），失败原因消失 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
+
+### 87.5 生产探针（admin-api，`canteen-a` 渠道）
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantPrintJobs(limit:20)` 带 Bearer | 200，返回数组（当前渠道暂无留痕 → `[]`），字段无裁剪、无报错 PASS |
+| 2 | 同一 query 不带 Bearer | `FORBIDDEN`（You are not currently authorized…）PASS |
+
+### 87.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | 无（复用既有 `campusMerchantPrintJobs` / `campusMerchantCloudPrint`，无需迁移） | 探针即验证 |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61883 KB` → nginx `test is successful` + reload → `deploy done`；线上 `index-DxmZBuUk.js`（200 / 894154 B）与 `pages-campus-merchant.YvwqWM2o.js`（200 / 40631 B）均命中 `printJobsEntry`；`https://e.joho.cn/guanli/` 200 |
+
 
 
 
