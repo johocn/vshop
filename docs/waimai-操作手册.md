@@ -4595,19 +4595,22 @@ campusMerchantBoard {
 
 操作入口：商家工作台「商家接单」页 → 顶部「今日待办」条 → 点「售后 2」跳售后列表（退款失败单已置顶）、点「催单 1」跳有催单的订单栏、点「出餐超时 1」进出餐屏；全部处理完后整条自动消失。
 
-## §86 每日日报推送（前端先行，后端未上线）
+## §86 每日日报推送（已上线）
 
-### 86.1 交付清单（本批次只做前端）
+### 86.1 交付清单
 
 | 端 | 文件 | 内容 |
 |---|---|---|
+| 后端 | `campus-delivery-plugin/src/daily-report-push.job.ts` | 每 30 分钟扫描开启推送的渠道，到点（店铺设定 `HH:MM`，默认 21:30）按渠道级 PG 咨询锁单飞执行，汇总当日 `delivered` 单量/营业额/客单价/高峰时段/热销前 5，经 Feishu 推送；同一天只推一次（写 `waimaiDailyPushLastDate`） |
+| 后端 | `campus-delivery-plugin/src/migrations/p23-daily-push.ts` | 幂等补列（`customFieldsWaimaidailypushenabled/time/lastdate`），生产 `synchronize:false` 必备 |
+| 后端 | `campus-delivery-plugin/src/custom-fields.ts` / `merchant-admin.service.ts` / `merchant-admin.resolver.ts` / `campus-delivery.plugin.ts` / `index.ts` | Channel 三字段 + `storeProfile` 回传 + `campusMerchantUpdateDailyPush` mutation + SDL/注册/bootstrap 启动 |
 | 后台 | `web-admin/src/apis/campus.ts` | `MerchantStoreProfile` 增 `dailyPushEnabled / dailyPushTime`；`STORE_PROFILE_FIELDS` 补两字段；新增 `campusMerchantUpdateDailyPush(enabled, time)` |
 | 后台 | `web-admin/src/pages/campus/store-settings.vue` | 新增「每日日报推送」卡片：开关 + 开启后展开「推送时间」（默认 21:30）+ 说明 + 「保存推送设置」；`applyProfile` 回填开关与时间 |
 | 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 8 条：`dailyPushTitle/Toggle/Desc/TimeLabel/TimeHint/Save/Saved/BadTime` |
 | 截图 | `docs/screenshots/waimai/p86-daily-push/` | 3 张：关闭态 / 开启态（时间 21:30）/ 填 `2130` 保存被拦并提示 |
 | 脚本 | `web-admin/scripts/shots-p86-daily-push.cjs` | mock 门店资料 + 推送保存 mutation |
 
-### 86.2 契约（前端已按此形状调用）
+### 86.2 契约（前后端一致）
 
 ```graphql
 mutation { campusMerchantUpdateDailyPush(enabled: Boolean!, time: String) { ...MerchantStoreProfile } }
@@ -4630,11 +4633,27 @@ type MerchantStoreProfile { ... dailyPushEnabled: Boolean! dailyPushTime: String
 | 截图 03 | 填 `2130` 点保存：弹 toast「时间格式应为 HH:MM（如 21:30）」，未发请求 |
 | 页面报错 | 脚本 `pageerror` / `console error` 均无输出（mock 环境） |
 
-### 86.5 为什么没部署（重要）
+### 86.5 生产探针（admin-api，`canteen-a` 渠道）
 
-- 后端 `campusMerchantBoard/storeProfile` 目前**没有** `dailyPushEnabled / dailyPushTime` 字段，`campusMerchantUpdateDailyPush` mutation 也不存在（`git grep dailyPush origin/master` 无命中）。
-- 本批次前端一旦部署，经营设置页的 `campusMerchantStoreProfile` 查询会因「Cannot query field」整页加载失败，所以**只提交代码、不构建部署**。
-- 后端待补：新 job `daily-report-push.job.ts`（每 30 分钟扫到点渠道）+ Channel customFields（`dailyPushEnabled/dailyPushTime/dailyPushLastDate`）+ `campusMerchantUpdateDailyPush`；上表前端无需再改。
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campusMerchantStoreProfile { dailyPushEnabled dailyPushTime }` | 关闭态基线：`false / "21:30"` PASS |
+| 2 | `campusMerchantUpdateDailyPush(enabled:true, time:"21:30")` | `true / "21:30"` PASS |
+| 3 | `time:"2130"`（非法格式） | `errors[0] = 推送时间格式应为 HH:MM（如 21:30）`，未落库 PASS |
+| 4 | `enabled:true, time:null` | 时间回落 `"21:30"` PASS |
+| 5 | `enabled:false` | 复原关闭态（生产基线）PASS |
+| 6 | 两个接口不带 Bearer | 均 `FORBIDDEN`（未越权）PASS |
+
+### 86.6 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 数据库 | 生产 `DB_SYNC=0`（`synchronize:false`），Channel 三列由 `/tmp/fix86.sh` 直连 PG 执行 `ALTER TABLE "public"."channel" ADD COLUMN IF NOT EXISTS ...`（`customFieldsWaimaidailypushenabled` boolean、`customFieldsWaimaidailypushtime` varchar(5)、`customFieldsWaimaidailypushlastdate` varchar(10)） | `information_schema` 确认三列存在 |
+| 后端 | 统一在**干净基线**（`git worktree --detach origin/master`）编译 `packages/campus-delivery-plugin`，scp `lib` 产物（`daily-report-push.job.js`、`migrations/p23-daily-push.js`、`custom-fields.js`、`merchant-admin.service.js`、`merchant-admin.resolver.js`、`campus-delivery.plugin.js`、`index.js`）→ `pm2 restart vendure --update-env` | `uptime > 3min`、restarts 不再增长；`http://127.0.0.1:3020/health` → `{"status":"ok"}` |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 61878 KB` → nginx `test is successful` + reload → `deploy done`；线上 `index-DOJDQ0eV.js`、`pages-campus-store-settings.xgJyChUY.js`、`campus.D3cOcTa5.js` 均 200 且命中 `dailyPush`；`https://e.joho.cn/guanli/` 200 |
+
+**踩坑**：新 customFields 一旦随 `lib` 上线，启动期就有查询命中 `Channel`，缺列会直接 `QueryFailedError: column Channel.customFieldsWaimaidailypushenabled does not exist` 打进重启循环（restarts 逐秒上涨、`/health` 无响应）；p23 迁移是 `OnApplicationBootstrap`，来不及救启动期查询，必须先在库里补列。**回滚注意**：先回滚后台（旧版不请求两字段）再回滚后端。
+
 
 
 
