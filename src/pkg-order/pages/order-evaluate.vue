@@ -109,11 +109,11 @@ const IMPROVE_LABELS: Record<string, string> = {
     '性价比低': 'review.improveValue',
 };
 
-/** 好评送礼：选项固定三项，不提供通用项 */
+/** 好评送礼：选项固定三项，值提交后端英文枚举（quality/service/time） */
 const GIFT_OPTIONS = [
-    { value: '质量', labelKey: 'review.giftQuality' },
-    { value: '服务', labelKey: 'review.giftService' },
-    { value: '时间', labelKey: 'review.giftTime' },
+    { value: 'quality', labelKey: 'review.giftQuality' },
+    { value: 'service', labelKey: 'review.giftService' },
+    { value: 'time', labelKey: 'review.giftTime' },
 ];
 
 interface Block {
@@ -137,7 +137,7 @@ const auth = useAuthStore();
 const blocks = ref<Block[]>([]);
 const loaded = ref(false);
 const submitting = ref(false);
-/** 好评送礼选择（纯前端展示，后端无对应字段，不随提交上行） */
+/** 好评送礼选择（仅 ≥4 星随评价上行；≤3 星后端忽略） */
 const giftChoice = ref('');
 
 /** 全部商品行均为好评（4-5 星）才展示好评送礼 */
@@ -237,6 +237,8 @@ async function onSubmit() {
                 tags: b.improvePicked.length ? b.improvePicked : undefined,
                 images: b.images,
                 isAnonymous: b.isAnonymous,
+                // 好评才可选礼包；后端对非法值报错、对 ≤3 星忽略
+                giftChoice: b.rating >= 4 && giftChoice.value ? giftChoice.value : undefined,
             });
             // P4-4 评价提交埋点（评分分布 + 是否带图）
             track('review_submit', { productId: b.productId, rating: b.rating, images: (b.images || []).length });

@@ -4,7 +4,7 @@ import { getGraphQLClient } from '../client';
 const REVIEW_FIELDS = `
     id customerId customerName productId variantId orderLineId parentId
     rating content images tags isAnonymous status reply repliedAt helpfulCount
-    createdAt
+    createdAt giftChoice giftGranted
 `;
 
 /** 商品评价列表：public；ratingMin/ratingMax 为服务端分档筛选（见 vendure review-plugin S6） */
@@ -62,6 +62,8 @@ export async function createReview(input: {
     images?: string[];
     tags?: string[];
     isAnonymous?: boolean;
+    /** 好评送礼所选礼包：quality / service / time（仅 ≥4 星主评有效） */
+    giftChoice?: string;
 }) {
     const client = getGraphQLClient();
     const query = `

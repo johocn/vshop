@@ -24,6 +24,8 @@
         <text class="mr-item__status" :class="'mr-item__status--' + item.review.status">{{ statusText(item.review.status) }}</text>
       </view>
       <text class="mr-item__content">{{ item.review.content }}</text>
+      <!-- 好评送礼回显：所选礼包 + 发放状态（未选礼包的主评不展示） -->
+      <text v-if="giftText(item.review)" class="mr-item__gift">{{ t('review.giftLabel') }}：{{ giftText(item.review) }}</text>
     </view>
 
     <EmptyState v-if="!loading && visibleItems.length === 0" :text="t('review.empty')" />
@@ -72,6 +74,24 @@ function statusText(status: string): string {
 function starText(rating: number): string {
     const r = Math.min(5, Math.max(0, Number(rating) || 0));
     return '★'.repeat(r) + '☆'.repeat(5 - r);
+}
+
+/** 好评送礼：礼包名 · 发放状态（未选礼包或追评不展示） */
+function giftText(r: any): string {
+    if (!r?.giftChoice || r.parentId) return '';
+    const names: Record<string, string> = {
+        quality: t('review.giftQuality'),
+        service: t('review.giftService'),
+        time: t('review.giftTime'),
+    };
+    const name = names[r.giftChoice];
+    if (!name) return '';
+    const state = r.giftGranted
+        ? t('review.giftIssued')
+        : r.status === 'pending'
+            ? t('review.giftPending')
+            : t('review.giftNotIssued');
+    return `${name} · ${state}`;
 }
 
 function dateText(raw: string): string {
@@ -126,5 +146,6 @@ onMounted(async () => {
         &--rejected { color: #e34d59; background: #fdecee; }
     }
     &__content { display: block; margin-top: 12rpx; font-size: 26rpx; color: $text-color-secondary; line-height: 1.5; }
+    &__gift { display: block; margin-top: 8rpx; font-size: 22rpx; color: $brand-color; }
 }
 </style>
