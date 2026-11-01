@@ -6536,21 +6536,109 @@ END $$;
 
 操作入口：商家工作台「商家接单」页顶部「今日待办」出现「日报未推送」→ 点进去是「经营设置」的每日日报推送卡；未配置推送渠道时该卡在时间输入下方显示红字「未配置推送渠道，请联系运营」。
 
+## §119 日报推送失败原因可见：最近一次失败时间与原因落库并回显（已上线）
 
+> 定位：补 §118.6 第 3 条边界——「待办只告诉商家没推成，看不到原因」。本节把最近一次失败的时间与原因落到 Channel，设置页直接显示；不改推送流程、不改重试上限、不新增接口。
 
+### 119.1 交付清单
 
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/custom-fields.ts` | Channel 新增 `waimaiDailyPushLastFailAt`（epoch ms 字符串）与 `waimaiDailyPushLastFailReason`（≤200 字） |
+| 后端 | `packages/campus-delivery-plugin/src/migrations/p119-daily-push-fail.ts`（新建） | 启动幂等补两列（`varchar(16)` / `varchar(200)`，`IF NOT EXISTS`） |
+| 后端 | `packages/campus-delivery-plugin/src/campus-delivery.plugin.ts` | 注册迁移；`MerchantStoreProfile` 加 `dailyPushLastFailAt: Float!`、`dailyPushLastFailReason: String!` |
+| 后端 | `packages/campus-delivery-plugin/src/feishu/feishu.client.ts` | `broadcast` / `sendToChat` / `sendWebhook` / `sendMessage` 增加可选 `reasonOut` 回填失败原因（未配置渠道、webhook HTTP 码、飞书 `code/msg`、取 token 失败、群全部失败） |
+| 后端 | `packages/campus-delivery-plugin/src/daily-report-push.job.ts` | 失败分支写两列（原因截断 200 字并入日志）；成功分支清空两列 |
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `storeProfile` 返回两个字段，且只在与「最近一次成功日」比较后通过：失败日晚于成功日才可见 |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型同步两字段 |
+| 后台 | `web-admin/src/pages/campus/store-settings.vue` | 日报卡在开关开且 `dailyFailText` 非空时显示橙色 `.tip-fail`「上次推送失败 MM-DD HH:MM：原因」 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 `dailyPushLastFail`、`dailyPushUnknownFail` |
+| 截图 | `docs/screenshots/waimai/p119-daily-push-fail/` | 3 张：有失败 / 无失败 / 失败 + 渠道未配置叠加 |
+| 脚本 | `web-admin/scripts/shots-p119-daily-push-fail.cjs` | mock 三组门店资料，固定失败时间 `2026-11-01 22:10 +08:00` |
 
+### 119.2 口径与实现
 
+- **落库时机**：只在 `broadcast` 返回 false 的分支写；成功分支写 `lastdate` 后同时把两列置 `NULL`。因此「设置页还挂着失败」⇔「最近一次尝试确实失败」。
+- **可见性判定（服务端）**：`failVisible = failAt > 0 && (lastSuccessDay === '' || campusDayKey(failAt) > lastSuccessDay)`。昨日失败、今天成功 → 今天成功后 `lastdate` 追上，失败行自动消失；昨天失败、今天还没推 → 继续显示昨天那次失败，商家可据此判断「连续两晚没收到」。
+- **原因文案来源**：直接取飞书返回的 `code/msg`、HTTP 状态码或「未配置 webhook / 未配置飞书应用 / 推送渠道未配置」；未知情况兜底「推送失败（未知原因）」，前端再兜底「原因未知」。同一原因同时进服务端日志（`warn` 前两次 / `error` 第 3 次）。
+- **时间展示**：后端回 epoch ms，前端按浏览器本地时区格式化为 `MM-DD HH:MM`（不引入新库、不做相对时间）。
+- **零新增接口**：只扩 `campusMerchantStoreProfile` 的返回字段 + 一次 `UPDATE`（失败时）/一次 `UPDATE ... NULL`（成功时），二者都在已有 job 轮次内，无额外定时器。
 
+### 119.3 权限与校验
 
+- 两列仍按 `ctx.channelId` 读写，`storeProfile` 的 `Channel` 查询带 `where: { id: ctx.channelId }`，不跨店。
+- 原因字段写入前 `slice(0, 200)`，读取时再 `String(...)`，避免脏数据撑破列宽；写入失败只 `Logger.warn`，不影响重试计数。
+- 成功清空失败标记失败（异常）时静默（`.catch(() => undefined)`）：最坏结果是设置页多显示一条已过期的失败，不影响推送。
+- DOM 读回口径：`.tip-fail` 文案必须等于「上次推送失败 11-01 22:10：code=9499 msg=Webhook 校验失败」，颜色 `rgb(212, 107, 8)`、字号 `11.44px`；无失败时该节点不存在。
 
+### 119.4 数据库变更
 
+```sql
+ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastfailat" varchar(16);
+ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastfailreason" varchar(200);
+```
 
+- 生产 `synchronize: false`（`DB_SYNC=0`）。**实际执行路径：部署前先用 psql 手工补列，再重启代码**（本次已执行，见 119.7）；`P119DailyPushFailMigration.onApplicationBootstrap` 保留为兜底，但在生产它**跑不到**——Vendure 初始化时 `ChannelService.initChannels` 会先 select 全部 Channel 自定义字段，缺列直接抛 42703 让进程崩在启动阶段，早于任何 `onApplicationBootstrap` 钩子。
+- 部署顺序硬约束：`改代码 → 补列（psql）→ pm2 restart`。反过来做会进崩溃循环（本次已踩到）。同目录的 p23 迁移同理，属于既有约定而非本节新引入。
+- 回滚只需把代码回退：多出来的两列留空不影响旧代码（旧代码不会 select 它们）。
 
+### 119.5 验证记录
 
+**构建**
 
+- 插件 `npx tsc -p tsconfig.build.json` 通过，`lib/` 已入库（含 `migrations/p119-daily-push-fail.*`）。
+- 后台 `npm run build:h5` 通过，产物 `pages-campus-store-settings.eX8GYJ50.js` 25163 B、`pages-campus-merchant.CpFOC9QR.js` 41199 B、`index-6vN_uVit.js` 957698 B。
 
+**截图（390×844 dpr2，DOM 读回）**
 
+| 编号 | 场景 | 读回断言 |
+|---|---|---|
+| 01 | 有失败、渠道已配置 | `.tip-fail` = 「上次推送失败 11-01 22:10：code=9499 msg=Webhook 校验失败」，`color=rgb(212, 107, 8)`、`font-size=11.44px`；`.tip-warn` 不存在 |
+| 02 | 无失败 | `.tip-fail` 节点不存在；开关仍为 `on: true`，时间 `21:30` |
+| 03 | 失败 + 渠道未配置叠加 | `.tip-warn` = 「未配置推送渠道，请联系运营」`rgb(207, 19, 34)`，`.tip-fail` = 「上次推送失败 11-01 22:10：未配置 webhook」`rgb(212, 107, 8)`，两行同时存在 |
 
+**线上（e.joho.cn）**
 
+- 后台 chunk 与本地逐字节一致：三个文件 `Length` 相同且 `SHA256` 全等（脚本用 `Invoke-WebRequest -OutFile` + `Get-FileHash` 比对，规避 PowerShell 文本解码误差）。
+- 入口 chunk 含新文案：「上次推送失败」= true、「未配置推送渠道，请联系运营」= true。
+- GraphQL 探针（`login(superadmin)` 取 `vendure-auth-token`，带 `vendure-token: canteen-a-token`）：
+  - `campusMerchantStoreProfile { dailyPushEnabled dailyPushTime dailyPushChannelReady dailyPushLastFailAt dailyPushLastFailReason }` → `200`，`{"dailyPushEnabled":false,"dailyPushTime":"21:30","dailyPushChannelReady":true,"dailyPushLastFailAt":0,"dailyPushLastFailReason":""}`（上线初期未开启推送，字段可解析即列已落地）。
+  - `campusMerchantBoard { dailyPushPending }` → `200`，`false`。
+  - 无 Bearer 同查询 → `FORBIDDEN`（未放宽权限）。
+- `POST https://e.joho.cn/shop-api` → `200`（后端整体可用）。
+- 列落地核对：`channel` 表 `%daily%` 共 6 列，新增两列在列。
 
+**故障与恢复（必须记录）**
+
+- 首次 `pm2 restart` 后进入崩溃循环（`↺` 从 884 涨到 929，uptime 始终 11–13s）：日志 `QueryFailedError: column Channel.customFieldsWaimaidailypushlastfailat does not exist`（`code=42703`，栈在 `ChannelService.initChannels` → `ensureDefaultChannelExists`），期间 `shop-api` 返回 `405`、后台静态页仍 `200`。
+- 处理：`docker exec 1Panel-postgresql-pIe0 psql -U vendure -d vendure -c 'ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS ...'` 补两列后 `pm2 restart vendure --update-env`，25s 后进程稳定、`shop-api` 恢复 `200`、探针全绿。
+- 结论：这不是代码逻辑问题，是**部署顺序问题**；已把顺序写进 119.4，后续同类字段必须先补列再重启。
+
+### 119.6 边界与已知限制
+
+1. **只记「最近一次」**：不保存历史失败，失败原因被下一次失败覆盖；要看连续失败趋势仍得查服务端日志。
+2. **原因受推送通道粒度限制**：多群映射时只保留「最后一个失败群」的原因；若部分群成功、部分失败，`broadcast` 判定整体成功（沿用 §86 口径），此时不写失败标记——「部分群漏收」仍只能靠群成员反馈。
+3. **失败标记可被跳过轮次「冻结」**：达到 3 次上限后当日不再尝试，设置页会一直显示第 3 次的原因到次日；这正是期望行为（告诉商家今天不会再推）。
+4. **时区**：时间按浏览器本地时区格式化，服务器按校园时区判日；跨时区查看（如运维在 UTC 机器上打开）时间会偏移，但日期比较仍在服务端完成，不影响可见性判断。
+5. **不覆盖其它推送**：售后月度摘要、异常预警仍走各自日志，不写这两列。
+6. **字段上线即强依赖数据库列**：`synchronize: false` 下新增 Channel 自定义字段若缺列，失败面是**整个后端启动失败**（不只是该功能不可用），必须按 119.4 顺序部署并核对 `information_schema.columns`。
+
+### 119.7 部署记录
+
+**后端（2026-11-01）**
+
+1. 补列（先做）：`docker exec 1Panel-postgresql-pIe0 psql -U vendure -d vendure -c 'ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastfailat" varchar(16); ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastfailreason" varchar(200);'` → 两条 `ALTER TABLE` 成功。
+2. 拉代码：`cd /www/apps/vendure && git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin`。
+3. 重启：`pm2 restart vendure --update-env` → `[PM2] [vendure](1) ✓`；补列后本次重启为**正常重启**，`↺ 929`、`online`、25s 后稳定（崩溃循环已终止）。
+4. 生产库：PostgreSQL 18.4（容器 `1Panel-postgresql-pIe0`），库 `vendure`、用户 `vendure`；`DB_SYNC=0`。
+
+**后台（2026-11-01）**
+
+- `node scripts/deploy.mjs` → `[deploy] 产物校验通过: 62198 KB` → nginx `test is successful` → reload → `deploy done`。
+- 线上 chunk：`pages-campus-store-settings.eX8GYJ50.js` / `pages-campus-merchant.CpFOC9QR.js` / `index-6vN_uVit.js`，字节与 SHA256 均与本地一致。
+- 回滚点：`/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/guanli.bak_1793506880`（保留 3 份，最旧 `guanli.bak_1793501943` 待轮转）。
+
+**提交**
+
+- vendure `639c92e09`（21 files：src 6 个 + `lib/` 产物 + p119 迁移）。
+- vshop `763e9c51`（8 files：`campus.ts`、`store-settings.vue`、`zh-Hans.json` / `en.json`、截图脚本、3 张截图）。
