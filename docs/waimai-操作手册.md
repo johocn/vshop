@@ -7069,5 +7069,91 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 - **⚠ 触达链路的既有前提（影响「商家能不能看到」）**：`inbox_message` 本次仍无新行（表内 51 行，最新一条是 2026-10-29 的 `coupon_expire`）。原因不在本任务：`NotificationService.notifyAfterSalesMerchant` 先用 `getOrderShopIds()` 由订单商品反查 `product.customFields.shopId` 得到收件店铺，再找该店铺的 `administratorId` 写站内信；而生产 122 个商品里只有 **2** 个带 `shopId`，校园商品未打该字段 → `shopIds` 为空 → 直接 `return`（静默）。即：**SLA 提醒现在能正确生成并落库，但后台通知中心里商家还看不到**，需单独评估是给校园商品补 `shopId`，还是让售后提醒改走「渠道维度」的收件人解析。
 - **回滚**：`git checkout 7553332c4 -- packages/campus-delivery-plugin && cd packages/campus-delivery-plugin && npm run build && pm2 restart vendure --update-env`。数据侧如需清掉本次补发记录：`DELETE FROM campus_after_sales_sla_alert WHERE "requestId" = 25;`（仅影响去重冷却，不回滚已发通知）。
 
+## §126 售后规则三项阈值补列 + 商家触达回退渠道维度（已上线）
+
+**影响面**：后端加 3 个渠道自定义字段与 1 条幂等迁移（3 列 DDL）；notification 层商家收件人解析加渠道回退；无 GraphQL 字段变更、无页面改动。
+
+> 承接 §125.6-1 与 §125.7 ⚠。本轮做两件事：① 把「售后规则」里一直改不动的三项阈值真正落库；② 让售后提醒在商品缺 `shopId` 时不再静默 `return`。
+
+### 126.1 交付清单
+
+| 文件 | 内容 |
+|---|---|
+| `packages/campus-delivery-plugin/src/custom-fields.ts` | `Channel` 新增 `afterSalesDueSoonHours` / `afterSalesFirstResponseTargetHours` / `afterSalesResolveTargetHours`（均为 `int nullable`） |
+| `.../src/migrations/p42-channel-aftersales-rule-columns.ts`（新增） | 幂等补 3 列物理列（`DO $$ … IF to_regclass('channel') … ADD COLUMN IF NOT EXISTS`），随服务启动执行 |
+| `.../src/campus-delivery.plugin.ts` | 注册 `P42ChannelAfterSalesRuleColumnsMigration` |
+| `packages/notification-plugin/src/notification.service.ts` | 新增 `resolveMerchantShopIds()`：先按商品 `shopId` 归属，为空则按 `Shop.channelId = ctx.channelId` 回退；`notifyAfterSalesMerchant` 改用它；店铺查询改走裸连接，避免 `ChannelAware` 过滤漏店 |
+| 前端 | 无改动（`web-admin` 早已按 `dueSoonHours / firstResponseTargetHours / resolveTargetHours` 读写，只是后端此前丢弃） |
+
+### 126.2 口径与契约
+
+- **字段口径**（与 `merchant-admin.service.afterSalesRules` 完全一致）：
+  - `afterSalesDueSoonHours`：临期提醒阈值，小时，`0` = 关闭临期提醒，空 = 12；
+  - `afterSalesFirstResponseTargetHours`：首响目标，小时，`0`/空 = 不考核；
+  - `afterSalesResolveTargetHours`：完结目标，小时，`0`/空 = 不考核。
+  - 校验范围沿用既有：临期 `0-72`、首响/完结 `0-168`。
+- **列名规则**：`customFields` + 字段名首字母大写、**其余全部小写**（Vendure/TypeORM 对本仓库的实际行为，已由生产 `information_schema` 双向印证：`afterSalesTimeoutHours → customFieldsAftersalestimeouthours`）。三条新列：
+  - `customFieldsAftersalesduesoonhours`
+  - `customFieldsAftersalesfirstresponsetargethours`
+  - `customFieldsAftersalesresolvetargethours`
+- **一个字段只能有一个声明处**：`afterSalesTimeoutHours` / `afterSalesAutoApproveHours` / `afterSalesRefundAutoRetry` / `afterSalesReturnAddress` 由 `after-sales-plugin` 声明；本次三项属于校园售后规则，声明在 `campus-delivery-plugin`，因此也纳入 `migrations-coverage.spec.ts` 的「Channel 自定义字段必须有物理列迁移」检查。
+- **收件人解析顺序**（`resolveMerchantShopIds`）：商品 `shopId` → `Shop.administratorId`（原逻辑）；解析为空时回退 `Shop.channelId = 订单渠道` → 该店铺 `administratorId`。**只有确实存在店铺记录才落站内信**，不会退化成「发给渠道下全部管理员」。
+- **ctx 渠道来源**：SLA 任务用命中的 `channel` 构造 `RequestContext`，因此 `ctx.channelId` 即订单渠道；状态迁移路径用商家操作时的 ctx，同源。
+
+### 126.3 权限与校验
+
+- **无新增权限点**：3 个字段只在既有 `campusMerchantAfterSalesRules` / `campusMerchantUpdateAfterSalesRules` 里读写，权限沿用既有 `ReadChannel`/渠道管理员判定。
+- **写入校验不变**：`updateAfterSalesRules` 仍逐项校验范围并抛 `UserInputError`；只写传入项，保留渠道其它自定义字段。
+- **迁移安全**：`ADD COLUMN IF NOT EXISTS` + `to_regclass('channel')` 判空，失败只 `console.error`，不阻断启动。
+
+### 126.4 数据库变更
+
+生产（`DB_SYNC=0`）已手工执行（可与 P42 迁移重复执行）：
+
+```sql
+ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesduesoonhours" int;
+ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesfirstresponsetargethours" int;
+ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesresolvetargethours" int;
+```
+
+- 三列均 `nullable`、无默认值：旧行为「未配置按 12 / 0 / 0」由代码兜底，存量渠道读到的仍是 `null`，**行为与上线前一致**，不会因补列而突然开始大量推送。
+- 新环境重建由 P42 迁移自动补齐；`migrations-coverage.spec.ts` 会拦住「只加声明不加列」的回归。
+
+### 126.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 单测 | `npx vitest run migrations-coverage / after-sales-sla-alert.job / campus-job-locks` → `3 files / 16 tests passed` |
+| 插件编译（本地） | `packages/campus-delivery-plugin`、`packages/notification-plugin` 均 `npm run build` 退出码 0 |
+| 生产列探针（上线前） | `channel` 表 `customFieldsAftersales%` 仅 4 条（`autoapprovehours / refundautoretry / returnaddress / timeouthours`），确认 3 列缺失 |
+| 生产 DDL | 三条 `ALTER TABLE` 返回 `ALTER TABLE`；复查 `information_schema` 已出现 `customFieldsAftersalesduesoonhours / firstresponsetargethours / resolvetargethours` |
+| 线上（部署后） | 见 126.7 |
+
+### 126.6 边界与已知限制
+
+1. **校园渠道目前没有可投递的「商家」**（关键发现，需决策）：
+   - `shop` 表生产只有 **1 行**（`新生 / slug=xinsheng / channelId=7`），校园渠道（92-98 等）**没有 Shop 记录**；
+   - `merchant` 8 行 / `merchant_store` 8 行，但 `merchant_store_channel` 仅 1 行、`claimedByUserId` 全为 `null`、`merchant_store_staff` **0 行**——即校园商户**没有可登录的 Vendure 账号**；
+   - 渠道下的 `administrator` 全部是平台运营账号（`Super / 陶 / Hua / Jiang`，同一批人挂在所有渠道）；
+   - `web-admin` 也没有「消息中心」页面（无 `adminInbox` 调用），商家侧的通知面只有售后工作台的「临期/超时」计数。
+   → 因此本轮的回退只对**有 Shop 记录的渠道**（如 channel 7）生效；校园渠道仍不会产生站内信。要真正打通需选其一：
+   - **方案 A**：为每个校园渠道建 `Shop` 记录并绑定 `administratorId`（沿用现有 `Product.shopId → Shop` 链路，改动最小、语义最准）；
+   - **方案 B**：售后提醒改投「渠道管理员」（即平台运营），属运营口径变更，需要确认是否希望运营团队接收所有渠道的售后提醒；
+   - **方案 C**：新增商家侧「消息中心」页面消费 `adminInbox`，工程量最大。
+2. **首响/完结目标仍只是「配置」**：这两项落库后仅参与 `afterSalesRules` 回显与后续报表口径，本轮没有新的考核计算接入（原 §87 的口径未变）。
+3. **补列不回填历史值**：存量渠道三列为 `null`，等价于「按默认 12 / 不考核 / 不考核」，与上线前一致；商家重新保存后才会写入具体值。
+4. **列名强耦合**：三列名必须与 `customFields<首字母大写、其余小写>` 完全一致，改字段名会要求同步改列名，否则所有渠道查询会 `column does not exist`。`migrations-coverage.spec.ts` 只覆盖 `campus-delivery-plugin` 的 `custom-fields.ts`，`after-sales-plugin` 的声明不在其检查范围内。
+
+### 126.7 部署记录（2026-11-01）
+
+- **提交与推送**：vendure `d9df21119`（4 files, +63/−2），已推 `origin/master`。
+- **上线顺序**：先在生产执行 3 条 DDL（`DB_SYNC=0` 不会自动建列，先建列可避免重启瞬间 `column does not exist`），再重建插件并重启。
+- **后端重建**：服务器 `git fetch origin master && git checkout origin/master -- packages/campus-delivery-plugin packages/notification-plugin` → 两个包依次 `npm run build` → `pm2 restart vendure --update-env`，进程 `online`（`restarts 934`）。
+- **编译产物校验**：`packages/campus-delivery-plugin/lib/src/migrations/p42-channel-aftersales-rule-columns.js` 存在且含 `customFieldsAftersalesduesoonhours` → 1；`packages/notification-plugin/lib/src/notification.service.js` 中 `resolveMerchantShopIds` → 2。
+- **启动日志**：`Nest application successfully started` / `Vendure server now running on port 3020`，`CampusAfterSalesSlaAlert` 自重启后**无新 warn**（旧代码最后一次报错固定在 `18:56`，对比 §125.7 的 `19:08 sent 1`），说明 ORM 已能带 3 个新列正常读取渠道实体。
+- **数据探针（收件人解析）**：`after_sales_request` → `order` → `order_channels_channel` → `shop` 联查，Pending 单（`12/13/14/20/22/23/25`）命中的渠道为 `1 / 37 / 113`，均无 `Shop` 记录 → 本轮不会新增站内信；`inbox_message` 仍无 `admin` 收件人（表内 51 行全为 `customer`）。与 126.6-1 结论一致。
+- **回滚**：代码 `git checkout 061821ef4 -- packages/campus-delivery-plugin packages/notification-plugin && cd packages/notification-plugin && npm run build && cd ../campus-delivery-plugin && npm run build && pm2 restart vendure --update-env`；数据侧可保留 3 个空列（`nullable`、无默认值，回滚后不再被读取，无副作用），如需彻底清理再执行 `ALTER TABLE channel DROP COLUMN IF EXISTS "customFieldsAftersalesduesoonhours"` 等三条。
+
+
 
 
