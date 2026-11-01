@@ -6927,5 +6927,66 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 - **口径说明**：探针用库本地时间 `date_trunc('day', now())` 起算，代码判重用 UTC+8 自然日（`campusDayKey`）；生产库时区即东八区，两者一致，不会出现跨日重复发送。
 - **回滚**：代码回滚同 §122.7；数据侧如有需要按标题清理：`DELETE FROM message WHERE title='骑手合规到期提醒';`（`message_delivery` 无外键级联，需按 `messageId` 一并删）。
 
+## §124 定时任务统一咨询锁：提现对账与售后三类提醒补齐（已上线）
+
+**影响面**：后端只有定时任务，无 GraphQL / 无后台页面 / 无 C 端变化；商家与顾客侧行为不变。
+
+> 定位：M5a「多实例收口」的最后一组。此前 `slot-reconcile`、`blacklist-scan`、`soldout-auto-restore`、`after-sales-auto-assign` 四类任务已包 `withAdvisoryLock`，剩余 4 个周期任务仍是无锁裸跑——两个 API 实例并存（灰度/滚动重启窗口）时同一轮会被双份执行。本章把剩余 4 个补齐，锁 key 统一为 `campus:<任务名>`。
+
+### 124.1 交付清单
+
+| 文件 | 内容 |
+|---|---|
+| `packages/campus-delivery-plugin/src/withdraw-reconcile.job.ts` | `start()` 的跑批回调用 `withAdvisoryLock(this.connection, 'campus:withdraw-reconcile', …)` 包裹；构造函数新增 `TransactionalConnection` 注入 |
+| `.../src/after-sales-followup-remind.job.ts` | 锁 key `campus:after-sales-followup-remind` |
+| `.../src/after-sales-sla-alert.job.ts` | 锁 key `campus:after-sales-sla-alert` |
+| `.../src/after-sales-sla-deadline.job.ts` | 锁 key `campus:after-sales-sla-deadline`；类注释由「幂等重算无需锁」改为「幂等但多实例同跑放大读写压力，仍加锁」 |
+| `.../src/campus-job-locks.spec.ts`（新增） | 4 组单测，每组两断言：抢到锁 → 跑且 key 正确；抢不到 → 完全不执行 |
+
+前端与数据库均无改动。
+
+### 124.2 口径与契约
+
+- **锁语义**（复用既有 `advisory-lock.ts`）：`pg_try_advisory_lock(hashtext(key))` 非阻塞抢锁；**抢不到就跳过本轮**（不排队、不重试），下一轮自然再抢。锁键取 SQL 会话级咨询锁，`finally` 里 `pg_advisory_unlock` 并释放 QueryRunner，异常路径也不会漏锁。
+- **key 命名**：`campus:<任务名>`，与已加锁的 4 个任务同构；不随渠道/门店分裂（任务本身是全库扫描，按渠道分裂反而放大锁数量）。
+- **降级**：本地 sqlite 无 advisory lock → 锁查询失败时记 `warn` 并直接执行（单进程开发不受影响，跨实例互斥只在 PG 生效）。
+- **为何这 4 个必须加锁**：
+  - `withdraw-reconcile`：对 `intent` 提现做「按余额流水还原扣款结果并收敛」，双实例并发会把同一 intent 收敛两次（潜在重复扣款/重复回滚）。
+  - `after-sales-followup-remind`：`UPDATE … SET remindedAt = now() WHERE remindedAt IS NULL RETURNING id` 虽有唯一更新兜底，但双实例下两边都可能先读到同一批 `nextAt` 到期行，产生重复提醒。
+  - `after-sales-sla-alert`：`ON CONFLICT … WHERE alertedAt < now() - 24h` 是「抢占式」写法，双实例并发会各自抢到一半（各发一次），同一售后单会被连推两条。
+  - `after-sales-sla-deadline`：重算幂等（写同一值），但每轮要读全部渠道配置 + 全表扫描待办售后，双实例纯属浪费 DB 与配置读。
+- **单飞与锁的关系**：`PeriodicFallback` 已做进程内单飞（上一轮没结束就跳过本轮），咨询锁负责**跨进程**互斥，两者互补、不重复。
+
+### 124.3 权限与校验
+
+- **无权限点变更**：4 个任务都只在 `onApplicationBootstrap` 启动，不是 GraphQL 入口，不存在对外可调用面。
+- **渠道隔离不变**：任务内部仍按渠道构造 `RequestContext({apiType:'admin', channel, …})`，锁只串行化执行，不放宽数据范围。
+- **依赖注入**：`TransactionalConnection` 由 `@vendure/core` 全局提供，`WithdrawReconcileJob` 新增该注入无需改 `providers` 注册（已在 `campus-delivery.plugin.ts` 的 `WithdrawReconcileJob` 条目中）。
+
+### 124.4 数据库变更
+
+无。不建表、不加列、不建索引；咨询锁是 PG 会话级内存锁，**不落库**（`pg_locks` 仅运行期可见），重启即释放。
+
+### 124.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 插件类型检查 | `npx tsc -p tsconfig.build.json --noEmit` → 退出码 0 |
+| 新增单测 | `npx vitest run src/campus-job-locks.spec.ts` → `4 passed`。每条用例同时验两件事：① 抢到锁 → 依赖被调用 **1 次** 且 `pg_try_advisory_lock` 的入参为预期 key；② 抢不到锁 → 依赖 **0 次** 调用（即本轮连查询都没发出） |
+| 全量单测 | `npx vitest run` → `66 files / 822 tests passed`，无回归 |
+| 线上（部署后） | 见 124.7 |
+
+### 124.6 边界与已知限制
+
+1. **跳过不补偿**：抢不到锁的那一轮直接丢弃。周期任务本身是「兜底扫描」，下一轮会重扫，因此不需要排队补偿；但 `withdraw-reconcile` 若长期被单实例垄断，另一实例等同闲置（不影响正确性）。
+2. **锁不跨库**：`hashtext` 落在**当前连接的数据库**内；多租户/多库部署时不同库互不可见，也不冲突。
+3. **实例崩溃不受影响**：会话级锁随连接断开自动释放，不存在僵尸锁；进程 kill -9 也无需人工清理。
+4. **不防「同实例双跑」以外的问题**：锁只保证互斥，不保证「谁跑」——固定由抢到锁的实例跑完，另一实例全程跳过（不是轮转/负载均衡）。
+5. **任务本身的既有上限不变**：`followup-remind` / `sla-alert` 单轮 `MAX_PER_RUN = 200`，积压超过 200 条需要多轮消化（与本章无关，见 §90/§95）。
+
+### 124.7 部署记录（2026-11-01）
+
+（部署后回填）
+
 
 
