@@ -285,8 +285,12 @@
           <text class="ps-hint">{{ $t('campusMerchant.prepHint') }}</text>
           <!-- 自动刷新状态（§85）：面板打开时轮询，连续无变化自动降频 -->
           <text v-if="prepSyncText" class="ps-sync">{{ prepSyncText }}</text>
-          <!-- 面板期间新增单（§117）：board 每 10s 刷新，新进的待接单/备餐中订单计入，不用关面板重开 -->
-          <text v-if="prepNewCount > 0" class="ps-new">{{ $t('campusMerchant.prepNewOrders').replace('{n}', String(prepNewCount)) }}</text>
+          <!-- 面板期间新增单（§117）：board 每 10s 刷新，新进的待接单/备餐中订单计入；点击直达「待接单」并立即刷新（§121） -->
+          <text
+            v-if="prepNewCount > 0"
+            class="ps-new"
+            @tap="jumpToPendingFromPrep"
+          >{{ $t('campusMerchant.prepNewOrders').replace('{n}', String(prepNewCount)) }} · {{ $t('campusMerchant.prepNewGo') }}</text>
           <view v-if="prepBusy && !prepItems.length" class="ps-empty">{{ $t('campusMerchant.loading') }}</view>
           <view v-else-if="!prepItems.length" class="ps-empty">{{ $t('campusMerchant.prepEmpty') }}</view>
           <scroll-view v-else class="ps-list" scroll-y>
@@ -1269,6 +1273,13 @@ function trackPrepNewOrders(b: CampusMerchantBoard): void {
   prepNewCount.value += fresh.length;
 }
 
+/** §121 提示条可点直达：关面板 → 切「待接单」→ 立即刷新看板（不等 10s 轮询），新单当场可接 */
+function jumpToPendingFromPrep(): void {
+  prepOpen.value = false;
+  tab.value = 'pending';
+  void refresh();
+}
+
 /** 加料/口味份数文案：加辣 ×3 · 多花生 ×1 */
 function addonText(it: CampusPrepItem): string {
   return it.addons.map(a => `${a.name} ×${a.quantity}`).join(' · ');
@@ -1537,9 +1548,10 @@ onUnmounted(() => {
       }
       .ps-hint { font-size: 22rpx; color: $wa-muted; line-height: 1.6; margin-bottom: 16rpx; }
       .ps-sync { display: block; font-size: 21rpx; color: $wa-accent; margin-bottom: 14rpx; }
-      /* §117 面板期间新增单：橙底胶囊，比「自动刷新」更醒目但不抢列表视线 */
+      /* §117 面板期间新增单：橙底胶囊，比「自动刷新」更醒目但不抢列表视线；§121 起可点直达「待接单」 */
       .ps-new { display: inline-block; align-self: flex-start; font-size: 21rpx; color: #fff;
-        background: $wa-accent; border-radius: 999rpx; padding: 6rpx 18rpx; margin-bottom: 14rpx; }
+        background: $wa-accent; border-radius: 999rpx; padding: 6rpx 18rpx; margin-bottom: 14rpx; cursor: pointer;
+        &:active { opacity: .85; } }
       .ps-empty { font-size: 24rpx; color: $wa-muted; text-align: center; padding: 48rpx 0; }
       .ps-list { flex: 1; min-height: 200rpx; max-height: 50vh;
         .ps-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0;

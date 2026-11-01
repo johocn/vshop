@@ -6715,3 +6715,70 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 | 后端 / 后台 | 无改动，未部署 | 本节只改外卖 C 端与手册；§81.6 两处为文档对齐（§83/§110 早已上线） |
 | 提交 | waimai-v39 `1071064`（5 files：`menu.vue`、`my-reviews.vue` + 3 张截图）；vshop `dac01005`（手册 §81.2 / §81.6 / §112.6 / §120） | 已推送（`origin/feat/waimai-v39`、`origin/master`） |
 
+## §121 备餐面板「新增 N 单」提示条可点直达（已上线）
+
+**操作入口**：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部橙色胶囊「本面板期间新增 N 单 · 去接单 ›」。
+
+> 定位：§117 的胶囊只能看不能点——商家看到「新增 2 单」还得手点 ✕ 关面板、再切 Tab、再等下一轮 10s 轮询才见到单。本节把胶囊升级为**可点直达**：点一下 = 关面板 + 切「待接单」+ 立即刷新看板。**零新增接口、零新增请求频率。**
+
+### 121.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | ① `.ps-new` 加 `@tap="jumpToPendingFromPrep"`，文案追加「· 去接单 ›」；② 新增 `jumpToPendingFromPrep()`：`prepOpen=false` → `tab='pending'` → `refresh()`；③ `.ps-new` 补 `cursor: pointer` 与 `:active { opacity: .85 }`（H5 可点反馈） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 1 条：`prepNewGo`（中「去接单 ›」/ 英「Handle now ›」） |
+| 截图 | `docs/screenshots/waimai/p121-prep-new-jump/` | 3 张：面板无新单 / 提示条可点（含「去接单 ›」）/ 点击后面板关闭并停在「待接单」且新单已在列 |
+| 脚本 | `web-admin/scripts/shots-p121-prep-new-jump.cjs` | mock 看板第 2 次起带 1 单，真实等 11s 让胶囊出现，点击后 350ms 读回状态并记录看板请求次数 |
+
+### 121.2 口径与实现
+
+- **复用 §117 计数 + §85 轮询**：提示条仍由 `prepNewCount` 驱动（数据源看板 10s 轮询），本节只加点击行为与文案后缀。
+- **点击 = 手动切 Tab + 立即拉取**：`tab.value = 'pending'` 与点 Tab 同语义；随后 `refresh()` 直接发一次 `campusMerchantBoard`，不必等下一个 10s。
+- **先关面板再刷新**：`prepOpen=false` 后 `trackPrepNewOrders()` 的 `if (!prepOpen) return` 立即生效，这次刷新不会把同一批单重复计入（也不会在重开面板时冒出幽灵计数——`openPrep()` 本来就清零并重新打底）。
+- **不自动清筛选**：若商家此前设了区域/关键字/按楼栋分组，点击后这些筛选仍然生效（`refresh()` 只更新 board）。这是刻意保留商家意图，不做「点提示就重置筛选」的隐式动作。
+- **文案拆两段**：「本面板期间新增 {n} 单」+「· 去接单 ›」由 i18n 两个 key 拼接，`{n}` 仍在模板里 `replace`，英文同步。
+- **失败沿用原状**：`refresh()` 的异常吞掉（§85 既有行为），不弹 toast 干扰后厨。
+
+### 121.3 权限与校验
+
+- **无新增权限点**：纯前端导航 + 既有看板查询，数据范围仍按 `ctx.channelId` 隔离（探针沿用 `vendure-token: canteen-a-token`）。
+- **无写操作**：不发 mutation、不写 localStorage、不落库。
+- **DOM 读回口径**：`.ps-new` 文本、`.prep-sheet` 是否关闭、`.tabs .tab.on` 文本、`.card` 内容；请求次数用脚本侧计数（借 `campusMerchantBoard` 被调用次数验证「立即刷新」）。
+
+### 121.4 数据库变更
+
+无：只读既有看板字段，无 DDL、无迁移、无后端改动。
+
+### 121.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.` |
+| 截图 01 | 打开面板：`.prep-sheet` 打开、胶囊 `""`（不出现）、当前 Tab「待接单」、订单卡 0 张、看板请求 1 次 |
+| 截图 02 | 不点任何按钮等 11s：胶囊 `「本面板期间新增 1 单 · 去接单 ›」`，Tab 角标变「待接单1」，卡片 `A2400005` 已在列（被面板遮住），看板请求 2 次 |
+| 截图 03 | 点胶囊后 350ms：`.prep-sheet` 关闭（`open=false`）、胶囊消失、停在「待接单」Tab、卡片 `A2400005` 可见，看板请求 2 → **3**（立即刷新生效，未等下一轮 10s） |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上产物 | `pages-campus-merchant.CY4P428K.js` 41303 B（与本地字节一致、SHA256 相同），chunk 内含 `ps-new` / `prepNewGo`；入口 `index-CP0IiAqB.js` 957751 B 两侧一致，含「去接单」/「Handle now」 |
+
+### 121.6 边界与已知限制
+
+1. **只跳「待接单」**：提示条统计口径本身只含 `pending + cooking`（§117），已出餐/配送中的新单不会触发胶囊；因此不存在「点了却跳到别的 Tab」的错位，但想看备餐中的单仍需自己切「备餐中」。
+2. **筛选不自动清除**：若商家提前设了区域/关键字筛选，点进来可能看不到那张单，需要手动「清除筛选」——这是保留商家意图的代价。
+3. **点击不清计数**：`prepNewCount` 仍在内存里累加，只有重开面板才归零（与 §117 一致）；面板关闭后胶囊不可见，故不影响使用。
+4. **立即刷新不阻塞在途轮询**：看板仍是 `setInterval(refresh, 10s)`（无 in-flight 锁，§85 既有实现），极端情况下点击恰好撞上在途请求，会并行一次轻查询（最多 1 个额外请求），不存在请求风暴。
+5. **可点反馈仅 H5**：`cursor: pointer` / `:active` 是 H5 样式；小程序/App 端 `@tap` 同样生效，但无 hover 态。
+6. **多标签页**：两个标签页同时开着面板会各自计时，点击只影响当前页；另一页的胶囊仍按自己的基线计数（§117 的既有语义，不做跨页同步）。
+
+### 121.7 部署记录（2026-11-01）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 62198 KB` → nginx `configuration ... test is successful` + reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/`、`assets/pages-campus-merchant.CY4P428K.js`、`assets/index-CP0IiAqB.js` | 均 HTTP 200；chunk 41303 B、入口 957751 B，与本地构建字节一致且 SHA256 相同 |
+| 后端 / C 端 | 无改动 | 不部署（本节纯后台前端） |
+
+回滚：后台部署脚本按 `guanli.bak_*` 轮转保留 3 份，本次生成了新的回滚点目录（目录名带部署 epoch）；恢复时把该目录内容回灌 `…/e.joho.cn/guanli` 即可，无后端与库回滚动作。
+
+操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部橙色胶囊「本面板期间新增 N 单 ・ 去接单 ›」→ 点一下面板即关、停在「待接单」Tab，新单已在列可直接接。
+
+
