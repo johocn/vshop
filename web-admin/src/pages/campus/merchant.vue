@@ -15,14 +15,14 @@
           <text class="switch-lbl">{{ board.paused ? $t('campusMerchant.closed') : (board.openNow ? $t('campusMerchant.open') : $t('campusMerchant.closedByHours')) }}</text>
         </view>
       </view>
-      <!-- 今日待办（§83）：售后 / 催单 / 退款失败 / 超时，数字为 0 的项不显示，全 0 时整条不占位 -->
+      <!-- 今日待办（§83）：售后 / 催单 / 退款失败 / 超时 / 日报未推送（§118），数字为 0 的项不显示，全 0 时整条不占位 -->
       <view v-if="todoChips.length" class="todobar">
         <text class="t-lbl">{{ $t('campusMerchant.todoTitle') }}</text>
         <view class="t-chips">
           <text
             v-for="c in todoChips" :key="c.key" class="t-chip"
             :class="{ warn: c.warn }" @tap="goTodo(c.key)"
-          >{{ c.label }} {{ c.n }}</text>
+          >{{ c.label }}{{ c.n === null ? '' : ' ' + c.n }}</text>
         </view>
       </view>
       <!-- 休业日未出餐提醒（§71）：休业当天仍有待接单/备餐中订单，点击直达对应栏 -->
@@ -429,6 +429,7 @@ const board = ref<CampusMerchantBoard>({
   closureNote: null,
   unfinishedOrders: 0,
   urgedCount: 0,
+  dailyPushPending: false,
 });
 const tab = ref<TabKey>('pending');
 // 批量接单/出餐（§73）：只有待接单/备餐中可多选；换栏清空，避免跨栏误操作
@@ -458,21 +459,23 @@ const closedUnfinishedText = computed(() =>
     .replace('{n}', String(board.value.unfinishedOrders)),
 );
 
-/** 今日待办（§83）：计数为 0 的项不显示；退款失败/出餐超时标红优先 */
+/** 今日待办（§83）：计数为 0 的项不显示；退款失败/出餐超时标红优先；日报未推送（§118）不计数 */
 const todoChips = computed(() => {
   const b = board.value;
-  const chips: Array<{ key: string; label: string; n: number; warn?: boolean }> = [];
+  const chips: Array<{ key: string; label: string; n: number | null; warn?: boolean }> = [];
   if (b.afterSalesPending > 0) chips.push({ key: 'afterSales', label: locale.t('campusMerchant.todoAfterSales'), n: b.afterSalesPending });
   if (b.urgedCount > 0) chips.push({ key: 'urged', label: locale.t('campusMerchant.todoUrged'), n: b.urgedCount });
   if (b.refundFailed > 0) chips.push({ key: 'refundFailed', label: locale.t('campusMerchant.todoRefundFailed'), n: b.refundFailed, warn: true });
   if (b.overdueOrders > 0) chips.push({ key: 'overdue', label: locale.t('campusMerchant.todoOverdue'), n: b.overdueOrders, warn: true });
+  if (b.dailyPushPending) chips.push({ key: 'dailyPush', label: locale.t('campusMerchant.todoDailyPush'), n: null });
   return chips;
 });
 
-/** 待办项跳转：售后/退款失败 → 售后列表（失败单置顶），催单 → 对应栏，超时 → 出餐屏 */
+/** 待办项跳转：售后/退款失败 → 售后列表（失败单置顶），催单 → 对应栏，超时 → 出餐屏，日报未推送 → 经营设置 */
 function goTodo(key: string) {
   if (key === 'afterSales' || key === 'refundFailed') return goAfterSales();
   if (key === 'urged') return goUrged();
+  if (key === 'dailyPush') return goSettings();
   return goKitchen();
 }
 

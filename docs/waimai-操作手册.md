@@ -6463,6 +6463,68 @@ END $$;
 
 操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部「自动刷新 · 刚刚更新」下方，出现橙色胶囊「本面板期间新增 N 单」；关掉面板再开即重新计数。
 
+## §118 日报推送三项收尾：失败限次 / 未推送待办 / 渠道未配置降级（已上线）
+
+> 定位：§86 日报推送的落地缺口补齐——此前「推送失败每 30 分钟无限重试、失败无任何待办入口、飞书未配置时商家无感知」。本节只补这三处，不改报表口径、不改推送时刻、不新增接口。
+
+### 118.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/daily-report-push.job.ts` | ① 新增 `MAX_ATTEMPTS = 3`；② 进程内 `attempts: Map<channelId, { day, n }>` 记当日失败次数；③ 到点后已满 3 次直接跳过，第 3 次失败打 `Logger.error('daily report retry limit reached …')`，前两次仍为 `warn(… attempt n/3)`；④ 推送成功即删键（次日从 0 计） |
+| 后端 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | ① `MerchantBoard` 新增 `dailyPushPending`；② `MerchantStoreProfile` 新增 `dailyPushChannelReady`（= `FeishuClient.enabled`）；③ 新增私有 `channelDailyPushState(ctx, now)`：单行原生查询 `channel` 表读 `waimaidailypushenabled / time / lastdate`，算「已开启 / 已到点 / 今日已推」三态 |
+| 后端 | `packages/campus-delivery-plugin/src/campus-delivery.plugin.ts` | SDL 同步两个字段（`CampusMerchantBoard.dailyPushPending: Boolean!`、`MerchantStoreProfile.dailyPushChannelReady: Boolean!`） |
+| 后台 | `web-admin/src/apis/campus.ts` | 类型同步两个字段 |
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | ① 今日待办新增 chip「日报未推送」（`n = null`，不显示数字）；② chip 渲染改为 `n === null` 时不留空格尾巴；③ `goTodo('dailyPush')` 跳经营设置页 |
+| 后台 | `web-admin/src/pages/campus/store-settings.vue` | 日报卡片在「开关开 + `dailyPushChannelReady === false`」时显示红色提示「未配置推送渠道，请联系运营」（`.tip-warn`） |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 2 条：`campusMerchant.todoDailyPush`、`campusStoreSettings.dailyPushNoChannel`（中英各一份） |
+| 截图 | `docs/screenshots/waimai/p118-daily-push-status/` | 4 张：设置页降级提示 / 渠道已配置无提示 / 工作台待办 chip / 点 chip 跳转 |
+| 脚本 | `web-admin/scripts/shots-p118-daily-push-status.cjs` | mock 看板 `dailyPushPending: true`、门店资料 `dailyPushChannelReady` 取 true/false 两版 |
+
+### 118.2 口径与实现
+
+- **失败限次口径**：以「校园日 + 渠道」计次，只在**已到点且今日未推成功**时才计；未到点、未开启、已推过的轮次不占次数。30 分钟一轮，故 21:30 到点后最迟在 22:30 前后用尽 3 次；第 4 次起不再请求推送接口，仅跳过。
+- **成功清零**：`broadcast` 返回 true 后删键并写 `waimaiDailyPushLastDate`；跨日后键里的 `day` 不匹配，自动按 0 重新计次，无需定时清理。
+- **「日报未推送」判定**（工作台待办）四条件同时成立：① 飞书推送渠道可用（`FeishuClient.enabled`）；② 本渠道开启日报推送；③ 当前已过设定时刻；④ `lastdate !== 今日校园日`。因为 `lastdate` **只在推送成功后才写**，所以「失败」与「到点还没推」天然共用一个信号，不做双份状态。
+- **待办不带数字**：日报是单实例事件（一店一天一条），chip 走 `n = null` 分支只显示文案；同条待办栏里其它 chip（售后 / 催单 / 退款失败 / 超时）仍按原样带数字。
+- **设置页降级**：`dailyPushChannelReady` 直接取 `FeishuClient.enabled`（与 job 的 `run()` 首个判断同源），因此「设置页说能推」与「job 真的会推」不会分叉。
+- **零新增接口**：待办与降级都并入既有 `campusMerchantBoard` / `campusMerchantStoreProfile`；看板只多一次 `channel` 表单行原生查询（主键点查，与营业时间同表同套路），不加轮询、不加请求。
+
+### 118.3 权限与校验
+
+- `campusMerchantBoard` / `campusMerchantStoreProfile` 仍走 `CampusMerchant` 权限，按 `ctx.channelId` 隔离；`channelDailyPushState` 的查询参数就是 `ctx.channelId`，不会跨店读取。
+- 时间兜底与 job 同口径：空值/非法值按 `21:30`，避免「设置页显示 9:5 但 job 按 21:30 推」的错位。
+- 未配置飞书时**不上报**「日报未推送」待办（否则商家会看到一条永远消不掉的提示），改由设置页那行红字引导联系运营。
+- DOM 读回口径：`.tip-warn` 文案必须逐字等于「未配置推送渠道，请联系运营」，颜色 `rgb(207, 19, 34)`、字号 `11.44px`（= 22rpx）；待办 chip 文案必须等于「日报未推送」（末尾无数字），字号 `11.44px`。
+
+### 118.4 数据库变更
+
+无 DDL、无迁移。读取的三列（`customFieldsWaimaidailypushenabled` / `customFieldsWaimaidailypushtime` / `customFieldsWaimaidailypushlastdate`）由既有迁移 `p23-daily-push.ts` 创建；本节只在内存 `Map` 里加计数，不落新表新列。
+
+### 118.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 插件编译 | `npx tsc -p tsconfig.build.json` 退出码 0；产物 `lib/src/daily-report-push.job.js` 含 `const MAX_ATTEMPTS = 3` 与 `daily report retry limit reached` |
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`；`pages-campus-merchant.DqQKy7Bh.js` 41199 B、`pages-campus-store-settings.CPcR2Ob_.js` 24604 B |
+| 截图 01 | 日报开关开 + 渠道未配置：`warn =「未配置推送渠道，请联系运营」`、`warnColor = rgb(207, 19, 34)`、`warnFont = 11.44px`、`time = 21:30` |
+| 截图 02 | 同数据但 `dailyPushChannelReady = true`：`warn = ""`（提示消失），开关与时间不变 |
+| 截图 03 | 工作台 `dailyPushPending = true`、其余待办计数全 0：待办栏 `title =「今日待办」`，仅 1 个 chip，`text =「日报未推送」`（无数字尾巴），`font = 11.44px` |
+| 截图 04 | 点该 chip：`location.hash = #/pages/campus/store-settings`，`settingsLoaded = true`（成功进入经营设置页） |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+
+### 118.6 边界与已知限制
+
+1. **计次只在进程内**：`attempts` 是 `DailyReportPushJob` 的实例字段，多实例部署时各自计次（不会互相累加）；但推送本身有 PG 咨询锁 + `lastdate` 幂等，所以「最多推几次」不会因此翻倍，只是放弃的时间点可能差一轮。
+2. **重启即清零**：进程重启后当日计次归零，若当时仍处「已到点未推成功」，会重新尝试最多 3 次——按「重启是人工动作」口径可接受。
+3. **待办不区分「失败」与「还没到推送那轮」**：只要到点且未推成功就显示，商家点进去是经营设置页，看不到具体失败原因；失败原因仍在服务端日志（`CampusDailyReport`）。
+4. **渠道不可用时不提示待办**：飞书整体未配置时工作台不出现该 chip，只在设置页红字提示；若商家从不开设置页，就只能靠运营侧发现。
+5. **待办 chip 无数字也无法消除**：chip 只反映状态，商家无法手动「标记已读」；推送成功写 `lastdate` 后下一轮 10s 刷新自动消失。
+6. **只覆盖日报推送**：售后月度摘要（§95）与异常预警（§96）仍走各自的去重/重试逻辑，本节不改。
+
+### 118.7 部署记录（待回填）
+
+
 
 
 

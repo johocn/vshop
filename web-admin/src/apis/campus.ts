@@ -301,6 +301,8 @@ export interface CampusMerchantBoard {
   refundFailed: number;
   /** 出餐超时订单数（§83 今日待办）：待接单/备餐中等待 ≥25 分钟 */
   overdueOrders: number;
+  /** 日报未推送（§118 今日待办）：已开启推送、已过设定时间且今日尚未推送成功 */
+  dailyPushPending: boolean;
 }
 
 /** 商家自助经营：门店资料（营业时间/公告/电话/营业状态） */
@@ -325,6 +327,8 @@ export interface MerchantStoreProfile {
   dailyPushEnabled: boolean;
   /** 日报推送时间 HH:MM（默认 21:30） */
   dailyPushTime: string;
+  /** 推送渠道是否可用（§118）：false 时设置页提示「未配置推送渠道，请联系运营」 */
+  dailyPushChannelReady: boolean;
   /** 售后月度摘要推送开关（§105） */
   monthlyPushEnabled: boolean;
   /** 月度推送日（1-28，默认 1） */

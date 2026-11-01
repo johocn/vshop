@@ -133,6 +133,10 @@
           <input v-model="dailyForm.time" class="ipt" type="text" placeholder="21:30" />
           <text class="tip">{{ $t('campusStoreSettings.dailyPushTimeHint') }}</text>
         </view>
+        <!-- 推送渠道降级（§118）：飞书未配置时日报推不出去，这里直接提示找运营开通 -->
+        <text v-if="dailyForm.enabled && profile && !profile.dailyPushChannelReady" class="tip-warn">
+          {{ $t('campusStoreSettings.dailyPushNoChannel') }}
+        </text>
         <text class="tip">{{ $t('campusStoreSettings.dailyPushDesc') }}</text>
         <button class="save small" :disabled="dailyBusy" @tap="saveDailyPush">
           {{ dailyBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.dailyPushSave') }}
@@ -782,6 +786,7 @@ onPullDownRefresh(async () => {
     .count { display: block; text-align: right; font-size: 22rpx; color: $wa-muted; margin-top: 8rpx; }
   }
   .tip { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 12rpx; line-height: 1.5; }
+  .tip-warn { display: block; font-size: 22rpx; color: #cf1322; margin-top: 12rpx; line-height: 1.5; }
   .next { display: block; font-size: 22rpx; color: #fa8c16; font-weight: 600; margin-top: 10rpx; }
   .unfinished { display: block; font-size: 23rpx; color: #cf1322; font-weight: 700; margin-top: 10rpx;
     background: #fff1f0; border: 1.5px solid #ff4d4f; border-radius: $wa-radius; padding: 12rpx 18rpx; line-height: 1.5; }
