@@ -6522,7 +6522,19 @@ END $$;
 5. **待办 chip 无数字也无法消除**：chip 只反映状态，商家无法手动「标记已读」；推送成功写 `lastdate` 后下一轮 10s 刷新自动消失。
 6. **只覆盖日报推送**：售后月度摘要（§95）与异常预警（§96）仍走各自的去重/重试逻辑，本节不改。
 
-### 118.7 部署记录（待回填）
+### 118.7 部署记录（2026-11-01）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | `ssh joho` → `cd /www/apps/vendure && git fetch origin master -q && git checkout origin/master -- packages/campus-delivery-plugin && pm2 restart vendure --update-env` | `[PM2] [vendure](1) ✓`，restart 计数 883，`status online` |
+| 后端校验 | 服务器 `src/merchant-admin.service.ts` 含 `dailyPushPending`×2、`lib/src/merchant-admin.service.js`×1；`lib/src/daily-report-push.job.js` 含 `MAX_ATTEMPTS`×5 | 源码与编译产物均为 §118 版本，非只更新 src |
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 62197 KB` → nginx `test is successful` + reload → `deploy done` |
+| 线上 | `pages-campus-merchant.DqQKy7Bh.js` 41199 B（`720411BE…3C09A37`）、`pages-campus-store-settings.CPcR2Ob_.js` 24604 B（`DA8445DE…A53C8BDD`）、入口 `index-akzo_8hl.js` 957510 B（`6D896812…7CB54CEF`） | 均 HTTP 200，字节与本地一致、SHA256 双侧相同；入口 chunk 内含「日报未推送」「未配置推送渠道，请联系运营」 |
+| 探针 | `campusMerchantBoard { dailyPushPending afterSalesPending urgedCount }` / `campusMerchantStoreProfile { dailyPushEnabled dailyPushTime dailyPushChannelReady }` | 返回 `dailyPushPending: false`、`false / "21:30" / true`，新字段可解析；无 Bearer 时 `FORBIDDEN`（权限闸门未放宽） |
+
+回滚：后台按 `guanli.bak_*` 轮转保留 3 份，本次新增回滚点 `guanli.bak_1793503273`（现存 `1793503273` / `1793501943` / `1793499420`）；恢复时把该目录回灌 `…/e.joho.cn/guanli`。后端回滚把 `packages/campus-delivery-plugin` 回到上一提交并 `pm2 restart vendure --update-env` 即可，无库回滚动作。
+
+操作入口：商家工作台「商家接单」页顶部「今日待办」出现「日报未推送」→ 点进去是「经营设置」的每日日报推送卡；未配置推送渠道时该卡在时间输入下方显示红字「未配置推送渠道，请联系运营」。
 
 
 
