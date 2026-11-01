@@ -6980,6 +6980,11 @@
     "keyPh": "Provider secret",
     "keySaved": "Configured; leave blank to keep unchanged",
     "channelHint": "Placeholder channel: the mock provider accepts and returns a request number; real vendors need endpoint + secret and a server-side adapter swap.",
+    "capability": "Capability",
+    "capNone": "Not configured (calls return disabled)",
+    "capMock": "Simulated acceptance only (no real waybill)",
+    "capUnsupported": "{p} is not integrated (calls return unsupported, no waybill issued)",
+    "channelUnsupportedWarn": "A real provider is selected but not integrated: merchant and operator requests will fail. Do not claim it is available to customers",
     "saveBtn": "Save",
     "saveStation": "Save",
     "cancel": "Cancel"

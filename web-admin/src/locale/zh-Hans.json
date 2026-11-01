@@ -6978,6 +6978,11 @@
     "keyPh": "填写服务商密钥",
     "keySaved": "密钥已配置，留空则不修改",
     "channelHint": "本通道为接口占位：mock 通道直接模拟受理并返回单号；接真实厂商需填接口地址与密钥，并由研发替换服务层的下发实现。",
+    "capability": "实际能力",
+    "capNone": "未配置（调用返回 disabled）",
+    "capMock": "模拟受理（仅联调，不下发真实运单）",
+    "capUnsupported": "{p} 尚未接入（调用返回 unsupported，不下发运单）",
+    "channelUnsupportedWarn": "已选真实厂商但尚未接入：商家/运营调用无人配送会直接失败，请勿对外宣称已可用",
     "saveBtn": "保存配置",
     "saveStation": "保存",
     "cancel": "取消"

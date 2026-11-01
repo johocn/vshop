@@ -119,6 +119,11 @@
             :placeholder="channel.keyConfigured ? $t('campusLocker.keySaved') : $t('campusLocker.keyPh')"
           />
         </view>
+        <view class="cell">
+          <text class="lbl">{{ $t('campusLocker.capability') }}</text>
+          <text class="m" :class="{ danger: providerUnsupported }">{{ capabilityText }}</text>
+        </view>
+        <text v-if="channel.enabled && providerUnsupported" class="form-warn">{{ $t('campusLocker.channelUnsupportedWarn') }}</text>
         <text class="form-hint">{{ $t('campusLocker.channelHint') }}</text>
         <button v-if="canConfig" class="primary" :disabled="saving" @tap="saveChannel">
           {{ saving ? $t('campusLocker.submitting') : $t('campusLocker.saveBtn') }}
@@ -380,6 +385,19 @@ const needsKey = computed(() => {
   return !!p?.needsKey;
 });
 
+/** 真实厂商（需要 endpoint）尚未接入：调用返回 unsupported，不下发运单 */
+const providerUnsupported = computed(() => needsEndpoint.value);
+
+/** 实际能力说明：区分「模拟受理」「未接入」「未配置」，避免把已开启当成已可用 */
+const capabilityText = computed(() => {
+  if (form.value.provider === 'none') return locale.t('campusLocker.capNone');
+  if (providerUnsupported.value) {
+    const name = channel.value?.providers.find((x) => x.code === form.value.provider)?.name ?? form.value.provider;
+    return locale.t('campusLocker.capUnsupported').replace('{p}', name);
+  }
+  return locale.t('campusLocker.capMock');
+});
+
 async function loadChannel(): Promise<void> {
   channelLoading.value = true;
   try {
@@ -470,6 +488,8 @@ onUnmounted(() => {
     &.form { border: 1.5px solid $wa-accent; }
     .form-title { display: block; font-size: 28rpx; color: $wa-ink; font-weight: 600; }
     .form-hint { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 8rpx; }
+    .form-warn { display: block; font-size: 22rpx; color: $wa-danger; line-height: 1.5; margin-top: 8rpx; }
+    .m.danger { color: $wa-danger; }
     .form-hint.inline { flex: 1; text-align: right; margin-top: 0; }
     .cell { display: flex; align-items: center; gap: 10rpx; padding: 20rpx 0; border-bottom: 1rpx solid $wa-rule;
       &.col { flex-direction: column; align-items: stretch; gap: 14rpx; }
