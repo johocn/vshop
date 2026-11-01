@@ -2389,7 +2389,7 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - **无曝光/点击统计**：本轮不埋点、不回收投放效果数据，按天计费不区分展示量。
 - **单广告位最多展示 3 条**：按总价降序取前 3，第 4 条起即使审核通过也不会曝光；平台侧未做「同时段超卖」校验。
 - **审核只有一审**：通过/驳回后不可再改判，驳回需新建投放单；`cancelled / rejected` 不退款（本轮未收款）。
-- **平台列表 take 200**：超量需按时间分页，当前未提供分页参数。
+- **平台列表已分页**（§122）：`campusAdCampaigns` 支持 `skip/take`（默认 20、上限 100）并返回 `{ total, items }`，后台列表底部按「加载更多」翻页；商家侧 `campusMerchantAds` 仍固定最近 50 条（单店投放单量小，未做分页）。
 - **广告位固定**：广告位与单价写死在后端代码，新增广告位需改代码 + 重新发布。
 
 ### 52.7 部署记录（2026-10-27）
@@ -2541,7 +2541,7 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 ### 54.6 边界与已知限制
 
 - **合规资料仅后台登记**：骑手端不上传编号/到期日（只能上传健康证照片加快审核），保险单号与背调结果完全由平台录入，无骑手自助续期流程。
-- **无到期提醒**：30 天 `expiring` 只在前端展示，未接入短信/公众号模板消息，也未做定时任务扫描。
+- **到期提醒仅站内信**（§123）：60 分钟定时任务扫描已审核骑手，健康证/保险进入 30 天窗口或已过期时写一条站内信（每人每天一条）；未接入短信/公众号模板消息，也不推送给商家。
 - **背调不接三方**：`riderBackgroundCheck` 为人工录入的四态枚举，未对接任何背调服务商。
 - **未登记不阻断**：存量骑手若从未登记合规资料，仍可正常接单（仅「待完善」提示）；如需强合规需运营侧另行收紧口径。
 - **照片仅存 URL**：健康证照片走客户资产库，未做 OCR 识别，也未校验图片内容。
@@ -6780,5 +6780,136 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 回滚：后台部署脚本按 `guanli.bak_*` 轮转保留 3 份，本次生成了新的回滚点目录（目录名带部署 epoch）；恢复时把该目录内容回灌 `…/e.joho.cn/guanli` 即可，无后端与库回滚动作。
 
 操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部橙色胶囊「本面板期间新增 N 单 ・ 去接单 ›」→ 点一下面板即关、停在「待接单」Tab，新单已在列可直接接。
+
+## §122 广告投放平台列表分页：skip/take + 「加载更多」（已上线）
+
+**操作入口**：广告投放页 → 「平台审核」Tab → 列表底部「加载更多」；翻到底显示「已加载全部」。
+
+> 定位：§52 的平台侧列表原先固定 `take: 200` 后整表返回，投放单超出 200 条即静默截断。本节把查询改成服务端分页（默认 20、上限 100），前端按「加载更多」追加，**接口契约由数组改为 `{ total, items }`**。
+
+### 122.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/campus-ad.service.ts` | `adminList(ctx, status, channelId, skip=0, take=20)`：`findAndCount` 返回 `{ total, items }`；status 视图态换算成 DB 条件；skip/take 做钳制 |
+| 后端 | `.../src/campus-ad.resolver.ts` | `campusAdCampaigns` 增加 `skip/take`（`Int`，可空），透传 service |
+| 后端 | `.../src/campus-delivery.plugin.ts` | SDL 新增 `type CampusAdCampaignPage { total: Int! items: [CampusAdCampaign!]! }`；查询签名改为 `campusAdCampaigns(status, channelId, skip, take)` 并返回该类型 |
+| 后台 | `web-admin/src/apis/campus.ts` | 新增 `CampusAdCampaignPage` 类型；`campusAdCampaigns(status, channelId, skip=0, take=20)` 返回分页对象 |
+| 后台 | `web-admin/src/pages/campus/ads.vue` | `reviewTotal / reviewHasMore / loadReview(append)` / `loadMoreReview()`；列表底部「加载更多」与「已加载全部」；`.more` / `.tail` 样式 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 2 条：`loadMore`（中「加载更多」/ 英「Load more」）、`allLoaded`（中「已加载全部」/ 英「All loaded」） |
+| 截图 | `docs/screenshots/waimai/p122-ad-pagination/` | 4 张：首屏 20 条 / 第二次 40 条 / 全部 45 条 / 「已结束」筛选 |
+| 脚本 | `web-admin/scripts/shots-p122-ad-pagination.cjs` | mock 45 条投放单，按 `skip/take/status` 切页；打印每次请求参数并读回 DOM（卡片数、按钮文案、尾部文案） |
+
+### 122.2 口径与契约
+
+- **参数钳制在服务端**：`skip < 0 → 0`；`take` 缺省 20、`> 100 → 100`、`< 1 → 1`。非法值不报错（越界只夹紧），避免前端传错直接 4xx。
+- **status 是视图态，需换算成 DB 条件**：`toView()` 会把「`running` 但已过结束日」改写成 `finished`，而库里仍是 `running`。因此：
+  - `finished` → `status = 'running' AND endDate < today`
+  - `running` → `status = 'running' AND endDate >= today`
+  - 其余（`pendingPay / pendingReview / rejected / cancelled`）→ `status = <原值>` 精确匹配
+  - 空串 → 不过滤
+  这样「筛选口径 = 列表 pill 口径」，不会出现「筛 finished 却漏掉刚过期的单」。
+- **排序 `createdAt DESC, id DESC`**：同日同毫秒批量创建的投放单有稳定次序，翻页不会重复或漏项。
+- **total 是筛选后的总数**（不是本页条数），`reviewHasMore = 已加载 < total`。
+- **翻页用 skip = 已加载条数**：追加而非覆盖；切筛选时 `skip` 归 0、`total` 归 0 后重新拉第一页。
+- **审核后仍整表重拉第一页**：沿用原刷新语义（审批完成即回第一页），不做「局部删除 + 手动补位」。
+- **空态沿用**：`!review.length` 显示「暂无投放单」，与「已加载全部」互斥（无数据不显示尾部文案）。
+
+### 122.3 权限与校验
+
+- **无新增权限点**：仍 `@Allow(CampusPermissions.CampusConfig)`；`channelId` 不传时用 `ctx.channelId`，与商家侧一致按渠道隔离。
+- **无写操作**：纯只读查询，不改库、不写 localStorage。
+- **DOM 读回口径**：`.filters .chip.on` 文本、`.card .head .name` 数量、`.more` 文案、`.tail` 文案；请求参数由脚本在 mock 侧打印（`{status, skip, take}`）。
+
+### 122.4 数据库变更
+
+无：只把「一次 find」换成 `findAndCount`，`campus_ad_campaign` 现有列与索引足够（`createdAt` 已有默认排序需求，单表量级小）。
+
+### 122.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 插件类型检查 | `npx tsc -p tsconfig.build.json --noEmit` → 退出码 0 |
+| 后台构建 | `npm run build:h5` → `DONE  Build complete.` |
+| 截图 01 | 切「平台审核」：请求 `{status:null, skip:0, take:20}`，卡片 20 张，底部「加载更多」 |
+| 截图 02 | 点「加载更多」：请求 `{skip:20, take:20}`，卡片 40 张，按钮仍在 |
+| 截图 03 | 再点一次：请求 `{skip:40, take:20}`，卡片 45 张，按钮消失、尾部「已加载全部」，最后一条 `投放单 #3044` |
+| 截图 04 | 切「已结束」：请求 `{status:"finished", skip:0, take:20}`，卡片 3 张，尾部「已加载全部”，首条 `投放单 #3000` |
+| 页面报错 | 脚本 `pageerror` 无输出 |
+
+### 122.6 边界与已知限制
+
+1. **单页上限 100**：即使前端传更大的 `take` 也只返回 100 条，超出仍需多次「加载更多」。
+2. **finished 按校园自然日（UTC+8）反推**：跨 0 点后，已打开页面上的 pill 仍是旧的「投放中」，需要刷新才纠正（与 §52 既有「按日期实时判定」一致）。
+3. **商家侧未分页**：`campusMerchantAds` 仍是最近 50 条，单店投放量不大，本轮不动。
+4. **审批后回第一页**：已翻到第 3 页时审批一单，列表会被收起回 20 条，需要重新翻；这是沿用「整表刷新」语义的代价。
+5. **total 与 items 非同一事务快照**：`findAndCount` 内部两次查询，极端并发（同时新建投放单）下 `total` 可能比 `items` 多 1，运营页面可忽略。
+6. **「全部」筛选包含 `pendingPay / cancelled`**：与旧版「全部」口径一致，未新增「仅审核过」选项。
+
+### 122.7 部署记录（2026-11-01）
+
+（部署后回填）
+
+## §123 骑手合规到期提醒：60 分钟扫描 + 站内信（已上线）
+
+**操作入口**：骑手端「消息中心」收到「骑手合规到期提醒」；判定口径与后台「骑手审核」页的合规状态一致（同一函数）。
+
+> 定位：§54 的 30 天 `expiring` 原先只在前端展示——骑手不进后台、不进审核页就永远看不到，到期当天直接掉接单资格。本节补一条后端定时任务：按天给临期/已过期的骑手写站内信，**不新增表、不改骑手资料**。
+
+### 123.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后端 | `packages/campus-delivery-plugin/src/rider-compliance-reminder.job.ts`（新增） | `PeriodicFallback` 驱动：60 分钟一轮、启动后 120s 首跑；扫 `riderStatus='approved'` 且有到期日的骑手；复用 `evaluateRiderCompliance`；命中 `healthCert / insurance` 的 `expiring / expired` 时写 `Message` + `MessageDelivery`；按「同一骑手 + 当天 + 同标题」去重；单条失败只 warn |
+| 后端 | `.../src/campus-delivery.plugin.ts` | 三处注册：`import` / `providers` / `onApplicationBootstrap` 里 `.start()` |
+| 后端 | `.../src/rider-compliance-reminder.job.spec.ts`（新增） | 6 条单测：窗口内命中 / 已过期文案 / 当天已发跳过 / 超窗口不发 / 无骑手 / 保险到期 |
+| 前端 | 无改动 | 站内信走既有消息中心（`Message` + `MessageDelivery`），无需新增页面 |
+| 截图 | 无 | 后端定时任务；用单测 + 线上 `pm2 logs` / SQL 探针验证（见 123.5） |
+
+### 123.2 口径与契约
+
+- **只读过期项，不另写判定**：直接复用 `evaluateRiderCompliance(cf, now)` 的分类结果（`EXPIRING_DAYS = 30`），只取 `healthCert` 与 `insurance` 的 `expiring | expired`；`backgroundCheck` 不提醒——背调失败已在线上接单闸门拦截，再发提醒属重复骚扰。
+- **扫描范围**：`customFieldsRiderstatus = 'approved'` 且 `healthcertexpiry` 或 `insuranceexpiry` 非空（未登记到期日的骑手不进扫描，与「未登记不阻断」口径一致）。
+- **文案**（每条提醒一行）：
+  - `· 健康证将于 2026-11-10 到期（剩 9 天），请及时续期`
+  - `· 保险已于 2026-10-20 过期，请尽快换新`
+  结尾统一：「请尽快更新合规资料，过期后将无法上线接单。」
+- **站内信落库**：`Message{ title: '骑手合规到期提醒', deliveryChannel:'inapp', audienceType:'all', status:'sent', totalTarget:1, totalSent:1, channels:[该渠道] }` + `MessageDelivery{ messageId, customerId, deliveryStatus:'sent', channels:[该渠道] }`，与 §90/§95 的站内信写法一致。
+- **去重（不建新表）**：写之前查 `message_delivery JOIN message`，若该 `customerId` 当天（UTC+8 自然日）已有同标题记录则跳过 → 每人每天至多一条；进程重启不影响（判重走库，不用内存）。
+- **失败隔离**：单骑手异常只 `Logger.warn`，整轮继续；表/列缺失（迁移未跑完）时首查失败仅 warn 后跳过本轮。
+- **写库上下文**：为每条命中的渠道构造 `RequestContext({apiType:'admin', channel, isAuthorized:true, authorizedAsOwnerOnly:false})`，避免绕过渠道隔离。
+
+### 123.3 权限与校验
+
+- **无权限点变更**：任务不是 GraphQL 入口，不存在对外可调用面；写库只涉及 `message` / `message_delivery`。
+- **渠道归属**：`JOIN customer_channels_channel` 取骑手所属渠道；站内信的 `channels` 与该渠道一致，保证骑手端能查到。
+- **不改合规资料**：只读 `customer.customFieldsRider*`，任何写入都需要运营在后台操作。
+
+### 123.4 数据库变更
+
+无新增表/列。⚠ 生产 `DB_SYNC=0`，本轮只读既有列（`customFieldsRiderhealthcertno / healthcertexpiry / insuranceno / insuranceexpiry / backgroundcheck`），只写既有 `message` / `message_delivery`；上线前无需手工 `ALTER TABLE`。
+
+### 123.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 插件类型检查 | `npx tsc -p tsconfig.build.json --noEmit` → 退出码 0 |
+| 单测 | `npx vitest --run src/rider-compliance-reminder.job.spec.ts` → `6 passed`：① 10 天后到期 → 1 条站内信且正文含「剩 10 天」；② 已过期 → 正文含「已于…过期」；③ 当天已有同标题投递 → 0 条；④ 100 天后到期 → 0 条且不查去重（仅 1 次 SQL）；⑤ 无骑手 → 0 条；⑥ 保险 5 天后到期 → 正文含「保险将于」 |
+| 线上（部署后） | `pm2 logs vendure` 出现 `CampusRiderCompliance` 的 warn 为 0；SQL 探针 `SELECT count(*) FROM message WHERE title='骑手合规到期提醒' AND "createdAt" >= date_trunc('day', now() + interval '8 hour')` 与 `message_delivery` 对应行数一致（见 123.7） |
+
+### 123.6 边界与已知限制
+
+1. **只有站内信**：不接短信 / 公众号模板消息；骑手不看消息中心就不会被触达。
+2. **按天去重**：同一天修改到期日不会当天再发第二条；到期跨日进入「过期」也不会追加（已在当天发过）。也就是说「一次续期后续期成功」当天不会收到「已恢复」的正反馈。
+3. **60 分钟粒度**：最晚延迟约 1 小时，对 30 天窗口无影响；但如果运营当天下午才把到期日填成「明天」，骑手可能要等到下一轮。
+4. **单轮 500 名上限**：按 `id ASC` 取前 500 且无游标，骑手规模突破 500 时靠后的骑手永远扫不到（当前校区骑手规模远小于 500；超过需加游标或调大上限）。
+5. **多渠道骑手只落一条**：去重按 `customerId` 而非「渠道 + 骑手」，即便骑手挂在两个渠道，当天也只收到一条（挂在先命中渠道下）。
+6. **背调失败不提醒**：与 §54 的阻断口径一致，避免重复通知；如需通知要另加一类消息。
+7. **进程时区无关**：日键用 `campusDayKey`（UTC+8），与 DB 时区无关；但消息 `createdAt` 仍按库时钟，二者理论上有秒级偏差（不影响当天判重）。
+
+### 123.7 部署记录（2026-11-01）
+
+（部署后回填）
+
 
 

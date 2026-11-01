@@ -3695,16 +3695,27 @@ export async function campusMerchantCancelAd(id: string): Promise<CampusAdCampai
   return res.campusMerchantCancelAd;
 }
 
-/** 平台侧：按渠道/状态查投放单 */
+/** 广告投放单分页（§122） */
+export interface CampusAdCampaignPage {
+  total: number;
+  items: CampusAdCampaignRow[];
+}
+
+/** 平台侧：按渠道/状态分页查投放单 */
 export async function campusAdCampaigns(
   status?: string | null,
   channelId?: string | null,
-): Promise<CampusAdCampaignRow[]> {
-  const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignRow[] }>(
-    `query ($status: String, $channelId: ID) {
-      campusAdCampaigns(status: $status, channelId: $channelId) { ${AD_FIELDS} }
+  skip = 0,
+  take = 20,
+): Promise<CampusAdCampaignPage> {
+  const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignPage }>(
+    `query ($status: String, $channelId: ID, $skip: Int, $take: Int) {
+      campusAdCampaigns(status: $status, channelId: $channelId, skip: $skip, take: $take) {
+        total
+        items { ${AD_FIELDS} }
+      }
     }`,
-    { status: status ?? null, channelId: channelId ?? null },
+    { status: status ?? null, channelId: channelId ?? null, skip, take },
   );
   return res.campusAdCampaigns;
 }

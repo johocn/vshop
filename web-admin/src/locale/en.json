@@ -6890,6 +6890,8 @@
     "loadFailed": "Failed to load",
     "opFailed": "Operation failed",
     "empty": "No campaigns yet",
+    "loadMore": "Load more",
+    "allLoaded": "All loaded",
     "daysN": "{n} days",
     "reviewNote": "Platform note: ",
     "payRef": "Payment ref: ",

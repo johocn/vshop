@@ -6888,6 +6888,8 @@
     "loadFailed": "加载失败",
     "opFailed": "操作失败",
     "empty": "暂无投放单",
+    "loadMore": "加载更多",
+    "allLoaded": "已加载全部",
     "daysN": "{n} 天",
     "reviewNote": "平台说明：",
     "payRef": "支付流水：",

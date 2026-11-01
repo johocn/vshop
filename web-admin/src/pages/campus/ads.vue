@@ -129,6 +129,10 @@
           </template>
         </view>
       </view>
+      <view v-if="reviewHasMore" class="more" @tap="loadMoreReview">
+        {{ reviewLoading ? $t('campusAds.loading') : $t('campusAds.loadMore') }}
+      </view>
+      <text v-else-if="review.length" class="tail">{{ $t('campusAds.allLoaded') }}</text>
     </block>
 
     <!-- 素材选择：复用媒体库（可直接上传或从已上传素材中选），回填图片 URL -->
@@ -422,15 +426,27 @@ async function cancelAd(c: CampusAdCampaignRow): Promise<void> {
 }
 
 // ===== 平台审核 =====
+/** §122：平台列表分页，每页 20 条，翻页用「加载更多」追加 */
+const REVIEW_PAGE_SIZE = 20;
 const review = ref<CampusAdCampaignRow[]>([]);
+const reviewTotal = ref(0);
 const reviewStatus = ref('');
 const reviewLoading = ref(false);
 
-async function loadReview(): Promise<void> {
+const reviewHasMore = computed(() => review.value.length < reviewTotal.value);
+
+async function loadReview(append = false): Promise<void> {
   if (reviewLoading.value) return;
   reviewLoading.value = true;
   try {
-    review.value = await campusAdCampaigns(reviewStatus.value || null);
+    const page = await campusAdCampaigns(
+      reviewStatus.value || null,
+      null,
+      append ? review.value.length : 0,
+      REVIEW_PAGE_SIZE,
+    );
+    review.value = append ? [...review.value, ...page.items] : page.items;
+    reviewTotal.value = page.total;
   } catch (err: any) {
     toast(graphQlErrorMsg(err, locale.t('campusAds.loadFailed')));
   } finally {
@@ -442,7 +458,14 @@ function setReviewStatus(s: string): void {
   if (reviewStatus.value === s) return;
   reviewStatus.value = s;
   review.value = [];
+  reviewTotal.value = 0;
   void loadReview();
+}
+
+/** §122：追加下一页（skip = 已加载条数），避免整表覆盖导致已看内容丢失 */
+function loadMoreReview(): void {
+  if (!reviewHasMore.value || reviewLoading.value) return;
+  void loadReview(true);
 }
 
 const reviewTarget = ref<CampusAdCampaignRow | null>(null);
@@ -519,6 +542,10 @@ onUnmounted(() => {
       border: 1.5px solid $wa-rule; font-size: 24rpx; color: $wa-muted;
       &.on { color: $wa-accent; border-color: $wa-accent; font-weight: 600; } } }
   .hint { text-align: center; color: $wa-muted; font-size: 28rpx; padding: 80rpx 0; }
+  .more { text-align: center; color: $wa-accent; font-size: 26rpx; padding: 24rpx 0; cursor: pointer;
+    border: 1.5rpx dashed $wa-rule; border-radius: $wa-radius;
+    &:active { opacity: .85; } }
+  .tail { display: block; text-align: center; color: $wa-muted; font-size: 22rpx; padding: 24rpx 0 8rpx; }
   .card { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx; margin-bottom: 20rpx;
     .row { display: flex; align-items: center; gap: 16rpx; }
     .head { .name { flex: 1; font-size: 28rpx; color: $wa-ink; font-weight: 700; } }
