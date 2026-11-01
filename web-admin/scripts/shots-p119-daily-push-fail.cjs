@@ -38,6 +38,23 @@ const ACCESS = {
 /** 失败时间用固定 epoch：2026-11-01 22:10 +08:00 */
 const FAIL_AT = Date.UTC(2026, 10, 1, 14, 10, 0);
 
+/** 经营数据与自动接单：设置页 load() 会并发拉这两个接口，缺 mock 会触发加载失败 toast */
+const REVENUE = {
+    today: { orders: 23, gross: 68400, avgTicket: 2974, cancelled: 1, cancelledAmount: 2600 },
+    last7: { orders: 156, gross: 458600, avgTicket: 2940, cancelled: 5, cancelledAmount: 13200 },
+    days: [
+        { date: '10-21', orders: 18, gross: 52800 },
+        { date: '10-22', orders: 25, gross: 74500 },
+        { date: '10-23', orders: 21, gross: 61200 },
+        { date: '10-24', orders: 30, gross: 89200 },
+        { date: '10-25', orders: 24, gross: 68900 },
+        { date: '10-26', orders: 15, gross: 43600 },
+        { date: '10-27', orders: 23, gross: 68400 },
+    ],
+    days30: [],
+};
+const AUTO = { enabled: false, delaySeconds: 30, dailyLimit: 0, routes: [], acceptedToday: 0, blockReason: null };
+
 function profile({ channelReady, failAt, reason }) {
     return {
         storeName: '第一食堂',
@@ -77,6 +94,8 @@ async function newPage(browser, profileData) {
         if (raw.includes('myTenantAccess')) return fulfill({ myTenantAccess: ACCESS });
         if (raw.includes('newOrderSignal')) return fulfill({ newOrderSignal: { count: 0, latestCreatedAt: null } });
         if (raw.includes('campusMerchantStoreProfile')) return fulfill({ campusMerchantStoreProfile: profileData });
+        if (raw.includes('campusMerchantRevenue')) return fulfill({ campusMerchantRevenue: REVENUE });
+        if (raw.includes('campusMerchantAutoAccept')) return fulfill({ campusMerchantAutoAccept: AUTO });
         return fulfill({});
     });
     return { ctx, page };
