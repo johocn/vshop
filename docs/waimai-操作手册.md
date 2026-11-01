@@ -6042,13 +6042,30 @@ ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS trust_quality_tex
 
 | 端 | 动作 | 结果 |
 |---|---|---|
-| 后端 | 推送 `origin/master` → 服务器 `git fetch origin master` + `git checkout origin/master -- packages/campus-delivery-plugin` + `pm2 restart vendure --update-env` | 待部署 |
-| 后台 | `cd web-admin && npm run build:h5 && node scripts/deploy.mjs` | 待部署 |
-| 外卖 C 端 | `node .secrets/deploy-waimai.mjs` | 待部署 |
-| C 端（vshop） | `npm run build:h5` → tar/scp → 解压至 `…/sites/e.joho.cn/index` | 待部署 |
-| 线上 chunk | 三端 chunk 200 且体积与本地一致 | 待校验 |
+| 后端 | vendure `dc759714f` 推送 `origin/master` → 服务器 `git fetch origin master -q` + `git checkout origin/master -- packages/campus-delivery-plugin/src packages/campus-delivery-plugin/lib` + `pm2 restart vendure --update-env` | 部署完成：pm2 `vendure` online（↺857），重启日志无迁移报错；`shop-api` 探针（`vendure-token: canteen-a-token`）`campusStoreTrust` 返回 `qualityEnabled/serviceEnabled/timeEnabled` 全 `true`、三项文案 `null`，证明 p39 加列成功且默认语义正确 |
+| 后台 | vshop `4618edd4` 推送 `origin/master` → `cd web-admin && node scripts/deploy.mjs`（脚本内本地 `build:h5`） | 部署完成：产物校验通过 62195 KB、`deploy done`；nginx 无异常 |
+| 外卖 C 端 | waimai-v39 `89ea165` 推送分支 `feat/waimai-v39` → `node .secrets/deploy-waimai.mjs` | 部署完成：产物校验通过 3855 KB、站点 `https://www.yourbao.cn/waimai/` 返回 200 |
+| C 端（vshop） | `npm run build:h5` → `tar -czf vshop-h5-p113.tgz -C dist/build/h5 .`（745 KB）→ `scp joho:/tmp/` → 解压至 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（解压前 `index.html` 备份为 `index.bak_20261101080350.html`） | 部署完成：`tar` 退出码 2（仅目录属主 root 的 `Cannot change mode` 告警，文件本体已落盘）；入口 `assets/index-pYR_IeTc.js` 与本地一致 |
+| 线上 chunk | 三端 chunk 200 且体积与本地一致 | 校验通过见下表 |
 | 截图 | `docs/screenshots/waimai/p113-trust-copy/`（后台 4 张 + vshop 3 张） | 完成 |
 | 截图（外卖 C 端） | `waimai-v39/docs/screenshots/waimai/p113-trust-copy/`（3 张） | 完成 |
+
+线上 chunk 逐项核对（`HTTPS 200` 与字节数均与本地构建一致）：
+
+| 端 | chunk | 线上字节 |
+|---|---|---|
+| vshop | `assets/index-pYR_IeTc.js` | 756969 |
+| vshop | `assets/TrustSignatureCard.h98TV-q8.js` | 2476 |
+| vshop | `assets/TrustSignatureCard-DI1c14Qv.css` | 919 |
+| vshop | `assets/pkg-product-pages-evaluate.DaRx0tCC.js` | 3338 |
+| vshop | `assets/pkg-user-pages-my-reviews.dyavBmjF.js` | 3278 |
+| 后台 | `guanli/assets/pages-campus-store-settings.Ck6L4jvJ.js` | 24423 |
+| 后台 | `guanli/assets/store-settings-DqgwP1Ve.css` | 6327 |
+| 外卖 | `waimai/assets/TrustSignatureCard.D-sFUCWp.js` | 2429 |
+| 外卖 | `waimai/assets/TrustSignatureCard-B7FzqUga.css` | 859 |
+| 外卖 | `waimai/assets/pkg-order-pages-my-reviews.xHb1-uhc.js` | 8712 |
+
+> 线上站点首页 `https://e.joho.cn/` 返回 200；`index.bak_20261101080350.html` 为本次 vshop 部署前的入口备份，回滚时还原该文件即可。
 
 
 
