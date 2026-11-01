@@ -6212,7 +6212,7 @@ END $$;
 
 > `index.bak_20261101085407.html` 为本次 vshop 部署前的入口备份，回滚时还原该文件即可。事故根因与处置已写入 114.6 第 7 条，作为「新增 Channel customFields 必须同批建列」的长期约束。
 
-## §115 售后失败单全局置顶：服务端排序 + 置顶汇总条（待部署）
+## §115 售后失败单全局置顶：服务端排序 + 置顶汇总条（已上线）
 
 **操作入口**：后台「售后管理」页（`/pages/campus/merchant-after-sales`）。
 
@@ -6232,11 +6232,12 @@ END $$;
 
 ### 115.2 口径与契约
 
-- **排序契约**：列表 `ORDER BY refundPin ASC, a.createdAt DESC`，`refundPin = 0`（`state = 'RefundFailed'`）/ `1`（其它）。失败单在**所有分页窗口的最前**，同权重按申请时间倒序；`total`、`stateCounts`、`pendingCount` 三个计数口径完全不变（计数查询不加排序）。
+- **排序契约**：列表 `ORDER BY refund_pin ASC, a.createdAt DESC`，`refund_pin = 0`（`state = 'RefundFailed'`）/ `1`（其它）。失败单在**所有分页窗口的最前**，同权重按申请时间倒序；`total`、`stateCounts`、`pendingCount` 三个计数口径完全不变（计数查询不加排序）。
 - **筛选语义不被置顶破坏**：`state` 为空（「全部」）才可能出现混合状态；`state=Pending/Refunded/Rejected` 的查询条件本身排除失败单，排序对它无影响；`state=RefundFailed` 时整页都是失败单，退化为按申请时间倒序。
 - **汇总条口径**：`failedCount` 取 `stateCounts` 里 `RefundFailed` 的全店计数（不是当前页条数），因此分页不会让数字变小；点汇总条只切筛选，不改变置顶结果。
-- **为什么用 select 别名而不是直接 `ORDER BY CASE …`**：`afterSalesList` 带 `leftJoin`（订单/渠道/顾客）且用 `skip/take`，TypeORM 会走「两段式分页」(`getMany()` 内 `createOrderByCombinedWithSelectExpression`）。该方法把排序字段按 `alias.propertyPath` 拆解，含点号的原始表达式（`CASE WHEN a.state …`）会被拆成非法别名并在运行时抛错；改为 `addSelect(..., 'refundPin')` + `orderBy('refundPin')` 后，第一段 DISTINCT 查询带出该列、第二段按 id 回表同样按该别名排序，行为稳定。
+- **为什么用 select 别名而不是直接 `ORDER BY CASE …`**：`afterSalesList` 带 `leftJoin`（订单/渠道/顾客）且用 `skip/take`，TypeORM 会走「两段式分页」(`getMany()` 内 `createOrderByCombinedWithSelectExpression`）。该方法把排序字段按 `alias.propertyPath` 拆解，含点号的原始表达式（`CASE WHEN a.state …`）会被拆成非法别名并在运行时抛错；改为 `addSelect(..., 'refund_pin')` + `orderBy('refund_pin')` 后，第一段 DISTINCT 查询带出该列、第二段按 id 回表同样按该别名排序，行为稳定。
 - **置顶判定只认当前状态**：`state` 已从 `RefundFailed` 流转出去（如重试成功后 `Refunded`）的历史单不再置顶。
+- **排序别名必须全小写**：TypeORM 最终查询里 `ORDER BY <select 别名>` 不带引号，别名若写成驼峰（`refundPin`）会被 Postgres 折叠为 `refundpin` 而报 `column "refundpin" does not exist`（本次首发即踩，见 115.7）；统一用 `refund_pin` 这类全小写别名。
 
 ### 115.3 权限与校验
 
@@ -6269,10 +6270,28 @@ END $$;
 4. **置顶条只在「全部」出现**：其余筛选下不重复提示，避免与筛选 chip 冗余。
 5. **正常单被推迟**：置顶只影响「全部」视图的默认顺序，不使用该排序的其它页面（工作台、分析报表各有自己的查询）不受影响。
 6. **无 e2e**：本节以 mock 截图 + 构建验收为准；真实库排序在部署后由线上探针复核（见 115.7）。
+7. **生产当时没有失败单**：部署后线上探针能跑通但 `stateCounts` 只有 Appealed/Pending/Refunded 各 1 笔，失败单置顶分支无法在线上肉眼复现，只能靠 mock 截图（数据刻意把失败单做成最旧）+ 探针确认 SQL 可执行、次级时间排序仍在。后续真实出现失败单时可直接在「全部」视图观察首屏是否置顶。
 
 ### 115.7 部署记录
 
-（部署完成后回填）
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | vendure `8febdd457` 推送 `origin/master` → 服务器 `git fetch origin master -q` + `git checkout origin/master -- packages/campus-delivery-plugin/{src,lib}/…merchant-admin.service.*` + `pm2 restart vendure --update-env` | **首次失败**：探针返回 `column "refundpin" does not exist`（售后列表接口 500）。原因：排序别名 `refundPin` 在最终查询里不带引号，被 Postgres 折叠成 `refundpin` |
+| 后端（修复） | 别名改 `refund_pin` → `d4879b51c` 推送 → 服务器同样 checkout 两文件 + 重启 | 部署完成：`campusMerchantAfterSales` 探针返回正常；pm2 `vendure` online、uptime 稳定、↺879 无重启循环 |
+| 后端探针 | `admin-api`（`https://e.joho.cn/admin-api`、`vendure-token: canteen-a-token`、superadmin 登录）`campusMerchantAfterSales(skip:0, take:20)` | PASS：`total=3`、`stateCounts=[Appealed 1, Pending 1, Refunded 1]`、无 `errors`；`items` 严格按 `createdAt DESC`（23:08:43 → 23:08:34 → 23:07:03），证明置顶排序与次级时间排序并存生效 |
+| 后台 | vshop `9a5e7c98` 推送 `origin/master` → `cd web-admin && node scripts/deploy.mjs`（脚本内本地 `build:h5`） | 部署完成：产物校验通过 62196 KB、`deploy done`；`openresty -t` 通过并 reload |
+| 线上 chunk | 后台 chunk 200 且 SHA256 与本地一致 | 见下表 |
+| 截图 | `docs/screenshots/waimai/p115-after-sales-pin/`（4 张，vshop 仓） | 完成 |
+
+线上 chunk 逐项核对（`HTTPS 200` 与 SHA256 均与本地构建一致）：
+
+| 端 | chunk | 线上字节 |
+|---|---|---|
+| 后台 | `guanli/assets/index-DBKpL32z.js` | 957203 |
+| 后台 | `guanli/assets/pages-campus-merchant-after-sales.ersb4Mwf.js` | 19509 |
+| 后台 | `guanli/assets/merchant-after-sales-Bmg7mIdz.css` | 12325 |
+
+> 后台入口 `https://e.joho.cn/guanli/` 返回 200 且引用 `index-DBKpL32z.js`；部署脚本按 `WA_KEEP_BACKUPS=3` 轮转 `guanli.bak_*`，回滚时还原最近的 `guanli.bak_*` 即可。驼峰排序别名坑已写入 115.2 最后一条，作为后续「TypeORM 自定义排序别名」的长期约束。
 
 
 
