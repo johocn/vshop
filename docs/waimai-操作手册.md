@@ -7146,7 +7146,7 @@ ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesresolvetarge
 
 ### 126.7 部署记录（2026-11-01）
 
-- **提交与推送**：vendure `d9df21119`（4 files, +63/−2），已推 `origin/master`。
+- **提交与推送**：vendure `d9df21119`（4 files, +63/−2），已推 `origin/master`；vshop `45e69310`（本节手册，仅 `docs/waimai-操作手册.md`），已推 `origin/master`。
 - **上线顺序**：先在生产执行 3 条 DDL（`DB_SYNC=0` 不会自动建列，先建列可避免重启瞬间 `column does not exist`），再重建插件并重启。
 - **后端重建**：服务器 `git fetch origin master && git checkout origin/master -- packages/campus-delivery-plugin packages/notification-plugin` → 两个包依次 `npm run build` → `pm2 restart vendure --update-env`，进程 `online`（`restarts 934`）。
 - **编译产物校验**：`packages/campus-delivery-plugin/lib/src/migrations/p42-channel-aftersales-rule-columns.js` 存在且含 `customFieldsAftersalesduesoonhours` → 1；`packages/notification-plugin/lib/src/notification.service.js` 中 `resolveMerchantShopIds` → 2。
