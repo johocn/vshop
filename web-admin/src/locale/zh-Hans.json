@@ -6745,6 +6745,8 @@
     "dailyPushSaved": "推送设置已保存",
     "dailyPushBadTime": "时间格式应为 HH:MM（如 21:30）",
     "dailyPushNoChannel": "未配置推送渠道，请联系运营",
+    "dailyPushLastFail": "上次推送失败 {time}：{reason}",
+    "dailyPushUnknownFail": "原因未知",
     "infoTitle": "门店信息",
     "noticeLabel": "店铺公告",
     "noticePh": "如 今日上新，满 20 减 3",

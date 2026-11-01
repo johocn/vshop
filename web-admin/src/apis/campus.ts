@@ -329,6 +329,10 @@ export interface MerchantStoreProfile {
   dailyPushTime: string;
   /** 推送渠道是否可用（§118）：false 时设置页提示「未配置推送渠道，请联系运营」 */
   dailyPushChannelReady: boolean;
+  /** 最近一次推送失败时间（epoch ms，§119）：0 = 无可见失败 */
+  dailyPushLastFailAt: number;
+  /** 最近一次推送失败原因（§119）：空 = 无可见失败 */
+  dailyPushLastFailReason: string;
   /** 售后月度摘要推送开关（§105） */
   monthlyPushEnabled: boolean;
   /** 月度推送日（1-28，默认 1） */

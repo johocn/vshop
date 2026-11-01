@@ -6747,6 +6747,8 @@
     "dailyPushSaved": "Push settings saved",
     "dailyPushBadTime": "Time must be HH:MM (e.g. 21:30)",
     "dailyPushNoChannel": "No push channel configured — please contact operations",
+    "dailyPushLastFail": "Last push failed at {time}: {reason}",
+    "dailyPushUnknownFail": "unknown reason",
     "infoTitle": "Store Info",
     "noticeLabel": "Store notice",
     "noticePh": "e.g. New items today, ¥3 off over ¥20",

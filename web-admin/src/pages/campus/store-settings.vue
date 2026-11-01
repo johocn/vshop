@@ -137,6 +137,8 @@
         <text v-if="dailyForm.enabled && profile && !profile.dailyPushChannelReady" class="tip-warn">
           {{ $t('campusStoreSettings.dailyPushNoChannel') }}
         </text>
+        <!-- 失败原因可见（§119）：最近一次失败晚于最近成功才显示，成功推送后自动消失 -->
+        <text v-if="dailyForm.enabled && dailyFailText" class="tip-fail">{{ dailyFailText }}</text>
         <text class="tip">{{ $t('campusStoreSettings.dailyPushDesc') }}</text>
         <button class="save small" :disabled="dailyBusy" @tap="saveDailyPush">
           {{ dailyBusy ? $t('campusStoreSettings.saving') : $t('campusStoreSettings.dailyPushSave') }}
@@ -291,6 +293,16 @@ const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
 /** 每日日报推送（§86）：开关 + HH:MM 时间，保存走 campusMerchantUpdateDailyPush */
 const dailyBusy = ref(false);
 const dailyForm = ref({ enabled: false, time: '21:30' });
+/** 失败原因可见（§119）：epoch ms → 「MM-DD HH:MM」，无可见失败时为空串 */
+const dailyFailText = computed(() => {
+  const ms = Number((profile.value as any)?.dailyPushLastFailAt ?? 0);
+  if (!ms) return '';
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const at = `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const reason = String((profile.value as any)?.dailyPushLastFailReason || '') || locale.t('campusStoreSettings.dailyPushUnknownFail');
+  return locale.t('campusStoreSettings.dailyPushLastFail').replace('{time}', at).replace('{reason}', reason);
+});
 const warnOn = ref(closingWarnEnabled());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -787,6 +799,7 @@ onPullDownRefresh(async () => {
   }
   .tip { display: block; font-size: 22rpx; color: $wa-muted; margin-top: 12rpx; line-height: 1.5; }
   .tip-warn { display: block; font-size: 22rpx; color: #cf1322; margin-top: 12rpx; line-height: 1.5; }
+  .tip-fail { display: block; font-size: 22rpx; color: #d46b08; margin-top: 12rpx; line-height: 1.5; }
   .next { display: block; font-size: 22rpx; color: #fa8c16; font-weight: 600; margin-top: 10rpx; }
   .unfinished { display: block; font-size: 23rpx; color: #cf1322; font-weight: 700; margin-top: 10rpx;
     background: #fff1f0; border: 1.5px solid #ff4d4f; border-radius: $wa-radius; padding: 12rpx 18rpx; line-height: 1.5; }
