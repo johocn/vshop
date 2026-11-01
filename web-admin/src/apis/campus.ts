@@ -74,6 +74,11 @@ export interface CampusStoreConfig {
   dynamicPricing: string | null;
   privacyNumberEnabled: boolean;
   privacyNumberProvider: string;
+  /** 实际生效的服务商：aliyun/tencent 未接入时回落 mask */
+  privacyNumberEffectiveProvider: string;
+  /** 配置值≠生效值：号码保护未真正启用，页面需提示运营 */
+  privacyNumberDegraded: boolean;
+  privacyNumberNote: string | null;
   privacyNumberTtlMinutes: number;
   privacyNumberPrefix: string | null;
   foodLicenseNo: string | null;
@@ -174,7 +179,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold deliveryFeeTiers notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold deliveryFeeTiers notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberEffectiveProvider privacyNumberDegraded privacyNumberNote privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -3789,6 +3794,7 @@ export interface CampusUnmannedDeliveryResult {
   ok: boolean;
   provider: string;
   providerName: string;
+  /** disabled / unconfigured / unsupported / rejected / accepted（accepted 仅 mock 模拟通道） */
   status: string;
   requestNo: string | null;
   message: string;

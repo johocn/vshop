@@ -574,6 +574,12 @@
               <text>{{ $t(p.label) }}</text>
             </view>
           </view>
+          <text v-if="card.form.privacyDegraded" class="privacy-warn">
+            {{ $t('campusConfig.privacyDegraded')
+              .replace('{provider}', $t(privacyLabel(card.form.privacyProvider)))
+              .replace('{effective}', $t(privacyLabel(card.form.privacyEffective)))
+              .replace('{note}', card.form.privacyNote) }}
+          </text>
           <view class="cell">
             <text class="lbl">{{ $t('campusConfig.privacyTtl') }}</text>
             <input v-model="card.form.privacyTtl" type="number" :placeholder="$t('campusConfig.phMinutes')" />
@@ -767,6 +773,12 @@ const PRIVACY_PROVIDERS = [
   { value: 'tencent', label: 'campusConfig.privacyTencent' },
 ] as const;
 
+/** 服务商码 → i18n key（未知码回落脱敏号） */
+function privacyLabel(code: string): string {
+  const hit = PRIVACY_PROVIDERS.find(p => p.value === code);
+  return hit ? hit.label : 'campusConfig.privacyMask';
+}
+
 /** 打包费计费方式（与服务端白名单一致） */
 const PACKING_MODES = [
   { value: 'perItem', label: 'campusConfig.packingPerItem' },
@@ -865,6 +877,11 @@ interface CardForm {
   dpMaxAddYuan: string;                 // 单笔加价封顶（元）
   privacyEnabled: boolean;
   privacyProvider: string;
+  /** 已保存配置的实际生效服务商（只读回显，不提交） */
+  privacyEffective: string;
+  /** 已保存配置是否降级（配置值≠生效值） */
+  privacyDegraded: boolean;
+  privacyNote: string;
   privacyTtl: string;
   privacyPrefix: string;
   foodLicenseNo: string;
@@ -1297,6 +1314,9 @@ function toForm(c: CampusStoreConfig): CardForm {
     dpMaxAddYuan: fenToYuan(dp.maxAddFee ?? 600) || '6',
     privacyEnabled: !!c.privacyNumberEnabled,
     privacyProvider: c.privacyNumberProvider || 'mask',
+    privacyEffective: c.privacyNumberEffectiveProvider || 'mask',
+    privacyDegraded: !!c.privacyNumberDegraded,
+    privacyNote: c.privacyNumberNote || '',
     privacyTtl: String(c.privacyNumberTtlMinutes ?? 60),
     privacyPrefix: c.privacyNumberPrefix ?? '',
     foodLicenseNo: c.foodLicenseNo ?? '',
@@ -1853,6 +1873,8 @@ async function ensureProfile(card: Card) {
         &.off { color: $wa-muted; } } }
   }
   .platform-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 12rpx; }
+  // 隐私号服务商降级提示：配置值与实际生效值不一致（外部号池未接入）
+  .privacy-warn { display: block; font-size: 22rpx; color: $wa-danger; line-height: 1.5; padding: 6rpx 0 10rpx; }
   .pmodes { display: flex; gap: 16rpx; padding: 8rpx 0 16rpx;
     .pmode { flex: 1; text-align: center; padding: 18rpx 0; font-size: 26rpx; color: $wa-muted;
       border: 1.5px solid $wa-rule; border-radius: $wa-radius; background: $wa-card; }

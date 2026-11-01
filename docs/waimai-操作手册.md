@@ -2425,7 +2425,7 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 - **字段校验**：`name` 必填 ≤64；`location` 必填 ≤255；`totalCells` 0~2000 整数；`availableCells` ≥0 且 ≤ `totalCells`；`openHours` 正则 `^\d{2}:\d{2}-\d{2}:\d{2}$`（可空）；`pickupGuide` ≤500（可空）；`sort` 0~999。创建时必填项缺失直接 `UserInputError`，更新时只校验传入字段。
 - **无人配送通道**（配置挂在 `campus_fulfillment_config`，4 列）：`unmannedDeliveryEnabled`(boolean) / `unmannedDeliveryProvider`(varchar 16) / `unmannedDeliveryEndpoint`(varchar 255) / `unmannedDeliveryKey`(varchar 128)。
 - **服务商清单**（`unmanned-delivery.ts`）：`none`（未开通）/ `mock`（模拟通道（占位），无需 endpoint/key）/ `meituan`（美团无人车，需 endpoint + key）/ `xinshiji`（新石器无人车，需 endpoint + key）。选 `none` 自动关闭；**开启时**若服务商需要 endpoint/key 而缺配置，直接 `UserInputError` 拒绝保存。
-- **调用占位**（`campusRequestUnmannedDelivery(orderId)`）：通道未开启 → `status=disabled`；缺接口地址/密钥 → `status=unconfigured`；否则返回 `requestNo = UD-<时间戳>-<4 位随机>` 与 `status=accepted`（占位受理，**未向任何厂商真实下发运单**）。
+- **调用状态**（`campusRequestUnmannedDelivery(orderId)`）：通道未开启 → `status=disabled`；缺接口地址/密钥 → `status=unconfigured`；服务商为 `meituan` / `xinshiji`（尚未接入）→ `status=unsupported`、`requestNo=null`（**不伪造运单号**）；仅 `mock` 返回 `requestNo = MOCK-<时间戳>-<4 位随机>` 与 `status=accepted`，文案明示「未真实下发运单」。
 - **对外视图**：后台 `channel` 不回密钥明文，只回 `keyConfigured` 布尔 + `needsEndpoint/needsKey`；C 端 `campusUnmannedDeliveryChannel` 只回 `{ enabled, provider, providerName }`。
 
 ### 53.3 权限与校验
@@ -2462,7 +2462,7 @@ ALTER TABLE order_line ADD COLUMN IF NOT EXISTS "customFieldsWaimaiaddons" text;
 
 ### 53.6 边界与已知限制
 
-- **无人配送为接口占位**：`campusRequestUnmannedDelivery` 只做配置校验 + 模拟受理（返回单号），**未向美团/新石器等真实厂商下发运单**；接真实 SDK 时替换 `CampusLockerService.requestDelivery` 内部逻辑即可，返回结构与配置不变。
+- **无人配送为接口占位**：`campusRequestUnmannedDelivery` 只做配置校验；`mock` 模拟受理（`MOCK-` 单号），美团/新石器等真实厂商返回 `unsupported` 且**不下发运单**（不再伪造受理结果）；接真实 SDK 时替换 `CampusLockerService.requestDelivery` 内部逻辑即可，返回结构与配置不变。
 - **无取餐柜 SDK / 开柜码**：本轮只落站点与格口规模，不接柜机硬件、不生成取餐码 / 开柜指令，C 端只做「展示 + 引导」。
 - **格口数为手工维护**：`availableCells` 由运营在后台手工填写，未接实时占用/释放，也无「已投递/已取走」状态流转。
 - **密钥明文存库**：`unmannedDeliveryKey` 以明文存 `campus_fulfillment_config`（不回显明文，只回 `keyConfigured`），未做加密/密钥托管。
