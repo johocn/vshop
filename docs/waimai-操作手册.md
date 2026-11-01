@@ -6067,6 +6067,151 @@ ALTER TABLE campus_fulfillment_config ADD COLUMN IF NOT EXISTS trust_quality_tex
 
 > 线上站点首页 `https://e.joho.cn/` 返回 200；`index.bak_20261101080350.html` 为本次 vshop 部署前的入口备份，回滚时还原该文件即可。
 
+## §114 好评送礼闭环：礼包选择落库 + 审核通过按礼包发券 + 我的评价回显（已上线）
+
+**操作入口**：vshop「订单评价」页 / 外卖 C 端「写评价」页的「好评送礼」礼包选择；回显位置为两端「我的评价」页。
+
+§111 已把「好评送礼」区块铺到两端写评价页，但当时所选礼包**只是前端高亮状态**：不上行、不落库、不参与发券（§111.6 明确记录该边界）。本节补齐闭环三件事：① 所选礼包随 `createReview` 落库；② 评价审核通过时按礼包取对应券模板发券；③「我的评价」回显「礼包 + 发放状态」。
+
+### 114.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后端实体 | `packages/review-plugin/src/review.entity.ts` | 新增列 `giftChoice`（`varchar` 可空），位于 `giftGranted` 之后 |
+| 后端入参 | `packages/review-plugin/src/types.ts` | `CreateReviewInput` 增加 `giftChoice?: string \| null` |
+| 后端服务 | `packages/review-plugin/src/review.service.ts` | 新增常量 `GIFT_CHOICES`（`quality/service/time`）与 `GIFT_COUPON_FIELD` 映射；`createReview` 调 `normalizeGiftChoice()` 后写入实体；`getGiftConfig(ctx, giftChoice)` 按礼包取专属模板、为空回落 `reviewGiftCouponTemplateId`；`grantReviewGift` 传入 `review.giftChoice` |
+| 后端渠道配置 | `packages/review-plugin/src/review-channel-custom-fields.ts` | 新增 3 个 string 字段：`reviewGiftQualityCouponTemplateId` / `reviewGiftServiceCouponTemplateId` / `reviewGiftTimeCouponTemplateId`（中文说明「空=用通用模板」） |
+| 后端 API | `packages/review-plugin/src/plugin.ts` | admin `Review` 暴露 `giftChoice`；shop `Review` 暴露 `giftGranted` + `giftChoice`；shop `CreateReviewInput` 增加 `giftChoice` |
+| 后端迁移 | `packages/campus-delivery-plugin/src/migrations/p40-review-gift-choice.ts`（新建） | `review` 加列：`ADD COLUMN IF NOT EXISTS "giftChoice" varchar(16)`，`to_regclass('review')` 保护；注册进 `providers` |
+| 后端迁移（补） | `packages/campus-delivery-plugin/src/migrations/p41-review-gift-channel-columns.ts`（新建） | `channel` 加 3 列（三档礼包券模板的 customFields 物理列），`to_regclass('channel')` 保护；注册进 `providers`。**首发部署漏了此迁移导致启动崩溃**，详见 114.7 |
+| 后端单测 | `packages/review-plugin/src/review.service.spec.ts` | 新增 4 例：礼包「质量」专属模板命中、「服务」模板空回落通用、`≥4` 星落库、`≤3` 星归一 `null`、非法值抛错 |
+| vshop C 端 | `src/pkg-order/pages/order-evaluate.vue` | `GIFT_OPTIONS` 值改为英文枚举；`onSubmit` 上行 `giftChoice`（仅 `rating >= 4` 且已选） |
+| vshop C 端 | `src/api/queries/review.ts` | `REVIEW_FIELDS` 追加 `giftChoice giftGranted`；`createReview` 入参加 `giftChoice?: string` |
+| vshop C 端 | `src/pkg-user/pages/my-reviews.vue` | 每条主评新增「好评礼包：质量 · 已发放」回显行 + `giftText()`；新增 `&__gift` 样式 |
+| vshop C 端 | `src/i18n/locales/zh-CN.json` | `review.giftHint` 文案改为「…审核通过后发放」；新增 `giftLabel` / `giftIssued` / `giftPending` / `giftNotIssued` |
+| 外卖 C 端 | `src/pkg-order/pages/review-create.vue` | 同上：枚举化 + `submit()` 上行 `giftChoice` |
+| 外卖 C 端 | `src/api/queries/review.ts` | `REVIEW_FIELDS` 追加 `giftChoice giftGranted`；入参加 `giftChoice?: string` |
+| 外卖 C 端 | `src/pkg-order/pages/my-reviews.vue` | 新增 `gift-line` 回显行 + `giftText()` |
+| 外卖 C 端 | `src/locale/{zh-Hans,en}.json` | `reviewCreate.giftHint` 文案更新；`myReviews` 新增 7 键（`giftLabel` / 三档名 / 三档状态） |
+| 截图 | `docs/screenshots/waimai/p114-review-gift/` | 4 张（vshop 写评价选礼包 / vshop 我的评价回显 / 外卖写评价选礼包 / 外卖我的评价回显），390×844 dpr2 |
+
+### 114.2 口径与契约
+
+- **枚举口径**：礼包值统一为英文枚举 `quality` / `service` / `time`，与展示文案「质量 / 服务 / 时间」解耦（i18n 负责文案，后端只认枚举）；旧客户端若仍传中文会直接被拒绝，不做兼容映射。
+- **记录条件**：仅**主评**且 `rating >= 4` 才落库；`≤3` 星或追评一律 `null`（后端静默归一，不报错）。
+- **展示条件（写评价页）**：`allGood`（本次所有商品均为好评）才渲染礼包区块；`≤3` 星时区块整体不出现，已选状态随星级降档被忽略（提交时 `rating >= 4` 才上行）。
+- **选择不可变**：礼包随评价创建一次写入，创建后不可修改（评价本身亦不支持编辑）。
+- **发券口径**：`approveReview` 流转到 `approved` 且此前不可见时触发（与 §111 同一闸门）；按 `review.giftChoice` 取该礼包专属券模板，**专属模板为空则回落** `reviewGiftCouponTemplateId`；积分仍按渠道级 `reviewGiftPoints` 发放，**不随礼包变化**。
+- **幂等**：`giftGranted` 闸门语义不变（已发放则跳过重试）；发券失败只告警不阻塞审核，`giftGranted` 保持 `false`，便于后续补发。
+- **回显口径**：我的评价每条**主评**在 `giftChoice` 非空时展示一行「好评礼包：质量 · <状态>」；追评（`parentId` 非空）与未选礼包的主评不展示。状态三态：`giftGranted=true` → 已发放；`status='pending'` → 审核通过后发放；其余（已通过但未发放 / 已驳回等）→ 未发放。
+- **GraphQL 契约**：
+  - shop `Review` 新增 `giftGranted: Boolean!` 与 `giftChoice: String`；
+  - admin `Review` 新增 `giftChoice: String`（后台列表/审核可直接看到顾客所选礼包）；
+  - shop `CreateReviewInput` 新增 `giftChoice: String`（可空）。
+- **字节契约（`review` 新增列）**：
+
+| 列 | 类型 | 默认 | 可空 | 含义 |
+|---|---|---|---|---|
+| `giftChoice` | `varchar(16)` | — | 是 | `quality` / `service` / `time`；`NULL` = 未选或 ≤3 星/追评 |
+
+### 114.3 权限与校验
+
+- **写入**：沿用既有 `createReview` 权限（登录顾客 + 订单行归属校验），无新增权限点；礼包只是该 Mutation 的一个附加字段。
+- **枚举白名单**：`normalizeGiftChoice()` 只接受 `quality|service|time`，其它值抛 `UserInputError('giftChoice must be one of quality/service/time')`。
+- **降档静默丢弃**：`≤3` 星时即使传入合法枚举也归一为 `null`（不报错），避免老页面残留选择导致提交失败。
+- **配置读取**：券模板字段为渠道级 `Channel.customFields`，按 `ctx.channelId` 读取，跨店不可串用；三档模板留空即等价于上线前（统一用通用模板）。
+- **配置入口**：Vendure 管理台「渠道 → 评价有礼」customFields 三个新字段；商家后台（guanli）**暂无**礼包配置 UI（见 114.6 第 2 条）。
+
+### 114.4 数据库变更
+
+- 新增迁移 `P40ReviewGiftChoiceMigration`（`src/migrations/p40-review-gift-choice.ts`），`OnApplicationBootstrap` 阶段执行幂等 DDL：
+
+```sql
+DO $$
+BEGIN
+  IF to_regclass('review') IS NOT NULL THEN
+    ALTER TABLE review ADD COLUMN IF NOT EXISTS "giftChoice" varchar(16);
+  END IF;
+END $$;
+```
+
+- 生产 `synchronize:false`，只靠该迁移；`to_regclass` 保护使未安装 review-plugin 的站点也能安全启动；重复启动安全（`IF NOT EXISTS`）。
+- 无数据回填：存量评价 `giftChoice` 为 `NULL`，即「未选礼包」，回显行不出现，与上线前表现一致。
+- 同批新增迁移 `P41ReviewGiftChannelColumnsMigration`（`src/migrations/p41-review-gift-channel-columns.ts`）：三档礼包券模板是 `Channel.customFields`，生产不自动建列，缺列则**任何 Channel 查询都会报 `column … does not exist`**（启动即崩）。
+
+```sql
+DO $$
+BEGIN
+  IF to_regclass('channel') IS NOT NULL THEN
+    ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsReviewgiftqualitycoupontemplateid" varchar;
+    ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsReviewgiftservicecoupontemplateid" varchar;
+    ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsReviewgifttimecoupontemplateid" varchar;
+  END IF;
+END $$;
+```
+
+- 列名规则：`customFields` + 字段名首字母大写、其余小写（既有 `customFieldsReviewgiftcoupontemplateid` / `customFieldsReviewgiftpoints` / `customFieldsReviewfollowupwindowdays` 即此规则，已核对生产库列清单）。
+
+### 114.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `review-plugin` `tsc -p tsconfig.build.json` | PASS（退出码 0） |
+| 2 | `campus-delivery-plugin` `tsc -p tsconfig.build.json` | PASS（退出码 0，`lib/src/migrations/p40-review-gift-choice.*` 已生成） |
+| 3 | `review-plugin` 单测（`vitest --config vitest.config.mts --run`，包目录内运行） | PASS（`review.service.spec.ts` 24 例 / `review-alert.spec.ts` 22 例全绿，含新增礼包 4 例） |
+| 4 | 外卖 C 端 `build:h5` | PASS（`DONE Build complete.`，仅 sass 弃用告警） |
+| 5 | vshop C 端 `build:h5` | PASS（`DONE Build complete.`，仅 sass 弃用告警） |
+| 6 | e2e `e2e/review.e2e-spec.ts` | SKIP（既有 sqljs 不支持 `timestamptz`，9 例全 skipped，与本节无关） |
+| 7 | vshop 写评价页 · 5 星选「质量」 | PASS（礼包三项「质量/服务/时间」齐全，`picked=质量` 高亮、5 星、提示「本次为好评，可任选一份心意礼，审核通过后发放」；截图 `01-vshop-evaluate-gift-selected.png`） |
+| 8 | vshop 我的评价 · 礼包回显两态 | PASS（「好评礼包：质量 · 已发放」（已通过）/「好评礼包：服务 · 审核通过后发放」（待审核）；截图 `02-vshop-my-reviews-gift-status.png`） |
+| 9 | 外卖写评价页 · 5 星选「质量」 | PASS（同三项齐全、`picked=质量`、5.0 极赞；截图 `03-waimai-create-gift-selected.png`） |
+| 10 | 外卖我的评价 · 礼包回显两态 | PASS（标签「好评礼包」+「质量 · 已发放」/「服务 · 审核通过后发放」，徽章「已通过 / 审核中」一致；截图 `04-waimai-my-reviews-gift-status.png`） |
+
+截图取数方式：本地静态服务 + Playwright 拦截 `shop-api`（vshop 跨域到 `https://e.joho.cn`、外卖同源 `/shop-api` 均命中），`orderByCode` 与 `myReviews` 按用例注入含 `giftChoice/giftGranted` 的数据；写评价页需先落首页预热登录态再切 hash，礼包块滚到 y≈250 避免被底部提交栏遮挡。
+
+> 单测须在包目录内运行：仓库根直接跑 vitest 会误收集 `lib/`、`vendure-prod/` 的 CommonJS 产物并触发 `ColumnTypeUndefinedError`；正确命令为 `cwd=packages/review-plugin` 下 `..\..\node_modules\.bin\vitest.cmd --config vitest.config.mts --run`。
+
+### 114.6 边界与已知限制
+
+1. **礼包只决定发哪张券，不影响积分**：三档礼包的差异仅体现在券模板；若想差异化积分，需另做配置（本期不做）。
+2. **后台无礼包配置 UI**：三档券模板只能在 Vendure 管理台的渠道 customFields 里填；不填则全部回落通用奖励券，功能可用但三档无差别。
+3. **礼包不可修改**：评价创建后不可编辑，因此选错礼包无法在 C 端改正；需要人工介入只能删评重写。
+4. **发券失败不回滚审核**：异步发券异常只记 `Logger.warn`，评价照常 `approved`，我的评价显示「未发放」；补发需在券管理中人工发放。
+5. **e2e 未纳入**：`e2e/review.e2e-spec.ts` 因既有 sqljs 不支持 `timestamptz`（`ReviewAlert.handledAt`）而全部 skipped，与本节改动无关；本节以单测 + 构建 + 截图验收为准。
+6. **部署必须两包同时更新**：本次同时改了 `review-plugin`（实体/服务/schema）与 `campus-delivery-plugin`（p40 / p41 迁移），只更后者会导致缺列启动报错。
+7. **新增 `Channel.customFields` 必须同时建物理列**：生产 `synchronize:false`，实体多一个 customField 就等于库里多一个必选列，漏建列会让**所有** Channel 查询失败（不只评价链路）。本次首发即踩此坑（114.7 事故记录），后续此类改动一律「字段 + 迁移」同批提交。
+
+### 114.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后端 | vendure `cc8a6f5dd` 推送 `origin/master` → 服务器 `git fetch origin master -q` + `git checkout origin/master -- packages/review-plugin/{src,lib} packages/campus-delivery-plugin/{src,lib}` + `pm2 restart vendure --update-env` | **首次失败**：启动即抛 `driverError: column Channel.customFieldsReviewgiftqualitycoupontemplateid does not exist`，pm2 进入重启循环（↺867）。原因：`review-channel-custom-fields.ts` 新增 3 个 Channel customFields，但生产 `synchronize:false` 无对应物理列 |
+| 后端（回滚） | 服务器 `git checkout dc759714f -- packages/review-plugin/{src,lib}` + 重启 | 恢复：pm2 online、uptime 稳定、不再重启（↺876） |
+| 后端（修复） | 先用只读脚本核对生产 `channel` / `review` 列清单 → 直连库补 3 列 → 补迁移 `p41` → vendure `14a8edf61` 推送 → 服务器重新 checkout 两包 + 重启 | 部署完成：pm2 `vendure` online（↺877），重启后 uptime 稳定无报错；`review.giftChoice` 已由 p40 建列，`channel` 三档券模板列由 p41 幂等建列 |
+| 后端探针 | `shop-api`（`127.0.0.1:3020`、`vendure-token: canteen-a-token`）内省 | PASS：`CreateReviewInput.inputFields` 含 `giftChoice`；`Review.fields` 含 `giftGranted` 与 `giftChoice` |
+| 外卖 C 端 | waimai-v39 `d46dca7` 推送分支 `feat/waimai-v39` → `node .secrets/deploy-waimai.mjs` | 部署完成：产物校验通过 3856 KB、站点 `https://www.yourbao.cn/waimai/` 返回 200 |
+| C 端（vshop） | vshop `63b610f4` 推送 `origin/master` → `tar -czf vshop-h5-p114.tgz -C dist/build/h5 .`（745250 B）→ `scp joho:/tmp/` → 解压至 `/opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index`（解压前 `index.html` 备份为 `index.bak_20261101085407.html`） | 部署完成：`tar` 退出码 2（仅目录属主非 admin 的 `Cannot utime/change mode` 告警，文件本体已落盘）；入口 `assets/index-MubXMBqw.js` 与本地一致；站点首页 200 |
+| 线上 chunk | 三端 chunk 200 且字节与本地一致 | 校验通过见下表 |
+| 截图 | `docs/screenshots/waimai/p114-review-gift/`（4 张，vshop 仓） | 完成 |
+
+线上 chunk 逐项核对（`HTTPS 200` 与字节数均与本地构建一致）：
+
+| 端 | chunk | 线上字节 |
+|---|---|---|
+| vshop | `assets/index-MubXMBqw.js` | 757079 |
+| vshop | `assets/pkg-order-pages-order-evaluate.Xy1fahHj.js` | 6834 |
+| vshop | `assets/pkg-user-pages-my-reviews.C_aUoFmW.js` | 3752 |
+| vshop | `assets/review.DlH1VLy8.js` | 1287 |
+| vshop | `assets/my-reviews-DquxBZ7y.css` | 1552 |
+| vshop | `assets/order-evaluate-GZKToCW8.css` | 3254 |
+| 外卖 | `waimai/assets/index-DzLRKI9N.js` | 677838 |
+| 外卖 | `waimai/assets/pkg-order-pages-review-create.BYJCgYxK.js` | 10107 |
+| 外卖 | `waimai/assets/pkg-order-pages-my-reviews.KNdbZvgo.js` | 9286 |
+| 外卖 | `waimai/assets/review-create-Chf6NpKp.css` | 3701 |
+| 外卖 | `waimai/assets/my-reviews-C-jJiG2T.css` | 5125 |
+
+> `index.bak_20261101085407.html` 为本次 vshop 部署前的入口备份，回滚时还原该文件即可。事故根因与处置已写入 114.6 第 7 条，作为「新增 Channel customFields 必须同批建列」的长期约束。
+
 
 
 
