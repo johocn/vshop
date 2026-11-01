@@ -99,6 +99,7 @@
         :review="r"
         :variant-map="variantTextMap"
         :max-images="3"
+        flat
       />
     </view>
     <view class="product-detail__rich" v-if="mainVideo || descHtml || sellingPoint">

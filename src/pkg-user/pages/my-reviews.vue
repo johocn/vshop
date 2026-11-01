@@ -127,25 +127,26 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+/* §116 评价版式基线：卡片 白底 / 圆角 16rpx / 内边距 24rpx / 间距 24rpx；正文 26rpx·1.6；辅助 22rpx；星级 24rpx；徽章 999rpx 胶囊 */
 .mr-page { padding: 0 20rpx 40rpx; }
-.mr-trust { margin-top: 20rpx; }
-.mr-tabs { display: flex; background: #fff; border-radius: $radius-md; margin: 20rpx 0; }
+.mr-trust { margin-top: 24rpx; }
+.mr-tabs { display: flex; background: #fff; border-radius: $radius-lg; margin: 24rpx 0; }
 .mr-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 24rpx; color: $text-color-secondary;
     &.active { color: $brand-color; font-weight: bold; }
 }
-.mr-item { background: #fff; border-radius: $radius-md; padding: 20rpx; margin-bottom: 20rpx;
+.mr-item { background: #fff; border-radius: $radius-lg; padding: 24rpx; margin-bottom: 24rpx;
     &__head { display: flex; gap: 16rpx; align-items: flex-start; }
     &__info { flex: 1; }
     &__name { font-size: 26rpx; color: $text-color; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     &__meta { display: flex; align-items: center; gap: 12rpx; margin-top: 8rpx; }
-    &__stars { font-size: 22rpx; color: $price-color; letter-spacing: 2rpx; }
+    &__stars { font-size: 24rpx; color: $price-color; letter-spacing: 2rpx; }
     &__date { font-size: 22rpx; color: #999; }
-    &__status { font-size: 22rpx; padding: 4rpx 14rpx; border-radius: 20rpx; flex-shrink: 0;
+    &__status { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 999rpx; flex-shrink: 0;
         &--pending { color: $price-color; background: #fff3e6; }
         &--approved { color: #07c160; background: #eafaf0; }
         &--rejected { color: #e34d59; background: #fdecee; }
     }
-    &__content { display: block; margin-top: 12rpx; font-size: 26rpx; color: $text-color-secondary; line-height: 1.5; }
+    &__content { display: block; margin-top: 12rpx; font-size: 26rpx; color: $text-color-secondary; line-height: 1.6; }
     &__gift { display: block; margin-top: 8rpx; font-size: 22rpx; color: $brand-color; }
 }
 </style>

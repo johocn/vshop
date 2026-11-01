@@ -147,13 +147,14 @@ function switchTab(key: TabKey) {
 </script>
 
 <style lang="scss" scoped>
+/* §116 评价版式基线：单条评价成卡（白底 / 圆角 16rpx / 内边距 24rpx / 卡间距 24rpx），与「我的评价」一致 */
 .review-page { display: flex; flex-direction: column; height: 100vh; background: #f5f5f5;
-    &__scroll { flex: 1; padding: 0 20rpx; }
-    &__footer { padding: 30rpx; text-align: center; }
+    &__scroll { flex: 1; padding: 24rpx 20rpx 0; }
+    &__footer { padding: 24rpx 0 40rpx; text-align: center; }
     &__trust { margin: 20rpx 20rpx 0; }
 }
 .review-tabs { display: flex; background: #fff; border-bottom: 1rpx solid $border-color; }
-.review-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 25rpx; color: $text-color-secondary;
+.review-tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 24rpx; color: $text-color-secondary;
     &.active { color: $brand-color; font-weight: bold; }
 }
 .footer-text { font-size: 24rpx; color: #999; }

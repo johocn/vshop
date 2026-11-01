@@ -1,5 +1,5 @@
 <template>
-  <view class="review-item">
+  <view class="review-item" :class="{ 'review-item--flat': flat }">
     <view class="review-item__head">
       <text class="review-item__avatar">{{ avatarText }}</text>
       <text class="review-item__name">{{ review.customerName || t('review.anonymousUser') }}</text>
@@ -32,9 +32,12 @@ const props = withDefaults(defineProps<{
     variantMap?: Record<string, string>;
     /** 最多展示几张图：详情页 3，评价页 9 */
     maxImages?: number;
+    /** §116 版式基线：默认单条成卡（评价页）；置 true 为「无卡片边框的行」（用于商品详情页已带白底的评价区） */
+    flat?: boolean;
 }>(), {
     variantMap: () => ({}),
     maxImages: 9,
+    flat: false,
 });
 
 const { t } = useI18n();
@@ -75,19 +78,22 @@ function preview(index: number) {
 </script>
 
 <style lang="scss" scoped>
-.review-item { background: #fff; padding: 24rpx 0; border-bottom: 1rpx solid $border-color;
+/* §116 评价版式基线：白底 / 圆角 16rpx / 内边距 24rpx / 卡间距 24rpx；正文 26rpx·行高 1.6；辅助信息 22rpx；星级 24rpx */
+.review-item { background: #fff; border-radius: $radius-lg; padding: 24rpx; margin-bottom: 24rpx;
+    /* 商品详情页评价区已自带白底卡片，用 flat 退回「分隔行」，避免卡中卡的双层内边距 */
+    &--flat { margin-bottom: 0; border-radius: 0; padding: 24rpx 0; border-bottom: 1rpx solid $border-color; }
     &__head { display: flex; align-items: center; gap: 12rpx; }
     &__avatar { width: 56rpx; height: 56rpx; border-radius: 50%; background: $brand-color-light; color: $brand-color; font-size: 26rpx; text-align: center; line-height: 56rpx; }
     &__name { flex: 1; font-size: 26rpx; color: $text-color; }
     &__date { font-size: 22rpx; color: #999; }
     &__stars { display: block; margin-top: 10rpx; font-size: 24rpx; color: $price-color; letter-spacing: 2rpx; }
     &__spec { display: block; margin-top: 6rpx; font-size: 22rpx; color: #999; }
-    &__content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 10rpx; font-size: 26rpx; color: $text-color; line-height: 1.5; }
+    &__content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 10rpx; font-size: 26rpx; color: $text-color; line-height: 1.6; }
     &__images { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
-    &__img { width: 200rpx; height: 200rpx; border-radius: $radius-sm; overflow: hidden; }
-    &__reply { margin-top: 14rpx; padding: 16rpx; background: #f7f7f7; border-radius: $radius-sm; }
+    &__img { width: 200rpx; height: 200rpx; border-radius: $radius-md; overflow: hidden; }
+    &__reply { margin-top: 14rpx; padding: 16rpx; background: #f7f7f7; border-radius: $radius-md; }
     &__reply-label { font-size: 22rpx; color: $brand-color; display: block; }
-    &__reply-text { font-size: 24rpx; color: $text-color-secondary; line-height: 1.5; display: block; margin-top: 6rpx;
+    &__reply-text { font-size: 24rpx; color: $text-color-secondary; line-height: 1.6; display: block; margin-top: 6rpx;
         &--clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     }
     &__reply-toggle { font-size: 22rpx; color: $brand-color; display: block; margin-top: 6rpx; }

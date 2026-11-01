@@ -6224,7 +6224,7 @@ END $$;
 
 | 端 | 文件 | 改动 |
 |---|---|---|
-| 后端服务 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `afterSalesList()` 列表查询改为 `addSelect("CASE WHEN a.state = 'RefundFailed' THEN 0 ELSE 1 END", 'refundPin')` + `orderBy('refundPin', 'ASC')` + `addOrderBy('a.createdAt', 'DESC')`；`skip/take` 与计数查询不变 |
+| 后端服务 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `afterSalesList()` 列表查询改为 `addSelect("CASE WHEN a.state = 'RefundFailed' THEN 0 ELSE 1 END", 'refund_pin')` + `orderBy('refund_pin', 'ASC')` + `addOrderBy('a.createdAt', 'DESC')`；`skip/take` 与计数查询不变 |
 | 后台页面 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 删除页内二次排序 `filtered`（模板直渲 `items`）；新增 `failedCount`（取 `stateCounts` 全店计数，不受分页影响）；新增置顶汇总条 `.pinbar`（仅「全部」筛选且失败数 > 0 时渲染，点击等价于点「退款失败」chip）；新增 `.pinbar` 样式 |
 | 后台 i18n | `web-admin/src/locale/zh-Hans.json`、`web-admin/src/locale/en.json` | 新增 `campusMerchantAfterSales.pinnedFailed`（`{n}` 占位）、`pinnedFailedAction` |
 | 截图脚本 | `web-admin/scripts/shots-p115-after-sales-pin.cjs`（新建） | Playwright + 拦截 `admin-api`，mock 按新排序契约返回；输出 4 张 |
@@ -6292,6 +6292,112 @@ END $$;
 | 后台 | `guanli/assets/merchant-after-sales-Bmg7mIdz.css` | 12325 |
 
 > 后台入口 `https://e.joho.cn/guanli/` 返回 200 且引用 `index-DBKpL32z.js`；部署脚本按 `WA_KEEP_BACKUPS=3` 轮转 `guanli.bak_*`，回滚时还原最近的 `guanli.bak_*` 即可。驼峰排序别名坑已写入 115.2 最后一条，作为后续「TypeORM 自定义排序别名」的长期约束。
+
+## §116 评价展示面版式收敛：统一「一条评价」的版式基线（已上线）
+
+**操作入口**：C 端 5 个评价展示面 —— vshop「商品评价页」（`/pkg-product/pages/evaluate`）、vshop「商品详情-用户评价区」（`/pkg-product/pages/detail`）、vshop「我的评价」（`/pkg-user/pages/my-reviews`）、外卖「我的评价」（`/pkg-order/pages/my-reviews`）、外卖「店铺页-评价 Tab」（`/pages/shop/menu`）。
+
+同一条评价在 5 个面里此前有 6 套尺寸：卡片内边距 20/24rpx、卡间距 20/24rpx、圆角 12/16rpx、星级 22/24/28rpx、状态徽章 20rpx 方角 vs 999rpx 胶囊、正文行高 1.5/1.6、标签 chip 20rpx 方角 vs 22rpx 胶囊、配图 130/140/150/200rpx —— 同一用户从店铺页评价跳到我的评价，字号与间距会「跳一下」。
+
+§116 只收敛**版式**（尺寸/间距/圆角/行高/层级），不动数据、交互与接口，并把基线写进本节作为后续新增评价展示面的默认值。
+
+### 116.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| vshop 组件 | `src/components/ReviewItem.vue` | 新增 `flat` prop（默认 `false` = 卡片态：白底 / 圆角 `$radius-lg`(16rpx) / 内边距 24rpx / 卡间距 24rpx；`flat` = 分隔行，供详情页白底区块复用）；星级保持 24rpx、正文行高 1.5→1.6、回复块圆角 `$radius-sm`→`$radius-md`、回复正文行高 1.5→1.6 |
+| vshop 评价页 | `src/pkg-product/pages/evaluate.vue` | 列表容器留白 `0 20rpx`→`24rpx 20rpx 0`；筛选 tab 字号 25→24rpx；底部提示区 padding 30rpx→`24rpx 0 40rpx` |
+| vshop 详情页 | `src/pkg-product/pages/detail.vue` | `ReviewItem` 调用处加 `flat`，避免白底区块内叠「卡中卡」的双层内边距 |
+| vshop 我的评价 | `src/pkg-user/pages/my-reviews.vue` | 卡片 内边距 20→24rpx、间距 20→24rpx、圆角 `$radius-md`→`$radius-lg`；tab 圆角/间距同步 16rpx / 24rpx；星级 22→24rpx；状态徽章 20rpx 方角→999rpx 胶囊、内边距 4/14→4/16rpx；正文行高 1.5→1.6 |
+| 外卖 我的评价 | `src/pkg-order/pages/my-reviews.vue` | 星级 28→24rpx（并补字距 2rpx）；提示文案 26→24rpx；商家回复/申诉块圆角改 `$radius-md` 令牌、行高 1.5→1.6（回复块补 1.6） |
+| 外卖 店铺页评价 | `src/pages/shop/menu.vue` | `.rv-item` 上间距 20→24rpx；星级 22→24rpx（补字距）；`.rv-tag` 20rpx/8rpx → 22rpx/999rpx、内边距 4/12→4/16rpx；`.rv-reply` 行高 1.5→1.6、圆角改 `$radius-md`；主评配图 150→140rpx、追评配图 130→120rpx |
+| 截图脚本 | `scripts/_shots_review_layout.cjs`（vshop 仓，新建） | 本地 http + Playwright 拦截 `**/*shop-api*`；读回卡片内边距/圆角/间距、星级/正文字号、行高、回复圆角、tab 字号、配图是否溢出 |
+| 截图脚本 | `waimai-v39/.secrets/p116-review-layout-shots.cjs`（新建） | 同上（前缀 `/waimai/`，拦截 `**/shop-api`），含「店铺页切评价 Tab」与 DOM 读回 |
+| 截图 | `docs/screenshots/waimai/p116-review-layout/`（vshop 仓 2 张） | `01-vshop-evaluate-cards.png`、`02-vshop-detail-flat-rows.png` |
+| 截图 | `waimai-v39/docs/screenshots/p116-review-layout/`（2 张） | `03-waimai-my-reviews.png`、`04-waimai-shop-review-list.png` |
+
+### 116.2 版式基线（口径与契约）
+
+| 元素 | 统一值 | 说明 |
+|---|---|---|
+| 卡片容器 | 白底 / 圆角 16rpx / 内边距 24rpx / 卡间距 24rpx | vshop 走 `$radius-lg`，外卖走 `$radius-lg`（两端令牌同为 16rpx） |
+| 主标题（姓名 / 商品名） | 26rpx | 单行或两行截断 |
+| 星级 | 24rpx + 字距 2rpx | 颜色仍取各端品牌令牌（vshop `$price-color` 橙红、外卖 `#f59e0b` 琥珀），**不做跨主题取色统一** |
+| 正文 | 26rpx / 行高 1.6 | 评价正文与申诉理由一致 |
+| 辅助信息（日期 / 规格 / 匿名 / 图片数） | 22rpx | 灰阶（#999 / `$text-color-muted`） |
+| 状态徽章 | 22rpx / 内边距 4rpx 16rpx / 圆角 999rpx | 一律胶囊，不再出现 20rpx 方角 |
+| 标签 chip | 22rpx / 内边距 4rpx 16rpx / 圆角 999rpx | 店铺页评价列表与外评一致 |
+| 回复 / 追评 / 申诉留痕块 | 圆角 12rpx（`$radius-md`）/ 内边距 16rpx / 正文 24rpx / 行高 1.6 | 底色沿用各端 muted 令牌 |
+| 评价配图 | 列表态 140rpx（追评 120rpx）；「评价详情页」大图 200rpx | 两级尺寸：列表求密度、评价页求看图，**不硬压成同一尺寸** |
+| 筛选 tab | 24rpx | 激活态加粗 + 品牌色 |
+| 提示文案（空态 / 无更多 / 加载中） | 24rpx | — |
+
+两条实现约束：
+
+- **`flat` 是「容器补位」不是「第二套版式」**：商品详情页的评价区本身已是白底卡片（`.review-block` padding 20rpx），如果再叠卡片态会变成白底套白底的双层内边距（标题 20rpx 缩进、评价 44rpx 缩进，左右不齐）。因此 `ReviewItem` 默认卡片态，只在详情页传 `flat`；`flat` 只去掉圆角/间距、恢复分隔行，其余字号行高与卡片态完全一致（读回验证：详情页 `radius=0`、`gap=0`、`border-bottom=1px`，星级/正文/行高与评价页同值）。
+- **配图不溢出卡片内容盒**：3×200rpx + 2×12rpx = 624rpx，卡内容宽 662rpx（750−40 页边距−48 卡内边距），截图脚本已用「最后一张图右边缘 ≤ 卡片内容盒右边缘」断言（`imgOverflow=false`）。
+
+### 116.3 权限与校验
+
+- 无新增权限点、无新接口、无新 i18n 词条：纯样式与一个组件 prop，权限链路（`CampusMerchant` / 顾客本人）完全不变。
+- 校验方式为 **DOM 读回断言**：截图脚本把 `getComputedStyle` 的 padding / border-radius / margin / font-size / line-height 打回控制台，并与基线做换算比对（390px 视口下 1rpx = 0.52px，24rpx = 12.5px、16rpx = 8.3px、26rpx = 13.5px、200rpx = 104px、140rpx = 72.8px）。
+- 评价页/我的评价的可见性规则（先审后显、软删剔除、追评窗口）未改动。
+
+### 116.4 数据库变更
+
+- **无 DDL、无迁移**：本节不触碰任何实体列与查询。
+
+### 116.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | vshop `npm run build:h5` | PASS（`DONE Build complete.`，仅有 sass legacy-api 弃用告警） |
+| 2 | 外卖 `npm run build:h5` | PASS（同上） |
+| 3 | vshop 商品评价页（`01-vshop-evaluate-cards.png`） | PASS：3 张评价卡；卡片 `padding=12.5px(24rpx)`、`radius=8.3px(16rpx)`、`gap=12.5px(24rpx)`、`border-bottom=0`；`stars=12.5px(24rpx)`、`content=13.5px(26rpx)`、`line-height=1.6`、回复块 `radius=6.2px(12rpx)`、筛选 tab `12.5px(24rpx)`；3 张 200rpx 配图 `imgW=104px`、`imgOverflow=false` |
+| 4 | vshop 商品详情页（`02-vshop-detail-flat-rows.png`） | PASS：`flat=3/3`（全部走 flat）、`radius=0`、`gap=0`、`border-bottom=1px`；星级/正文/行高与评价页同值 —— 详情页仍是「白底区块 + 分隔行」，没有出现卡中卡 |
+| 5 | 外卖 我的评价（`03-waimai-my-reviews.png`） | PASS：3 张卡；`padding=12.5px(24rpx)`、`radius=8.3px(16rpx)`、`gap=12.5px`、`stars=12.5px(24rpx)`（原 28rpx）、`content=13.5px(26rpx)`、`line=1.6`、状态徽章 `radius=519.5px`（999rpx 胶囊）、回复块 `line-height=20px`（24rpx×1.6） |
+| 6 | 外卖 店铺页评价 Tab（`04-waimai-shop-review-list.png`） | PASS：切 Tab 后有 2 条 `rv-item`；`padding=12.5px`、`radius=8.3px`、`margin-top=12.5px(24rpx)`、`stars=12.5px(24rpx)`（原 22rpx）、`tag=11.4px(22rpx)` 且 `radius=519.5px`（胶囊，原 20rpx/8rpx 方角）、回复 `line=1.6`（原 1.5）、配图 `imgW=72.8px(140rpx)`（原 150rpx） |
+| 7 | 控制台 | 两个脚本全程未打印 `[pageerror]` / `[console:*error]`；页面无报错 |
+
+### 116.6 边界与已知限制
+
+1. **只收敛视觉，不改信息结构**：卡片上「有什么字段、按什么顺序」不变（例如外卖我的评价的追评/申诉/操作行顺序原样保留），因此两端不会因为本节出现功能差异。
+2. **配图保留两级尺寸**：列表 140rpx（追评 120rpx）与评价详情页 200rpx 是「密度 vs 看图」的刻意分层，不视为不一致；若后续要求绝对统一，需同时评估评价页可读性与列表滚动手感。
+3. **颜色不跨主题统一**：vshop 走 `var(--brand-color)` 主题令牌、外卖走 `--w-brand`/`--w-surface`，星级色在两端仍是橙红 vs 琥珀。强行统一色值会破坏商家自定义主题，故只统一尺寸类属性。
+4. **`flat` 只服务详情页**：新增评价展示面若本身在灰底页面上（如评价页），直接用默认卡片态；只有「已被白底容器包住」的场景才传 `flat`，否则会出现白底套白底。
+5. **外卖没有商品评价页**：waimai-v39 不存在 `src/pkg-product/pages`，其评价展示面只有「我的评价」与「店铺页评价 Tab」，本节不为对齐而新建页面。
+6. **未覆盖深色模式 / 多主题回归**：两端当前无深色模式；主题令牌切换下卡片底色已走变量（vshop 的卡片 #fff、外卖 `$surface`），本次未逐主题截图。
+7. **小程序端为同构复用**：样式全部走 rpx 与 scss 变量，小程序构建共用同一批样式文件，本节未单独出小程序截图。
+
+### 116.7 部署记录
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| C 端（vshop） | `npm run build:h5` → `tar -czf vshop-h5-p116.tgz -C dist/build/h5 .`（745335 B）→ `scp joho:/tmp/` → 服务器 `rm -rf …/e.joho.cn/index/assets` + 解压（解压前 `index.html` 备份为 `index.bak_20261101103717.html`） | 部署完成：入口文件落盘（`index.html` 548 B），`index.bak_20261101103717.html` 为回滚点 |
+| 外卖 C 端 | `node .secrets/deploy-waimai.mjs`（`WA_SKIP_BUILD=1` 复用本地产物 → 校验 → tar/scp → 服务器解压 + 备份轮转 3 份） | 部署完成：产物校验通过 3856 KB；`https://www.yourbao.cn/waimai/` 返回 `200` |
+| 后端 | 无改动 | 不部署（本节无后端/DDL 变更） |
+| 线上 chunk | 两端关键 chunk 200 且字节与本地一致 | 见下表 |
+| 截图 | vshop 2 张 + 外卖 2 张 | 完成 |
+
+线上 chunk 逐项核对（`HTTPS 200`，`Content-Length` 与本地构建一致；CSS/JS 抽样 SHA256 字节级比对为 `SAME`）：
+
+| 端 | chunk | 线上字节 |
+|---|---|---|
+| vshop | `assets/index-kFoxEeEH.js` | 757103 |
+| vshop | `assets/pkg-product-pages-evaluate.DMKqfPoi.js` | 3338 |
+| vshop | `assets/pkg-product-pages-detail.MaVA721Z.js` | 66942 |
+| vshop | `assets/pkg-user-pages-my-reviews.BLL19xXn.js` | 3752 |
+| vshop | `assets/ReviewItem.BaKKdD1e.js` | 2852 |
+| vshop | `assets/ReviewItem-hGegfvfo.css` | 1885 |
+| vshop | `assets/evaluate-PDDLW8nS.css` | 652 |
+| vshop | `assets/my-reviews-P2nH9eay.css` | 1543 |
+| 外卖 | `assets/index-3VZRt-XK.js` | 677838 |
+| 外卖 | `assets/pages-shop-menu.CKIrbuXm.js` | 73013 |
+| 外卖 | `assets/pkg-order-pages-my-reviews.DeaY1ri-.js` | 9286 |
+| 外卖 | `assets/my-reviews-CVKLpNd3.css` | 5162 |
+
+> vshop C 端回滚：还原 `…/e.joho.cn/index/index.bak_20261101103717.html` 并把上一版 `assets` 目录恢复（本次 `assets` 为整目录替换，备份轮转不在本脚本内，必要时从 git 重新构建发布）。外卖回滚沿用 `deploy-waimai.mjs` 的 `waimai.bak_*` 轮转目录。
+
 
 
 
