@@ -72,6 +72,7 @@
     "campusAddressChanges": "改址台账",
     "campusOps": "运营中心",
     "campusChat": "在线客服",
+    "campusInbox": "消息中心",
     "campusProducts": "一键沽清",
     "campusStoreSettings": "经营设置",
     "campusKitchen": "出餐屏",
@@ -4006,6 +4007,22 @@
     "ok": "退款成功：¥{amount}",
     "fail": "退款失败",
     "noBuilding": "未填楼栋"
+  },
+  "campusInbox": {
+    "title": "消息中心",
+    "loading": "加载中…",
+    "loadFailed": "加载失败",
+    "unreadUnit": "条未读",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "tip": "这里集中展示与您店铺相关的提醒（新订单、售后处理等）。点击条目可直接跳到对应处理页；未读条目点击后自动标记已读。",
+    "empty": "暂无消息",
+    "emptyUnread": "没有未读消息",
+    "unreadTag": "未读",
+    "open": "去处理",
+    "sceneShopNewOrder": "新订单",
+    "sceneAfterSales": "售后",
+    "sceneOrderPaid": "支付"
   },
   "campusRefundRecords": {
     "loading": "加载中…",

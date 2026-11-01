@@ -78,6 +78,8 @@ export const menuGroups: MenuGroup[] = [
       { label: 'menu.campusMonitor', url: '/pages/campus/monitor', tier: 1, perm: 'CampusViewDispatch' },
       { label: 'menu.campusOps', url: '/pages/campus/ops', tier: 1, perm: 'CampusDispatch' },
       { label: 'menu.campusChat', url: '/pages/campus/chat', tier: 1, perm: 'CampusDispatch' },
+      // 商家/店主消息中心（§128）：售后与新订单站内信的消费面；按 ManageOwnShop 放给店主角色
+      { label: 'menu.campusInbox', url: '/pages/campus/inbox', tier: 1, perm: 'ManageOwnShop' },
       { label: 'menu.campusProducts', url: '/pages/campus/products', tier: 2, perm: 'CampusMerchant' },
       { label: 'menu.campusStoreSettings', url: '/pages/campus/store-settings', tier: 1, perm: 'CampusMerchant' },
       { label: 'menu.campusAds', url: '/pages/campus/ads', tier: 1, perm: ['CampusMerchant', 'CampusConfig'] },

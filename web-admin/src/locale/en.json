@@ -79,6 +79,7 @@
     "riderEarnings": "Rider Earnings Ledger",
     "riderTrack": "Rider Track",
     "campusChat": "Live Chat",
+    "campusInbox": "Message Center",
     "pickup": "Pickup Points",
     "pickupEdit": "Pickup Point Edit",
     "pickupRedeem": "Pickup Redemption",
@@ -305,6 +306,7 @@
     "riderEarnings": "Rider Earnings Ledger",
     "riderTrack": "Rider Track",
     "campusChat": "Live Chat",
+    "campusInbox": "Message Center",
     "riderWithdraw": "Rider Withdrawals",
     "shippingProfile": "Shipping Profile",
     "paymentProfile": "Payment Profiles",
@@ -4008,6 +4010,22 @@
     "ok": "Refunded: ¥{amount}",
     "fail": "Refund failed",
     "noBuilding": "No building"
+  },
+  "campusInbox": {
+    "title": "Message Center",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load",
+    "unreadUnit": "unread",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "tip": "Store-related notifications (new orders, after-sales handling). Tap an item to jump to the handling page; unread items are marked read automatically.",
+    "empty": "No messages",
+    "emptyUnread": "No unread messages",
+    "unreadTag": "Unread",
+    "open": "Handle",
+    "sceneShopNewOrder": "New Order",
+    "sceneAfterSales": "After-sales",
+    "sceneOrderPaid": "Payment"
   },
   "campusRefundRecords": {
     "loading": "Loading…",

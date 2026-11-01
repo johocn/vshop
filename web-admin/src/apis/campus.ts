@@ -3607,6 +3607,46 @@ export async function campusCloseChatConversation(
   return res.campusCloseChatConversation;
 }
 
+// ── 站内信（商家/平台侧消息中心，§128）──────────────────────
+// 后端：notification-plugin admin-api（adminInbox / adminInboxUnreadCount / markAdminInboxRead，
+// 权限 Authenticated）。服务端按「当前渠道 + 当前登录管理员」过滤，见 notification.service.listAdminInbox。
+export interface AdminInboxRow {
+  id: string;
+  scene: string;
+  title: string;
+  content: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+const ADMIN_INBOX_FIELDS = 'id scene title content link isRead createdAt';
+
+/** 当前登录管理员的站内信（最近 50 条，id 倒序） */
+export async function adminInbox(): Promise<{ items: AdminInboxRow[]; totalItems: number }> {
+  const res = await getAdminClient().request<{
+    adminInbox: { items: AdminInboxRow[]; totalItems: number };
+  }>(`query { adminInbox { totalItems items { ${ADMIN_INBOX_FIELDS} } } }`);
+  return res.adminInbox;
+}
+
+/** 未读数（当前渠道） */
+export async function adminInboxUnreadCount(): Promise<number> {
+  const res = await getAdminClient().request<{ adminInboxUnreadCount: number }>(
+    `query { adminInboxUnreadCount }`,
+  );
+  return res.adminInboxUnreadCount;
+}
+
+/** 置已读（仅限本人的消息） */
+export async function markAdminInboxRead(id: string): Promise<AdminInboxRow> {
+  const res = await getAdminClient().request<{ markAdminInboxRead: AdminInboxRow }>(
+    `mutation ($id: ID!) { markAdminInboxRead(id: $id) { ${ADMIN_INBOX_FIELDS} } }`,
+    { id },
+  );
+  return res.markAdminInboxRead;
+}
+
 // ── P2-3 广告位与商家自助投放计费 ─────────────────────────────
 // 商家侧：报价 / 本渠道投放单 / 下单 / 模拟支付 / 取消
 // 平台侧：按渠道查投放单 / 审核
