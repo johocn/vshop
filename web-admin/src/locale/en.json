@@ -4884,6 +4884,8 @@
     "toastRetryPending": "Retry submitted, refund processing",
     "retryFailed": "Retry failed",
     "refundFailReason": "Refund failure reason",
+    "pinnedFailed": "{n} refund failure(s) pinned to the top — retry them first",
+    "pinnedFailedAction": "Failed only",
     "loadMore": "Load more",
     "loadingMore": "Loading…",
     "noMore": "All loaded",

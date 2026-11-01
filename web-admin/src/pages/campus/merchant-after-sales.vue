@@ -8,7 +8,7 @@
           <text class="title">{{ $t('campusMerchantAfterSales.title') }}</text>
           <view class="pill"><text>{{ pillText }}</text></view>
         </view>
-        <!-- §84 状态筛选：退款失败置顶，超过一屏可横向滚动 -->
+        <!-- §84 状态筛选 / §115 退款失败单全局置顶，超过一屏可横向滚动 -->
         <scroll-view scroll-x class="flt" :show-scrollbar="false">
           <view class="flt__row">
             <text
@@ -41,11 +41,17 @@
         </view>
       </view>
 
-      <view v-if="!filtered.length" class="hint empty">
+      <!-- §115 退款失败单全局置顶：服务端排序保证失败单跨分页在前，顶部汇总条可一键只看失败单 -->
+      <view v-if="failedCount && stateFilter === 'all'" class="pinbar" @tap="pickFilter('RefundFailed')">
+        <text class="pinbar__t">{{ $t('campusMerchantAfterSales.pinnedFailed').replace('{n}', String(failedCount)) }}</text>
+        <text class="pinbar__a">{{ $t('campusMerchantAfterSales.pinnedFailedAction') }} ›</text>
+      </view>
+
+      <view v-if="!items.length" class="hint empty">
         {{ $t('campusMerchantAfterSales.emptyFilter') }}
       </view>
       <view v-else class="list">
-        <view v-for="r in filtered" :key="r.id" class="as" @tap="openDetail(r)">
+        <view v-for="r in items" :key="r.id" class="as" @tap="openDetail(r)">
           <view class="a-head">
             <text class="a-code">{{ r.orderCode }}</text>
             <text class="a-amount">¥{{ fenToYuanFixed(r.refundAmount) }}</text>
@@ -265,7 +271,7 @@ usePermGuard('CampusMerchant');
 
 const locale = useLocaleStore();
 const loading = ref(true);
-/** §110 服务端状态筛选 + 分页（一次 20 条，退款失败仍置顶本页） */
+/** §110 服务端状态筛选 + 分页（一次 20 条）；§115 失败单由服务端全局置顶，前端只做展示 */
 type StateFilter = 'all' | 'Pending' | 'Refunded' | 'Rejected' | 'RefundFailed';
 const PAGE = 20;
 const stateFilter = ref<StateFilter>('all');
@@ -317,11 +323,8 @@ const timeline = computed(() => {
   ];
 });
 
-/** 本页数据（服务端已按状态筛选与分页）：退款失败单在本页内置顶 */
-const filtered = computed(() =>
-  [...items.value].sort(
-    (a, b) => Number(b.state === 'RefundFailed') - Number(a.state === 'RefundFailed'),
-  ));
+/** §115 失败单总量：取全店状态计数，不受分页影响，用于顶部置顶汇总条 */
+const failedCount = computed(() => stateCounts.value.find(x => x.state === 'RefundFailed')?.count ?? 0);
 const pillText = computed(() => {
   const pending = pendingCount.value;
   if (!pending) return locale.t('campusMerchantAfterSales.pillNone');
@@ -665,6 +668,12 @@ onPullDownRefresh(async () => {
       .oe-i { flex: 1; text-align: center; font-size: 22rpx; color: $wa-accent;
         background: $wa-bg; border-radius: 999rpx; padding: 10rpx 0; }
     }
+  }
+  /* §115 退款失败单置顶汇总条：点击切到「退款失败」筛选 */
+  .pinbar { display: flex; align-items: center; gap: 12rpx; margin-bottom: 24rpx;
+    background: #fdecec; border: 1.5px solid #ffccc7; border-radius: $wa-radius; padding: 20rpx 28rpx;
+    &__t { flex: 1; font-size: 24rpx; color: #d4380d; font-weight: 600; line-height: 1.4; }
+    &__a { font-size: 22rpx; color: #d4380d; }
   }
   .list { display: flex; flex-direction: column; gap: 16rpx;
     .as { background: $wa-card; border-radius: $wa-radius; padding: 24rpx 28rpx;

@@ -6212,6 +6212,68 @@ END $$;
 
 > `index.bak_20261101085407.html` 为本次 vshop 部署前的入口备份，回滚时还原该文件即可。事故根因与处置已写入 114.6 第 7 条，作为「新增 Channel customFields 必须同批建列」的长期约束。
 
+## §115 售后失败单全局置顶：服务端排序 + 置顶汇总条（待部署）
+
+**操作入口**：后台「售后管理」页（`/pages/campus/merchant-after-sales`）。
+
+§84 / §110 的置顶是「**本页内置顶**」：服务端按 `createdAt DESC` 分页取 20 条，前端再把当前这 20 条里的失败单排到最前。失败单若申请时间较早（例如昨天晚上失败、今天又新增多单），它会被排到第 2 页甚至更后 —— 页内排序根本看不到它，反而在「全部」视图里被新单淹没。
+
+§115 把置顶下沉到**服务端排序**：失败单在任意分页窗口里都排在最前（跨分页稳定），并在列表上方加一条置顶汇总条，让商家一眼看到还有几笔失败单待重试。
+
+### 115.1 交付清单
+
+| 端 | 文件 | 改动 |
+|---|---|---|
+| 后端服务 | `packages/campus-delivery-plugin/src/merchant-admin.service.ts` | `afterSalesList()` 列表查询改为 `addSelect("CASE WHEN a.state = 'RefundFailed' THEN 0 ELSE 1 END", 'refundPin')` + `orderBy('refundPin', 'ASC')` + `addOrderBy('a.createdAt', 'DESC')`；`skip/take` 与计数查询不变 |
+| 后台页面 | `web-admin/src/pages/campus/merchant-after-sales.vue` | 删除页内二次排序 `filtered`（模板直渲 `items`）；新增 `failedCount`（取 `stateCounts` 全店计数，不受分页影响）；新增置顶汇总条 `.pinbar`（仅「全部」筛选且失败数 > 0 时渲染，点击等价于点「退款失败」chip）；新增 `.pinbar` 样式 |
+| 后台 i18n | `web-admin/src/locale/zh-Hans.json`、`web-admin/src/locale/en.json` | 新增 `campusMerchantAfterSales.pinnedFailed`（`{n}` 占位）、`pinnedFailedAction` |
+| 截图脚本 | `web-admin/scripts/shots-p115-after-sales-pin.cjs`（新建） | Playwright + 拦截 `admin-api`，mock 按新排序契约返回；输出 4 张 |
+| 截图 | `docs/screenshots/waimai/p115-after-sales-pin/` | 4 张（首屏置顶 / 加载更多不重复 / 失败筛选 / 待处理筛选无置顶条），390×844 dpr2 |
+
+### 115.2 口径与契约
+
+- **排序契约**：列表 `ORDER BY refundPin ASC, a.createdAt DESC`，`refundPin = 0`（`state = 'RefundFailed'`）/ `1`（其它）。失败单在**所有分页窗口的最前**，同权重按申请时间倒序；`total`、`stateCounts`、`pendingCount` 三个计数口径完全不变（计数查询不加排序）。
+- **筛选语义不被置顶破坏**：`state` 为空（「全部」）才可能出现混合状态；`state=Pending/Refunded/Rejected` 的查询条件本身排除失败单，排序对它无影响；`state=RefundFailed` 时整页都是失败单，退化为按申请时间倒序。
+- **汇总条口径**：`failedCount` 取 `stateCounts` 里 `RefundFailed` 的全店计数（不是当前页条数），因此分页不会让数字变小；点汇总条只切筛选，不改变置顶结果。
+- **为什么用 select 别名而不是直接 `ORDER BY CASE …`**：`afterSalesList` 带 `leftJoin`（订单/渠道/顾客）且用 `skip/take`，TypeORM 会走「两段式分页」(`getMany()` 内 `createOrderByCombinedWithSelectExpression`）。该方法把排序字段按 `alias.propertyPath` 拆解，含点号的原始表达式（`CASE WHEN a.state …`）会被拆成非法别名并在运行时抛错；改为 `addSelect(..., 'refundPin')` + `orderBy('refundPin')` 后，第一段 DISTINCT 查询带出该列、第二段按 id 回表同样按该别名排序，行为稳定。
+- **置顶判定只认当前状态**：`state` 已从 `RefundFailed` 流转出去（如重试成功后 `Refunded`）的历史单不再置顶。
+
+### 115.3 权限与校验
+
+- 无新增权限点：沿用页面 `usePermGuard('CampusMerchant')` 与 resolver 的 `CampusMerchant` 权限。
+- 渠道隔离不变：`c.id = ctx.channelId` + `o.customFields.hallStatus IS NOT NULL`，排序只作用于本店结果集。
+- 排序与置顶条均为**服务端/只读**语义，客户端传参（`state`/`skip`/`take` 等）无法改变「失败单在前」的规则。
+
+### 115.4 数据库变更
+
+- **无 DDL、无迁移**：置顶用的 `state` 列早已存在（§81 引入），`refundPin` 只是查询里的运行时表达式，不落库。
+
+### 115.5 验证记录
+
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | `campus-delivery-plugin` `tsc -p tsconfig.build.json` | PASS（退出码 0，`lib` 已更新） |
+| 2 | 后台 `web-admin` `build:h5` | PASS（`DONE Build complete.`，仅 sass 弃用告警） |
+| 3 | 「全部」首屏 | PASS：汇总条「有 3 笔退款失败单已全局置顶，建议优先重试退款 · 只看失败单 ›」；首屏前 3 张依次 `A2400011 / A2400013 / A2400015`。这三条在 mock 里刻意是**申请时间最旧**的（320/340/360 分钟前），仅按时间倒序时应落在第 2 页 —— 说明置顶由服务端排序生效（截图 `01-pin-banner-first-page.png`） |
+| 4 | 加载更多（跨分页） | PASS：25 条全部加载，失败单恰好 3 条**无重复**，底部「已显示全部」（`02-load-more-no-dup.png`） |
+| 5 | 点汇总条切「退款失败」 | PASS：列表只剩 3 条、chip「退款失败 3」高亮、汇总条自动消失（`03-filter-refund-failed.png`） |
+| 6 | 切「待处理」 | PASS：2 条待处理单、0 条失败单、无汇总条 —— 筛选语义未被置顶改写（`04-filter-pending-no-pin.png`） |
+
+截图取数：本地静态服务（`dist/build/h5`）+ Playwright 拦截 `**/admin-api`；mock 端按新契约（失败单在前、其余按时间倒序）返回数据，前端只做渲染，无页内排序参与。
+
+### 115.6 边界与已知限制
+
+1. **不做「置顶分组卡」**：失败单与普通单仍是同一张卡片样式，只靠状态徽章（红）+ 失败原因条（§110）区分；汇总条只做导航，不折叠普通单。
+2. **失败单过多会连续占满前几页**：这是置顶语义的预期代价（例如 30 笔失败单 + 20 笔新单，前 30 个位置都是失败单）；此时应用筛选或订单号搜索缩小范围。
+3. **失败原因仍来自 `refundError`**：为空时列表不显示原因行（§110 行为不变），置顶不会额外补文案。
+4. **置顶条只在「全部」出现**：其余筛选下不重复提示，避免与筛选 chip 冗余。
+5. **正常单被推迟**：置顶只影响「全部」视图的默认顺序，不使用该排序的其它页面（工作台、分析报表各有自己的查询）不受影响。
+6. **无 e2e**：本节以 mock 截图 + 构建验收为准；真实库排序在部署后由线上探针复核（见 115.7）。
+
+### 115.7 部署记录
+
+（部署完成后回填）
+
 
 
 

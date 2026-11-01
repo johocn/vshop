@@ -4882,6 +4882,8 @@
     "toastRetryPending": "已提交重试，退款处理中",
     "retryFailed": "重试失败",
     "refundFailReason": "退款失败原因",
+    "pinnedFailed": "有 {n} 笔退款失败单已全局置顶，建议优先重试退款",
+    "pinnedFailedAction": "只看失败单",
     "loadMore": "加载更多",
     "loadingMore": "加载中…",
     "noMore": "已显示全部",
