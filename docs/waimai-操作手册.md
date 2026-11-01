@@ -6705,7 +6705,13 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 5. **§112.6 第 3、4 条仍保留**：三维文案仍为全店统一（§113 可自定义但按渠道），整店统计不随筛选 chip 变化。
 6. **§81.6 本次无代码/部署动作**：售后列表服务端分页（§110）与工作台入口角标（§83）早已上线，本次仅把手册的过时描述对齐，未改任何售后代码。
 
-### 120.7 部署记录
+### 120.7 部署记录（2026-11-01）
 
-（待部署后回填）
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 外卖 C 端 | `node .secrets/deploy-waimai.mjs`（本地 `npm run build:h5` → 产物校验 3857 KB → tar/scp → 服务端解压 + 备份轮转） | `deploy done`；`https://www.yourbao.cn/waimai/` HTTP 200 |
+| 线上 chunk | `https://www.yourbao.cn/waimai/assets/…` | `pages-shop-menu.smYnyxp0.js` 72701 B、`pkg-order-pages-my-reviews.BxyjQllm.js` 9704 B、`TrustSignatureCard.CM8IP64T.js` 2429 B、`my-reviews-CPaSKUgZ.css` 5162 B——字节与本地一致、SHA256 全等 |
+| shop-api 探针 | `POST https://www.yourbao.cn/shop-api` `channelReviewStats`（`vendure-token: canteen-a-token`） | 200，`{"totalCount":1,"goodRate":100,"averageRating":4}`（整店有 1 条评价：摘要卡展示 4 分；信任卡不再重复该数字） |
+| 后端 / 后台 | 无改动，未部署 | 本节只改外卖 C 端与手册；§81.6 两处为文档对齐（§83/§110 早已上线） |
+| 提交 | waimai-v39 `1071064`（5 files：`menu.vue`、`my-reviews.vue` + 3 张截图）；vshop `dac01005`（手册 §81.2 / §81.6 / §112.6 / §120） | 已推送（`origin/feat/waimai-v39`、`origin/master`） |
 
