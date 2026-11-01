@@ -3903,6 +3903,7 @@
     "prepJustNow": "Auto refresh · just updated",
     "prepAgoSec": "Auto refresh · {n}s ago",
     "prepAgoMin": "Auto refresh · {n}m ago",
+    "prepNewOrders": "{n} new order(s) since panel opened",
     "recentDoneTitle": "Delivered · refundable",
     "recentDoneMore": "View all",
     "recentDoneRefund": "Refund",

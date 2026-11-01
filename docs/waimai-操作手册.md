@@ -6398,6 +6398,71 @@ END $$;
 
 > vshop C 端回滚：还原 `…/e.joho.cn/index/index.bak_20261101103717.html` 并把上一版 `assets` 目录恢复（本次 `assets` 为整目录替换，备份轮转不在本脚本内，必要时从 git 重新构建发布）。外卖回滚沿用 `deploy-waimai.mjs` 的 `waimai.bak_*` 轮转目录。
 
+## §117 备餐面板「本面板期间新增 N 单」提示条（已上线）
+
+> 定位：§85「备餐汇总实时刷新」的补强——份数会自己涨，但商家看不出「刚刚又进了几单」，本节把「新单」这个维度显式化，且**不新增任何接口与请求**。
+
+### 117.1 交付清单
+
+| 端 | 文件 | 内容 |
+|---|---|---|
+| 后台 | `web-admin/src/pages/campus/merchant.vue` | ① 面板顶部新增橙色胶囊提示条 `.ps-new`，文案「本面板期间新增 {n} 单」，`n=0` 时整条不渲染；② `openPrep()` 打开面板时用当前看板的「待接单 + 备餐中」订单 id 打底（`prepSeenIds`），并把计数清零；③ `refresh()`（看板 10s 轮询）里调 `trackPrepNewOrders(b)`，只把 `prepSeenIds` 里没有的订单计入，同一单 `pending → cooking` 流转不重复计 |
+| 后台 | `web-admin/src/locale/zh-Hans.json` / `en.json` | 新增 1 条：`prepNewOrders`（中「本面板期间新增 {n} 单」/ 英「{n} new order(s) since panel opened」） |
+| 截图 | `docs/screenshots/waimai/p85-prep-new-orders/` | 4 张：无新单（提示条不出现）/ 新增 1 单 / 新增 2 单 / 关闭重开归零 |
+| 脚本 | `web-admin/scripts/shots-p85-prep-new-orders.cjs` | mock 看板第 1 次无单、第 2 次 +1 单、第 3 次再 +1 单，真实等待 10s 轮询触发，不点任何按钮 |
+
+### 117.2 口径与实现
+
+- **计数单位是「单」不是「份」**：备餐汇总的 `todoQty/totalQty` 是商品维度份数（一单可含多份），无法反推单量；故提示条改读看板的订单 id，一个 id 记 1 单。
+- **只算后厨两段**：`pending`（待接单）+ `cooking`（备餐中）。`awaitingRider`/`delivering`/`scheduled` 属于已出餐或未放量，不计入。
+- **零新增请求**：复用工作台自身的 10s `campusMerchantBoard` 轮询；面板自己的 `campusMerchantPrepSummary` 10s 轮询（§85）保持原样，两者互不影响。
+- **打底时机**：打开面板那一刻的快照算「基线」，之后新出现的才算新增；因此打开面板时已经在排队的单不会被误报成「新增」。
+- **已见集合只增不减**：订单离开待接单后 id 仍留在集合里，避免「转备餐中 → 又回到待接单」这类回流被重复计数（业务上不出现，但集合语义更稳）。
+
+### 117.3 权限与校验
+
+- 数据来源同看板：按 `ctx.channelId` 隔离，商家只看到自己渠道的订单（探针沿用 `vendure-token: canteen-a-token`）。
+- 纯前端派生状态：不发 mutation、不写 localStorage、不落库。
+- DOM 读回口径：`.ps-new` 是否存在与文本、`fontSize`（21rpx → 实测 10.92px），见 117.5。
+
+### 117.4 数据库变更
+
+无：本节只读既有看板字段，无 DDL、无迁移、无后端改动。
+
+### 117.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 后台构建 | `npm run build:h5` → `DONE Build complete.`；`pages-campus-merchant.CgOOJ3gr.js` 41048 B |
+| 截图 01 | 打开面板：`sync =「自动刷新 · 刚刚更新」`，`newBar = ""`（提示条不出现），份数 `宫保 ×3 / 香菇 ×2 / 凉拌 ×1` |
+| 截图 02 | 不点任何按钮等 11s：`newBar =「本面板期间新增 1 单」`，份数同步涨到 `×4 / ×3 / ×1` |
+| 截图 03 | 再等 10s：`newBar =「本面板期间新增 2 单」`，份数 `×5 / ×4 / ×1` |
+| 截图 04 | 点 ✕ 关闭后重新打开：`newBar = ""`（计数归零），份数继续按 mock 演进（`×6 / ×5 / ×1`，与提示条无关） |
+| 版式读回 | `newBarFont = 10.92px`（= 21rpx），橙底胶囊宽随文案自适应，未遮挡列表首行 |
+| 页面报错 | 脚本 `pageerror` / `console error` 均无输出 |
+| 线上产物 | `pages-campus-merchant.CgOOJ3gr.js` 线上 41048 B（与本地一致）、`index-DSN6zg3b.js` 线上 957301 B；抽样 SHA256 为 `SAME`；chunk 内含 `ps-new` / `prepNewOrders`，入口 chunk 内含「本面板期间新增」与英文文案 |
+
+### 117.6 边界与已知限制
+
+1. **最迟 10s 才出现**：提示条跟随看板 10s 轮询，不是实时推送；§85 的面板轮询在静默期会降到 30s，但提示条不受影响（它挂看板）。
+2. **两次刷新间的「进了又取消」不漏计但也不计**：订单在 10s 窗口内创建又取消，看板两次都没看到它，自然不计数——按「面板期间新增并仍在后厨」口径可接受。
+3. **打开面板前的存量单不计**：口径是「本次面板查看期间」，不与今日总单量对齐；需要总单量看顶部「今日完成」。
+4. **重开即清零**：关闭再开 = 新的一次观察窗口；不做跨会话持久化（刷新页面同样从 0 开始）。
+5. **只看后厨两段**：已出餐/配送中的单不计入，避免商家误以为「还有 5 单没做」。
+6. **不区分渠道来源**：同一渠道下 R1/R2/R3 各配送方式的新单都计入，提示条不做配送方式拆分。
+
+### 117.7 部署记录（2026-11-01）
+
+| 端 | 动作 | 结果 |
+|---|---|---|
+| 后台 | `cd D:\zhao\vshop\web-admin && node scripts/deploy.mjs` | `[deploy] 产物校验通过: 62196 KB` → nginx `configuration ... test is successful` + reload → `deploy done` |
+| 线上 | `https://e.joho.cn/guanli/`、`assets/pages-campus-merchant.CgOOJ3gr.js`、`assets/index-DSN6zg3b.js` | 均 HTTP 200；chunk 41048 B、入口 957301 B，与本地构建字节一致；SHA256 `BEAE21EE…C1C2C9E1` 两侧相同 |
+| 后端 / C 端 | 无改动 | 不部署（本节纯后台前端） |
+
+回滚：后台部署脚本按 `guanli.bak_*` 轮转保留 3 份，本次生成的回滚点为 `guanli.bak_1793501943`（当前保留 `1793499420` / `1793501943` 及上一份）；恢复时把该目录内容回灌 `…/e.joho.cn/guanli` 即可，无后端与库回滚动作。
+
+操作入口：商家工作台「商家接单」页 → 「备餐汇总 ›」→ 面板顶部「自动刷新 · 刚刚更新」下方，出现橙色胶囊「本面板期间新增 N 单」；关掉面板再开即重新计数。
+
 
 
 

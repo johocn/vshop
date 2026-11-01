@@ -285,6 +285,8 @@
           <text class="ps-hint">{{ $t('campusMerchant.prepHint') }}</text>
           <!-- 自动刷新状态（§85）：面板打开时轮询，连续无变化自动降频 -->
           <text v-if="prepSyncText" class="ps-sync">{{ prepSyncText }}</text>
+          <!-- 面板期间新增单（§117）：board 每 10s 刷新，新进的待接单/备餐中订单计入，不用关面板重开 -->
+          <text v-if="prepNewCount > 0" class="ps-new">{{ $t('campusMerchant.prepNewOrders').replace('{n}', String(prepNewCount)) }}</text>
           <view v-if="prepBusy && !prepItems.length" class="ps-empty">{{ $t('campusMerchant.loading') }}</view>
           <view v-else-if="!prepItems.length" class="ps-empty">{{ $t('campusMerchant.prepEmpty') }}</view>
           <scroll-view v-else class="ps-list" scroll-y>
@@ -1064,6 +1066,8 @@ async function refresh(initial = false) {
     }
     lastPendingCount.value = pendingCount;
     board.value = b;
+    // §117：备餐面板开着时统计面板期间新增单（关面板不累加）
+    trackPrepNewOrders(b);
     // 勾选集合随看板收敛：已流转/已取消的单自动移出批量选择，避免对过期单重复操作
     const alive = new Set(listOf(tab.value).map(o => o.id));
     picked.value = picked.value.filter(id => alive.has(id));
@@ -1141,6 +1145,12 @@ async function onRefundDone(): Promise<void> {
 const prepOpen = ref(false);
 const prepBusy = ref(false);
 const prepItems = ref<CampusPrepItem[]>([]);
+/**
+ * 面板期间新增单（§117）：打开面板时给「待接单 + 备餐中」打底，
+ * board 每 10s 刷新时把新出现的订单计入提示条；同一单 pending→cooking 流转不重复计。
+ */
+const prepNewCount = ref(0);
+let prepSeenIds = new Set<string>();
 
 /**
  * 备餐汇总自动刷新（§85）：面板打开时 10s 轮询；连续 3 次份数无变化降到 30s，
@@ -1240,8 +1250,20 @@ watch(prepOpen, (open) => {
 });
 
 function openPrep(): void {
+  // §117：给当前看板打底，之后的 board 刷新只把「新出现」的单计入提示条
+  prepNewCount.value = 0;
+  prepSeenIds = new Set([...board.value.pending, ...board.value.cooking].map(o => o.id));
   prepOpen.value = true;
   void loadPrep();
+}
+
+/** §117：board 刷新后统计面板期间新增单（仅面板可见时累加） */
+function trackPrepNewOrders(b: CampusMerchantBoard): void {
+  if (!prepOpen.value) return;
+  const fresh = [...b.pending, ...b.cooking].filter(o => !prepSeenIds.has(o.id));
+  if (!fresh.length) return;
+  for (const o of fresh) prepSeenIds.add(o.id);
+  prepNewCount.value += fresh.length;
 }
 
 /** 加料/口味份数文案：加辣 ×3 · 多花生 ×1 */
@@ -1512,6 +1534,9 @@ onUnmounted(() => {
       }
       .ps-hint { font-size: 22rpx; color: $wa-muted; line-height: 1.6; margin-bottom: 16rpx; }
       .ps-sync { display: block; font-size: 21rpx; color: $wa-accent; margin-bottom: 14rpx; }
+      /* §117 面板期间新增单：橙底胶囊，比「自动刷新」更醒目但不抢列表视线 */
+      .ps-new { display: inline-block; align-self: flex-start; font-size: 21rpx; color: #fff;
+        background: $wa-accent; border-radius: 999rpx; padding: 6rpx 18rpx; margin-bottom: 14rpx; }
       .ps-empty { font-size: 24rpx; color: $wa-muted; text-align: center; padding: 48rpx 0; }
       .ps-list { flex: 1; min-height: 200rpx; max-height: 50vh;
         .ps-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0;
