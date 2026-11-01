@@ -6986,7 +6986,21 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 
 ### 124.7 部署记录（2026-11-01）
 
-（部署后回填）
+- **提交与推送**：vendure `7553332c4`（5 文件，+137/−6）、vshop `7d7300e4`（本章节），均已推 `origin/master`。
+- **后端重建**：`ssh joho` 内 `git fetch origin && git checkout origin/master -- packages/campus-delivery-plugin && npm run build`（`rimraf lib && tsc`）成功后 `pm2 restart vendure --update-env`；进程 `online`，`restarts 932`、`unstable restarts 0`。
+- **编译产物校验**（`grep -c withAdvisoryLock` 于 `lib/src/`）：
+  - `withdraw-reconcile.job.js` → `1`
+  - `after-sales-followup-remind.job.js` → `1`
+  - `after-sales-sla-alert.job.js` → `1`
+  - `after-sales-sla-deadline.job.js` → `1`
+  说明 4 个任务确实带锁进入产物（只重启不重编 `lib/` 会拿到旧代码，见 §122.7 踩坑）。
+- **启动校验**：`pm2 logs vendure --err --lines 25 --nostream` 只有 `pg client.query()` 的 DeprecationWarning，无 `Campus*` 的 error；`admin-api` introspection `query{__schema{queryType{name} mutationType{name}}}` 正常返回 `Query/Mutation`（插件整体加载成功）；out 日志有 `[CampusDedupe] 跨实例去重后端：db（实例数 1）`，与锁的「单实例即无竞争」现状一致。
+- **运行期观察**：重启后跨过 `bootDelay`（120s / 60s）与一轮 `interval`，4 个任务均未产生任何 `CampusWallet` / `CampusAfterSales*` / `advisory` 相关 warn 或 error，即锁查询在 PG 上正常工作、未出现「advisory lock 不可用」的降级日志。
+- **回滚**：`git checkout afe1f26ff -- packages/campus-delivery-plugin && cd packages/campus-delivery-plugin && npm run build && pm2 restart vendure --update-env`。无数据需清理。
+- **⚠ 部署校验发现的既有缺陷（与本轮加锁无关，待决策）**：`CampusAfterSalesSlaAlert` 每 10 分钟稳定输出
+  `query pending after-sales failed: column ch.customFieldsAfterSalesTimeoutHours does not exist`。
+  实测生产 `channel` 表该列为**全小写** `customFieldsAftersalestimeouthours`（而 `order` 表的 `customFieldsSlotlocked` 保留大写，两张表命名风格不一致），更关键的是 `customFieldsAfterSalesDueSoonHours` 这一列**在生产根本不存在**（`afterSalesDueSoonHours` 也未在任何插件里声明为渠道自定义字段）。
+  结论：§90 的「售后 SLA 临期/超时提醒」在**生产从未生效**（查询每轮直接抛错后 return），商家侧收不到任何 SLA 提醒。修复需要：① 把 SQL 列名改为生产实际列名；② 为 `afterSalesDueSoonHours` 补一个渠道自定义字段声明并做生产 `ALTER TABLE`（`DB_SYNC=0`，不能靠自动同步）。因涉及「是否立即向商家开始推送 SLA 提醒」的运营决策与生产 DDL，本轮**未改动**，留待下一轮确认。
 
 
 
