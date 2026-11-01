@@ -7226,7 +7226,7 @@ COMMIT;
 ### 127.5 边界与已知限制
 
 1. **只救回 channel 37**：`92 / 111 / 113 / 114` 的 Shop 已就位，但没有店主账号 → `notifyAfterSalesMerchant` 里 `administratorId == null` 仍 `continue`。账号开通后执行 `UPDATE shop SET "administratorId" = <新 admin id> WHERE "channelId" = <该渠道>;` 即可，不必改代码。
-2. **商家仍看不到**：`adminInbox` / `adminInboxUnreadCount` 服务端已有，但 `web-admin` 零调用、无消息中心页面 → 站内信能落库却无消费面。可见性仍需 §126.6-1 的方案 C（或先确认商家实际在用的入口）。
+2. **商家仍看不到**：`adminInbox` / `adminInboxUnreadCount` 服务端已有，但 `web-admin` 零调用、无消息中心页面 → 站内信能落库却无消费面。**已由 §128 补上消费页**（`pages/campus/inbox`）。
 3. **一渠道一 Shop**：channel 37 下 4 家 merchant（国信南山 / 利洋汽修 / 卓展C座旁 / 他老婶铁锅炖）共用 Shop 3，售后统一投给国信南山，**不按 merchant 精确分**。
 4. **存量单不会自动补发**：站内信只在状态迁移（Pending/Returning/Appealed）与 SLA 新告警时产生，SLA 有 24h `alertedAt` 冷却，故 `12/13/14` 需等下一次状态变化或冷却后再告警才会落库。
 5. **副作用**：`resolveMyShopFromActiveUser` 的渠道回退现在对 `37 / 92 / 111 / 113 / 114` 生效，平台运营切到这些渠道时店主后台会解析出「本店」（此前为空）。C 端 `shops` / `shop(slug)` 未被小程序调用（vshop 内无引用），顾客端不受影响。
@@ -7240,6 +7240,51 @@ DELETE FROM shop WHERE slug LIKE 'campus-%';
 ```
 
 删除后 `resolveMerchantShopIds` 回退即返回空，行为回到 §126 上线时的状态（不落站内信、不报错）。
+
+## §128 商家消息中心页（消费 adminInbox，已上线）
+
+**影响面**：`web-admin` 新增 1 个页面 + 菜单/路由/文案，纯前端；后端零改动（`adminInbox` / `adminInboxUnreadCount` / `markAdminInboxRead` 早已存在，见 `notification-admin.resolver.ts`）。
+
+> 补上 §126.6-1 方案 C 的消费面，让 §127 落库的站内信真正可见。
+
+### 128.1 交付清单
+
+| 文件 | 内容 |
+|---|---|
+| `web-admin/src/pages/campus/inbox.vue`（新增） | 消息列表：全部/未读分段、未读数、场景标签、点击置读并跳转 |
+| `web-admin/src/apis/campus.ts` | `AdminInboxRow` + `adminInbox()` / `adminInboxUnreadCount()` / `markAdminInboxRead()` |
+| `web-admin/src/constants/menus.ts` | 菜单项「消息中心」→ `/pages/campus/inbox`，`perm: 'ManageOwnShop'` |
+| `web-admin/src/pages.json` | 注册页面（`enablePullDownRefresh`） |
+| `web-admin/src/i18n/nav-titles.ts` | `pages/campus/inbox → nav.campusInbox` |
+| `web-admin/src/locale/{zh-Hans,en}.json` | `nav.campusInbox` / `menu.campusInbox` / `campusInbox` 页面文案 |
+
+### 128.2 口径与契约
+
+- **数据源**：`adminInbox` 返回「当前登录管理员 + 当前渠道」的最近 50 条（`listAdminInbox` 固定 `take=50`、`id DESC`），未读数同口径。
+- **权限**：GraphQL 侧 `Permission.Authenticated`；前端菜单与页面守卫用 `ManageOwnShop`（店主角色 `t2-tenant-admin` 持有该权限，见 §127.4；`CampusMerchant` 是该角色**没有**的，故选 `ManageOwnShop`）。超管天然放行。
+- **置读**：点击未读条目先 `markAdminInboxRead(id)`（失败不阻断），随后跳转；服务端只允许置本人消息（`administratorId === 当前管理员`）。
+- **跳转白名单**：后端目前只有售后提醒带 `link`（`/after-sale/detail?id=<requestId>`）→ 映射到 `pages/after-sale/detail/index`；另识别 `/campus/after-sales-detail`。未识别的 link 不跳转（不猜测页面）。
+- **场景标签**：`shop_new_order / after_sales / order_paid` 有文案，其余直接显示原始 `scene`（不丢信息）。
+
+### 128.3 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 构建 | `web-admin` `npm run build:h5` → `DONE Build complete.`（仅 Sass legacy API 弃用告警） |
+| JSON 校验 | `zh-Hans.json` / `en.json` / `pages.json` 均可 `JSON.parse` |
+| 部署 | `node scripts/deploy.mjs` → 产物 62210 KB、`nginx -t` 通过、`openresty -s reload`、`deploy done` |
+| 线上产物 | `assets/pages-campus-inbox.Cm1as-oN.js` 存在于站点目录；`https://www.yourbao.cn/guanli/` 返回 `200` |
+
+### 128.4 边界与已知限制
+
+1. **只显示当前渠道**：`listAdminInbox` 按 `ctx.channelId` 过滤，商家切渠道后看到的是该渠道的消息；平台运营在默认渠道看不到校园渠道的站内信。
+2. **无实时角标**：未读数只在进入页面时拉取，未挂到全局导航轮询；列表也不分页（服务端固定 50 条封顶）。
+3. **存量单不补发**：§127.5-4 的 `12/13/14` 仍需等下一次状态变化或 SLA 冷却后告警才出现在列表里。
+4. **仅管理员可见**：消息收件人是 `administratorId`；`shop.administratorId` 为空的渠道（92/111/113/114）即使进了页面也只有空列表。
+
+### 128.5 回滚
+
+前端回滚：`git revert baf58c42 && cd web-admin && node scripts/deploy.mjs`（后端无改动，无需重启 vendure）。
 
 
 
