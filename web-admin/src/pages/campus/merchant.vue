@@ -212,6 +212,9 @@
             <text class="phone-lbl">{{ $t('campusMerchant.customerPhoneLabel') }}：{{ o.customerPhone }}</text>
             <text class="phone-copy">⧉</text>
           </view>
+          <view v-if="isMaskedPhone(o.customerPhone)" class="row phone-hint">
+            <text class="phone-hint-txt">{{ $t('campusMerchant.customerPhoneMaskedHint') }}</text>
+          </view>
           <view v-if="o.note" class="row note">
             <text class="note-txt">{{ $t('campusMerchant.noteLabel') }}：{{ o.note }}</text>
           </view>
@@ -695,6 +698,11 @@ function clearFilters() {
   kw.value = '';
   activeZone.value = '';
   picked.value = [];
+}
+
+/** 号码保护中（后端只回脱敏号，含 *）：提示不可拨打，避免商家误以为能直拨 */
+function isMaskedPhone(v?: string | null): boolean {
+  return !!v && v.includes('*');
 }
 
 /** 点击卡片脱敏号复制：便于电话对单（复制的是脱敏文本，不产生明文泄露） */
@@ -1741,6 +1749,9 @@ onUnmounted(() => {
       .phone-lbl { font-size: 24rpx; color: $wa-muted; letter-spacing: 2rpx; }
       .phone-copy { font-size: 22rpx; color: $wa-accent; }
     }
+    // 号码保护中：脱敏号不可拨打，提示改走站内消息/客服
+    .phone-hint { padding-top: 0;
+      .phone-hint-txt { font-size: 22rpx; color: $wa-muted; line-height: 1.5; } }
     .code-row { padding-top: 10rpx;
       .code-label { font-size: 22rpx; color: $wa-muted; }
       .code-val { font-size: 32rpx; font-weight: 700; letter-spacing: 4rpx; color: $wa-accent; }

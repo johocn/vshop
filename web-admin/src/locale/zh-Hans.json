@@ -3854,6 +3854,7 @@
     "groupOrders": "{n} 单",
     "groupEarliest": "最早等 {n} 分钟",
     "customerPhoneLabel": "手机",
+    "customerPhoneMaskedHint": "号码保护中：仅脱敏展示、不可拨打；联系顾客请走站内消息或平台客服",
     "copyDone": "已复制到剪贴板",
     "reject": "拒单",
     "rejectTitle": "确认拒单",
