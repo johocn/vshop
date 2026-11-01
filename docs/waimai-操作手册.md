@@ -7286,6 +7286,60 @@ DELETE FROM shop WHERE slug LIKE 'campus-%';
 
 前端回滚：`git revert baf58c42 && cd web-admin && node scripts/deploy.mjs`（后端无改动，无需重启 vendure）。
 
+## §129 校园渠道店主账号开通（数据初始化，已执行）
+
+**影响面**：纯数据——4 个 `User` + `AuthenticationMethod` + `Administrator` + `Role`（含渠道绑定与 `user_roles_role`），并把 `shop.administratorId` 指到新账号；**无代码改动、无构建、无重启**。
+
+> 收尾 §127.5-1：`92 / 111 / 113 / 114` 四个渠道此前 Shop 已建但 `administratorId` 为空，售后提醒仍被跳过。
+
+### 129.1 交付清单
+
+| channelId | 渠道 code | 登录标识（= emailAddress） | admin id | Role code | Shop |
+|---|---|---|---|---|---|
+| 113 | canteen-a | `canteen-a@yourbao.cn` | 64 | `shop-owner-113` | 4 |
+| 114 | canteen-b | `canteen-b@yourbao.cn` | 65 | `shop-owner-114` | 5 |
+| 92 | official-01 | `official-01@yourbao.cn` | 66 | `shop-owner-92` | 6 |
+| 111 | limin | `limin@yourbao.cn` | 67 | `shop-owner-111` | 7 |
+
+- **Role 权限**：直接复制 `t2-tenant-admin`（role 28）的权限串（`permissions` 列逐字节相同，含 `ManageOwnShop`），`role_channels_channel` 各绑 1 个渠道 → 每个账号只能进自己的渠道。
+- **密码**：bcrypt `$2b$12$`（与服务端 `NativeAuthenticationMethod` 同格式），初始口令**不入库、不写文档**，由本轮交付单独下发；如需重置，用后台改密或 `python`/`node` 重算 hash 后更新 `authentication_method."passwordHash"`。
+- **executed SQL**：`INSERT user → authentication_method → administrator → role → role_channels_channel → user_roles_role → UPDATE shop.administratorId`，单事务 `COMMIT`。
+
+### 129.2 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 登录（admin-api） | `login(canteen-a@yourbao.cn)` → `CurrentUser id=237, channels=[canteen-a]` |
+| 渠道生效（带 `vendure-token: canteen-a-token`） | `orders { totalItems }` → **132**（该渠道真实单量）；`adminInboxUnreadCount` → `0`、`adminInbox` 正常返回 |
+| 选店前置（不带渠道头，模拟首登） | `myTenantAccess` 返回 `isSuperAdmin:false` + 完整 permissions + channels，可进「选择店铺」页 |
+| Shop 绑定 | `shop 4/5/6/7` 的 `administratorId` = `64/65/66/67` |
+
+### 129.3 关键教训：登录必须先选店铺
+
+`login` 在**不带 `vendure-token`** 时会话 `activeChannelId` 落默认渠道 1，而新角色只挂本渠道 → 所有渠道级权限（`ReadOrder`、`adminInbox`…）都会 `FORBIDDEN`。这不是账号问题，是渠道上下文缺失：
+
+- 正常路径：web-admin 登录后走 `/pages/channel-select/index`（`myTenantAccess` 列出可进渠道），选店写入 `wa_channel_token`，后续请求自动带 `vendure-token`；
+- 直接用 API 调时，必须显式带 `vendure-token: <channel token>`（如 `canteen-a-token`）。
+
+### 129.4 边界与已知限制
+
+1. **一个账号一个渠道**：Role 的 `channels` 只有本渠道，跨渠道不可见（符合店主语义）。
+2. **消息中心仍只能看已落库的**：`adminInbox` 为空是因为绑定前没有新事件；存量 `25`（channel 113）等单需下次状态变化或 SLA 冷却后告警才会出现。
+3. **`t2-tenant-admin` 有两条（id 28/112，分别挂 channel 37/93）**：本次取 28 的权限串作为模板，与渠道无关，属预期。
+4. **口令未入库**：忘记口令只能重置，不能从库里查。
+
+### 129.5 回滚
+
+```sql
+DELETE FROM user_roles_role WHERE "roleId" IN (SELECT id FROM role WHERE code LIKE 'shop-owner-%');
+DELETE FROM role_channels_channel WHERE "roleId" IN (SELECT id FROM role WHERE code LIKE 'shop-owner-%');
+DELETE FROM role WHERE code LIKE 'shop-owner-%';
+UPDATE shop SET "administratorId" = NULL WHERE "channelId" IN (92, 111, 113, 114);
+DELETE FROM administrator WHERE "emailAddress" IN ('canteen-a@yourbao.cn','canteen-b@yourbao.cn','official-01@yourbao.cn','limin@yourbao.cn');
+DELETE FROM authentication_method WHERE identifier IN ('canteen-a@yourbao.cn','canteen-b@yourbao.cn','official-01@yourbao.cn','limin@yourbao.cn');
+DELETE FROM "user" WHERE identifier IN ('canteen-a@yourbao.cn','canteen-b@yourbao.cn','official-01@yourbao.cn','limin@yourbao.cn');
+```
+
 
 
 
