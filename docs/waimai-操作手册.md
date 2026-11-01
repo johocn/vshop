@@ -7058,7 +7058,16 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 
 ### 125.7 部署记录（2026-11-01）
 
-（部署后回填）
+- **提交与推送**：vendure `061821ef4`（`after-sales-sla-alert.job.ts` + 新增 spec，+145/−16）、vshop `7b03b7f4`（本章节，+58），均已推 `origin/master`。
+- **后端重建**：服务器 `git checkout origin/master -- packages/campus-delivery-plugin && npm run build` 后 `pm2 restart vendure --update-env`，进程 `online`（`restarts 933`）。
+- **编译产物校验**：`lib/src/after-sales-sla-alert.job.js` 中 `customFieldsAfterSalesTimeoutHours` → **0**（旧列名已消失）、`getRepository` → `1`（改走实体读渠道）、`withAdvisoryLock` → `1`（§124 的锁仍在）。
+- **运行期日志**：旧代码最后一次报错是 `18:56`；重启后跨过 120s 首跑延迟，`19:08` 出现新日志
+  `info [CampusAfterSalesSlaAlert] sent 1 after-sales SLA alert(s)`，此后该 logger 再无 warn/error，`pm2 logs --err` 仍只有 `pg client.query()` 的 DeprecationWarning。
+- **数据探针**：
+  - `SELECT * FROM campus_after_sales_sla_alert` → `1` 行：`requestId=25, kind=overdue, alertedAt=2026-11-01 11:08:26+00`（与前置探针 `pending=1 / overdue=1` 一致，说明只补发了 1 条真实超时提醒，无批量骚扰）。
+  - 该行落库后，同一单在 24h 内不会再次进入抢先成功路径（`alertedAt` 冷却）。
+- **⚠ 触达链路的既有前提（影响「商家能不能看到」）**：`inbox_message` 本次仍无新行（表内 51 行，最新一条是 2026-10-29 的 `coupon_expire`）。原因不在本任务：`NotificationService.notifyAfterSalesMerchant` 先用 `getOrderShopIds()` 由订单商品反查 `product.customFields.shopId` 得到收件店铺，再找该店铺的 `administratorId` 写站内信；而生产 122 个商品里只有 **2** 个带 `shopId`，校园商品未打该字段 → `shopIds` 为空 → 直接 `return`（静默）。即：**SLA 提醒现在能正确生成并落库，但后台通知中心里商家还看不到**，需单独评估是给校园商品补 `shopId`，还是让售后提醒改走「渠道维度」的收件人解析。
+- **回滚**：`git checkout 7553332c4 -- packages/campus-delivery-plugin && cd packages/campus-delivery-plugin && npm run build && pm2 restart vendure --update-env`。数据侧如需清掉本次补发记录：`DELETE FROM campus_after_sales_sla_alert WHERE "requestId" = 25;`（仅影响去重冷却，不回滚已发通知）。
 
 
 
