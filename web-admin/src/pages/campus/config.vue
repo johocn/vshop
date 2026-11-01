@@ -574,6 +574,7 @@
               <text>{{ $t(p.label) }}</text>
             </view>
           </view>
+          <text class="privacy-hint">{{ $t('campusConfig.privacyMaskHint') }}</text>
           <text v-if="card.form.privacyDegraded" class="privacy-warn">
             {{ $t('campusConfig.privacyDegraded')
               .replace('{provider}', $t(privacyLabel(card.form.privacyProvider)))
@@ -1873,6 +1874,8 @@ async function ensureProfile(card: Card) {
         &.off { color: $wa-muted; } } }
   }
   .platform-tip { font-size: 22rpx; color: $wa-muted; padding: 4rpx 0 12rpx; }
+  // 隐私号服务商常驻说明：mask 仅脱敏不可拨，避免运营误以为所有模式都能打通
+  .privacy-hint { display: block; font-size: 22rpx; color: $wa-muted; line-height: 1.5; padding: 4rpx 0 8rpx; }
   // 隐私号服务商降级提示：配置值与实际生效值不一致（外部号池未接入）
   .privacy-warn { display: block; font-size: 22rpx; color: $wa-danger; line-height: 1.5; padding: 6rpx 0 10rpx; }
   .pmodes { display: flex; gap: 16rpx; padding: 8rpx 0 16rpx;

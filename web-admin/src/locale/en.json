@@ -3658,6 +3658,7 @@
     "privacyOff": "Number protection off",
     "privacyTip": "When on, riders/merchants/support only receive a masked or virtual number. mask needs no credentials; Aliyun/Tencent pools need server-side keys",
     "privacyDegraded": "Saved config: {provider} is degraded to {effective}; {note}",
+    "privacyMaskHint": "mask only shows a masked number (e.g. 138****0000) and is not dialable. For callable virtual numbers use mock in testing, or Aliyun/Tencent once their number pools are integrated",
     "privacyProvider": "Privacy number provider",
     "privacyMask": "Masked",
     "privacyMock": "Local mock",

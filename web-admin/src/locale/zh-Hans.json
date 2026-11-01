@@ -3656,6 +3656,7 @@
     "privacyOff": "未开启号码保护",
     "privacyTip": "开启后骑手/商家/客服侧只拿脱敏号或虚拟号；mask 零依赖直接脱敏，阿里/腾讯号池需服务端配凭证",
     "privacyDegraded": "已保存配置：{provider} 实际仅生效 {effective}；{note}",
+    "privacyMaskHint": "mask 模式只展示脱敏号（如 138****0000），不可拨号；需要可拨打的虚拟号请选 mock 联调，或等阿里云/腾讯号池接入后再选",
     "privacyProvider": "隐私号服务商",
     "privacyMask": "脱敏号",
     "privacyMock": "本地虚拟号",
