@@ -6848,7 +6848,15 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 
 ### 122.7 部署记录（2026-11-01）
 
-（部署后回填）
+- **提交**：vendure `afe1f26ff`（分页 + 合规任务）、vshop `9bd5e458`（后台分页 + 文档），均已推 `origin/master`。
+- **后端部署**：服务器 `git fetch origin && git checkout origin/master -- packages/campus-delivery-plugin`，然后 **必须 `cd packages/campus-delivery-plugin && npm run build`（`rimraf lib && tsc`）重编 `lib/`**，再 `pm2 restart vendure --update-env`。
+  ⚠ 踩坑记录：首次只 `git checkout` + 重启，线上 schema 仍是旧签名（`campusAdCampaigns` 只有 `status / channelId`）。原因：pm2 入口是 `packages/dev-server/prod-start.js` → `require('./dist/index')`，插件按 `package.json` 的 `main: lib/index.js` 加载**编译产物**，`src/` 改动不会自动生效。今后本项目所有后端部署都要「checkout src + 重编 lib」两步。
+- **线上校验（admin-api `https://e.joho.cn/admin-api` 匿名 introspection）**：
+  - `__type(name:"CampusAdCampaignPage")` → `{ name, fields: [total, items] }`
+  - `Query.campusAdCampaigns.args` → `[status, channelId, skip, take]`
+- **后台部署**：`cd web-admin && node scripts/deploy.mjs` → 本地 `DONE  Build complete.` + `[deploy] 产物校验通过: 62199 KB` + `deploy done`（openresty reload 成功）。
+- **线上产物校验**：`GET https://e.joho.cn/guanli/` → 200；`GET /guanli/assets/pages-campus-ads.rkEYgwDC.js` → 200、14,186 字节、正文含 `campusAds.loadMore`（即线上跑的是本次构建）。
+- **回滚**：后端 `git checkout <上一提交> -- packages/campus-delivery-plugin && npm run build && pm2 restart vendure`；后台 `deploy.mjs` 自带 3 份备份轮转，按需回解压。
 
 ## §123 骑手合规到期提醒：60 分钟扫描 + 站内信（已上线）
 
@@ -6909,7 +6917,15 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
 
 ### 123.7 部署记录（2026-11-01）
 
-（部署后回填）
+- **提交与部署**：随 §122 同一次上线（vendure `afe1f26ff` 已推 `origin/master`）；服务器 `git checkout origin/master -- packages/campus-delivery-plugin` 后 `npm run build` 重编 `lib/`，`pm2 restart vendure --update-env`。校验编译产物：`grep -c RiderComplianceReminder lib/src/campus-delivery.plugin.js` → `2`（import + providers + start 合并压缩后仍可命中）。
+- **启动校验**：`pm2 logs vendure --err --lines 25 --nostream` 只有 `pg client.query()` 的 DeprecationWarning，无 `CampusRiderCompliance` 的 warn/error；进程状态 `online`，schema introspection 正常（说明插件整体加载成功，任务已随 `onApplicationBootstrap` 启动）。
+- **数据探针**（宿主 `docker exec 1Panel-postgresql-pIe0 psql -U vendure -d vendure`）：
+  - `SELECT count(*) FROM message WHERE title='骑手合规到期提醒' AND "createdAt" >= date_trunc('day', now());` → `0`
+  - `SELECT count(*) FROM message_delivery d JOIN message m ON m.id=d."messageId" WHERE m.title='骑手合规到期提醒';` → `0`
+  - `SELECT count(*) FROM customer WHERE "customFieldsRiderstatus"='approved' AND "customFieldsRiderhealthcertexpiry" IS NOT NULL;` → `0`
+  → 生产当前**没有已通过审核且登记了健康证到期日的骑手**，任务无命中对象，所以静默不发送（0 行是「无数据」而非「任务没跑」）；后续有骑手登记到期日即会按天写入。
+- **口径说明**：探针用库本地时间 `date_trunc('day', now())` 起算，代码判重用 UTC+8 自然日（`campusDayKey`）；生产库时区即东八区，两者一致，不会出现跨日重复发送。
+- **回滚**：代码回滚同 §122.7；数据侧如有需要按标题清理：`DELETE FROM message WHERE title='骑手合规到期提醒';`（`message_delivery` 无外键级联，需按 `messageId` 一并删）。
 
 
 
