@@ -7002,5 +7002,63 @@ ALTER TABLE "channel" ADD COLUMN IF NOT EXISTS "customFieldsWaimaidailypushlastf
   实测生产 `channel` 表该列为**全小写** `customFieldsAftersalestimeouthours`（而 `order` 表的 `customFieldsSlotlocked` 保留大写，两张表命名风格不一致），更关键的是 `customFieldsAfterSalesDueSoonHours` 这一列**在生产根本不存在**（`afterSalesDueSoonHours` 也未在任何插件里声明为渠道自定义字段）。
   结论：§90 的「售后 SLA 临期/超时提醒」在**生产从未生效**（查询每轮直接抛错后 return），商家侧收不到任何 SLA 提醒。修复需要：① 把 SQL 列名改为生产实际列名；② 为 `afterSalesDueSoonHours` 补一个渠道自定义字段声明并做生产 `ALTER TABLE`（`DB_SYNC=0`，不能靠自动同步）。因涉及「是否立即向商家开始推送 SLA 提醒」的运营决策与生产 DDL，本轮**未改动**，留待下一轮确认。
 
+## §125 售后 SLA 提醒修复：列名不匹配导致生产从未生效（已上线）
+
+**影响面**：后端修复一个定时任务；商家端「售后」相关的系统通知重新开始产生；无 GraphQL / 无页面变化。
+
+> 定位：§124 部署校验时发现的既有缺陷的修复。`CampusAfterSalesSlaAlert` 每 10 分钟报 `column ch.customFieldsAfterSalesTimeoutHours does not exist`——根因是**裸 SQL 拼渠道自定义字段列名**，而 Vendure 实际生成的列名是 `customFieldsAftersalestimeouthours`（首字母大写、其余全部小写），两者大小写不一致，整轮查询在 SQL 层就被拒绝，任务每轮直接 `return`。结果是 §90 的「售后超时/临期提醒」自上线以来**一条都没发出去过**。
+
+### 125.1 交付清单
+
+| 文件 | 内容 |
+|---|---|
+| `packages/campus-delivery-plugin/src/after-sales-sla-alert.job.ts` | 查询去掉 `JOIN channel ch` 与两个自定义字段列（只保留 `after_sales_request` / `order` / `order_channels_channel`）；阈值改为在循环里从渠道实体 `customFields` 读；渠道按 `channelId` 缓存，一轮内同渠道只查一次；判定顺序调整为「取渠道 → 算截止 → 抢占 → 通知」，避免对未进窗口的单做无谓抢占 |
+| `.../src/after-sales-sla-alert.job.spec.ts`（新增） | 10 条单测：超时 / 临期 / 临期阈值 0 关闭 / 未进窗口不抢占 / 暂停顺延 30h / 抢占失败不重复 / 渠道缺失 / 无配置按默认 48h·12h / 同渠道只查一次 / 查询失败不抛错 |
+| 后端其它文件 | 无改动（`campus_after_sales_sla_alert` 表结构、通知事件、24h 冷却逻辑均复用） |
+| 前端 | 无改动 |
+
+### 125.2 口径与契约
+
+- **阈值来源**：`channel.customFields.afterSalesTimeoutHours`（默认 `48`，与售后插件 `afterSalesTimeoutHours` 同源）与 `channel.customFields.afterSalesDueSoonHours`（默认 `12`）。读取走 Vendure 实体（ORM 自动按实体元数据映射列名），**不再手写列名**——这是本次修复的核心：把「列名知识」交还给 ORM。
+- **判定口径**（未变）：
+  - 截止时间 = `createdAt + timeoutHours + slaPausedMs`（§95 暂停累计顺延）；
+  - `now >= 截止` → `overdue`（标题「售后已超时」）；
+  - 否则 `0 < 截止 - now <= dueSoonHours` → `dueSoon`（标题「售后即将超时」）；`dueSoonHours = 0` 即关闭该类提醒。
+  - 只扫 `state = 'Pending'`、`slaPausedAt IS NULL`、所属订单已进入配送流程（`order.customFieldsHallstatus IS NOT NULL` 用来排除下单即取消的脏单）。
+- **幂等与冷却**（未变）：`INSERT … ON CONFLICT ("requestId","kind") DO UPDATE … WHERE "alertedAt" < now() - 24h RETURNING` 抢占式写入，抢不到说明 24h 内已提醒过，跳过；单轮上限 `MAX_PER_RUN = 200`。
+- **渠道上下文**（未变）：用命中的 `channel` 构造 `RequestContext`，通知走 `AfterSalesMerchantNotifyEvent`，由 notification 层决定落站内信/模板消息；未装 notification-plugin 时仅无提醒。
+
+### 125.3 权限与校验
+
+- **无权限点变更**：任务只在 `onApplicationBootstrap` 启动，不是 GraphQL 入口，无对外可调用面。
+- **渠道隔离不变**：`JOIN order_channels_channel` 取 `channelId`，通知与写库都带该渠道上下文。
+- **不改商家配置**：任务只读 `channel.customFields`，不写回；商家在「售后规则」里改阈值仍需走 `updateAfterSalesRules`。
+
+### 125.4 数据库变更
+
+无。只读 `after_sales_request` / `order` / `order_channels_channel` / `channel`，只写既有 `campus_after_sales_sla_alert`（`ON CONFLICT` 目标列 `("requestId","kind")` 已在生产存在）。
+
+### 125.5 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 插件类型检查 | `npx tsc -p tsconfig.build.json --noEmit` → 退出码 0 |
+| 新增单测 | `npx vitest run src/after-sales-sla-alert.job.spec.ts` → `10 passed`（超时、临期、阈值 0 关闭、未进窗口、暂停顺延、抢占失败、渠道缺失、默认阈值、渠道缓存、查询异常不抛） |
+| 全量单测 | `npx vitest run` → `67 files / 832 tests passed`，无回归 |
+| 生产前置探针 | `pending=1`、`overdue=1`（即修复上线后只会补发 1 条真实超时提醒，不会造成批量骚扰） |
+| 线上（部署后） | 见 125.7 |
+
+### 125.6 边界与已知限制
+
+1. **阈值其实改不动**：`afterSalesDueSoonHours` / `afterSalesFirstResponseTargetHours` / `afterSalesResolveTargetHours` 三个字段**从未声明为渠道自定义字段**，生产也没有对应列。商家在「售后规则」里保存这三项时 TypeORM 会静默忽略，读取永远回到默认值（12 / 0 / 0）。本轮只让任务按默认值正确工作，**没有补 DDL**：补列需要一次性加 3 列 + 改插件声明 + 生产 `ALTER TABLE`（`DB_SYNC=0`），且列名必须与 Vendure 生成的 `customFields<首字母大写、其余小写>` 完全一致，否则会把所有渠道查询打挂，需单独评估与演练。
+2. **只能修「提醒」不能修「口径」**：截止时间仍按 `createdAt` 起算，未接入营业时段（那是 §99 的 `slaDeadlineAt`，仅用于列表/报表展示）。跨夜工单仍按自然小时计时。
+3. **首次上线会补发**：修复前积压的已超时单会在第一轮各补发一次（同一单同类 24h 内只发一次）；若未来再出现过类似「静默失败」，同样会在修复当轮集中补发，上线前应先看 `pending` / `overdue` 计数。
+4. **上限 200 条/轮**：积压超过 200 条按 `createdAt ASC` 分多轮消化，每轮 10 分钟。
+5. **渠道缓存只在单轮内**：商家改了阈值最多 10 分钟后生效（下一轮重新读渠道）。
+
+### 125.7 部署记录（2026-11-01）
+
+（部署后回填）
+
 
 
