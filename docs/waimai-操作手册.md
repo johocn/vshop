@@ -7140,6 +7140,7 @@ ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesresolvetarge
    - **方案 A**：为每个校园渠道建 `Shop` 记录并绑定 `administratorId`（沿用现有 `Product.shopId → Shop` 链路，改动最小、语义最准）；
    - **方案 B**：售后提醒改投「渠道管理员」（即平台运营），属运营口径变更，需要确认是否希望运营团队接收所有渠道的售后提醒；
    - **方案 C**：新增商家侧「消息中心」页面消费 `adminInbox`，工程量最大。
+   - → **方案 A 已在 §127 执行**（2026-11-01）：为有订单的校园渠道补建 Shop，channel 37 已绑定商家账号、可正常投递；其余 4 个渠道 Shop 已建但 `administratorId` 为空，待开通账号。
 2. **首响/完结目标仍只是「配置」**：这两项落库后仅参与 `afterSalesRules` 回显与后续报表口径，本轮没有新的考核计算接入（原 §87 的口径未变）。
 3. **补列不回填历史值**：存量渠道三列为 `null`，等价于「按默认 12 / 不考核 / 不考核」，与上线前一致；商家重新保存后才会写入具体值。
 4. **列名强耦合**：三列名必须与 `customFields<首字母大写、其余小写>` 完全一致，改字段名会要求同步改列名，否则所有渠道查询会 `column does not exist`。`migrations-coverage.spec.ts` 只覆盖 `campus-delivery-plugin` 的 `custom-fields.ts`，`after-sales-plugin` 的声明不在其检查范围内。
@@ -7153,6 +7154,92 @@ ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesresolvetarge
 - **启动日志**：`Nest application successfully started` / `Vendure server now running on port 3020`，`CampusAfterSalesSlaAlert` 自重启后**无新 warn**（旧代码最后一次报错固定在 `18:56`，对比 §125.7 的 `19:08 sent 1`），说明 ORM 已能带 3 个新列正常读取渠道实体。
 - **数据探针（收件人解析）**：`after_sales_request` → `order` → `order_channels_channel` → `shop` 联查，Pending 单（`12/13/14/20/22/23/25`）命中的渠道为 `1 / 37 / 113`，均无 `Shop` 记录 → 本轮不会新增站内信；`inbox_message` 仍无 `admin` 收件人（表内 51 行全为 `customer`）。与 126.6-1 结论一致。
 - **回滚**：代码 `git checkout 061821ef4 -- packages/campus-delivery-plugin packages/notification-plugin && cd packages/notification-plugin && npm run build && cd ../campus-delivery-plugin && npm run build && pm2 restart vendure --update-env`；数据侧可保留 3 个空列（`nullable`、无默认值，回滚后不再被读取，无副作用），如需彻底清理再执行 `ALTER TABLE channel DROP COLUMN IF EXISTS "customFieldsAftersalesduesoonhours"` 等三条。
+
+## §127 校园渠道补建 Shop 记录（方案 A，数据初始化，已执行）
+
+**影响面**：纯数据变更——`shop` +5 行、`shop_channels_channel` +5 行、1 条 `administratorId` 绑定；**无代码改动、无构建、无重启**。
+
+> 承接 §126.6-1 的关键发现（校园渠道无 Shop → 售后提醒解析不到收件人）。按 A 方案补建店铺档案，**并且只绑已有店主账号**：channel 37 绑 `admin 53`（`guoxinnanshan@163.com`，角色 `t2-tenant-admin`，即国信南山商家账号），其余渠道 `administratorId` 留空，等商家开通账号后一条 UPDATE 即可生效。注：§126.7 最后一条「均无 Shop 记录」是执行本节的**前**状态，已被本节覆盖。
+
+### 127.1 交付清单
+
+| 对象 | 内容 |
+|---|---|
+| `shop` | 新增 5 行：channel `37 / 92 / 111 / 113 / 114`，`status=active`，`slug=campus-<channelId>` |
+| `shop_channels_channel` | 新增 5 行（ChannelAware 关联；`notifyShopOwners` 走 ctx 仓储时按 `channels` 过滤，缺关联会漏店） |
+| `administratorId` | 仅 `channelId=37` 绑 `53`；`92 / 111 / 113 / 114` 为 `NULL` |
+| 代码 | 无改动（渠道回退解析 `resolveMerchantShopIds` 已在 §126 上线并通过编译校验） |
+
+### 127.2 执行 SQL（幂等，可复跑；新渠道开业时照此补一次）
+
+```sql
+BEGIN;
+WITH tgt AS (
+  SELECT c.id AS cid, c.code,
+         COALESCE((SELECT m.name FROM merchant m WHERE m."ownerChannelId" = c.id AND m."deletedAt" IS NULL ORDER BY m.id LIMIT 1), c.code) AS nm
+  FROM channel c
+  WHERE c.id <> 1
+    AND EXISTS (SELECT 1 FROM order_channels_channel o WHERE o."channelId" = c.id)
+    AND NOT EXISTS (SELECT 1 FROM shop s WHERE s."channelId" = c.id)
+)
+INSERT INTO shop ("createdAt","updatedAt",name,slug,description,status,"channelId","administratorId","shopRating","shopReviewCount","shopProductCount")
+SELECT now(), now(), nm, 'campus-' || cid, NULL, 'active', cid, NULL, NULL, NULL, NULL FROM tgt;
+
+INSERT INTO shop_channels_channel ("shopId","channelId")
+SELECT s.id, s."channelId" FROM shop s
+WHERE s.slug LIKE 'campus-%'
+  AND NOT EXISTS (SELECT 1 FROM shop_channels_channel j WHERE j."shopId" = s.id AND j."channelId" = s."channelId");
+
+UPDATE shop s SET "administratorId" = a.id, "updatedAt" = now()
+FROM administrator a
+WHERE a."emailAddress" = 'guoxinnanshan@163.com'
+  AND s."channelId" = 37
+  AND s."administratorId" IS NULL;
+COMMIT;
+```
+
+- **只建「有订单」的渠道**：`EXISTS (order_channels_channel)` 兜住空渠道，不会遍地建空壳。
+- **排除 `channelId = 1`**（`__default_channel__`，399 单、116 商品的平台自营/历史渠道）：建 Shop 会让 `resolveMyShopFromActiveUser` 的渠道回退把平台运营的「本店」指到它，语义偏移。
+- **命名**：取该渠道首个 `merchant`（按 id 升序），没有 merchant 则退回渠道 `code`；`slug` 固定 `campus-<channelId>`，与既有 `xinsheng` 不冲突。
+- 仅给已有店主账号的渠道绑 `administratorId`，没有账号的保持 `NULL`（**不造账号、不生成密码**）。
+
+### 127.3 执行结果
+
+| Shop id | 名称 | slug | channelId | administratorId |
+|---|---|---|---|---|
+| 2（既有） | 新生 | `xinsheng` | 7 | 3 |
+| 3 | 国信南山温泉酒店 | `campus-37` | 37 | **53** |
+| 4 | canteen-a | `campus-113` | 113 | NULL |
+| 5 | canteen-b | `campus-114` | 114 | NULL |
+| 6 | official-01 | `campus-92` | 92 | NULL |
+| 7 | limin | `campus-111` | 111 | NULL |
+
+### 127.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 前置只读探针 | `channel` 有订单者为 `1 / 7 / 37 / 92 / 111 / 113 / 114`；`shop` 仅 1 行（`xinsheng / ch 7`）；`admin 53` 唯一渠道为 37、角色 `t2-tenant-admin` |
+| 执行返回 | `INSERT 0 5`（shop）、`INSERT 0 5`（关联表）、`UPDATE 1`（绑定） |
+| 回读 | 上表 6 行、`shop_channels_channel` 5 行（`3→37 / 4→113 / 5→114 / 6→92 / 7→111`） |
+| 投递链路探针（`after_sales_request → order → order_channels_channel → shop`） | `12 / 13 / 14` 命中 channel 37 → Shop 3 → admin 53 → **will-deliver**；`25` 命中 channel 113 → Shop 4 → `administratorId` 空 → 仍不投递；`20 / 22 / 23` 只命中 channel 1 → 不投递 |
+
+### 127.5 边界与已知限制
+
+1. **只救回 channel 37**：`92 / 111 / 113 / 114` 的 Shop 已就位，但没有店主账号 → `notifyAfterSalesMerchant` 里 `administratorId == null` 仍 `continue`。账号开通后执行 `UPDATE shop SET "administratorId" = <新 admin id> WHERE "channelId" = <该渠道>;` 即可，不必改代码。
+2. **商家仍看不到**：`adminInbox` / `adminInboxUnreadCount` 服务端已有，但 `web-admin` 零调用、无消息中心页面 → 站内信能落库却无消费面。可见性仍需 §126.6-1 的方案 C（或先确认商家实际在用的入口）。
+3. **一渠道一 Shop**：channel 37 下 4 家 merchant（国信南山 / 利洋汽修 / 卓展C座旁 / 他老婶铁锅炖）共用 Shop 3，售后统一投给国信南山，**不按 merchant 精确分**。
+4. **存量单不会自动补发**：站内信只在状态迁移（Pending/Returning/Appealed）与 SLA 新告警时产生，SLA 有 24h `alertedAt` 冷却，故 `12/13/14` 需等下一次状态变化或冷却后再告警才会落库。
+5. **副作用**：`resolveMyShopFromActiveUser` 的渠道回退现在对 `37 / 92 / 111 / 113 / 114` 生效，平台运营切到这些渠道时店主后台会解析出「本店」（此前为空）。C 端 `shops` / `shop(slug)` 未被小程序调用（vshop 内无引用），顾客端不受影响。
+
+### 127.6 回滚
+
+```sql
+DELETE FROM shop_channels_channel WHERE "shopId" IN (SELECT id FROM shop WHERE slug LIKE 'campus-%');
+DELETE FROM shop WHERE slug LIKE 'campus-%';
+-- 如需保留 Shop 只解绑：UPDATE shop SET "administratorId" = NULL WHERE "channelId" = 37;
+```
+
+删除后 `resolveMerchantShopIds` 回退即返回空，行为回到 §126 上线时的状态（不落站内信、不报错）。
 
 
 
