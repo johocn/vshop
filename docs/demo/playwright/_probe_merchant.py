@@ -20,12 +20,17 @@ def gql(q, vars, h):
     except HTTPError as e:
         return e.code, {"raw": e.read().decode()[:400]}
 
+MERCHANT_USER = os.environ.get("MERCHANT_USER")
+MERCHANT_PASS = os.environ.get("MERCHANT_PASS")
+if not MERCHANT_USER or not MERCHANT_PASS:
+    raise SystemExit("缺少 MERCHANT_USER / MERCHANT_PASS 环境变量")
+
 A = admin_login_state(USER, PWD)["auth_token"]
 t2 = next(t for t in list_tenants(A) if t["code"] == "t2")
 TOKEN = t2["token"]
 
 # merchant token + t2 context
-mt, mb = admin_login("chendi-demo@joho.cn", "__REDACTED__")
+mt, mb = admin_login(MERCHANT_USER, MERCHANT_PASS)
 h_m = {"Authorization": "Bearer " + mt, "vendure-token": TOKEN}
 
 # 1) merchant createProduct

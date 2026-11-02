@@ -2,7 +2,7 @@
 /**
  * 防止生产后台凭据再次被写进仓库。
  * 扫描 git 已跟踪文件，命中即退出码 1：
- *   - 明文口令（模式已编码，避免自泄露）
+ *   - 明文后台口令（模式写在 PATTERNS 里，避免把口令本身写回仓库）
  *   - 管理员口令的硬编码兜底（process.env.ADMIN_PASS || '<literal>' / os.environ.get(..., '<literal>')）
  * 用法：node scripts/check-secrets.cjs  或  pnpm check:secrets
  */
@@ -16,11 +16,12 @@ const files = execSync('git ls-files', { cwd: process.cwd(), encoding: 'utf8' })
   .filter((f) => fs.existsSync(f));
 
 const PATTERNS = [
-  { re: /z1[23]3123/, msg: '明文后台口令' },
+  // 历史超管口令：字面量改用等价正则，扫描能力不变、仓库内不再出现原文
+  { re: /z1[23]3123/, msg: '命中历史后台明文口令' },
   { re: /process\.env\.(ADMIN_PASS|ADMIN_PWD|ADMIN_USER)\s*\|\|\s*['"][^'"]+['"]/, msg: '管理员环境变量存在硬编码兜底' },
   { re: /os\.environ\.get\(\s*['"][^'"]*(USER|PWD|PASS)[^'"]*['"]\s*,\s*['"][^'"]+['"]\s*\)/, msg: '管理员环境变量存在硬编码兜底' },
   { re: /login\(\s*username:\s*["'][^"'$%{]+["']\s*,\s*password:\s*["'][^"'$%{]+["']\s*\)/i, msg: '源码内联登录账号密码' },
-  { re: /you1[23]3123/, msg: '明文后台口令' },
+  { re: /you1[23]3123/, msg: '命中历史后台明文口令' },
 ];
 
 let bad = 0;

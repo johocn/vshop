@@ -11,10 +11,15 @@ PWD = os.environ.get("ADMIN_PASS")
 if not USER or not PWD:
     raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
+MERCHANT_USER = os.environ.get("MERCHANT_USER")
+MERCHANT_PASS = os.environ.get("MERCHANT_PASS")
+if not MERCHANT_USER or not MERCHANT_PASS:
+    raise SystemExit("缺少 MERCHANT_USER / MERCHANT_PASS 环境变量")
+
 A = admin_login_state(USER, PWD)["auth_token"]
 t2 = next(t for t in list_tenants(A) if t["code"] == "t2")
 TOKEN = t2["token"]
-mt, mb = admin_login("chendi-demo@joho.cn", "__REDACTED__")
+mt, mb = admin_login(MERCHANT_USER, MERCHANT_PASS)
 
 def gql(q, v, hh):
     req = Request("https://e.joho.cn/admin-api", data=json.dumps({"query": q, "variables": v}).encode(),

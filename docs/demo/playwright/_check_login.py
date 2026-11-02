@@ -15,6 +15,10 @@ def login(u, p):
     except Exception as e:
         return "ERR", str(e)[:200]
 
-EMAIL = "chendi-demo@joho.cn"
-print("INIT_PWD  :", login(EMAIL, "__REDACTED__"))
-print("NEW_PWD   :", login(EMAIL, "__REDACTED__"))
+EMAIL = os.environ.get("MERCHANT_USER")
+INIT_PWD = os.environ.get("MERCHANT_INIT_PASS")
+NEW_PWD = os.environ.get("MERCHANT_NEW_PASS")
+if not EMAIL or not INIT_PWD or not NEW_PWD:
+    raise SystemExit("缺少 MERCHANT_USER / MERCHANT_INIT_PASS / MERCHANT_NEW_PASS 环境变量")
+print("INIT_PWD  :", login(EMAIL, INIT_PWD))
+print("NEW_PWD   :", login(EMAIL, NEW_PWD))
