@@ -3817,6 +3817,8 @@ export interface CampusUnmannedProviderOption {
   name: string;
   needsEndpoint: boolean;
   needsKey: boolean;
+  /** 服务端是否已实现下发（mock=模拟实现，真实厂商暂未接入） */
+  integrated: boolean;
 }
 
 export interface CampusUnmannedChannel {
@@ -3828,6 +3830,8 @@ export interface CampusUnmannedChannel {
   keyConfigured: boolean;
   needsEndpoint: boolean;
   needsKey: boolean;
+  /** 当前所选服务商是否已实现下发（false=调用返回 unsupported） */
+  integrated: boolean;
 }
 
 export interface CampusUnmannedDeliveryResult {
@@ -3844,7 +3848,7 @@ const LOCKER_FIELDS =
   'id channelId name location provider providerName totalCells availableCells openHours pickupGuide enabled sort createdBy createdAt';
 
 const UNMANNED_CHANNEL_FIELDS =
-  'enabled provider providerName providers { code name needsEndpoint needsKey } endpoint keyConfigured needsEndpoint needsKey';
+  'enabled provider providerName providers { code name needsEndpoint needsKey integrated } endpoint keyConfigured needsEndpoint needsKey integrated';
 
 /** 取餐柜站点（含停用） */
 export async function campusLockerStations(): Promise<CampusLockerStationRow[]> {

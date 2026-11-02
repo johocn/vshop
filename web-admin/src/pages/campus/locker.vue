@@ -385,8 +385,11 @@ const needsKey = computed(() => {
   return !!p?.needsKey;
 });
 
-/** 真实厂商（需要 endpoint）尚未接入：调用返回 unsupported，不下发运单 */
-const providerUnsupported = computed(() => needsEndpoint.value);
+/** 当前所选服务商是否未接入（后端 integrated=false）：调用返回 unsupported，不下发运单 */
+const providerUnsupported = computed(() => {
+  const p = channel.value?.providers.find((x) => x.code === form.value.provider);
+  return p ? !p.integrated : false;
+});
 
 /** 实际能力说明：区分「模拟受理」「未接入」「未配置」，避免把已开启当成已可用 */
 const capabilityText = computed(() => {
