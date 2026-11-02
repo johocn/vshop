@@ -7340,6 +7340,125 @@ DELETE FROM authentication_method WHERE identifier IN ('canteen-a@yourbao.cn','c
 DELETE FROM "user" WHERE identifier IN ('canteen-a@yourbao.cn','canteen-b@yourbao.cn','official-01@yourbao.cn','limin@yourbao.cn');
 ```
 
+## §130 商品 shopId 补全（数据初始化，已执行）
+
+**影响面**：纯数据——`product."customFieldsShopid"` 78 行 + `shop` 缓存三列（`shopProductCount / shopReviewCount / shopRating`）6 行；单事务 `COMMIT`；**无代码改动、无构建、无重启**。
+
+> 收尾 §127.5 的最后一个洞：售后站内信的收件人链路是「订单行 → 商品 `customFields.shopId` → `Shop.administratorId`」，商品 `shopId` 为空时只能走 `resolveMerchantShopIds` 的渠道回退。补全后，渠道归属唯一的商品可直达店主。
+
+### 130.1 现状与口径
+
+- 商品总数 **122 = live 57 + 软删除 65**；补全前只有 `id=3 / id=50` 有值（均为 `2`），且**两个都已软删除** → 在用商品 `shopId` 全为 `NULL`。
+- 渠道集合（去掉默认渠道 1 后）与 Shop 的对应关系：
+
+| 渠道 | 渠道 code | Shop id | Shop slug |
+|---|---|---|---|
+| 7 | t1 | 2 | xinsheng |
+| 37 | t2 | 3 | campus-37 |
+| 92 | official-01 | 6 | campus-92 |
+| 111 | limin | 7 | campus-111 |
+| 113 | canteen-a | 4 | campus-113 |
+| 114 | canteen-b | 5 | campus-114 |
+| 29 | test-marketplace-shop | — | 测试渠道，无 Shop |
+| 38 | t3 | — | 无 Shop |
+
+- 写入规则：**商品的非默认渠道集合恰好等于某一渠道时，写入该渠道的 Shop**；其余一律保持 `NULL`（由渠道回退解析）。共享商品与无 Shop 渠道不做猜测，避免售后提醒投错店主。
+
+### 130.2 执行结果
+
+| 规则 | 命中（live / 含删除） | 写入 shopId |
+|---|---|---|
+| ch111 → shop7 | 35 / 35 | 7 |
+| ch37 → shop3 | 12 / 38 | 3 |
+| ch7 → shop2 | 0 / 3 | 2 |
+| ch92 → shop6 | 1 / 1 | 6 |
+| ch113 → shop4 | 1 / 1 | 4 |
+| ch114 → shop5 | 0 / 0 | — |
+| **合计** | **49 / 78** | — |
+
+保持 `NULL` 的 **44 个**（8 个在用 + 36 个已删除）：
+
+- 在用 8 个：`id 57` 国信南山温泉门票（ch1,38，ch38 无 Shop）；`id 74/80/81/82/87` 仅 ch1 的平台商品；`id 85/86` 可乐鸡排饭/麻辣拌面（ch1,113,114 两店共享）。
+- 已删除 36 个：19 个仅 ch1、11 个 ch1,29（测试渠道）、6 个 ch1,38。
+
+写入后计数：`(NULL)=44`、`shop2=3`、`shop3=38`、`shop4=1`、`shop6=1`、`shop7=35`。
+
+### 130.3 executed SQL（生产，单事务）
+
+```sql
+BEGIN;
+CREATE TEMP TABLE shop_rule(channel_id int, shop_id int);
+INSERT INTO shop_rule VALUES (7,2),(37,3),(92,6),(111,7),(113,4),(114,5);
+
+-- 非默认渠道集合唯一命中规则才写入
+UPDATE product p
+SET "customFieldsShopid" = v.shop_id, "updatedAt" = now()
+FROM (
+  SELECT DISTINCT p2.id, r.shop_id
+  FROM product p2
+  JOIN product_channels_channel c ON c."productId" = p2.id
+  JOIN shop_rule r ON r.channel_id = c."channelId"
+  WHERE NOT EXISTS (
+    SELECT 1 FROM product_channels_channel c2
+    WHERE c2."productId" = p2.id AND c2."channelId" NOT IN (1, r.channel_id)
+  )
+) v
+WHERE p.id = v.id;
+
+-- 同步店铺缓存列（等价 ShopService.getShopRating：只统计未删除商品）
+WITH agg AS (
+  SELECT p."customFieldsShopid" AS sid,
+         count(*)::int AS n,
+         COALESCE(sum(p."customFieldsReviewcount"),0)::int AS rc,
+         COALESCE(sum(p."customFieldsReviewrating" * p."customFieldsReviewcount"),0)::numeric AS ws
+  FROM product p
+  WHERE p."deletedAt" IS NULL AND p."customFieldsShopid" IS NOT NULL
+  GROUP BY 1
+), v AS (
+  SELECT s.id AS sid, COALESCE(a.n,0) AS n, COALESCE(a.rc,0) AS rc, COALESCE(a.ws,0) AS ws
+  FROM shop s LEFT JOIN agg a ON a.sid = s.id
+)
+UPDATE shop s
+SET "shopProductCount" = v.n,
+    "shopReviewCount"  = v.rc,
+    "shopRating"       = CASE WHEN v.rc = 0 THEN 0 ELSE round(v.ws / v.rc, 1) END,
+    "updatedAt"        = now()
+FROM v WHERE s.id = v.sid;
+COMMIT;
+```
+
+### 130.4 验证记录
+
+| 步骤 | 结果 |
+|---|---|
+| 预检（规则命中数） | `111→35/35`、`37→12/38`、`92→1/1`、`113→1/1`、`114→0/0`、`7→0/3`；应保持 NULL 44 行 |
+| 写入 | `UPDATE 78`；分组计数 `NULL=44 / 2=3 / 3=38 / 4=1 / 6=1 / 7=35`，合计 122 |
+| 一致性（shopId 指向的 Shop 渠道必须在商品渠道集合内） | `0 rows` 不一致 |
+| 店铺缓存重算 | `shopProductCount` = `0 / 12 / 1 / 0 / 1 / 35`（shop5 = 0 属正常：canteen-b 无归属商品） |
+| 服务健康 | `pm2 vendure online`，进程监听 `:3020` |
+| 未做 | 无可用口令登录（superadmin 生产口令未记录、店主初始口令按 §129 未入库），故**未走 API 读回**；`shopId` 由 ORM 直读该列，SQL 一致性校验已覆盖 |
+
+### 130.5 边界与已知限制
+
+1. **共享商品不猜归属**：`id 85/86` 同时属 canteen-a 与 canteen-b，强行指定会让另一店的售后提醒串店；保持 NULL 后由 `resolveMerchantShopIds` 按订单渠道回退到 `Shop.channelId`。
+2. **ch38（t3）无 Shop**：国信南山温泉门票保持 NULL，该渠道暂无店主账号，售后提醒本就不会投递（与 §127/§129 同一缺口）。
+3. **缓存口径是「未删除商品数」**：shop2 由 `2` 变 `0`（那两个商品已软删除），属正确口径而非数据丢失。
+4. **缓存重算未做渠道过滤**：生产 SQL 按「未删除 + shopId」统计，与 `getShopRating` 在店铺自有渠道上下文下的结果一致（归属商品均在各自渠道内，已由一致性校验覆盖）。
+5. **历史订单不受影响**：`shopId` 只影响新的事件解析；已落库的 `inbox_message` 不会重算收件人。
+
+### 130.6 回滚
+
+```sql
+BEGIN;
+UPDATE product SET "customFieldsShopid" = NULL, "updatedAt" = now()
+WHERE "customFieldsShopid" IS NOT NULL;
+UPDATE product SET "customFieldsShopid" = 2 WHERE id IN (3, 50);          -- 恢复补全前仅有的两条
+UPDATE shop SET "shopProductCount" = 2, "shopReviewCount" = 0, "shopRating" = 0, "updatedAt" = now() WHERE id = 2;
+UPDATE shop SET "shopProductCount" = NULL, "shopReviewCount" = NULL, "shopRating" = NULL, "updatedAt" = now()
+WHERE id IN (3, 4, 5, 6, 7);
+COMMIT;
+```
+
 
 
 
