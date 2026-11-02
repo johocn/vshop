@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """计划3 券多渠道：web-admin 商户端截图（390x844 dpr=2，硬规范）
 本地预览 http://localhost:5280/guanli/ （serve-h5 代理 /admin-api → localhost:3000）
-登录：superadmin@china.test / superadmin
+登录：ADMIN_USER / ADMIN_PASS
 输出：web-admin/src/static/manual/shots/
   coupon3_01_edit_channels.png   券编辑页「分发渠道」多选 + 出售价（模板 32: CENTRE,SALE）
   coupon3_02_edit_bind.png       券编辑页「适用商品」区块（批量选品入口）
@@ -13,6 +13,11 @@
 """
 import os, time
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'http://localhost:5280/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/'
@@ -40,8 +45,8 @@ with sync_playwright() as p:
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('superadmin@china.test')
-    pg.locator('input').nth(1).fill('superadmin')
+    pg.locator('input').nth(0).fill(USER)
+    pg.locator('input').nth(1).fill(USER)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     print('after login url =', pg.url)

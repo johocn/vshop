@@ -10,6 +10,27 @@ const AUTH_TOKEN_HEADER = 'vendure-auth-token';
 /** 闸门兜底时长：initTenant 异常/网络卡死时，最多挂起这么久就放行，避免页面永久骨架屏 */
 const TENANT_GATE_TIMEOUT_MS = 8000;
 
+/** 普通查询/变更超时（10–15s 区间取上限，兼顾弱网与后台慢查询） */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+/** 下单/支付类请求超时（支付链路含三方跳转与回调，需更长窗口） */
+export const PAYMENT_REQUEST_TIMEOUT_MS = 20000;
+
+/** AbortSignal.timeout 在部分小程序/旧 WebView 不可用，此时返回 undefined 由调用方降级 */
+export function requestTimeoutSignal(ms: number): AbortSignal | undefined {
+    try {
+        return typeof AbortSignal !== 'undefined' && typeof (AbortSignal as any).timeout === 'function'
+            ? AbortSignal.timeout(ms)
+            : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function isTimeoutError(err: any): boolean {
+    const name = err?.name;
+    return name === 'TimeoutError' || name === 'AbortError';
+}
+
 export function getSessionToken(): string {
     return uni.getStorageSync(SESSION_TOKEN_KEY) || '';
 }
@@ -24,13 +45,22 @@ export function setSessionToken(token: string) {
 
 // Capture session token from vendure-auth-token response header
 const customFetch: typeof fetch = (input, init) => {
-    return fetch(input, init).then((response) => {
-        const token = response.headers.get(AUTH_TOKEN_HEADER);
-        if (token) {
-            setSessionToken(token);
-        }
-        return response;
-    });
+    // 调用方显式传入 signal（如支付 20s）优先；否则套用默认超时，避免请求永久挂起
+    const signal = init?.signal ?? requestTimeoutSignal(DEFAULT_REQUEST_TIMEOUT_MS);
+    return fetch(input, { ...init, signal })
+        .then((response) => {
+            const token = response.headers.get(AUTH_TOKEN_HEADER);
+            if (token) {
+                setSessionToken(token);
+            }
+            return response;
+        })
+        .catch((err) => {
+            if (isTimeoutError(err)) {
+                throw new Error('请求超时，请检查网络后重试');
+            }
+            throw err;
+        });
 };
 
 let clientInstance: GraphQLClient | null = null;

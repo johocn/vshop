@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 """骑手入驻审核页手机视口截图（390x844 dpr=2）。"""
 from playwright.sync_api import sync_playwright
 
 BASE = "https://e.joho.cn/guanli/#/"
 OUT = r"d:\zhao\vshop\docs\screenshots"
 CHROME = "C:/Users/lenovo/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
-USER, PWD = "${ADMIN_USER}", "${ADMIN_PASS}"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path=CHROME, headless=True)

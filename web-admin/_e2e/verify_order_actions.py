@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 # 回归：操作区状态化快捷按钮 + 卡片缩略图/占位 + 桌面 headbar。superadmin 选店 t1。
 # 注：线上 t1「本店渠道单」为空(订单建于默认/其他渠道, myShopOrders 按 shopId 归集)，
 #     核销 myPickupOrders 未授权。故本脚本切到「本店商品单」scope 用选择器断言按钮/占位缩略图。
 from playwright.sync_api import sync_playwright
 import time
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 BASE='https://e.joho.cn/guanli/'
 SHOT='d:/zhao/vshop/web-admin/_e2e/'
 def run(vp,tag):
@@ -13,7 +19,7 @@ def run(vp,tag):
         pg.on('pageerror',lambda e:errs.append(str(e)[:200]))
         pg.goto(BASE,wait_until='networkidle',timeout=45000)
         pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
-        pg.locator('input').nth(0).fill('superadmin'); pg.locator('input').nth(1).fill('__REDACTED__')
+        pg.locator('input').nth(0).fill(USER); pg.locator('input').nth(1).fill(PWD)
         pg.locator('button, .btn').first.click(); time.sleep(4)
         pg.locator('.item',has_text='t1').first.click(); time.sleep(4)
         pg.goto(BASE+'#/pages/order/list/index',wait_until='networkidle',timeout=45000); time.sleep(3)

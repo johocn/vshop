@@ -380,7 +380,7 @@ def run(vp,tag):
         pg.on('pageerror',lambda e:errs.append(str(e)[:200]))
         pg.goto(BASE,wait_until='networkidle',timeout=45000)
         pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
-        pg.locator('input').nth(0).fill('superadmin'); pg.locator('input').nth(1).fill('__REDACTED__')
+        pg.locator('input').nth(0).fill('${ADMIN_USER}'); pg.locator('input').nth(1).fill('${ADMIN_PASS}')
         pg.locator('button, .btn').first.click(); time.sleep(4)
         pg.locator('.item',has_text='t1').first.click(); time.sleep(4)
         pg.goto(BASE+'#/pages/order/list/index',wait_until='networkidle',timeout=45000); time.sleep(3)

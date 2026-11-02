@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 """nav1 截图：后台 H5「返回首页 / 首页退出确认」行为验收（390x844 dpr2，手机视口）"""
 import time
 from playwright.sync_api import sync_playwright
 
 BASE = 'https://e.joho.cn/guanli/'
 OUT = 'src/static/manual/shots/'
-USER, PWD = 'superadmin', '__REDACTED__'
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 
 def modal_text(page):

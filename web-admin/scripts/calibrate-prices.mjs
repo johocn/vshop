@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 存量价格校准脚本（修复「录入=净价」口径）
 // 背景：历史数据经 web-admin 保存时，Vendure 把录入价当作含税价处理，净价被 ÷1.13
 // （录入 200 → net=176.99 / withTax=200）。校准把净价修正回「录入价(=withTax)」：

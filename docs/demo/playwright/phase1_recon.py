@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
+import os
 """阶段一-侦察：超管打开租户页 -> 点『＋新建租户』-> 抓弹窗 DOM 与按钮结构 """
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 from login_util import admin_login_state
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 os.makedirs(SHOTS, exist_ok=True)
 APP = "https://e.joho.cn/guanli/"
 
-state = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+state = admin_login_state(USER, PWD, channel_code=None)
 
 def btn_info(page, txt):
     els = page.eval_on_selector_all("*", f"""

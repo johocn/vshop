@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """清空 zhao@163.com 的活动订单(幂等，循环删到空)。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")

@@ -11,7 +11,7 @@
 **规范：**
 - vendure 仓库工作流见 `e:\zhao\vendure\AGENTS.md`；服务器红线：**禁止在服务器构建**，部署 = 本地 build lib 入库 → git push → 服务器 `git pull` → pm2 restart。
 - vendure customFields 是 embedded 结构：QueryBuilder 字符串路径必须写 `order.customFields.hallStatus`（裸列在 PG 不存在）；实体 ID 关联列显式 `@Column('int')`。
-- 生产 admin 凭据 superadmin/__REDACTED__（登录响应头 `vendure-auth-token` 取 token，用 `Authorization: Bearer`）；SSH 别名 `joho`。
+- 生产 admin 凭据 ${ADMIN_USER} / ${ADMIN_PASS}（登录响应头 `vendure-auth-token` 取 token，用 `Authorization: Bearer`）；SSH 别名 `joho`。
 - 前置条件：Plan 1 已上线（campus-delivery-plugin 四表 + customFields + 抢单/送达/分成 API 可用）。
 
 ---
@@ -2087,7 +2087,7 @@ Expected: git pull 干净拉取；pm2 restart 成功（~24s 后 `curl -s https:/
 - [ ] **Step 2: 一次性创建校园配送运费模板**（本地 PowerShell 执行；token 会随服务器重启失效，需现登现用）
 
 ```powershell
-$login = curl.exe -s -D - -X POST https://e.joho.cn/admin-api -H "Content-Type: application/json" -d '{\"query\":\"mutation Login($u: String!, $p: String!) { login(username: $u, password: $p) { ... on CurrentUser { id } ... on ErrorResult { errorCode message } } }\",\"variables\":{\"u\":\"superadmin\",\"p\":\"__REDACTED__\"}}'
+$login = curl.exe -s -D - -X POST https://e.joho.cn/admin-api -H "Content-Type: application/json" -d '{\"query\":\"mutation Login($u: String!, $p: String!) { login(username: $u, password: $p) { ... on CurrentUser { id } ... on ErrorResult { errorCode message } } }\",\"variables\":{\"u\":\"superadmin\",\"p\":\"${ADMIN_PASS}\"}}'
 $token = ($login | Select-String -Pattern 'vendure-auth-token: (\S+)').Matches[0].Groups[1].Value
 curl.exe -s -X POST https://e.joho.cn/admin-api -H "Content-Type: application/json" -H "Authorization: Bearer $token" -d '{\"query\":\"mutation { createShippingMethod(input: { code: \\\"campus-delivery\\\", fulfillmentHandler: \\\"manual-fulfillment\\\", checker: { code: \\\"default-shipping-eligibility-checker\\\", arguments: [{ name: \\\"orderMinimum\\\", value: \\\"0\\\" }] }, calculator: { code: \\\"campus-zone-fee-calculator\\\", arguments: [] }, translations: [{ languageCode: zh_CN, name: \\\"校园配送\\\", description: \\\"按校园分区计费\\\" }] }) { id code name } }\"}'
 ```

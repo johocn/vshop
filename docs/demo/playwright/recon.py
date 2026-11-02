@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """侦察：登录超管 -> 抓取租户页/商品审批页 DOM 与截图（webapp-testing: recon-then-action）"""
 import sys, io, os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -8,8 +9,10 @@ BASE = "https://e.joho.cn/guanli"
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 os.makedirs(SHOTS, exist_ok=True)
 
-USER = "superadmin"
-PWD = "__REDACTED__"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)

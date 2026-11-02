@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
 # 验证商品创建页媒体库：打开弹窗, 断言缩略图真实加载(naturalWidth>0), 并截图
 from playwright.sync_api import sync_playwright
 import time
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 BASE='https://e.joho.cn/guanli/'
 with sync_playwright() as p:
     b=p.chromium.launch(headless=True)
@@ -9,7 +15,7 @@ with sync_playwright() as p:
     pg.on('pageerror',lambda e:errs.append(str(e)[:160]))
     pg.goto(BASE,wait_until='networkidle',timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
-    pg.locator('input').nth(0).fill('superadmin'); pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER); pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click(); time.sleep(4)
     pg.locator('.item',has_text='t1').first.click(); time.sleep(4)
     pg.goto(BASE+'#/pages/product/create/index',wait_until='networkidle',timeout=45000); time.sleep(3)

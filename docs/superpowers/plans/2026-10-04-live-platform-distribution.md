@@ -13,7 +13,7 @@
 2. **服务器并发风险**：joho 服务器上有另一客户操作 pm2/strapi。所有服务器操作前先 `pm2 ls` 检查 uptime/restarts 异常；**绝不碰 strapi**；只 restart `vendure` 进程。
 3. **PowerShell 铁律**：本地命令不支持 `&&`（用 `;`）；复杂远程操作写 `.sh` scp 执行；ssh 单引号会被剥离。
 4. **部署顺序**：vendure 先上（数据层），vshop 后上（前端消费新字段）。
-5. 生产 admin 凭据 `superadmin/__REDACTED__`（token 缓存 `e:\zhao\vshop\.secrets\admin_token.txt`）；SSH 别名 `joho`。
+5. 生产 admin 凭据 `${ADMIN_USER} / ${ADMIN_PASS}`（token 缓存 `e:\zhao\vshop\.secrets\admin_token.txt`）；SSH 别名 `joho`。
 6. 手机截图规范：Playwright 390×844、dpr=2、is_mobile=True、has_touch=True。
 
 **Spec:** `docs/superpowers/specs/2026-10-04-live-dual-platform-distribution-design.md`
@@ -362,7 +362,7 @@ echo "SMOKE DONE"
 
 - [ ] **Step 5.2: 执行**
 
-Run: `scp e:\zhao\game-server\scripts\live-platforms-verify.sh joho:/tmp/; ssh joho "bash /tmp/live-platforms-verify.sh __REDACTED__"`
+Run: `scp e:\zhao\game-server\scripts\live-platforms-verify.sh joho:/tmp/; ssh joho "bash /tmp/live-platforms-verify.sh ${ADMIN_PASS}"`
 Expected: 五段输出全部符合 EXPECT 注释。
 
 - [ ] **Step 5.3: Commit**（game-server 仓库）

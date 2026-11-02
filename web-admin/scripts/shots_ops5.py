@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+import os
 """ops5 截图：库存预警 / 台账 / 优惠券 / 看板 / POS 五个增强页面（390x844 dpr2）"""
 import sys, time
 from playwright.sync_api import sync_playwright
 
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
+
 BASE = 'https://e.joho.cn/guanli/'
-CREDS = [('guoxinnanshan@163.com', '__REDACTED__')]
+CREDS = [(TENANT_USER, TENANT_PASS)]
 OUT = 'src/static/manual/shots/'
 
 PAGES = [

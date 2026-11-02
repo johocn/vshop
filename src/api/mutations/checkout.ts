@@ -1,4 +1,4 @@
-import { getGraphQLClient } from '../client';
+import { getGraphQLClient, PAYMENT_REQUEST_TIMEOUT_MS, requestTimeoutSignal } from '../client';
 import { ORDER_FRAGMENT } from '../fragments';
 
 export async function setOrderShippingAddress(input: any) {
@@ -26,8 +26,13 @@ export async function transitionOrderToState(state: string) {
 
 export async function addPaymentToOrder(method: string, metadata?: Record<string, any>) {
     const client = getGraphQLClient();
-    return client.request(`${ORDER_FRAGMENT}
-        mutation Pay($input: PaymentInput!) { addPaymentToOrder(input: $input) { ... on Order { ...OrderDetail } ... on ErrorResult { errorCode message } } }`, { input: { method, metadata: metadata || {} } });
+    // 支付链路单独放宽到 20s：options 形式传 signal，graphql-request 会透传为 fetch 的 signal
+    return client.request({
+        document: `${ORDER_FRAGMENT}
+        mutation Pay($input: PaymentInput!) { addPaymentToOrder(input: $input) { ... on Order { ...OrderDetail } ... on ErrorResult { errorCode message } } }`,
+        variables: { input: { method, metadata: metadata || {} } },
+        signal: requestTimeoutSignal(PAYMENT_REQUEST_TIMEOUT_MS),
+    } as any);
 }
 
 export async function setCustomerForOrder(input: any) {

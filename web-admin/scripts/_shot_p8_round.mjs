@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 配送体系 P8 收口：生产后台手机视口（390×844 dpr2）截图 + DOM 断言
 // 覆盖：提现打款失败入口（PAID 卡片）、楼栋页新增分区、商品页跑腿商品初始化
 import { mkdirSync } from 'node:fs';
@@ -24,8 +30,8 @@ await page.goto(BASE, { waitUntil: 'networkidle', timeout: 45000 });
 await page.waitForTimeout(1500);
 const inputs = await page.$$('input');
 if (inputs.length >= 2) {
-  await inputs[0].fill('superadmin');
-  await inputs[1].fill('__REDACTED__');
+  await inputs[0].fill(ADMIN_USER);
+  await inputs[1].fill(ADMIN_PASS);
   await page.click('.login-btn, .btn, button').catch(() => {});
   await page.waitForTimeout(3000);
 }

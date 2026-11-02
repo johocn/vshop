@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """公众号运营三页面（菜单/微信用户/消息模板）手机视口截图（390x844 dpr=2）。"""
 import time
 from playwright.sync_api import sync_playwright
@@ -6,7 +7,10 @@ from playwright.sync_api import sync_playwright
 BASE = "https://e.joho.cn/guanli/#/"
 OUT = r"d:\zhao\vshop\docs\screenshots"
 CHROME = "C:/Users/lenovo/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
-USER, PWD = "${ADMIN_USER}", "${ADMIN_PASS}"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ROUTES = [
     ("pages/wechat/menu/index", "wa-wechat-menu.png"),

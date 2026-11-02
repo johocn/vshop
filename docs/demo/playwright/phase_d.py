@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """阶段D：商户复登，展示商品已通过审批并在默认站点上架。"""
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")

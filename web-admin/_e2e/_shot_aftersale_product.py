@@ -11,6 +11,16 @@ import sys
 import time
 from pathlib import Path
 
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 try:
     from playwright.sync_api import sync_playwright
 except ImportError as e:  # noqa: BLE001
@@ -23,8 +33,8 @@ AS_ID = os.environ.get('WA_AS_ID', '27')
 EXPECT_NAME = os.environ.get('WA_EXPECT_NAME', '可乐鸡排饭')
 # 依次尝试的账号（登录后需能取到目标渠道 token；必须精确渠道——跨渠道查售后单 order.lines 会解析报错）
 ACCOUNTS = [
-    ('superadmin', '__REDACTED__'),
-    ('guoxinnanshan@163.com', '__REDACTED__'),
+    (USER, PWD),
+    (TENANT_USER, TENANT_PASS),
 ]
 CHANNEL = os.environ.get('WA_CHANNEL', 'canteen-a')
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'

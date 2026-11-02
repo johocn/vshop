@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """i18n 地基验证：登录页 zh-Hans / en 双语对照截图 + console 错误捕获（视口 390x844 dpr=2）"""
 import time
 from playwright.sync_api import sync_playwright

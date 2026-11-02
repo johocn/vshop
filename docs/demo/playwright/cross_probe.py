@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """跨租户/跨档案探测：列出线上商品->变体{档案/租户}，并探测 default 商城可加购的跨档案组合。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -6,9 +7,14 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from login_util import ADMIN_API, admin_login_state, list_shipping_profiles
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 SHOP_API = "https://e.joho.cn/shop-api"
 USER, PW = "zhao@163.com", "23123"
-AUTH = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+AUTH = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 
 # 0) 租户(渠道)列表 -> 名称映射
 def admin_gql(query, variables=None, channel_token=""):

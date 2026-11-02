@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
+import os
 # 库存 v2 · 失败场景回归（规格 §5 验收第 8 条）：
 #   ① 搜索请求失败 ② 保存预警规则失败 ③ 调整库存失败
 #   期望：三种情况都弹明确错误 Toast，且**列表保持上一次结果**（不清空、不显示空态）。
 # 断网方式：Playwright route 拦截 admin-api 并 abort（等价于断网/接口不可用）。
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 租户管理员）
+# 账号：TENANT_USER / TENANT_PASS（t2 租户管理员）
 from playwright.sync_api import sync_playwright
 import time
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 API = '**/admin-api'
@@ -24,8 +30,8 @@ def login(ctx):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     pg.evaluate("""() => {

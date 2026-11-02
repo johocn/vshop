@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys, io, json
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError

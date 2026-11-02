@@ -14,8 +14,10 @@ OUT = r"d:\zhao\vshop\web-admin\docs\verify"
 ADMIN_API = "http://localhost:3000/admin-api"
 CHANNEL_TOKEN = "default-token"      # dev 默认渠道 token（channel __default_channel__）
 CHANNEL_CODE = "__default_channel__"
-ADMIN_USER = "superadmin"
-ADMIN_PASS = "superadmin"
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PASS = os.environ.get("ADMIN_PASS")
+if not ADMIN_USER or not ADMIN_PASS:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 os.makedirs(OUT, exist_ok=True)
 

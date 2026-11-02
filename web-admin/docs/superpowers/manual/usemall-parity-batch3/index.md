@@ -174,7 +174,7 @@ lottery-plugin 服务端校验**启用状态奖品数量上限 8 个**：后台�
 - 后端：`d:\zhao\vendure\packages\dev-server`，`npm run dev:server`（:3000，DB=postgres `vendure` 库，synchronize:true 自动建表）。
 - C 端：`d:\zhao\vshop`，`npm run dev:h5`（:5180）。
 - web-admin 预览：`d:\zhao\vshop\web-admin`，`node scripts/serve-h5.mjs`（:5280，`/admin-api` → localhost:3000）。
-- 本地管理员：`superadmin@china.test / superadmin`（bootstrap 自带 `superadmin` 在播种库无 roles，勿用）；C 端测试顾客：`zhangsan@test.cn / test`（customer id=1，本批造数后积分 9890、余额 ¥400、金卡会员）。
+- 本地管理员：`ADMIN_USER / superadmin`（bootstrap 自带 `superadmin` 在播种库无 roles，勿用）；C 端测试顾客：`zhangsan@test.cn / test`（customer id=1，本批造数后积分 9890、余额 ¥400、金卡会员）。
 - 造数手段：admin-api 登录（`Authorization: Bearer` + `vendure-token: default-token` 头）→ `saveFaq` / `createLotteryPrize` / `adjustPoints(customerId, amount, remark)` / `adminAdjustBalance({ customerId, amount, type:'adjust', remark })`；shop-api 以 zhangsan 会话调 `createFeedback` / `createCirclePost` / `toggleCircleLike` / `toggleCircleFavorite` / `requestBalanceWithdrawal`。
 - 截图注入：C 端 localStorage `auth_token`/`auth_userId`；web-admin `wa_auth_token`/`wa_user_id`/`wa_channel_code`（`__default_channel__`）/`wa_channel_token`（`default-token`）。
 

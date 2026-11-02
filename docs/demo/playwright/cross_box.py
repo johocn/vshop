@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """跨租户/跨档案 分箱验证（T1+T2）。
 组合：v2(default 租户,回退默认档案SP5) + v31(t2 曲奇,档案SP8)。期望 2 箱、不同 tenantChannelId、不同档案。
 """

@@ -10,8 +10,12 @@
 // 幂等：已存在的方法只更新（现有非空 args 不被空值覆盖），不重复创建。
 
 const ADMIN_API = process.env.ADMIN_API || 'https://e.joho.cn/admin-api';
-const ADMIN_USER = process.env.ADMIN_USER || 'superadmin';
-const ADMIN_PASS = process.env.ADMIN_PASS || '__REDACTED__';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 
 // ===== 商户凭证（按需填写；留空则仅创建壳子，稍后在 Admin UI 补） =====
 const MERCHANT_A = {

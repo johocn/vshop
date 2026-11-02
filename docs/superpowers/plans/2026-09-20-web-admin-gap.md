@@ -326,7 +326,7 @@ npm run build:h5
 
 - [ ] **Step 5: 回归 + 截图（挂 op-5 店铺装修与主题 或店铺信息相关章节）**
 
-Playwright 390×844 dpr=2，登录 `guoxinnanshan@163.com / __REDACTED__`（t2），进入 店铺信息：选图 → 保存 → 刷新后预览仍在；截图存 `web-admin/src/static/manual/shots/`，在手册对应章节插入 `<img class="img" src="shots/..." alt="店铺信息-Logo 选图">`。
+Playwright 390×844 dpr=2，登录 `${TENANT_USER} / ${TENANT_PASS}`（t2），进入 店铺信息：选图 → 保存 → 刷新后预览仍在；截图存 `web-admin/src/static/manual/shots/`，在手册对应章节插入 `<img class="img" src="shots/..." alt="店铺信息-Logo 选图">`。
 
 - [ ] **Step 6: Commit**
 

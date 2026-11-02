@@ -14,6 +14,9 @@ import urllib.request
 BASE = "https://e.joho.cn"
 SECRETS = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".secrets"))
 PASS = open(os.path.join(SECRETS, "admin_pass.txt"), encoding="utf-8").read().strip()
+USER = os.environ.get("ADMIN_USER")
+if not USER or not PASS:
+    raise SystemExit("缺少 ADMIN_USER 环境变量或 .secrets/admin_pass.txt")
 
 
 def gql(endpoint, query, variables=None, token=None):
@@ -37,7 +40,7 @@ def must(res, label):
 
 
 # 1. 登录
-data, hdr = gql("/admin-api", 'mutation { login(username: "superadmin", password: "%s") { ... on CurrentUser { id identifier } ... on ErrorResult { errorCode message } } }' % PASS)
+data, hdr = gql("/admin-api", 'mutation { login(username: "%s", password: "%s") { ... on CurrentUser { id identifier } ... on ErrorResult { errorCode message } } }' % (USER, PASS))
 token = hdr.get("vendure-auth-token")
 assert token, "no vendure-auth-token header"
 cur = data["data"]["login"]

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """拆单验证-步骤1（修正版）：正确捕获 shop-auth 会话 token(vendure-auth-token) 并在之后带上，
 保证「曲奇31(档8)+蛋卷32(档9)」落入同一 t2 活动订单 -> orderBoxes 出 2 箱 -> 按箱设配送 -> 结算。"""
 import sys, io, json

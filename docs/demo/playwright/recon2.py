@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
+import os
 """侦察2：注入超管登录态 -> 进入后台 -> 导航到平台/租户页与商品审批页，截图+抓 DOM"""
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 from login_util import admin_login_state
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 os.makedirs(SHOTS, exist_ok=True)
 APP = "https://e.joho.cn/guanli/"
 
-state = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+state = admin_login_state(USER, PWD, channel_code=None)
 print("LOGIN channel:", state["channel_code"], state["channel_name"])
 
 with sync_playwright() as p:

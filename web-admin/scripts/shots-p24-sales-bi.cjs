@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // P4-1 经营分析 + P4-1-4 商品结构导出 CSV · 后台线上取证（Playwright + 真实 admin-api）
 //   02 今日（空态/时段柱）  03 近 7 日  04 近 30 日  05 导出 CSV
 //   node scripts/shots-p24-sales-bi.cjs
@@ -19,7 +25,7 @@ const CHANNEL = 'canteen-a-token';
   const loginRes = await rc.post(API, {
     data: {
       query: 'mutation($u:String!,$p:String!){ login(username:$u,password:$p){ ... on CurrentUser { id identifier } } }',
-      variables: { u: 'superadmin', p: '__REDACTED__' },
+      variables: { u: ADMIN_USER, p: ADMIN_PASS },
     },
   });
   const token = loginRes.headers()['vendure-auth-token'];

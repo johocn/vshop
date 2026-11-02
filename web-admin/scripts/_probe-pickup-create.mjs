@@ -2,6 +2,10 @@
 const ADMIN = process.env.ADMIN_API;
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 if (!ADMIN || !ADMIN_USER || !ADMIN_PASS) { console.error('缺少环境变量：ADMIN_API / ADMIN_USER / ADMIN_PASS（不提供默认域名与凭据）'); process.exit(1); }
 async function gql(q, vars = {}, headers = {}) {
   const res = await fetch(ADMIN, {

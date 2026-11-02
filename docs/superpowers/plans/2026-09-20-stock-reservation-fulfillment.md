@@ -237,8 +237,8 @@ async function gql(query, vars = {}, token) {
   });
   return r.json();
 }
-// 登录获取 token（superadmin/__REDACTED__）
-const login = await gql(`mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }`);
+// 登录获取 token（${ADMIN_USER} / ${ADMIN_PASS}）
+const login = await gql(`mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }`);
 console.log('login:', JSON.stringify(login).slice(0, 120));
 // introspection 命中检查
 const schema = await gql(`{ __schema { queryType { fields { name } } mutationType { fields { name } } } }`);
@@ -366,7 +366,7 @@ git commit -m "feat(admin): 订单发货多仓拆分（预留单分组 + 逐仓 
 - [ ] **Step 1: 手机截图脚本（390×844，dpr=2）**
 
 创建 `_e2e/_shot_reservation.py`，参照 `_e2e/_shot_t8.py` 模式：
-- 登录 guoxinnanshan@163.com/__REDACTED__（t2 租户管理员）
+- 登录 ${TENANT_USER}/${TENANT_PASS}（t2 租户管理员）
 - 进入订单列表 → 打开一个可发货订单 → 发货页截图（展示多仓分组）
 - 进入预留单列表（若实现了独立页）截图
 - 输出 `src/static/manual/shots/` 下 `r15_reservation_ship.png` 等

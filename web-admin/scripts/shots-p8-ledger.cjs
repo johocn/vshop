@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // P8-4 截图：骑手分成台账 + 骑手轨迹（390×844 dpr=2）
 //   node scripts/shots-p8-ledger.cjs
 const path = require('node:path');
@@ -19,7 +25,7 @@ async function adminToken() {
     const res = await fetch(ADMIN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: 'mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }' }),
+        body: JSON.stringify({ query: `mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }` }),
     });
     const body = await res.json();
     if (!body.data?.login?.id) throw new Error('admin login failed: ' + JSON.stringify(body));

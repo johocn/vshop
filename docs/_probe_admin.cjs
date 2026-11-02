@@ -1,4 +1,10 @@
 const BASE = 'http://localhost:3000/admin-api';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 
 async function gql(query, variables = {}, headers = {}, captureHeaders = false) {
   const res = await fetch(BASE, {
@@ -17,7 +23,7 @@ async function gql(query, variables = {}, headers = {}, captureHeaders = false) 
   // 1) login, capture token header + CurrentUser via fragments
   const { json: login, token, setCookie } = await gql(
     `mutation {
-      login(username:"superadmin", password:"superadmin") {
+      login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") {
         ... on CurrentUser { id identifier }
         ... on InvalidCredentialsError { errorCode message }
       }

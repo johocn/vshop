@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """阶段B：商户 UI 首登 -> 强改密演示 -> 工作台；商品创建表单截图；
 API 建真实商品(含变体)；UI 商品列表 + 提交上架"""
 import sys, io, os, json
@@ -6,17 +7,24 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 from login_util import list_tenants, list_zones, set_channel_default_tax_zone, list_channel_products, create_product, add_product_variant, admin_login, admin_login_state
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 os.makedirs(SHOTS, exist_ok=True)
 APP = "https://e.joho.cn/guanli/"
 
 meta = json.load(open(os.path.join(SHOTS, "meta_phase_a.json"), encoding="utf-8"))
 ADMIN_EMAIL = meta["admin_email"]
-INIT_PWD = meta.get("initial_password") or "__REDACTED__"
-NEW_PWD = "__REDACTED__"
+INIT_PWD = meta.get("initial_password") or os.environ.get("DEMO_PASS")
+NEW_PWD = os.environ.get("DEMO_NEW_PASS")
+if not INIT_PWD or not NEW_PWD:
+    raise SystemExit("缺少 DEMO_PASS / DEMO_NEW_PASS 环境变量")
 CODE = meta["tenant_code"]  # t2
 
-AUTH_SUPER = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+AUTH_SUPER = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 t2 = next(t for t in list_tenants(AUTH_SUPER) if t["code"] == CODE)
 T2_ID = t2["id"]
 T2_TOKEN = t2["token"]

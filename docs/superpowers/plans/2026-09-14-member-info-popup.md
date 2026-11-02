@@ -332,10 +332,10 @@ Expected: `200`（若 502/504 说明 SDL 或部署有问题，检查 pm2 日志 
 
 - [ ] **Step 4: 手机视口回归 + 截图**
 
-参考 `d:\zhao\vshop\web-admin\_e2e\_shot_t8.py` 的 Playwright 登录流程（390×844 视口，dpr=2，登录 田经理 账号 guoxinnanshan@163.com / 密码 __REDACTED__），新建 `_e2e\_shot_t9.py`，步骤：
+参考 `d:\zhao\vshop\web-admin\_e2e\_shot_t8.py` 的 Playwright 登录流程（390×844 视口，dpr=2，登录 田经理 账号 ${TENANT_USER} / 密码 ${TENANT_PASS}），新建 `_e2e\_shot_t9.py`，步骤：
 
 1. 打开 `https://e.joho.cn/guanli/#/pages/platform/members/index`（必要时先登录）。
-2. 点击成员行「田经理」姓名 → 断言弹窗出现，且包含文本：`用户信息`、`登录用户名`、`guoxinnanshan@163.com`、`人员 ID`。
+2. 点击成员行「田经理」姓名 → 断言弹窗出现，且包含文本：`用户信息`、`登录用户名`、`${TENANT_USER}`、`人员 ID`。
 3. 截图保存为 `web-admin\src\static\manual\shots\r05_member_info.png`（命名沿用既有 `r0X` 规范）。
 4. 用 Read 查看截图确认非白屏、布局正确。
 5. 点击 × 关闭，断言弹窗消失。

@@ -16,7 +16,7 @@
 
 两种会话（缺一不可）：
   * 租户会话（默认 guoxinnanshan@163.com）：证明**权限**结论 —— 核心入口仍 403、租户级入口可读写。
-  * 超管会话（默认 superadmin@china.test）：UI 交互与截图。原因：租户名下唯一渠道 t2 是
+  * 超管会话（ADMIN_USER / ADMIN_PASS 环境变量）：UI 交互与截图。原因：租户名下唯一渠道 t2 是
     `physicalStockEnabled=false` 的纯虚拟库存店（物理仓 0 个），且库存明细页的仓池在「有物理仓时
     只取物理仓」（inventory-stock.service `resolveLocations`），故物理仓模式店铺才能渲染出可点的卡片。
 
@@ -65,10 +65,12 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_D49_BASE', 'https://e.joho.cn/guanli/')
 ADMIN = os.environ.get('WA_API_ADMIN', 'https://e.joho.cn/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
-ADMIN_USER = os.environ.get('WA_D49_ADMIN_USER', 'superadmin@china.test')
-ADMIN_PWD = os.environ.get('WA_D49_ADMIN_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 UI_CHANNEL = os.environ.get('WA_D49_UI_CHANNEL', '').strip()
 STATE = os.environ.get('WA_D49_STATE', 'after').strip().lower()
 TAG = os.environ.get('WA_D49_TAG', STATE + '-')

@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
+import os
 """确认商家商品35(曲奇)在 default 商城的挂牌/审批状态，佐证其可在 default 渠道同单加购。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from urllib.request import Request, urlopen
 from login_util import ADMIN_API, admin_login_state
 
-a = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+a = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 def q(query, variables=None, ct=None):
     h = {"Authorization": "Bearer " + a, "Content-Type": "application/json"}
     if ct: h["vendure-token"] = ct

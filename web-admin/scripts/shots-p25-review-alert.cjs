@@ -12,8 +12,12 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'screenshots', 'waimai',
 const BASE = 'https://e.joho.cn/guanli/';
 const API = 'https://e.joho.cn/admin-api';
 const CHANNEL = 'canteen-a-token';
-const ADMIN_USER = 'superadmin';
-const ADMIN_PWD = '__REDACTED__';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PWD = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PWD) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 
 (async () => {
     fs.mkdirSync(OUT, { recursive: true });

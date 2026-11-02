@@ -26,7 +26,7 @@
 - [x] **Step 1: 登录 admin-api 并保存 token**
 
 ```powershell
-curl.exe -s -D - -X POST https://e.joho.cn/admin-api -H "Content-Type: application/json" -d '{"query":"mutation { login(username: \"superadmin\", password: \"__REDACTED__\") { user { id identifier } } }"}'
+curl.exe -s -D - -X POST https://e.joho.cn/admin-api -H "Content-Type: application/json" -d '{"query":"mutation { login(username: \"superadmin\", password: \"${ADMIN_PASS}\") { user { id identifier } } }"}'
 ```
 从响应头 `vendure-auth-token:` 取值，然后：
 ```powershell

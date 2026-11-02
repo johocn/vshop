@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """拆单验证-步骤2：真实 shop 下单流程。登录顾客->加两种商品->orderBoxes 看分箱->按箱设配送->下单。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")

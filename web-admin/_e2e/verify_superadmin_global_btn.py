@@ -1,6 +1,12 @@
+import os
 # 生产验证：超管登录后，自提点「新增」编辑页应显示「全局可用」开关（isPublic）
 import time
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 PROD = 'https://e.joho.cn/guanli'
 EDIT = PROD + '/#/pages/pickup/edit'
@@ -18,7 +24,7 @@ with sync_playwright() as p:
     pg.goto(PROD, wait_until='networkidle', timeout=45000); time.sleep(2)
     print('LOGIN_URL', pg.url)
     ins = pg.locator('input'); print('LOGIN_INPUTS', ins.count())
-    ins.nth(0).fill('superadmin'); ins.nth(1).fill('__REDACTED__')
+    ins.nth(0).fill(USER); ins.nth(1).fill(PWD)
     pg.locator('.btn').first.click(); time.sleep(3)
     print('AFTER_LOGIN_URL', pg.url)
     print('AFTER_LOGIN_BODY[:300]', pg.inner_text('body')[:300].replace('\n', ' | '))

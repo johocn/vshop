@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """确认 t2 渠道视角：配送档案列表 + 是否存在租户默认档案。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -6,7 +7,12 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from login_util import ADMIN_API, admin_login_state
 
-a = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+a = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 
 def q(query, variables=None, channel_token=None):
     h = {"Authorization": "Bearer " + a, "Content-Type": "application/json"}

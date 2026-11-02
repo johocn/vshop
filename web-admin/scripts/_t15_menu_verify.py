@@ -16,13 +16,17 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get('WA_BASE', 'http://localhost:5281/guanli/')
 SHOTS = os.environ.get('WA_SHOTS', r'd:\zhao\vshop\web-admin\src\static\manual\shots')
 CHANNEL_CODE = os.environ.get('WA_CHANNEL', 'shop-a')
-USER = os.environ.get('WA_USER', 'superadmin')
-PWD = os.environ.get('WA_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 A_SALES = 'e2e-t15-sales@test.local'
 A_STOCK = 'e2e-t15-stock@test.local'
 A_NOREAD = 'e2e-t15-noread@test.local'
-T_PWD = '__REDACTED__'
+T_PWD = os.environ.get('E2E_TENANT_PASS')
+if not T_PWD:
+    raise SystemExit("缺少 E2E_TENANT_PASS 环境变量")
 ROLE_NOREAD = 'E2E-T15-NOREAD'
 ROLE_STOCK = 'E2E-T15-STOCK'
 

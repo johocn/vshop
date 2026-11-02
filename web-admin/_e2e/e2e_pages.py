@@ -1,5 +1,11 @@
+import os
 from playwright.sync_api import sync_playwright
 import time
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'http://localhost:5280/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/_e2e/'
@@ -30,8 +36,8 @@ with sync_playwright() as p:
     page.goto(BASE, wait_until='networkidle', timeout=30000)
     time.sleep(1)
     inputs = page.locator('input')
-    inputs.nth(0).fill('superadmin')
-    inputs.nth(1).fill('superadmin')
+    inputs.nth(0).fill(USER)
+    inputs.nth(1).fill(USER)
     page.locator('.btn').first.click()
     time.sleep(3)
     # 选 shop-a

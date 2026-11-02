@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """五级积木模板体系 e2e 回归 + 手机截图（Playwright 同步 API，390x844 dpr=2 硬规范）
 四场景：
  1. 基线：C 端 t2 店铺首页（无 sections、displayTemplate='standard' 非白名单）→ DefaultHome 骨架
@@ -9,7 +10,7 @@
  4. 恢复：写回原 shopContent/templateId（走 admin-api 直调；装修页 UI 在楼层清空时拒绝保存、
     模板表单保存会以 chips 状态重建 pages JSON 无法还原原文，故退化 API——见汇报），并删除临时模板
 本地双 dev（VITE_API_URL=https://e.joho.cn）：web-admin 约 5280、C 端端口见输出。
-登录 superadmin/__REDACTED__；t2 渠道经 localStorage 注入（superadmin 店铺列表不含 t2）。
+登录 ADMIN_USER / ADMIN_PASS；t2 渠道经 localStorage 注入（superadmin 店铺列表不含 t2）。
 截图输出：web-admin/src/static/manual/shots/brick_01..04_390.png
 """
 import json
@@ -19,6 +20,11 @@ import time
 from urllib.request import Request, urlopen
 
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ADMIN_API = 'https://e.joho.cn/admin-api'
 WA_BASE = 'http://localhost:5280/guanli/'
@@ -59,7 +65,7 @@ def _gql_data(query, variables=None, headers=None):
 
 
 def api_login():
-    resp, data = _gql(LOGIN_MUT, {'u': 'superadmin', 'p': '__REDACTED__'})
+    resp, data = _gql(LOGIN_MUT, {'u': USER, 'p': PWD})
     token = resp.headers.get('vendure-auth-token') or ''
     body = (data.get('data') or {}).get('login') or {}
     if not token or body.get('__typename') != 'CurrentUser':
@@ -173,8 +179,8 @@ with sync_playwright() as p:
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=60000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('superadmin')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER)
+    pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     print('web-admin after login url =', pg.url)

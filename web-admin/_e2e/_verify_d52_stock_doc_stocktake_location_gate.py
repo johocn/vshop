@@ -44,10 +44,12 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_D52_BASE', 'https://e.joho.cn/guanli/')
 ADMIN = os.environ.get('WA_API_ADMIN', 'https://e.joho.cn/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
-ADMIN_USER = os.environ.get('WA_D52_ADMIN_USER', 'superadmin')
-ADMIN_PWD = os.environ.get('WA_D52_ADMIN_PWD', '__REDACTED__')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 TAG = os.environ.get('WA_D52_TAG', '')
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 QUICK_STOCKTAKE = 'pages/inventory/stock-doc/stocktake/index'

@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 import sys, io, json
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from login_util import admin_login_state, list_tenants
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ADMIN_API = "https://e.joho.cn/admin-api"
 
@@ -18,7 +24,7 @@ def gql(query, headers, variables=None):
     except Exception as e:
         return "ERR", str(e)[:400]
 
-A = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}")["auth_token"]
+A = admin_login_state(USER, PWD)["auth_token"]
 h = {"Authorization": "Bearer " + A}
 print("== Query type fields ==")
 s, b = gql('query{ __type(name:"Query"){ fields { name } } }', h)

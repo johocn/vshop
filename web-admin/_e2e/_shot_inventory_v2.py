@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+import os
 # 库存 v2 截图：手机 390x844 dpr=2 为主（概览/低库存/搜索/排序/预警规则/单据中心/流水/批量生成采购单）+ 桌面 1440x900
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：TENANT_USER / TENANT_PASS（t2 二月兰会员 租户管理员「田经理」）
 # 顺序铁律：必须先完成「后端部署 + 前端部署」再跑本脚本，否则截到旧版本。
 #
 # 本脚本含两处**真实写操作**（用于让「预警规则 / 单据中心 / 流水页」有真实数据）：
@@ -9,6 +10,11 @@
 # t2 为纯虚拟库存模式（physicalStockEnabled=false，无物理仓），入库落到「t2 虚拟仓」。
 from playwright.sync_api import sync_playwright
 import time, shutil, os
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/'
@@ -22,8 +28,8 @@ def login(ctx, channel='t2'):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     tok = pg.evaluate("""(ch) => {

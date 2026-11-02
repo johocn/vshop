@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // waimai 全链路冒烟：点单→支付→抢单→接力交接→送达→分成入账→转单回大厅。
 // 用法: node waimai-e2e-smoke.cjs [shop-api-base，默认 https://e.joho.cn/shop-api]
 const SHOP_API = (process.argv[2] || 'https://e.joho.cn/shop-api').replace(/\/$/, '');
@@ -63,7 +69,7 @@ async function adminLogin() {
     const res = await fetch(ADMIN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: `mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }` }),
+        body: JSON.stringify({ query: `mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }` }),
     });
     const body = await jsonOrThrow(res, ADMIN_API);
     if (!body.data?.login?.id) throw new Error('admin login failed: ' + JSON.stringify(body.errors ?? body.data));

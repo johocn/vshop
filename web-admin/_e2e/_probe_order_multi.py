@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+import os
 # 只读探针：验证「多条件组合」的 filterOperator 正确落点。
 # 背景：buildOrderFilter 在多条件时把 filterOperator 写进 filter 对象内；
 #       探针已证 OrderFilterParameter 无该字段 → 组合筛选会 GraphQL 报错。
 # 本探针判定三种写法谁可用：① filter 内嵌 ② options 级 ③ 不写（依赖默认 AND）
 from playwright.sync_api import sync_playwright
 import time
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 
@@ -43,8 +49,8 @@ with sync_playwright() as p:
     pg.goto(BASE, wait_until='networkidle', timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click(); time.sleep(7)
     tok = pg.evaluate("""() => {
       const t = localStorage.getItem('wa_auth_token');

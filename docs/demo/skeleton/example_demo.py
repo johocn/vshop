@@ -18,7 +18,7 @@ TITLE = "示例：后台登录 + 仪表盘手机截图"
 APP = "https://e.joho.cn/guanli/"
 
 # 登录态（只读演示用官方默认店铺）
-STATE = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+STATE = admin_login_state(os.environ.get("ADMIN_USER"), os.environ.get("ADMIN_PASS"), channel_code=None)
 AUTH = STATE["auth_token"]
 print("登录成功 channel=", STATE["channel_code"], "superadmin=", STATE["is_superadmin"])
 

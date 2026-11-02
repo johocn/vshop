@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 const ADMIN = 'https://e.joho.cn/admin-api';
 
 async function gql(query, token, channel) {
@@ -8,14 +14,14 @@ async function gql(query, token, channel) {
   return r.json();
 }
 
-const login = await gql(`mutation{login(username:"superadmin",password:"__REDACTED__"){... on CurrentUser{id identifier}}}`);
+const login = await gql(`mutation{login(username:"${ADMIN_USER}",password:"${ADMIN_PASS}"){... on CurrentUser{id identifier}}}`);
 console.log('login', JSON.stringify(login.data || login.errors));
 
 // 用 fetch 拿 set-cookie 里的 token 头：vendure 返回 vendure-auth-token 响应头
 const r = await fetch(ADMIN, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ query: `mutation{login(username:"superadmin",password:"__REDACTED__"){... on CurrentUser{id}}}` }),
+  body: JSON.stringify({ query: `mutation{login(username:"${ADMIN_USER}",password:"${ADMIN_PASS}"){... on CurrentUser{id}}}` }),
 });
 const authToken = r.headers.get('vendure-auth-token');
 console.log('auth header token?', !!authToken);

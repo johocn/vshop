@@ -437,7 +437,7 @@ async function gql(q, vars = {}, headers = {}) {
   return { body, token: res.headers.get('vendure-auth-token') };
 }
 
-const login = await gql(`mutation { login(username:"superadmin", password:"superadmin") {
+const login = await gql(`mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") {
   ... on CurrentUser { id identifier } ... on InvalidCredentialsError { errorCode } } }`);
 const token = login.token;
 console.log('login ok, token len=', token ? token.length : 0);

@@ -2902,8 +2902,8 @@ import argparse, json, os, sys
 import urllib.request
 
 BASE = os.environ.get('WA_SMOKE_BASE', 'http://localhost:3000')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
 
 FAILED = []
 
@@ -6671,8 +6671,8 @@ def login(pg):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=60000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=40000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill('${TENANT_USER}')
+    pg.locator('input').nth(1).fill('${TENANT_PASS}')
     pg.locator('button, .btn').first.click()
     time.sleep(8)
     ok = pg.evaluate("""() => {
@@ -6892,8 +6892,8 @@ def login(pg):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=60000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=40000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill('${TENANT_USER}')
+    pg.locator('input').nth(1).fill('${TENANT_PASS}')
     pg.locator('button, .btn').first.click()
     time.sleep(8)
     ok = pg.evaluate("""() => {
@@ -7364,7 +7364,7 @@ git commit -m "test(stocktake): 只读冒烟探针 + 手机视口截图 + 手册
 | 47 | 规格 §8.2 / Task 12 Step4 核对表「zone 档只到库区」 | Task 12 已交付的 `BinGrid.vue` 模板为 `<view v-if="active" class="cells">`——**zone 档同样渲染库位格子** | 补 `showCells: boolean` prop（默认不渲染），`count.vue` 传 `:show-cells="showBin"`；`v-if="active && showCells"` 出格子，`v-else-if="!active"` 出「无归位」空态 | Task 16 Step 4 逐条核对时发现：zone 档本应「只到库区、不暴露库位码」，实际却把 `A-01-01` 这类库位码渲染出来，与规格 §8.2 及 Task 12 Step4 自测核对表矛盾（Task 12 当时未覆盖 zone 档截图故漏判）。修复后复跑：`zone 档 库区Tab=4 格子=0（zone 档应为 0 格）`、`bin 档 格子=10`。属**前序 Task 遗留缺陷**，单独一条提交 `f5831d8` 便于回溯 |
 | 48 | Task 16 Step 5 手册 16.4「前端单测」数量 | 计划写「13 个用例」（承 Task 9 原稿） | 手册按**实测 15 用例 / 6 套件**写 | 与偏差 #22 同源：计划内的用例计数笔误（6 个 `describe` 分节合计 15 个 `it`），断言逐字落地未改。手册是给运维看的验收文档，以实测为准 |
 | 49 | Task 16 Step 6 部署命令的工作目录 | `node scripts\deploy.mjs`（隐含 cwd = `d:\zhao\vshop`） | 实际脚本在 **`web-admin/scripts/deploy.mjs`**，cwd 须为 `d:\zhao\vshop\web-admin` | 按计划原话在 `d:\zhao\vshop` 执行报 `Cannot find module 'D:\zhao\vshop\scripts\deploy.mjs'`；Glob 定位到真实路径后成功。计划 Step 6 的 cwd 写法有误（该脚本此前由 Task 8 的部署流程引入，位于 web-admin 内） |
-| 50 | Task 16 Step 7 线上「渠道收口」断言 | 计划要求线上复验「换另一渠道再查，两边任务 id 集合无交集」 | **线上如实记为 SKIP**（非 OK、非 FAIL），并在手册 16.6 说明缘由 | 生产登录账号 `guoxinnanshan@163.com` 的 `myTenantAccess.channels` **只含 t2**；加了「退回 admin `channels{items}` 再找一个」的兜底后仍拿不到可比渠道（该账号无更广渠道可见性）。**不虚报 OK**：该断言的证据改由 Task 8 在生产用**显式渠道令牌**（t2 / t1 / `__default_channel__`）验证 —— 8/8 PASS（t2 自见 1 条、t1 与默认渠道各 0 条、跨渠道直查被拒、取消成功）。本地侧该断言本轮**实测通过**（`channel=__default_channel__ totalItems=0 交集=[]`） |
+| 50 | Task 16 Step 7 线上「渠道收口」断言 | 计划要求线上复验「换另一渠道再查，两边任务 id 集合无交集」 | **线上如实记为 SKIP**（非 OK、非 FAIL），并在手册 16.6 说明缘由 | 生产登录账号 `${TENANT_USER}` 的 `myTenantAccess.channels` **只含 t2**；加了「退回 admin `channels{items}` 再找一个」的兜底后仍拿不到可比渠道（该账号无更广渠道可见性）。**不虚报 OK**：该断言的证据改由 Task 8 在生产用**显式渠道令牌**（t2 / t1 / `__default_channel__`）验证 —— 8/8 PASS（t2 自见 1 条、t1 与默认渠道各 0 条、跨渠道直查被拒、取消成功）。本地侧该断言本轮**实测通过**（`channel=__default_channel__ totalItems=0 交集=[]`） |
 | 51 | Task 16 Step 8 提交粒度与手册目录条目 | 计划给出**单条**提交（`git commit -m "test(stocktake): …"`）；手册目录条目为裸 `<li>16 多人协同盘库 …</li>` | 拆成**两条**：`f5831d8`（zone 档缺陷修复，fix）+ `fd8072e`（探针 + 25 张截图 + 手册第 16 章，test/docs）；手册目录条目按既有惯例补锚点 `<a href="#stocktake-collab">` | ①zone 档缺陷属**功能修复**（改的是已交付页面的渲染行为），与「测试/文档」混在一条会让 `git log` 无法区分「改了啥行为」与「加了啥证据」；拆分后 `git bisect`/回滚精度更高。②手册目录其余 15 章条目**全部带锚点链接**（可点击跳转），裸文本会破坏目录可用性一致性 |
 | 52 | 偏差 #40（建任务 `autoSplitByZone` 后端从未消费） | 原稿只把它登记为「已知缺陷 + 待办」（编辑手册 16.8.7 ① 也是这么写的） | **补实现**：`buildExpected` 增可选入参 `autoSplitByZone`（`false` = 不拆，整仓一个 `whole` 盘次，且行**仍保留** `zoneId/binId`；缺省 / `true` = 按库区拆），`stocktake.service.ts` 的 `createTask` 透传 `input.autoSplitByZone !== false`；新增 2 个对照单测；`npm run build` 重出 `lib/` | 用户 2026-09-25 裁决「四项一起做」的第一项。**语义定稿**：该开关只影响**盘次拆分**，不影响**行快照**——行若丢掉库位归属，录入页格子宫格与「未归位桶」就退化，等于用一个开关顺手砍掉两个功能。故 `false` 时仍按绑定给行打 `zoneId/binId`，只是全部塞进同一个 `whole` 盘次 |
 | 53 | 偏差 #45（前端未做按钮级置灰，只落菜单门控 + 服务端权限点 + owner 锁三层） | 原稿把它登记为「规格 §9 未落项 + 如需置灰应另立任务」 | **补齐 UI 层**：权限并入 `useStocktakeScope.canEdit`（新增 `canCount = isSuperAdmin \|\| hasPermission('StocktakeCount')`，与「盘次处于 CLAIMED/COUNTING」相与），`count.vue` / `scan.vue` 复用同一处收口即覆盖输入框与保存/提交按钮；`index.vue` 另加 `canCount` 门控浮动新建按钮（置灰 + 拦截 `openForm()`）与提交按钮；三页提示改为「无权限 → 未认领 → 未启用库位」三段分因；中英各补 3 条词条 | 用户 2026-09-25 裁决的第二项。`canEdit` 原本只看盘次状态，把权限直接并进去可让两个录入页**零散改**收口成一处；提示分因是必要配套——否则无权限用户会看到「请先认领」，按提示去认领反而更困惑。补齐后置灰为**四层**（新增 UI 层，原三层仍在） |

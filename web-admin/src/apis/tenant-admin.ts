@@ -141,7 +141,7 @@ export async function updateTenant(id: string, input: { name?: string; tenantNo?
   return mapTenant(res.updateTenant);
 }
 
-/** 重置租户管理人密码为默认口令 __REDACTED__（仅超管） */
+/** 重置租户管理人密码为默认口令（仅超管） */
 export async function resetTenantAdministratorPassword(memberId: string): Promise<void> {
   await getAdminClient().request(
     `mutation ResetTenantAdminPassword($memberId: ID!) { resetTenantAdministratorPassword(memberId: $memberId) }`,
@@ -369,7 +369,7 @@ export async function setMyTenantMemberRedeemProfiles(id: string, shippingProfil
   );
 }
 
-/** 租户自助重置本租户成员密码为默认口令 __REDACTED__ */
+/** 租户自助重置本租户成员密码为默认口令 */
 export async function resetTenantMemberPasswordToDefault(memberId: string): Promise<void> {
   await getAdminClient().request(
     `mutation MyResetTenantMemberPassword($id: ID!) { myResetTenantMemberPassword(id: $id) }`,

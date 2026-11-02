@@ -19,8 +19,10 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_SHOT_BASE', 'https://e.joho.cn/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = os.environ.get('WA_SMOKE_CHANNEL', 't2')
 LOC = os.environ.get('WA_SMOKE_LOC', '3')
 ALLOW_WRITE = os.environ.get('WA_SHOT_ALLOW_WRITE', '0') == '1'

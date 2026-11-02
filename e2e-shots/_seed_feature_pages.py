@@ -2,19 +2,26 @@
 """为功能页面手机截图造数（本地 dev-server）：拼团活动 + 已发货订单 + 已同意售后单。
 
 链路：shop(audit 账号) 注册登录 / 下单（加购→地址→快递配送→ArrangingPayment→dummy-payment 结算）；
-admin(superadmin) 作废历史脏单 / 流转到 Shipped / 建拼团活动 / 批准售后单。
+admin 账号作废历史脏单 / 流转到 Shipped / 建拼团活动 / 批准售后单。
 可重复运行：先作废上次的未完成订单，再走全新流程。
+凭据一律从环境变量读取：ADMIN_USER / ADMIN_PASS、AUDIT_USER / AUDIT_PASS。
 """
 import json
+import os
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
 SHOP = "http://localhost:3000/shop-api"
 ADMIN = "http://localhost:3000/admin-api"
 CHANNEL_TOKEN = "default-token"
-PASS = "superadmin"
-EMAIL = "audit-verify@example.com"
-PWD = "__REDACTED__"
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PASS = os.environ.get("ADMIN_PASS")
+EMAIL = os.environ.get("AUDIT_USER")
+PWD = os.environ.get("AUDIT_PASS")
+if not ADMIN_USER or not ADMIN_PASS:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+if not EMAIL or not PWD:
+    raise SystemExit("缺少 AUDIT_USER / AUDIT_PASS 环境变量")
 
 
 def gql(url, query, variables=None, token=None, get_header=False):
@@ -50,7 +57,7 @@ assert AUTH, body
 print("shop ok, customer", ok(body, "data", "login", "id"))
 
 print("== 1. admin login")
-admin_token, body = gql(ADMIN, 'mutation { login(username: "superadmin", password: "%s") { ... on CurrentUser { id } } }' % PASS,
+admin_token, body = gql(ADMIN, 'mutation { login(username: "%s", password: "%s") { ... on CurrentUser { id } } }' % (ADMIN_USER, ADMIN_PASS),
                         get_header=True)
 assert admin_token, body
 print("admin ok")

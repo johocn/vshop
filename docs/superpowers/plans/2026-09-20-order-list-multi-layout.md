@@ -220,7 +220,7 @@ script 部分保留现有 `loadStats/loadRedeem/loadOrders/filter/sort/paging` �
 Run: `cd d:\zhao\vshop\web-admin && npm run build:h5`
 Expected: 构建成功。
 
-创建 `_e2e/_shot_order_layouts.py`（390×844 dpr=2，登录 guoxinnanshan@163.com/__REDACTED__）：依次切 classic/status-first/status-group 各截图 `order_classic.png / order_status_first.png / order_status_group.png`。
+创建 `_e2e/_shot_order_layouts.py`（390×844 dpr=2，登录 ${TENANT_USER}/${TENANT_PASS}）：依次切 classic/status-first/status-group 各截图 `order_classic.png / order_status_first.png / order_status_group.png`。
 
 - [ ] **Step 5: 手册章节 + 部署 + 提交**
 

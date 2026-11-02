@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
+import os
 """阶段A：超管 UI 创建商户租户 + 添加商户管理员，全程截图，并解析初始口令"""
 import sys, io, os, json, time
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 from login_util import admin_login_state, list_tenants, import_default_roles, tenant_roles
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 os.makedirs(SHOTS, exist_ok=True)
 APP = "https://e.joho.cn/guanli/"
 
-STATE = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+STATE = admin_login_state(USER, PWD, channel_code=None)
 AUTH = STATE["auth_token"]
 
 TENANT_NAME = "陈记烘焙馆·手机版"

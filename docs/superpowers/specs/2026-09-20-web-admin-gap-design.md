@@ -14,7 +14,7 @@
 7. **批2 看板版式**：版式 A 纵排（KPI 横排 → 7 日趋势全宽 → 销量 Top 榜）。
 
 ### 1.2 交付铁律（用户硬规范）
-每项功能 = 实现 + API/e2e 回归 + **390×844（dpr=2）手机截图**（Playwright，登录 `guoxinnanshan@163.com / __REDACTED__`，t2 租户，存 `web-admin/src/static/manual/shots/`）+ 手册章节 + 部署。
+每项功能 = 实现 + API/e2e 回归 + **390×844（dpr=2）手机截图**（Playwright，登录 `${TENANT_USER} / ${TENANT_PASS}`，t2 租户，存 `web-admin/src/static/manual/shots/`）+ 手册章节 + 部署。
 部署：web-admin 本地构建 + `node scripts/deploy.mjs`；vendure（coupon-plugin 小改）走 git push + ssh pull + pm2 restart。
 
 ## 2. 现状审计（已核实）

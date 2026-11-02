@@ -915,8 +915,8 @@ with sync_playwright() as p:
     time.sleep(1)
     inputs = page.locator('input')
     if inputs.count() >= 2:
-        inputs.nth(0).fill('superadmin')
-        inputs.nth(1).fill('superadmin')
+        inputs.nth(0).fill('${ADMIN_USER}')
+        inputs.nth(1).fill('${ADMIN_PASS}')
         page.locator('button').first.click()
         time.sleep(3)
 

@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
 # 复现: 登录后直接调 assetLibrary(take=30,skip=0,tags) 与无tags, 对比真实错误
 from playwright.sync_api import sync_playwright
 import time, urllib.request, json
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 BASE='https://e.joho.cn/guanli/'
 def gql(url, token, ch, query, variables):
     req=urllib.request.Request(url, data=json.dumps({'query':query,'variables':variables}).encode(),
@@ -15,7 +21,7 @@ with sync_playwright() as p:
     pg=b.new_page(viewport={'width':1440,'height':900})
     pg.goto(BASE,wait_until='networkidle',timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
-    pg.locator('input').nth(0).fill('superadmin'); pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER); pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click(); time.sleep(4)
     pg.locator('.item',has_text='t1').first.click(); time.sleep(4)
     st=pg.evaluate('()=>({token:localStorage.getItem("wa_auth_token"),ch:localStorage.getItem("wa_channel_token"),uid:localStorage.getItem("wa_user_id")})')

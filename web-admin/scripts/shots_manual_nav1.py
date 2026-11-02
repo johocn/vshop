@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """手册新章节渲染截图（390x844 dpr2）"""
 import time
 from playwright.sync_api import sync_playwright

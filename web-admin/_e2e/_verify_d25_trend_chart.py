@@ -28,8 +28,10 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get('WA_SHOT_BASE', 'http://localhost:5280/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL_CODE = os.environ.get('WA_D25_CHANNEL', 'shop-a')
 # 输出名标签：本地跑留空（gap4-d25-<mode>.png）；线上复验用 WA_D25_TAG=online-
 # （gap4-d25-online-<mode>.png），避免线上跑覆盖本地取证。

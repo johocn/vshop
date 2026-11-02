@@ -631,7 +631,7 @@ import requests, json
 # 1. 验证 wechatpay PaymentMethod 存在
 print("=== 1. Verify wechatpay PaymentMethod ===")
 r = requests.post("http://localhost:3000/admin-api", json={
-    "query": 'mutation { login(username: "superadmin", password: "superadmin") { ...on CurrentUser { identifier } } }'
+    "query": 'mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ...on CurrentUser { identifier } } }'
 })
 token = r.headers.get('vendure-auth-token')
 r = requests.post("http://localhost:3000/admin-api",

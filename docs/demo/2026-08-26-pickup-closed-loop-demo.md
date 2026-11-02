@@ -11,7 +11,7 @@
 
 | 角色 | 登录端 | 账号 | 密码 | 归属 |
 | --- | --- | --- | --- | --- |
-| 平台超管 | 租户后台 web-admin | `superadmin` | `__REDACTED__` | 平台（default 商城） |
+| 平台超管 | 租户后台 web-admin | `${ADMIN_USER}` | `${ADMIN_PASS}` | 平台（default 商城） |
 | t1 租户店主/销售 | 租户后台 web-admin | `zhao@163.com` | `23123` | t1 店铺 |
 | C 端顾客（兼买家/店主） | C 端 H5 | `zhao@163.com` | `23123` | t1 店铺顾客 |
 
@@ -55,7 +55,7 @@
 - 商品状态：`listedInMarketplace=true`，`marketplaceStatus=pending`
 
 ### 第 4 步 · 平台超管审批通过
-- 入口：`ADMIN_USER / ADMIN_PASS` 登录后台 → 商品/市场审批 → 通过「便携蓝牙音箱」
+- 入口：`${ADMIN_USER} / ${ADMIN_PASS}` 登录后台 → 商品/市场审批 → 通过「便携蓝牙音箱」
 - 结果：`approveMarketplaceProduct(productId:3)` → `marketplaceStatus=approved`
 - 截图：`00-superadmin-login.png`、`02-product-approval-pending.png`（商品上架审批页，蓝牙音箱已在本次演示前置操作中通过）
 - 校验（Admin API）：product 3 `{ listedInMarketplace:true, marketplaceStatus:"approved" }`，default 商城检索可命中该商品。

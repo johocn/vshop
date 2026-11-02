@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
 from playwright.sync_api import sync_playwright
 import sys, time
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:5280/guanli/'
 PREFIX = sys.argv[2] if len(sys.argv) > 2 else 'order_local_'
@@ -30,8 +36,8 @@ def run(viewport, tag):
         page.goto(BASE, wait_until='networkidle', timeout=45000)
         time.sleep(1)
         # 登录
-        page.locator('input').nth(0).fill('superadmin')
-        page.locator('input').nth(1).fill('__REDACTED__')
+        page.locator('input').nth(0).fill(USER)
+        page.locator('input').nth(1).fill(PWD)
         page.locator('button, .btn').first.click()
         time.sleep(4)
         page.goto(BASE + '#/pages/order/list/index', wait_until='networkidle', timeout=45000)

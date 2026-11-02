@@ -43,7 +43,7 @@ cd d:\zhao\vendure\packages\dev-server ; npm run dev:server        # API_PORT=30
 cd d:\zhao\vshop\web-admin ; npm run dev:h5                       # 5280，/admin-api 代理 → localhost:3000
 ```
 
-自检：`http://localhost:5280/` 可打开登录页；用 `superadmin@china.test / superadmin` 能登录。
+自检：`http://localhost:5280/` 可打开登录页；用 `ADMIN_USER / superadmin` 能登录。
 
 ### 0.4 执行期授权、备份与收口约定（用户 2026-09-27 定稿）
 
@@ -336,8 +336,8 @@ except ImportError as e:  # noqa: BLE001
     raise SystemExit(2)
 
 BASE = os.environ.get('WA_D55_BASE', 'http://localhost:5280/')
-USER = os.environ.get('WA_D55_ADMIN_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_D55_ADMIN_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
 PAGE = 'pages/platform/global-config/index'
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 FAILS = []
@@ -524,8 +524,8 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_D55_BASE', 'http://localhost:5280/')
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
 CHANNEL = os.environ.get('WA_B3_CHANNEL', 'shop-a')
 TARGET = int(os.environ.get('WA_D55_TARGET_ROWS', '25'))
 MOVEMENTS = 'pages/inventory/movements/index'

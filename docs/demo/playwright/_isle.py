@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys, io, json
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -6,11 +7,18 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from playwright.sync_api import sync_playwright
 from login_util import admin_login, list_tenants, admin_login_state
 
-A = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}")["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+A = admin_login_state(USER, PWD)["auth_token"]
 t2 = next(t for t in list_tenants(A) if t["code"] == "t2")
 TOKEN = t2["token"]
-EMAIL = "chendi-demo@joho.cn"
-PWD = "__REDACTED__"
+EMAIL = os.environ.get("DEMO_USER")
+PWD = os.environ.get("DEMO_PASS")
+if not EMAIL or not PWD:
+    raise SystemExit("缺少 DEMO_USER / DEMO_PASS 环境变量")
 
 # 1) 浏览器登录一次
 with sync_playwright() as p:

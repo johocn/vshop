@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """探针：admin-api afterSalesRequestAdmin 的 order.lines 是否可解析（商品栏回退展示前置验证）。"""
 import json
 
@@ -7,7 +8,7 @@ import requests
 ADMIN_API = "https://e.joho.cn/admin-api"
 
 s = requests.Session()
-lr = s.post(ADMIN_API, json={"query": "mutation { login(username: \"superadmin\", password: \"__REDACTED__\") { ... on CurrentUser { id } } }"}, timeout=20)
+lr = s.post(ADMIN_API, json={"query": "mutation { login(username: \"" + USER + "\", password: \"" + PWD + "\") { ... on CurrentUser { id } } }"}, timeout=20)
 tok = lr.headers.get("vendure-auth-token")
 assert tok, "login failed: " + lr.text[:200]
 s.headers["Authorization"] = "Bearer " + tok

@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
+import os
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from playwright.sync_api import sync_playwright
 from login_util import admin_login_state, list_tenants
 
-A = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}")["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+A = admin_login_state(USER, PWD)["auth_token"]
 t2 = next(t for t in list_tenants(A) if t["code"] == "t2")
 TOKEN = t2["token"]
-EMAIL = "chendi-demo@joho.cn"
-PWD = "__REDACTED__"
+EMAIL = os.environ.get("DEMO_USER")
+PWD = os.environ.get("DEMO_PASS")
+if not EMAIL or not PWD:
+    raise SystemExit("缺少 DEMO_USER / DEMO_PASS 环境变量")
 
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)

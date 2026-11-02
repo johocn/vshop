@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 清理生产中的临时受限测试账号：tenant_member 已删，补删孤儿 Administrator id=54
 const ADMIN_API = 'https://e.joho.cn/admin-api';
 const CHANNEL = 'cnx87ezvmjx8nn3bth6c';
@@ -24,7 +30,7 @@ const loginQ = `mutation Login($u: String!, $p: String!) {
   }
 }`;
 
-const { json: lj, newToken } = await gql(loginQ, { u: 'superadmin', p: '__REDACTED__' });
+const { json: lj, newToken } = await gql(loginQ, { u: ADMIN_USER, p: ADMIN_PASS });
 console.log('login:', JSON.stringify(lj));
 if (!newToken) {
   console.error('no auth token returned');

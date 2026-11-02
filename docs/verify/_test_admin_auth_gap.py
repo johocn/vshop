@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """补充负例：未登录用合法 input 调 createLiveRoom，必须 FORBIDDEN。"""
 import json
 import urllib.error

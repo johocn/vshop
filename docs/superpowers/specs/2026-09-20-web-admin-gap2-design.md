@@ -8,7 +8,7 @@
 用户在多选题中全选四项（商品审批补强 / 图片库选图复用 / 优惠券交互打磨 / 收银核销对账闭环），并**补充明确 bug**：「核销页面，商品详情，没有显示价格，当前为 0」。据此将「PO 核销价=0」列为本批最高优先级（P0），其余四项按对应用户选项命名。
 
 ### 1.2 交付铁律（用户硬规范）
-每项 = 实现 + API/e2e 回归 + **390×844（dpr=2）手机截图**（Playwright，登录 `guoxinnanshan@163.com / __REDACTED__`，t2 租户，存 `web-admin/src/static/manual/shots/`）+ 手册章节（若涉及）+ 部署。
+每项 = 实现 + API/e2e 回归 + **390×844（dpr=2）手机截图**（Playwright，登录 `${TENANT_USER} / ${TENANT_PASS}`，t2 租户，存 `web-admin/src/static/manual/shots/`）+ 手册章节（若涉及）+ 部署。
 部署：web-admin 本地构建 + `node scripts/deploy.mjs`；vendure（P0 需改 `cjk-plugin`）走 git push + ssh pull + pm2 restart。
 
 ## 2. 现状审计（已核实）

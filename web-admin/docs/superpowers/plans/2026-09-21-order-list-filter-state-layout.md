@@ -410,7 +410,7 @@ git commit -m "feat(web-admin): 订单列表筛选纯函数层（时间区间/�
 ```python
 # -*- coding: utf-8 -*-
 # 只读探针：验证生产 admin-api 的 OrderFilterParameter 过滤真实生效（各条件 totalItems 有区分度）
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：${TENANT_USER} / ${TENANT_PASS}（t2 二月兰会员 租户管理员「田经理」）
 from playwright.sync_api import sync_playwright
 import json, time
 
@@ -442,8 +442,8 @@ with sync_playwright() as p:
     pg.goto(BASE, wait_until='networkidle', timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill('${TENANT_USER}')
+    pg.locator('input').nth(1).fill('${TENANT_PASS}')
     pg.locator('button, .btn').first.click(); time.sleep(7)
     tok = pg.evaluate("""() => {
       const t = localStorage.getItem('wa_auth_token');
@@ -2449,7 +2449,7 @@ Expected（与 Task 2 Step 1 记录的数值对照）：
 ```python
 # -*- coding: utf-8 -*-
 # 订单列表 v2 截图：服务端过滤 / 时间+状态组合 / 异常组 / 三版式（手机 390x844 dpr=2 为主 + 桌面 1440x900）
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：${TENANT_USER} / ${TENANT_PASS}（t2 二月兰会员 租户管理员「田经理」）
 from playwright.sync_api import sync_playwright
 import time, shutil, os
 
@@ -2465,8 +2465,8 @@ def login(ctx):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill('${TENANT_USER}')
+    pg.locator('input').nth(1).fill('${TENANT_PASS}')
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     # 绕开选店 UI：直接取 t2 渠道 token 注入 localStorage

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """列表页「保存返回自动刷新 + 新建内容最先显示」回归验证（390x844 dpr=2，硬规范）
 本地预览 http://localhost:5280/guanli/（VITE_API_URL=https://e.joho.cn 直连生产 admin-api）
 登录：ADMIN_USER / ADMIN_PASS；t2 渠道经 localStorage 注入（superadmin 店铺列表不含 t2）
@@ -11,6 +12,11 @@
 """
 import time
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'http://localhost:5280/guanli/'
 API = 'https://e.joho.cn/admin-api'
@@ -45,8 +51,8 @@ with sync_playwright() as p:
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('superadmin')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER)
+    pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     print('after login url =', pg.url)

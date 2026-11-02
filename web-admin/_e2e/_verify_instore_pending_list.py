@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """买单核销页「默认待核销券列表」回归验证（390x844 dpr=2，硬规范）
 线上 https://e.joho.cn/guanli/（已部署最新版）
 登录：ADMIN_USER / ADMIN_PASS；t2 渠道经 localStorage 注入（superadmin 店铺列表不含 t2）
@@ -10,6 +11,11 @@
 """
 import time
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/op56-instore-redeem-390.png'
@@ -42,8 +48,8 @@ with sync_playwright() as p:
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('superadmin')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER)
+    pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     print('after login url =', pg.url)

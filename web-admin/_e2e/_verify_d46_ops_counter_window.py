@@ -48,8 +48,10 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_D46_BASE', 'https://e.joho.cn/guanli/')
 ADMIN = os.environ.get('WA_API_ADMIN', 'https://e.joho.cn/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL_CODE = os.environ.get('WA_D46_CHANNEL', 't2')
 STATE = os.environ.get('WA_D46_STATE', 'after').strip().lower()
 TAG = os.environ.get('WA_D46_TAG', STATE + '-')

@@ -11,6 +11,11 @@ import time
 
 from playwright.sync_api import sync_playwright
 
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
+
 BASE = 'http://localhost:5280/guanli/'
 HOST = 'http://localhost:5280'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/'
@@ -45,8 +50,8 @@ def login(pg):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=60000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=40000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click()
     time.sleep(8)
     ok = pg.evaluate("""() => {

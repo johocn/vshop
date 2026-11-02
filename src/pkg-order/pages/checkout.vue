@@ -1301,9 +1301,13 @@ async function submitOrder() {
                 uni.redirectTo({ url: '/pkg-order/pages/pay-result?codes=' + encodeURIComponent(codes.join(',')) + '&status=success' });
             }
         }
-    } catch (e: any) { ui.showToast(e.message); }
-    ui.hideLoading();
-    submitting.value = false;
+    } catch (e: any) {
+        ui.showToast(e.message);
+    } finally {
+        // 无论成功、失败还是提前 return，都必须复位加载态与按钮禁用态
+        ui.hideLoading();
+        submitting.value = false;
+    }
 }
 </script>
 

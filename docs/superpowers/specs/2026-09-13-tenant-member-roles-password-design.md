@@ -10,14 +10,14 @@
 
 1. **角色重复**：新增/分配人员时角色下拉出现重复项。根因：`myTenantRoles` 返回本 channel 关联的全部角色（本店本地角色 + 被引用的全局角色 `g-`），同名不同 id 时视觉重复，且未区分「可授/不可授」。
 2. **缺少权限边界**：租户管理员可给其他人员赋予任意角色，包括比自己权限更高的角色（如把别人设为租户管理员），存在提权漏洞。
-3. **缺少租户自助重置密码**：重置密码仅超管在租户详情页可用（`resetTenantAdministratorPassword`，默认口令 `__REDACTED__`），租户管理员不能重置本租户低权限成员的密码。
+3. **缺少租户自助重置密码**：重置密码仅超管在租户详情页可用（`resetTenantAdministratorPassword`，默认口令 `${TENANT_PASS}`），租户管理员不能重置本租户低权限成员的密码。
 4. **修改密码不完整**：后端已有本人改密 `tenantChangeMyPassword`（`changeMyPassword`），但无旧密码校验、无主动改密入口（仅首登强改密时使用）。
 
 ## 目标
 
 - 后端权威实现「严格小于」权限门禁，杜绝提权；
 - 角色下拉去重，且只展示操作者可授的角色；
-- 租户管理员可重置**低于其权限**的成员密码（默认口令 `__REDACTED__`）；
+- 租户管理员可重置**低于其权限**的成员密码（默认口令 `${TENANT_PASS}`）；
 - 本人主动修改密码（校验旧密码），并保留首登强改密流程。
 
 ## 方案选型
@@ -56,7 +56,7 @@
 ### 租户自助重置密码（新增）
 
 - Resolver：`myResetMemberPassword(memberId: ID): Boolean`，`@Allow(tenantMemberManagePermission.Permission)`，`assertChannelMember`。
-- 服务：查 `TenantMember`（必须属于 `ctx.channelId`）；取其在本租户的角色权限，执行 `assertCanGrant`；调用 `administratorService.update` 重置为 `DEFAULT_ADMIN_PASSWORD`（`__REDACTED__`）；清除 `mustChangePassword` 标志。
+- 服务：查 `TenantMember`（必须属于 `ctx.channelId`）；取其在本租户的角色权限，执行 `assertCanGrant`；调用 `administratorService.update` 重置为 `DEFAULT_ADMIN_PASSWORD`（`${TENANT_PASS}`）；清除 `mustChangePassword` 标志。
 - 前端：成员行显示「重置密码」入口（后端同时返回 `canResetPassword` 标记，前端据此显隐 + 二次确认弹窗）。
 
 ### 主动修改密码（本人）
@@ -81,7 +81,7 @@
 
 [重置密码]
   点「重置密码」→ 确认弹窗 → myResetMemberPassword(memberId)
-    → 后端校验同租户 + 低于自己 → 重置为 __REDACTED__ → 返回成功提示「已重置为默认口令 __REDACTED__」
+    → 后端校验同租户 + 低于自己 → 重置为 ${TENANT_PASS} → 返回成功提示「已重置为默认口令 ${TENANT_PASS}」
 
 [主动改密]
   账号区「修改密码」→ 旧密码+新密码+确认 → tenantChangeMyPassword(old,new)
@@ -105,5 +105,5 @@
 ## 范围外
 
 - 不新增「管理员代改他人生效密码」（已确认仅本人改自己密码）；
-- 不改变默认口令（沿用 `__REDACTED__`）；
+- 不改变默认口令（沿用 `${TENANT_PASS}`）；
 - 不改动角色管理页（`roles/index`）的创建/编辑权限逻辑（角色创建仍受 `BUSINESS_PERMISSIONS` 白名单约束，本设计只约束「授于人」）。

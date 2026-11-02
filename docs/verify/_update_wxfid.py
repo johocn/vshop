@@ -9,6 +9,9 @@ FID = "sphVymTBbxX448X"
 NEW_URL = "wxchannels://finder=" + FID
 SECRETS = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".secrets"))
 PASS = open(os.path.join(SECRETS, "admin_pass.txt"), encoding="utf-8").read().strip()
+USER = os.environ.get("ADMIN_USER")
+if not USER or not PASS:
+    raise SystemExit("缺少 ADMIN_USER 环境变量或 .secrets/admin_pass.txt")
 
 
 def gql(endpoint, query, variables=None, token=None):
@@ -23,10 +26,10 @@ def gql(endpoint, query, variables=None, token=None):
         return json.loads(r.read().decode())
 
 
-data = gql("/admin-api", 'mutation { login(username: "superadmin", password: "%s") { ... on CurrentUser { id } } }' % PASS)
+data = gql("/admin-api", 'mutation { login(username: "%s", password: "%s") { ... on CurrentUser { id } } }' % (USER, PASS))
 token = None
 # token 从响应头取：urllib 需要返回 headers，这里重新发一次拿 header
-req = urllib.request.Request(BASE + "/admin-api", data=json.dumps({"query": 'mutation { login(username: "superadmin", password: "%s") { ... on CurrentUser { id } } }' % PASS}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+req = urllib.request.Request(BASE + "/admin-api", data=json.dumps({"query": 'mutation { login(username: "%s", password: "%s") { ... on CurrentUser { id } } }' % (USER, PASS)}).encode(), headers={"Content-Type": "application/json"}, method="POST")
 with urllib.request.urlopen(req, timeout=30) as r:
     token = r.headers.get("vendure-auth-token")
 assert token, "no token"

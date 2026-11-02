@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 """nav2 截图：逐页核对「子页返回首页」覆盖度（390x844 dpr2，深链 stack=1 最严苛场景）"""
 import time
 from playwright.sync_api import sync_playwright
 
 BASE = 'https://e.joho.cn/guanli/'
 OUT = 'e2e-shots/'  # 全量逐页回归证据（不入手册静态目录，手册仅引用 nav1 关键 4 张）
-USER, PWD = 'superadmin', '__REDACTED__'
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ROUTES = [
     ('product-list', 'pages/product/list/index'),

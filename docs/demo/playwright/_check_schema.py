@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+import os
 import sys, io, json
 from urllib.request import Request, urlopen
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from login_util import admin_login_state
 
-A = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}")["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+A = admin_login_state(USER, PWD)["auth_token"]
 
 def gql(q):
     req = Request("https://e.joho.cn/admin-api", data=json.dumps({"query": q}).encode(),

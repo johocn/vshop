@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 """阶段C：平台超管审批商品。登录 -> 待审商品列表 -> 找目标商品 -> 通过 -> 校验"""
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 from login_util import admin_login_state
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 SHOTS = os.path.join(os.path.dirname(__file__), "shots")
 APP = "https://e.joho.cn/guanli/"
@@ -11,7 +17,7 @@ meta_b = json.load(open(os.path.join(SHOTS, "meta_phase_b.json"), encoding="utf-
 PID = meta_b["product_id"]
 PNAME = meta_b["product_name"]
 
-SUPER_ADMIN = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+SUPER_ADMIN = admin_login_state(USER, PWD, channel_code=None)
 S_TOKEN = SUPER_ADMIN["channel_token"]
 S_AUTH = SUPER_ADMIN["auth_token"]
 print("super admin channel token len:", len(S_TOKEN), "auth len:", len(S_AUTH))
@@ -22,8 +28,8 @@ def wait_for_superadmin(pg):
         body = pg.inner_text('body')[:80]
         if "登录" in body and "密码" in body:
             try:
-                pg.locator(".uni-input-input").nth(0).fill("superadmin")
-                pg.locator(".uni-input-input").nth(1).fill("__REDACTED__")
+                pg.locator(".uni-input-input").nth(0).fill(USER)
+                pg.locator(".uni-input-input").nth(1).fill(PWD)
                 pg.locator("uni-button:has-text('登')").first.click()
                 pg.wait_for_timeout(2500)
             except Exception as e:
@@ -45,8 +51,8 @@ localStorage.setItem('wa_channel_token', {json.dumps(S_TOKEN)});""")
     # 若登录页则填登录
     if "登录" in body:
         pg.screenshot(path=os.path.join(SHOTS, "c01_platform_login.png"), full_page=False)
-        pg.locator(".uni-input-input").nth(0).fill("superadmin")
-        pg.locator(".uni-input-input").nth(1).fill("__REDACTED__")
+        pg.locator(".uni-input-input").nth(0).fill(USER)
+        pg.locator(".uni-input-input").nth(1).fill(PWD)
         pg.screenshot(path=os.path.join(SHOTS, "c01b_platform_login_filled.png"), full_page=False)
         pg.locator("uni-button:has-text('登')").first.click()
         pg.wait_for_timeout(3000)

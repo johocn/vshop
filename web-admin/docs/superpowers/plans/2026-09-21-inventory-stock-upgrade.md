@@ -23,7 +23,7 @@
 - cjk-plugin 注册区（`packages/cjk-plugin/src/plugin.ts`）：`entities` 数组 **L153**；`providers` **L154-202**；`adminApiExtensions` **L203**（库存单据 SDL **L1143-1199**，租户仓 SDL **L1268-1312**，gql 模板结束反引号 **L1313**）；admin `resolvers` 数组 **L1315**；`shopApiExtensions` **L1317**，shop `resolvers` **L1588**。`configuration` 内 Channel customFields 合并点 **L1702-1719**（`inventoryModeChannelFields` 在 L1708）。
 - `packages/cjk-plugin/index.ts`（包根）是 `tsconfig.build.json` 的 `files: ["./index.ts"]` 唯一入口，`export *` 到 `src/**`；**新实体/服务无需导出**（仅被 `plugin.ts` 内部引用），但若需被 dev-server 脚本使用则加一行 `export *`。
 - `packages/cjk-plugin/package.json` 的 `main = lib/index.js`；**后端改动必须先 `npm run build` 生成 `lib/` 并一并提交**（`lib/` 是 git 跟踪产物）。
-- 本地开发管理员账号：`superadmin@china.test` / `superadmin`（`packages/dev-server/china-data/01-base.ts` L53）；本地起服要 `npm run dev:server` + `npm run dev:worker` 两个进程。
+- 本地开发管理员账号：`ADMIN_USER` / `superadmin`（`packages/dev-server/china-data/01-base.ts` L53）；本地起服要 `npm run dev:server` + `npm run dev:worker` 两个进程。
 
 ---
 
@@ -2148,7 +2148,7 @@ Expected: 启动日志无 `Entity metadata for ... was not found`；日志出现
 ```js
 // 库存页面升级（Plan 2）后端回归探针（本地）
 // 前置：
-//   1) 本地 postgres + 已 populate（superadmin@china.test / superadmin）
+//   1) 本地 postgres + 已 populate（ADMIN_USER / superadmin）
 //   2) 已 build：npm run build --prefix packages/cjk-plugin
 //   3) 两个进程都起：npm run dev:server && npm run dev:worker
 // 运行：node e2e-inventory-stock-page.mjs          （可用 ADMIN_API 覆盖 admin-api 地址）
@@ -2217,7 +2217,7 @@ function bucketMatches(r) {
 }
 
 async function main() {
-    const login = await gql(`mutation { login(username: "superadmin@china.test", password: "superadmin") {
+    const login = await gql(`mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") {
         ... on CurrentUser { id identifier } ... on ErrorResult { errorCode message } } }`);
     ok('超级管理员登录', !!login.login?.identifier, JSON.stringify(login.login));
     ok('拿到 admin token', !!TOKEN);
@@ -5415,14 +5415,14 @@ Expected: `scp` 上传成功 + 服务器解压完成，输出部署目标路径�
 # -*- coding: utf-8 -*-
 # 库存 v2 只读探针（生产 admin-api）：校验 inventoryStockPage / inventoryAlertRules / stockDocList 真实可用
 # 用法: python _e2e/_probe_inventory.py
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：${TENANT_USER} / ${TENANT_PASS}（t2 二月兰会员 租户管理员「田经理」）
 # 说明：本脚本只发 query，绝不发 mutation（不创建单据、不改安全库存）
 from playwright.sync_api import sync_playwright
 import time, urllib.request, json
 
 BASE = 'https://e.joho.cn/guanli/'
 API = 'https://e.joho.cn/admin-api'
-ACC = ('guoxinnanshan@163.com', '__REDACTED__')
+ACC = ('${TENANT_USER}', '${TENANT_PASS}')
 CH = 't2'
 
 
@@ -5634,7 +5634,7 @@ Expected:
 ```python
 # -*- coding: utf-8 -*-
 # 库存 v2 截图：手机 390x844 dpr=2 为主（概览/缺货/搜索/排序/预警规则/单据中心/流水）+ 桌面 1440x900
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：${TENANT_USER} / ${TENANT_PASS}（t2 二月兰会员 租户管理员「田经理」）
 from playwright.sync_api import sync_playwright
 import time, shutil, os
 
@@ -5650,8 +5650,8 @@ def login(ctx):
     pg.evaluate('localStorage.clear()')
     pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill('${TENANT_USER}')
+    pg.locator('input').nth(1).fill('${TENANT_PASS}')
     pg.locator('button, .btn').first.click()
     time.sleep(7)
     tok = pg.evaluate("""() => {

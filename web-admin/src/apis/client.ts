@@ -3,6 +3,20 @@ import { getAuthToken, getChannelToken, setAuthToken, clearSession } from './ses
 
 export const ADMIN_API_PATH = '/admin-api';
 
+/** 管理端请求超时：常规 30s（库存/报表类查询较慢），会话探测单独 8s */
+const ADMIN_REQUEST_TIMEOUT_MS = 30000;
+const SESSION_PROBE_TIMEOUT_MS = 8000;
+
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  try {
+    return typeof AbortSignal !== 'undefined' && typeof (AbortSignal as any).timeout === 'function'
+      ? AbortSignal.timeout(ms)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // 从 API 响应头捕获会话 token（Vendure 用 vendure-auth-token 下发新 session）
 const AUTH_HEADER = 'vendure-auth-token';
 // 店铺上下文 header（key 必须是 vendure-token，见设计文档 §6.2 已实测）
@@ -49,6 +63,7 @@ async function probeSessionThenLogout(): Promise<void> {
       method: 'POST',
       headers,
       body: JSON.stringify({ query: 'query { me { id } }' }),
+      signal: timeoutSignal(SESSION_PROBE_TIMEOUT_MS),
     });
     const body = await res.json();
     const code = body?.errors?.[0]?.extensions?.code;
@@ -62,7 +77,7 @@ async function probeSessionThenLogout(): Promise<void> {
 export function getAdminClient(): GraphQLClient {
   if (!instance) {
     const customFetch: typeof fetch = (input, init) =>
-      fetch(input, init).then(async (res) => {
+      fetch(input, { ...init, signal: init?.signal ?? timeoutSignal(ADMIN_REQUEST_TIMEOUT_MS) }).then(async (res) => {
         const token = res.headers.get(AUTH_HEADER);
         if (token) {
           setAuthToken(token);

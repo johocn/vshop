@@ -16,8 +16,12 @@
 //   READ_ONLY=1：只读，不写
 const ADMIN = process.env.WA_ADMIN_URL || 'https://e.joho.cn/admin-api';
 const SHOP = process.env.WA_SHOP_URL || 'https://www.youshop.cn/shop-api';
-const ADMIN_USER = process.env.ADMIN_USER || 'superadmin';
-const ADMIN_PASS = process.env.ADMIN_PASS || '__REDACTED__';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 const SET_CODES = process.env.SET_CODES;
 const SET_DEFAULT = process.env.SET_DEFAULT;
 const READ_ONLY = process.env.READ_ONLY === '1';

@@ -59,8 +59,10 @@ except ImportError as e:  # noqa: BLE001
 
 BASE = os.environ.get('WA_D54_BASE', 'http://localhost:5280/')
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://localhost:3000/admin-api')
-ADMIN_USER = os.environ.get('WA_D54_ADMIN_USER', 'superadmin@china.test')
-ADMIN_PWD = os.environ.get('WA_D54_ADMIN_PWD', 'superadmin')
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PWD = os.environ.get("ADMIN_PASS")
+if not ADMIN_USER or not ADMIN_PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CTOKEN = os.environ.get('WA_D54_CHANNEL_TOKEN', 'official-1').strip()
 VARIANT = os.environ.get('WA_D54_VARIANT', '1').strip()
 LOC_V = os.environ.get('WA_D54_LOC_VIRTUAL', '7').strip()

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+import os
 # 库存 v2 只读探针（生产 admin-api）：校验 inventoryStockPage / inventoryAlertRules / stockDocList 真实可用
 # 用法: python _e2e/_probe_inventory.py
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：TENANT_USER / TENANT_PASS（t2 二月兰会员 租户管理员「田经理」）
 # 说明：
 #   1) 本脚本只发 query，绝不发 mutation（不创建单据、不改安全库存）
 #   2) 请求在**已登录浏览器页面内**发出（与 App 同路径/同头），因为管理员会话是渠道上下文的，
@@ -9,8 +10,13 @@
 from playwright.sync_api import sync_playwright
 import time, json
 
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
+
 BASE = 'https://e.joho.cn/guanli/'
-ACC = ('guoxinnanshan@163.com', '__REDACTED__')
+ACC = (TENANT_USER, TENANT_PASS)
 CH = 't2'  # 用于从 myTenantAccess 里挑渠道
 
 Q_PAGE = '''query Page($input: InventoryStockQueryInput) {

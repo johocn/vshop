@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+import os
 # 风格模板库管理（引用徽标/历史版本/合并预览/删除警示）截图（超管视角 + 副本模板制造版本历史）
 # 账号：ADMIN_USER / ADMIN_PASS
 # 副本安全：复制出一个「截图演示副本」→ 改名（产生 v1 快照）→ 截图 → API 删除副本，不留垃圾数据。
 # 只读导航：警示框截图后点「取消」，历史版本不点「回滚」，不做停用/删除真实模板。
 from playwright.sync_api import sync_playwright
 import time, json
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 BASE='https://e.joho.cn/guanli/'
 SHOT='d:/zhao/vshop/web-admin/src/static/manual/shots/'
 COPY_NAME='截图演示副本'
@@ -19,8 +25,8 @@ with sync_playwright() as p:
     pg.goto(BASE,wait_until='networkidle',timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible',timeout=30000)
-    pg.locator('input').nth(0).fill('superadmin')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(USER)
+    pg.locator('input').nth(1).fill(PWD)
     pg.locator('button, .btn').first.click(); time.sleep(3)
     # 选店页：点第一个店铺
     try:

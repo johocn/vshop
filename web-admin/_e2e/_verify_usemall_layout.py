@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """usemall 版式插件 e2e 回归 + 手机截图（Playwright 同步 API，390x844 dpr=2 硬规范）
 
 流程（沿用 _verify_brick_template.py 的登录/渠道/轮询惯例）：
@@ -27,6 +28,11 @@ from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 
 from playwright.sync_api import sync_playwright
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ADMIN_API = 'https://e.joho.cn/admin-api'
 SHOP_API = 'https://e.joho.cn/shop-api'
@@ -90,7 +96,7 @@ def _gql_data(query, variables=None, headers=None):
 
 
 def api_login():
-    resp, data = _gql(LOGIN_MUT, {'u': 'superadmin', 'p': '__REDACTED__'})
+    resp, data = _gql(LOGIN_MUT, {'u': USER, 'p': PWD})
     token = resp.headers.get('vendure-auth-token') or ''
     body = (data.get('data') or {}).get('login') or {}
     if not token or body.get('__typename') != 'CurrentUser':

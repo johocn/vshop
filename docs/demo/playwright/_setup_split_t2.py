@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """拆单验证-步骤0 设置（幂等）：在 t2 商家渠道确保「租户默认配送档案」+「第二个商品(未绑定→回退默认)」存在。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -6,7 +7,12 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from login_util import ADMIN_API, admin_login_state
 
-a = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+a = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 T2 = "66ruvnhh34svhckaa2i"
 
 def q(query, variables=None, channel_token=None):

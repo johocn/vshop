@@ -16,8 +16,10 @@ import time
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get('WA_SHOT_BASE', 'http://localhost:5281/guanli/')
-USER = os.environ.get('WA_SHOT_USER', 'superadmin')
-PWD = os.environ.get('WA_SHOT_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = os.environ.get('WA_SHOT_CHANNEL', 'shop-a')
 WANT_LOC = os.environ.get('WA_SHOT_LOC', '')            # 仓库名；空 = 默认仓优先，再退首个
 # 线上复验开关（Step 7）：唯一写入 = 建演示任务 + 可逆切档（收尾还原 binMode），

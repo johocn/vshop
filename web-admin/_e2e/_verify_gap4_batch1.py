@@ -35,11 +35,13 @@ BASE = os.environ.get('WA_SHOT_BASE', 'http://localhost:5280/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
 SHOP = os.environ.get('WA_API_SHOP', 'http://127.0.0.1:3000/shop-api')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL_CODE = os.environ.get('WA_SMOKE_CHANNEL', '__default_channel__')
 CUSTOMER = os.environ.get('WA_SHOT_CUSTOMER', 'zhangsan@test.cn')
-CUSTOMER_PWD = os.environ.get('WA_SHOT_CUSTOMER_PWD', 'test')
+CUSTOMER_PWD = os.environ.get("ADMIN_PASS")
 ORDER_ID = os.environ.get('WA_SHOT_ORDER', '5')
 AS_TARGET = 25          # 售后样本条数（列表 take=20 → 25 才能真的触发第二页）
 AS_TYPES = ['refund_only'] * 13 + ['return_refund'] * 7 + ['exchange'] * 5

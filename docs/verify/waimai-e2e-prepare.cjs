@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // waimai E2E 造数（幂等，可重复执行）：店铺渠道 canteen-a/b + 履约配置 + 校区/楼栋/时段
 // + waimai 渠道元数据 + 冒烟共享商品 + 两个冒烟顾客（下单者/骑手）。
 // 用法: node waimai-e2e-prepare.cjs [shop-api-base，默认 https://e.joho.cn/shop-api]
@@ -30,7 +36,7 @@ async function gql(url, query, variables, headers = {}) {
 async function main() {
     const log = (...a) => console.log('[prepare]', ...a);
     // S0 admin 登录
-    const a = await gql(ADMIN_API, `mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }`);
+    const a = await gql(ADMIN_API, `mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }`);
     const at = a.token;
     if (!at) throw new Error('admin login failed');
     const H = { Authorization: 'Bearer ' + at };

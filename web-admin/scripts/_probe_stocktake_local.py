@@ -15,8 +15,10 @@ import sys
 import urllib.request
 
 BASE = os.environ.get('WA_SMOKE_BASE', 'http://localhost:3000')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = os.environ.get('WA_SMOKE_CHANNEL', 'shop-a')
 LOC = os.environ.get('WA_SMOKE_LOC', '1')
 

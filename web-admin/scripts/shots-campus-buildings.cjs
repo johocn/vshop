@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 楼栋坐标维护页手机视口截图（390×844 dpr=2）
 //   node scripts/shots-campus-buildings.cjs
 // 通过 localStorage 注入后台会话 + 渠道 token，直接进入页面（无需 UI 登录）
@@ -22,7 +28,7 @@ async function adminToken() {
   const res = await fetch(ADMIN_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: 'mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }' }),
+    body: JSON.stringify({ query: `mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }` }),
   });
   const body = await res.json();
   if (!body.data?.login?.id) throw new Error('admin login failed: ' + JSON.stringify(body));

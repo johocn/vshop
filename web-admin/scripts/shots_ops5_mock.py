@@ -1,11 +1,22 @@
 # -*- coding: utf-8 -*-
+import os
 """ops5 mock 兜底截图：①库存预警列表(拦截 stockLevels 渲染假数据+勾选) ②POS 小票卡(拦截 myPendingRedemptions/lookup/claim)。
 仅拦截读取类接口渲染 UI，不改动生产数据。390x844 dpr2。"""
 import time, json as J
 from playwright.sync_api import sync_playwright
 
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 BASE = 'https://e.joho.cn/guanli/'
-EMAIL = 'guoxinnanshan@163.com'; PWD = '__REDACTED__'
+EMAIL = TENANT_USER; PWD = TENANT_PASS
 OUT = 'src/static/manual/shots/'
 
 MOCK_STOCK = {"data": {"stockLevels": {"totalItems": 4, "items": [

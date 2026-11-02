@@ -714,8 +714,8 @@ def run(viewport, tag):
         page.goto(BASE, wait_until='networkidle', timeout=45000)
         time.sleep(1)
         # 登录
-        page.locator('input').nth(0).fill('superadmin')
-        page.locator('input').nth(1).fill('__REDACTED__')
+        page.locator('input').nth(0).fill('${ADMIN_USER}')
+        page.locator('input').nth(1).fill('${ADMIN_PASS}')
         page.locator('button, .btn').first.click()
         time.sleep(4)
         page.goto(BASE + '#/pages/order/list/index', wait_until='networkidle', timeout=45000)

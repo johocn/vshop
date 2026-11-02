@@ -121,8 +121,10 @@ FIXTURE = {
 
 BASE = os.environ.get('WA_PRINT_BASE', 'https://e.joho.cn/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = os.environ.get('WA_SMOKE_CHANNEL', 't2')
 ROOT = Path(__file__).resolve().parent
 BASE_DIR = ROOT / 'baselines' / 'print'

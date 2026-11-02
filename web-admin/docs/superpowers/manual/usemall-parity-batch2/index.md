@@ -90,7 +90,7 @@
 2. **specialDiscountRate=0 的档位无折扣**：普通/银卡档 rate=0，`tier_eligible` 条件不命中、`tier_discount` 返回 0，其权益只有积分倍率/抵现/免运费等；配置页显示 `-`。
 3. **播种促销名为演示文案**：「金卡及以上专属95折」是 dev-server 播种数据的 name，仅影响折扣行展示文案；C 端已按 `order.discounts` 逐行动态渲染，不依赖特定 name（改名需重播种，默认不动）。
 4. **档位数据按渠道隔离**：MemberTier 挂在 Channel 维度，web-admin 顶部「切换店铺」决定可配置的档位范围；C 端租户渠道各自结算各自档位。
-5. **dev 本地管理员口径**：dev-server 播种库的可用超管是 `superadmin@china.test / superadmin`（bootstrap 自带的 `superadmin` 在播种库中无 roles 关联，admin-api 查询会 FORBIDDEN）。
+5. **dev 本地管理员口径**：dev-server 播种库的可用超管是 `ADMIN_USER / superadmin`（bootstrap 自带的 `superadmin` 在播种库中无 roles 关联，admin-api 查询会 FORBIDDEN）。
 6. **折扣金额以含税小计为基数**：`tier_discount` 按 `subTotalWithTax × rate/1000` 向下取整（分），展示金额与订单明细由后端统一计算，前端不做二次换算。
 
 ---
@@ -109,7 +109,7 @@
 - 后端：`d:\zhao\vendure\packages\dev-server`，`npm run dev:server`（:3000）。
 - C 端：`d:\zhao\vshop`，`npm run dev:h5`（:5180）。
 - web-admin 预览：`d:\zhao\vshop\web-admin`，`node scripts/serve-h5.mjs`（:5280，`/admin-api` → localhost:3000）。
-- 本地管理员：`superadmin@china.test / superadmin`；C 端测试顾客：`zhangsan@test.cn / test`（customer id=1，growthValue 经 `adjustMemberGrowth` 调至 6000=金卡档）。
+- 本地管理员：`ADMIN_USER / superadmin`；C 端测试顾客：`zhangsan@test.cn / test`（customer id=1，growthValue 经 `adjustMemberGrowth` 调至 6000=金卡档）。
 - 造数手段：admin-api 登录（`Authorization: Bearer` 头）→ `adjustMemberGrowth` → shop-api 登录加购 → Playwright 注入 localStorage（`auth_token`/`auth_userId`）后直达结账页；web-admin 侧注入 `wa_auth_token`/`wa_user_id`/`wa_channel_code`/`wa_channel_token`。
 
 ---

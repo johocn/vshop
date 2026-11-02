@@ -13,8 +13,10 @@ from playwright.sync_api import sync_playwright
 OUT = r"d:\zhao\vshop\e2e-shots"
 SHOP_API = "http://localhost:3000/shop-api"
 CHANNEL_TOKEN = "default-token"
-EMAIL = "audit-verify@example.com"
-PASSWORD = "__REDACTED__"
+EMAIL = os.environ.get("AUDIT_USER")
+PASSWORD = os.environ.get("AUDIT_PASS")
+if not EMAIL or not PASSWORD:
+    raise SystemExit("缺少 AUDIT_USER / AUDIT_PASS 环境变量")
 UPLOAD_FILE = r"d:\zhao\vshop\docs\demo\playwright\shots\c02_pending_list.png"  # 作为「凭证截图」上传的真实 PNG
 
 os.makedirs(OUT, exist_ok=True)

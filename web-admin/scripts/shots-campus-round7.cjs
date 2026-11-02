@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 第七轮配送审计回归截图（390×844 dpr=2）
 //   node scripts/shots-campus-round7.cjs
 // 覆盖：待付款任务管理（渠道隔离）、配送看板（渠道隔离）、商家接单（活跃单收敛）
@@ -20,7 +26,7 @@ async function adminToken() {
   const res = await fetch(ADMIN_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: 'mutation { login(username: "superadmin", password: "__REDACTED__") { ... on CurrentUser { id } } }' }),
+    body: JSON.stringify({ query: `mutation { login(username: "${ADMIN_USER}", password: "${ADMIN_PASS}") { ... on CurrentUser { id } } }` }),
   });
   const body = await res.json();
   if (!body.data?.login?.id) throw new Error('admin login failed: ' + JSON.stringify(body));

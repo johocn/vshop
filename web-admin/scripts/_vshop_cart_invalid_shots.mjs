@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 ﻿// 购物车「已下架」行 —— 生产环境手机视口回归 + 截图（Playwright，390×844 dpr=2）
 //
 // 背景：C 端判定「已下架」需要 shop-api 的 ProductVariant.enabled（Vendure 默认只在 admin-api 暴露）。
@@ -63,7 +69,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 const MOBILE = { width: 390, height: 844, deviceScaleFactor: 2 };
 
 const CUST = { user: process.env.CUST_USER || 'qa-vshop-manual@local.dev', pwd: process.env.CUST_PWD || 'Qa123456' };
-const ADMIN = { user: process.env.ADMIN_USER || 'superadmin', pwd: process.env.ADMIN_PWD || '__REDACTED__' };
+const ADMIN = { user: process.env.ADMIN_USER, pwd: process.env.ADMIN_PASS };
 
 async function gql(endpoint, query, variables, headers = {}) {
   const r = await fetch(`${URL}${endpoint}`, {

@@ -21,8 +21,10 @@ except ImportError as e:  # noqa: BLE001
     raise SystemExit(2)
 
 BASE = os.environ.get('WA_D55_BASE', 'http://localhost:5280/')
-USER = os.environ.get('WA_D55_ADMIN_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_D55_ADMIN_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 PAGE = 'pages/platform/global-config/index'
 OUT = Path(__file__).resolve().parent.parent / 'docs' / 'verify'
 FAILS = []

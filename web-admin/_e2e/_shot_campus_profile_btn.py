@@ -1,6 +1,12 @@
+import os
 # 拾光达配置页「初始化配送档案」按钮：手机视口截图（390x844 dpr=2）
 from playwright.sync_api import sync_playwright
 import time, sys
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/docs/screenshots/waimai/'
@@ -15,8 +21,8 @@ with sync_playwright() as p:
     time.sleep(2)
     inputs = page.locator('input')
     if inputs.count() >= 2:
-        inputs.nth(0).fill('superadmin')
-        inputs.nth(1).fill('__REDACTED__')
+        inputs.nth(0).fill(USER)
+        inputs.nth(1).fill(PWD)
         page.locator('.btn').first.click()
         time.sleep(3)
     print('AFTER_LOGIN_URL:', page.url)

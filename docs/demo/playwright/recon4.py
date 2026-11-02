@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """四流对账页手机视口回归：触发今日批 → 390x844@2x 截图（列表 + 明细弹层）"""
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -6,11 +7,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from login_util import admin_login_state, _admin_gql_ch
 from playwright.sync_api import sync_playwright
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 BASE = "https://e.joho.cn/guanli"
 RECON_URL = BASE + "/#/pages/platform/reconcile/index"
 SHOTS = r"d:\zhao\vshop\web-admin\src\static\manual\shots"
 
-st = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code="t2")
+st = admin_login_state(USER, PWD, channel_code="t2")
 auth, ch_token, ch_code = st["auth_token"], st["channel_token"], st["channel_code"]
 print("channel:", ch_code, "token len:", len(ch_token), "super:", st["is_superadmin"])
 

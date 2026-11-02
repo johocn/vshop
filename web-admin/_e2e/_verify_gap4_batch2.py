@@ -29,8 +29,10 @@ except ImportError as e:  # noqa: BLE001
 BASE = os.environ.get('WA_SHOT_BASE', 'http://localhost:5280/guanli/')
 BASE = BASE if BASE.endswith('/') else BASE + '/'
 ADMIN = os.environ.get('WA_API_ADMIN', 'http://127.0.0.1:3000/admin-api')
-USER = os.environ.get('WA_SMOKE_USER', 'superadmin@china.test')
-PWD = os.environ.get('WA_SMOKE_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL_CODE = os.environ.get('WA_SMOKE_CHANNEL', '__default_channel__')
 APP = 'nshop'
 TEST_COLOR = '#123456'

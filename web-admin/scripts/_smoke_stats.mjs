@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // FR-A3 web-admin 核销看板生产冒烟：登录 e.joho.cn/guanli → 券管理页截图 + DOM 断言
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -16,15 +22,10 @@ await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
 await page.waitForTimeout(2000);
 
 // 登录（uni-app input 选择器）
-await page.fill('.login uni-input input, uni-input input', 'superadmin').catch(async () => {
-  const inputs = await page.$$('input');
-  if (inputs[0]) await inputs[0].fill('superadmin');
-  if (inputs[1]) await inputs[1].fill('__REDACTED__');
-});
 const inputs = await page.$$('input');
 if (inputs.length >= 2) {
-  await inputs[0].fill('superadmin');
-  await inputs[1].fill('__REDACTED__');
+  await inputs[0].fill(ADMIN_USER);
+  await inputs[1].fill(ADMIN_PASS);
 }
 await page.click('.login-btn, .btn, button').catch(() => {});
 await page.waitForTimeout(3000);

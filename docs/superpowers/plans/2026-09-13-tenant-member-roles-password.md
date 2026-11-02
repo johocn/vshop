@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为「本租户人员」页面实现：角色下拉去重且只展示可授角色（后端权威「严格小于」门禁）、租户管理员自助重置低权限成员密码（默认 `__REDACTED__`）、本人主动修改密码（校验旧密码）。
+**Goal:** 为「本租户人员」页面实现：角色下拉去重且只展示可授角色（后端权威「严格小于」门禁）、租户管理员自助重置低权限成员密码（默认 `${TENANT_PASS}`）、本人主动修改密码（校验旧密码）。
 
 **Architecture:** 后端（vendure cjk-plugin）为权限边界唯一权威——`rolesForChannel` 去重并按操作者权限标注 `grantable`、`memberToView` 计算 `canResetPassword`、创建人员/改角色/重置密码三入口统一走 `assertCanGrant`（目标权限 ⊆ 操作者权限且不含 `TenantMemberManage`/`TenantRoleManage`，超管豁免）；`changeMyPassword` 增加旧密码校验（首登强改密跳过）。前端（vshop web-admin）members 页按后端标记显隐「重置密码」与过滤角色下拉、改密页支持主动改密模式。
 
@@ -254,7 +254,7 @@ async assertCanGrant(ctx: RequestContext, roleIds: ID[]): Promise<void> {
 在 `resetAdminPassword`（L721-734）之后新增：
 
 ```ts
-    /** 租户自助：重置本租户成员密码为默认口令 __REDACTED__（目标权限必须低于操作者） */
+    /** 租户自助：重置本租户成员密码为默认口令 ${TENANT_PASS}（目标权限必须低于操作者） */
     async resetMyMemberPassword(ctx: RequestContext, memberId: ID): Promise<TenantMember> {
         const repo = this.connection.getRepository(ctx, TenantMember);
         const member = await repo.findOne({ where: { id: String(memberId) } });
@@ -445,7 +445,7 @@ export async function fetchMyTenantRoles(): Promise<RoleItem[]> {
 在 `updateTenantMemberRolesToMember`（L325-330）之后新增：
 
 ```ts
-/** 租户自助重置本租户成员密码为默认口令 __REDACTED__ */
+/** 租户自助重置本租户成员密码为默认口令 ${TENANT_PASS} */
 export async function resetTenantMemberPasswordToDefault(memberId: string): Promise<void> {
   await getAdminClient().request(
     `mutation MyResetTenantMemberPassword($id: ID!) { myResetTenantMemberPassword(id: $id) }`,
@@ -513,12 +513,12 @@ const grantableRoles = computed(() => roles.value.filter((r) => r.grantable !== 
 function onResetPassword(m: TenantMemberItem) {
   uni.showModal({
     title: '重置密码',
-    content: `确定将「${m.displayName || m.administratorId}」的密码重置为默认口令 __REDACTED__？`,
+    content: `确定将「${m.displayName || m.administratorId}」的密码重置为默认口令 ${TENANT_PASS}？`,
     success: async (r) => {
       if (!r.confirm) return;
       try {
         await resetTenantMemberPasswordToDefault(m.id);
-        uni.showToast({ title: '已重置为默认口令 __REDACTED__', icon: 'none' });
+        uni.showToast({ title: '已重置为默认口令 ${TENANT_PASS}', icon: 'none' });
       } catch (err: any) {
         uni.showToast({ title: err?.message || '重置失败', icon: 'none' });
       }
@@ -783,7 +783,7 @@ Expected: 截图与设计 mockup 一致
 
 - [ ] **Step 4: 操作手册补充**
 
-在运营端操作手册（`d:\zhao\vshop\docs` 或既有手册位置）补充：租户管理员可重置低权限成员密码（默认 __REDACTED__）、可为自己修改密码、可授角色范围说明。将截图补入手册。
+在运营端操作手册（`d:\zhao\vshop\docs` 或既有手册位置）补充：租户管理员可重置低权限成员密码（默认 ${TENANT_PASS}）、可为自己修改密码、可授角色范围说明。将截图补入手册。
 
 - [ ] **Step 5: Commit**
 

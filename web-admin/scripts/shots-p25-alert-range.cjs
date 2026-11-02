@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // P4-2 扩展 · 预警导出时间段选择 线上取证
 //   node scripts/shots-p25-alert-range.cjs
 const fs = require('node:fs');
@@ -13,7 +19,7 @@ const CHANNEL = 'canteen-a-token';
   fs.mkdirSync(OUT, { recursive: true });
   const rc = await request.newContext({ extraHTTPHeaders: { 'Content-Type': 'application/json', 'vendure-token': CHANNEL } });
   const loginRes = await rc.post(API, {
-    data: { query: 'mutation($u:String!,$p:String!){ login(username:$u,password:$p){ ... on CurrentUser { id } } }', variables: { u: 'superadmin', p: '__REDACTED__' } },
+    data: { query: 'mutation($u:String!,$p:String!){ login(username:$u,password:$p){ ... on CurrentUser { id } } }', variables: { u: ADMIN_USER, p: ADMIN_PASS } },
   });
   const token = loginRes.headers()['vendure-auth-token'];
   if (!token) throw new Error('admin 登录失败');

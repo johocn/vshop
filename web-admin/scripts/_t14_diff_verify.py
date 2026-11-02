@@ -17,11 +17,15 @@ BASE = os.environ.get('WA_BASE', 'http://localhost:5281/guanli/')
 SHOTS = os.environ.get('WA_SHOTS', r'd:\zhao\vshop\web-admin\src\static\manual\shots')
 LOC = os.environ.get('WA_LOC', '1')
 CHANNEL_CODE = os.environ.get('WA_CHANNEL', 'shop-a')
-USER = os.environ.get('WA_USER', 'superadmin')
-PWD = os.environ.get('WA_PWD', 'superadmin')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 LIMITED_EMAIL = 'e2e-nopost@test.local'
-LIMITED_PWD = '__REDACTED__'
+LIMITED_PWD = os.environ.get('E2E_TENANT_PASS')
+if not LIMITED_PWD:
+    raise SystemExit("缺少 E2E_TENANT_PASS 环境变量")
 
 FAILS = []
 ERRS = []

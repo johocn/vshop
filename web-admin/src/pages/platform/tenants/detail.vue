@@ -686,7 +686,7 @@ async function saveDomain() {
   }
 }
 
-// 重置管理员密码为默认口令 __REDACTED__
+// 重置管理员密码为默认口令
 function onResetPwd(m: TenantMemberItem) {
   uni.showModal({
     title: locale.t('platformTenantsDetail.resetTitle'),

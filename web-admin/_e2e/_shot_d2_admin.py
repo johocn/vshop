@@ -3,11 +3,16 @@
 场景：
   d2_05_admin_coupon_edit.png : 券编辑页「领取设置」区（允许领取/凭码领券/有效天数/新客/会员等级）
   d2_06_admin_product_bind.png: 商品编辑页「商品专属券」区块（已绑定温泉专享券）
-登录：guoxinnanshan@163.com / __REDACTED__（租户 t2）+ 注入 t2 channel token
+登录：TENANT_USER / TENANT_PASS（租户 t2）+ 注入 t2 channel token
 输出：web-admin/src/static/manual/shots/d2_05/d2_06
 """
 import os, time
 from playwright.sync_api import sync_playwright
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/'
@@ -22,8 +27,8 @@ with sync_playwright() as p:
     pg.goto(BASE, wait_until='networkidle', timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click(); time.sleep(7)
     print('login url=', pg.url)
 

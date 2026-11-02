@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """登录工具：通过 Admin API 登录获取会话 token，并注入 localStorage 供 web-admin 复用。
 返回 (auth_token, channel_token, channel_code, channel_id, is_superadmin)。
 用法：from login_util import admin_login_state
@@ -6,6 +7,11 @@
 import json
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 ADMIN_API = "https://e.joho.cn/admin-api"
 LOGIN_MUT = """
@@ -80,7 +86,7 @@ def admin_login_state(username, password, channel_code=None):
 
 # ---- 商户入驻/商品提审相关 Admin API 封装 ----
 def superadmin_client():
-    return admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+    return admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 
 
 def create_tenant(auth, name, is_official=False):
@@ -341,7 +347,7 @@ def admin_debit_wallet(auth, amount):
 
 if __name__ == "__main__":
     import sys
-    u = sys.argv[1] if len(sys.argv) > 1 else "superadmin"
-    p = sys.argv[2] if len(sys.argv) > 2 else "__REDACTED__"
+    u = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("ADMIN_USER")
+    p = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("ADMIN_PASS")
     st = admin_login_state(u, p)
     print(json.dumps(st, ensure_ascii=False, indent=2))

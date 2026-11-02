@@ -1,3 +1,9 @@
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('[admin-script] 缺少 ADMIN_USER / ADMIN_PASS 环境变量');
+  process.exit(1);
+}
 // 校园配送 P1/P2 补齐项：生产后台手机视口（390×844 dpr2）截图 + DOM 断言
 // 覆盖：履约参数/时段容量、楼栋+分区管理、改址台账、调度中心外部快递、订单详情配送信息与改址历史
 import { mkdirSync } from 'node:fs';
@@ -28,12 +34,12 @@ async function adminGql(query) {
 }
 
 // 找一个真实校园订单 id（有 buildingId）
-const login = await adminGql(`mutation{login(username:"superadmin",password:"__REDACTED__"){... on CurrentUser{identifier} ... on InvalidCredentialsError{message}}}`);
+const login = await adminGql(`mutation{login(username:"${ADMIN_USER}",password:"${ADMIN_PASS}"){... on CurrentUser{identifier} ... on InvalidCredentialsError{message}}}`);
 if (!login?.login?.identifier) console.warn('admin login failed');
 const tokenRes = await fetch(ADMIN, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ query: `mutation{login(username:"superadmin",password:"__REDACTED__"){... on CurrentUser{id}}}` }),
+  body: JSON.stringify({ query: `mutation{login(username:"${ADMIN_USER}",password:"${ADMIN_PASS}"){... on CurrentUser{id}}}` }),
 });
 const authToken = tokenRes.headers.get('vendure-auth-token') || '';
 const orders = await (await fetch(ADMIN, {
@@ -54,8 +60,8 @@ await page.goto(BASE, { waitUntil: 'networkidle', timeout: 45000 });
 await page.waitForTimeout(1500);
 const inputs = await page.$$('input');
 if (inputs.length >= 2) {
-  await inputs[0].fill('superadmin');
-  await inputs[1].fill('__REDACTED__');
+  await inputs[0].fill(ADMIN_USER);
+  await inputs[1].fill(ADMIN_PASS);
   await page.click('.login-btn, .btn, button').catch(() => {});
   await page.waitForTimeout(3000);
 }

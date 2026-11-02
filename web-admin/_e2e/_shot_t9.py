@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+import os
 # T9 回归截图：成员信息弹窗（点击成员姓名查看用户信息，390x844 dpr=2）
-# 账号：guoxinnanshan@163.com / __REDACTED__（田经理/租户管理员）
+# 账号：TENANT_USER / TENANT_PASS（田经理/租户管理员）
 from playwright.sync_api import sync_playwright
 import time, os
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/src/static/manual/shots/'
 TMP = 'd:/zhao/vshop/web-admin/_e2e/_tmp_t9_close.png'  # 临时验证截图，脚本结束删除
@@ -24,8 +30,8 @@ with sync_playwright() as p:
     pg.goto(BASE, wait_until='networkidle', timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click(); time.sleep(7)
     print('登录后 url=', pg.url, 'body=', pg.inner_text('body')[:120].replace('\n', '|'))
     # 选店：API 获取 t2 channel token 注入 localStorage（绕开选店 UI）
@@ -49,7 +55,7 @@ with sync_playwright() as p:
     name_el.wait_for(state='visible', timeout=15000)
     name_el.tap(); time.sleep(2)
     print('after tap body=', pg.inner_text('body')[:600].replace('\n', '|'))
-    check(pg, '弹窗内容', ['用户信息', '登录用户名', 'guoxinnanshan@163.com', '人员 ID', '启用'])
+    check(pg, '弹窗内容', ['用户信息', '登录用户名', TENANT_USER, '人员 ID', '启用'])
     # 3) 截图（目标截图，保留）
     pg.screenshot(path=SHOT + 'r05_member_info.png')
     print('shot: r05_member_info.png')

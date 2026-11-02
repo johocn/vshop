@@ -24,8 +24,10 @@ BASE = "http://localhost:5280/guanli/#/"
 ROUTE_LIST = "pages/after-sale/list/index"
 ROUTE_DETAIL = "pages/after-sale/detail/index"
 OUT = r"d:\zhao\nshop\docs\superpowers\manual\aftersales-page-optimization\shots"
-USER = "superadmin"
-PWD = "__REDACTED__"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL_TOKEN = "cnx87ezvmjx8nn3bth6c"
 CHROME = "C:/Users/lenovo/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
 

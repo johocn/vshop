@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """线上校验：手册新章节 + 导航截图可访问"""
 import urllib.request
 

@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+import os
 # 只读探针（三）：时间维度口径核对。假设：加购中/待处理单 orderPlacedAt 为 null，
 # 故 orderPlacedAt.between 会把它们排除（今日=0、本月=0）。对比 createdAt.between。
 from playwright.sync_api import sync_playwright
 import time, datetime
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 
@@ -23,8 +29,8 @@ with sync_playwright() as p:
     pg.goto(BASE, wait_until='networkidle', timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle', timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible', timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click(); time.sleep(7)
     tok = pg.evaluate("""() => {
       const t = localStorage.getItem('wa_auth_token');

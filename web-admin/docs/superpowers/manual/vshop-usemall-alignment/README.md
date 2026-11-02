@@ -11,7 +11,7 @@
 | 截图脚本 | `web-admin/scripts/_vshop_usemall_shots.mjs`（版式截图，含拼团三 tab）、`web-admin/scripts/_vshop_cart_invalid_shots.mjs`（购物车「已下架」回归 + 截图）、`web-admin/scripts/_tenant_token_gate_probe.mjs`（租户 token 闸门取证/回归 + 4 张截图，见 §5.14.3） |
 | 线上环境 | C 端 H5 + shop-api：`https://e.joho.cn`；后台：`https://e.joho.cn/guanli` |
 | 本轮范围 | 首页秒杀楼层、分类页双模式、详情页 SKU 弹层与 5 键、购物车勾选真生效/未登录态/推荐/**失效行「已下架」**、秒杀页与拼团页版式（**v1.5 起拼团页含「我的开团 / 我的参团」两 tab**）、结算页发票入口行；**v1.6 起**详情页 SKU 弹层规格组计数与单规格降级；**v1.7 起**评价体系（详情页评价区 / 商品评价页 / 订单评价页 / 我的评价页）+「我的订单」列表取数修复 |
-| 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `__REDACTED__` |
+| 回归账号 | C 端测试客户 `qa-vshop-manual@local.dev` / `Qa123456`（生产新建，customer id=139）；后台 `superadmin` / `${ADMIN_PASS}` |
 
 > **本文中「备注行」的最终状态是「已回退不做」**，原因见 §5.2。
 > **v1.1 相对 v1 的增量**：三类线上阻塞缺陷修复（分类页、秒杀补拉、pm2 内存）+ 演示数据 + 全部截图重采，见 §5.5。

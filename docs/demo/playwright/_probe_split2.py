@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """拆单前置探针2：确认商家渠道(t2)下 曲奇变体31 的配送档案 vs 其它商品，是否能同一订单触发分箱。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -6,7 +7,12 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from login_util import ADMIN_API, admin_login_state
 
-st = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
+st = admin_login_state(USER, PWD, channel_code=None)
 a = st["auth_token"]
 
 def q(query, variables=None, channel_token=None):

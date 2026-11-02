@@ -1,0 +1,6 @@
+#!/bin/sh
+# 启用：git config core.hooksPath .githooks
+node scripts/check-secrets.cjs || {
+  echo "提交被阻断：请移除硬编码管理员凭据（见上方命中行）"
+  exit 1
+}

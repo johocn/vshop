@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
+import os
 """查证：订单76 的多渠道归属 + 曲奇商品(P35) 所在渠道/档案归属。"""
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from urllib.request import Request, urlopen
 from login_util import ADMIN_API, admin_login_state
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 SHOP_API = "https://e.joho.cn/shop-api"
 
@@ -28,7 +34,7 @@ r = s.gql("""{ activeOrder{ id code channels{ id code } lines{ id productVariant
 print("ACTIVE_ORDER_CHANNELS:", json.dumps(r, ensure_ascii=False))
 
 # admin 查曲奇 P35 的渠道归属 + 三工档案SP8 归属
-AUTH = admin_login_state("${ADMIN_USER}", "${ADMIN_PASS}", channel_code=None)["auth_token"]
+AUTH = admin_login_state(USER, PWD, channel_code=None)["auth_token"]
 def admin_gql(query, variables=None, ch=""):
     h = {"Authorization": "Bearer " + AUTH, "Content-Type": "application/json"}
     if ch:

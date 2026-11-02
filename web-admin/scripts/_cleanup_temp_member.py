@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 """清理生产中的临时受限测试账号（redeemscope-test@example.com）。
 
 截图脚本因未能读到初始密码而跳过清理，故单独补跑一次移除。
@@ -9,8 +10,10 @@ from playwright.sync_api import sync_playwright
 
 BASE = "http://localhost:5280/guanli/#/"
 CHROME = "C:/Users/lenovo/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
-USER = "superadmin"
-PWD = "__REDACTED__"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = "cnx87ezvmjx8nn3bth6c"
 EMAIL = "redeemscope-test@example.com"
 

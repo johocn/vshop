@@ -6,7 +6,10 @@ from playwright.sync_api import sync_playwright
 BASE = "https://e.joho.cn/guanli/#/"
 OUT = r"d:\zhao\vshop\docs\screenshots\waimai\p9-round15"
 CHROME = "C:/Users/lenovo/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
-USER, PWD = "${ADMIN_USER}", "${ADMIN_PASS}"
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 os.makedirs(OUT, exist_ok=True)
 

@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+import os
 # T8 回归截图：租户成员角色权限门禁与密码管理（普通租户管理员视角，390x844 dpr=2）
-# 账号：guoxinnanshan@163.com / __REDACTED__（t2 二月兰会员 租户管理员「田经理」）
+# 账号：TENANT_USER / TENANT_PASS（t2 二月兰会员 租户管理员「田经理」）
 from playwright.sync_api import sync_playwright
 import time
+
+TENANT_USER = os.environ.get("TENANT_USER")
+TENANT_PASS = os.environ.get("TENANT_PASS")
+if not TENANT_USER or not TENANT_PASS:
+    raise SystemExit("缺少 TENANT_USER / TENANT_PASS 环境变量")
 BASE='https://e.joho.cn/guanli/'
 SHOT='d:/zhao/vshop/web-admin/src/static/manual/shots/'
 def shot(pg, name, delay=0):
@@ -19,8 +25,8 @@ with sync_playwright() as p:
     pg.goto(BASE,wait_until='networkidle',timeout=45000)
     pg.evaluate('localStorage.clear()'); pg.reload(wait_until='networkidle',timeout=45000)
     pg.locator('input').nth(0).wait_for(state='visible',timeout=30000)
-    pg.locator('input').nth(0).fill('guoxinnanshan@163.com')
-    pg.locator('input').nth(1).fill('__REDACTED__')
+    pg.locator('input').nth(0).fill(TENANT_USER)
+    pg.locator('input').nth(1).fill(TENANT_PASS)
     pg.locator('button, .btn').first.click(); time.sleep(7)
     print('登录后 url=',pg.url, 'body=', pg.inner_text('body')[:120].replace('\n','|'))
     # 选店：通过 API 获取 t2 channel token 注入 localStorage（绕开选店 UI 交互不稳定）

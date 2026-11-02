@@ -1791,7 +1791,7 @@ CREATE INDEX IF NOT EXISTS idx_campus_rider_earning_rider_created ON rider_earni
   - `01-rider-earnings.png`：汇总条「¥1.00 合计分成 / 2 笔数 / ¥1.00 其中小费」，两张卡片含骑手名、`+¥金额`、订单号、状态徽标「已入账」、小费、时间与「查看该单轨迹 ›」，页面 console 无错误。
   - `02-rider-track-order.png`：按订单号 `ZW56SE6YGZ2YTXNK` 查得 10 点 / 0.54 km / 27 min，折线图 + 起点（绿）/终点图例 + 点位列表（最新在前），页面 console 无错误。
 - 造数说明：截图用 10 个轨迹点为临时数据（订单 `ZW56SE6YGZ2YTXNK`，`id` 1–10），截图后已 `DELETE` 清空，`campus_rider_location` 当前 0 行；台账两条为真实历史分成流水。
-- 权限提示：台账需 `CampusAuditRider`、轨迹需 `CampusViewDispatch`；`guoxinnanshan@163.com` 对同类既有接口 `riderApplications` 亦返回 `FORBIDDEN`，属账号授权范围，非接口缺陷。
+- 权限提示：台账需 `CampusAuditRider`、轨迹需 `CampusViewDispatch`；`${TENANT_USER}` 对同类既有接口 `riderApplications` 亦返回 `FORBIDDEN`，属账号授权范围，非接口缺陷。
 
 ## 45. 常用功能 P0 收尾：在线客服工作台 + 差评申诉审核（2026-10-26）
 
@@ -7159,7 +7159,7 @@ ALTER TABLE channel ADD COLUMN IF NOT EXISTS "customFieldsAftersalesresolvetarge
 
 **影响面**：纯数据变更——`shop` +5 行、`shop_channels_channel` +5 行、1 条 `administratorId` 绑定；**无代码改动、无构建、无重启**。
 
-> 承接 §126.6-1 的关键发现（校园渠道无 Shop → 售后提醒解析不到收件人）。按 A 方案补建店铺档案，**并且只绑已有店主账号**：channel 37 绑 `admin 53`（`guoxinnanshan@163.com`，角色 `t2-tenant-admin`，即国信南山商家账号），其余渠道 `administratorId` 留空，等商家开通账号后一条 UPDATE 即可生效。注：§126.7 最后一条「均无 Shop 记录」是执行本节的**前**状态，已被本节覆盖。
+> 承接 §126.6-1 的关键发现（校园渠道无 Shop → 售后提醒解析不到收件人）。按 A 方案补建店铺档案，**并且只绑已有店主账号**：channel 37 绑 `admin 53`（`${TENANT_USER}`，角色 `t2-tenant-admin`，即国信南山商家账号），其余渠道 `administratorId` 留空，等商家开通账号后一条 UPDATE 即可生效。注：§126.7 最后一条「均无 Shop 记录」是执行本节的**前**状态，已被本节覆盖。
 
 ### 127.1 交付清单
 
@@ -7192,7 +7192,7 @@ WHERE s.slug LIKE 'campus-%'
 
 UPDATE shop s SET "administratorId" = a.id, "updatedAt" = now()
 FROM administrator a
-WHERE a."emailAddress" = 'guoxinnanshan@163.com'
+WHERE a."emailAddress" = '${TENANT_USER}'
   AND s."channelId" = 37
   AND s."administratorId" IS NULL;
 COMMIT;

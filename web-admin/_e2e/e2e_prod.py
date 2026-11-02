@@ -1,5 +1,11 @@
+import os
 from playwright.sync_api import sync_playwright
 import time
+
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 
 BASE = 'https://e.joho.cn/guanli/'
 SHOT = 'd:/zhao/vshop/web-admin/_e2e/prod_'
@@ -21,8 +27,8 @@ with sync_playwright() as p:
     inputs = page.locator('input')
     print('INPUT_COUNT:', inputs.count())
     if inputs.count() >= 2:
-        inputs.nth(0).fill('superadmin')
-        inputs.nth(1).fill('superadmin')
+        inputs.nth(0).fill(USER)
+        inputs.nth(1).fill(USER)
         page.locator('.btn').first.click()
         time.sleep(4)
         page.screenshot(path=SHOT + '02_after_login.png', full_page=True)

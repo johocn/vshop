@@ -8,6 +8,11 @@
 from playwright.sync_api import sync_playwright
 import os, time
 
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
+
 BASE = 'https://e.joho.cn/guanli/'
 ASSET = 'd:/zhao/vshop/web-admin/docs/webadmin-bugfix-manual/assets'
 SHOP_DE = 'https://www.youshop.cn/t1/?languageCode=de'
@@ -29,8 +34,8 @@ def run():
         pg.goto(BASE, wait_until='networkidle', timeout=60000)
         pg.evaluate('localStorage.clear()')
         pg.reload(wait_until='networkidle', timeout=60000)
-        pg.locator('input').nth(0).fill('superadmin')
-        pg.locator('input').nth(1).fill('__REDACTED__')
+        pg.locator('input').nth(0).fill(USER)
+        pg.locator('input').nth(1).fill(PWD)
         pg.locator('button, .btn').first.click()
         time.sleep(4)
         pg.locator('.item', has_text='t1').first.click()

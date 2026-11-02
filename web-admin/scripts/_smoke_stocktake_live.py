@@ -15,8 +15,10 @@ from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get('WA_SMOKE_BASE', 'https://e.joho.cn/guanli/')
 LOC = os.environ.get('WA_SMOKE_LOC', '3')          # 默认仓
-USER = os.environ.get('WA_SMOKE_USER', 'guoxinnanshan@163.com')
-PWD = os.environ.get('WA_SMOKE_PWD', '__REDACTED__')
+USER = os.environ.get("ADMIN_USER")
+PWD = os.environ.get("ADMIN_PASS")
+if not USER or not PWD:
+    raise SystemExit("缺少 ADMIN_USER / ADMIN_PASS 环境变量")
 CHANNEL = os.environ.get('WA_SMOKE_CHANNEL', 't2')
 # shop-api 探针另走直连 HTTP：本地 vite dev server 的 proxy 只映射了 /admin-api，
 # 页面内 fetch('/shop-api') 会打到 dev server 自己（返回非 JSON）而非后端。
