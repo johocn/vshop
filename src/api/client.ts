@@ -1,6 +1,7 @@
 import { GraphQLClient } from 'graphql-request';
 import { useTenantStore } from '../stores/tenant';
 import { useAuthStore } from '../stores/auth';
+import { i18n } from '../i18n';
 
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:3000';
 const API_URL = API_BASE + '/shop-api';
@@ -31,6 +32,100 @@ function isTimeoutError(err: any): boolean {
     return name === 'TimeoutError' || name === 'AbortError';
 }
 
+// ─────────────────────────────────────────────────────────────
+// 登录态失效统一分流
+//
+// shop-api 未登录/会话过期时 HTTP 仍为 200，错误码在 errors[].extensions.code
+// （本 fork 无会话与权限不足均可能返回 FORBIDDEN）。处理策略与 web-admin client 一致：
+// UNAUTHORIZED 直接判失效；FORBIDDEN 先用 me 探测，避免把「已登录但权限不足」误判为掉线。
+// handlingUnauthenticated 作去重闸：并发请求同时失败时只跳一次登录页。
+// ─────────────────────────────────────────────────────────────
+
+/** 登录页路径；跳转后在此路径上不再重复触发，避免回跳循环 */
+const LOGIN_PAGE_PATH = '/pages/login/index';
+/** 去重闸抑制窗口：覆盖 reLaunch 完成与页面首屏请求 */
+const UNAUTH_SUPPRESS_MS = 3000;
+/** me 探测窗口：网络异常时不误杀会话 */
+const SESSION_PROBE_TIMEOUT_MS = 8000;
+
+let handlingUnauthenticated = false;
+let probingSession = false;
+
+/** 当前页面路径（H5 hash 路由优先，回退 getCurrentPages） */
+function currentRoute(): string {
+    // #ifdef H5
+    try {
+        const hash = window.location.hash || '';
+        if (hash) return hash.replace(/^#/, '');
+    } catch {}
+    // #endif
+    try {
+        const pages = getCurrentPages();
+        const cur: any = pages[pages.length - 1];
+        if (cur?.route) {
+            const query = cur?.options
+                ? Object.keys(cur.options)
+                      .map((k) => `${k}=${cur.options[k]}`)
+                      .join('&')
+                : '';
+            return '/' + cur.route + (query ? '?' + query : '');
+        }
+    } catch {}
+    return '';
+}
+
+function redirectToLogin() {
+    const route = currentRoute();
+    if (!route || route.startsWith(LOGIN_PAGE_PATH)) return;
+    uni.reLaunch({ url: `${LOGIN_PAGE_PATH}?redirect=${encodeURIComponent(route)}` });
+}
+
+/** 会话确认失效：清 token + 登出 + 跳登录（只执行一次） */
+function handleUnauthenticated() {
+    if (handlingUnauthenticated) return;
+    handlingUnauthenticated = true;
+    setSessionToken('');
+    try {
+        useAuthStore().logout();
+    } catch { /* store 尚未就绪时忽略，token 已清 */ }
+    redirectToLogin();
+    setTimeout(() => {
+        handlingUnauthenticated = false;
+    }, UNAUTH_SUPPRESS_MS);
+}
+
+/** FORBIDDEN 探测：me 仅需 Authenticated，有会话但权限不足时不会误杀 */
+async function probeSessionThenLogout(): Promise<void> {
+    if (probingSession || handlingUnauthenticated) return;
+    probingSession = true;
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getShopApiHeaders() },
+            body: JSON.stringify({ query: 'query { me { id } }' }),
+            signal: requestTimeoutSignal(SESSION_PROBE_TIMEOUT_MS),
+        });
+        const body = await res.json();
+        const code = body?.errors?.[0]?.extensions?.code;
+        // 无效 token 下 me 可能返回 data.me=null（无 error）或 FORBIDDEN 两种形态
+        if (!body?.data?.me || code === 'UNAUTHORIZED' || code === 'FORBIDDEN') {
+            handleUnauthenticated();
+        }
+    } catch { /* 网络异常不误杀会话 */ } finally {
+        probingSession = false;
+    }
+}
+
+/** 从响应体识别登录态失效错误码（body 已被消费，调用方需传 clone） */
+function inspectAuthErrors(body: any) {
+    const codes: string[] = (body?.errors || []).map((e: any) => e?.extensions?.code);
+    if (codes.includes('UNAUTHORIZED')) {
+        handleUnauthenticated();
+    } else if (codes.includes('FORBIDDEN')) {
+        void probeSessionThenLogout();
+    }
+}
+
 export function getSessionToken(): string {
     return uni.getStorageSync(SESSION_TOKEN_KEY) || '';
 }
@@ -48,11 +143,22 @@ const customFetch: typeof fetch = (input, init) => {
     // 调用方显式传入 signal（如支付 20s）优先；否则套用默认超时，避免请求永久挂起
     const signal = init?.signal ?? requestTimeoutSignal(DEFAULT_REQUEST_TIMEOUT_MS);
     return fetch(input, { ...init, signal })
-        .then((response) => {
+        .then(async (response) => {
             const token = response.headers.get(AUTH_TOKEN_HEADER);
             if (token) {
                 setSessionToken(token);
             }
+            if (response.status === 401) {
+                handleUnauthenticated();
+                return response;
+            }
+            // Vendure 未认证时 HTTP 仍为 200：必须看 errors[].extensions.code
+            try {
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    inspectAuthErrors(await response.clone().json());
+                }
+            } catch { /* 非 JSON / 空响应忽略 */ }
             return response;
         })
         .catch((err) => {
@@ -128,7 +234,18 @@ export function waitTenantGate(): Promise<void> {
             resolve();
         };
         gateWaiters.push(fire);
-        setTimeout(fire, TENANT_GATE_TIMEOUT_MS);
+        setTimeout(() => {
+            fire();
+            // 超时放行意味着请求将带着空 vendure-token 落到默认渠道：
+            // 必须明确提示，不能静默让用户看到默认店铺的商品与价格。
+            try {
+                uni.showToast({
+                    title: i18n.global.t('common.tenantTimeout'),
+                    icon: 'none',
+                    duration: 3000,
+                });
+            } catch { /* 非 UI 环境忽略 */ }
+        }, TENANT_GATE_TIMEOUT_MS);
     });
 }
 

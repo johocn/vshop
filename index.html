@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
+  <!--
+    CSP 取舍：uni-app H5 运行时含 new Function("return this") 的 globalThis 兜底，
+    一旦声明 default-src/script-src 'self' 就会因缺少 'unsafe-eval' 在启动时抛错；
+    而放开 'unsafe-eval' 等于放弃脚本防护。故此处只声明与脚本无关的指令。
+    注意：frame-ancestors 在 <meta> 中被浏览器忽略，防点击劫持仍需响应头（见部署说明）。
+  -->
+  <meta http-equiv="Content-Security-Policy" content="base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" />
   <title></title>
   <!--preload-links-->
   <!--app-context-->

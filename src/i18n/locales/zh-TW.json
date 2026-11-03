@@ -104,7 +104,9 @@
         "back": "返回",
         "search": "搜尋",
         "share": "分享",
-        "loadFailed": "載入失敗"
+        "loadFailed": "載入失敗",
+        "loadMore": "載入更多",
+        "tenantTimeout": "店鋪設定載入逾時，已依預設店鋪顯示，請稍後重新整理"
     },
     "nav": {
         "home": "首頁",
@@ -344,6 +346,14 @@
         "invoice": "發票",
         "invoiceHint": "如需發票請點擊申請",
         "splitNotice": "購物車商品分屬 {n} 種支付方式，將拆分為 {n} 筆訂單分別支付",
+        "splitFailedTitle": "部分訂單未完成",
+        "splitFailedHint": "未完成的部分已停止支付。可取消本次未支付訂單，未購買商品會自動回到購物車。",
+        "splitCreatedCodes": "已生成訂單：{codes}",
+        "cancelUnpaidReturn": "取消未支付訂單並返回購物車",
+        "cancelling": "正在取消…",
+        "viewOrders": "稍後處理，查看訂單",
+        "cancelDone": "未支付訂單已取消，商品已回到購物車",
+        "cancelPartial": "部分訂單取消失敗，請到訂單列表處理",
         "balanceInsufficient": "餘額不足（差 ¥{deficit}），請先充值",
         "goRecharge": "去充值",
         "pointsDeduct": "積分抵扣",
@@ -411,7 +421,17 @@
         "viewOrder": "查看訂單",
         "continueShopping": "繼續購物",
         "querying": "查詢中",
-        "paid": "已支付"
+        "paid": "已支付",
+        "unpaid": "待支付",
+        "unpaidCount": "{n} 筆待支付",
+        "partialPending": "部分訂單待支付",
+        "retryPay": "重試支付 {n} 筆",
+        "retrying": "重試中…",
+        "retryFailed": "{n} 筆仍未支付成功，請稍後重試",
+        "retryNoMethod": "無法重試：缺少支付方式或訂單狀態已變更",
+        "refreshStatus": "重新整理狀態",
+        "stillPending": "仍未確認到帳，請稍後再試",
+        "sellerListWarn": "部分商家子單狀態未確認，請到訂單列表核對"
     },
     "afterSale": {
         "title": "售後",

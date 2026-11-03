@@ -104,7 +104,9 @@
         "back": "Back",
         "search": "Search",
         "share": "Share",
-        "loadFailed": "Failed to load"
+        "loadFailed": "Failed to load",
+        "loadMore": "Load more",
+        "tenantTimeout": "Shop configuration timed out; showing the default shop. Please refresh later"
     },
     "nav": {
         "home": "Home",
@@ -344,6 +346,14 @@
         "invoice": "Invoice",
         "invoiceHint": "Tap to apply for an invoice",
         "splitNotice": "Cart items use {n} payment method(s) and will be split into {n} orders",
+        "splitFailedTitle": "Some orders were not completed",
+        "splitFailedHint": "The unfinished part has stopped paying. You can cancel the unpaid orders; unpurchased items will return to your cart.",
+        "splitCreatedCodes": "Created orders: {codes}",
+        "cancelUnpaidReturn": "Cancel unpaid orders and return to cart",
+        "cancelling": "Cancelling…",
+        "viewOrders": "Handle later, view orders",
+        "cancelDone": "Unpaid orders cancelled; items returned to your cart",
+        "cancelPartial": "Some orders could not be cancelled; please handle them in the order list",
         "balanceInsufficient": "Insufficient balance (short ¥{deficit}), please recharge first",
         "goRecharge": "Recharge",
         "pointsDeduct": "Points Deduction",
@@ -411,7 +421,17 @@
         "viewOrder": "View Order",
         "continueShopping": "Continue Shopping",
         "querying": "Checking...",
-        "paid": "Paid"
+        "paid": "Paid",
+        "unpaid": "Unpaid",
+        "unpaidCount": "{n} unpaid",
+        "partialPending": "Some orders are unpaid",
+        "retryPay": "Retry {n} payment(s)",
+        "retrying": "Retrying…",
+        "retryFailed": "{n} payment(s) still failed; please retry later",
+        "retryNoMethod": "Cannot retry: missing payment method or order state changed",
+        "refreshStatus": "Refresh status",
+        "stillPending": "Payment not confirmed yet; please try again later",
+        "sellerListWarn": "Some seller sub-order states are unconfirmed; please check the order list"
     },
     "afterSale": {
         "title": "After-Sale",

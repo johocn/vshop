@@ -39,27 +39,42 @@
           @click="goDetail(p.slug)"
         >
           <text class="mkt-card__name">{{ p.name }}</text>
-          <text class="mkt-card__code">条形码: {{ p.barcode || '—' }}</text>
-          <text class="mkt-card__code">内部编码: {{ p.internalCode || '—' }}</text>
         </view>
       </view>
+    </view>
+
+    <view v-if="products.length > 0" class="mkt-more">
+      <button v-if="hasMore" class="mkt-more__btn" @click="loadMore">{{ t('common.loadMore') }}</button>
+      <text v-else class="mkt-more__end">{{ t('common.noMore') }}</text>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { getMarketplaceProducts } from '../../../api/queries/marketplace';
+
+const { t } = useI18n();
+/** 客户端分批渲染：服务端 marketplaceProducts 暂不支持 take/skip，先控制首屏条数 */
+const PAGE_SIZE = 12;
 
 const loading = ref(true);
 const products = ref<any[]>([]);
 const activeGroup = ref('all');
+const visibleCount = ref(PAGE_SIZE);
+
+const visibleProducts = computed(() => products.value.slice(0, visibleCount.value));
+const hasMore = computed(() => visibleCount.value < products.value.length);
+function loadMore() {
+    visibleCount.value += PAGE_SIZE;
+}
 
 interface Group { key: string; name: string; items: any[]; }
 
 const groups = computed<Group[]>(() => {
     const map = new Map<string, Group>();
     map.set('self', { key: 'self', name: '自营', items: [] });
-    products.value.forEach((p: any) => {
+    visibleProducts.value.forEach((p: any) => {
         const ch = p?.merchantChannel;
         const key = ch?.id ? String(ch.id) : 'self';
         if (!map.has(key)) {
@@ -113,6 +128,10 @@ function goDetail(slug: string) {
 .mkt-card {
     width: calc(50% - 8rpx); background: $bg-color; border-radius: $radius-md; padding: 20rpx; box-sizing: border-box;
     &__name { font-size: 26rpx; font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 72rpx; }
-    &__code { display: block; font-size: 22rpx; color: #999; margin-top: 8rpx; }
+}
+.mkt-more {
+    display: flex; justify-content: center; padding: 10rpx 0 40rpx;
+    &__btn { height: 72rpx; line-height: 72rpx; padding: 0 60rpx; font-size: 26rpx; border-radius: 36rpx; background: #fff; color: $brand-color; border: 1rpx solid $brand-color; }
+    &__end { font-size: 24rpx; color: #999; }
 }
 </style>

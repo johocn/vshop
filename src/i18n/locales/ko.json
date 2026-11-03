@@ -104,7 +104,9 @@
         "back": "뒤로",
         "search": "검색",
         "share": "공유",
-        "loadFailed": "불러오기 실패"
+        "loadFailed": "불러오기 실패",
+        "loadMore": "더 보기",
+        "tenantTimeout": "쇼핑몰 설정 로딩 시간이 초과되어 기본 쇼핑몰을 표시합니다. 잠시 후 새로고침해 주세요"
     },
     "nav": {
         "home": "홈",
@@ -344,6 +346,14 @@
         "invoice": "세금계산서",
         "invoiceHint": "세금계산서가 필요하면 탭하여 신청하세요",
         "splitNotice": "장바구니 상품이 {n}가지 결제 수단에 속해 {n}건의 주문으로 분할 결제됩니다",
+        "splitFailedTitle": "일부 주문이 완료되지 않았습니다",
+        "splitFailedHint": "미완료 부분의 결제를 중단했습니다. 미결제 주문을 취소하면 미구매 상품이 장바구니로 돌아갑니다.",
+        "splitCreatedCodes": "생성된 주문: {codes}",
+        "cancelUnpaidReturn": "미결제 주문 취소 후 장바구니로",
+        "cancelling": "취소 중…",
+        "viewOrders": "나중에 처리하고 주문 보기",
+        "cancelDone": "미결제 주문이 취소되었고 상품이 장바구니로 돌아갔습니다",
+        "cancelPartial": "일부 주문을 취소하지 못했습니다. 주문 목록에서 처리해 주세요",
         "balanceInsufficient": "잔액이 부족합니다(¥{deficit} 부족). 먼저 충전해 주세요",
         "goRecharge": "충전하기",
         "pointsDeduct": "포인트 차감",
@@ -411,7 +421,17 @@
         "viewOrder": "주문 보기",
         "continueShopping": "쇼핑 계속하기",
         "querying": "조회 중...",
-        "paid": "결제 완료"
+        "paid": "결제 완료",
+        "unpaid": "결제 대기",
+        "unpaidCount": "{n}건 결제 대기",
+        "partialPending": "일부 주문 결제 대기",
+        "retryPay": "{n}건 결제 재시도",
+        "retrying": "재시도 중…",
+        "retryFailed": "{n}건이 아직 결제되지 않았습니다. 잠시 후 다시 시도해 주세요",
+        "retryNoMethod": "재시도할 수 없음: 결제 수단 누락 또는 주문 상태 변경",
+        "refreshStatus": "상태 새로고침",
+        "stillPending": "아직 입금이 확인되지 않았습니다. 잠시 후 다시 시도해 주세요",
+        "sellerListWarn": "일부 판매자 하위 주문 상태가 확인되지 않았습니다. 주문 목록에서 확인해 주세요"
     },
     "afterSale": {
         "title": "A/S",

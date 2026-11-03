@@ -104,7 +104,9 @@
         "back": "返回",
         "search": "搜索",
         "share": "分享",
-        "loadFailed": "加载失败"
+        "loadFailed": "加载失败",
+        "loadMore": "加载更多",
+        "tenantTimeout": "店铺配置加载超时，已按默认店铺展示，请稍后刷新"
     },
     "nav": {
         "home": "首页",
@@ -344,6 +346,14 @@
         "invoice": "发票",
         "invoiceHint": "如需发票请点击申请",
         "splitNotice": "购物车商品分属 {n} 种支付方式，将拆分为 {n} 笔订单分别支付",
+        "splitFailedTitle": "部分订单未完成",
+        "splitFailedHint": "未完成的部分已停止支付。可取消本次未支付订单，未购买商品会自动回到购物车。",
+        "splitCreatedCodes": "已生成订单：{codes}",
+        "cancelUnpaidReturn": "取消未支付订单并返回购物车",
+        "cancelling": "正在取消…",
+        "viewOrders": "稍后处理，查看订单",
+        "cancelDone": "未支付订单已取消，商品已回到购物车",
+        "cancelPartial": "部分订单取消失败，请到订单列表处理",
         "balanceInsufficient": "余额不足（差 ¥{deficit}），请先充值",
         "goRecharge": "去充值",
         "pointsDeduct": "积分抵扣",
@@ -411,7 +421,17 @@
         "viewOrder": "查看订单",
         "continueShopping": "继续购物",
         "querying": "查询中",
-        "paid": "已支付"
+        "paid": "已支付",
+        "unpaid": "待支付",
+        "unpaidCount": "{n} 笔待支付",
+        "partialPending": "部分订单待支付",
+        "retryPay": "重试支付 {n} 笔",
+        "retrying": "重试中…",
+        "retryFailed": "{n} 笔仍未支付成功，请稍后重试",
+        "retryNoMethod": "无法重试：缺少支付方式或订单状态已变更",
+        "refreshStatus": "刷新状态",
+        "stillPending": "仍未确认到账，请稍后再试",
+        "sellerListWarn": "部分商家子单状态未确认，请到订单列表核对"
     },
     "afterSale": {
         "title": "售后",

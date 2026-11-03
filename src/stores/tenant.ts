@@ -151,9 +151,11 @@ export const useTenantStore = defineStore('tenant', () => {
                 rawShopContent.value = cf.shopContent || null;
                 shopContent.value = parseShopContent(cf.shopContent);
                 // L3 店铺覆盖令牌（channel customFields.themeTokensOverride）走 activeChannel 读取，
-                // 不放在 resolveChannelByCode 的返回里（后端 ChannelResolveCustomFields 未暴露该字段）
-                await loadChannelConfig();
-                await loadTemplateConfig();
+                // 不放在 resolveChannelByCode 的返回里（后端 ChannelResolveCustomFields 未暴露该字段）。
+                // 渠道配置与模板配置互不阻塞：并行拉取；模板合并依赖 rawThemeOverride，
+                // 因此合并动作放到两者都完成之后，而不是把 loadTemplateConfig 直接丢进 Promise.all。
+                const [, templateRes] = await Promise.all([loadChannelConfig(), fetchTemplateConfig()]);
+                if (templateRes) applyTemplateConfig(templateRes);
                 uni.setStorageSync('tenant_code', data.code);
                 return true;
             }
@@ -181,36 +183,42 @@ export const useTenantStore = defineStore('tenant', () => {
         return false;
     }
 
-    // 模板库五级合并：L1 全局配置 → L2 风格模板 → L3 店铺覆盖（channel customFields）
-    async function loadTemplateConfig() {
+    /** 拉取模板与全局配置（与渠道配置并行）；失败返回 null，不阻塞租户初始化 */
+    async function fetchTemplateConfig(): Promise<{ tplRes: any; cfgRes: any } | null> {
         try {
             const [tplRes, cfgRes] = await Promise.all([
                 getShopTemplate('vshop'),
                 getShopGlobalConfig('vshop'),
             ]);
-            const template: any = tplRes?.shopTemplate ?? null;
-            const globalConfig: any = cfgRes?.shopGlobalConfig ?? null;
-            rawGlobalConfig.value = globalConfig;
-            themeTokens.value = mergeThemeTokens(
-                globalConfig,
-                template,
-                parseThemeTokensOverride(rawThemeOverride.value),
-            );
-            const merged = mergePageConfig(
-                globalConfig,
-                template,
-                { shopContent: rawShopContent.value },
-                'home',
-            );
-            const sections = merged?.sections;
-            mergedShopContent.value =
-                Array.isArray(sections) && sections.length
-                    ? { version: 1, sections: sections as any[] }
-                    : null;
-            homeLayout.value = resolveHomeLayout(globalConfig, template, rawChannelCfs.value);
+            return { tplRes, cfgRes };
         } catch (e) {
             console.warn('[tenant] loadTemplateConfig failed', e);
+            return null;
         }
+    }
+
+    /** 模板库五级合并：L1 全局配置 → L2 风格模板 → L3 店铺覆盖（channel customFields） */
+    function applyTemplateConfig({ tplRes, cfgRes }: { tplRes: any; cfgRes: any }) {
+        const template: any = tplRes?.shopTemplate ?? null;
+        const globalConfig: any = cfgRes?.shopGlobalConfig ?? null;
+        rawGlobalConfig.value = globalConfig;
+        themeTokens.value = mergeThemeTokens(
+            globalConfig,
+            template,
+            parseThemeTokensOverride(rawThemeOverride.value),
+        );
+        const merged = mergePageConfig(
+            globalConfig,
+            template,
+            { shopContent: rawShopContent.value },
+            'home',
+        );
+        const sections = merged?.sections;
+        mergedShopContent.value =
+            Array.isArray(sections) && sections.length
+                ? { version: 1, sections: sections as any[] }
+                : null;
+        homeLayout.value = resolveHomeLayout(globalConfig, template, rawChannelCfs.value);
     }
 
     async function switchTenant(code: string) {

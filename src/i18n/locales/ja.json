@@ -104,7 +104,9 @@
         "back": "戻る",
         "search": "検索",
         "share": "共有",
-        "loadFailed": "読み込みに失敗しました"
+        "loadFailed": "読み込みに失敗しました",
+        "loadMore": "もっと見る",
+        "tenantTimeout": "ショップ設定の読み込みがタイムアウトしました。既定のショップを表示しています。後で再読み込みしてください"
     },
     "nav": {
         "home": "ホーム",
@@ -344,6 +346,14 @@
         "invoice": "請求書",
         "invoiceHint": "請求書が必要な場合はタップして申請",
         "splitNotice": "カートの商品が{n}種類の支払方法に属するため、{n}件の注文に分割して支払います",
+        "splitFailedTitle": "一部の注文が未完了です",
+        "splitFailedHint": "未完了分の支払いは停止しました。未払い注文をキャンセルすると、未購入の商品はカートに戻ります。",
+        "splitCreatedCodes": "作成済み注文：{codes}",
+        "cancelUnpaidReturn": "未払い注文をキャンセルしてカートに戻る",
+        "cancelling": "キャンセル中…",
+        "viewOrders": "後で処理して注文を表示",
+        "cancelDone": "未払い注文をキャンセルしました。商品はカートに戻りました",
+        "cancelPartial": "一部の注文をキャンセルできませんでした。注文一覧で処理してください",
         "balanceInsufficient": "残高不足（不足 ¥{deficit}）、先にチャージしてください",
         "goRecharge": "チャージへ",
         "pointsDeduct": "ポイント充当",
@@ -411,7 +421,17 @@
         "viewOrder": "注文を表示",
         "continueShopping": "買い物を続ける",
         "querying": "照会中...",
-        "paid": "支払い済み"
+        "paid": "支払い済み",
+        "unpaid": "支払い待ち",
+        "unpaidCount": "{n}件が支払い待ち",
+        "partialPending": "一部の注文が支払い待ちです",
+        "retryPay": "{n}件の支払いを再試行",
+        "retrying": "再試行中…",
+        "retryFailed": "{n}件がまだ支払いできません。後で再試行してください",
+        "retryNoMethod": "再試行できません：支払方法の欠落または注文状態の変更",
+        "refreshStatus": "状態を更新",
+        "stillPending": "まだ着金が確認できません。後でもう一度お試しください",
+        "sellerListWarn": "一部の販売者子注文の状態が未確認です。注文一覧で確認してください"
     },
     "afterSale": {
         "title": "アフターサービス",

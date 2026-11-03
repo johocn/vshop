@@ -270,6 +270,19 @@
       <text>{{ t('checkout.splitNotice', { n: paymentGroupCount }) }}</text>
     </view>
 
+    <!-- 拆单中途失败：不再只弹 toast 把用户卡在结算页 -->
+    <view v-if="splitFailureCodes !== null" class="split-failure">
+      <text class="split-failure__title">{{ t('checkout.splitFailedTitle') }}</text>
+      <text class="split-failure__hint">{{ t('checkout.splitFailedHint') }}</text>
+      <text v-if="splitFailureCodes.length" class="split-failure__codes">
+        {{ t('checkout.splitCreatedCodes', { codes: splitFailureCodes.join('、') }) }}
+      </text>
+      <button class="split-failure__btn" :disabled="cancellingSplit" @click="cancelUnpaidAndReturn">
+        {{ cancellingSplit ? t('checkout.cancelling') : t('checkout.cancelUnpaidReturn') }}
+      </button>
+      <text class="split-failure__skip" @click="goMyOrders">{{ t('checkout.viewOrders') }}</text>
+    </view>
+
     <!-- 余额不足警示（仅选余额支付时） -->
     <view v-if="selectedPayment === 'balance-pay' && balanceInsufficient" class="balance-warn">
       <text class="balance-warn__text">{{ t('checkout.balanceInsufficient', { deficit: deficitYuan }) }}</text>
@@ -319,13 +332,14 @@ import type { PickupLocation } from '../../types/pickup';
 import { useCartStore } from '../../stores/cart';
 import { useTenantStore } from '../../stores/tenant';
 import { useUIStore } from '../../stores/ui';
-import { getActiveOrder, getEligibleShippingMethods, getEligibleShippingMethodsByProfile, getEligiblePaymentMethodsByProfile, getEligiblePickupLocationsByProfile, checkPickupLocationConstraint } from '../../api/queries/order';
+import { getActiveOrder, getOrderByCode, getEligibleShippingMethods, getEligibleShippingMethodsByProfile, getEligiblePaymentMethodsByProfile, getEligiblePickupLocationsByProfile, checkPickupLocationConstraint } from '../../api/queries/order';
 import { getMyMarketplaceSellerOrders, payMarketplaceSellerOrder } from '../../api/queries/marketplace';
 import { getEligiblePaymentMethods, getActiveCustomer } from '../../api/queries/user';
 import { getPickupLocations, getEmployeePickupLocations } from '../../api/queries/pickup';
 import { setOrderShippingAddress, setOrderShippingMethod, transitionOrderToState, addPaymentToOrder, setOrderPickupLocation } from '../../api/mutations/checkout';
 import { track } from '../../utils/telemetry';
 import { addItemToOrder, removeAllOrderLines } from '../../api/mutations/cart';
+import { cancelMyOrder } from '../../api/mutations/order';
 import { createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from '../../api/mutations/address';
 import { getMyBalance } from '../../api/mutations/recharge';
 import { getMyMemberInfo, redeemPoints } from '../../api/queries/member';
@@ -344,6 +358,10 @@ const paymentMethods = ref<any[]>([]);
 const selectedShipping = ref('');
 const selectedPayment = ref('');
 const submitting = ref(false);
+// 拆单中途失败：已生成订单号 + 未购买商品行（取消未支付订单后回填购物车）
+const splitFailureCodes = ref<string[] | null>(null);
+const splitRestoreLines = ref<any[]>([]);
+const cancellingSplit = ref(false);
 const showAddressPicker = ref(false);
 const customerAddresses = ref<any[]>([]);
 const selectedAddress = ref<any>(null);
@@ -1180,24 +1198,24 @@ async function submitSingleOrder(method: string, targetUrl?: string) {
  * 返回所有子订单号
  */
 async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
-    // 为每组解析支付方式：先按档案过滤出该组允许的支付方式，取第一个；无则用当前选中
-    const resolved: PayGroup[] = [];
-    for (const g of groups) {
-        let method = '';
-        if (g.profileId) {
-            try {
-                const res: any = await getEligiblePaymentMethodsByProfile([g.profileId]);
-                const allowed = (res?.eligiblePaymentMethodsByProfile || []).map((m: any) => m.code);
-                method = allowed[0] || '';
-                // 若该档案允许在线支付，优先用在线支付；否则用第一个
-                const onlineOrder = ['wechatpay', 'alipay', 'douyinpay', 'balance-pay'];
-                const foundOnline = allowed.find((c: string) => onlineOrder.includes(c) || isWechatpayMethod(c));
-                if (foundOnline) method = foundOnline;
-            } catch (e) { console.warn('[checkout] resolve group payment method failed', e); }
-        }
-        if (!method) method = selectedPayment.value;
-        resolved.push({ ...g, paymentMethod: method });
-    }
+    // 各组支付方式解析互不依赖：并行拉取，缩短串行往返
+    const resolved: PayGroup[] = await Promise.all(
+        groups.map(async (g) => {
+            let method = '';
+            if (g.profileId) {
+                try {
+                    const res: any = await getEligiblePaymentMethodsByProfile([g.profileId]);
+                    const allowed = (res?.eligiblePaymentMethodsByProfile || []).map((m: any) => m.code);
+                    method = allowed[0] || '';
+                    // 若该档案允许在线支付，优先用在线支付；否则用第一个
+                    const onlineOrder = ['wechatpay', 'alipay', 'douyinpay', 'balance-pay'];
+                    const foundOnline = allowed.find((c: string) => onlineOrder.includes(c) || isWechatpayMethod(c));
+                    if (foundOnline) method = foundOnline;
+                } catch (e) { console.warn('[checkout] resolve group payment method failed', e); }
+            }
+            return { ...g, paymentMethod: method || selectedPayment.value };
+        }),
+    );
 
     // 排序：即时结算（cod/balance-pay）在前，在线支付在后
     const isOnline = (m: string) => m === 'alipay' || m === 'douyinpay' || isWechatpayMethod(m);
@@ -1210,28 +1228,43 @@ async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
     const orderCodes: string[] = [];
     for (let i = 0; i < resolved.length; i++) {
         const group = resolved[i];
-        const isLastOnlineGroup = isOnline(group.paymentMethod) && resolved.slice(i + 1).every(g => !isOnline(g.paymentMethod));
-        // 清空购物车，加入该组商品生成独立订单
-        await removeAllOrderLines();
-        for (const line of group.lines) {
-            await addItemToOrder(line.productVariant.id, line.quantity);
-        }
-        // 重新加载订单以同步运费/配送
         try {
-            const orderRes: any = await getActiveOrder();
-            if (orderRes.activeOrder) cart.setOrder(orderRes.activeOrder);
-        } catch (e) { console.warn('[checkout] reload order for split failed', e); }
+            const isLastOnlineGroup = isOnline(group.paymentMethod) && resolved.slice(i + 1).every(g => !isOnline(g.paymentMethod));
+            // 清空购物车，加入该组商品生成独立订单
+            await removeAllOrderLines();
+            for (const line of group.lines) {
+                await addItemToOrder(line.productVariant.id, line.quantity);
+            }
+            // 重新加载订单以同步运费/配送
+            try {
+                const orderRes: any = await getActiveOrder();
+                if (orderRes.activeOrder) cart.setOrder(orderRes.activeOrder);
+            } catch (e) { console.warn('[checkout] reload order for split failed', e); }
 
-        const ok = await prepareOrderAddressAndShipping();
-        if (!ok) throw new Error(t('checkout.orderInfoIncomplete'));
-        await transitionOrderToState('ArrangingPayment');
-        const code = await payCurrentOrder(group.paymentMethod);
-        if (code) orderCodes.push(code);
+            const ok = await prepareOrderAddressAndShipping();
+            if (!ok) throw new Error(t('checkout.orderInfoIncomplete'));
+            await transitionOrderToState('ArrangingPayment');
+            const code = await payCurrentOrder(group.paymentMethod);
+            if (code) orderCodes.push(code);
 
-        // 在线支付组：跳转一次支付（最后一笔在线支付跳转后不在本页）
-        if (isLastOnlineGroup && isOnline(group.paymentMethod)) {
-            // payCurrentOrder 已触发 handlePayment 跳转，直接结束
-            break;
+            // 在线支付组：跳转一次支付（最后一笔在线支付跳转后不在本页）
+            if (isLastOnlineGroup && isOnline(group.paymentMethod)) {
+                // payCurrentOrder 已触发 handlePayment 跳转，直接结束
+                break;
+            }
+        } catch (e) {
+            // 中途失败：记录已生成订单号（含当前组已创建但未支付的 active order），
+            // 并把本组及后续组商品行交回页面，取消未支付订单后可回填购物车。
+            const created = [...orderCodes];
+            try {
+                const activeRes: any = await getActiveOrder();
+                const activeCode = activeRes?.activeOrder?.code;
+                if (activeCode && !created.includes(activeCode)) created.push(activeCode);
+            } catch { /* 查询失败也要保留已记录订单号 */ }
+            const err: any = e instanceof Error ? e : new Error(String(e));
+            err.splitCodes = created;
+            err.restoreLines = resolved.slice(i).flatMap((g) => g.lines);
+            throw err;
         }
     }
     return orderCodes;
@@ -1243,21 +1276,48 @@ async function submitSplitOrders(groups: PayGroup[]): Promise<string[]> {
  * 对处于 ArrangingPayment（未支付）的子单，用指定支付方式逐一调用 payMarketplaceSellerOrder。
  * 返回所有成功支付的子单订单号。
  */
-async function payMarketplaceSellerSubOrders(method: string): Promise<string[]> {
-    const codes: string[] = [];
+interface SellerPayOutcome {
+    /** 支付成功的子单号 */
+    paid: string[];
+    /** 支付失败的子单号：必须交给结果页展示「待支付」，不得被静默吞掉 */
+    failed: string[];
+    /** 子单清单拉取失败：无法确认剩余子单状态 */
+    listUnavailable: boolean;
+}
+
+async function payMarketplaceSellerSubOrders(method: string): Promise<SellerPayOutcome> {
     try {
         const res: any = await getMyMarketplaceSellerOrders();
         const subOrders = (res?.myMarketplaceSellerOrders || [])
             .filter((o: any) => o.state === 'ArrangingPayment');
-        for (const sub of subOrders) {
+        // 子单互不依赖：并行支付，避免一笔慢单拖住整批
+        const results = await Promise.allSettled(subOrders.map(async (sub: any) => {
             // openid 由服务端客户档案推导，前端不再传
             const metadata: Record<string, any> = {};
             const payRes: any = await payMarketplaceSellerOrder(sub.id, method, metadata);
             const result = payRes?.payMarketplaceSellerOrder;
-            if (result?.code) codes.push(result.code);
-        }
-    } catch (e) { console.warn('[checkout] payMarketplaceSellerSubOrders failed', e); }
-    return codes;
+            if (!result || result.errorCode) {
+                throw new Error(result?.message || 'seller order pay failed');
+            }
+            return String(result.code || sub.code);
+        }));
+
+        const paid: string[] = [];
+        const failed: string[] = [];
+        results.forEach((r, idx) => {
+            const code = String(subOrders[idx]?.code || '');
+            if (r.status === 'fulfilled') {
+                if (r.value) paid.push(r.value);
+            } else {
+                if (code) failed.push(code);
+                console.warn('[checkout] seller sub order pay failed', code, r.reason);
+            }
+        });
+        return { paid, failed, listUnavailable: false };
+    } catch (e) {
+        console.warn('[checkout] payMarketplaceSellerSubOrders failed', e);
+        return { paid: [], failed: [], listUnavailable: true };
+    }
 }
 
 async function submitOrder() {
@@ -1280,10 +1340,20 @@ async function submitOrder() {
             if (!ok) return;
             await transitionOrderToState('ArrangingPayment');
             const aggregateCode = await payCurrentOrder(selectedPayment.value);
-            const sellerCodes = await payMarketplaceSellerSubOrders(selectedPayment.value);
-            const allCodes = [aggregateCode, ...sellerCodes].filter(Boolean);
-            if (allCodes.length > 0) {
-                uni.redirectTo({ url: '/pkg-order/pages/pay-result?codes=' + encodeURIComponent(allCodes.join(',')) + '&status=success' });
+            const sellerPay = await payMarketplaceSellerSubOrders(selectedPayment.value);
+            const allCodes = [aggregateCode, ...sellerPay.paid].filter(Boolean);
+            if (sellerPay.failed.length > 0) {
+                // 部分子单支付失败：所有子单号都进结果页轮询，失败的明确标为「待支付」，
+                // 不再吞掉失败直接跳 success。
+                const resultCodes = [...allCodes, ...sellerPay.failed].filter(Boolean);
+                const query =
+                    'codes=' + encodeURIComponent(resultCodes.join(',')) +
+                    '&unpaid=' + encodeURIComponent(sellerPay.failed.join(',')) +
+                    '&method=' + encodeURIComponent(selectedPayment.value);
+                uni.redirectTo({ url: '/pkg-order/pages/pay-result?' + query });
+            } else if (allCodes.length > 0) {
+                const warn = sellerPay.listUnavailable ? '&warn=seller-list-unavailable' : '';
+                uni.redirectTo({ url: '/pkg-order/pages/pay-result?codes=' + encodeURIComponent(allCodes.join(',')) + warn });
             }
             return;
         }
@@ -1302,12 +1372,62 @@ async function submitOrder() {
             }
         }
     } catch (e: any) {
-        ui.showToast(e.message);
+        if (e?.splitCodes) {
+            // 拆单中途失败：展示已生成订单号与「取消未支付订单」入口，不再只弹一条 toast
+            splitFailureCodes.value = e.splitCodes;
+            splitRestoreLines.value = e.restoreLines || [];
+        } else {
+            ui.showToast(e.message);
+        }
     } finally {
         // 无论成功、失败还是提前 return，都必须复位加载态与按钮禁用态
         ui.hideLoading();
         submitting.value = false;
     }
+}
+
+/** 拆单中途失败后：取消未支付订单 → 把未购买商品回填购物车 → 回购物车页 */
+async function cancelUnpaidAndReturn() {
+    if (cancellingSplit.value) return;
+    cancellingSplit.value = true;
+    ui.showLoading();
+    const CANCELLABLE = ['Created', 'AddingItems', 'ArrangingPayment'];
+    let failed = 0;
+    try {
+        for (const code of splitFailureCodes.value || []) {
+            try {
+                const res: any = await getOrderByCode(code);
+                const order = res?.orderByCode;
+                // 已支付/已取消的订单不动，只取消仍可取消的未支付单
+                if (!order || !CANCELLABLE.includes(order.state)) continue;
+                await cancelMyOrder(order.id);
+            } catch (e) {
+                failed++;
+                console.warn('[checkout] cancel unpaid order failed', code, e);
+            }
+        }
+        // 取消成功后再回填：active order 仍处于不可编辑状态时 addItem 会失败
+        try {
+            await removeAllOrderLines();
+            for (const line of splitRestoreLines.value) {
+                await addItemToOrder(line.productVariant.id, line.quantity);
+            }
+        } catch (e) {
+            failed++;
+            console.warn('[checkout] restore cart after split failure failed', e);
+        }
+        splitFailureCodes.value = null;
+        splitRestoreLines.value = [];
+        ui.showToast(failed ? t('checkout.cancelPartial') : t('checkout.cancelDone'));
+        if (!failed) uni.switchTab({ url: '/pages/cart/index' });
+    } finally {
+        ui.hideLoading();
+        cancellingSplit.value = false;
+    }
+}
+
+function goMyOrders() {
+    uni.navigateTo({ url: '/pkg-order/pages/orders' });
 }
 </script>
 
@@ -1326,6 +1446,17 @@ async function submitOrder() {
 .split-notice {
     background: #fff8e6; border: 1rpx solid $brand-color; border-radius: $radius-md;
     padding: 18rpx 20rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #b8860b;
+}
+.split-failure {
+    display: flex; flex-direction: column; gap: 12rpx;
+    background: #fff2f0; border: 1rpx solid #ff7875; border-radius: $radius-md;
+    padding: 22rpx 20rpx; margin-bottom: 20rpx;
+    &__title { font-size: 28rpx; font-weight: bold; color: #cf1322; }
+    &__hint { font-size: 24rpx; color: $text-color-secondary; line-height: 1.5; }
+    &__codes { font-size: 24rpx; color: $text-color; word-break: break-all; }
+    &__btn { height: 72rpx; line-height: 72rpx; font-size: 26rpx; border-radius: $radius-md; background: #cf1322; color: #fff; border: none;
+        &[disabled] { opacity: 0.5; } }
+    &__skip { font-size: 24rpx; color: $brand-color; text-align: center; padding: 6rpx 0; }
 }
 .balance-warn {
     display: flex; justify-content: space-between; align-items: center;

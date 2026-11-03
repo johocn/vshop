@@ -2,7 +2,11 @@ import { getGraphQLClient } from '../client';
 
 /**
  * 查询已审批上架的聚合商品（public，default token 可查）。
- * 返回 { marketplaceProducts: Array<{ id, name, slug, barcode, internalCode, merchantChannel: { id, code, name } }> }
+ * 返回 { marketplaceProducts: Array<{ id, name, slug, merchantChannel: { id, code, name } }> }
+ *
+ * ⚠️ C 端不返回 barcode/internalCode（内部编码仅用于后台审批/商家管理）。
+ * ⚠️ 线上 shop-api 的 marketplaceProducts 目前不接受 take/skip 参数，
+ *    真正的服务端分页需 vendure 侧配合；此处仅在客户端分批渲染。
  */
 export async function getMarketplaceProducts() {
     const client = getGraphQLClient();
@@ -12,8 +16,6 @@ export async function getMarketplaceProducts() {
                 id
                 name
                 slug
-                barcode
-                internalCode
                 merchantChannel { id code name }
             }
         }
@@ -60,7 +62,10 @@ export async function payMarketplaceSellerOrder(orderId: string, method: string,
     const query = `
         mutation PaySeller($orderId: ID!, $method: String!, $metadata: JSON) {
             payMarketplaceSellerOrder(orderId: $orderId, method: $method, metadata: $metadata) {
-                ... on Order { id code state }
+                ... on Order {
+                    id code state
+                    payments { id method amount state metadata }
+                }
                 ... on ErrorResult { errorCode message }
             }
         }
