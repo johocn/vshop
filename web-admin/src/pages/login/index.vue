@@ -57,7 +57,11 @@ async function doLogin() {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = (e?.response?.errors?.[0]?.message) || locale.t('login.failed');
+    const backendMsg = e?.response?.errors?.[0]?.message;
+    const code = String(e?.message || '');
+    err.value = code === 'INVALID_CREDENTIALS_ERROR'
+      ? locale.t('login.invalidCredentials')
+      : (backendMsg || locale.t('login.failed'));
   } finally {
     loading.value = false;
   }

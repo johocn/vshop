@@ -38,6 +38,9 @@ const err = ref('');
 
 async function submit() {
   err.value = '';
+  // 首登强改密标记必须在提交前捕获：loadAccess() 成功后 auth.mustChangePassword 会变为 false，
+  // 若此时再判断会把“首登”误判为“主动改密”，导致改密成功后只执行 navigateBack 而停留在本页。
+  const forced = !isManual.value;
   if (isManual.value && !oldPw.value) {
     err.value = locale.t('changePassword.errOldRequired');
     return;
@@ -54,7 +57,7 @@ async function submit() {
   try {
     await changeMyPassword(pw1.value, isManual.value ? oldPw.value : undefined);
     await auth.loadAccess(); // 刷新 mustChangePassword 标志
-    if (isManual.value) {
+    if (!forced) {
       uni.navigateBack();
       uni.showToast({ title: locale.t('changePassword.changedToast'), icon: 'none' });
     } else if (tenant.token) {
@@ -63,7 +66,10 @@ async function submit() {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    err.value = e?.response?.errors?.[0]?.message || locale.t('changePassword.errChangeFailed');
+    const code = e?.response?.errors?.[0]?.extensions?.code;
+    err.value = code === 'FORBIDDEN'
+      ? locale.t('changePassword.errForbidden')
+      : (e?.response?.errors?.[0]?.message || locale.t('changePassword.errChangeFailed'));
   } finally {
     loading.value = false;
   }

@@ -139,7 +139,7 @@
   "login": {
     "title": "youshop 管理后台",
     "subtitle": "店铺经营 · 一部手机搞定",
-    "account": "账号",
+    "account": "邮箱/账号",
     "password": "密码",
     "show": "显示",
     "hide": "隐藏",
@@ -147,7 +147,8 @@
     "en": "English",
     "login": "登 录",
     "logging": "登录中…",
-    "failed": "登录失败，请检查账号密码"
+    "failed": "登录失败，请检查账号密码",
+    "invalidCredentials": "账号或密码错误"
   },
   "channelSelect": {
     "title": "选择要经营的店铺",
@@ -5247,6 +5248,10 @@
     "role": "角色",
     "remove": "移除",
     "empty": "暂无人员",
+    "loadFailed": "人员数据加载失败，请重试",
+    "noPermission": "无权限访问人员管理（首次登录请先完成改密）",
+    "noGrantable": "当前账号没有可授予的角色，请联系超级管理员",
+    "retry": "重试",
     "addTitle": "添加人员",
     "emailLabel": "邮箱",
     "emailPh": "必填（全局唯一）",
@@ -5884,7 +5889,8 @@
     "errShort": "密码至少 8 位",
     "errMismatch": "两次输入的新密码不一致",
     "changedToast": "密码已修改",
-    "errChangeFailed": "修改失败，请重试"
+    "errChangeFailed": "修改失败，请重试",
+    "errForbidden": "当前会话无权限，请退出后重新登录再试"
   },
   "mediaLibrary": {
     "selectedCount": "已选 {n} 张",

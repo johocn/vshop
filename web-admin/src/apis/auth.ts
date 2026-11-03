@@ -3,6 +3,7 @@
 //   - login(username/password) 返回 CurrentUser / InvalidCredentialsError union —— 可用
 //   - me { channels { id code token } } —— 可用（token 为店铺上下文 header 值）
 import { getAdminClient } from './client';
+import { clearSession } from './session';
 
 export interface AdminChannel {
   id: string;
@@ -15,7 +16,7 @@ export async function adminLogin(
   password: string,
 ): Promise<{ id: string; identifier: string } | null> {
   const res = await getAdminClient().request<{
-    login: { id?: string; identifier?: string } | null;
+    login: { id?: string; identifier?: string; errorCode?: string; message?: string } | null;
   }>(
     `mutation Login($u: String!, $p: String!) {
       login(username: $u, password: $p) {
@@ -25,7 +26,11 @@ export async function adminLogin(
     }`,
     { u: username, p: password },
   );
-  if (!res.login?.identifier) return null;
+  if (!res.login?.identifier) {
+    // 登录失败不能沿用旧会话，否则前端会拿上一个账号的 token 继续请求，表现为“登录成功但无数据”
+    clearSession();
+    throw new Error(res.login?.errorCode || 'INVALID_CREDENTIALS_ERROR');
+  }
   return { id: String(res.login.id ?? ''), identifier: res.login.identifier };
 }
 

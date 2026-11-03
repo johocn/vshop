@@ -17,7 +17,8 @@
         <switch :checked="m.enabled" color="#4f8cff" @change="onToggle(m, $event)" />
         <text class="link" @tap="onRemove(m)">{{ $t('platformMembers.remove') }}</text>
       </view>
-      <view v-if="!members.length" class="empty">{{ $t('platformMembers.empty') }}</view>
+      <view v-if="loadError" class="empty">{{ loadError }}</view>
+      <view v-else-if="!members.length" class="empty">{{ $t('platformMembers.empty') }}</view>
     </view>
   </view>
 
@@ -54,7 +55,11 @@
           <text v-if="r.grantable === false" class="dis-tag">{{ $t('platformMembers.notGrantable') }}</text>
           <text v-else class="check" :class="{ on: addForm.roleIds.includes(r.id) }">{{ addForm.roleIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
-        <view v-if="!roles.length" class="empty">{{ $t('platformMembers.noRole') }}<text class="link" @tap="gotoRoles">{{ $t('platformMembers.gotoCreate') }}</text></view>
+        <view v-if="loadError" class="empty">
+          {{ loadError }}<text v-if="!noPermission" class="link" @tap="load"> {{ $t('platformMembers.retry') }}</text>
+        </view>
+        <view v-else-if="!roles.length" class="empty">{{ $t('platformMembers.noRole') }}<text class="link" @tap="gotoRoles">{{ $t('platformMembers.gotoCreate') }}</text></view>
+        <view v-else-if="!hasGrantableRole" class="empty">{{ $t('platformMembers.noGrantable') }}</view>
       </view>
       <view class="actions">
         <button class="btn ghost" @tap="showRolePick = false">{{ $t('platformMembers.cancel') }}</button>
@@ -72,7 +77,9 @@
           <text v-if="r.grantable === false" class="dis-tag">{{ $t('platformMembers.notGrantable') }}</text>
           <text v-else class="check" :class="{ on: roleTargetIds.includes(r.id) }">{{ roleTargetIds.includes(r.id) ? '✓' : '' }}</text>
         </view>
-        <view v-if="!roles.length" class="empty">{{ $t('platformMembers.noRoleShort') }}</view>
+        <view v-if="loadError" class="empty">{{ loadError }}</view>
+        <view v-else-if="!roles.length" class="empty">{{ $t('platformMembers.noRoleShort') }}</view>
+        <view v-else-if="!hasGrantableRole" class="empty">{{ $t('platformMembers.noGrantable') }}</view>
       </view>
       <!-- 受限核销员（角色含 VerifyOrder）：配置可核销配送档案范围 -->
       <view v-if="roleTargetHasVerify" class="scope-block">
@@ -137,6 +144,8 @@ const locale = useLocaleStore();
 const members = ref<TenantMemberItem[]>([]);
 const roles = ref<RoleItem[]>([]);
 const shippingProfiles = ref<ShippingProfileItem[]>([]);
+const loadError = ref('');
+const noPermission = ref(false);
 
 const showAdd = ref(false);
 const addForm = ref({ email: '', displayName: '', phone: '', roleIds: [] as string[] });
@@ -196,9 +205,18 @@ function fmtTime(t?: string | null): string {
 
 onShow(load);
 async function load() {
-  members.value = await fetchMyTenantMembers();
-  const list = await fetchMyTenantRoles();
-  roles.value = Array.from(new Map(list.map((r) => [r.id, r])).values());
+  loadError.value = '';
+  noPermission.value = false;
+  try {
+    members.value = await fetchMyTenantMembers();
+    const list = await fetchMyTenantRoles();
+    roles.value = Array.from(new Map(list.map((r) => [r.id, r])).values());
+  } catch (e: any) {
+    noPermission.value = e?.response?.errors?.[0]?.extensions?.code === 'FORBIDDEN';
+    loadError.value = locale.t(noPermission.value ? 'platformMembers.noPermission' : 'platformMembers.loadFailed');
+    uni.showToast({ title: loadError.value, icon: 'none' });
+    return;
+  }
   try {
     // 仅返回当前租户可见档案（全局 + 本租户），与后端 setMemberRedeemProfiles 校验口径一致
     shippingProfiles.value = await fetchShippingProfiles();
@@ -207,7 +225,9 @@ async function load() {
   }
 }
 
-const grantableRoles = computed(() => roles.value.filter((r) => r.grantable !== false));
+// 不可授予角色不在前端过滤，直接展示并打「不可授」标签，避免用户只看到空列表却不知原因
+const grantableRoles = computed(() => roles.value);
+const hasGrantableRole = computed(() => roles.value.some((r) => r.grantable !== false));
 
 function onAdd() {
   addForm.value = { email: '', displayName: '', phone: '', roleIds: [] };

@@ -141,7 +141,7 @@
   "login": {
     "title": "youshop Admin",
     "subtitle": "Manage your store from one phone",
-    "account": "Account",
+    "account": "Email / Account",
     "password": "Password",
     "show": "Show",
     "hide": "Hide",
@@ -149,7 +149,8 @@
     "en": "English",
     "login": "Sign In",
     "logging": "Signing in…",
-    "failed": "Login failed, please check your credentials"
+    "failed": "Login failed, please check your credentials",
+    "invalidCredentials": "Invalid account or password"
   },
   "channelSelect": {
     "title": "Select a store to manage",
@@ -5250,6 +5251,10 @@
     "role": "Roles",
     "remove": "Remove",
     "empty": "No members",
+    "loadFailed": "Failed to load members, please retry",
+    "noPermission": "No permission to manage members (complete first-login password change)",
+    "noGrantable": "No grantable role for this account. Contact the super admin.",
+    "retry": "Retry",
     "addTitle": "Add Member",
     "emailLabel": "Email",
     "emailPh": "Required (globally unique)",
@@ -5887,7 +5892,8 @@
     "errShort": "Password must be at least 8 characters",
     "errMismatch": "The two passwords do not match",
     "changedToast": "Password changed",
-    "errChangeFailed": "Change failed, please retry"
+    "errChangeFailed": "Change failed, please retry",
+    "errForbidden": "No permission for this session. Please sign out and log in again."
   },
   "mediaLibrary": {
     "selectedCount": "{n} selected",
