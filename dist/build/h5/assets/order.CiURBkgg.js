@@ -1,1 +1,0 @@
-import{y as r}from"./index-BsKMj_zP.js";async function e(e){return r().request("mutation ConfirmReceipt($orderId: String!) { confirmOrderReceipt(orderId: $orderId) }",{orderId:e})}async function d(e){return r().request("mutation CancelMyOrder($orderId: ID!) { cancelMyOrder(orderId: $orderId) { id code state } }",{orderId:e})}export{e as a,d as c};

@@ -281,7 +281,14 @@ class ShopClient implements ShopGraphQLClient {
     async request<T = any>(query: any, variables?: any, ...rest: any[]): Promise<T> {
         if (this.gated) await waitTenantGate();
         this.inner.setHeaders(getShopApiHeaders());
-        return (this.inner.request as any)(query, variables, ...rest);
+        try {
+            return await (this.inner.request as any)(query, variables, ...rest);
+        } catch (e: any) {
+            // graphql-request 抛出的 ClientError 自带 response.errors；这是最可靠的分流点
+            // （不依赖 fetch 层对响应体 clone/json 的兼容性）。
+            inspectAuthErrors(e?.response);
+            throw e;
+        }
     }
 
     setHeaders(headers: Record<string, string>) {
