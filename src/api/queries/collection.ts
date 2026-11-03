@@ -43,7 +43,9 @@ export async function getEnabledFloors(): Promise<any> {
     const client = getGraphQLClient();
     const query = `
         query GetEnabledFloors {
-            collections {
+            # 显式限制 take：Vendure 按「列表默认 take × 嵌套字段」计算复杂度，
+            # 不传 take 会被默认值放大到超过生产查询复杂度上限（Query is too complex，楼层整块 500）。
+            collections(options: { take: 24 }) {
                 items {
                     id
                     slug

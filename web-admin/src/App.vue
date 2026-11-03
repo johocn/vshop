@@ -23,6 +23,10 @@ onLaunch((options: any) => {
   applyNavTitle(String(options?.path || ''));
   applyNavTitleForCurrentPage();
   installRouteGuard();
+  // 会话失效时同步清空 Pinia 登录态（client 只清 storage，守卫仍会误判为已登录）
+  uni.$on('admin:session-expired', () => {
+    useAuthStore().logout();
+  });
   // 硬刷新/深链进入内页时 Pinia 会重建，权限上下文随之丢失（权限门控会被误判为「无权限」），
   // 故按已恢复的会话令牌补拉一次；失败静默（令牌失效由后续请求统一处理）
   const auth = useAuthStore();

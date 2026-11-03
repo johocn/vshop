@@ -235,6 +235,8 @@ export function waitTenantGate(): Promise<void> {
         };
         gateWaiters.push(fire);
         setTimeout(() => {
+            // 闸门已在超时前正常打开时不能再提示「超时」，否则每次冷启动都会误报一次
+            if (done) return;
             fire();
             // 超时放行意味着请求将带着空 vendure-token 落到默认渠道：
             // 必须明确提示，不能静默让用户看到默认店铺的商品与价格。

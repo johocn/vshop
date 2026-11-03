@@ -217,9 +217,18 @@ onMounted(async () => {
     // #endif
 });
 
+// tabBar 页面只能用 switchTab 打开：会话失效时 redirect 可能正是 tab 页（如首页），
+// 用 redirectTo 会失败并把用户卡在登录页。
+const TAB_PAGE_PATHS = ['/pages/home/index', '/pages/category/index', '/pages/cart/index', '/pages/profile/index'];
+
 function navigateAfterLogin() {
     if (redirectUrl.value) {
-        uni.redirectTo({ url: redirectUrl.value });
+        const targetPath = redirectUrl.value.split('?')[0];
+        if (TAB_PAGE_PATHS.includes(targetPath)) {
+            uni.switchTab({ url: targetPath });
+        } else {
+            uni.redirectTo({ url: redirectUrl.value });
+        }
     } else {
         uni.switchTab({ url: '/pages/home/index' });
     }

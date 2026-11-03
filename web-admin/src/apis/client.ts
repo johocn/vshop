@@ -39,6 +39,9 @@ function handleUnauthenticated(): void {
   handlingUnauthenticated = true;
   clearSession();
   resetAdminClient();
+  // Pinia 里的 token 不会因清 storage 自动失效：必须通知 authStore 登出，
+  // 否则路由守卫与订单提醒仍按「已登录」状态运行。
+  try { uni.$emit('admin:session-expired'); } catch { /* 非 UI 环境忽略 */ }
   setTimeout(() => {
     handlingUnauthenticated = false;
     uni.reLaunch({ url: '/pages/login/index' });

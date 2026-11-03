@@ -1169,8 +1169,14 @@ async function payCurrentOrder(method: string): Promise<string> {
         orderCode: order?.code,
         orderState: order?.state,
     });
-    if (result.success) track('pay_success', { method, code: order?.code, state: order?.state });
-    return result.success ? order?.code : '';
+    if (result.success) {
+        track('pay_success', { method, code: order?.code, state: order?.state });
+        return order?.code || '';
+    }
+    // 支付未发起/用户取消时订单已创建：仍须带订单号进结果页（可继续支付）。
+    // 返回空串会让结果页按 fail 展示且无单可查，用户直接卡死。
+    ui.showToast(result.message || t('payment.payFailed'));
+    return order?.code || '';
 }
 
 /**
