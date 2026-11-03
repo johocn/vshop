@@ -183,7 +183,9 @@ var BOOKS = {
   mp: { id:'mp', title:'商户入驻与商品上架审批流程', short:'入驻审批', icon:'📋',
         desc:'平台建商户 → 商户提交商品 → 审批上架 → 真实下单拆单验证。' },
   cx: { id:'cx', title:'nshop 商城 C 端手册', short:'C端手册', icon:'📱',
-        desc:'nshop 商城买家视角：结账本地化、逐箱结算、订单确认与售后。' }
+        desc:'nshop 商城买家视角：结账本地化、逐箱结算、订单确认与售后。' },
+  wm: { id:'wm', title:'外卖使用手册', short:'外卖手册', icon:'🛵',
+        desc:'店主与门店人员的外卖日常：登录选店、接单出餐、商品与沽清、配送自提、售后评价与营业日报。' }
 };
 
 var CHAPTERS = [
@@ -1934,13 +1936,235 @@ var CHAPTERS = [
 <div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
 <div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`},
 ];
+CHAPTERS.push(
+{book:'wm', id:'wm-1', title:'登录与选择店铺', html:`
+<p class="lead">本手册面向<mark class="mark">店主与门店人员</mark>，覆盖外卖日常运营：登录选店、接单出餐、商品维护、配送自提、售后评价与营业数据。截图均为手机视口（390×844，dpr=2）真实操作。</p>
+<h3>1. 登录后台</h3>
+<ol class="steps">
+  <li>浏览器打开后台地址 <code>https://e.joho.cn/guanli</code>。</li>
+  <li>输入<mark class="mark">邮箱/账号</mark>与密码；账号通常是创建人员时填写的邮箱，如 <code>waim@163.com</code>。</li>
+  <li>点「登录」。账号或密码错误时会明确提示<mark class="mark">「账号或密码错误」</mark>，不会出现“看似登录成功但没有任何店铺”的情况。</li>
+</ol>
+<h3>2. 首次登录：设置新密码</h3>
+<p>新建人员首次登录会直接进入「设置新密码」页：<mark class="mark">不需要原密码</mark>，输入两次新密码提交即可，成功后自动进入「选择店铺」；主动修改密码才需要原密码。</p>
+<h3>3. 选择店铺</h3>
+<p>登录后进入「选择要经营的店铺」，列出你被授权的门店（示例为 canteen-a）。点门店卡片进入该店工作台；商品、订单、售后均<mark class="mark">按店铺隔离</mark>。</p>
+<img class="img" src="shots/wm_channel_select_390x844.png" alt="选择店铺页">
+<div class="imgcap">图 W1 · 选择要经营的店铺（canteen-a · 第三方）</div>
+<div class="note"><b>多店提示：</b>账号被授权多家门店时会显示多张卡片；进入工作台后可通过左上角返回箭头重新选择店铺。</div>`},
+{book:'wm', id:'wm-2', title:'外卖工作台', html:`
+<p class="lead">工作台是门店人员的<mark class="mark">每日起点</mark>：顶部看经营概况，下方按「常用功能 / 商品 / 交易 / 履约」分组进入具体功能。</p>
+<h3>1. 顶部经营概况</h3>
+<p>显示<mark class="mark">今日销售额、待发货、库存预警</mark>，点卡片可直达对应处理页；店铺名旁标注编码与营业状态。</p>
+<h3>2. 分组入口</h3>
+<ol class="steps">
+  <li><b>常用功能</b>：订单、桌面收银 POS、<mark class="mark">新增商品</mark>、售后、分类、库存、装修、使用手册。</li>
+  <li><b>商品</b>：分类、新增商品、商品列表、库存预警、采购入库、移库、协同盘库、快捷盘点、手动出库、库存流水、仓库管理、图片库。</li>
+  <li><b>交易</b>：订单、支付超时观测、配货台、发货、售后、评价管理、门店收银等。</li>
+  <li><b>履约</b>：配送方式、支付方式、自提点、到店自提核销、<mark class="mark">商家接单</mark>、消息中心、<mark class="mark">一键沽清</mark>。</li>
+</ol>
+<img class="img" src="shots/wm_dashboard_390x844.png" alt="外卖工作台首页">
+<div class="imgcap">图 W2 · 外卖工作台（KPI + 常用功能 + 商品/交易/履约分组）</div>
+<div class="warn"><b>权限差异：</b>不同角色看到的入口不同。缺少分组或按钮表示当前角色未被授予对应权限，请联系店主在「人员管理」调整角色。</div>
+<h3>3. 经营设置</h3>
+<p>入口：履约 → 商家接单顶部「经营设置」。可配置营业状态（营业中/临时休息/营业时间）、营业日历（休业日）、自动接单（延迟秒数、每日上限、适用路线）、每日日报推送时间、门店信息（店铺公告最多 500 字、联系电话、信任文案）。</p>`},
+{book:'wm', id:'wm-3', title:'商品管理：分类、规格与上下架', html:`
+<p class="lead">外卖商品复用后台商品中心：<mark class="mark">分类、商品列表、规格与 SKU、上下架</mark>；外卖特有的打包费、限购、加料、套餐与沽清集中在「一键沽清」页（见 wm-5）。</p>
+<h3>1. 分类管理</h3>
+<p>入口：工作台 → 商品 → <mark class="mark">分类</mark>。可新建本店分类并调整排序；商品在「基本信息」中选择分类，未选分类的商品不会出现在对应分类菜单下。</p>
+<h3>2. 商品列表与编辑</h3>
+<p>入口：工作台 → 商品 → <mark class="mark">商品列表</mark>。可按名称搜索、进入编辑、查看上下架状态；「新增商品」与常用功能中的「＋新增商品」等价，详见 wm-4。</p>
+<h3>3. 规格与 SKU</h3>
+<ol class="steps">
+  <li><b>无规格（单品）</b>：只有一个默认 SKU，适合单一口味/单一份量。</li>
+  <li><b>多规格（组合）</b>：点「＋添加规格组」，填写规格名（如「份量」）与规格值（如「小份」「大份」）；规格组<mark class="mark">最多 3 组</mark>，系统按组合生成 SKU 矩阵。</li>
+  <li>矩阵中可逐行改价格（单位：分）、划线价、库存、条形码、内部码、成本价，也可用「批量设价 / 批量填库存 / 批量划线价」一次填写。</li>
+  <li>每个 SKU 可单独设置<mark class="mark">1 张</mark>变体图，便于 C 端按规格切换图片。</li>
+</ol>
+<h3>4. 上下架</h3>
+<p>商品表单底部「上架」开关控制该商品是否在 C 端可见可买。关闭上架后保存成功，但 C 端不可见；重新开启并保存后恢复。</p>
+<div class="warn"><b>售卖规则：</b>「上架」与「沽清」是两道独立开关。既被沽清又关闭上架的商品，需要<mark class="mark">两者都恢复</mark>才会重新售卖。</div>`},
+{book:'wm', id:'wm-4', title:'如何添加商品（图文步骤）', html:`
+<p class="lead">本节从入口开始，逐步完成一个外卖商品的新建、图片与规格配置、保存核对，并列出常见报错的排查方法。</p>
+<h3>1. 进入新增商品</h3>
+<ol class="steps">
+  <li>工作台 → 常用功能 → <mark class="mark">「＋新增商品」</mark>；或 商品 → 新增商品。</li>
+  <li>进入「新增商品」页，默认停在<mark class="mark">基本信息</mark>页签，另有「品牌营销」与「规格变体」页签。</li>
+</ol>
+<h3>2. 填写基本信息</h3>
+<img class="img" src="shots/wm_product_create_basic_390x844.png" alt="新增商品-基本信息">
+<div class="imgcap">图 W3 · 基本信息：商品名 / Slug / 描述 / 价格 / 划线价 / 成本价 / 库存</div>
+<ol class="steps">
+  <li><b>商品名（必填）</b>：后台<mark class="mark">唯一硬性校验</mark>的字段，为空会提示「请填商品名」。</li>
+  <li><b>Slug</b>：URL 别名，可留空。</li>
+  <li><b>描述</b>：富文本，可插入图片，用于 C 端商品详情。</li>
+  <li><b>价格（元）</b>：按元录入，保存时换算为分；<mark class="mark">留空按 0 处理</mark>。</li>
+  <li><b>划线价 / 成本价（元）</b>：选填，用于展示与毛利参考。</li>
+  <li><b>库存（件）</b>：留空按 0 处理，0 库存会显示售罄。</li>
+  <li><b>配送档案 / 支付档案</b>：点「请选择」绑定；「配送方式」由配送档案自动推导，只读。</li>
+  <li><b>分类</b>：选择本店分类（如「主食」「饮品」）；不选不会阻止保存，但商品不会进入分类菜单。</li>
+  <li><b>商品类型</b>：实体商品 / 虚拟商品 / 服务商品，当前仅作标记，不影响运费、库存与结算。</li>
+  <li><b>上架</b>：开关默认开启；关闭后 C 端不可见。</li>
+  <li><b>单位</b>：本表单<mark class="mark">没有独立「单位」字段</mark>；份/杯/斤等请写进商品名或规格值（如「麻辣拌面（份）」）。</li>
+</ol>
+<h3>3. 添加商品图片</h3>
+<img class="img" src="shots/wm_product_create_image_390x844.png" alt="商品图片-媒体库选择">
+<div class="imgcap">图 W4 · 媒体库选图（已选 1/9，支持上传；不含 SVG）</div>
+<ol class="steps">
+  <li>点「商品图片」区域的<mark class="mark">＋添加图片</mark>打开媒体库，可按分类筛选、搜索文件名，点图片右上角勾选，底部显示「已选 N/9」，点「确定」带回。</li>
+  <li><b>张数</b>：商品图片<mark class="mark">最多 9 张</mark>；SKU 变体图每行 1 张；商品视频最多 1 个。</li>
+  <li><b>格式</b>：图片 png / jpg / jpeg / webp / gif；视频 mp4 / mov / m4v / avi / webm。</li>
+  <li><b>大小</b>：单张图片<mark class="mark">≤ 10MB</mark>，单个视频<mark class="mark">≤ 50MB</mark>；超限提示「文件过大，最大 10MB/50MB」。</li>
+  <li><b>建议</b>：主图用 1:1 方图、边长 ≥ 800px，首图放成品实拍；SVG 不支持上传。</li>
+</ol>
+<img class="img" src="shots/wm_product_create_basic_filled_390x844.png" alt="新增商品-已选图片">
+<div class="imgcap">图 W5 · 选图后回到基本信息：分类、上架开关、商品图片缩略图</div>
+<h3>4. 配置规格与 SKU</h3>
+<p>切到「规格变体」页签。单品保持「无规格」即可；多规格点「多规格（组合）」→「＋添加规格组」，填规格名与规格值，系统生成 SKU 矩阵。</p>
+<img class="img" src="shots/wm_product_create_variants_390x844.png" alt="规格变体-多规格与 SKU 矩阵">
+<div class="imgcap">图 W6 · 多规格：规格组「份量」→ 小份/大份 → SKU 矩阵（价格单位分）</div>
+<div class="note"><b>价格联动：</b>基本信息里的价格/划线价/成本价/库存会同步到<mark class="mark">尚未手动改价</mark>的 SKU 行；手动改过的行不会被覆盖。矩阵价格单位是<mark class="mark">分</mark>（12.5 元 = 1250）。</div>
+<h3>5. 保存与核对</h3>
+<img class="img" src="shots/wm_product_saved_390x844.png" alt="编辑商品-保存成功">
+<div class="imgcap">图 W7 · 保存成功提示「已保存」（编辑页可继续绑定商品专属券）</div>
+<ol class="steps">
+  <li>新增页底部点<mark class="mark">「创建商品」</mark>；成功后自动跳到该商品的编辑页，失败会提示「创建失败」。</li>
+  <li>编辑页底部点<mark class="mark">「保存」</mark>，成功后出现「已保存」提示。</li>
+  <li>回到工作台 → 商品 → 商品列表，搜索商品名，核对<mark class="mark">价格、库存、分类、上架状态、图片</mark>。</li>
+  <li>用 C 端菜单确认：分类下能找到、图片正常、规格可选、价格与后台一致。</li>
+</ol>
+<h3>6. 常见报错与排查</h3>
+<ol class="steps">
+  <li><b>「请填商品名」</b>：名称为空，填写后再保存。</li>
+  <li><b>「不支持的文件类型（仅图片/视频，不含 svg）」</b>：换 png/jpg/webp/gif；SVG 需先转成位图。</li>
+  <li><b>「文件过大，最大 10MB」/「最大 50MB」</b>：压缩图片或视频后重新上传。</li>
+  <li><b>选图数量到上限</b>：底部显示「已选 9/9」时无法再加，先取消不用的图。</li>
+  <li><b>价格为 0 / 库存为 0</b>：后台不会拦截，但 0 元无法正常结算、0 库存即售罄；请补齐价格与库存。</li>
+  <li><b>分类未选</b>：保存不报错，但商品不进入任何分类；补选分类后保存。</li>
+  <li><b>SKU 重复</b>：多因同一规格组重复添加了同名规格值；删除重复值，保留唯一组合后再保存。</li>
+  <li><b>保存后 C 端看不到</b>：依次检查「上架」开关、一键沽清开关、分类与门店渠道是否正确。</li>
+</ol>
+<div class="warn"><b>录入口径：</b>金额一律按<mark class="mark">元</mark>录入（SKU 矩阵按分）；库存为整数件数。修改商品不会影响已下单的历史订单金额。</div>`},
+{book:'wm', id:'wm-5', title:'沽清与库存', html:`
+<p class="lead">高峰或缺货时，用<mark class="mark">一键沽清</mark>快速停售；日常补货与盘点走「库存」相关入口。</p>
+<h3>1. 一键沽清</h3>
+<p>入口：工作台 → 履约 → <mark class="mark">一键沽清</mark>。卡片展示月售、规格数、打包费、限购、加料/套餐与当前状态。</p>
+<img class="img" src="shots/wm_campus_products_390x844.png" alt="一键沽清商品列表">
+<div class="imgcap">图 W8 · 一键沽清（全店沽清 / 全店恢复 / 次日 04:00 自动恢复 / 单品开关）</div>
+<ol class="steps">
+  <li>单个商品右侧开关：立即沽清或在售。</li>
+  <li>「全店沽清 / 全店恢复」一次性处理全部商品，操作前二次确认。</li>
+  <li>开启「沽清次日自动恢复」后，系统在次日 04:00 自动恢复在售；单品手动沽清不受影响。</li>
+  <li>卡片上可维护<mark class="mark">打包费、每日限量 / 每人限购、加料、套餐</mark>；跑腿类商品可点「初始化跑腿商品」补齐 0 元载体商品。</li>
+</ol>
+<div class="warn"><b>售卖规则：</b>沽清商品仍展示在 C 端菜单，但<mark class="mark">不可加购</mark>；恢复后立即生效。与「上架」开关需同时为可售状态。</div>
+<h3>2. 库存入口</h3>
+<ol class="steps">
+  <li><b>库存预警</b>：按阈值标记低库存/缺货，可勾选生成采购入库单。</li>
+  <li><b>采购入库 / 移库 / 手动出库</b>：分别用于补货、仓间调拨与报损领用。</li>
+  <li><b>协同盘库 / 快捷盘点</b>：以实盘数量修正库存。</li>
+  <li><b>库存流水</b>：查看每一笔入库、出库、盘库与销售扣减的「结存变化 前 → 后」。</li>
+</ol>`},
+{book:'wm', id:'wm-6', title:'订单与接单', html:`
+<p class="lead">外卖订单的主战场是「商家接单」：从待接单到出餐、派单、配送，按状态页签推进；「订单」页用于跨渠道核对与发货。</p>
+<h3>1. 商家接单</h3>
+<p>入口：工作台 → 履约 → <mark class="mark">商家接单</mark>。顶部显示今日完成单量与营业额，并提供营业开关、语音播报、打印与今日待办（售后、催单、退款失败、出餐超时、日报未推送）。</p>
+<img class="img" src="shots/wm_campus_merchant_390x844.png" alt="商家接单-待接单">
+<div class="imgcap">图 W9 · 商家接单（状态页签 + 今日数据 + 接单/拒单操作）</div>
+<ol class="steps">
+  <li><b>待接单</b>：点「接单」进入备餐，支持「批量接单」；拒单会<mark class="mark">全额退款并取消订单，不可撤销</mark>，需二次确认。</li>
+  <li><b>备餐中</b>：完成后点「出餐完成」，进入待派单/待自营接单等后续状态。</li>
+  <li><b>待派单 / 外部快递中 / 待自营接单 / 自营配送中 / 待取货 / 配送中</b>：按配送方式推进，详见 wm-7。</li>
+  <li><b>预约单</b>：按预约时间单独分组，避免与即时单混淆。</li>
+  <li>搜索支持<mark class="mark">单号后 4 位、楼栋、手机尾号、备注</mark>；可开启「按楼栋分组」集中出餐。</li>
+</ol>
+<div class="note"><b>号码保护：</b>顾客手机号脱敏展示，<mark class="mark">不能直接拨打</mark>；联系顾客请走平台入口。</div>
+<h3>2. 出餐屏（后厨大屏）</h3>
+<p>入口：商家接单顶部「出餐屏」。页面<mark class="mark">每 10 秒自动刷新</mark>，分「待接单 / 备餐中」两列，并统计待接单、备餐中、超时、催单数量；出餐超时按 15 分钟预警、25 分钟标记超时。操作按钮为「开始制作」与「出餐完成」。</p>
+<h3>3. 订单列表</h3>
+<p>入口：工作台 → 交易 → <mark class="mark">订单</mark>。顶部可切换<mark class="mark">渠道单 / 商品单</mark>：渠道单只看本店渠道成交，商品单包含所有含本店商品的订单（如默认商城订单）。</p>
+<img class="img" src="shots/wm_order_list_390x844.png" alt="订单列表">
+<div class="imgcap">图 W10 · 订单列表（渠道单/商品单 + 状态分组 + 发货/核销入口）</div>
+<ol class="steps">
+  <li>状态分组：待处理 / 进行中 / 已完成 / 已取消，另有异常组与售后组。</li>
+  <li>筛选：关键词、时间范围、配送方式（配送 / 自提）。</li>
+  <li>操作：确认发货（跳发货页）、提醒、详情、到店自提核销。</li>
+</ol>
+<div class="tip"><b>建议：</b>高峰期只在「商家接单」处理即时单；订单页用于对账、补发货与查历史，避免两处重复操作。</div>`},
+{book:'wm', id:'wm-7', title:'配送与自提', html:`
+<p class="lead">系统支持<mark class="mark">外部快递（美团/达达）</mark>、<mark class="mark">自营配送</mark>与<mark class="mark">到店自提</mark>三种履约方式，订单按配送档案推导的方式进入对应页签。</p>
+<h3>1. 外部快递（美团 / 达达）</h3>
+<ol class="steps">
+  <li>订单出餐后进入<mark class="mark">待派单</mark>；在商家接单中点「推送美团」或「推送达达」发起外部配送。</li>
+  <li>推送成功后订单进入<mark class="mark">外部快递中</mark>，可查看骑手与配送进度。</li>
+  <li>需要撤回时点「取消外部快递」；取消失败或超时会进入异常待办。</li>
+  <li>门店编号、外部快递超时与第三方配送基价在「拾光达配置」中维护。</li>
+</ol>
+<h3>2. 自营配送</h3>
+<ol class="steps">
+  <li>订单进入<mark class="mark">待自营接单</mark>，配送员点「自营接单」。</li>
+  <li>送达交接点后点「已送达交接点」，订单转入<mark class="mark">待取货 / 配送中</mark>。</li>
+  <li>交接环节使用<mark class="mark">交接码</mark>核对，避免错拿漏拿。</li>
+</ol>
+<h3>3. 到店自提</h3>
+<ol class="steps">
+  <li>下单时选择自提的商品，订单会标注自提；在「订单」中筛选配送方式为<mark class="mark">自提</mark>。</li>
+  <li>顾客到店后，点「到店自提核销」或进入核销页扫码/输入核销码完成交付。</li>
+  <li>核销后订单进入已完成，库存与营业额同步结算。</li>
+</ol>
+<div class="warn"><b>不要提前核销：</b>核销代表商品已交付。未交付就核销会导致售后与骑手结算口径错误；误操作请保留订单号并联系管理员处理。</div>`},
+{book:'wm', id:'wm-8', title:'售后处理', html:`
+<p class="lead">售后直接影响复购与门店评分，建议当日清零「待处理」。</p>
+<h3>1. 售后列表</h3>
+<p>入口：工作台 → 交易 → <mark class="mark">售后</mark>，或商家接单顶部「售后申请」。状态页签包括待处理、仲裁中、待寄回、待收货、待退款、退款异常、全部、已拒绝、已取消。</p>
+<img class="img" src="shots/wm_after_sale_390x844.png" alt="售后处理列表">
+<div class="imgcap">图 W11 · 售后处理（待处理页签 + 同意/拒绝/详情）</div>
+<ol class="steps">
+  <li>点「详情」核对售后类型、退款金额、原因与凭证。</li>
+  <li>「同意」按售后规则推进退款/退货；「拒绝」需填写理由，顾客可继续申诉。</li>
+  <li>退款异常单需人工排查（如支付渠道退回失败）。</li>
+  <li>「退货地址」维护退货收货信息，「导出 CSV」用于对账留档。</li>
+</ol>
+<div class="warn"><b>时效：</b>列表会标红显示已等待时长。长时间不处理会升级为仲裁并影响门店考核。</div>`},
+{book:'wm', id:'wm-9', title:'评价管理', html:`
+<p class="lead">评价是 C 端下单的重要参考：当日审核、及时回复差评，能显著降低流失。</p>
+<h3>1. 评价列表</h3>
+<p>入口：工作台 → 交易 → <mark class="mark">评价管理</mark>。页签：待审核、已通过、已驳回、全部、差评申诉、品质预警。</p>
+<img class="img" src="shots/wm_review_390x844.png" alt="评价管理列表">
+<div class="imgcap">图 W12 · 评价管理（待审核 + 星级/标签 + 通过/驳回 + 商家回复）</div>
+<ol class="steps">
+  <li>「待审核」中查看星级、口味/分量/配送等标签与内容。</li>
+  <li>真实评价点「通过」；含违规内容点「驳回」并选择原因。</li>
+  <li>差评可在「差评申诉」中提交申诉，并在评价下填写<mark class="mark">商家回复</mark>。</li>
+  <li>「品质预警」汇总高频问题（如异物、凉了），用于整改出餐与包装。</li>
+</ol>
+<div class="tip"><b>回复建议：</b>先道歉再说明整改动作，避免与顾客争辩；回复会展示在 C 端评价下方。</div>`},
+{book:'wm', id:'wm-10', title:'营业数据与日报', html:`
+<p class="lead">门店数据分为<mark class="mark">营业日报</mark>（每日经营结果）与<mark class="mark">数据看板</mark>（趋势与结构分析），可按权限查看。</p>
+<h3>1. 营业日报</h3>
+<p>入口：商家接单顶部「营业日报」。可按日期切换（今天 / 昨天 / 日历选日），核心指标：完成单量、营业额、客单价、退款（单量与金额），并给出较昨日、近 7 日对比，以及时段分布与商品销量 Top5。</p>
+<img class="img" src="shots/wm_campus_daily_report_390x844.png" alt="营业日报">
+<div class="imgcap">图 W13 · 营业日报（日期切换 + 四项指标 + 经营对比 + 时段分布 + 商品 Top5）</div>
+<ol class="steps">
+  <li>点日期两侧箭头或「今天 / 昨天」快速切换。</li>
+  <li>核对完成单量与营业额是否与订单列表一致（退款单独统计）。</li>
+  <li>点底部「复制日报」生成文本，可直接发到门店群。</li>
+</ol>
+<h3>2. 经营数据与数据看板</h3>
+<ol class="steps">
+  <li><b>经营设置 → 经营数据</b>：今日 / 近 7 日订单数、营业额、客单价、取消数与取消金额。</li>
+  <li><b>数据看板</b>（需相应权限）：经营数据、作业分析、售后分析三个视图，支持近 7 天 / 近 30 天与「导出 CSV」。</li>
+  <li>商家接单顶部实时显示<mark class="mark">今日完成单量与今日营业额</mark>，可随时扫一眼。</li>
+</ol>
+<div class="note"><b>口径提示：</b>营业额按订单实收统计，退款在日报中单独列出；「商品单」包含跨渠道成交，做全量对账时以商品单为准。</div>`}
+);
 
 /* ============ 状态与渲染 ============ */
 var state = { view:'home', book:null, cur:null, q:'' };
 
 function $id(id){ return document.getElementById(id); }
 var cap = {
-  op: '商户运营', mp: '入驻与审批',
+  op: '商户运营', mp: '入驻与审批', wm: '外卖手册',
 };
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function stripHtml(h){ var d=document.createElement('div'); d.innerHTML=h; return d.textContent||''; }
@@ -1951,7 +2175,7 @@ function renderBooks(){
   var keys = Object.keys(BOOKS);
   keys.forEach(function(k){
     var b = BOOKS[k]; var n = CHAPTERS.filter(function(c){return c.book===k;}).length;
-    var colors = {'op':'#1a56db','mp':'#e4542a'}; var col = colors[k]||'#1a56db';
+    var colors = {'op':'#1a56db','mp':'#e4542a','wm':'#0e9f6e'}; var col = colors[k]||'#1a56db';
     var d = document.createElement('div'); d.className='book-card'; d.innerHTML=
       '<span class="rk" style="background:'+col+'"></span>'+
       '<div class="bt">'+b.icon+' '+esc(b.title)+' <span class="badge">'+n+' 章</span></div>'+
