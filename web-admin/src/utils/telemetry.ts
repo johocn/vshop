@@ -12,6 +12,14 @@ const MAX_QUEUE = 10;
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_ERRORS_PER_SESSION = 10;
 
+/**
+ * 显式开关：后端尚未提供 campusTrackEvents / campusReportError，
+ * 待补齐后打开开关（VITE_CAMPUS_TELEMETRY_ENABLED=true）即可恢复上报。
+ * 关闭时 track / reportError 只做入参校验与本地调试输出，不发任何请求。
+ */
+export const telemetryEnabled =
+    String(import.meta.env?.VITE_CAMPUS_TELEMETRY_ENABLED ?? '').toLowerCase() === 'true';
+
 const TRACK_MUTATION = `mutation TrackEvents($input: CampusTrackEventBatchInput!) { campusTrackEvents(input: $input) }`;
 const ERROR_MUTATION = `mutation ReportError($input: CampusErrorReportInput!) { campusReportError(input: $input) }`;
 
@@ -87,6 +95,7 @@ function schedule() {
 }
 
 export function flush(): void {
+    if (!telemetryEnabled) return;
     if (flushing || !queue.length) return;
     flushing = true;
     const batch = queue.splice(0, MAX_QUEUE);
@@ -109,6 +118,8 @@ export function flush(): void {
 export function track(eventName: string, props?: Record<string, any>): void {
     try {
         if (!eventName) return;
+        if (import.meta.env?.DEV) console.debug('[telemetry] track', eventName, props);
+        if (!telemetryEnabled) return;
         queue.push({
             eventName,
             page: currentPagePath(),
@@ -129,6 +140,8 @@ export function pageView(path?: string): void {
 export function reportError(err: any, extra?: Record<string, any>): void {
     try {
         if (errorBudget <= 0) return;
+        if (import.meta.env?.DEV) console.debug('[telemetry] reportError', err, extra);
+        if (!telemetryEnabled) return;
         errorBudget -= 1;
         const message = String(err?.message || err?.reason?.message || err || 'unknown error').slice(0, 2000);
         const stack = err?.stack ? String(err.stack).slice(0, 8000) : undefined;
@@ -165,6 +178,7 @@ export function reportError(err: any, extra?: Record<string, any>): void {
 export function installTelemetry(): void {
     if (installed) return;
     installed = true;
+    if (!telemetryEnabled) return;
 
     if (typeof window !== 'undefined' && typeof (window as any).addEventListener === 'function') {
         (window as any).addEventListener('error', (e: any) => reportError(e?.error || e?.message));

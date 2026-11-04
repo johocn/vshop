@@ -5,10 +5,11 @@
       <text class="sub">{{ $t('campusMonitor.subtitle') }}</text>
     </view>
 
-    <text v-if="loading" class="muted">{{ $t('campusMonitor.loading') }}</text>
+    <text v-if="!telemetryEnabled" class="muted">{{ $t('campusMonitor.disabled') }}</text>
+    <text v-if="telemetryEnabled && loading" class="muted">{{ $t('campusMonitor.loading') }}</text>
     <text v-else-if="err" class="muted">{{ err }}</text>
 
-    <template v-else>
+    <template v-else-if="telemetryEnabled">
       <view class="kpis">
         <view v-for="c in kpis" :key="c.key" class="kpi">
           <text class="num">{{ c.value }}</text>
@@ -84,7 +85,7 @@ import {
   type TrackEventRow,
   type TrackEventStats,
 } from '../../apis/telemetry';
-import { track } from '../../utils/telemetry';
+import { telemetryEnabled, track } from '../../utils/telemetry';
 
 const loading = ref(true);
 const err = ref('');
@@ -157,6 +158,7 @@ function switchTab(next: 'events' | 'errors') {
 
 onMounted(() => {
   track('monitor_open');
+  if (!telemetryEnabled) return;
   void loadStats();
 });
 </script>

@@ -3469,6 +3469,7 @@
     "subtitle": "Frontend telemetry & error reports (7-day trend / top events / details)",
     "loading": "Loading…",
     "empty": "No data in this window",
+    "disabled": "Telemetry disabled (reporting API not available yet)",
     "kpiTodayEvents": "Events today",
     "kpiTodayErrors": "Errors today",
     "kpiUsers": "Active users today",

@@ -3466,6 +3466,7 @@
     "subtitle": "前端埋点与错误上报（近 7 日趋势 / Top 事件 / 错误明细）",
     "loading": "加载中…",
     "empty": "窗口内暂无数据",
+    "disabled": "埋点未启用（后端尚未提供上报接口）",
     "kpiTodayEvents": "今日事件",
     "kpiTodayErrors": "今日错误",
     "kpiUsers": "今日活跃用户",

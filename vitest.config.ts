@@ -9,7 +9,7 @@ export default defineConfig({
         include: ['src/pkg-diy/**/*.test.ts', 'src/utils/**/*.test.ts', 'src/templates/**/*.test.ts', 'src/composables/**/*.spec.ts', 'src/pkg-promotion/pages/group-join/**/*.spec.ts', 'src/pkg-user/**/*.spec.ts',
             // web-admin 纯函数测试单独指定（其余 admin 测试不在本配置范围内）
             'web-admin/src/utils/sanitizeHtml.test.ts', 'web-admin/src/utils/routeGuard.test.ts',
-            'web-admin/src/utils/loginError.test.ts'],
+            'web-admin/src/utils/loginError.test.ts', 'web-admin/src/utils/telemetry.test.ts'],
         exclude: ['**/node_modules/**', '**/dist/**'],
         environment: 'node',
     },
