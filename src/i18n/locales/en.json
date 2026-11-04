@@ -582,6 +582,8 @@
         "codeSent": "Verification code sent",
         "loginSuccess": "Login successful",
         "loginFailed": "Login failed",
+        "loginRateLimited": "Too many login attempts. Please try again in {minutes} minute(s)",
+        "tooManyRequests": "Too many requests. Please try again later",
         "wechatLoginFailed": "WeChat login failed",
         "wechatLoginFailedRetry": "WeChat login failed, please retry",
         "wechatNotConfigured": "WeChat login not configured",

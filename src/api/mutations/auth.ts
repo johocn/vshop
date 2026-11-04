@@ -27,11 +27,25 @@ function authRequest(query: string, variables?: Record<string, any>): Promise<{ 
                 if (authToken) {
                     setSessionToken(authToken);
                 }
+                // nginx IP 级限流：超限返回 HTTP 429（响应体通常不是 GraphQL JSON），
+                // 必须显式抛出，否则解包后 data 为空、登录页会静默无反应。
+                if (Number(res.statusCode) === 429) {
+                    const err: any = new Error('TOO_MANY_REQUESTS');
+                    err.code = 'TOO_MANY_REQUESTS';
+                    reject(err);
+                    return;
+                }
                 // res.data 是完整 GraphQL 响应体 { data: {...}, errors?: [...] }
                 // 解包返回 data 字段（GraphQL 查询结果），与 graphql-request 行为一致
                 const body = res.data || {};
                 if (body.errors && body.errors.length > 0) {
-                    reject(new Error(body.errors[0].message));
+                    const first = body.errors[0] || {};
+                    const err: any = new Error(first.message || '登录失败');
+                    // 保留 extensions.code / retryAfterSeconds：登录限流（LOGIN_RATE_LIMITED）提示依赖它们
+                    err.code = first.extensions?.code || first.errorCode || '';
+                    const retryAfter = first.extensions?.retryAfterSeconds ?? first.retryAfterSeconds;
+                    if (retryAfter != null) err.retryAfterSeconds = Number(retryAfter);
+                    reject(err);
                     return;
                 }
                 resolve({ data: body.data, authToken });

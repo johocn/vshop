@@ -63,6 +63,7 @@ import { useUIStore } from '../../stores/ui';
 import { sendPhoneVerificationCode, authenticateWithPhone, authenticateWithWechat, authenticateWithAlipay, authenticateWithDouyin, login, ssoLogin, authenticateSsoWithToken } from '../../api/mutations/auth';
 import { getGraphQLClient } from '../../api/client';
 import { detectPlatform } from '../../utils/detect-env';
+import { loginErrorText } from '../../utils/login-error';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -254,7 +255,7 @@ async function loginWithPhone() {
             ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         }
-    } catch (e: any) { ui.showToast(e.message); }
+    } catch (e: any) { ui.showToast(loginErrorText(e, t)); }
 }
 
 async function loginWithLocal() {
@@ -267,7 +268,7 @@ async function loginWithLocal() {
             ui.showToast(t('auth.loginSuccess'), 'success');
             navigateAfterLogin();
         }
-    } catch (e: any) { ui.showToast(e.message); }
+    } catch (e: any) { ui.showToast(loginErrorText(e, t)); }
 }
 
 async function loginWithWechat() {

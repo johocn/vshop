@@ -22,6 +22,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { applyNavTitleForCurrentPage } from '../../i18n/nav-titles';
+import { loginFailureMessage } from '../../utils/loginError';
 
 const auth = useAuthStore();
 const tenant = useTenantStore();
@@ -57,11 +58,7 @@ async function doLogin() {
       uni.redirectTo({ url: '/pages/channel-select/index' });
     }
   } catch (e: any) {
-    const backendMsg = e?.response?.errors?.[0]?.message;
-    const code = String(e?.message || '');
-    err.value = code === 'INVALID_CREDENTIALS_ERROR'
-      ? locale.t('login.invalidCredentials')
-      : (backendMsg || locale.t('login.failed'));
+    err.value = loginFailureMessage(e, locale.t);
   } finally {
     loading.value = false;
   }
