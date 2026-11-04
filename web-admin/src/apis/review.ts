@@ -110,7 +110,7 @@ export async function fetchReviewAppeals(p: {
   const { reviewAppeals } = await getAdminClient().request<{
     reviewAppeals: { items: ReviewRow[]; totalItems: number };
   }>(
-    `query ReviewAppeals($options: ReviewAppealListOptions) {
+    `query ReviewAppeals($options: ReviewListOptions) {
       reviewAppeals(options: $options) {
         totalItems
         items { ${REVIEW_FIELDS} }

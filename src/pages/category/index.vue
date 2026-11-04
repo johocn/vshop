@@ -66,7 +66,7 @@ const mode = ref(2);
 onMounted(async () => {
     try {
         const client = getGraphQLClient();
-        const res: any = await client.request(`query { collections(options: { topLevelOnly: true }) { items { id name slug children { id name slug } } } }`);
+        const res: any = await client.request(`query { collections(options: { topLevelOnly: true, take: 50 }) { items { id name slug children { id name slug } } } }`);
         categories.value = res.collections?.items || [];
         if (categories.value.length > 0) selectCategory(categories.value[0]);
     } catch (e) { console.error(e); }

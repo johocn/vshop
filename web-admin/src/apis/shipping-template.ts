@@ -44,8 +44,8 @@ export async function fetchShippingTemplate(id: string): Promise<ShippingTemplat
   }>(`query Template($id: ID!) {
     shippingTemplate(id: $id) {
       id code name description
-      checker { code args { name value } }
-      calculator { code args { name value } }
+      checker { code arguments { name value } }
+      calculator { code arguments { name value } }
     }
   }`, { id });
   return shippingTemplate ?? null;

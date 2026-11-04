@@ -546,8 +546,7 @@ async function tryUpdateReferredBy(inviteCode: string) {
         if (res?.activeCustomer?.customFields?.referredBy) return;
         await client.request(`mutation UpdateCustomerReferredBy($referredBy: String!) {
             updateCustomer(input: { customFields: { referredBy: $referredBy } }) {
-                ...on Customer { id }
-                ...on ErrorResult { errorCode }
+                id
             }
         }`, { referredBy: inviteCode });
     } catch (e) {

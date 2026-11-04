@@ -319,7 +319,7 @@ export async function addOrderNote(orderId: string, note: string): Promise<void>
   try {
     const res = await getAdminClient().request<{ addNoteToOrder?: { id?: string } | { errorCode?: string; message?: string } }>(
       `mutation AddNote($input: AddNoteToOrderInput!) {
-        addNoteToOrder(input: $input) { ... on Order { id } ... on ErrorResult { errorCode message } }
+        addNoteToOrder(input: $input) { id }
       }`,
       { input: { id: orderId, note, isPublic: false } },
     );

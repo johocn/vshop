@@ -9,7 +9,7 @@ import { getGraphQLClient } from '../client';
 export async function confirmOrderReceipt(orderId: string) {
     const client = getGraphQLClient();
     return client.request(
-        `mutation ConfirmReceipt($orderId: String!) { confirmOrderReceipt(orderId: $orderId) }`,
+        `mutation ConfirmReceipt($orderId: ID!) { confirmOrderReceipt(orderId: $orderId) }`,
         { orderId },
     );
 }

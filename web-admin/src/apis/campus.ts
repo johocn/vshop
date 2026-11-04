@@ -179,7 +179,7 @@ export interface CampusStoreConfigInput {
 }
 
 const FIELDS =
-  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold deliveryFeeTiers notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberEffectiveProvider privacyNumberDegraded privacyNumberNote privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
+  'channelId channelName channelToken routesEnabled routeFirstLeg { route carrier } handoverPoints { route name address phone lat lng isDefault } providerShopNo { provider shopNo } merchantAcceptMinutes externalPushTimeoutMinutes externalFallbackMinutes storeLat storeLng deliveryMinutes minOrderAmount deliveryFee storeAddress storePhone storeNotice errandBaseFee thirdPartyBaseFee freeShippingThreshold deliveryFeeTiers notifyTemplateAccepted notifyTemplateRiderAssigned notifyTemplateCookingDone notifyTemplateDelivered notifyTemplateExceptionHandled notifyTemplateOrderPlaced notifyTemplatePaymentPending notifyTemplateCancelled notifyTemplateAfterSales notifyTemplateAddressChanged h5BaseUrl printMode printProvider printAccount printDeviceSn printDeviceKey printCopies timeoutCompensationEnabled timeoutGraceMinutes timeoutCompensationWindowHours timeoutCompensationCouponTemplateId dynamicPricing privacyNumberEnabled privacyNumberProvider privacyNumberTtlMinutes privacyNumberPrefix foodLicenseNo foodLicenseImage foodLicenseExpiry foodSafetyGrade foodSafetyCommitmentImage kitchenLiveUrl kitchenLiveEnabled packingFeeEnabled packingFeeMode packingFeeAmount packingFeeCap packingFeeLabel mpAppId mpCategory mpVersion mpListingStatus mpPrivacyUrl mpReviewNote mpReady mpMissing voiceSearchProvider imageSearchProvider';
 
 export async function campusStoreConfigs(): Promise<CampusStoreConfig[]> {
   const res = await getAdminClient().request<{ campusStoreConfigs: CampusStoreConfig[] }>(
@@ -3746,23 +3746,21 @@ export interface CampusAdCampaignPage {
   items: CampusAdCampaignRow[];
 }
 
-/** 平台侧：按渠道/状态分页查投放单 */
+/** 平台侧：按渠道/状态查投放单（后端无分页参数，前端按 skip/take 切片） */
 export async function campusAdCampaigns(
   status?: string | null,
   channelId?: string | null,
   skip = 0,
   take = 20,
 ): Promise<CampusAdCampaignPage> {
-  const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignPage }>(
-    `query ($status: String, $channelId: ID, $skip: Int, $take: Int) {
-      campusAdCampaigns(status: $status, channelId: $channelId, skip: $skip, take: $take) {
-        total
-        items { ${AD_FIELDS} }
-      }
+  const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignRow[] }>(
+    `query ($status: String, $channelId: ID) {
+      campusAdCampaigns(status: $status, channelId: $channelId) { ${AD_FIELDS} }
     }`,
-    { status: status ?? null, channelId: channelId ?? null, skip, take },
+    { status: status ?? null, channelId: channelId ?? null },
   );
-  return res.campusAdCampaigns;
+  const items = res.campusAdCampaigns ?? [];
+  return { total: items.length, items: items.slice(skip, skip + take) };
 }
 
 /** 平台审核：通过转投放中，驳回须填原因 */
@@ -3848,7 +3846,7 @@ const LOCKER_FIELDS =
   'id channelId name location provider providerName totalCells availableCells openHours pickupGuide enabled sort createdBy createdAt';
 
 const UNMANNED_CHANNEL_FIELDS =
-  'enabled provider providerName providers { code name needsEndpoint needsKey integrated } endpoint keyConfigured needsEndpoint needsKey integrated';
+  'enabled provider providerName providers { code name needsEndpoint needsKey } endpoint keyConfigured needsEndpoint needsKey';
 
 /** 取餐柜站点（含停用） */
 export async function campusLockerStations(): Promise<CampusLockerStationRow[]> {

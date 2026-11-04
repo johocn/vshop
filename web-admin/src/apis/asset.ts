@@ -84,8 +84,9 @@ export async function uploadAsset(file: File | Blob, fileName: string): Promise<
 }
 
 export async function deleteAsset(id: string): Promise<void> {
-  await getAdminClient().request(
-    `mutation DeleteAsset($assetId: ID!) { deleteAsset(assetId: $assetId, force: true) { success } }`,
-    { assetId: id },
+  const res = await getAdminClient().request<{ deleteAsset: { result: string } }>(
+    `mutation DeleteAsset($input: DeleteAssetInput!) { deleteAsset(input: $input) { result } }`,
+    { input: { assetId: id, force: true } },
   );
+  if (res.deleteAsset?.result !== 'DELETED') throw new Error('删除失败');
 }

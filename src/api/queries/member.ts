@@ -31,7 +31,7 @@ export async function getMyPointsHistory(options: { take: number; skip: number }
 export async function redeemPoints(points: number) {
     const client = getGraphQLClient();
     return client.request(
-        `mutation RedeemPoints($points: Int!) { redeemPoints(points: $points) { id totalWithTax customFields } }`,
+        `mutation RedeemPoints($points: Int!) { redeemPoints(points: $points) { id totalWithTax } }`,
         { points },
     );
 }
