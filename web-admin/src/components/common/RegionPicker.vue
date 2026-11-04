@@ -26,8 +26,8 @@
         <view class="rp" :class="{ empty: !district }"><text>{{ district || $t('regionPicker.district') }}</text><text class="caret">▾</text></view>
       </picker>
     </view>
-    <view v-if="showHint" class="region-foot">
-      <text class="hint">{{ $t('regionPicker.unmatched') }}</text>
+    <view v-if="showHint || (clearable && hasValue)" class="region-foot">
+      <text v-if="showHint" class="hint">{{ $t('regionPicker.unmatched') }}</text>
       <text v-if="clearable && hasValue" class="clear" @click="clear">{{ $t('regionPicker.clear') }}</text>
     </view>
   </view>
