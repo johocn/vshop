@@ -437,16 +437,21 @@ function loginWithSso(provider: any) {
     // #ifdef H5
     let unifiedLoginUrl: string;
     let params: Record<string, string>;
+    // 随机 state：防登录 CSRF（回调时校验）
+    const state = randomOAuthState('sso');
 
     if (provider.protocol === 'zhao-sso') {
-        // 统一页 token 直验流：跳 h.joho.cn 统一登录页，登录成功回跳携带 token
+        // 统一页 token 直验流：跳 h.joho.cn 统一登录页，登录成功回跳携带 token。
+        // 统一页只透传 return_url、不回传 state（实测其 onSuccess 只读 return_url/c_end_url），
+        // 故把 nonce 拼进 return_url：回调侧用同源 sessionStorage 校验，防「攻击者 token 链接」登录 CSRF。
         const origin = new URL(provider.baseUrl).origin;
         unifiedLoginUrl = `${origin}/#/pages/sso/login`;
         params = {
             app_code: provider.clientId,
-            return_url: window.location.origin + '/#/pages/login/index',
+            return_url: window.location.origin + '/#/pages/login/index?sso_nonce=' + state,
         };
         if (provider.channelCode) params.channel_code = provider.channelCode;
+        sessionStorage.setItem('sso_nonce', state);
     } else {
         // 通用 OAuth2 authorize 流（保持原逻辑，给非 zhao-sso 协议兜底）
         unifiedLoginUrl = provider.authorizeUrl;
@@ -456,10 +461,10 @@ function loginWithSso(provider: any) {
             response_type: 'code',
             scope: (provider.scopes || []).join(' '),
         };
+        // 通用 OAuth 不走 return_url nonce 校验，清掉可能残留的 sso_nonce 避免误拒
+        sessionStorage.removeItem('sso_nonce');
     }
 
-    // 随机 state：防登录 CSRF（回调时校验）
-    const state = randomOAuthState('sso');
     saveOAuthState(state);
     params.state = state;
     sessionStorage.setItem('sso_state', state);
@@ -483,13 +488,20 @@ async function handleSsoCallback(): Promise<boolean> {
         return window.location.origin + window.location.pathname + hash;
     };
     if ((token || code) && providerKey) {
-        // 校验 state（防登录 CSRF）：仅当回调携带 state 时强制匹配，
-        // 避免破坏「统一页未回传 state」的既有流程
+        // 校验 state（防登录 CSRF）：回调若携带 state 则必须匹配。
         const gotState = urlParams.get('state') ?? hashParams.state ?? '';
         const expectedState = sessionStorage.getItem('sso_state') || '';
-        if (gotState && expectedState && gotState !== expectedState) {
+        // zhao-sso 统一页不回传 state，改由 return_url 中带回的 nonce 校验：
+        // 攻击者伪造 ?token=xxx 的链接拿不到本标签页 sessionStorage 的 nonce，会被直接拒绝。
+        // 非 zhao-sso 的通用 OAuth 流程不写 sso_nonce，沿用原 state 校验，不受影响。
+        const gotNonce = urlParams.get('sso_nonce') ?? hashParams.sso_nonce ?? '';
+        const expectedNonce = sessionStorage.getItem('sso_nonce') || '';
+        const stateMismatch = !!(gotState && expectedState && gotState !== expectedState);
+        const nonceMismatch = !!(expectedNonce && gotNonce !== expectedNonce);
+        if (stateMismatch || nonceMismatch) {
             sessionStorage.removeItem('sso_provider');
             sessionStorage.removeItem('sso_state');
+            sessionStorage.removeItem('sso_nonce');
             window.history.replaceState({}, '', cleanUrl());
             ui.showToast(t('auth.ssoLoginFailed'));
             mode.value = 'select';
@@ -502,6 +514,7 @@ async function handleSsoCallback(): Promise<boolean> {
             if (result.userId) {
                 sessionStorage.removeItem('sso_provider');
                 sessionStorage.removeItem('sso_state');
+                sessionStorage.removeItem('sso_nonce');
                 sessionStorage.removeItem('sso_auto_jumped');
                 authStore.setAuth(result.token, result.userId);
                 ui.showToast(t('auth.loginSuccess'), 'success');
@@ -512,6 +525,7 @@ async function handleSsoCallback(): Promise<boolean> {
         } catch (e: any) {
             sessionStorage.removeItem('sso_provider');
             sessionStorage.removeItem('sso_state');
+            sessionStorage.removeItem('sso_nonce');
             window.history.replaceState({}, '', cleanUrl());
             ui.showToast(t('auth.ssoLoginFailed') + ': ' + e.message);
             mode.value = 'select';

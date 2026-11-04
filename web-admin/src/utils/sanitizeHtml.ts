@@ -21,8 +21,18 @@ const ALLOWED_ATTR = new Set([
   'controls', 'poster', 'preload', 'type',
 ]);
 
-// 仅放行 http(s)/mailto/tel 与相对路径
-const SAFE_URL = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
+// 仅放行 http(s)/mailto/tel 与相对路径。
+// 浏览器解析 URL 时会忽略前导空白与控制字符，并把 \t \n \r 从协议中剔除；
+// 若直接对原值判协议，`java\tscript:`、`jav\nascript:`、`\u0001javascript:` 等变体会被误判为相对路径。
+// 故先按浏览器的归一化规则剥离控制字符（含 DOMParser 把 NUL 替换成的 U+FFFD）再判协议。
+function isSafeUrl(raw: string): boolean {
+  const url = (raw || '').replace(/[\u0000-\u001f\u007f\ufffd]/g, '').trim().toLowerCase();
+  if (!url) return false;
+  if (/^(?:https?|mailto|tel):/.test(url)) return true;
+  // 显式声明了任意其他 scheme（javascript:/data:/vbscript: 等）一律拒绝
+  if (/^[a-z][a-z0-9+.-]*:/.test(url)) return false;
+  return true;
+}
 
 // style 值级白名单：仅展示类属性，剔除可布局覆盖的属性（position/z-index/transform 等），
 // 防后台富文本在 C 端构造全屏覆盖层钓鱼（审计 B3-C P2）
@@ -84,7 +94,7 @@ function cleanElement(el: Element): void {
         else child.removeAttribute('style');
         continue;
       }
-      if ((name === 'href' || name === 'src') && !SAFE_URL.test(value.trim())) {
+      if ((name === 'href' || name === 'src') && !isSafeUrl(value)) {
         child.removeAttribute(attr.name);
       }
     }
