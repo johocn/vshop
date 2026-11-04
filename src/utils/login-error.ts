@@ -28,5 +28,8 @@ export function loginErrorText(e: any, t: Translate, fallbackMinutes = LOGIN_RAT
     if (code === 'TOO_MANY_REQUESTS') {
         return t('auth.tooManyRequests');
     }
+    if (code === 'INVALID_CREDENTIALS_ERROR') {
+        return t('auth.invalidCredentials');
+    }
     return e?.message || t('auth.loginFailed');
 }

@@ -66,7 +66,10 @@ export async function login(username: string, password: string): Promise<AuthRes
         { username, password }
     );
     if (data?.login?.errorCode) {
-        throw new Error(data.login.message);
+        const err: any = new Error(data.login.message);
+        // 保留 errorCode：登录页据此做本地化提示（如 INVALID_CREDENTIALS_ERROR）
+        err.code = data.login.errorCode;
+        throw err;
     }
     return { token: authToken || '', userId: data?.login?.id || '', identifier: data?.login?.identifier || '' };
 }

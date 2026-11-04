@@ -5,6 +5,7 @@ import { loginErrorText, rateLimitMinutes } from './login-error';
 const t = (key: string, params?: Record<string, unknown>) => {
   const dict: Record<string, string> = {
     'auth.loginRateLimited': '登录尝试过于频繁，请 {minutes} 分钟后再试',
+    'auth.invalidCredentials': '账号或密码错误',
     'auth.tooManyRequests': '访问过于频繁，请稍后再试',
     'auth.loginFailed': '登录失败',
   };
@@ -38,6 +39,11 @@ describe('loginErrorText', () => {
 
   it('HTTP 429 映射为友好提示', () => {
     expect(loginErrorText({ code: 'TOO_MANY_REQUESTS', message: 'TOO_MANY_REQUESTS' }, t)).toBe('访问过于频繁，请稍后再试');
+  });
+
+  it('INVALID_CREDENTIALS_ERROR 走本地化文案，而不是后端英文 message', () => {
+    expect(loginErrorText({ code: 'INVALID_CREDENTIALS_ERROR', message: 'The provided credentials are invalid' }, t))
+      .toBe('账号或密码错误');
   });
 
   it('其他错误保留后端 message', () => {
