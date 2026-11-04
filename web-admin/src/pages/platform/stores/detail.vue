@@ -48,10 +48,11 @@
 
     <view class="card">
       <text class="section">{{ $t('merchantAdmin.storeAddress') }}</text>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.province') }}</text><input class="ipt" v-model="form.province" /></view>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.city') }}</text><input class="ipt" v-model="form.city" /></view>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.cityCode') }}</text><input class="ipt" v-model="form.cityCode" /></view>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.district') }}</text><input class="ipt" v-model="form.district" /></view>
+      <view class="field">
+        <text class="label">{{ $t('merchantAdmin.region') }}</text>
+        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" @change="onRegionChange" />
+      </view>
+      <view class="field"><text class="label">{{ $t('merchantAdmin.cityCode') }}</text><input class="ipt" v-model="form.cityCode" :placeholder="$t('merchantAdmin.cityCodePh')" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.street') }}</text><input class="ipt" v-model="form.street" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.addressLine') }}</text><input class="ipt" v-model="form.addressLine" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.detail') }}</text><input class="ipt" v-model="form.detail" /></view>
@@ -272,6 +273,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
 import MediaUrlField from '../../../components/MediaUrlField.vue';
+import RegionPicker from '../../../components/common/RegionPicker.vue';
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -304,6 +306,11 @@ const form = ref({
   requiresReservation: false, reservationPhone: '',
   supportsDelivery: false, deliveryRadiusKm: '', deliveryFee: '', minOrderAmount: '', deliveryMinutes: '',
 });
+
+// 省市区选择后回填 6 位行政区划代码（cityCode 字段历史值为 adcode）
+function onRegionChange(r: { province?: string; city?: string; district?: string; cityCode?: string }): void {
+    form.value.cityCode = r.cityCode || '';
+}
 
 // ---- 员工 ----
 const staff = ref<MerchantStoreStaffItem[]>([]);

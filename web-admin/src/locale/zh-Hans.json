@@ -6034,7 +6034,27 @@
     "addImage": "添加图片",
     "addVideo": "添加视频",
     "addMixed": "添加图片/视频",
-    "selectedCount": "已选 {count}/{max}"
+    "selectedCount": "已选 {count}/{max}",
+    "fromLibrary": "从图片库选择"
+  },
+  "regionPicker": {
+    "province": "省份",
+    "city": "城市",
+    "district": "区/县",
+    "unmatched": "历史地址未匹配到行政区划，请重新选择",
+    "clear": "清空"
+  },
+  "addressField": {
+    "detailPlaceholder": "街道、门牌号等详细地址",
+    "legacyHint": "原地址为自由文本，可直接修改；选择省市区后将自动拼接"
+  },
+  "provinceMulti": {
+    "placeholder": "未选择省份",
+    "pick": "选择省份",
+    "title": "选择省份（可多选）",
+    "done": "确定",
+    "clear": "清空",
+    "selectedCount": "已选 {count} 个"
   },
   "richTextEditor": {
     "visual": "可视化",
@@ -7061,6 +7081,7 @@
     "email": "邮箱",
     "wechat": "微信",
     "address": "注册地址",
+    "region": "省/市/区",
     "province": "省",
     "city": "市",
     "district": "区/县",
@@ -7178,6 +7199,7 @@
     "storeToggleConfirm": "确定要{action}「{name}」吗？",
     "moreOps": "更多经营字段",
     "cityCode": "城市代码",
+    "cityCodePh": "选择省市区后自动填充",
     "postalCode": "邮编",
     "navigationAddress": "导航地址",
     "facilities": "设施",

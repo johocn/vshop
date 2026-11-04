@@ -37,20 +37,15 @@
         <input class="ipt" v-model="form.businessHours" :placeholder="$t('pickupEdit.hoursPh')" />
       </view>
 
-      <!-- 省市区三级联动（高德行政区划） -->
+      <!-- 省市区三级联动（离线行政区划数据，统一 RegionPicker） -->
       <view class="field">
         <text class="label">{{ $t('pickupEdit.regionLabel') }}</text>
-        <view class="region">
-          <picker class="region-item" :range="provinceNames" @change="onProvinceChange">
-            <view class="ipt vpicker"><text>{{ form.province || $t('pickupEdit.provincePh') }}</text><text class="caret">▾</text></view>
-          </picker>
-          <picker class="region-item" :range="cityNames" @change="onCityChange">
-            <view class="ipt vpicker"><text>{{ form.city || $t('pickupEdit.cityPh') }}</text><text class="caret">▾</text></view>
-          </picker>
-          <picker class="region-item" :range="districtNames" @change="onDistrictChange">
-            <view class="ipt vpicker"><text>{{ form.district || $t('pickupEdit.districtPh') }}</text><text class="caret">▾</text></view>
-          </picker>
-        </view>
+        <RegionPicker
+          v-model:province="form.province"
+          v-model:city="form.city"
+          v-model:district="form.district"
+          @change="refreshCenters"
+        />
       </view>
       <view class="field">
         <text class="label">{{ $t('pickupEdit.streetLabel') }}</text>
@@ -148,6 +143,7 @@ import {
 } from '../../../apis/pickup-location';
 import { fetchMerchantStores, type MerchantStoreItem } from '../../../apis/merchant-admin';
 import { fetchDistricts, reverseGeocode, fetchMapSdkConfig, DistrictNode } from '../../../apis/map';
+import RegionPicker from '../../../components/common/RegionPicker.vue';
 import ImagePicker from '../../../components/ImagePicker.vue';
 import { useAuthStore } from '../../../stores/authStore';
 import { useLocaleStore } from '../../../stores/localeStore';
@@ -185,44 +181,24 @@ function onStoreChange(e: any) {
   form.value.merchantStoreId = idx === 0 ? '' : String(stores.value[idx - 1]?.id ?? '');
 }
 
-// ---- 省市区联动 ----
-const provinces = ref<DistrictNode[]>([]);
-const cities = ref<DistrictNode[]>([]);
-const districts = ref<DistrictNode[]>([]);
-const provinceNames = computed(() => provinces.value.map((p) => p.name));
-const cityNames = computed(() => cities.value.map((c) => c.name));
-const districtNames = computed(() => districts.value.map((d) => d.name));
-// 当前选中的省/市/区节点（用于地图默认定位到选区中心）
+// ---- 省市区（统一 RegionPicker，数据离线；仅地图选点的中心点按需向后端取） ----
 const selProvince = ref<DistrictNode | null>(null);
 const selCity = ref<DistrictNode | null>(null);
 const selDistrict = ref<DistrictNode | null>(null);
 
-async function onProvinceChange(e: any) {
-  const p = provinces.value[e.detail.value];
-  if (!p) return;
-  selProvince.value = p;
+async function refreshCenters(): Promise<void> {
+  selProvince.value = null;
   selCity.value = null;
   selDistrict.value = null;
-  form.value.province = p.name;
-  form.value.city = '';
-  form.value.district = '';
-  cities.value = await fetchDistricts(p.adcode).catch(() => []);
-  districts.value = [];
-}
-async function onCityChange(e: any) {
-  const c = cities.value[e.detail.value];
-  if (!c) return;
-  selCity.value = c;
-  selDistrict.value = null;
-  form.value.city = c.name;
-  form.value.district = '';
-  districts.value = await fetchDistricts(c.adcode).catch(() => []);
-}
-async function onDistrictChange(e: any) {
-  const d = districts.value[e.detail.value];
-  if (!d) return;
-  selDistrict.value = d;
-  form.value.district = d.name;
+  if (!form.value.province) return;
+  const ps = await fetchDistricts(null).catch(() => [] as DistrictNode[]);
+  selProvince.value = ps.find((p) => p.name === form.value.province) || null;
+  if (!selProvince.value || !form.value.city) return;
+  const cs = await fetchDistricts(selProvince.value.adcode).catch(() => [] as DistrictNode[]);
+  selCity.value = cs.find((c) => c.name === form.value.city) || null;
+  if (!selCity.value || !form.value.district) return;
+  const ds = await fetchDistricts(selCity.value.adcode).catch(() => [] as DistrictNode[]);
+  selDistrict.value = ds.find((d) => d.name === form.value.district) || null;
 }
 
 // ---- 高德地图选点 ----
@@ -355,7 +331,6 @@ onLoad((query: any) => {
 });
 
 onMounted(async () => {
-  provinces.value = await fetchDistricts(null).catch(() => []);
   stores.value = (await fetchMerchantStores({ take: 200 }).catch(() => ({ items: [] }))).items;
   if (id.value) {
     const s = await fetchPickupLocation(id.value);
@@ -372,31 +347,11 @@ onMounted(async () => {
         merchantStoreId: s.merchantStoreId ? String(s.merchantStoreId) : '',
       };
       photos.value = s.photos || [];
-      // 联动预载：已填省份时拉取对应市/区
-      await hydrateRegionList();
+      // 回填后补齐地图选点用的省/市/区中心（失败不影响表单）
+      void refreshCenters();
     }
   }
 });
-
-async function hydrateRegionList() {
-  if (!form.value.province) return;
-  const p = provinces.value.find((x) => x.name === form.value.province);
-  if (p) {
-    selProvince.value = p;
-    cities.value = await fetchDistricts(p.adcode).catch(() => []);
-  }
-  if (form.value.city) {
-    const c = cities.value.find((x) => x.name === form.value.city);
-    if (c) {
-      selCity.value = c;
-      districts.value = await fetchDistricts(c.adcode).catch(() => []);
-    }
-  }
-  if (form.value.district) {
-    const d = districts.value.find((x) => x.name === form.value.district);
-    if (d) selDistrict.value = d;
-  }
-}
 
 function goBack() { backToHome(); }
 

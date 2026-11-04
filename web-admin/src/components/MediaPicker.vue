@@ -83,6 +83,11 @@ function emitChange() {
 
 // 媒体库确认：全量替换已选并上报
 function onConfirm(assets: AssetItem[]) {
+  // 确认返回的是完整 AssetItem；并入本地缓存，保证触发区缩略图与
+  // getSelectedAssets()（URL 型字段如 MediaUrlField 依赖）能立即取到对象
+  const m = new Map(allItems.value.map((a) => [a.id, a]));
+  for (const a of assets) m.set(a.id, a);
+  allItems.value = Array.from(m.values());
   selectedIds.value = assets.map((a) => a.id);
   emitChange();
 }

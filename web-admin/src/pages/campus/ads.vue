@@ -38,14 +38,7 @@
         </view>
         <view class="cell col">
           <text class="lbl">{{ $t('campusAds.imageUrl') }}</text>
-          <view class="img-box">
-            <input :key="'img' + pickSeq" v-model="imageUrl" :placeholder="$t('campusAds.imageUrlPh')" />
-            <view class="img-row">
-              <view class="pick-btn" @tap="mediaOpen = true">{{ $t('campusAds.pickImage') }}</view>
-              <image v-if="imageUrl" class="preview" :src="imageUrl" mode="aspectFill" @tap="previewAd" />
-            </view>
-            <text class="pick-hint">{{ $t('campusAds.pickHint') }}</text>
-          </view>
+          <MediaUrlField :model-value="imageUrl ? [imageUrl] : []" @update:model-value="imageUrl = $event[0] || ''" />
         </view>
         <view class="cell">
           <text class="lbl">{{ $t('campusAds.linkUrl') }}</text>
@@ -135,14 +128,6 @@
       <text v-else-if="review.length" class="tail">{{ $t('campusAds.allLoaded') }}</text>
     </block>
 
-    <!-- 素材选择：复用媒体库（可直接上传或从已上传素材中选），回填图片 URL -->
-    <MediaLibraryModal
-      v-model:visible="mediaOpen"
-      :max="1"
-      media-type="image"
-      @confirm="onPickAsset"
-    />
-
     <!-- 审核弹框 -->
     <view v-if="reviewTarget" class="mask" @tap="reviewTarget = null">
       <view class="modal" @tap.stop>
@@ -177,8 +162,7 @@ import {
   type CampusAdSlot,
 } from '../../apis/campus';
 import { graphQlErrorMsg } from '../../apis/client';
-import type { AssetItem } from '../../apis/asset';
-import MediaLibraryModal from '../../components/MediaLibraryModal.vue';
+import MediaUrlField from '../../components/MediaUrlField.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { fenToYuanFixed } from '../../utils/money';
@@ -270,23 +254,6 @@ const endDate = ref(todayStr(3));
 const imageUrl = ref('');
 const linkUrl = ref('');
 const creating = ref(false);
-/** 素材选择：媒体库弹层开关（§90 上传/选图后回填 imageUrl） */
-const mediaOpen = ref(false);
-/** 选图后重建输入框，让 uni H5 input 以新值重挂载并隐藏 placeholder（避免只靠 DOM value 显示） */
-const pickSeq = ref(0);
-
-function onPickAsset(assets: AssetItem[]): void {
-  const picked = assets[0];
-  if (picked?.source) {
-    imageUrl.value = picked.source;
-    pickSeq.value += 1;
-  }
-  mediaOpen.value = false;
-}
-
-function previewAd(): void {
-  if (imageUrl.value) uni.previewImage({ urls: [imageUrl.value], current: 0 });
-}
 
 function onDate(which: 'start' | 'end'): (e: any) => void {
   return (e: any) => {
@@ -578,14 +545,7 @@ onUnmounted(() => {
       input { flex: 1; font-size: 26rpx; }
       .picker { flex: 1; font-size: 26rpx; color: $wa-ink; }
       &.col { align-items: flex-start;
-        .img-box { flex: 1; min-width: 0;
-          input { width: 100%; font-size: 24rpx; }
-          .img-row { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx;
-            .pick-btn { font-size: 24rpx; color: $wa-accent; border: 1.5px solid $wa-accent;
-              border-radius: $wa-radius; padding: 10rpx 18rpx; flex-shrink: 0; }
-            .preview { width: 120rpx; height: 90rpx; border-radius: $wa-radius;
-              border: 1rpx solid $wa-rule; flex-shrink: 0; } }
-          .pick-hint { display: block; font-size: 20rpx; color: $wa-muted; margin-top: 8rpx; } } }
+        .mwf { flex: 1; min-width: 0; } }
       .seg { flex: 1; display: flex; gap: 12rpx;
         .seg-item { flex: 1; text-align: center; padding: 12rpx 0; border-radius: $wa-radius;
           background: $wa-bg; font-size: 24rpx; color: $wa-muted;

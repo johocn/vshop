@@ -6037,7 +6037,27 @@
     "addImage": "Add Image",
     "addVideo": "Add Video",
     "addMixed": "Add Image/Video",
-    "selectedCount": "{count}/{max} selected"
+    "selectedCount": "{count}/{max} selected",
+    "fromLibrary": "Choose from library"
+  },
+  "regionPicker": {
+    "province": "Province",
+    "city": "City",
+    "district": "District",
+    "unmatched": "Legacy address does not match a region. Please select again",
+    "clear": "Clear"
+  },
+  "addressField": {
+    "detailPlaceholder": "Street, building number, etc.",
+    "legacyHint": "This was free text; edit directly or pick a region to prefix it"
+  },
+  "provinceMulti": {
+    "placeholder": "No province selected",
+    "pick": "Select provinces",
+    "title": "Select provinces (multiple)",
+    "done": "Done",
+    "clear": "Clear",
+    "selectedCount": "{count} selected"
   },
   "richTextEditor": {
     "visual": "Visual",
@@ -7064,6 +7084,7 @@
     "email": "Email",
     "wechat": "WeChat",
     "address": "Registered Address",
+    "region": "Province / City / District",
     "province": "Province",
     "city": "City",
     "district": "District",
@@ -7181,6 +7202,7 @@
     "storeToggleConfirm": "{action} \"{name}\"?",
     "moreOps": "More Fields",
     "cityCode": "City Code",
+    "cityCodePh": "Auto-filled after choosing a region",
     "postalCode": "Postal Code",
     "navigationAddress": "Navigation Address",
     "facilities": "Facilities",

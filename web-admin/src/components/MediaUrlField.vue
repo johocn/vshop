@@ -7,44 +7,34 @@
       </view>
       <view v-if="modelValue.length < max" class="mwf__add" @tap="open = true">
         <text class="mwf__plus">＋</text>
-        <text class="mwf__txt">{{ $t('mediaPicker.addImage') }}</text>
+        <text class="mwf__txt">{{ $t('mediaPicker.fromLibrary') }}</text>
       </view>
     </view>
 
-    <view v-if="open" class="sheet-mask" @tap="close">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-head">
-          <text class="st">{{ $t('mediaPicker.addImage') }}</text>
-          <text class="done" @tap="close">{{ $t('pickupEdit.done') }}</text>
-        </view>
-        <ImagePicker ref="pickerRef" :max="max" :value="[]" @change="onChange" />
-      </view>
-    </view>
+    <!-- 统一走素材库（可选已上传资源，也可在弹层内上传新图），不另起本地上传 -->
+    <MediaLibraryModal
+      v-model:visible="open"
+      :max="max"
+      media-type="image"
+      :value="[]"
+      @confirm="onConfirm"
+    />
   </view>
 </template>
 
 <script lang="ts" setup>
 import { ref } from 'vue';
-import ImagePicker from './ImagePicker.vue';
+import MediaLibraryModal from './MediaLibraryModal.vue';
+import type { AssetItem } from '../apis/asset';
+import { mergeAssetUrls } from '../utils/media';
 
 const props = withDefaults(defineProps<{ modelValue: string[]; max?: number }>(), { max: 1 });
 const emit = defineEmits<{ (e: 'update:modelValue', v: string[]): void }>();
 
 const open = ref(false);
-const pickerRef = ref<any>(null);
 
-function onChange() {
-  const assets = pickerRef.value?.getSelectedAssets?.() as Array<{ preview: string }> | undefined;
-  if (!assets?.length) return;
-  const next = [...props.modelValue];
-  for (const a of assets) {
-    const url = a.preview;
-    if (url && !next.includes(url)) next.push(url);
-  }
-  emit('update:modelValue', next.slice(0, props.max));
-}
-function close() {
-  open.value = false;
+function onConfirm(assets: AssetItem[]) {
+    emit('update:modelValue', mergeAssetUrls(props.modelValue, assets, props.max));
 }
 function remove(i: number) {
   emit('update:modelValue', props.modelValue.filter((_, idx) => idx !== i));

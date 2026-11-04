@@ -1,117 +1,143 @@
 <template>
-  <!-- 省/市/区三级联动（数据源复用 cjk-plugin 行政区划，不新造） -->
-  <view class="region">
-    <picker class="region-item" :range="provinceNames" :disabled="disabled" @change="onProvince">
-      <view class="rp"><text>{{ province || placeholderProvince }}</text><text class="caret">▾</text></view>
-    </picker>
-    <picker class="region-item" :range="cityNames" :disabled="disabled || !province" @change="onCity">
-      <view class="rp"><text>{{ city || placeholderCity }}</text><text class="caret">▾</text></view>
-    </picker>
-    <picker class="region-item" :range="districtNames" :disabled="disabled || !city" @change="onDistrict">
-      <view class="rp"><text>{{ district || placeholderDistrict }}</text><text class="caret">▾</text></view>
-    </picker>
+  <!-- 省/市/区三级联动：离线行政区划数据（element-china-area-data），不依赖后端空接口 -->
+  <view class="region-wrap">
+    <view class="region">
+      <picker class="region-item" :range="provinceNames" :value="provinceIndex" :disabled="disabled" @change="onProvince">
+        <view class="rp" :class="{ empty: !province }"><text>{{ province || $t('regionPicker.province') }}</text><text class="caret">▾</text></view>
+      </picker>
+      <picker
+        v-if="level !== 'province'"
+        class="region-item"
+        :range="cityNames"
+        :value="cityIndex"
+        :disabled="disabled || !province"
+        @change="onCity"
+      >
+        <view class="rp" :class="{ empty: !city }"><text>{{ city || $t('regionPicker.city') }}</text><text class="caret">▾</text></view>
+      </picker>
+      <picker
+        v-if="level === 'district'"
+        class="region-item"
+        :range="districtNames"
+        :value="districtIndex"
+        :disabled="disabled || !city"
+        @change="onDistrict"
+      >
+        <view class="rp" :class="{ empty: !district }"><text>{{ district || $t('regionPicker.district') }}</text><text class="caret">▾</text></view>
+      </picker>
+    </view>
+    <view v-if="showHint" class="region-foot">
+      <text class="hint">{{ $t('regionPicker.unmatched') }}</text>
+      <text v-if="clearable && hasValue" class="clear" @click="clear">{{ $t('regionPicker.clear') }}</text>
+    </view>
   </view>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import { fetchDistricts, type DistrictNode } from '../../apis/map';
+import { computed } from 'vue';
+import { findCity, findProvince, getCities, getDistricts, getProvinces, resolveCodes, type RegionLevel } from '../../utils/region';
 
 const props = withDefaults(
   defineProps<{
     province?: string;
     city?: string;
     district?: string;
+    level?: RegionLevel;
     disabled?: boolean;
-    placeholderProvince?: string;
-    placeholderCity?: string;
-    placeholderDistrict?: string;
+    clearable?: boolean;
+    /** 历史自由文本无法匹配行政区划时显示提示（由调用方决定是否显示） */
+    showHint?: boolean;
   }>(),
   {
     province: '',
     city: '',
     district: '',
+    level: 'district',
     disabled: false,
-    placeholderProvince: '省份',
-    placeholderCity: '城市',
-    placeholderDistrict: '区县',
+    clearable: false,
+    showHint: false,
   },
 );
+
 const emit = defineEmits<{
   (e: 'update:province', v: string): void;
   (e: 'update:city', v: string): void;
   (e: 'update:district', v: string): void;
+  (e: 'change', v: { province: string; city: string; district: string; provinceCode: string; cityCode: string; districtCode: string }): void;
 }>();
 
-const provinces = ref<DistrictNode[]>([]);
-const cities = ref<DistrictNode[]>([]);
-const districts = ref<DistrictNode[]>([]);
-const provinceNames = computed(() => provinces.value.map((p) => p.name));
+const provinces = getProvinces();
+const provinceNames = provinces.map((p) => p.name);
+const cities = computed(() => (props.province ? getCities(props.province) : []));
 const cityNames = computed(() => cities.value.map((c) => c.name));
+const districts = computed(() => (props.city ? getDistricts(props.city, props.province) : []));
 const districtNames = computed(() => districts.value.map((d) => d.name));
 
-// 列表加载全部由 props 变化驱动（单一来源），选值只 emit，不在这里写状态
-watch(
-  () => props.province,
-  async (v) => {
-    const p = provinces.value.find((x) => x.name === v);
-    if (!p) {
-      cities.value = [];
-      return;
-    }
-    const list = await fetchDistricts(p.adcode).catch(() => [] as DistrictNode[]);
-    if (props.province === v) cities.value = list;
-  },
-);
-watch(
-  () => props.city,
-  async (v) => {
-    const c = cities.value.find((x) => x.name === v);
-    if (!c) {
-      districts.value = [];
-      return;
-    }
-    const list = await fetchDistricts(c.adcode).catch(() => [] as DistrictNode[]);
-    if (props.city === v) districts.value = list;
-  },
-);
-
-// 编辑回填：外部传入的省/市需要把下级列表补齐（watch 在列表为空时找不到节点）
-async function hydrate(): Promise<void> {
-  const p = provinces.value.find((x) => x.name === props.province);
-  if (!p) return;
-  cities.value = await fetchDistricts(p.adcode).catch(() => [] as DistrictNode[]);
-  const c = cities.value.find((x) => x.name === props.city);
-  if (!c) return;
-  districts.value = await fetchDistricts(c.adcode).catch(() => [] as DistrictNode[]);
-}
-
-onMounted(async () => {
-  provinces.value = await fetchDistricts(null).catch(() => [] as DistrictNode[]);
-  await hydrate();
+const provinceIndex = computed(() => {
+    const i = provinceNames.indexOf(props.province);
+    return i < 0 ? 0 : i;
+});
+const cityIndex = computed(() => {
+    const c = findCity(props.city, props.province);
+    const i = c ? cityNames.value.indexOf(c.name) : -1;
+    return i < 0 ? 0 : i;
+});
+const districtIndex = computed(() => {
+    const i = districtNames.value.indexOf(props.district);
+    return i < 0 ? 0 : i;
 });
 
+const hasValue = computed(() => Boolean(props.province || props.city || props.district));
+const showHint = computed(() => {
+    if (!props.showHint) return false;
+    return Boolean(props.province && !findProvince(props.province));
+});
+
+function emitChange(): void {
+    emit('change', {
+        province: props.province,
+        city: props.city,
+        district: props.district,
+        ...resolveCodes(props.province, props.city, props.district),
+    });
+}
+
 function onProvince(e: any): void {
-  const p = provinces.value[Number(e?.detail?.value)];
-  if (!p) return;
-  emit('update:province', p.name);
-  emit('update:city', '');
-  emit('update:district', '');
+    const p = provinces[Number(e?.detail?.value)];
+    if (!p) return;
+    emit('update:province', p.name);
+    emit('update:city', '');
+    emit('update:district', '');
+    emit('change', { province: p.name, city: '', district: '', provinceCode: p.code, cityCode: '', districtCode: '' });
 }
+
 function onCity(e: any): void {
-  const c = cities.value[Number(e?.detail?.value)];
-  if (!c) return;
-  emit('update:city', c.name);
-  emit('update:district', '');
+    const c = cities.value[Number(e?.detail?.value)];
+    if (!c) return;
+    emit('update:city', c.name);
+    emit('update:district', '');
+    emit('change', { province: props.province, city: c.name, district: '', provinceCode: resolveCodes(props.province, '', '').provinceCode, cityCode: c.code, districtCode: '' });
 }
+
 function onDistrict(e: any): void {
-  const d = districts.value[Number(e?.detail?.value)];
-  if (!d) return;
-  emit('update:district', d.name);
+    const d = districts.value[Number(e?.detail?.value)];
+    if (!d) return;
+    emit('update:district', d.name);
+    emitChange();
+}
+
+function clear(): void {
+    emit('update:province', '');
+    emit('update:city', '');
+    emit('update:district', '');
+    emit('change', { province: '', city: '', district: '', provinceCode: '', cityCode: '', districtCode: '' });
 }
 </script>
 
 <style lang="scss" scoped>
+.region-wrap {
+  width: 100%;
+}
 .region {
   display: flex;
   gap: 12rpx;
@@ -127,7 +153,19 @@ function onDistrict(e: any): void {
     padding: 16rpx 20rpx;
     font-size: 26rpx;
     color: $wa-ink;
+
+    &.empty { color: $wa-muted; }
+    text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
-  .caret { color: $wa-muted; font-size: 22rpx; }
+  .caret { color: $wa-muted; font-size: 22rpx; flex: none; margin-left: 8rpx; }
+}
+.region-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+
+  .hint { font-size: 22rpx; color: #d97706; }
+  .clear { font-size: 22rpx; color: $wa-muted; margin-left: auto; }
 }
 </style>

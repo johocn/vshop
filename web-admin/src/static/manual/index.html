@@ -177,6 +177,7 @@ img:fullscreen{object-fit:contain;background:#fff}
   </div>
 </div>
 
+<script src="waimai-docs.js"></script>
 <script>
 /* ============ 手册数据 ============ */
 var BOOKS = {
@@ -1937,6 +1938,37 @@ var CHAPTERS = [
 <img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="取消售后确认弹窗-保留申请与确认取消">
 <div class="imgcap">图 O18 · 取消售后确认弹窗（「保留申请 / 确认取消」，默认不弹出）</div>
 <div class="note"><b>后台修复：</b>售后单 <code>customerId</code> 存的是 Customer 主键，而此前详情/列表查询误用 User 主键（<code>activeUserId</code>）过滤，导致详情恒「售後記錄不存在」、列表恒空。已改经 <code>CustomerService.findOneByUserId</code> 桥接为正确 Customer 键再过滤，并同步修复了同源的多语言/交互问题。</div>`},
+{book:'op', id:'op-58', title:'表单统一：省市区选择与图片库字段', html:`
+<p class="lead">本版把后台所有「地区」与「图片」字段统一成两套标准交互：<mark class="mark">省 / 市 / 区三级选择器</mark>（内置中国行政区划，离线可用、不请求第三方 CDN）与 <mark class="mark">图片库字段</mark>（从素材库选择 + 弹层内上传，统一走素材库接口）。</p>
+<h3>1. 省市区三级选择</h3>
+<p>门店、商户、自提点等表单的「省 / 市 / 区」改为三个联动下拉：选省后自动刷新市列表，选市后自动刷新区县列表；支持<mark class="mark">只选到省或市</mark>（下级留空即可），也支持一键清空。回填时按已保存的地区文本自动定位到对应省 / 市 / 区。</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_1_region_backfill_390x844.png" alt="商户-注册地址回填"><div class="imgcap">图 F1 · 打开商户表单，历史地址自动回填为「广东省 / 深圳市 / 南山区」</div></div>
+  <div><img class="img" src="shots/formun_2_region_province_picker_390x844.png" alt="省级选择器"><div class="imgcap">图 F2 · 省级选择器（34 个省级行政区，含港澳台）</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_3_region_district_picker_390x844.png" alt="区县选择器"><div class="imgcap">图 F3 · 选省选市后自动出现对应区县（北京市 → 东城区 / 西城区 / 朝阳区…）</div></div>
+  <div><img class="img" src="shots/formun_4_region_selected_390x844.png" alt="三级选择完成"><div class="imgcap">图 F4 · 三级选择完成「北京市 / 北京市 / 东城区」</div></div>
+</div>
+<div class="note"><b>数据源：</b>前端内置完整中国行政区划（省 / 市 / 区县，共 3056 个区县），<mark class="mark">运行时不请求任何接口或第三方 CDN</mark>；保存时提交地区文本与城市编码，兼容原有字段。若日后需要更权威的口径（乡镇街道、行政区划变更），由后端导入行政区划表并提供查询接口后再切换到服务端数据。</div>
+<h3>2. 历史自由文本地址的兼容</h3>
+<p>只保存一个字符串的地址字段（如售后退货地址、校园门店地址、自提点地址），改为「省 / 市 / 区 + 详细地址」组合控件：打开时<mark class="mark">自动解析历史文本</mark>并回填三级；直辖市、只写到市的历史值也能识别。无法识别的部分<mark class="mark">原样保留在详细地址中并给出提示</mark>，保存时按「省 市 区 + 详细地址」重新拼接，<mark class="mark">不会丢数据</mark>。</p>
+<h3>3. 配送范围按省份多选</h3>
+<p>配送设置中的「排除区域 / 偏远地区 / 包邮区域」由手输改为<mark class="mark">省份多选</mark>；历史文本里无法识别的片段（如「偏远地区」）会原样保留，不被清空。</p>
+<h3>4. 图片字段统一走图片库</h3>
+<p>商品图、商户 / 门店 Logo、营业执照与资质照片、首页 Banner / 图标 / 视频封面等所有图片字段，统一为「<mark class="mark">从图片库选择 + 在弹层内上传</mark>」：点击「＋ 从图片库选择」打开素材库，可搜索、按标签筛选或直接上传新图，选中后确认即回填缩略图。</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_5_media_modal_390x844.png" alt="图片库弹层"><div class="imgcap">图 F5 · 图片库弹层（搜索 / 标签 / 上传 / 确定）</div></div>
+  <div><img class="img" src="shots/formun_6_media_selected_390x844.png" alt="图片库选中素材"><div class="imgcap">图 F6 · 选中素材（已选 1/1）</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_7_image_saved_390x844.png" alt="图片回填缩略图"><div class="imgcap">图 F7 · 确认后字段回填缩略图（× 可移除）</div></div>
+  <div><img class="img" src="shots/formun_8_media_uploaded_390x844.png" alt="弹层内上传新图"><div class="imgcap">图 F8 · 弹层内「上传」新图，上传即入库并自动选中</div></div>
+</div>
+<img class="img" src="shots/formun_9_image_upload_saved_390x844.png" alt="上传后回填">
+<div class="imgcap">图 F9 · 上传并确认后，营业执照照片直接使用新图（无需二次上传）</div>
+<div class="warn"><b>上传口径：</b>图片统一入素材库（<code>createAssets</code>），字段只保存引用，不再单独保存本地文件；删除素材走素材库删除（<code>deleteAsset</code>），字段内的 × 仅解除引用。</div>
+<div class="note"><b>多语言：</b>新增的选择器、地址与图片库文案均已接入中 / 英双语（<code>zh-Hans</code> / <code>en</code>），切换语言即时生效。</div>`},
 ];
 CHAPTERS.push(
 {book:'wm', id:'wm-1', title:'登录与选择店铺', html:`
@@ -2168,6 +2200,15 @@ function $id(id){ return document.getElementById(id); }
 var cap = {
   op: '商户运营', mp: '入驻与审批', wm: '外卖手册',
 };
+
+/* ===== 外卖教程分册（由 waimai-docs.js 提供，自动生成，勿手改） ===== */
+if (window.WAIMAI_DOCS) {
+  Object.keys(window.WAIMAI_DOCS.books).forEach(function(k){
+    BOOKS[k] = window.WAIMAI_DOCS.books[k];
+    cap[k] = window.WAIMAI_DOCS.books[k].short;
+  });
+  CHAPTERS = CHAPTERS.concat(window.WAIMAI_DOCS.chapters);
+}
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function stripHtml(h){ var d=document.createElement('div'); d.innerHTML=h; return d.textContent||''; }
 
@@ -2177,7 +2218,7 @@ function renderBooks(){
   var keys = Object.keys(BOOKS);
   keys.forEach(function(k){
     var b = BOOKS[k]; var n = CHAPTERS.filter(function(c){return c.book===k;}).length;
-    var colors = {'op':'#1a56db','mp':'#e4542a','wm':'#0e9f6e'}; var col = colors[k]||'#1a56db';
+    var colors = {'op':'#1a56db','mp':'#e4542a','wm':'#0e9f6e'}; var col = b.color || colors[k] || '#1a56db';
     var d = document.createElement('div'); d.className='book-card'; d.innerHTML=
       '<span class="rk" style="background:'+col+'"></span>'+
       '<div class="bt">'+b.icon+' '+esc(b.title)+' <span class="badge">'+n+' 章</span></div>'+

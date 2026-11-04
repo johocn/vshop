@@ -8,7 +8,7 @@
         <text class="section-title">{{ $t('shippingMethodConfig.zoneTitle') }}</text>
         <view class="field">
           <text class="label">{{ $t('shippingMethodConfig.excludedLabel') }}</text>
-          <input class="ipt" v-model="region.excludedAreas" :placeholder="$t('shippingMethodConfig.phExcluded')" />
+          <ProvinceMultiSelect v-model="region.excludedAreas" />
         </view>
         <view class="field">
           <text class="label">{{ $t('shippingMethodConfig.minOrderLabel') }}</text>
@@ -45,9 +45,9 @@
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.additionalWeightUnitLabel') }}</text><input class="ipt" type="digit" v-model="fee.additionalWeightUnit" /></view>
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.additionalWeightFeeLabel') }}</text><input class="ipt" type="number" v-model="fee.additionalWeightFee" /></view>
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.remoteSurchargeLabel') }}</text><input class="ipt" type="number" v-model="fee.remoteAreaSurcharge" /></view>
-        <view class="field"><text class="label">{{ $t('shippingMethodConfig.remoteAreasLabel') }}</text><input class="ipt" v-model="fee.remoteAreas" /></view>
+        <view class="field"><text class="label">{{ $t('shippingMethodConfig.remoteAreasLabel') }}</text><ProvinceMultiSelect v-model="fee.remoteAreas" /></view>
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.freeShippingThresholdLabel') }}</text><input class="ipt" type="number" v-model="fee.freeShippingThreshold" /></view>
-        <view class="field"><text class="label">{{ $t('shippingMethodConfig.freeShippingAreasLabel') }}</text><input class="ipt" v-model="fee.freeShippingAreas" /></view>
+        <view class="field"><text class="label">{{ $t('shippingMethodConfig.freeShippingAreasLabel') }}</text><ProvinceMultiSelect v-model="fee.freeShippingAreas" /></view>
         <view class="field row"><text class="label">{{ $t('shippingMethodConfig.useVolumetricLabel') }}</text><switch :checked="fee.useVolumetricWeight === 'true'" @change="fee.useVolumetricWeight = $event.detail.value ? 'true' : 'false'" /></view>
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.volumetricDivisorLabel') }}</text><input class="ipt" type="number" v-model="fee.volumetricDivisor" /></view>
         <view class="field"><text class="label">{{ $t('shippingMethodConfig.maxShippingFeeLabel') }}</text><input class="ipt" type="number" v-model="fee.maxShippingFee" /></view>
@@ -67,6 +67,7 @@ import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { fetchShippingTemplate, updateShippingTemplateConfig, ConfigArg } from '../../../apis/shipping-template';
 import { useLocaleStore } from '../../../stores/localeStore';
+import ProvinceMultiSelect from '../../../components/common/ProvinceMultiSelect.vue';
 
 const locale = useLocaleStore();
 

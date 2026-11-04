@@ -357,7 +357,7 @@
         <text class="sheet__lbl">{{ $t('campusAfterSalesOps.addrPhone') }}</text>
         <input v-model="addrForm.phoneNumber" class="ipt wide" maxlength="20" :placeholder="$t('campusAfterSalesOps.addrPhonePh')" />
         <text class="sheet__lbl">{{ $t('campusAfterSalesOps.addrDetail') }}</text>
-        <input v-model="addrForm.address" class="ipt wide" maxlength="80" :placeholder="$t('campusAfterSalesOps.addrDetailPh')" />
+        <AddressField v-model="addrForm.address" />
         <view class="sheet__ops">
           <text class="sheet__clear" @tap="clearAddress">{{ $t('campusAfterSalesOps.addrClear') }}</text>
         </view>
@@ -484,6 +484,7 @@ import { formatDateTime } from '../../utils/inventoryFormat';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import AddressField from '../../components/common/AddressField.vue';
 
 usePermGuard('CampusMerchant');
 

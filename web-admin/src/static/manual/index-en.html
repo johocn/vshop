@@ -177,6 +177,7 @@ img:fullscreen{object-fit:contain;background:#fff}
   </div>
 </div>
 
+<script src="waimai-docs.js"></script>
 <script>
 /* ============ Manual data ============ */
 var BOOKS = {
@@ -1882,6 +1883,37 @@ var CHAPTERS = [
 <img class="img" src="shots/o18_nshop_aftersales_cancel_modal.png" alt="Cancel after-sale dialog – keep request or confirm cancellation">
 <div class="imgcap">Fig. O18 · Cancel after-sale confirmation dialog (“Keep request / Confirm cancellation”, not shown by default)</div>
 <div class="note"><b>Admin-side fix:</b> the after-sale ticket’s <code>customerId</code> stores the Customer primary key, but detail/list queries previously filtered by the User primary key (<code>activeUserId</code>), so the detail always showed “After-sale record not found” and the list stayed empty. Queries now resolve the correct Customer key via <code>CustomerService.findOneByUserId</code> before filtering, and related i18n/interaction issues from the same source were fixed as well.</div>`},
+{book:'op', id:'op-58', title:'Unified Forms: Region Picker and Media Library Fields', html:`
+<p class="lead">This release standardizes every region and image field in the console: a <mark class="mark">three-level province / city / district picker</mark> (built-in China administrative data, fully offline, no third-party CDN) and <mark class="mark">media library fields</mark> (pick from the asset library or upload inside the dialog, always through the asset API).</p>
+<h3>1. Province / city / district picker</h3>
+<p>Region fields on store, merchant and pickup-point forms are now three cascading dropdowns: choosing a province refreshes the city list, choosing a city refreshes the district list. You may stop at <mark class="mark">province or city level</mark> by leaving the lower levels empty, and clear the whole selection in one tap. Existing saved values are re-matched automatically.</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_1_region_backfill_390x844.png" alt="Merchant form – region backfill"><div class="imgcap">Fig. F1 · Opening a merchant form: saved address restored as Guangdong / Shenzhen / Nanshan</div></div>
+  <div><img class="img" src="shots/formun_2_region_province_picker_390x844.png" alt="Province picker"><div class="imgcap">Fig. F2 · Province picker (34 provincial-level regions incl. HK / Macao / Taiwan)</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_3_region_district_picker_390x844.png" alt="District picker"><div class="imgcap">Fig. F3 · Districts follow the chosen city (Beijing → Dongcheng / Xicheng / Chaoyang…)</div></div>
+  <div><img class="img" src="shots/formun_4_region_selected_390x844.png" alt="Selection completed"><div class="imgcap">Fig. F4 · Completed selection: Beijing / Beijing / Dongcheng</div></div>
+</div>
+<div class="note"><b>Data source:</b> the full China administrative dataset (province / city / district, 3,056 districts) ships with the frontend, so <mark class="mark">no runtime API call and no third-party CDN</mark>. Both labels and the city code are submitted, compatible with existing fields. If a more authoritative source is needed later (townships, boundary changes), the backend should import an administrative table and expose a query first.</div>
+<h3>2. Compatibility with legacy free-text addresses</h3>
+<p>Fields that store a single address string (after-sale return address, campus store address, pickup address) now use a “province / city / district + detail” control: on open the saved text is <mark class="mark">parsed and backfilled</mark> (municipalities and city-only values included). Unrecognized text is <mark class="mark">kept verbatim in the detail field with a hint</mark>, and re-joined on save, so <mark class="mark">no data is lost</mark>.</p>
+<h3>3. Delivery scope by province</h3>
+<p>“Excluded areas / remote areas / free-shipping areas” in delivery settings are now a <mark class="mark">province multi-select</mark>. Fragments that cannot be recognized (e.g. a custom note) are preserved as-is.</p>
+<h3>4. All image fields go through the media library</h3>
+<p>Product images, merchant / store logo, licence and qualification photos, home banners / icons / video covers all use “<mark class="mark">pick from library + upload in dialog</mark>”: tap “+ Pick from library”, search, filter by tag or upload a new file, then confirm to fill the thumbnail.</p>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_5_media_modal_390x844.png" alt="Media library dialog"><div class="imgcap">Fig. F5 · Media library dialog (search / tags / upload / confirm)</div></div>
+  <div><img class="img" src="shots/formun_6_media_selected_390x844.png" alt="Asset selected"><div class="imgcap">Fig. F6 · Asset selected (1/1)</div></div>
+</div>
+<div class="imgrow">
+  <div><img class="img" src="shots/formun_7_image_saved_390x844.png" alt="Thumbnail filled"><div class="imgcap">Fig. F7 · Thumbnail filled after confirming (× removes it)</div></div>
+  <div><img class="img" src="shots/formun_8_media_uploaded_390x844.png" alt="Upload inside dialog"><div class="imgcap">Fig. F8 · Upload a new image inside the dialog: stored in the library and auto-selected</div></div>
+</div>
+<img class="img" src="shots/formun_9_image_upload_saved_390x844.png" alt="Saved after upload">
+<div class="imgcap">Fig. F9 · The licence photo field uses the uploaded image directly (no second upload)</div>
+<div class="warn"><b>Upload rule:</b> images always go into the asset library (<code>createAssets</code>); fields only store references, never local files. Deleting an asset uses <code>deleteAsset</code>; the × inside a field only removes the reference.</div>
+<div class="note"><b>i18n:</b> all new picker, address and media-library strings are available in both Simplified Chinese and English.</div>`},
 ];
 
 /* ============ State & rendering ============ */
@@ -1891,6 +1923,15 @@ function $id(id){ return document.getElementById(id); }
 var cap = {
   op: 'Operations', mp: 'Onboarding & Approval', cx: 'Shopper Guide',
 };
+
+/* ===== 外卖教程分册（由 waimai-docs.js 提供，自动生成，勿手改） ===== */
+if (window.WAIMAI_DOCS) {
+  Object.keys(window.WAIMAI_DOCS.books).forEach(function(k){
+    BOOKS[k] = window.WAIMAI_DOCS.books[k];
+    cap[k] = window.WAIMAI_DOCS.books[k].short;
+  });
+  CHAPTERS = CHAPTERS.concat(window.WAIMAI_DOCS.chapters);
+}
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function stripHtml(h){ var d=document.createElement('div'); d.innerHTML=h; return d.textContent||''; }
 
@@ -1900,7 +1941,7 @@ function renderBooks(){
   var keys = Object.keys(BOOKS);
   keys.forEach(function(k){
     var b = BOOKS[k]; var n = CHAPTERS.filter(function(c){return c.book===k;}).length;
-    var colors = {'op':'#1a56db','mp':'#e4542a'}; var col = colors[k]||'#1a56db';
+    var colors = {'op':'#1a56db','mp':'#e4542a'}; var col = b.color || colors[k] || '#1a56db';
     var d = document.createElement('div'); d.className='book-card'; d.innerHTML=
       '<span class="rk" style="background:'+col+'"></span>'+
       '<div class="bt">'+b.icon+' '+esc(b.title)+' <span class="badge">'+n+' chapters</span></div>'+

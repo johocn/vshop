@@ -27,7 +27,7 @@
         <view class="item" v-for="(im, ii) in sec.images" :key="ii">
           <view class="field">
             <text class="lbl">{{ $t('decorateHome.imgUrl') }}</text>
-            <input v-model="im.image" :placeholder="$t('decorateHome.imgUrlPlaceholder')" />
+            <MediaUrlField :model-value="im.image ? [im.image] : []" @update:model-value="im.image = $event[0] || ''" />
           </view>
           <view class="field">
             <text class="lbl">{{ $t('decorateHome.link') }}</text>
@@ -78,7 +78,7 @@
           </view>
           <view class="field">
             <text class="lbl">{{ $t('decorateHome.icon') }}</text>
-            <input v-model="it.image" :placeholder="$t('decorateHome.iconPlaceholder')" />
+            <MediaUrlField :model-value="it.image ? [it.image] : []" @update:model-value="it.image = $event[0] || ''" />
           </view>
           <view class="field">
             <text class="lbl">{{ $t('decorateHome.link') }}</text>
@@ -248,8 +248,7 @@
         </view>
         <view class="field">
           <text class="lbl">{{ $t('decorateHome.videoPoster') }}</text>
-          <input v-model="sec.poster" :placeholder="$t('decorateHome.optional')" />
-          <text class="pick" @tap="openPosterPicker(si)">{{ $t('mediaPicker.addImage') }}</text>
+          <MediaUrlField :model-value="sec.poster ? [sec.poster] : []" @update:model-value="sec.poster = $event[0] || ''" />
         </view>
         <view class="field">
           <text class="lbl">{{ $t('decorateHome.videoUrl') }}</text>
@@ -353,9 +352,6 @@
     </view>
 
     <button class="save" @tap="save" :disabled="saving">{{ $t('decorateHome.save') }}</button>
-
-    <!-- video 封面图选择（媒体库单选，确认后回填 URL） -->
-    <MediaLibraryModal v-model:visible="posterModalVisible" :max="1" media-type="image" :value="[]" @confirm="onPosterConfirm" />
   </view>
 </template>
 
@@ -363,8 +359,7 @@
 import { ref, onMounted } from 'vue';
 import { fetchActiveChannel, updateChannelCustomFields } from '../../../apis/channel';
 import { parseShopContent, isValidShopContent, ShopSection, ShopContent } from '../../../templates/shared/schema';
-import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
-import type { AssetItem } from '../../../apis/asset';
+import MediaUrlField from '../../../components/MediaUrlField.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 
 // 编辑态视图模型：可选字段覆盖所有 section type，便于模板直接访问（vue-tsc 不会在模板内做联合类型收窄）
@@ -556,19 +551,7 @@ function clampPageSize(sec: SectionVM) {
   }
 }
 
-// video 封面图：从媒体库选图回填 URL
-const posterModalVisible = ref(false);
-let posterTargetIndex = -1;
-function openPosterPicker(sectionIndex: number) {
-  posterTargetIndex = sectionIndex;
-  posterModalVisible.value = true;
-}
-function onPosterConfirm(assets: AssetItem[]) {
-  const asset = assets[0];
-  if (!asset) return;
-  const sec = sections.value[posterTargetIndex];
-  if (sec) sec.poster = asset.source || asset.preview || '';
-}
+// video 封面图由 MediaUrlField 统一从图片库选择
 
 function toCuratedSection(vm: SectionVM): any {
   const sec: any = { type: vm.type };

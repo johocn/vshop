@@ -231,9 +231,9 @@
                     <text class="lbl">{{ $t('campusConfig.pointName') }}</text>
                     <input v-model="p.name" :placeholder="$t('campusConfig.phText')" />
                   </view>
-                  <view class="cell">
+                  <view class="cell col">
                     <text class="lbl">{{ $t('campusConfig.pointAddress') }}</text>
-                    <input v-model="p.address" :placeholder="$t('campusConfig.phText')" />
+                    <AddressField v-model="p.address" />
                   </view>
                   <view class="cell">
                     <text class="lbl">{{ $t('campusConfig.pointPhone') }}</text>
@@ -321,9 +321,9 @@
           </view>
         </view>
         <view class="tier-add" v-if="card.form.feeTiers.length < 10" @tap="addFeeTier(card)">+ {{ $t('campusConfig.tierAdd') }}</view>
-        <view class="cell">
+        <view class="cell col">
           <text class="lbl">{{ $t('campusConfig.storeAddress') }}</text>
-          <input v-model="card.form.storeAddress" :placeholder="$t('campusConfig.phText')" />
+          <AddressField v-model="card.form.storeAddress" />
         </view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.storePhone') }}</text>
@@ -426,9 +426,9 @@
           <text class="lbl">{{ $t('campusConfig.foodLicenseNo') }}</text>
           <input v-model="card.form.foodLicenseNo" :placeholder="$t('campusConfig.phText')" />
         </view>
-        <view class="cell">
+        <view class="cell col">
           <text class="lbl">{{ $t('campusConfig.foodLicenseImage') }}</text>
-          <input v-model="card.form.foodLicenseImage" placeholder="https://" />
+          <MediaUrlField :model-value="card.form.foodLicenseImage ? [card.form.foodLicenseImage] : []" @update:model-value="card.form.foodLicenseImage = $event[0] || ''" />
         </view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.foodLicenseExpiry') }}</text>
@@ -444,9 +444,9 @@
             <text>{{ $t(g.label) }}</text>
           </view>
         </view>
-        <view class="cell">
+        <view class="cell col">
           <text class="lbl">{{ $t('campusConfig.foodSafetyCommitmentImage') }}</text>
-          <input v-model="card.form.foodCommitmentImage" placeholder="https://" />
+          <MediaUrlField :model-value="card.form.foodCommitmentImage ? [card.form.foodCommitmentImage] : []" @update:model-value="card.form.foodCommitmentImage = $event[0] || ''" />
         </view>
         <view class="cell">
           <text class="lbl">{{ $t('campusConfig.kitchenLiveUrl') }}</text>
@@ -707,6 +707,8 @@ import { fenToYuan, fenToYuanFixed, yuanToFen } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import AddressField from '../../components/common/AddressField.vue';
+import MediaUrlField from '../../components/MediaUrlField.vue';
 
 usePermGuard('CampusConfig');
 

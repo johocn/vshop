@@ -121,7 +121,7 @@
     <view class="mask" v-if="addressOpen" @tap="addressOpen = false">
       <view class="modal" @tap.stop>
         <text class="mtitle">{{ $t('afterSale.list.returnAddress') }}</text>
-        <textarea class="marea" v-model="addressText" :placeholder="$t('afterSale.list.returnAddressPlaceholder')" :maxlength="500" />
+        <AddressField v-model="addressText" multiline />
         <view class="mbtns">
           <button class="mbtn" @tap="addressOpen = false">{{ $t('afterSale.list.addressCancel') }}</button>
           <button class="mbtn main" :disabled="addressSaving" @tap="onSaveAddress">{{ $t('afterSale.list.addressSave') }}</button>
@@ -134,6 +134,7 @@
 import { ref, onMounted } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
+import AddressField from '../../../components/common/AddressField.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import {
   fetchAfterSalePage,

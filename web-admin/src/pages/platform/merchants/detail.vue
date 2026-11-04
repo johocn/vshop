@@ -104,9 +104,10 @@
 
     <view class="card">
       <text class="section">{{ $t('merchantAdmin.address') }}</text>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.province') }}</text><input class="ipt" v-model="form.province" /></view>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.city') }}</text><input class="ipt" v-model="form.city" /></view>
-      <view class="field"><text class="label">{{ $t('merchantAdmin.district') }}</text><input class="ipt" v-model="form.district" /></view>
+      <view class="field">
+        <text class="label">{{ $t('merchantAdmin.region') }}</text>
+        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" />
+      </view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.street') }}</text><input class="ipt" v-model="form.street" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.addressLine') }}</text><input class="ipt" v-model="form.address" /></view>
     </view>
@@ -179,6 +180,7 @@ import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { backToHome } from '../../../utils/h5Nav';
 import MediaUrlField from '../../../components/MediaUrlField.vue';
+import RegionPicker from '../../../components/common/RegionPicker.vue';
 
 const locale = useLocaleStore();
 const id = ref<string | null>(null);
