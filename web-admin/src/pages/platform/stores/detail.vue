@@ -50,7 +50,7 @@
       <text class="section">{{ $t('merchantAdmin.storeAddress') }}</text>
       <view class="field">
         <text class="label">{{ $t('merchantAdmin.region') }}</text>
-        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" @change="onRegionChange" />
+        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" clearable show-hint @change="onRegionChange" />
       </view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.cityCode') }}</text><input class="ipt" v-model="form.cityCode" :placeholder="$t('merchantAdmin.cityCodePh')" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.street') }}</text><input class="ipt" v-model="form.street" /></view>
@@ -620,10 +620,10 @@ function buildInput() {
     servicePhone: f.servicePhone.trim() || undefined,
     managerName: f.managerName.trim() || undefined,
     managerPhone: f.managerPhone.trim() || undefined,
-    province: f.province.trim() || undefined,
-    city: f.city.trim() || undefined,
-    cityCode: f.cityCode.trim() || undefined,
-    district: f.district.trim() || undefined,
+    province: f.province.trim() || null,
+    city: f.city.trim() || null,
+    cityCode: f.cityCode.trim() || null,
+    district: f.district.trim() || null,
     street: f.street.trim() || undefined,
     addressLine: f.addressLine.trim() || undefined,
     detail: f.detail.trim() || undefined,
@@ -637,8 +637,8 @@ function buildInput() {
     facilities: f.facilities.trim() ? f.facilities.split(/[,，\s]+/).filter(Boolean) : undefined,
     externalIds: f.externalIds.trim() || undefined,
     notice: f.notice.trim() || undefined,
-    coverImage: cover.value[0] || undefined,
-    photos: photos.value.length ? photos.value : undefined,
+    coverImage: cover.value[0] || null,
+    photos: photos.value.length ? photos.value : null,
     acceptingOrders: f.acceptingOrders,
     enabled: f.enabled,
     isPublic: f.isPublic,

@@ -105,6 +105,11 @@ function emitChange(): void {
 function onProvince(e: any): void {
     const p = provinces[Number(e?.detail?.value)];
     if (!p) return;
+    // 重复确认同一省份时保留下级已选值，避免误清空
+    if (p.name === props.province) {
+        emitChange();
+        return;
+    }
     emit('update:province', p.name);
     emit('update:city', '');
     emit('update:district', '');
@@ -114,6 +119,11 @@ function onProvince(e: any): void {
 function onCity(e: any): void {
     const c = cities.value[Number(e?.detail?.value)];
     if (!c) return;
+    if (c.name === props.city) {
+        // 同一城市只重新同步编码（如门店 cityCode），不清空已选区县
+        emitChange();
+        return;
+    }
     emit('update:city', c.name);
     emit('update:district', '');
     emit('change', { province: props.province, city: c.name, district: '', provinceCode: resolveCodes(props.province, '', '').provinceCode, cityCode: c.code, districtCode: '' });

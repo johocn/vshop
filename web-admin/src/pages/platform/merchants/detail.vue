@@ -106,7 +106,7 @@
       <text class="section">{{ $t('merchantAdmin.address') }}</text>
       <view class="field">
         <text class="label">{{ $t('merchantAdmin.region') }}</text>
-        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" />
+        <RegionPicker v-model:province="form.province" v-model:city="form.city" v-model:district="form.district" clearable show-hint />
       </view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.street') }}</text><input class="ipt" v-model="form.street" /></view>
       <view class="field"><text class="label">{{ $t('merchantAdmin.addressLine') }}</text><input class="ipt" v-model="form.address" /></view>
@@ -276,10 +276,10 @@ function buildInput() {
     status: f.status,
     tags: f.tags.trim() ? f.tags.split(/[,，\s]+/).filter(Boolean) : undefined,
     intro: f.intro.trim() || undefined,
-    logo: logo.value[0] || undefined,
+    logo: logo.value[0] || null,
     legalName: f.legalName.trim() || undefined,
     licenseNo: f.licenseNo.trim() || undefined,
-    licenseImage: licenseImage.value[0] || undefined,
+    licenseImage: licenseImage.value[0] || null,
     licenseExpiry: toIso(f.licenseExpiry),
     contactName: f.contactName.trim() || undefined,
     contactPhone: f.contactPhone.trim() || undefined,
@@ -287,9 +287,9 @@ function buildInput() {
     complaintPhone: f.complaintPhone.trim() || undefined,
     email: f.email.trim() || undefined,
     wechat: f.wechat.trim() || undefined,
-    province: f.province.trim() || undefined,
-    city: f.city.trim() || undefined,
-    district: f.district.trim() || undefined,
+    province: f.province.trim() || null,
+    city: f.city.trim() || null,
+    district: f.district.trim() || null,
     street: f.street.trim() || undefined,
     address: f.address.trim() || undefined,
     contractNo: f.contractNo.trim() || undefined,
