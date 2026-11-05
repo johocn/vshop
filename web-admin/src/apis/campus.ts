@@ -3746,21 +3746,68 @@ export interface CampusAdCampaignPage {
   items: CampusAdCampaignRow[];
 }
 
-/** 平台侧：按渠道/状态查投放单（后端无分页参数，前端按 skip/take 切片） */
+/** 后端分页能力缓存：unknown=未探测，server=新分页结构，legacy=旧数组结构 */
+let adCampaignsMode: 'unknown' | 'server' | 'legacy' = 'unknown';
+
+/** 旧后端会因未知参数/字段报 schema 校验错误；仅此情况才降级，网络/权限错误照常抛出 */
+function isLegacySchemaError(err: any): boolean {
+  const messages: string[] = (err?.response?.errors || []).map((e: any) => String(e?.message || ''));
+  const text = messages.length ? messages.join(' ') : String(err?.message || '');
+  return /Unknown argument/i.test(text) || /Cannot query field/i.test(text) || /is not defined by type/i.test(text);
+}
+
+/** 兼容两种返回：旧数组 / 新 { total, items }；total 缺失时退回当前页条数或数组长度 */
+function normalizeAdCampaignPage(
+  data: CampusAdCampaignPage | CampusAdCampaignRow[] | null | undefined,
+  skip: number,
+  take: number,
+): CampusAdCampaignPage {
+  if (Array.isArray(data)) {
+    return { total: data.length, items: data.slice(skip, skip + take) };
+  }
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const total = typeof data?.total === 'number' && Number.isFinite(data.total) ? data.total : items.length;
+  return { total, items };
+}
+
+/** 平台侧：按渠道/状态查投放单；新版后端走服务端分页，旧版后端自动降级为前端切片 */
 export async function campusAdCampaigns(
   status?: string | null,
   channelId?: string | null,
   skip = 0,
   take = 20,
 ): Promise<CampusAdCampaignPage> {
+  const variables = { status: status ?? null, channelId: channelId ?? null, skip, take };
+  if (adCampaignsMode !== 'legacy') {
+    try {
+      const res = await getAdminClient().request<{
+        campusAdCampaigns: CampusAdCampaignPage | CampusAdCampaignRow[];
+      }>(
+        `query ($status: String, $channelId: ID, $skip: Int, $take: Int) {
+          campusAdCampaigns(status: $status, channelId: $channelId, skip: $skip, take: $take) {
+            total
+            items { ${AD_FIELDS} }
+          }
+        }`,
+        variables,
+      );
+      const page = normalizeAdCampaignPage(res.campusAdCampaigns, skip, take);
+      // 仅对象结构确认服务端分页；返回数组说明仍是旧结构
+      adCampaignsMode = Array.isArray(res.campusAdCampaigns) ? 'legacy' : 'server';
+      return page;
+    } catch (err) {
+      if (!isLegacySchemaError(err)) throw err;
+      adCampaignsMode = 'legacy';
+    }
+  }
+
   const res = await getAdminClient().request<{ campusAdCampaigns: CampusAdCampaignRow[] }>(
     `query ($status: String, $channelId: ID) {
       campusAdCampaigns(status: $status, channelId: $channelId) { ${AD_FIELDS} }
     }`,
     { status: status ?? null, channelId: channelId ?? null },
   );
-  const items = res.campusAdCampaigns ?? [];
-  return { total: items.length, items: items.slice(skip, skip + take) };
+  return normalizeAdCampaignPage(res.campusAdCampaigns, skip, take);
 }
 
 /** 平台审核：通过转投放中，驳回须填原因 */
