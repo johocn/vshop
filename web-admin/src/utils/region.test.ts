@@ -68,7 +68,26 @@ describe('region 数据层', () => {
         expect(composeRegionText({ province: '广东省', city: '深圳市', district: '南山区' }, '科技园路1号')).toBe(
             '广东省深圳市南山区科技园路1号',
         );
+        // 直辖市省、市同名，拼接只保留一次
+        expect(composeRegionText({ province: '北京市', city: '北京市', district: '东城区' }, '甲1号')).toBe('北京市东城区甲1号');
         expect(parseProvinceList('广东省,广西壮族自治区 偏远地区')).toEqual(['广东省', '广西壮族自治区', '偏远地区']);
         expect(composeProvinceList(['广东省', '偏远地区'])).toBe('广东省,偏远地区');
+    });
+
+    it('直辖市地址保存后回填（拼接闭环 + 兼容重复省份旧格式）', () => {
+        const text = composeRegionText({ province: '北京市', city: '北京市', district: '东城区' }, '甲1号');
+        const r = parseRegionText(text);
+        expect(r.province).toBe('北京市');
+        expect(r.city).toBe('北京市');
+        expect(r.district).toBe('东城区');
+        expect(r.detail).toBe('甲1号');
+        expect(r.cityCode).toBe('110100');
+        expect(r.districtCode).toBe('110101');
+
+        const legacy = parseRegionText('北京市北京市东城区甲1号');
+        expect(legacy.province).toBe('北京市');
+        expect(legacy.city).toBe('北京市');
+        expect(legacy.district).toBe('东城区');
+        expect(legacy.detail).toBe('甲1号');
     });
 });

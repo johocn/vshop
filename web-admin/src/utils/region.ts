@@ -130,11 +130,16 @@ export function parseRegionText(text: string, level: RegionLevel = 'district'): 
             cityCode = hit.code;
             rest = stripSep(rest.slice(hit.name.length));
         } else if (MUNICIPALITY_CODES.includes(province.code)) {
-            // 直辖市历史地址常写成「北京市海淀区…」，市级与省同名且被跳过，这里补回市级
+            // 直辖市历史地址常写成「北京市海淀区…」，市级与省同名且被跳过，这里补回市级；
+            // 也兼容旧拼接生成的「北京市北京市海淀区…」（省级重复一次）
             const muni = cities.find((c) => c.name === province.name);
-            if (muni && (DISTRICTS_BY_CITY[muni.code] || []).some((d) => rest.startsWith(d.name))) {
-                city = muni.name;
-                cityCode = muni.code;
+            if (muni) {
+                const normalized = rest.startsWith(province.name) ? stripSep(rest.slice(province.name.length)) : rest;
+                if ((DISTRICTS_BY_CITY[muni.code] || []).some((d) => normalized.startsWith(d.name))) {
+                    city = muni.name;
+                    cityCode = muni.code;
+                    rest = normalized;
+                }
             }
         }
     }
@@ -166,7 +171,9 @@ export function parseRegionText(text: string, level: RegionLevel = 'district'): 
 
 /** 省/市/区 + 详细地址 → 后端单一字符串地址字段 */
 export function composeRegionText(sel: Pick<RegionSelection, 'province' | 'city' | 'district'>, detail: string): string {
-    const prefix = [sel.province, sel.city, sel.district].filter(Boolean).join('');
+    // 直辖市省、市同名，前缀只保留一次，避免出现「北京市北京市东城区」
+    const city = sel.city && sel.city !== sel.province ? sel.city : '';
+    const prefix = [sel.province, city, sel.district].filter(Boolean).join('');
     const tail = (detail || '').trim();
     return prefix + tail;
 }
