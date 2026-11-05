@@ -101,19 +101,29 @@ const loading = ref(false);
 // 批量管理模式
 const bulkMode = ref(false);
 const selected = reactive(new Set<string>());
+// 记录勾选时的商品快照：翻页/切换筛选后列表项会重新加载，
+// 若只按当前 items 过滤会静默漏掉已选但不在当前页的商品（批量库存旧缺陷）。
+const selectedRows = reactive(new Map<string, ProductListRow>());
 const selectedCount = computed(() => selected.size);
 
 function enterBulk() {
   bulkMode.value = true;
   selected.clear();
+  selectedRows.clear();
 }
 function exitBulk() {
   bulkMode.value = false;
   selected.clear();
+  selectedRows.clear();
 }
 function toggleSel(p: ProductListRow) {
-  if (selected.has(p.id)) selected.delete(p.id);
-  else selected.add(p.id);
+  if (selected.has(p.id)) {
+    selected.delete(p.id);
+    selectedRows.delete(p.id);
+  } else {
+    selected.add(p.id);
+    selectedRows.set(p.id, p);
+  }
 }
 
 const tabs: Array<{ value: 'all' | 'on' | 'off'; label: string }> = [
@@ -213,9 +223,8 @@ async function onBulkSet(enabled: boolean) {
 
 async function onBulkStock() {
   if (!selectedCount.value) return;
-  const targets = items.value.filter(
-    (p) => selected.has(p.id) && p.firstVariantId,
-  );
+  // 用勾选时的快照（而非当前页 items），避免翻页/筛选后部分商品被静默跳过
+  const targets = Array.from(selectedRows.values()).filter((p) => p.firstVariantId);
   if (!targets.length) {
     uni.showToast({ title: locale.t('productList.bulkNoVariant'), icon: 'none' });
     return;
@@ -239,13 +248,24 @@ async function onBulkStock() {
         uni.showToast({ title: locale.t('productList.bulkStockInvalid'), icon: 'none' });
         return;
       }
-      const updates = targets.map((p) => ({
-        variantId: p.firstVariantId!,
-        stock,
-      }));
+      // 多规格商品要更新「全部变体」，旧逻辑只改 firstVariantId（线上实测另一个变体仍为旧值）
+      const updates = targets.flatMap((p) => {
+        const variants = p.variants?.length
+          ? p.variants
+          : p.firstVariantId
+            ? [{ id: p.firstVariantId, stock: p.stock }]
+            : [];
+        return variants.map((v) => ({
+          variantId: v.id,
+          stock,
+          currentStock: v.stock,
+          stockLevels: (v as { stockLevels?: Array<{ stockLocationId: string; stockOnHand: number }> }).stockLevels,
+        }));
+      });
       try {
-        const count = await bulkSetVariantsStock(updates);
-        uni.showToast({ title: locale.t('productList.bulkStockDone').replace('{n}', count), icon: 'success' });
+        await bulkSetVariantsStock(updates);
+        // 全部变体已按目标值写入（未变化的变体不会重复写库存）
+        uni.showToast({ title: locale.t('productList.bulkStockDone').replace('{n}', targets.length), icon: 'success' });
         exitBulk();
         load(0);
       } catch (e: any) {

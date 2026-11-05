@@ -34,6 +34,80 @@ function stockFieldWith(locationId: string | null | undefined, stock: number): R
 const getChannelStockLocationId = resolveStockLocationId;
 
 /**
+ * 把「界面上的库存总数」换算成逐仓绝对值。
+ * 线上实测：stockOnHand 是当前渠道各仓合计（15 = 3+12），而旧逻辑把 15 当作单仓值写进第一个仓，
+ * 导致同一次保存后合计变成 27（回读不一致）。因此：
+ *  - 总数未变 → 返回 null（完全不写库存，保留原分仓，避免任何隐式变更）；
+ *  - 总数变化 → 按 delta 优先调整首个仓位，不够减时依次扣减其它仓位，保证合计等于目标值。
+ */
+export function stockLevelsForTarget(
+  targetTotal: number,
+  displayTotal: number,
+  levels: StockLevelRef[] | null | undefined,
+  fallbackLocationId: string | null,
+): StockLevelRef[] | null {
+  const target = Math.max(0, Math.round(Number(targetTotal) || 0));
+  const current = Math.max(0, Math.round(Number(displayTotal) || 0));
+  if (target === current) return null; // 未改动库存：不写，避免把多仓合计写进单仓
+  const cur = (levels || [])
+    .filter((l) => l && l.stockLocationId)
+    .map((l) => ({
+      stockLocationId: String(l.stockLocationId),
+      stockOnHand: Math.max(0, Math.round(Number(l.stockOnHand) || 0)),
+    }));
+  if (!cur.length) {
+    return fallbackLocationId ? [{ stockLocationId: fallbackLocationId, stockOnHand: target }] : null;
+  }
+  let delta = target - current;
+  for (const l of cur) {
+    if (delta === 0) break;
+    const next = l.stockOnHand + delta;
+    if (next >= 0) {
+      l.stockOnHand = next;
+      delta = 0;
+    } else {
+      delta = next;
+      l.stockOnHand = 0;
+    }
+  }
+  return cur;
+}
+
+/** 变体自定义字段：只提交真正变化的键，避免把未展示的 null 字段写成 0/空串（保存即污染） */
+function diffVariantCustomFields(
+  before: VariantRef['customFields'] | undefined | null,
+  next: {
+    shippingProfileId?: string;
+    paymentProfileId?: string;
+    listPrice?: number | null;
+    costPrice?: number | null;
+    barcode?: string;
+    internalCode?: string;
+  },
+): Record<string, unknown> | null {
+  const patch: Record<string, unknown> = {};
+  const strEq = (a?: string | null, b?: string | null) => (a ?? '') === (b ?? '');
+  // 0 / 空 视为「清除」：旧逻辑只在有值时写，清空划线价/成本价永远不落库
+  const normNum = (n?: number | null) => (n == null || Math.round(Number(n)) === 0 ? null : Math.round(Number(n)));
+  const numEq = (a?: number | null, b?: number | null) => normNum(a) === normNum(b);
+  if (next.shippingProfileId !== undefined && !strEq(before?.shippingProfileId, next.shippingProfileId)) {
+    patch.shippingProfileId = next.shippingProfileId;
+  }
+  if (next.paymentProfileId !== undefined && !strEq(before?.paymentProfileId, next.paymentProfileId)) {
+    patch.paymentProfileId = next.paymentProfileId;
+  }
+  if (next.listPrice !== undefined && !numEq(before?.listPrice, next.listPrice)) {
+    patch.listPrice = normNum(next.listPrice);
+  }
+  if (next.costPrice !== undefined && !numEq(before?.costPrice, next.costPrice)) {
+    patch.costPrice = normNum(next.costPrice);
+  }
+  if (next.barcode !== undefined && !strEq(before?.barcode, next.barcode)) patch.barcode = next.barcode;
+  if (next.internalCode !== undefined && !strEq(before?.internalCode, next.internalCode)) patch.internalCode = next.internalCode;
+  return Object.keys(patch).length ? patch : null;
+}
+
+/**
  * 把选中图片资产先绑定到当前渠道（vendure-token 所在渠道）。
  * 背景：Vendure 的 asset 关联按渠道隔离（AssetService.updateEntityAssets 用
  * findByIdsInChannel 只接受属于当前渠道的资产）。若商品是跨渠道共享、图片先挂在
@@ -62,8 +136,10 @@ async function ensureAssetsInCurrentChannel(
       { input: { assetIds: ids, channelId } },
     );
   } catch (err) {
-    // 幂等且非阻断：assign 失败仅个别渠道临时不可见；但必须留痕，避免跨渠道图片被静默清空难排查
+    // 旧逻辑仅 console.error：assign 失败后 updateProduct 仍会按「0 张可见图」写入，
+    // 图片被静默清空却提示保存成功。这里改为显式失败，让用户看到提示后重试。
     console.error('[ensureAssetsInCurrentChannel] assignAssetsToChannel 失败', err);
+    throw new Error('图片保存失败：所选图片未能绑定到当前门店，请重试');
   }
 }
 
@@ -124,10 +200,14 @@ export async function updateProduct(id: string, args: UpdateProductArgs = {}): P
       },
     ];
   }
-  await getAdminClient().request(
+  const { updateProduct: updated } = await getAdminClient().request<{
+    updateProduct: { id: string } | null;
+  }>(
     `mutation UpdateProduct($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
     { input },
   );
+  // 返回体缺失说明未真正落库，必须失败上报，不能当作成功
+  if (!updated?.id) throw new Error('商品保存失败：服务端未返回商品 id');
 }
 
 export async function fetchCollections(): Promise<CollectionListItem[]> {
@@ -146,12 +226,19 @@ export async function fetchCollections(): Promise<CollectionListItem[]> {
 //   - 库存用顶层 stockOnHand（StockLevelInput.stockLocationId 为必填，顶层 stockOnHand 无需 location）；
 //     trackInventory 是 GlobalFlag 枚举(TRUE/FALSE/INHERIT)，传字符串 'TRUE'
 
+export interface StockLevelRef {
+  stockLocationId: string;
+  stockOnHand: number;
+}
+
 export interface VariantRef {
   id: string;
   sku: string;
   price: number; // 单位：分（净价）
   priceWithTax?: number; // 单位：分（含税=对客最终价，后台统一读写此值）
   stockOnHand: number;
+  /** 逐仓库存：stockOnHand 是当前渠道各仓合计，写库存必须按仓位换算（见 stockLevelsForTarget） */
+  stockLevels?: StockLevelRef[] | null;
   trackInventory: boolean;
   options?: Array<{ id: string; code: string; name: string }> | null;
   customFields?:
@@ -194,6 +281,7 @@ export interface ProductFull {
     price: number;
     priceWithTax?: number;
     stockOnHand: number;
+    stockLevels?: StockLevelRef[] | null;
     trackInventory: boolean;
     featuredAsset?: { preview: string } | null;
     assets?: Array<{ id: string; preview: string }>;
@@ -263,6 +351,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         sku: string;
         price: number;
         stockOnHand: number;
+        stockLevels?: StockLevelRef[] | null;
         trackInventory: boolean;
         options?: Array<{ id: string; code: string; name: string }>;
         featuredAsset?: { id: string; preview: string } | null;
@@ -281,6 +370,7 @@ export async function fetchProductFull(id: string): Promise<ProductFull> {
         translations { languageCode name slug description }
         variants {
           id sku price priceWithTax stockOnHand trackInventory
+          stockLevels { stockLocationId stockOnHand }
           options { id code name }
           featuredAsset { id preview }
           assets { id preview }
@@ -411,7 +501,7 @@ export interface BrandOption {
 export interface CreateVariantMatrixInput {
   productId: string;
   groups: { name: string; values: string[]; groupId?: string; valueIds?: string[] }[]; // 规格组（groupId 存在表示复用系统规格组，不新建组）
-  skus: { labels: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[] }[];
+  skus: { labels: string[]; /** 规格值（ProductOption）id，编辑时用于和既有变体对齐 */ optionValueIds?: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[] }[];
   shippingProfileId?: string;
   paymentProfileId?: string;
 }
@@ -444,6 +534,7 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
   //    维度口径与 buildMatrix 一致：仅统计至少含一个非空规格值的组，保持原顺序对齐 skus[i].labels[d]。
   const dims: Array<{ groupIndex: number; valueToOptionId: Map<string, string> }> = [];
   const groups = input.groups || [];
+  const skus = input.skus || []; // 旧代码漏声明，多规格新建会 ReferenceError（skus is not defined）
   for (let gi = 0; gi < groups.length; gi++) {
     const name = String(groups[gi]?.name ?? '').trim();
     const values = (groups[gi]?.values || [])
@@ -597,27 +688,52 @@ export async function createBrand(name: string): Promise<BrandOption> {
   return { id: createFacetValue.id, name: createFacetValue.name };
 }
 
-async function applyBrandAndMarketing(id: string, input: ProductSaveInput): Promise<void> {
-  // 仅在品牌/营销/卖点/租户分类名有值时才触发 updateProduct；facetValueIds 只在有品牌时传。
+async function applyBrandAndMarketing(
+  id: string,
+  input: ProductSaveInput,
+  before?: ProductFull | null,
+): Promise<void> {
+  // 与旧值做 diff：旧逻辑只在「有值」时才写，导致清空（品牌/标签/卖点/租户分类/视频）永远不落库。
   // marketingTags 为 text 自定义字段（写 customFields）；sellingPoint 为 localeString，
   // 只能走 translations[].customFields 写入（实测确认，UpdateProductCustomFieldsInput 无 sellingPoint）。
-  // tenantCategoryRef 为 Product 自定义 string 字段，随 customFields 落库，null 则清除。
-  if (!input.brandFacetValueId && !input.marketingTags?.length && !input.sellingPoint && input.tenantCategoryRef == null && input.videoAssetId == null && !input.promos?.length && !input.services?.length && input.productType == null) return;
+  // tenantCategoryRef/videoAssetId 为 Product 自定义字段，null 表示清除。
+  const prevCf = before?.productCustomFields;
   const updated: Record<string, unknown> = { id };
-  if (input.brandFacetValueId) updated.facetValueIds = [input.brandFacetValueId];
   const customFields: Record<string, unknown> = {};
-  if (input.marketingTags?.length) customFields.marketingTags = JSON.stringify(input.marketingTags);
-  if (input.promos?.length) customFields.promos = JSON.stringify(input.promos);
-  if (input.services?.length) customFields.services = JSON.stringify(input.services);
-  if (input.tenantCategoryRef != null) customFields.tenantCategoryRef = input.tenantCategoryRef;
-  if (input.videoAssetId != null) customFields.videoAssetId = input.videoAssetId;
-  if (input.productType != null) customFields.productType = input.productType;
-  if (Object.keys(customFields).length) updated.customFields = customFields;
-  if (input.sellingPoint) {
+  const prevBrand = (before?.facetValues || []).find((f) => (f.facet?.code ?? '') === 'brand')?.id ?? '';
+  if (input.brandFacetValueId !== undefined && (input.brandFacetValueId ?? '') !== prevBrand) {
+    updated.facetValueIds = input.brandFacetValueId ? [input.brandFacetValueId] : [];
+  }
+  const listEq = (prev: string[] | null | undefined, next: string[] | undefined) =>
+    JSON.stringify(prev ?? []) === JSON.stringify(next ?? []);
+  if (input.marketingTags !== undefined && !listEq(prevCf?.marketingTags, input.marketingTags)) {
+    customFields.marketingTags = JSON.stringify(input.marketingTags ?? []);
+  }
+  if (input.promos !== undefined && !listEq(prevCf?.promos, input.promos)) {
+    customFields.promos = JSON.stringify(input.promos ?? []);
+  }
+  if (input.services !== undefined && !listEq(prevCf?.services, input.services)) {
+    customFields.services = JSON.stringify(input.services ?? []);
+  }
+  if (input.tenantCategoryRef !== undefined && (input.tenantCategoryRef ?? null) !== (prevCf?.tenantCategoryRef ?? null)) {
+    customFields.tenantCategoryRef = input.tenantCategoryRef;
+  }
+  if (input.videoAssetId !== undefined && (input.videoAssetId ?? null) !== (before?.videoAssetId ?? null)) {
+    customFields.videoAssetId = input.videoAssetId;
+  }
+  if (input.productType !== undefined && (input.productType ?? null) !== (prevCf?.productType ?? null)) {
+    customFields.productType = input.productType;
+  }
+  if (input.sellingPoint !== undefined && (input.sellingPoint ?? '') !== (prevCf?.sellingPoint ?? '')) {
     updated.translations = [
-      { languageCode: PRODUCT_LANGUAGE_CODE, customFields: { sellingPoint: input.sellingPoint } },
+      {
+        languageCode: input.baseLanguageCode || PRODUCT_LANGUAGE_CODE,
+        customFields: { sellingPoint: input.sellingPoint ?? '' },
+      },
     ];
   }
+  if (Object.keys(customFields).length) updated.customFields = customFields;
+  if (!updated.facetValueIds && !updated.translations && !updated.customFields) return;
   await getAdminClient().request(
     `mutation UpdateProductBrand($input: UpdateProductInput!) { updateProduct(input: $input) { id } }`,
     { input: updated },
@@ -713,15 +829,17 @@ export async function createProductFull(input: ProductSaveInput): Promise<string
 }
 
 export async function updateProductFull(id: string, input: ProductSaveInput): Promise<void> {
-  // 多租户：提前取当前渠道默认仓，供变体 stockLevels 使用
+  // 多租户：提前取当前渠道默认仓，供变体 stockLevels 兜底使用
   const locationId = await getChannelStockLocationId();
   // 保险：先把选中图片绑定到当前渠道，避免跨渠道共享商品在本渠道保存把全局 asset 关联清空
   if (input.assetIds?.length || input.featuredAssetId) {
     await ensureAssetsInCurrentChannel(input.assetIds, input.featuredAssetId);
   }
-  // 三件套更新：
-  // 1) 基本字段（enabled/name/slug/description）
+  // 关键：先读旧值（分仓库存 / 变体自定义字段 / 品牌营销），后续写入按 diff 计算。
+  // 旧逻辑把 UI 上的「多渠道合计库存」当成单仓值写回，实测 15(3+12) 保存后变 27。
+  const before = await fetchProductFull(id);
   const baseLang = input.baseLanguageCode || PRODUCT_LANGUAGE_CODE;
+  // 1) 基本字段（enabled/name/slug/description）
   await updateProduct(id, {
     enabled: input.enabled,
     name: input.name,
@@ -752,15 +870,46 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
   );
 
   // 3) 变体更新
-  const full = await fetchProductFull(id);
-  const allVariants = full.variants || [];
+  const allVariants = before.variants || [];
   const vm = input.variantMatrix;
   const multiSpecNow = !!allVariants[0]?.options?.length;
+  const variantUpdates: Array<Record<string, unknown>> = [];
+
+  // 单变体 / 多规格共用的组装：库存按「目标总数 vs 旧总数」换算成逐仓绝对值，
+  // 自定义字段只提交变化项，未改动库存时完全不写库存字段。
+  const buildVariantUpdate = (
+    variantId: string,
+    sku: string,
+    priceCents: number,
+    targetStock: number,
+    prev: VariantRef | undefined,
+    nextCf: {
+      listPrice?: number;
+      costPrice?: number;
+      barcode?: string;
+      internalCode?: string;
+    },
+    assetIds?: string[],
+  ): Record<string, unknown> => {
+    const stockLevels = stockLevelsForTarget(targetStock, prev?.stockOnHand ?? targetStock, prev?.stockLevels, locationId);
+    const customFields = diffVariantCustomFields(prev?.customFields, {
+      shippingProfileId: input.shippingProfileId ?? '',
+      paymentProfileId: input.paymentProfileId ?? '',
+      ...nextCf,
+    });
+    return {
+      id: variantId,
+      sku,
+      price: Math.round(priceCents) || 0,
+      trackInventory: 'TRUE',
+      ...(stockLevels ? { stockLevels } : {}),
+      ...(assetIds ? { assetIds, featuredAssetId: assetIds[0] ?? undefined } : {}),
+      ...(customFields ? { customFields } : {}),
+    };
+  };
 
   if (multiSpecNow && vm?.skus?.length) {
     // ---- 多规格编辑：同结构仅更新数值 ----
-    // 已有多规格（变体带 options）。最低可用路径：列数（维度数）一致则
-    // 逐变体 updateProductVariants 更新价格/库存/划线价/profiles（按对齐顺序 skus[i]<->variants[i]）。
     // 【已知限制】规格组/值数量或顺序变更（结构变更）需重开新建，本轮不强制 diff 重建。
     const curDims = allVariants[0].options?.length ?? 0;
     const dims = (vm.groups || []).filter((g) =>
@@ -769,74 +918,75 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
     if (dims !== curDims) {
       throw new Error('多规格结构变更需重开新建：推理仅支持同结构下修改价格/库存/划线价');
     }
-    const updates = (vm.skus || [])
-      .map((sku, i) => {
-        const v = allVariants[i];
-        return {
-          id: v?.id,
-          sku: v?.sku ?? sku.sku ?? '',
-          price: Math.round(sku.priceCents) || 0,
-          trackInventory: 'TRUE',
-          ...stockFieldWith(locationId, sku.stock),
-          assetIds: sku.assetIds ?? [],
-          featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
-          customFields: {
-            shippingProfileId: input.shippingProfileId ?? '',
-            paymentProfileId: input.paymentProfileId ?? '',
-            listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
-            costPrice: sku.costPrice != null ? Math.round(sku.costPrice) : null,
-            barcode: sku.barcode ?? '',
-            internalCode: sku.internalCode ?? '',
-          },
-        };
-      })
-      .filter((u) => u.id);
-    if (updates.length) {
-      await getAdminClient().request(
-        `mutation UpdateMatrixVariants($input: [UpdateProductVariantInput!]!) {
-          updateProductVariants(input: $input) { id }
-        }`,
-        { input: updates },
-      );
+    // 按规格 option id 对齐，避免依赖服务端返回顺序；对不上再回退位置对齐
+    const byOptions = new Map<string, VariantRef>();
+    for (const v of allVariants as VariantRef[]) {
+      const key = (v.options || []).map((o) => o.id).sort().join('|');
+      if (key) byOptions.set(key, v);
     }
+    (vm.skus || []).forEach((sku, i) => {
+      const key = (sku.optionValueIds || []).slice().sort().join('|');
+      const prev = (key ? byOptions.get(key) : undefined) || (allVariants[i] as VariantRef | undefined);
+      if (!prev?.id) return;
+      variantUpdates.push(
+        buildVariantUpdate(
+          prev.id,
+          prev.sku ?? sku.sku ?? '',
+          sku.priceCents,
+          sku.stock,
+          prev,
+          {
+            listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : undefined,
+            costPrice: sku.costPrice != null ? Math.round(sku.costPrice) : undefined,
+            barcode: sku.barcode,
+            internalCode: sku.internalCode,
+          },
+          sku.assetIds,
+        ),
+      );
+    });
   } else {
-    // 单变体（含编辑时切换到无矩阵/单规格）：沿用既有更新逻辑
-    const v = full.variant;
+    // 单变体（含编辑时切换到无矩阵/单规格）
+    const v = before.variant as VariantRef | null;
     if (v?.id) {
       const s0 = vm?.skus?.[0];
-      await getAdminClient().request(
-        `mutation UpdateProductVariants($input: [UpdateProductVariantInput!]!) {
-          updateProductVariants(input: $input) { id }
-        }`,
-        {
-          input: [
-            {
-          id: v.id,
-          sku: v.sku,
-          price: Math.round(s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100),
-          trackInventory: 'TRUE',
-          // 多租户需写当前渠道默认仓，否则更新落入全局默认仓、租户页读不到
-          ...stockFieldWith(locationId, s0?.stock != null ? s0.stock : input.stock),
-          // 编辑时商品图片以「商品级 assets」为准（上方 UpdateProductAssets 已写入），
-          // 这里同步到变体，确保 C 端变体图与商品图一致、多图都能显示、删图能生效
-          ...(input.assetIds?.length
-            ? { assetIds: input.assetIds, featuredAssetId: featuredAssetId }
-            : {}),
-          customFields: {
-                shippingProfileId: input.shippingProfileId ?? '',
-                paymentProfileId: input.paymentProfileId ?? '',
-                listPrice: s0?.listPriceCents != null ? Math.round(s0.listPriceCents) : null,
-                costPrice: s0?.costPrice != null ? Math.round(s0.costPrice) : null,
-                barcode: s0?.barcode ?? '',
-                internalCode: s0?.internalCode ?? '',
-              },
-            },
-          ],
-        },
+      variantUpdates.push(
+        buildVariantUpdate(
+          v.id,
+          v.sku,
+          s0?.priceCents != null ? s0.priceCents : input.priceYuan * 100,
+          s0?.stock != null ? s0.stock : input.stock,
+          v,
+          {
+            listPrice: s0?.listPriceCents != null ? Math.round(s0.listPriceCents) : undefined,
+            costPrice: s0?.costPrice != null ? Math.round(s0.costPrice) : undefined,
+            barcode: s0?.barcode,
+            internalCode: s0?.internalCode,
+          },
+          // 编辑时商品图片以「商品级 assets」为准；空数组也要提交，保证删图能同步到变体
+          input.assetIds ?? [],
+        ),
       );
     }
   }
-  await applyBrandAndMarketing(id, input);
+
+  if (variantUpdates.length) {
+    const { updateProductVariants: saved } = await getAdminClient().request<{
+      updateProductVariants: Array<{ id: string } | null>;
+    }>(
+      `mutation UpdateMatrixVariants($input: [UpdateProductVariantInput!]!) {
+        updateProductVariants(input: $input) { id }
+      }`,
+      { input: variantUpdates },
+    );
+    // 返回条数不足 = 有变体没落库，必须显式失败，不能静默当成功
+    if ((saved || []).filter((x) => x?.id).length !== variantUpdates.length) {
+      throw new Error(
+        `变体保存不完整：提交 ${variantUpdates.length} 个，服务端确认 ${(saved || []).filter((x) => x?.id).length} 个`,
+      );
+    }
+  }
+  await applyBrandAndMarketing(id, input, before);
   // 非默认语言译文：逐个语言 upsert，跳过基准语言（基准已由上方基本字段写入）
   for (const [code, t] of Object.entries(input.i18n || {})) {
     if (!t?.name || code === baseLang) continue;
@@ -872,8 +1022,10 @@ export interface ProductListRow {
   stock: number;
   low: boolean;
   marketplaceStatus?: string | null;
-  /** 首选在售变体 id，用于批量库存等需要具体变体的操作 */
+  /** 首选在售变体 id（兼容旧调用点） */
   firstVariantId?: string;
+  /** 全部变体（批量库存要写全部变体，且需要逐仓库存换算） */
+  variants?: Array<{ id: string; stock: number; stockLevels?: StockLevelRef[] | null }>;
 }
 
 const LOW_STOCK = 5;
@@ -898,7 +1050,9 @@ export async function fetchProductList(
     `query ProductList($take: Int, $skip: Int, $filter: ProductFilterParameter) {
       products(options: { take: $take, skip: $skip, filter: $filter, sort: { createdAt: DESC } }) {
         totalItems
-        items { id name slug enabled featuredAsset { preview } variants { id price priceWithTax stockOnHand } customFields { marketplaceStatus } }
+        items { id name slug enabled featuredAsset { preview }
+          variants { id price priceWithTax stockOnHand stockLevels { stockLocationId stockOnHand } }
+          customFields { marketplaceStatus } }
       }
     }`,
     { take: q.take ?? 20, skip: q.skip ?? 0, filter },
@@ -919,6 +1073,11 @@ export async function fetchProductList(
       low: stock <= LOW_STOCK,
       marketplaceStatus: p.customFields?.marketplaceStatus ?? null,
       firstVariantId: first?.id,
+      variants: variants.map((v: any) => ({
+        id: v.id,
+        stock: v.stockOnHand ?? 0,
+        stockLevels: v.stockLevels ?? null,
+      })),
     };
   });
   return { totalItems: products.totalItems, items };
@@ -977,13 +1136,18 @@ export async function bulkSetProductsEnabled(
   enabled: boolean,
 ): Promise<number> {
   if (!ids.length) return 0;
-  const { updateProducts } = await getAdminClient().request<{ updateProducts: Array<{ id: string }> }>(
+  const { updateProducts } = await getAdminClient().request<{ updateProducts: Array<{ id: string } | null> }>(
     `mutation BulkEnabled($input: [UpdateProductInput!]!) {
       updateProducts(input: $input) { id }
     }`,
     { input: ids.map((id) => ({ id, enabled })) },
   );
-  return (updateProducts || []).length;
+  const saved = (updateProducts || []).filter((p) => p?.id).length;
+  // 只提交 id + enabled，其余字段不动；返回条数不足说明有商品没落库，必须报错而非静默成功
+  if (saved !== ids.length) {
+    throw new Error(`批量${enabled ? '上架' : '下架'}不完整：提交 ${ids.length} 个，服务端确认 ${saved} 个`);
+  }
+  return saved;
 }
 
 /**
@@ -1020,32 +1184,46 @@ export async function resolveStockLocationId(): Promise<string | null> {
 }
 
 /**
- * 批量设置库存：单选变体时用变体 id；商品级（firstVariantId）则设置该商品首选变体库存。
- * 调用 Vendure core 原生 updateProductVariants（数组输入）。
- * 库存走显式 `stockLevels:[{stockLocationId, stockOnHand}]` 写入（绝对覆盖值），
- * 避免无默认仓时顶层 stockOnHand 静默落空。返回成功改动的变体数。
+ * 批量设置库存：调用 Vendure core 原生 updateProductVariants（数组输入）。
+ * 库存按「目标总数 vs 旧总数」换算为逐仓绝对值（见 stockLevelsForTarget）：
+ *  - 未变化的变体不写（避免把多渠道合计写进单仓，线上实测 15→27）；
+ *  - 变化时按 delta 调整，保证合计等于目标值。返回实际写入的变体数。
  */
 export async function bulkSetVariantsStock(
-  updates: Array<{ variantId: string; stock: number }>,
+  updates: Array<{
+    variantId: string;
+    stock: number;
+    /** 旧库存总数（渠道合计）；缺省视为「直接写绝对值」 */
+    currentStock?: number;
+    /** 旧逐仓库存；缺省时回退到当前渠道默认仓 */
+    stockLevels?: StockLevelRef[] | null;
+  }>,
 ): Promise<number> {
-  const valid = updates.filter((u) => u.variantId && Number.isFinite(u.stock));
-  if (!valid.length) return 0;
   const locId = await resolveStockLocationId();
-  const input = valid.map((u) => {
+  const input: Array<Record<string, unknown>> = [];
+  for (const u of updates) {
+    if (!u.variantId || !Number.isFinite(u.stock)) continue;
     const stock = Math.max(0, Math.round(u.stock));
-    return locId
-      ? { id: u.variantId, stockLevels: [{ stockLocationId: locId, stockOnHand: stock }] }
-      : { id: u.variantId, stockOnHand: stock };
-  });
+    const current = u.currentStock != null ? Math.max(0, Math.round(u.currentStock)) : stock;
+    if (stock === current) continue; // 已是目标值：不写库存，保留原分仓
+    const levels = stockLevelsForTarget(stock, current, u.stockLevels, locId);
+    input.push(levels ? { id: u.variantId, stockLevels: levels } : { id: u.variantId, stockOnHand: stock });
+  }
+  if (!input.length) return 0;
   const { updateProductVariants } = await getAdminClient().request<{
-    updateProductVariants: Array<{ id: string }>;
+    updateProductVariants: Array<{ id: string } | null>;
   }>(
     `mutation BulkStock($input: [UpdateProductVariantInput!]!) {
       updateProductVariants(input: $input) { id }
     }`,
     { input },
   );
-  return (updateProductVariants || []).length;
+  const saved = (updateProductVariants || []).filter((v) => v?.id).length;
+  // 库存写入逐条执行，返回条数不足说明部分变体未落库 → 显式失败（不能静默跳过）
+  if (saved !== input.length) {
+    throw new Error(`库存保存不完整：提交 ${input.length} 个变体，服务端确认 ${saved} 个`);
+  }
+  return saved;
 }
 
 // ---- 规格组复用（跨渠道） ----
