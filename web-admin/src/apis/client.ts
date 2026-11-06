@@ -1,5 +1,6 @@
 import { GraphQLClient } from 'graphql-request';
 import { getAuthToken, getChannelToken, setAuthToken, clearSession } from './session';
+import { authHeaders } from './authMode';
 
 export const ADMIN_API_PATH = '/admin-api';
 
@@ -59,12 +60,13 @@ async function probeSessionThenLogout(): Promise<void> {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const auth = getAuthToken();
-    if (auth) headers['Authorization'] = 'Bearer ' + auth;
+    Object.assign(headers, authHeaders(auth));
     const ch = getChannelToken();
     if (ch) headers['vendure-token'] = ch;
     const res = await fetch(buildClientUrl(), {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: JSON.stringify({ query: 'query { me { id } }' }),
       signal: timeoutSignal(SESSION_PROBE_TIMEOUT_MS),
     });
@@ -80,7 +82,12 @@ async function probeSessionThenLogout(): Promise<void> {
 export function getAdminClient(): GraphQLClient {
   if (!instance) {
     const customFetch: typeof fetch = (input, init) =>
-      fetch(input, { ...init, signal: init?.signal ?? timeoutSignal(ADMIN_REQUEST_TIMEOUT_MS) }).then(async (res) => {
+      fetch(input, {
+        ...init,
+        // cookie 模式依赖浏览器自动携带 HTTPOnly 会话（同源默认可带，显式声明更稳）
+        credentials: init?.credentials ?? 'include',
+        signal: init?.signal ?? timeoutSignal(ADMIN_REQUEST_TIMEOUT_MS),
+      }).then(async (res) => {
         const token = res.headers.get(AUTH_HEADER);
         if (token) {
           setAuthToken(token);
@@ -106,8 +113,7 @@ export function getAdminClient(): GraphQLClient {
       fetch: customFetch as any,
       headers: () => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        const auth = getAuthToken();
-        if (auth) headers['Authorization'] = 'Bearer ' + auth;
+        Object.assign(headers, authHeaders(getAuthToken()));
         const ch = getChannelToken();
         if (ch) headers[CHANNEL_HEADER] = ch;
         return headers;
