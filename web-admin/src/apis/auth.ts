@@ -11,6 +11,15 @@ export interface AdminChannel {
   token: string;
 }
 
+/** 退出登录：通知后端销毁会话（Cookie 会话为 HttpOnly 后，前端无法自行清除） */
+export async function adminLogout(): Promise<void> {
+  try {
+    await getAdminClient().request(`mutation { logout { success } }`);
+  } catch {
+    // 会话已失效或网络异常时仍需清理本地状态，这里不阻断
+  }
+}
+
 export async function adminLogin(
   username: string,
   password: string,

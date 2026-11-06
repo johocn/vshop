@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { adminLogin, fetchMyTenantAccess, type MyTenantAccess } from '../apis/auth';
+import { adminLogin, adminLogout, fetchMyTenantAccess, type MyTenantAccess } from '../apis/auth';
 import { getAuthToken, getUserId, setUserId, clearSession } from '../apis/session';
 import { useTenantStore } from './tenantStore';
 
@@ -58,13 +58,18 @@ export const useAuthStore = defineStore('auth', {
     hasPermission(p: string): boolean {
       return this.isSuperAdmin || this.permissions.includes(p);
     },
-    logout() {
-      clearSession();
-      this.token = '';
-      this.userId = '';
-      this.username = '';
-      this.channels = [];
-      this.access = null;
+    async logout() {
+      try {
+        // 先让后端销毁会话（HttpOnly Cookie 前端无法删除，否则会话会留到 maxAge 到期）
+        await adminLogout();
+      } finally {
+        clearSession();
+        this.token = '';
+        this.userId = '';
+        this.username = '';
+        this.channels = [];
+        this.access = null;
+      }
     },
   },
 });
