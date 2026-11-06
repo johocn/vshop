@@ -3958,6 +3958,9 @@
     "voiceOff": "Off",
     "voiceNewOrder": "You have a new takeaway order, please handle it",
     "voiceNewOrderMany": "You have {n} new takeaway orders, please handle them",
+    "voiceTest": "Test alert",
+    "voiceUnlock": "Tap to enable voice",
+    "voiceTestDone": "Alert triggered (beep if no Chinese voice)",
     "notifyTitle": "New order",
     "notifyBody": "Order {codes}, please handle it"
   },

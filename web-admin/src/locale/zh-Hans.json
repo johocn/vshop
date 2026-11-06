@@ -3955,6 +3955,9 @@
     "voiceOff": "已关闭",
     "voiceNewOrder": "您有新的外卖订单，请及时处理",
     "voiceNewOrderMany": "您有 {n} 个新的外卖订单，请及时处理",
+    "voiceTest": "测试播报",
+    "voiceUnlock": "点击启用语音",
+    "voiceTestDone": "已触发播报（无中文语音时以蜂鸣代替）",
     "notifyTitle": "新订单",
     "notifyBody": "订单号 {codes}，请及时处理"
   },

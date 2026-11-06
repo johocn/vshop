@@ -73,9 +73,13 @@
       </view>
       <view class="voicebar">
         <text class="v-lbl">{{ $t('campusMerchant.voiceTitle') }}</text>
+        <text class="v-test" @tap="testVoice">{{ $t('campusMerchant.voiceTest') }}</text>
         <view class="v-switch" :class="{ on: voiceEnabled }" @tap="toggleVoice">
           <text class="v-switch-lbl">{{ voiceEnabled ? $t('campusMerchant.voiceOn') : $t('campusMerchant.voiceOff') }}</text>
         </view>
+      </view>
+      <view v-if="!audioUnlocked" class="voice-unlock" @tap="unlockAudio">
+        <text>{{ $t('campusMerchant.voiceUnlock') }}</text>
       </view>
       <view v-if="!board.merchantConfirmEnabled" class="notice">{{ $t('campusMerchant.notConfirmMode') }}</view>
       <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: printBad }">
@@ -1010,22 +1014,53 @@ function toggleVoice() {
   if (voiceEnabled.value && !audioUnlocked.value) unlockAudio();
 }
 
-/** 中文语音优先；无 speechSynthesis 返回 false 以回退提示音 */
+/**
+ * 中文语音播报；返回 false 表示「未能真正开始播」，调用方必须回退蜂鸣。
+ * - 无可用中文语音（getVoices 里 zh-* 且 voice.name 非空）直接 false，不假装成功；
+ * - speak 抛错、onerror（error/interrupted/canceled）、2.5s 内既没在播也没排队 → 兜底蜂鸣。
+ */
 function speakNewOrder(count: number): boolean {
   try {
     const syn = (window as any).speechSynthesis;
     const Utter = (window as any).SpeechSynthesisUtterance;
     if (!syn || !Utter) return false;
+    const voices: any[] = syn.getVoices?.() || [];
+    const zh = voices.find((v: any) => v && /^zh/i.test(String(v.lang || '')) && String(v.name || '').trim() !== '');
+    // 无中文语音：直接判定失败，交给调用方蜂鸣
+    if (!zh) return false;
     const text = count > 1
       ? locale.t('campusMerchant.voiceNewOrderMany').replace('{n}', String(count))
       : locale.t('campusMerchant.voiceNewOrder');
-    const u = new Utter(text);
-    u.lang = 'zh-CN';
-    const voices: any[] = syn.getVoices?.() || [];
-    const zh = voices.find((v: any) => /^zh[-_]CN/i.test(v.lang)) || voices.find((v: any) => /^zh/i.test(v.lang));
-    if (zh) u.voice = zh;
     syn.cancel();
-    syn.speak(u);
+    const u = new Utter(text);
+    u.lang = zh.lang || 'zh-CN';
+    u.voice = zh;
+    let settled = false;
+    let watchdog: ReturnType<typeof setTimeout> | null = null;
+    const fallback = () => {
+      if (settled) return;
+      settled = true;
+      if (watchdog) clearTimeout(watchdog);
+      beep();
+    };
+    u.onerror = fallback;
+    u.onend = () => {
+      settled = true;
+      if (watchdog) clearTimeout(watchdog);
+    };
+    // 被自动播放策略/静音/后台标签页拦住时 speaking 会一直是 false，用看门狗兜底
+    watchdog = setTimeout(() => {
+      if (!syn.speaking && !syn.pending) fallback();
+    }, 2500);
+    try {
+      if (syn.paused) syn.resume();
+      syn.speak(u);
+    } catch {
+      // 同步失败：标记已结束，由调用方统一蜂鸣（避免兜底与调用方各响一次）
+      settled = true;
+      if (watchdog) clearTimeout(watchdog);
+      return false;
+    }
     return true;
   } catch {
     return false;
@@ -1050,6 +1085,23 @@ function alertNewOrders(pending: MerchantBoardOrder[], count: number) {
   if (!count || !voiceEnabled.value || !audioUnlocked.value) return;
   if (!speakNewOrder(count)) beep();
   notifyNewOrders(pending.slice(0, count).map((o) => o.code));
+}
+
+/** 现场自检：点击即手势，解锁后立刻播一次；无中文语音则蜂鸣，不会静默 */
+function testVoice() {
+  if (!voiceEnabled.value) {
+    voiceEnabled.value = true;
+    try {
+      uni.setStorageSync(VOICE_PREF_KEY, true);
+    } catch {
+      // 存储不可用不影响本次播放
+    }
+  }
+  unlockAudio();
+  setTimeout(() => {
+    if (!speakNewOrder(1)) beep();
+    uni.showToast({ title: locale.t('campusMerchant.voiceTestDone'), icon: 'none' });
+  }, 120);
 }
 
 function beep() {
@@ -1609,10 +1661,14 @@ onUnmounted(() => {
   .voicebar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
     border-radius: $wa-radius; padding: 14rpx 24rpx; margin-bottom: 20rpx;
     .v-lbl { flex: 1; font-size: 24rpx; color: $wa-muted; }
+    .v-test { font-size: 22rpx; color: $wa-accent; border: 1.5px solid $wa-accent;
+      border-radius: 999rpx; padding: 8rpx 20rpx; }
     .v-switch { padding: 10rpx 28rpx; border-radius: 999rpx; background: $wa-rule;
       .v-switch-lbl { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
       &.on { background: $wa-accent; .v-switch-lbl { color: #fff; } } }
   }
+  .voice-unlock { font-size: 24rpx; color: #fff; background: $wa-accent; text-align: center;
+    border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx; font-weight: 600; }
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; }
   .printbar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
