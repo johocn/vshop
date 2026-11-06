@@ -86,6 +86,9 @@ import {
   type TrackEventStats,
 } from '../../apis/telemetry';
 import { telemetryEnabled, track } from '../../utils/telemetry';
+import { usePermGuard } from '../../composables/usePermGuard';
+
+usePermGuard('CampusViewDispatch');
 
 const loading = ref(true);
 const err = ref('');

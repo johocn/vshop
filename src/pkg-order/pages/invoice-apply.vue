@@ -50,8 +50,8 @@
     <view class="form-card">
       <view class="form-title">{{ t('invoiceApply.ordersTitle') }}</view>
       <view class="order-item" v-for="o in orders" :key="o.id">
-        <text class="order-item__code">{{ o.code }}</text>
-        <text class="order-item__amount">¥{{ (o.totalWithTax / 100).toFixed(2) }}</text>
+        <text class="order-item__code">{{ o.code || '—' }}</text>
+        <text class="order-item__amount">{{ o.totalWithTax == null ? '—' : `¥${(o.totalWithTax / 100).toFixed(2)}` }}</text>
       </view>
     </view>
 
@@ -65,6 +65,7 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { createInvoice } from '../../api/mutations/invoice';
 import { getMyInvoiceTitles } from '../../api/queries/invoice';
+import { getOrder } from '../../api/queries/order';
 const { t } = useI18n();
 const form = ref<any>({ invoiceType: 'ordinary', title: '', taxNumber: '', email: '', bankName: '', bankAccount: '', companyAddress: '', companyPhone: '' });
 const titles = ref<any[]>([]);
@@ -87,10 +88,27 @@ function goManageTitles() { uni.navigateTo({ url: '/pkg-user/pages/invoice-title
 onMounted(async () => {
     const pages = getCurrentPages(); const page = pages[pages.length - 1] as any;
     const ids = (page?.options?.orderIds || '').split(',').filter(Boolean);
-    orders.value = ids.map((id: string) => ({ id, code: id, totalWithTax: 0 }));
-    // 以后端为准，仅用于展示占位；真实金额可在订单列表传入
+    orders.value = ids.map((id: string) => ({ id, code: null, totalWithTax: null }));
+    // 按 orderIds 拉真实订单号与金额；单项失败只留空值（界面显示「—」），不伪造 0 元
+    loadOrderFacts(ids);
     try { const res: any = await getMyInvoiceTitles(); titles.value = res.myInvoiceTitles || []; const def = titles.value.find((t: any) => t.isDefault); if (def) selectTitle(def); } catch (e) { uni.showToast({ title: t('invoiceApply.titlesLoadFailed'), icon: 'none' }); }
 });
+
+async function loadOrderFacts(ids: string[]) {
+    await Promise.all(ids.map(async (id: string) => {
+        try {
+            const res: any = await getOrder(id);
+            const o = res?.order;
+            const row = orders.value.find((x: any) => x.id === id);
+            if (!row || !o) return;
+            row.code = o.code || null;
+            row.totalWithTax = typeof o.totalWithTax === 'number' ? o.totalWithTax : null;
+        } catch {
+            // 拿不到就保持空值，界面显示「—」
+        }
+    }));
+    orders.value = [...orders.value];
+}
 
 async function submit() {
     if (!form.value.title) { uni.showToast({ title: t('invoiceTitles.titleRequired'), icon: 'none' }); return; }

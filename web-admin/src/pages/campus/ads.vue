@@ -165,6 +165,7 @@ import { graphQlErrorMsg } from '../../apis/client';
 import MediaUrlField from '../../components/MediaUrlField.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
 import { fenToYuanFixed } from '../../utils/money';
 
 type TabKey = 'mine' | 'review';
@@ -197,6 +198,7 @@ const STATUS_PILL: Record<string, string> = {
 
 const auth = useAuthStore();
 const locale = useLocaleStore();
+usePermGuard(['CampusMerchant', 'CampusConfig']);
 
 const canMerchant = computed(() => auth.hasPermission('CampusMerchant'));
 const canConfig = computed(() => auth.hasPermission('CampusConfig'));

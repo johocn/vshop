@@ -184,6 +184,7 @@ import {
 import { graphQlErrorMsg } from '../../apis/client';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
 
 type TabKey = 'stations' | 'channel';
 
@@ -202,6 +203,7 @@ const LOCKER_PROVIDERS = [
 
 const auth = useAuthStore();
 const locale = useLocaleStore();
+usePermGuard(['CampusMerchant', 'CampusConfig']);
 
 const canConfig = computed(() => auth.hasPermission('CampusConfig'));
 const canMerchant = computed(() => auth.hasPermission('CampusMerchant'));

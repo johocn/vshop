@@ -82,6 +82,7 @@
 import { computed, ref } from 'vue';
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../stores/localeStore';
+import { usePermGuard } from '../../composables/usePermGuard';
 import {
   campusChatConversations,
   campusChatUnread,
@@ -93,6 +94,7 @@ import {
 } from '../../apis/campus';
 
 const locale = useLocaleStore();
+usePermGuard('CampusDispatch');
 
 const TABS = [
   { key: 'all', label: 'tabAll' },

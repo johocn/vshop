@@ -213,10 +213,19 @@ function onDelete(b: ProductCouponBindingItem) {
 onMounted(async () => {
   id.value = (getCurrentPages().at(-1) as any)?.options?.id || '';
   // 并行拉取商品全量与租户分类列表，用于按 tenantCategoryRef 反解 collectionId 预选分类
-  const [data, cats] = await Promise.all([
-    fetchProductFull(id.value),
-    fetchCollectionsOptimized().catch(() => []),
-  ]);
+  let data: ProductFull;
+  let cats: any[] = [];
+  try {
+    [data, cats] = await Promise.all([
+      fetchProductFull(id.value),
+      fetchCollectionsOptimized().catch(() => []),
+    ]);
+  } catch (e: any) {
+    // 拉取失败不能停在「加载中…」：提示后回列表页
+    uni.showToast({ title: e?.message || locale.t('productEdit.loadFailed'), icon: 'none' });
+    setTimeout(() => uni.navigateBack(), 800);
+    return;
+  }
   full.value = data;
   // 归位反解：商品自带 tenantCategoryRef（租户分类名），按名反查分类 id 预选
   const refName = data.productCustomFields?.tenantCategoryRef ?? null;

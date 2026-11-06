@@ -2264,6 +2264,7 @@
     "save": "Save",
     "saved": "Saved",
     "loading": "Loading…",
+    "loadFailed": "Failed to load product; go back and retry",
     "saveFailed": "Save failed",
     "bindTitle": "Product-exclusive coupons",
     "bindSub": "Coupons bound here will be shown on the product detail page and usable only for this product",

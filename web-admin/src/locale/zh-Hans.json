@@ -2261,6 +2261,7 @@
     "save": "保存",
     "saved": "已保存",
     "loading": "加载中…",
+    "loadFailed": "商品加载失败，请返回列表重试",
     "saveFailed": "保存失败",
     "bindTitle": "商品专属券",
     "bindSub": "此处绑定的券会展示在商品详情页，仅该商品可用",

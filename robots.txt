@@ -1,4 +1,4 @@
 # 站点根 robots.txt：部署到 /opt/1panel/apps/openresty/openresty/www/sites/e.joho.cn/index/robots.txt
-# 内部操作手册仍可直链访问，仅禁止搜索引擎收录/抓取
+# 管理后台与操作手册禁止搜索引擎收录/抓取（/guanli/ 目录本身另有登录与 basic auth 保护）
 User-agent: *
-Disallow: /guanli/static/manual/
+Disallow: /guanli/
