@@ -190,13 +190,30 @@ async function sendMsg(): Promise<void> {
     }
 }
 async function submitTracking() {
-    await updateReturnTracking(reqId, trackingNo.value, carrierValue.value);
-    ui.showToast(t('afterSaleDetail.submitted'), 'success');
+    const no = trackingNo.value.trim();
+    if (!no) {
+        ui.showToast(t('afterSaleDetail.trackingRequired'), 'none');
+        return;
+    }
+    if (!carrierValue.value) {
+        ui.showToast(t('afterSaleDetail.carrierRequired'), 'none');
+        return;
+    }
+    try {
+        await updateReturnTracking(reqId, no, carrierValue.value);
+        ui.showToast(t('afterSaleDetail.submitted'), 'success');
+    } catch {
+        ui.showToast(t('afterSaleDetail.submitFailed'), 'none');
+    }
 }
 async function cancelReq() {
-    await cancelAfterSalesRequest(reqId);
-    ui.showToast(t('afterSaleDetail.cancelled'), 'success');
-    setTimeout(() => uni.navigateBack(), 1000);
+    try {
+        await cancelAfterSalesRequest(reqId);
+        ui.showToast(t('afterSaleDetail.cancelled'), 'success');
+        setTimeout(() => uni.navigateBack(), 1000);
+    } catch {
+        ui.showToast(t('afterSaleDetail.cancelFailed'), 'none');
+    }
 }
 </script>
 <style lang="scss" scoped>

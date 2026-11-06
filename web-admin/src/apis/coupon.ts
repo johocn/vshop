@@ -604,7 +604,7 @@ export async function fetchCouponBundles(
       `query CouponBundles($options: CouponBundleListOptions) {
         couponBundles(options: $options) { items { ${BUNDLE_FIELDS} } totalItems }
       }`,
-      { options: { ...options, sort: { createdAt: 'DESC' as const } } },
+      { options: { ...options, sort: { id: 'DESC' as const } } },
     );
     return { items: couponBundles?.items ?? [], totalItems: couponBundles?.totalItems ?? 0 };
   } catch (e: any) {

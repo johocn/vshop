@@ -6213,11 +6213,15 @@
     "delContent": "确定删除「{name}」？删除后不可恢复。",
     "deleted": "已删除",
     "delFailed": "删除失败",
-    "opFailed": "操作失败"
+    "opFailed": "操作失败",
+    "endAction": "结束",
+    "startAction": "启用",
+    "statusChanged": "状态已更新",
+    "statusChangeFailed": "状态更新失败"
   },
   "flashSaleEdit": {
     "statusLabel": "当前状态",
-    "statusTip": "状态由活动时间自动推导：未开始 / 进行中 / 已结束",
+    "statusTip": "状态为只读；启用 / 结束请在列表页操作",
     "nameLabel": "活动名称",
     "phName": "如：周末爆品秒杀",
     "startAtLabel": "开始日期",

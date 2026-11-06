@@ -1,1 +1,0 @@
-import{y as r}from"./index-CPBVUzpd.js";async function e(e){return r().request("mutation ConfirmReceipt($orderId: ID!) { confirmOrderReceipt(orderId: $orderId) }",{orderId:e})}async function d(e){return r().request("mutation CancelMyOrder($orderId: ID!) { cancelMyOrder(orderId: $orderId) { id code state } }",{orderId:e})}export{e as a,d as c};

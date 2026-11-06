@@ -6216,11 +6216,15 @@
     "delContent": "Delete \"{name}\"? This cannot be undone.",
     "deleted": "Deleted",
     "delFailed": "Delete failed",
-    "opFailed": "Operation failed"
+    "opFailed": "Operation failed",
+    "endAction": "End",
+    "startAction": "Enable",
+    "statusChanged": "Status updated",
+    "statusChangeFailed": "Failed to update status"
   },
   "flashSaleEdit": {
     "statusLabel": "Current Status",
-    "statusTip": "Status is derived automatically from activity time: upcoming / active / ended",
+    "statusTip": "Status is read-only; enable / end it from the list page",
     "nameLabel": "Activity Name",
     "phName": "e.g. Weekend Flash Sale",
     "startAtLabel": "Start Date",

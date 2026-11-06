@@ -328,6 +328,7 @@ import { useUIStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
 import { handlePayment } from '../../composables/usePayment';
 import { getPlatform } from '../../utils/platform';
+import { pollCouponSalePaid } from '../../utils/coupon-pay-poll';
 import EmptyState from '../../components/EmptyState.vue';
 import CouponDetailSheet from '../components/CouponDetailSheet.vue';
 import { useShare } from '../../composables/useShare';
@@ -667,18 +668,9 @@ async function startBuy(target: { kind: 'bundle' | 'template'; id: string; name:
     buyingId.value = '';
 }
 
-/** 微信回调异步结算：短轮询确认已支付（最多 5 次 × 1.2s） */
-async function waitForPaid(saleOrderId: string): Promise<void> {
-    for (let i = 0; i < 5; i++) {
-        try {
-            const res: any = await getMyCouponSaleOrders();
-            const found = (res.myCouponSaleOrders || []).find((o: any) => o.id === saleOrderId);
-            if (found && found.status === 'PAID') return;
-        } catch {
-            // 忽略轮询异常，继续重试
-        }
-        await new Promise((r) => setTimeout(r, 1200));
-    }
+/** 微信回调异步结算：短轮询确认已支付（最多 5 次 × 1.2s）；超时返回 false，调用方不得当成功 */
+async function waitForPaid(saleOrderId: string): Promise<boolean> {
+    return pollCouponSalePaid(() => getMyCouponSaleOrders(), saleOrderId);
 }
 
 async function onPaid() {
@@ -713,7 +705,15 @@ async function confirmPay() {
                 ui.showToast(result.message || t('couponMall.payIncomplete'), 'error');
                 return;
             }
-            await waitForPaid(order.id);
+            const paid = await waitForPaid(order.id);
+            if (!paid) {
+                // 支付结果未确认：不切卡包、不提示成功；出售单保留可查，稍后刷新即可
+                paySheet.value = false;
+                pendingOrder.value = null;
+                ui.showToast(t('couponMall.payProcessing'), 'none');
+                await loadMy();
+                return;
+            }
             await onPaid();
         }
     } catch (e: any) {

@@ -4,8 +4,9 @@
 //             flashSaleActivity(id: ID!): FlashSaleActivity
 //   - Mutation createFlashSaleActivity(input: CreateFlashSaleActivityInput!)、
 //             updateFlashSaleActivity(input: UpdateFlashSaleActivityInput!)、deleteFlashSaleActivity(id)
+//             setFlashSaleActivityStatus(id: ID!, status: FlashSaleStatus!): FlashSaleActivity
 //   - 价格单位：分（flashPrice）。展示 /100 元，提交 Math.round(元*100)。
-//   - status（upcoming/active/ended）由后端按时间区间推导，前端创建/更新均不提交。
+//   - 创建/更新均不提交 status；启用/结束走 setFlashSaleActivityStatus，非法转换返回 USER_INPUT_ERROR。
 import { getAdminClient, graphQlErrorMsg } from './client';
 
 export type FlashSaleStatus = 'upcoming' | 'active' | 'ended';
@@ -101,6 +102,21 @@ export async function updateFlashSaleActivity(input: FlashSaleUpdateInput): Prom
     return updateFlashSaleActivity.id;
   } catch (e: any) {
     throw new Error(graphQlErrorMsg(e, '保存秒杀活动失败'));
+  }
+}
+
+/** 显式改状态：active 需在活动时间内，upcoming 仅开始前，ended 随时可下线；非法转换返回 USER_INPUT_ERROR */
+export async function setFlashSaleActivityStatus(id: string, status: FlashSaleStatus): Promise<FlashSaleActivity> {
+  try {
+    const { setFlashSaleActivityStatus } = await getAdminClient().request<{ setFlashSaleActivityStatus: FlashSaleActivity }>(
+      `mutation SetFlashSaleActivityStatus($id: ID!, $status: FlashSaleStatus!) {
+        setFlashSaleActivityStatus(id: $id, status: $status) { ${FIELDS} }
+      }`,
+      { id, status },
+    );
+    return setFlashSaleActivityStatus;
+  } catch (e: any) {
+    throw new Error(graphQlErrorMsg(e, '更新秒杀活动状态失败'));
   }
 }
 

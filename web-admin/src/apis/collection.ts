@@ -142,11 +142,28 @@ async function buildFilters(productIds: string | string[] = []) {
   return [{ code: 'product-id-filter', arguments: [{ name: 'productIds', value: JSON.stringify(ids) }] }];
 }
 
-/** 排序 / 移动（Vendure 原生 moveCollection）。index 为同父级内的目标序号（0 起） */
+/** Vendure 根集合 id 缓存（分类列表不含根集合，只能从分类面包屑首项取） */
+let rootCollectionId: string | null = null;
+async function resolveRootCollectionId(anyCollectionId: string): Promise<string> {
+  if (rootCollectionId) return rootCollectionId;
+  const { collection } = await getAdminClient().request<{
+    collection: { breadcrumbs: Array<{ id: string }> } | null;
+  }>(
+    `query RootCollection($id: ID!) { collection(id: $id) { breadcrumbs { id } } }`,
+    { id: anyCollectionId },
+  );
+  const id = collection?.breadcrumbs?.[0]?.id;
+  if (!id) throw new Error('未找到根分类，无法移动到顶层');
+  rootCollectionId = String(id);
+  return rootCollectionId;
+}
+
+/** 排序 / 移动（Vendure 原生 moveCollection）。index 为同父级内的目标序号（0 起）；parentId 为 null 表示移到顶层，核心 schema 要求 ID!，需换成根集合 id */
 export async function moveCollection(id: string, parentId: string | null, index: number): Promise<void> {
+  const targetParentId = parentId || (await resolveRootCollectionId(id));
   await getAdminClient().request(
     `mutation MoveCollection($input: MoveCollectionInput!) { moveCollection(input: $input) { id } }`,
-    { input: { collectionId: id, parentId, index } },
+    { input: { collectionId: id, parentId: targetParentId, index } },
   );
 }
 

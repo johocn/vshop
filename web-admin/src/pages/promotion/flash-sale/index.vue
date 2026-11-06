@@ -9,6 +9,8 @@
         <view class="head">
           <text class="name">{{ c.name }}</text>
           <text class="badge" :class="c.status">{{ statusLabel(c.status) }}</text>
+          <text v-if="c.status === 'active'" class="act end" @tap.stop="changeStatus(c, 'ended')">{{ $t('flashSaleList.endAction') }}</text>
+          <text v-else-if="c.status === 'upcoming'" class="act start" @tap.stop="changeStatus(c, 'active')">{{ $t('flashSaleList.startAction') }}</text>
         </view>
         <view class="value">¥{{ fmtCNY(c.flashPrice) }}</view>
       </view>
@@ -51,7 +53,7 @@
 import { ref, onMounted } from 'vue';
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app';
 import {
-  fetchFlashSaleActivities, deleteFlashSaleActivity, FlashSaleActivity, FlashSaleStatus,
+  fetchFlashSaleActivities, deleteFlashSaleActivity, setFlashSaleActivityStatus, FlashSaleActivity, FlashSaleStatus,
 } from '../../../apis/flashSale';
 import { useLocaleStore } from '../../../stores/localeStore';
 
@@ -128,6 +130,17 @@ function onDelete(c: FlashSaleActivity) {
   });
 }
 
+/** 显式启用/结束：成功后重载列表，失败直接展示后端 USER_INPUT_ERROR 文案 */
+async function changeStatus(c: FlashSaleActivity, status: FlashSaleStatus) {
+  try {
+    await setFlashSaleActivityStatus(c.id, status);
+    uni.showToast({ title: locale.t('flashSaleList.statusChanged'), icon: 'none' });
+    await load();
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || locale.t('flashSaleList.statusChangeFailed'), icon: 'none' });
+  }
+}
+
 // 新建/编辑保存返回本页时自动刷新；uni-app 首次显示也触发 onShow，用标记跳过首载避免双请求
 let flashSaleListShown = false;
 onShow(() => { if (flashSaleListShown) load(); flashSaleListShown = true; });
@@ -142,6 +155,8 @@ onReachBottom(loadMore);
     .top { display: flex; align-items: center; justify-content: space-between;
       .head { display: flex; align-items: center; flex-wrap: wrap;
         .name { font-size: 28rpx; color: $wa-ink; font-weight: 600; margin-right: 12rpx; }
+        .act { font-size: 20rpx; margin-left: 12rpx; padding: 2rpx 16rpx; border-radius: 16rpx; border: 1rpx solid currentColor; color: $wa-accent;
+          &.end { color: #e64340; } }
         .badge { font-size: 20rpx; color: #fff; border-radius: 16rpx; padding: 2rpx 14rpx;
           &.upcoming { background: #2563eb; }
           &.active { background: #0a9c6e; }
