@@ -48,12 +48,13 @@ export function confirmExit() {
     confirmText: t('nav.leaveConfirm'),
     cancelText: t('nav.leaveCancel'),
     confirmColor: '#e64340',
-    success(res) {
+    success: async (res) => {
       if (res.confirm) {
         // 退出登录：先彻底清理会话（token/用户/店铺），再回登录页，
         // 否则残留 token 会让「未登录」状态被判定为已登录（可绕过登录直接进后台）。
         try {
-          useAuthStore().logout();
+          // 必须等后端 logout 完成再跳转，否则请求会被页面切换中止，服务端会话继续留存
+          await useAuthStore().logout();
           useTenantStore().clear();
         } catch (e) {
           console.warn('[h5Nav] logout cleanup failed', e);
