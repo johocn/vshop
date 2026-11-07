@@ -78,8 +78,8 @@
           <text class="v-switch-lbl">{{ voiceEnabled ? $t('campusMerchant.voiceOn') : $t('campusMerchant.voiceOff') }}</text>
         </view>
       </view>
-      <!-- 中文发音人检测状态：让商家一眼看出「能不能真的说话」，而不是只有叮一声 -->
-      <view class="voice-status" :class="zhVoiceStatus">
+      <!-- 播报可用性：只说「能不能出声」，不把检测到发音人当作语音可用 -->
+      <view class="voice-status" :class="voiceStatusLevel">
         <text>{{ voiceStatusText }}</text>
       </view>
       <view v-if="voiceHint" class="voice-hint" @tap="testVoice">
@@ -963,8 +963,9 @@ function autoPrint(b: CampusMerchantBoard) {
 }
 
 /**
- * 新单播报三级兜底：中文合成语音 → 预录语音 → 蜂鸣（H5 Web Audio / HTMLAudio）
- * 安卓机型 TTS 引擎与中文语音数据差异大，微信内置浏览器更常不可用，故语音必须真出声才算成功。
+ * 新单播报三级兜底：预录语音 → 中文合成 → 蜂鸣（H5 HTMLAudio / Web Audio）
+ * 唯一判据是「真的出声」：安卓常出现「能列出 zh 发音人但语音数据未下载」，
+ * 因此发音人只作为降级条件，不作成功条件；预录音频以 playing 事件为准。
  */
 let audioCtx: any = null;
 const audioUnlocked = ref(false);
@@ -982,12 +983,14 @@ let activeAudio: HTMLAudioElement | null = null;
 
 /** 中文发音人检测状态：checking 检测中 / ok 已检测到 / missing 未检测到 */
 const zhVoiceStatus = ref<'checking' | 'ok' | 'missing'>('checking');
-const zhVoiceName = ref('');
 let zhVoice: any = null;
 let zhVoiceListenTimer: ReturnType<typeof setTimeout> | null = null;
 let zhVoiceRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** 微信内置浏览器：语音合成与后台播报都不可靠，提示改用外部浏览器 */
+/** 预录提示音可用性：checking 探测中 / ready 至少一条可下载 / missing 均不可用 */
+const audioStatus = ref<'checking' | 'ready' | 'missing'>('checking');
+
+/** 微信内置浏览器：音频播放限制更严，提示改用系统浏览器 */
 const isWeChat = (() => {
   try {
     return /MicroMessenger/i.test((window as any).navigator?.userAgent || '');
@@ -996,16 +999,44 @@ const isWeChat = (() => {
   }
 })();
 
+/** 探测预录提示音能否下载（只发 HEAD，不触发播放，也不占用自动播放配额） */
+async function checkPrerecorded() {
+  audioStatus.value = 'checking';
+  const base = assetBase();
+  for (const rel of [PREREC_ONE, PREREC_MANY]) {
+    try {
+      const r = await fetch(`${base}/${rel}`, { method: 'HEAD', cache: 'no-store' });
+      if (r.ok) {
+        audioStatus.value = 'ready';
+        return;
+      }
+    } catch {
+      // 网络失败继续看下一条
+    }
+  }
+  audioStatus.value = 'missing';
+}
+
+/** 状态行只描述「有没有能出声的东西」，不再把"检测到发音人"说成语音可用 */
 const voiceStatusText = computed(() => {
-  if (zhVoiceStatus.value === 'checking') return locale.t('campusMerchant.voiceChecking');
-  if (zhVoiceStatus.value === 'ok') return locale.t('campusMerchant.voiceStatusOk').replace('{name}', zhVoiceName.value);
-  return locale.t('campusMerchant.voiceStatusMissing');
+  if (audioStatus.value === 'ready') return locale.t('campusMerchant.voiceStatusAudioReady');
+  if (audioStatus.value === 'checking' && zhVoiceStatus.value === 'checking') {
+    return locale.t('campusMerchant.voiceChecking');
+  }
+  if (zhVoiceStatus.value === 'ok') return locale.t('campusMerchant.voiceStatusVoiceOnly');
+  return locale.t('campusMerchant.voiceStatusNone');
 });
 
-/** 不可用时给商家看的引导文案：微信单独提示，其余给通用安装/换浏览器建议 */
+const voiceStatusLevel = computed(() => {
+  if (audioStatus.value === 'ready') return 'ok';
+  if (zhVoiceStatus.value === 'ok') return 'warn';
+  return 'bad';
+});
+
+/** 引导文案：微信常驻；提示音文件缺失时也提示检查网络 */
 const voiceHint = computed(() => {
   if (isWeChat) return locale.t('campusMerchant.voiceHintWechat');
-  if (zhVoiceStatus.value === 'missing') return locale.t('campusMerchant.voiceHintMissing');
+  if (audioStatus.value === 'missing') return locale.t('campusMerchant.voiceHintMissing');
   return '';
 });
 
@@ -1040,11 +1071,9 @@ function applyZhVoice(): boolean {
   zhVoice = v;
   if (v) {
     zhVoiceStatus.value = 'ok';
-    zhVoiceName.value = `${v.name}${v.lang ? ` (${v.lang})` : ''}`;
     return true;
   }
   zhVoiceStatus.value = 'missing';
-  zhVoiceName.value = '';
   return false;
 }
 
@@ -1082,11 +1111,12 @@ function initZhVoice() {
   zhVoiceListenTimer = setTimeout(onChanged, 2000);
 }
 
-/** 回到前台：重查发音人，并在无手势时尽量恢复音频上下文（被系统暂停后需要 resume） */
+/** 回到前台：重查发音人与提示音可用性，并在无手势时尽量恢复音频上下文 */
 function onPageVisible() {
   if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
   const had = zhVoiceStatus.value;
   if (!applyZhVoice() && had === 'checking') initZhVoice();
+  void checkPrerecorded();
   try {
     const ctx = ensureAudioCtx();
     if (ctx && ctx.state === 'suspended') void ctx.resume();
@@ -1228,7 +1258,11 @@ function speakByTTS(count: number): Promise<boolean> {
   });
 }
 
-/** 播放单个预录音频：resolve true 表示确实出声（拿到 played/playing），失败/404/被拦截均为 false */
+/**
+ * 播放单个预录音频：只认 playing 事件为「真的出声」。
+ * play() 的 Promise resolve 只代表开始取数据，安卓上可能随后被静音/拦截，不能当成功；
+ * error / 4 秒内没有 playing → false，交给下一级。
+ */
 function playAudioFile(url: string): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false;
@@ -1254,12 +1288,12 @@ function playAudioFile(url: string): Promise<boolean> {
       a.setAttribute?.('playsinline', 'true');
       a.onerror = () => done(false);
       a.onplaying = () => done(true);
-      a.onended = () => done(true);
-      // 给自动播放策略留出判定时间：3 秒仍未出声视为失败（文件不存在会立即 onerror）
-      timer = setTimeout(() => done(false), 3000);
+      // 4 秒内没有 playing 即判失败（文件不存在会立即 onerror，不会白等）
+      timer = setTimeout(() => done(false), 4000);
       const p = a.play();
       if (p && typeof p.then === 'function') {
-        p.then(() => done(true)).catch(() => done(false));
+        // 只用于把 play() 被拒的结果快速落到下一级，不作为成功判据
+        p.catch(() => done(false));
       }
     } catch {
       done(false);
@@ -1279,12 +1313,12 @@ async function playPrerecorded(count: number): Promise<boolean> {
   return playAudioFile(`${base}/${PREREC_ONE}`);
 }
 
-/** 播报主链：中文合成 → 预录语音 → 蜂鸣，逐级降级，绝不断链、绝不把蜂鸣当语音 */
-async function announceNewOrder(count: number): Promise<'synth' | 'audio' | 'beep'> {
-  // 语音包可能后装（或首次检测为空），播报前再读一次
+/** 播报主链：预录语音 → 中文合成（仅兜底）→ 蜂鸣；每级都以「真出声」为准，失败静默下移 */
+async function announceNewOrder(count: number): Promise<'audio' | 'synth' | 'beep'> {
+  if (await playPrerecorded(count)) return 'audio';
+  // 音频全部失败后才考虑合成；发音人可能后装，播报前再读一次
   if (zhVoiceStatus.value !== 'ok' || !zhVoice) applyZhVoice();
   if (zhVoice && await speakByTTS(count)) return 'synth';
-  if (await playPrerecorded(count)) return 'audio';
   beep();
   return 'beep';
 }
@@ -1302,14 +1336,14 @@ function notifyNewOrders(codes: string[]) {
   }
 }
 
-/** 新单到达：三级播报链（合成 → 预录 → 蜂鸣）+ 通知 */
+/** 新单到达：三级播报链（预录 → 合成 → 蜂鸣）+ 通知 */
 function alertNewOrders(pending: MerchantBoardOrder[], count: number) {
   if (!count || !voiceEnabled.value || !audioUnlocked.value) return;
   void announceNewOrder(count);
   notifyNewOrders(pending.slice(0, count).map((o) => o.code));
 }
 
-/** 现场自检：点击即手势，解锁后立刻播一次；toast 明确告知这一声是合成语音、预录音频还是提示音 */
+/** 实际出声自检：如实回报这一声是真 playing、退回合成、还是只剩蜂鸣 */
 function testVoice() {
   if (!voiceEnabled.value) {
     voiceEnabled.value = true;
@@ -1320,15 +1354,16 @@ function testVoice() {
     }
   }
   unlockAudio();
-  setTimeout(async () => {
-    const how = await announceNewOrder(1);
-    const title = how === 'synth'
-      ? locale.t('campusMerchant.voiceTestSynth').replace('{name}', zhVoiceName.value)
-      : how === 'audio'
-        ? locale.t('campusMerchant.voiceTestAudio')
+  // 必须在点击手势的同一调用栈里发起播放：安卓 Chrome 在 setTimeout 之后会失去手势，
+  // play() 可能被拒；announceNewOrder 内部首个 play() 是同步执行的，正好落在手势内
+  void announceNewOrder(1).then((how) => {
+    const title = how === 'audio'
+      ? locale.t('campusMerchant.voiceTestAudio')
+      : how === 'synth'
+        ? locale.t('campusMerchant.voiceTestSynth')
         : locale.t('campusMerchant.voiceTestBeep');
-    uni.showToast({ title, icon: 'none', duration: 3000 });
-  }, 120);
+    uni.showToast({ title, icon: 'none', duration: 3500 });
+  });
 }
 
 function beep() {
@@ -1794,6 +1829,8 @@ onMounted(() => {
   if (typeof window !== 'undefined') window.addEventListener('pointerdown', unlockAudio);
   // 中文发音人：页面加载即检测（getVoices 首次常为空，内部等 voiceschanged）
   initZhVoice();
+  // 预录提示音可用性：HEAD 探测，决定状态行文案
+  void checkPrerecorded();
   // 回到前台重查发音人与播放许可（安卓切后台后常被回收/静音）
   if (typeof window !== 'undefined') document.addEventListener('visibilitychange', onPageVisible);
 });
@@ -1917,11 +1954,12 @@ onUnmounted(() => {
       .v-switch-lbl { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
       &.on { background: $wa-accent; .v-switch-lbl { color: #fff; } } }
   }
-  // 语音可用性状态（安卓 TTS 经常缺失，必须让商家看到判断结果）
+  // 播报可用性状态（以能否真出声为准：提示音就绪 / 仅发音人 / 都没有）
   .voice-status { display: flex; align-items: center; font-size: 22rpx; color: $wa-muted;
     padding: 0 8rpx; margin: -12rpx 0 16rpx;
     &.ok { color: #389e0d; }
-    &.missing { color: #d4380d; font-weight: 600; }
+    &.warn { color: #c47b00; }
+    &.bad { color: #d4380d; font-weight: 600; }
   }
   .voice-hint { font-size: 22rpx; line-height: 1.5; color: #c47b00; background: #fff7e6;
     border: 1.5px solid #ffe1a8; border-radius: $wa-radius; padding: 14rpx 20rpx; margin-bottom: 20rpx; }
