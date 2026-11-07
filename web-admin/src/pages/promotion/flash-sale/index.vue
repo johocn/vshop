@@ -75,11 +75,19 @@ const statusLabel = (s: FlashSaleStatus) => locale.t(STATUS_KEY[s] || s);
 /** 分转元展示（价格单位：分） */
 const fmtCNY = (cents: number) => ((cents || 0) / 100).toFixed(2).replace(/\.?0+$/, '');
 
+/** 活动起止一律按平台时区（Asia/Shanghai）展示，不随浏览器时区变化 */
 function fmtDT(t?: string | null): string {
   if (!t) return '-';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    hourCycle: 'h23',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(new Date(t));
+  const pick = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  return `${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}`;
 }
 
 async function load() {

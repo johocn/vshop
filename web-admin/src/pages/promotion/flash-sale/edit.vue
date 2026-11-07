@@ -94,7 +94,9 @@ const form = ref({
 
 function toInt(s: string): number { return Math.max(0, Math.round(Number(s) || 0)); }
 
-/** 日期选择器取当天整段（与优惠券编辑页同口径）：开始日 0 点起、结束日 23:59:59 止 */
+/** 日期选择器取当天整段（与优惠券编辑页同口径）：开始日 0 点起、结束日 23:59:59 止
+ *  时区必须显式：活动按门店当地时间执行，现网门店均在 Asia/Shanghai（UTC+8，无夏令时）。
+ *  原先拼 `Z` 会被解释成 UTC 0 点 = 北京时间 08:00，整场活动偏移 8 小时。 */
 function buildInput() {
   const f = form.value;
   const model: Record<string, unknown> = {
@@ -105,8 +107,8 @@ function buildInput() {
     productId: f.productId.trim(),
     variantId: f.variantId.trim(),
   };
-  if (f.startAt) model.startAt = `${f.startAt}T00:00:00.000Z`;
-  if (f.endAt) model.endAt = `${f.endAt}T23:59:59.999Z`;
+  if (f.startAt) model.startAt = `${f.startAt}T00:00:00.000+08:00`;
+  if (f.endAt) model.endAt = `${f.endAt}T23:59:59.999+08:00`;
   return model;
 }
 
