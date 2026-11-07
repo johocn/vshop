@@ -71,6 +71,7 @@ import { confirmOrderReceipt, cancelMyOrder as cancelMyOrderApi } from '../../ap
 import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+import { fmtUser } from '../../utils/datetime';
 const order = ref<any>(null);
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -119,7 +120,7 @@ onMounted(async () => {
     } catch (e) {}
     await loadReviewedLines();
 });
-function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
+function formatTime(t: string) { return fmtUser(t); }
 function copyCode() { uni.setClipboardData({ data: order.value.code }); uni.showToast({ title: t('orderDetail.copied'), icon: 'success' }); }
 function goPay() { uni.navigateTo({ url: '/pkg-order/pages/payment?code=' + order.value.code }); }
 function goLogistics() { uni.navigateTo({ url: '/pkg-user/pages/logistics?orderId=' + order.value.id }); }

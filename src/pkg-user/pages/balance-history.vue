@@ -22,6 +22,7 @@ import { useI18n } from 'vue-i18n';
 import { getMyBalanceTransactions } from '../../api/mutations/recharge';
 import { usePagination } from '../../composables/usePagination';
 import EmptyState from '../../components/EmptyState.vue';
+import { fmtUser } from '../../utils/datetime';
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app';
 
 const { t } = useI18n();
@@ -46,11 +47,7 @@ function signClass(amount: number): string {
     return amount >= 0 ? 'history-item__value--in' : '';
 }
 function fmtTime(s: string): string {
-    if (!s) return '';
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return String(s).replace('T', ' ').slice(0, 16);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    return fmtUser(s);
 }
 
 const { items, loading, loadMore, refresh } = usePagination<any>({

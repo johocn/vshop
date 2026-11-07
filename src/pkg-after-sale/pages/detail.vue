@@ -95,6 +95,7 @@ import { getGraphQLClient } from '../../api/client';
 import { updateReturnTracking, cancelAfterSalesRequest, addAfterSalesMessage, listAfterSalesMessages } from '../../api/mutations/after-sale';
 import { CARRIERS, OTHER_CARRIER } from '../carriers';
 import { useUIStore } from '../../stores/ui';
+import { fmtUser } from '../../utils/datetime';
 const { t } = useI18n();
 const ui = useUIStore();
 const detail = ref<any>(null);
@@ -145,10 +146,8 @@ const timeline = computed(() => {
 });
 function timeText(raw?: string): string {
     if (!raw) return '';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return String(raw);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${String(d.getFullYear()).slice(2)}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    // 用户视角：YY-MM-DD HH:mm
+    return fmtUser(raw).slice(2);
 }
 function previewEvidence(url: string, index: number, urls?: string[]): void {
     const list = urls?.length ? urls : evidence.value;

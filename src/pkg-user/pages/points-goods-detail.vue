@@ -63,6 +63,7 @@ import { getPointsProduct, getProductFavoriteMeta, toggleProductFavorite } from 
 import VImage from '../../components/VImage.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
+import { fmtUser } from '../../utils/datetime';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -154,10 +155,7 @@ function goConfirm() {
 
 function fmtDate(s: string): string {
     if (!s) return '';
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+    return fmtUser(s, 'date').replace(/-/g, '/');
 }
 </script>
 

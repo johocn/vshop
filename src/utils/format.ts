@@ -1,3 +1,5 @@
+import { fmtUser } from './datetime';
+
 /** Format price from cents (fen) to yuan */
 export function formatPrice(cents: number): string {
     return '¥' + (cents / 100).toFixed(2);
@@ -5,8 +7,7 @@ export function formatPrice(cents: number): string {
 
 /** Format date */
 export function formatDate(dateStr: string): string {
-    const d = new Date(dateStr);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return fmtUser(dateStr, 'date');
 }
 
 /** Format countdown */

@@ -25,6 +25,7 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import VImage from './VImage.vue';
+import { fmtUser } from '../utils/datetime';
 
 const props = withDefaults(defineProps<{
     review: any;
@@ -51,10 +52,7 @@ const avatarText = computed(() => {
 const dateText = computed(() => {
     const raw = props.review?.createdAt;
     if (!raw) return '';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+    return fmtUser(raw, 'date').replace(/-/g, '/');
 });
 
 const starText = computed(() => {

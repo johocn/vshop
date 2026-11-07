@@ -48,13 +48,14 @@ import { useI18n } from 'vue-i18n';
 import { getMyInvoices } from '../../api/queries/invoice';
 import { downloadInvoicePdf } from '../../api/mutations/invoice';
 import { getApiBase } from '../../api/client';
+import { fmtUser } from '../../utils/datetime';
 const { t } = useI18n();
 const invoices = ref<any[]>([]);
 const openLines = ref<Record<string, boolean>>({});
 // 发票状态 → i18n key
 const STATUS_KEY: Record<string, string> = { pending: 'invoices.statusPending', issued: 'invoices.statusIssued', reversed: 'invoices.statusReversed' };
 function statusText(s: string) { const k = STATUS_KEY[s]; return k ? t(k) : s; }
-function formatTime(t: string) { return t ? new Date(t).toLocaleString('zh-CN') : ''; }
+function formatTime(t: string) { return fmtUser(t); }
 function toggleLines(id: string) { openLines.value[id] = !openLines.value[id]; }
 
 onMounted(async () => {

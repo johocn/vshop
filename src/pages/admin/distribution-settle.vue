@@ -84,6 +84,7 @@ import {
 } from '../../api/queries/distribution';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
 import { requireAdmin } from '../../composables/useAdminGuard';
+import { fmtUser } from '../../utils/datetime';
 
 const tabs = [
     { key: 'distributors', label: '分销员' },
@@ -171,12 +172,8 @@ function methodText(m: string): string {
 function withdrawalStatusText(s: string): string {
     return { pending: '待审核', approved: '已批准', paid: '已打款', rejected: '已驳回' }[s] ?? s;
 }
-// UTC 串直接截取会差 8 小时
 function fmt(t?: string): string {
-    const d = new Date(t || '');
-    if (!t || Number.isNaN(d.getTime())) return t ? String(t).replace('T', ' ').slice(0, 16) : '';
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    return fmtUser(t);
 }
 </script>
 <style lang="scss" scoped>

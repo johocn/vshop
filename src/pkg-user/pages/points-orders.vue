@@ -84,6 +84,7 @@ import EmptyState from '../../components/EmptyState.vue';
 import VImage from '../../components/VImage.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useUIStore } from '../../stores/ui';
+import { fmtUser } from '../../utils/datetime';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -161,13 +162,9 @@ function toggleExpand(id: string) {
     expandedId.value = expandedId.value === id ? '' : id;
 }
 
-/** UTC ISO → 本地 YYYY-MM-DD HH:mm（后端返回带时区，直接字符串截取会差 8 小时） */
+/** 时间展示：用户视角 YYYY-MM-DD HH:mm */
 function fmtTime(s: string): string {
-    if (!s) return '';
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return String(s).replace('T', ' ').slice(0, 16);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    return fmtUser(s);
 }
 
 /** 继续支付：与充值/确认兑换页同款（createPointsOrderPayment → handlePayment） */

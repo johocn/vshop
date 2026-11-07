@@ -332,6 +332,7 @@ import { pollCouponSalePaid } from '../../utils/coupon-pay-poll';
 import EmptyState from '../../components/EmptyState.vue';
 import CouponDetailSheet from '../components/CouponDetailSheet.vue';
 import { useShare } from '../../composables/useShare';
+import { fmtStore } from '../../utils/datetime';
 
 const { t } = useI18n();
 const ui = useUIStore();
@@ -903,13 +904,8 @@ function formatCondition(c: any): string {
 }
 
 function formatDateRange(c: any): string {
-    // UTC 串直接截取会差一天
-    const toLocal = (s: string): string => {
-        const d = new Date(s);
-        if (!s || Number.isNaN(d.getTime())) return s ? String(s).slice(0, 10) : '';
-        const p = (n: number) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-    };
+    // 券有效期属门店活动窗口，按门店时区取日
+    const toLocal = (s: string): string => fmtStore(s, 'date');
     const start = c.startsAt ? toLocal(String(c.startsAt)) : '';
     const end = c.endsAt ? toLocal(String(c.endsAt)) : '';
     if (start && end) return `${start} ${t('couponMall.dateTo')} ${end}`;

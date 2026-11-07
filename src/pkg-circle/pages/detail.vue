@@ -52,6 +52,7 @@ import { getCirclePost, toggleCircleLike, toggleCircleFavorite } from '../../api
 import { getProductsByIds } from '../../api/queries/product';
 import { useAuthStore } from '../../stores/auth';
 import EmptyState from '../../components/EmptyState.vue';
+import { fmtUser } from '../../utils/datetime';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -70,12 +71,8 @@ onLoad(async (options: any) => {
     loading.value = false;
 });
 
-// UTC 串直接截取会差 8 小时
 function fmtTime(s: string): string {
-    const d = new Date(s);
-    if (!s || Number.isNaN(d.getTime())) return s ? String(s).replace('T', ' ').slice(0, 16) : '';
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    return s ? fmtUser(s) : '';
 }
 
 function preview(idx: number) {

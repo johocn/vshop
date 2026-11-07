@@ -126,6 +126,7 @@ import { useI18n } from 'vue-i18n';
 import { onShow, onHide, onUnload } from '@dcloudio/uni-app';
 import { getMyCouponByCode } from '../../api/queries/coupon';
 import { couponErrorMessage } from '../../api/mutations/coupon';
+import { fmtStore } from '../../utils/datetime';
 
 const { t } = useI18n();
 
@@ -356,12 +357,10 @@ const minSpendText = computed(() => {
 
 const expiresText = computed(() => {
   if (!expiresAt.value) return t('couponCode.validForever');
-  const d = new Date(expiresAt.value);
-  if (Number.isNaN(d.getTime())) return expiresAt.value;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return t('couponCode.validBefore', { date: `${y}-${m}-${day}` });
+  // 券有效期按门店当地日展示
+  const date = fmtStore(expiresAt.value, 'date');
+  if (!date) return expiresAt.value;
+  return t('couponCode.validBefore', { date });
 });
 
 const remainingMs = computed(() => {

@@ -135,6 +135,7 @@ import {
 import type { TeamSummary } from '../../api/queries/distribution';
 import DistPoster from '../../components/dist-poster/dist-poster.vue';
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue';
+import { fmtUser } from '../../utils/datetime';
 
 const authStore = useAuthStore();
 const ui = useUIStore();
@@ -286,11 +287,7 @@ function withdrawalStatusText(s: string): string {
     return { pending: t('distribution.wdPending'), approved: t('distribution.wdApproved'), paid: t('distribution.wdPaid'), rejected: t('distribution.wdRejected') }[s] ?? s;
 }
 function fmtTime(t?: string): string {
-    if (!t) return '';
-    const d = new Date(t);
-    if (Number.isNaN(d.getTime())) return t.replace('T', ' ').slice(0, 16);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    return fmtUser(t);
 }
 </script>
 <style lang="scss" scoped>

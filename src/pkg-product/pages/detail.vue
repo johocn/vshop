@@ -163,6 +163,7 @@ import SkuSheet from '../../components/SkuSheet.vue';
 import ProductPoster from '../../components/product-poster/product-poster.vue';
 import { pickTranslation } from '../../utils/locale';
 import { stripHtmlToText, buildShareMeta, sanitizeRichHtml } from '../../utils/html';
+import { fmtStore } from '../../utils/datetime';
 import MpHtml from 'mp-html/dist/uni-app/components/mp-html/mp-html.vue';
 import ReviewItem from '../../components/ReviewItem.vue';
 import { useI18n } from 'vue-i18n';
@@ -571,12 +572,9 @@ function addonCondition(b: any): string {
 
 function addonValidity(b: any): string {
     const tpl = b.template || {};
-    // UTC 串直接截取会差一天
+    // 加购/满赠活动截止日属门店活动窗口，按门店时区展示
     if (tpl.endsAt) {
-        const d = new Date(tpl.endsAt);
-        const p = (n: number) => String(n).padStart(2, '0');
-        const end = Number.isNaN(d.getTime()) ? String(tpl.endsAt).slice(0, 10) : `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-        return t('productDetail.validUntil', { date: end });
+        return t('productDetail.validUntil', { date: fmtStore(tpl.endsAt, 'date') });
     }
     if (tpl.validDays) return t('productDetail.validDays', { days: tpl.validDays });
     return '';

@@ -41,6 +41,7 @@ import { useAuthStore } from '../../stores/auth';
 import VImage from '../../components/VImage.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import TrustSignatureCard from '../../components/TrustSignatureCard.vue';
+import { fmtUser } from '../../utils/datetime';
 
 type TabKey = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -96,10 +97,7 @@ function giftText(r: any): string {
 
 function dateText(raw: string): string {
     if (!raw) return '';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+    return fmtUser(raw, 'date').replace(/-/g, '/');
 }
 
 onMounted(async () => {

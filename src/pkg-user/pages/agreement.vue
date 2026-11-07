@@ -42,6 +42,7 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 import { useTenantStore } from '../../stores/tenant';
+import { fmtUser } from '../../utils/datetime';
 
 const { t, locale } = useI18n();
 const tenant = useTenantStore();
@@ -62,7 +63,7 @@ const docText = computed(() => {
 });
 const updatedAt = computed(() => {
     const raw = agreementCfg.value?.updatedAt;
-    return typeof raw === 'string' && raw ? raw.slice(0, 10) : '';
+    return typeof raw === 'string' && raw ? fmtUser(raw, 'date') : '';
 });
 </script>
 

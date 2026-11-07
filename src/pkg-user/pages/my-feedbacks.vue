@@ -25,6 +25,7 @@ import { useI18n } from 'vue-i18n';
 import { getMyFeedbacks, markFeedbacksRead } from '../../api/queries/feedback';
 import { useAuthStore } from '../../stores/auth';
 import EmptyState from '../../components/EmptyState.vue';
+import { fmtUser } from '../../utils/datetime';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -48,13 +49,9 @@ async function load() {
 
 onShow(() => load());
 
-/** UTC ISO → 本地 YYYY-MM-DD HH:mm（与 points-orders 同款） */
+/** 时间展示：用户视角 YYYY-MM-DD HH:mm */
 function fmtTime(s: string): string {
-  if (!s) return '';
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return String(s).replace('T', ' ').slice(0, 16);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtUser(s);
 }
 </script>
 

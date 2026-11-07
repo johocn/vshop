@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { userDayKey } from '../utils/datetime';
 
 export interface BrowsingItem {
     slug: string;
@@ -36,16 +37,15 @@ export function useBrowsingHistory() {
 
     /** 纯函数：按本地日期分今天/昨天/更早三组（空组不返回），供页面与测试用 */
     function groupByDay(items: BrowsingItem[]): Array<{ label: 'today' | 'yesterday' | 'earlier'; items: BrowsingItem[] }> {
-        const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const today = startOfDay(new Date());
-        const yesterday = today - DAY_MS;
+        const today = userDayKey();
+        const yesterday = userDayKey(Date.now() - DAY_MS);
         const groups: Array<{ label: 'today' | 'yesterday' | 'earlier'; items: BrowsingItem[] }> = [
             { label: 'today', items: [] },
             { label: 'yesterday', items: [] },
             { label: 'earlier', items: [] },
         ];
         for (const it of items) {
-            const day = startOfDay(new Date(it.ts));
+            const day = userDayKey(it.ts);
             if (day >= today) groups[0].items.push(it);
             else if (day >= yesterday) groups[1].items.push(it);
             else groups[2].items.push(it);
