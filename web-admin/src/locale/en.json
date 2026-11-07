@@ -3970,6 +3970,13 @@
     "voiceTestAudio": "Pre-recorded alert started playing (playing fired)",
     "voiceTestSynth": "Audio failed; fell back to synthesis (sound not guaranteed)",
     "voiceTestBeep": "Audio and synthesis both failed; beep only",
+    "voiceAuditionTitle": "Preview each:",
+    "voiceKeyNew1": "1 new order",
+    "voiceKeyNew2": "2 new orders",
+    "voiceKeyMany": "3+ new orders",
+    "voiceKeyUrge": "Urge",
+    "voiceKeyTimeout": "Timing out",
+    "voiceKeyArrived": "Customer arrived",
     "notifyTitle": "New order",
     "notifyBody": "Order {codes}, please handle it"
   },

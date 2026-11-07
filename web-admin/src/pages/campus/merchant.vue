@@ -85,6 +85,21 @@
       <view v-if="voiceHint" class="voice-hint" @tap="testVoice">
         <text>{{ voiceHint }}</text>
       </view>
+      <!-- 逐条试听：灰掉的表示该录音文件当前不可用（缺失或网络失败） -->
+      <view class="voice-audition">
+        <text class="va-title">{{ $t('campusMerchant.voiceAuditionTitle') }}</text>
+        <view class="va-chips">
+          <view
+            v-for="k in voiceKeys"
+            :key="k"
+            class="va-chip"
+            :class="{ off: !audioReadyMap[k] }"
+            @tap="auditionVoice(k)"
+          >
+            <text>{{ voiceLabel(k) }}</text>
+          </view>
+        </view>
+      </view>
       <view v-if="!audioUnlocked" class="voice-unlock" @tap="unlockAudio">
         <text>{{ $t('campusMerchant.voiceUnlock') }}</text>
       </view>
@@ -468,6 +483,9 @@ const allPicked = computed(() => {
 const actingId = ref('');
 const printingId = ref(''); // 手动补打中的订单
 const lastPendingCount = ref(0);
+// 业务提示去重：只在对应计数「增加」时播一次，避免同一批催单/超时每轮重复播报
+const lastUrgedCount = ref(0);
+const lastOverdueCount = ref(0);
 /** 自动开关门：下一次切换倒计时（营业时间外显示下次开门） */
 const clockText = computed(() => transitionText(board.value.nextTransition));
 const closingSoon = computed(() => {
@@ -973,9 +991,34 @@ const VOICE_PREF_KEY = 'wa_voice_alert';
 const voiceEnabled = ref(loadVoicePref());
 let notifyAsked = false;
 
-/** 预录语音：放在 src/static/audio/merchant/，线上为 /guanli/static/audio/merchant/；文件缺失时自然 404 降级，不造占位文件 */
-const PREREC_ONE = 'static/audio/merchant/new-order-1.mp3';
-const PREREC_MANY = 'static/audio/merchant/new-order-many.mp3';
+/** 预录语音清单：放在 src/static/audio/merchant/，线上为 /guanli/static/audio/merchant/；缺失时自然 404 降级 */
+const VOICE_FILES = {
+  'new-order-1': 'static/audio/merchant/new-order-1.mp3',
+  'new-order-2': 'static/audio/merchant/new-order-2.mp3',
+  'new-order-many': 'static/audio/merchant/new-order-many.mp3',
+  urge: 'static/audio/merchant/urge.mp3',
+  'timeout-warn': 'static/audio/merchant/timeout-warn.mp3',
+  arrived: 'static/audio/merchant/arrived.mp3',
+} as const;
+type VoiceKey = keyof typeof VOICE_FILES;
+const VOICE_KEYS = Object.keys(VOICE_FILES) as VoiceKey[];
+/** 模板用的试听顺序（1 单 → 2 单 → 多单 → 催单 → 超时 → 到店） */
+const voiceKeys = VOICE_KEYS;
+
+/** 新订单类可互相降级：1 单无替补；2 单 → 多单 → 1 单；多单 → 1 单 */
+const NEW_ORDER_KEYS: VoiceKey[] = ['new-order-1', 'new-order-2', 'new-order-many'];
+const NEW_ORDER_FALLBACKS: Partial<Record<VoiceKey, VoiceKey[]>> = {
+  'new-order-2': ['new-order-many', 'new-order-1'],
+  'new-order-many': ['new-order-1'],
+};
+
+/** 一批新增 N 单只播一次：1 单 / 2 单 / ≥3 单 三种文案 */
+function newOrderKey(count: number): VoiceKey {
+  if (count >= 3) return 'new-order-many';
+  if (count === 2) return 'new-order-2';
+  return 'new-order-1';
+}
+
 /** 静音 WAV（仅用于手势内取得 <audio> 播放许可，不参与播报） */
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 /** 预录播放器常驻引用，避免被 GC 提前回收导致播放中断 */
@@ -987,8 +1030,13 @@ let zhVoice: any = null;
 let zhVoiceListenTimer: ReturnType<typeof setTimeout> | null = null;
 let zhVoiceRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** 预录提示音可用性：checking 探测中 / ready 至少一条可下载 / missing 均不可用 */
+/** 预录提示音可用性：checking 探测中 / ready 至少一条新订单录音可下载 / missing 均不可用 */
 const audioStatus = ref<'checking' | 'ready' | 'missing'>('checking');
+/** 逐条可用性（测试播报按条列出，避免把缺失的录音当成就绪） */
+const audioReadyMap = ref<Record<VoiceKey, boolean>>({
+  'new-order-1': false, 'new-order-2': false, 'new-order-many': false,
+  urge: false, 'timeout-warn': false, arrived: false,
+});
 
 /** 微信内置浏览器：音频播放限制更严，提示改用系统浏览器 */
 const isWeChat = (() => {
@@ -999,22 +1047,38 @@ const isWeChat = (() => {
   }
 })();
 
-/** 探测预录提示音能否下载（只发 HEAD，不触发播放，也不占用自动播放配额） */
+/** 试听条上的中文名（按 key 取 locale，缺 key 时退回英文名） */
+const VOICE_LABEL_KEYS: Record<VoiceKey, string> = {
+  'new-order-1': 'campusMerchant.voiceKeyNew1',
+  'new-order-2': 'campusMerchant.voiceKeyNew2',
+  'new-order-many': 'campusMerchant.voiceKeyMany',
+  urge: 'campusMerchant.voiceKeyUrge',
+  'timeout-warn': 'campusMerchant.voiceKeyTimeout',
+  arrived: 'campusMerchant.voiceKeyArrived',
+};
+function voiceLabel(key: VoiceKey): string {
+  return locale.t(VOICE_LABEL_KEYS[key]);
+}
+
+/** 探测六条预录语音能否下载（只发 HEAD，不触发播放，也不占用自动播放配额） */
 async function checkPrerecorded() {
   audioStatus.value = 'checking';
   const base = assetBase();
-  for (const rel of [PREREC_ONE, PREREC_MANY]) {
-    try {
-      const r = await fetch(`${base}/${rel}`, { method: 'HEAD', cache: 'no-store' });
-      if (r.ok) {
-        audioStatus.value = 'ready';
-        return;
+  const results = await Promise.all(
+    VOICE_KEYS.map(async (k): Promise<[VoiceKey, boolean]> => {
+      try {
+        const r = await fetch(`${base}/${VOICE_FILES[k]}`, { method: 'HEAD', cache: 'no-store' });
+        return [k, r.ok];
+      } catch {
+        return [k, false];
       }
-    } catch {
-      // 网络失败继续看下一条
-    }
-  }
-  audioStatus.value = 'missing';
+    }),
+  );
+  const map = { ...audioReadyMap.value };
+  for (const [k, ok] of results) map[k] = ok;
+  audioReadyMap.value = map;
+  // 新订单三类只要有一条能播就算「提示音就绪」，避免单条重录时整行变红
+  audioStatus.value = NEW_ORDER_KEYS.some((k) => map[k]) ? 'ready' : 'missing';
 }
 
 /** 状态行只描述「有没有能出声的东西」，不再把"检测到发音人"说成语音可用 */
@@ -1302,23 +1366,28 @@ function playAudioFile(url: string): Promise<boolean> {
 }
 
 /**
- * 预录语音：多条优先 new-order-many.mp3，缺失则复用单条 new-order-1.mp3；
- * 两个文件都没有（404）→ false，由调用方蜂鸣。文件按需补充即生效。
+ * 按 key 播预录语音，降级规则：
+ * - 新订单类：目标 → new-order-many → new-order-1（文案都属"新订单"，可互相顶替）；
+ * - 催单 / 即将超时 / 已到店：只播目标文件，缺失直接 false（绝不顶替成"新订单"，避免误导商家）。
  */
-async function playPrerecorded(count: number): Promise<boolean> {
+async function playVoice(key: VoiceKey): Promise<boolean> {
   const base = assetBase();
-  if (count > 1) {
-    if (await playAudioFile(`${base}/${PREREC_MANY}`)) return true;
+  if (await playAudioFile(`${base}/${VOICE_FILES[key]}`)) return true;
+  for (const alt of NEW_ORDER_FALLBACKS[key] || []) {
+    if (await playAudioFile(`${base}/${VOICE_FILES[alt]}`)) return true;
   }
-  return playAudioFile(`${base}/${PREREC_ONE}`);
+  return false;
 }
 
-/** 播报主链：预录语音 → 中文合成（仅兜底）→ 蜂鸣；每级都以「真出声」为准，失败静默下移 */
-async function announceNewOrder(count: number): Promise<'audio' | 'synth' | 'beep'> {
-  if (await playPrerecorded(count)) return 'audio';
-  // 音频全部失败后才考虑合成；发音人可能后装，播报前再读一次
-  if (zhVoiceStatus.value !== 'ok' || !zhVoice) applyZhVoice();
-  if (zhVoice && await speakByTTS(count)) return 'synth';
+/** 播报主链：预录语音 → 中文合成（仅新订单且音频全失败）→ 蜂鸣；每级都以「真出声」为准 */
+async function announceVoice(key: VoiceKey, count = 1): Promise<'audio' | 'synth' | 'beep'> {
+  if (await playVoice(key)) return 'audio';
+  // 合成只用于新订单文案；催单/超时/到店缺失时宁可蜂鸣，也不能播成"新订单"
+  if (NEW_ORDER_KEYS.includes(key)) {
+    // 发音人可能后装，播报前再读一次
+    if (zhVoiceStatus.value !== 'ok' || !zhVoice) applyZhVoice();
+    if (zhVoice && await speakByTTS(count)) return 'synth';
+  }
   beep();
   return 'beep';
 }
@@ -1336,11 +1405,17 @@ function notifyNewOrders(codes: string[]) {
   }
 }
 
-/** 新单到达：三级播报链（预录 → 合成 → 蜂鸣）+ 通知 */
+/** 新单到达：一批只播一次（按新增数量选 1 / 2 / ≥3 的录音）+ 通知 */
 function alertNewOrders(pending: MerchantBoardOrder[], count: number) {
   if (!count || !voiceEnabled.value || !audioUnlocked.value) return;
-  void announceNewOrder(count);
+  void announceVoice(newOrderKey(count), count);
   notifyNewOrders(pending.slice(0, count).map((o) => o.code));
+}
+
+/** 非新单的业务提示（催单 / 即将超时）：链路同新单，但录音缺失时只蜂鸣，不顶替新订单文案 */
+function alertVoice(key: VoiceKey) {
+  if (!voiceEnabled.value || !audioUnlocked.value) return;
+  void announceVoice(key);
 }
 
 /** 实际出声自检：如实回报这一声是真 playing、退回合成、还是只剩蜂鸣 */
@@ -1355,14 +1430,36 @@ function testVoice() {
   }
   unlockAudio();
   // 必须在点击手势的同一调用栈里发起播放：安卓 Chrome 在 setTimeout 之后会失去手势，
-  // play() 可能被拒；announceNewOrder 内部首个 play() 是同步执行的，正好落在手势内
-  void announceNewOrder(1).then((how) => {
+  // play() 可能被拒；announceVoice 内部首个 play() 是同步执行的，正好落在手势内
+  void announceVoice('new-order-1', 1).then((how) => {
     const title = how === 'audio'
       ? locale.t('campusMerchant.voiceTestAudio')
       : how === 'synth'
         ? locale.t('campusMerchant.voiceTestSynth')
         : locale.t('campusMerchant.voiceTestBeep');
     uni.showToast({ title, icon: 'none', duration: 3500 });
+  });
+}
+
+/** 逐条试听：点哪条播哪条；缺失的条按规则降级（催单/超时/到店只蜂鸣，不会播成新订单） */
+function auditionVoice(key: VoiceKey) {
+  if (!voiceEnabled.value) {
+    voiceEnabled.value = true;
+    try {
+      uni.setStorageSync(VOICE_PREF_KEY, true);
+    } catch {
+      // 存储不可用不影响本次播放
+    }
+  }
+  unlockAudio();
+  const name = voiceLabel(key);
+  void announceVoice(key, 1).then((how) => {
+    const detail = how === 'audio'
+      ? locale.t('campusMerchant.voiceTestAudio')
+      : how === 'synth'
+        ? locale.t('campusMerchant.voiceTestSynth')
+        : locale.t('campusMerchant.voiceTestBeep');
+    uni.showToast({ title: `${name}：${detail}`, icon: 'none', duration: 3500 });
   });
 }
 
@@ -1394,6 +1491,14 @@ async function refresh(initial = false) {
       alertNewOrders(b.pending, pendingCount - lastPendingCount.value);
     }
     lastPendingCount.value = pendingCount;
+    // 催单：待处理数增加即提示一次；同一批不按单重复播
+    if (!initial && b.urgedCount > lastUrgedCount.value) alertVoice('urge');
+    lastUrgedCount.value = b.urgedCount;
+    // 即将超时：出餐超时订单数增加即提示一次（阈值由后端 overdueOrders 口径决定，前端不新增规则）
+    if (!initial && b.overdueOrders > lastOverdueCount.value) alertVoice('timeout-warn');
+    lastOverdueCount.value = b.overdueOrders;
+    // 到店（自提/交接）：工作台看板暂无「顾客已到店」信号，arrived.mp3 已备好并可在试听条播放，
+    // 待后端提供到店字段后再接入，避免凭猜测误播。
     board.value = b;
     // §117：备餐面板开着时统计面板期间新增单（关面板不累加）
     trackPrepNewOrders(b);
@@ -1963,6 +2068,15 @@ onUnmounted(() => {
   }
   .voice-hint { font-size: 22rpx; line-height: 1.5; color: #c47b00; background: #fff7e6;
     border: 1.5px solid #ffe1a8; border-radius: $wa-radius; padding: 14rpx 20rpx; margin-bottom: 20rpx; }
+  // 逐条试听：灰底表示该录音当前不可用（缺失/加载失败），不是禁用不可点
+  .voice-audition { margin-bottom: 20rpx;
+    .va-title { font-size: 22rpx; color: $wa-muted; margin-right: 12rpx; }
+    .va-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 10rpx; }
+    .va-chip { font-size: 22rpx; padding: 8rpx 16rpx; border-radius: 999rpx;
+      background: #f0f5ff; color: $wa-accent; border: 1.5px solid #d6e4ff;
+      &.off { background: #f5f5f5; color: #999; border-color: #e8e8e8; }
+    }
+  }
   .voice-unlock { font-size: 24rpx; color: #fff; background: $wa-accent; text-align: center;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx; font-weight: 600; }
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;

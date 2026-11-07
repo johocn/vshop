@@ -3967,6 +3967,13 @@
     "voiceTestAudio": "预录提示音已开始播放（playing 已触发）",
     "voiceTestSynth": "预录提示音未播放，已回退合成语音（不保证出声）",
     "voiceTestBeep": "预录与合成均失败，仅发出提示音",
+    "voiceAuditionTitle": "逐条试听：",
+    "voiceKeyNew1": "新单 1 条",
+    "voiceKeyNew2": "新单 2 条",
+    "voiceKeyMany": "新单 3 条以上",
+    "voiceKeyUrge": "催单",
+    "voiceKeyTimeout": "即将超时",
+    "voiceKeyArrived": "顾客到店",
     "notifyTitle": "新订单",
     "notifyBody": "订单号 {codes}，请及时处理"
   },
