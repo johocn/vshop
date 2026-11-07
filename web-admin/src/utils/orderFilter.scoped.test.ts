@@ -14,7 +14,7 @@ describe('buildScopedFilter', () => {
       delivery: 'pickup',
       afterSales: ['Pending'],
       time: { key: 'today' },
-    }, new Date(2026, 9, 11, 12));
+    }, new Date('2026-10-11T04:00:00.000Z'));   // 北京时间 10-11 12:00
     assert.deepEqual(out.states, ['PaymentSettled']);
     assert.equal(out.deliveryType, 'pickup');
     assert.deepEqual(out.afterSales, ['Pending']);

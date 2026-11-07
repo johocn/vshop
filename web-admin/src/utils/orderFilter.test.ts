@@ -14,8 +14,8 @@ import {
 } from './orderFilter';
 import { ORDER_STATES } from '../constants/orderState';
 
-// 固定“现在”= 2026-09-21 15:30 本地时间，保证测试与运行机器时区无关（用本地构造器）
-const NOW = new Date(2026, 8, 21, 15, 30, 0, 0);
+// 固定“现在”= 北京时间 2026-09-21 15:30（用绝对瞬时，测试与运行机器时区无关）
+const NOW = new Date('2026-09-21T07:30:00.000Z');
 const H = (iso: string) => new Date(iso);
 
 describe('resolveTimeWindow', () => {
@@ -56,7 +56,7 @@ describe('resolveTimeWindow', () => {
     assert.equal(resolveTimeWindow({ key: 'custom' }, NOW), null);
   });
   it('跨年本月边界正确', () => {
-    const w = resolveTimeWindow({ key: 'month' }, new Date(2026, 11, 31, 8, 0))!;
+    const w = resolveTimeWindow({ key: 'month' }, new Date('2026-12-31T00:00:00.000Z'))!;   // 北京时间 12-31 08:00
     assert.equal(w.end, '2027-01-01T00:00:00.000Z');
   });
 });
@@ -65,20 +65,20 @@ describe('inTimeWindow', () => {
   it('无时间条件 → 恒真', () => {
     assert.equal(inTimeWindow('2020-01-01T00:00:00Z', {}, NOW), true);
   });
-  it('窗口内 → true，窗口外/空值 → false（本地日历语义，与运行机器时区无关）', () => {
+  it('窗口内 → true，窗口外/空值 → false（平台日历语义，与运行机器时区无关）', () => {
     const f = { key: 'today', from: '', to: '' };
-    assert.equal(inTimeWindow(new Date(2026, 8, 21, 9, 0).toISOString(), f, NOW), true);
-    assert.equal(inTimeWindow(new Date(2026, 8, 20, 23, 0).toISOString(), f, NOW), false);
+    assert.equal(inTimeWindow('2026-09-21T01:00:00.000Z', f, NOW), true);    // 北京时间 09-21 09:00
+    assert.equal(inTimeWindow('2026-09-20T15:00:00.000Z', f, NOW), false);   // 北京时间 09-20 23:00
     assert.equal(inTimeWindow(null, f, NOW), false);
     assert.equal(inTimeWindow('not-a-date', f, NOW), false);
   });
-  it('UTC 瞬时落在本地「今日」内 → true（窗口按本地日历还原，不按字面假瞬时比较）', () => {
-    // 本地 09-21 00:00~24:00 的窗口；ts=09-20T17:00Z = 本地 09-21 01:00 → 属于今日
+  it('UTC 瞬时落在平台「今日」内 → true（窗口按平台日历还原，不按字面假瞬时比较）', () => {
+    // 北京时间 09-21 00:00~24:00 的窗口；ts=09-20T17:00Z = 北京时间 09-21 01:00 → 属于今日
     const f = { key: 'today', from: '', to: '' };
     assert.equal(inTimeWindow('2026-09-20T17:00:00.000Z', f, NOW), true);
-    // ts=09-21T15:00Z = 本地 09-21 23:00 → 属于今日
+    // ts=09-21T15:00Z = 北京时间 09-21 23:00 → 属于今日
     assert.equal(inTimeWindow('2026-09-21T15:00:00.000Z', f, NOW), true);
-    // ts=09-21T16:00Z = 本地 09-22 00:00 → 明日 → false
+    // ts=09-21T16:00Z = 北京时间 09-22 00:00 → 明日 → false
     assert.equal(inTimeWindow('2026-09-21T16:00:00.000Z', f, NOW), false);
   });
 });

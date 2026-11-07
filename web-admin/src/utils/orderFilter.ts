@@ -22,28 +22,38 @@ export interface TimeWindow {
   end: string;
 }
 
-function dayStart(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+/** 平台时区 = Asia/Shanghai（UTC+8，无夏令时）。日历窗口只依赖它，不依赖浏览器时区。 */
+const PLATFORM_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+interface CalendarDay { y: number; m: number; d: number }
+
+/** 取某瞬时在平台时区的日历日（与浏览器 TZ 无关） */
+function platformDay(instant: Date): CalendarDay {
+  const s = new Date(instant.getTime() + PLATFORM_OFFSET_MS);
+  return { y: s.getUTCFullYear(), m: s.getUTCMonth(), d: s.getUTCDate() };
 }
 
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+/** 平台日历日加减天数（纯 UTC 日历算术，避开本地 DST） */
+function shiftDay(day: CalendarDay, n: number): CalendarDay {
+  const t = new Date(Date.UTC(day.y, day.m, day.d + n));
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate() };
 }
 
-function parseDay(s?: string): Date | null {
+/** 'YYYY-MM-DD' → 平台日历日；非法（含 2026-02-31 这类回环）返回 null */
+function parseDay(s?: string): CalendarDay | null {
   if (!s) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const dd = Number(m[3]);
+  const t = new Date(Date.UTC(y, mo, dd));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo || t.getUTCDate() !== dd) return null;
+  return { y, m: mo, d: dd };
 }
 
 /**
- * 本地日历日 → 窗口端点字符串：本地「0 点字面」直接挂 Z（如东八区今日 → '2026-10-11T00:00:00.000Z'）。
+ * 平台日历日 → 窗口端点字符串：平台「0 点字面」直接挂 Z（如北京时间今日 → '2026-10-11T00:00:00.000Z'）。
  *
  * ⚠ 时区口径（dev 实测定性，勿改回真实瞬时 toISOString() 形态）：
  *   1) 列形态：order.createdAt 为 timestamp without time zone，且**存本地字面**——
@@ -59,50 +69,54 @@ function zLiteral(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000Z`;
 }
 
-function zOf(d: Date): string {
-  return zLiteral(d.getFullYear(), d.getMonth(), d.getDate());
+function zDay(day: CalendarDay): string {
+  return zLiteral(day.y, day.m, day.d);
 }
 
 /**
  * 纯函数：把快捷键 / 自定义日期翻译为半开区间 [start, end)。
- * 输出为「本地日历 0 点字面挂 Z」形态（口径见 zLiteral 注释），非真实瞬时。
+ * 输出为「平台日历 0 点字面挂 Z」形态（口径见 zLiteral 注释），非真实瞬时。
  * 无有效条件 → null（调用方据此不拼时间 filter）。非法自定义输入返回 null，不抛异常。
  */
 export function resolveTimeWindow(input: TimeRangeInput = {}, now = new Date()): TimeWindow | null {
   const key = input.key || '';
   if (key === 'today') {
-    const s = dayStart(now);
-    return { start: zOf(s), end: zOf(addDays(s, 1)) };
+    const s = platformDay(now);
+    return { start: zDay(s), end: zDay(shiftDay(s, 1)) };
   }
   if (key === '7d') {
-    const s = dayStart(now);
-    return { start: zOf(addDays(s, -6)), end: zOf(addDays(s, 1)) };
+    const s = platformDay(now);
+    return { start: zDay(shiftDay(s, -6)), end: zDay(shiftDay(s, 1)) };
   }
   if (key === 'month') {
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    return { start: zLiteral(y, m, 1), end: zOf(new Date(y, m + 1, 1)) };
+    const p = platformDay(now);
+    const next = new Date(Date.UTC(p.y, p.m + 1, 1));
+    return {
+      start: zLiteral(p.y, p.m, 1),
+      end: zLiteral(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()),
+    };
   }
   if (key !== 'custom') return null;
   const f = parseDay(input.from);
   const t = parseDay(input.to);
   if (!f || !t) return null;
   // 起止颠倒（运营手滑）自动交换，避免筛出空结果被当成“搜索不稳定”
-  const lo = t.getTime() < f.getTime() ? t : f;
-  const hi = t.getTime() < f.getTime() ? f : t;
-  return { start: zOf(dayStart(lo)), end: zOf(addDays(dayStart(hi), 1)) };
+  const cmp = Date.UTC(f.y, f.m, f.d) - Date.UTC(t.y, t.m, t.d);
+  const lo = cmp > 0 ? t : f;
+  const hi = cmp > 0 ? f : t;
+  return { start: zDay(lo), end: zDay(shiftDay(hi, 1)) };
 }
 
 /** 纯函数：某时间戳是否落在窗口内（商品单本地过滤用）。无时间条件 → 恒真。
- *  ts 为真实瞬时 ISO；窗口端点是「本地字面挂 Z」（假瞬时）→ 剥掉 Z 按本地解析还原真实日历窗再比较 */
+ *  ts 为真实瞬时 ISO；窗口端点是「平台日历 0 点字面挂 Z」（假瞬时）→ 把 Z 换成显式 +08:00 还原真实瞬时再比较 */
 export function inTimeWindow(ts: string | null | undefined, input: TimeRangeInput = {}, now = new Date()): boolean {
   const w = resolveTimeWindow(input, now);
   if (!w) return true;
   if (!ts) return false;
   const t = new Date(ts).getTime();
   if (Number.isNaN(t)) return false;
-  const startT = new Date(w.start.replace(/Z$/, '')).getTime();
-  const endT = new Date(w.end.replace(/Z$/, '')).getTime();
+  const startT = new Date(w.start.replace(/Z$/, '+08:00')).getTime();
+  const endT = new Date(w.end.replace(/Z$/, '+08:00')).getTime();
   return t >= startT && t < endT;
 }
 
