@@ -103,6 +103,24 @@
       <view v-if="!audioUnlocked" class="voice-unlock" @tap="unlockAudio">
         <text>{{ $t('campusMerchant.voiceUnlock') }}</text>
       </view>
+      <!-- 播报记录：最近 20 条，可复制成文本，用于定位「时好时坏」 -->
+      <view class="voice-log">
+        <view class="vl-head">
+          <text class="vl-title">{{ $t('campusMerchant.voiceLogTitle') }}</text>
+          <text class="vl-copy" @tap="copyVoiceLog">{{ $t('campusMerchant.voiceLogCopy') }}</text>
+        </view>
+        <view v-if="voiceLog.length === 0" class="vl-empty">
+          <text>{{ $t('campusMerchant.voiceLogEmpty') }}</text>
+        </view>
+        <scroll-view v-else scroll-y class="vl-list">
+          <view v-for="(r, i) in voiceLog" :key="i" class="vl-row" :class="'r-' + r.result">
+            <text class="vl-time">{{ fmtClock(r.at) }}</text>
+            <text class="vl-key">{{ voiceLabel(r.key) }}</text>
+            <text class="vl-res">{{ voiceResultLabel(r.result) }}</text>
+            <text class="vl-gesture">{{ r.gesture ? $t('campusMerchant.voiceLogGesture') : $t('campusMerchant.voiceLogAuto') }}</text>
+          </view>
+        </scroll-view>
+      </view>
       <view v-if="!board.merchantConfirmEnabled" class="notice">{{ $t('campusMerchant.notConfirmMode') }}</view>
       <view v-if="board.printMode !== 'off'" class="printbar" :class="{ bad: printBad }">
         <view class="p-status">
@@ -1021,8 +1039,6 @@ function newOrderKey(count: number): VoiceKey {
 
 /** 静音 WAV（仅用于手势内取得 <audio> 播放许可，不参与播报） */
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-/** 预录播放器常驻引用，避免被 GC 提前回收导致播放中断 */
-let activeAudio: HTMLAudioElement | null = null;
 
 /** 中文发音人检测状态：checking 检测中 / ok 已检测到 / missing 未检测到 */
 const zhVoiceStatus = ref<'checking' | 'ok' | 'missing'>('checking');
@@ -1081,8 +1097,9 @@ async function checkPrerecorded() {
   audioStatus.value = NEW_ORDER_KEYS.some((k) => map[k]) ? 'ready' : 'missing';
 }
 
-/** 状态行只描述「有没有能出声的东西」，不再把"检测到发音人"说成语音可用 */
+/** 状态行区分「文件就绪」与「当前被浏览器拦截」：拦截是可恢复的，要给出动作 */
 const voiceStatusText = computed(() => {
+  if (playbackBlocked.value) return locale.t('campusMerchant.voiceStatusBlocked');
   if (audioStatus.value === 'ready') return locale.t('campusMerchant.voiceStatusAudioReady');
   if (audioStatus.value === 'checking' && zhVoiceStatus.value === 'checking') {
     return locale.t('campusMerchant.voiceChecking');
@@ -1092,13 +1109,15 @@ const voiceStatusText = computed(() => {
 });
 
 const voiceStatusLevel = computed(() => {
+  if (playbackBlocked.value) return 'warn';
   if (audioStatus.value === 'ready') return 'ok';
   if (zhVoiceStatus.value === 'ok') return 'warn';
   return 'bad';
 });
 
-/** 引导文案：微信常驻；提示音文件缺失时也提示检查网络 */
+/** 引导文案：被拦截时给出恢复动作；微信常驻；提示音文件缺失时提示检查网络 */
 const voiceHint = computed(() => {
+  if (playbackBlocked.value) return locale.t('campusMerchant.voiceHintBlocked');
   if (isWeChat) return locale.t('campusMerchant.voiceHintWechat');
   if (audioStatus.value === 'missing') return locale.t('campusMerchant.voiceHintMissing');
   return '';
@@ -1175,9 +1194,15 @@ function initZhVoice() {
   zhVoiceListenTimer = setTimeout(onChanged, 2000);
 }
 
-/** 回到前台：重查发音人与提示音可用性，并在无手势时尽量恢复音频上下文 */
+/** 回前台：重查发音人/提示音，重新申请常亮，并检查被后台挂起的队列（TTL 在 drain 内判断） */
 function onPageVisible() {
-  if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+  if (typeof document === 'undefined') return;
+  if (document.visibilityState === 'hidden') {
+    // 后台/锁屏：消息留在队列里并记下隐藏时间点，不在此刻丢弃
+    for (const j of voiceQueue) if (!j.hiddenAt) j.hiddenAt = Date.now();
+    releaseWakeLock();
+    return;
+  }
   const had = zhVoiceStatus.value;
   if (!applyZhVoice() && had === 'checking') initZhVoice();
   void checkPrerecorded();
@@ -1187,6 +1212,8 @@ function onPageVisible() {
   } catch {
     // 恢复失败不影响下一轮播报降级
   }
+  void acquireWakeLock();
+  void drainVoiceQueue();
 }
 
 function loadVoicePref(): boolean {
@@ -1211,40 +1238,135 @@ function ensureAudioCtx(): any {
   return audioCtx;
 }
 
-/** 一次性手势解锁：创建/恢复 AudioContext，并在同一手势内取得 <audio> 播放许可，再申请通知权限 */
+/** 手势解锁：恢复 AudioContext、刷新播放许可、申请通知权限，并补播被拦队列 */
 function unlockAudio() {
-  try {
-    const ctx = ensureAudioCtx();
-    if (ctx && ctx.state === 'suspended') void ctx.resume();
-    audioUnlocked.value = true;
-  } catch {
-    audioUnlocked.value = true; // 无 Web Audio 环境也置位，走通知/TTS 分支
-  }
-  // 安卓 WebView 对 <audio> 同样有自动播放限制：手势内静音播一次，后续预录语音才能出声
-  warmAudioPermission();
+  markGesture();
   requestNotifyPermission();
-  if (typeof window !== 'undefined') window.removeEventListener('pointerdown', unlockAudio);
+  void refreshPlaybackPermission().then(() => void drainVoiceQueue());
 }
 
-/** 手势内静音播放一次性空音频，换取本页 <audio> 的播放许可（失败静默，不影响后续降级） */
-function warmAudioPermission() {
+/** ===== 播放链路：单例 <audio> + 串行优先级队列（解决安卓"时好时坏"） ===== */
+/** 全站只用一个播放器：并发 new Audio 会互相打断，且许可按元素/文档计算 */
+let player: HTMLAudioElement | null = null;
+/** 当前是否被浏览器拦在门外（需要一次用户手势才能恢复） */
+const playbackBlocked = ref(false);
+/** 播放器是否正在出声（用于跳过保活、避免打断当前播报） */
+let playerBusy = false;
+
+function getPlayer(): HTMLAudioElement {
+  if (!player) {
+    player = new Audio();
+    player.preload = 'auto';
+    player.setAttribute?.('playsinline', 'true');
+    player.src = SILENT_WAV;
+  }
+  return player;
+}
+
+/** 播报记录：最近 20 条，可复制，用于定位"时好时坏" */
+type VoiceLogResult = 'playing' | 'blocked' | 'timeout' | 'error' | 'beep' | 'synth' | 'dropped_background';
+interface VoiceLogRow { at: number; key: VoiceKey; result: VoiceLogResult; gesture: boolean; }
+const VOICE_LOG_MAX = 20;
+const voiceLog = ref<VoiceLogRow[]>([]);
+
+function fmtClock(ts: number): string {
+  const d = new Date(ts);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function voiceLogLine(r: VoiceLogRow): string {
+  const who = r.gesture ? locale.t('campusMerchant.voiceLogGesture') : locale.t('campusMerchant.voiceLogAuto');
+  return `${fmtClock(r.at)} ${r.key} ${r.result} ${who}`;
+}
+
+function logVoice(key: VoiceKey, result: VoiceLogResult, gesture: boolean) {
+  voiceLog.value = [{ at: Date.now(), key, result, gesture }, ...voiceLog.value].slice(0, VOICE_LOG_MAX);
+}
+
+/** 播报记录里结果的短标签（面板展示用） */
+const VOICE_RESULT_KEYS: Record<VoiceLogResult, string> = {
+  playing: 'campusMerchant.voiceResultPlaying',
+  synth: 'campusMerchant.voiceResultSynth',
+  blocked: 'campusMerchant.voiceResultBlocked',
+  timeout: 'campusMerchant.voiceResultTimeout',
+  error: 'campusMerchant.voiceResultError',
+  beep: 'campusMerchant.voiceResultBeep',
+  dropped_background: 'campusMerchant.voiceResultDropped',
+};
+function voiceResultLabel(r: VoiceLogResult): string {
+  return locale.t(VOICE_RESULT_KEYS[r]);
+}
+
+/** 复制播报记录：优先 uni 剪贴板，失败回退 navigator.clipboard */
+function copyVoiceLog() {
+  const text = voiceLog.value.map(voiceLogLine).join('\n') || locale.t('campusMerchant.voiceLogEmpty');
   try {
-    const a = new Audio(SILENT_WAV);
+    uni.setClipboardData({ data: text });
+  } catch {
+    try {
+      (navigator as any).clipboard?.writeText?.(text);
+    } catch {
+      // 无剪贴板权限时忽略，用户仍可截图
+    }
+  }
+}
+
+/** 手势内用同一元素静音播 0.1 秒：刷新播放许可；正在出声时跳过，避免打断当前播报 */
+async function refreshPlaybackPermission() {
+  if (playerBusy) return;
+  try {
+    const a = getPlayer();
     a.muted = true;
     a.volume = 0;
+    a.src = SILENT_WAV;
     const p = a.play();
-    if (p && typeof p.then === 'function') {
-      p.then(() => {
-        try {
-          a.pause();
-        } catch {
-          // 已结束无需处理
-        }
-      }).catch(() => {});
-    }
+    if (p && typeof p.then === 'function') await p.catch(() => {});
+    if (keepAliveTimer) clearTimeout(keepAliveTimer);
+    keepAliveTimer = setTimeout(() => {
+      keepAliveTimer = null;
+      // 只收尾静音握手：此时若已在播真实语音，attemptPlay 会先清掉这个定时器
+      try {
+        a.pause();
+        a.muted = false;
+        a.volume = 1;
+      } catch {
+        // 元素已释放无需处理
+      }
+    }, 100);
   } catch {
-    // 无 Audio 环境：预录语音会自行失败并降级蜂鸣
+    // 无 Audio 环境：真实播报会走 blocked/error 分支
   }
+}
+
+/** 每次用户交互：恢复 AudioContext、刷新许可，并立刻补播被拦截的队列 */
+function onUserGesture() {
+  markGesture();
+  requestNotifyPermission();
+  void refreshPlaybackPermission().then(() => void drainVoiceQueue());
+}
+
+/** 唤醒锁：工作台可见时保持屏幕常亮，隐藏时释放；失败静默 */
+let wakeLock: any = null;
+async function acquireWakeLock() {
+  try {
+    const wl = (navigator as any).wakeLock;
+    if (!wl || document.visibilityState !== 'visible' || wakeLock) return;
+    wakeLock = await wl.request('screen');
+    wakeLock?.addEventListener?.('release', () => {
+      wakeLock = null;
+    });
+  } catch {
+    // 不支持或被拒：不影响播报
+  }
+}
+function releaseWakeLock() {
+  try {
+    wakeLock?.release?.();
+  } catch {
+    // 已释放
+  }
+  wakeLock = null;
 }
 
 function requestNotifyPermission() {
@@ -1322,74 +1444,219 @@ function speakByTTS(count: number): Promise<boolean> {
   });
 }
 
+/** ===== 预录播放：单例元素 + 串行优先级队列（解决安卓「一会能播一会不播」） ===== */
+
+/** 同一 key 30 秒内只播一次（手动试听/测试不受限） */
+const VOICE_DEDUPE_MS = 30 * 1000;
+/** 后台补播有效期：隐藏 ≤2 分钟回前台补播一次，超过丢弃并留痕 */
+const BG_TTL_MS = 120 * 1000;
+
+type VoiceOutcome = 'playing' | 'synth' | 'beep' | 'blocked' | 'dropped_background' | 'skipped';
+
+interface VoiceJob {
+  key: VoiceKey;
+  count: number;
+  /** 是否用户手势内触发（试听/测试）：旁路去重，结果用于 toast */
+  gesture: boolean;
+  /** 0 = 新订单类（优先），1 = 提示类 */
+  priority: number;
+  /** 页面隐藏时的时间点；null 表示在前台/已回到前台 */
+  hiddenAt: number | null;
+  resolve: (r: VoiceOutcome) => void;
+}
+
+const voiceQueue: VoiceJob[] = [];
+let queueDraining = false;
+/** play() 被浏览器拒绝后置位：等下一次用户手势再继续，期间消息不丢 */
+let blockedAwaitGesture = false;
+const lastVoiceAt: Partial<Record<VoiceKey, number>> = {};
+/** 静音保活的收尾定时器：真实播报开始前必须取消，避免 100ms 后把真实语音 pause 掉 */
+let keepAliveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 手势信号：恢复 AudioContext、解除拦截标记；不 await 异步播放，保证后续 play() 仍在手势栈内 */
+function markGesture() {
+  audioUnlocked.value = true;
+  blockedAwaitGesture = false;
+  playbackBlocked.value = false;
+  try {
+    const ctx = ensureAudioCtx();
+    if (ctx && ctx.state === 'suspended') void ctx.resume();
+  } catch {
+    // 无 Web Audio 环境不影响预录播放
+  }
+}
+
 /**
- * 播放单个预录音频：只认 playing 事件为「真的出声」。
- * play() 的 Promise resolve 只代表开始取数据，安卓上可能随后被静音/拦截，不能当成功；
- * error / 4 秒内没有 playing → false，交给下一级。
+ * 在单例元素上尝试播一条，只认 onplaying 为「真出声」：
+ * play() resolve 只代表开始取数据，安卓随后可能静默，不能当成功。
  */
-function playAudioFile(url: string): Promise<boolean> {
+function attemptPlay(url: string): Promise<'playing' | 'blocked' | 'timeout' | 'error'> {
   return new Promise((resolve) => {
+    const a = getPlayer();
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const done = (ok: boolean) => {
+    const finish = (r: 'playing' | 'blocked' | 'timeout' | 'error') => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      if (!ok && activeAudio) {
+      a.onplaying = null;
+      a.onerror = null;
+      if (r !== 'playing') {
+        playerBusy = false;
         try {
-          activeAudio.pause();
+          a.pause();
         } catch {
-          // 未播放时 pause 无副作用
+          // 未开始播放时 pause 无副作用
         }
-        activeAudio = null;
       }
-      resolve(ok);
+      resolve(r);
     };
+    // 真实播报优先：取消静音保活的收尾，避免把这一条语音 pause 掉
+    if (keepAliveTimer) {
+      clearTimeout(keepAliveTimer);
+      keepAliveTimer = null;
+    }
     try {
-      const a = new Audio(url);
-      activeAudio = a;
-      a.preload = 'auto';
-      a.setAttribute?.('playsinline', 'true');
-      a.onerror = () => done(false);
-      a.onplaying = () => done(true);
-      // 4 秒内没有 playing 即判失败（文件不存在会立即 onerror，不会白等）
-      timer = setTimeout(() => done(false), 4000);
+      a.muted = false;
+      a.volume = 1;
+      a.onplaying = () => finish('playing');
+      a.onerror = () => finish('error');
+      a.src = url;
+      playerBusy = true;
+      // 4 秒内没有 playing 即判失败（文件缺失会立刻 onerror，不会白等）
+      timer = setTimeout(() => finish('timeout'), 4000);
       const p = a.play();
       if (p && typeof p.then === 'function') {
-        // 只用于把 play() 被拒的结果快速落到下一级，不作为成功判据
-        p.catch(() => done(false));
+        p.catch((err: any) => {
+          const name = String(err?.name || '');
+          finish(name === 'NotAllowedError' ? 'blocked' : 'error');
+        });
       }
-    } catch {
-      done(false);
+    } catch (err: any) {
+      finish(String(err?.name || '') === 'NotAllowedError' ? 'blocked' : 'error');
     }
   });
 }
 
-/**
- * 按 key 播预录语音，降级规则：
- * - 新订单类：目标 → new-order-many → new-order-1（文案都属"新订单"，可互相顶替）；
- * - 催单 / 即将超时 / 已到店：只播目标文件，缺失直接 false（绝不顶替成"新订单"，避免误导商家）。
- */
-async function playVoice(key: VoiceKey): Promise<boolean> {
-  const base = assetBase();
-  if (await playAudioFile(`${base}/${VOICE_FILES[key]}`)) return true;
-  for (const alt of NEW_ORDER_FALLBACKS[key] || []) {
-    if (await playAudioFile(`${base}/${VOICE_FILES[alt]}`)) return true;
-  }
-  return false;
+/** 等这一条真正播完（ended）；8 秒兜底，避免元素异常把整条队列卡死 */
+function waitPlaybackEnd(): Promise<void> {
+  const a = getPlayer();
+  return new Promise((resolve) => {
+    let done = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      a.onended = null;
+      a.onerror = null;
+      playerBusy = false;
+      resolve();
+    };
+    a.onended = finish;
+    a.onerror = finish;
+    timer = setTimeout(finish, 8000);
+  });
 }
 
-/** 播报主链：预录语音 → 中文合成（仅新订单且音频全失败）→ 蜂鸣；每级都以「真出声」为准 */
-async function announceVoice(key: VoiceKey, count = 1): Promise<'audio' | 'synth' | 'beep'> {
-  if (await playVoice(key)) return 'audio';
-  // 合成只用于新订单文案；催单/超时/到店缺失时宁可蜂鸣，也不能播成"新订单"
-  if (NEW_ORDER_KEYS.includes(key)) {
-    // 发音人可能后装，播报前再读一次
+/**
+ * 执行一条播报：目标录音 → 降级录音 →（仅新订单）合成 → 蜂鸣。
+ * 新订单类可互相顶替；催单/超时/到店缺失时只蜂鸣，绝不错播成「新订单」。
+ */
+async function runVoiceJob(job: VoiceJob): Promise<VoiceOutcome> {
+  const base = assetBase();
+  const candidates: VoiceKey[] = [job.key, ...(NEW_ORDER_FALLBACKS[job.key] || [])];
+  for (const k of candidates) {
+    const r = await attemptPlay(`${base}/${VOICE_FILES[k]}`);
+    if (r === 'blocked') return 'blocked'; // 许可问题换文件无用：整条回队等手势
+    if (r === 'playing') {
+      await waitPlaybackEnd();
+      return 'playing';
+    }
+    // timeout / error：把失败原因留在播报记录里，方便定位是哪条文件/网络的问题
+    logVoice(k, r, job.gesture);
+  }
+  // 合成只用于新订单文案；发音人可能后装，播报前再读一次
+  if (NEW_ORDER_KEYS.includes(job.key)) {
     if (zhVoiceStatus.value !== 'ok' || !zhVoice) applyZhVoice();
-    if (zhVoice && await speakByTTS(count)) return 'synth';
+    if (zhVoice && await speakByTTS(job.count)) return 'synth';
   }
   beep();
   return 'beep';
+}
+
+/** 入队：自动播报 30 秒内同 key 只播一次；手动试听/测试旁路去重 */
+function enqueueVoice(key: VoiceKey, count = 1, gesture = false): Promise<VoiceOutcome> {
+  return new Promise((resolve) => {
+    if (!voiceEnabled.value) {
+      resolve('skipped');
+      return;
+    }
+    if (!gesture) {
+      const last = lastVoiceAt[key] || 0;
+      if (Date.now() - last < VOICE_DEDUPE_MS) {
+        resolve('skipped');
+        return;
+      }
+      lastVoiceAt[key] = Date.now();
+    }
+    const job: VoiceJob = {
+      key,
+      count,
+      gesture,
+      // 新订单类优先于提示类：队列按优先级排序，而不是先来先播
+      priority: NEW_ORDER_KEYS.includes(key) ? 0 : 1,
+      hiddenAt: document.visibilityState === 'hidden' ? Date.now() : null,
+      resolve,
+    };
+    voiceQueue.push(job);
+    voiceQueue.sort((x, y) => x.priority - y.priority);
+    void drainVoiceQueue();
+  });
+}
+
+/** 串行消费队列：同一时刻只有一个音源，前一条 ended 才放下一条 */
+async function drainVoiceQueue(): Promise<void> {
+  if (queueDraining) return;
+  queueDraining = true;
+  try {
+    while (voiceQueue.length) {
+      // 后台/锁屏：不丢弃，只记隐藏时间点，回前台按 TTL 处理
+      if (document.visibilityState === 'hidden') {
+        for (const j of voiceQueue) if (!j.hiddenAt) j.hiddenAt = Date.now();
+        break;
+      }
+      const job = voiceQueue[0];
+      // 后台超过有效期：丢弃并留痕，避免回前台播一堆过期订单
+      if (job.hiddenAt) {
+        const age = Date.now() - job.hiddenAt;
+        if (age > BG_TTL_MS) {
+          voiceQueue.shift();
+          logVoice(job.key, 'dropped_background', job.gesture);
+          job.resolve('dropped_background');
+          continue;
+        }
+        job.hiddenAt = null; // 仍在 2 分钟内：补播一次
+      }
+      // 被拦截且还没等到手势：停在这里，等 onUserGesture 继续（消息保留在队里）
+      if (blockedAwaitGesture) break;
+      voiceQueue.shift();
+      const result = await runVoiceJob(job);
+      logVoice(job.key, result, job.gesture);
+      if (result === 'blocked') {
+        // 不丢消息：放回队首，等下一次手势立刻补播
+        voiceQueue.unshift(job);
+        blockedAwaitGesture = true;
+        playbackBlocked.value = true;
+        job.resolve('blocked');
+        break;
+      }
+      playbackBlocked.value = false;
+      job.resolve(result);
+    }
+  } finally {
+    queueDraining = false;
+  }
 }
 
 /** 浏览器通知：仅在已授权时发送（授权本身需用户手势触发） */
@@ -1405,61 +1672,54 @@ function notifyNewOrders(codes: string[]) {
   }
 }
 
-/** 新单到达：一批只播一次（按新增数量选 1 / 2 / ≥3 的录音）+ 通知 */
+/** 新单到达：一批只播一次（按新增数量选 1 / 2 / ≥3 的录音）+ 通知；不再因"未解锁"丢播 */
 function alertNewOrders(pending: MerchantBoardOrder[], count: number) {
-  if (!count || !voiceEnabled.value || !audioUnlocked.value) return;
-  void announceVoice(newOrderKey(count), count);
+  if (!count) return;
+  void enqueueVoice(newOrderKey(count), count, false);
   notifyNewOrders(pending.slice(0, count).map((o) => o.code));
 }
 
-/** 非新单的业务提示（催单 / 即将超时）：链路同新单，但录音缺失时只蜂鸣，不顶替新订单文案 */
+/** 非新单的业务提示（催单 / 即将超时）：同队列，录音缺失时只蜂鸣，不顶替新订单文案 */
 function alertVoice(key: VoiceKey) {
-  if (!voiceEnabled.value || !audioUnlocked.value) return;
-  void announceVoice(key);
+  void enqueueVoice(key, 1, false);
 }
 
-/** 实际出声自检：如实回报这一声是真 playing、退回合成、还是只剩蜂鸣 */
-function testVoice() {
-  if (!voiceEnabled.value) {
-    voiceEnabled.value = true;
-    try {
-      uni.setStorageSync(VOICE_PREF_KEY, true);
-    } catch {
-      // 存储不可用不影响本次播放
-    }
+/** 把播报结果翻成一句人话（试听/测试用） */
+function voiceResultText(r: VoiceOutcome): string {
+  if (r === 'playing') return locale.t('campusMerchant.voiceTestAudio');
+  if (r === 'synth') return locale.t('campusMerchant.voiceTestSynth');
+  if (r === 'beep') return locale.t('campusMerchant.voiceTestBeep');
+  if (r === 'blocked') return locale.t('campusMerchant.voiceTestBlocked');
+  if (r === 'dropped_background') return locale.t('campusMerchant.voiceTestDropped');
+  return locale.t('campusMerchant.voiceTestSkipped');
+}
+
+function enableVoiceByGesture() {
+  if (voiceEnabled.value) return;
+  voiceEnabled.value = true;
+  try {
+    uni.setStorageSync(VOICE_PREF_KEY, true);
+  } catch {
+    // 存储不可用不影响本次播放
   }
-  unlockAudio();
-  // 必须在点击手势的同一调用栈里发起播放：安卓 Chrome 在 setTimeout 之后会失去手势，
-  // play() 可能被拒；announceVoice 内部首个 play() 是同步执行的，正好落在手势内
-  void announceVoice('new-order-1', 1).then((how) => {
-    const title = how === 'audio'
-      ? locale.t('campusMerchant.voiceTestAudio')
-      : how === 'synth'
-        ? locale.t('campusMerchant.voiceTestSynth')
-        : locale.t('campusMerchant.voiceTestBeep');
-    uni.showToast({ title, icon: 'none', duration: 3500 });
+}
+
+/** 实际出声自检：在点击手势的同一调用栈里入队，安卓才不会丢手势 */
+function testVoice() {
+  enableVoiceByGesture();
+  markGesture();
+  void enqueueVoice('new-order-1', 1, true).then((r) => {
+    uni.showToast({ title: voiceResultText(r), icon: 'none', duration: 3500 });
   });
 }
 
 /** 逐条试听：点哪条播哪条；缺失的条按规则降级（催单/超时/到店只蜂鸣，不会播成新订单） */
 function auditionVoice(key: VoiceKey) {
-  if (!voiceEnabled.value) {
-    voiceEnabled.value = true;
-    try {
-      uni.setStorageSync(VOICE_PREF_KEY, true);
-    } catch {
-      // 存储不可用不影响本次播放
-    }
-  }
-  unlockAudio();
+  enableVoiceByGesture();
+  markGesture();
   const name = voiceLabel(key);
-  void announceVoice(key, 1).then((how) => {
-    const detail = how === 'audio'
-      ? locale.t('campusMerchant.voiceTestAudio')
-      : how === 'synth'
-        ? locale.t('campusMerchant.voiceTestSynth')
-        : locale.t('campusMerchant.voiceTestBeep');
-    uni.showToast({ title: `${name}：${detail}`, icon: 'none', duration: 3500 });
+  void enqueueVoice(key, 1, true).then((r) => {
+    uni.showToast({ title: `${name}：${voiceResultText(r)}`, icon: 'none', duration: 3500 });
   });
 }
 
@@ -1930,8 +2190,13 @@ onMounted(() => {
   reconnectTimer = setInterval(() => {
     if (isLocal.value && lodopReady.value === 'fail') void probePrinter();
   }, 60_000);
-  // H5 自动播放/通知授权均需用户手势：首个 pointerdown 一次性解锁
-  if (typeof window !== 'undefined') window.addEventListener('pointerdown', unlockAudio);
+  // H5 自动播放/通知授权均需用户手势：常驻监听，既刷新播放许可也补播被拦队列
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointerdown', onUserGesture);
+    window.addEventListener('touchend', onUserGesture);
+    // 工作台可见时申请屏幕常亮（后台/锁屏场景减少被系统挂起）；失败静默
+    void acquireWakeLock();
+  }
   // 中文发音人：页面加载即检测（getVoices 首次常为空，内部等 voiceschanged）
   initZhVoice();
   // 预录提示音可用性：HEAD 探测，决定状态行文案
@@ -1947,9 +2212,13 @@ onUnmounted(() => {
   // 备餐面板轮询随页面卸载一起停（§85）
   stopPrepLive();
   if (typeof window !== 'undefined') {
-    window.removeEventListener('pointerdown', unlockAudio);
+    window.removeEventListener('pointerdown', onUserGesture);
+    window.removeEventListener('touchend', onUserGesture);
     document.removeEventListener('visibilitychange', onPageVisible);
   }
+  releaseWakeLock();
+  if (keepAliveTimer) clearTimeout(keepAliveTimer);
+  keepAliveTimer = null;
   if (zhVoiceListenTimer) clearTimeout(zhVoiceListenTimer);
   if (zhVoiceRetryTimer) clearTimeout(zhVoiceRetryTimer);
   zhVoiceListenTimer = null;
@@ -2079,6 +2348,28 @@ onUnmounted(() => {
   }
   .voice-unlock { font-size: 24rpx; color: #fff; background: $wa-accent; text-align: center;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 20rpx; font-weight: 600; }
+  /* 播报记录：默认折叠在语音条下，20 条以内可滚动，可一键复制 */
+  .voice-log { background: $wa-card; border: 1.5px solid $wa-rule; border-radius: $wa-radius;
+    padding: 16rpx 20rpx; margin-bottom: 20rpx;
+    .vl-head { display: flex; align-items: center; justify-content: space-between; }
+    .vl-title { font-size: 22rpx; color: $wa-muted; font-weight: 600; }
+    .vl-copy { font-size: 22rpx; color: $wa-accent; padding: 4rpx 12rpx; }
+    .vl-empty { font-size: 22rpx; color: $wa-muted; padding-top: 10rpx; }
+    .vl-list { max-height: 260rpx; margin-top: 10rpx; }
+    .vl-row { display: flex; align-items: center; gap: 12rpx; font-size: 20rpx;
+      padding: 6rpx 0; border-bottom: 1px dashed $wa-rule; color: $wa-ink;
+      &:last-child { border-bottom: 0; }
+      .vl-time { color: $wa-muted; width: 120rpx; flex: none; }
+      .vl-key { width: 160rpx; flex: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .vl-res { flex: 1; font-weight: 600; }
+      .vl-gesture { color: $wa-muted; flex: none; }
+      &.r-playing .vl-res { color: #389e0d; }
+      &.r-blocked .vl-res { color: #d4380d; }
+      &.r-timeout .vl-res, &.r-error .vl-res { color: #c47b00; }
+      &.r-dropped_background .vl-res { color: #999; }
+      &.r-beep .vl-res, &.r-synth .vl-res { color: $wa-accent; }
+    }
+  }
   .notice { font-size: 24rpx; color: #c47b00; background: #fff7e6; border: 1.5px solid #ffe1a8;
     border-radius: $wa-radius; padding: 16rpx 24rpx; margin-bottom: 24rpx; }
   .printbar { display: flex; align-items: center; gap: 16rpx; background: $wa-card;
