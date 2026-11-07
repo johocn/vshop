@@ -2330,7 +2330,8 @@
     "typePhysical": "实体商品",
     "typeVirtual": "虚拟商品",
     "typeService": "服务商品",
-    "typeHelper": "首期仅标记展示，不影响运费 / 库存 / 结算"
+    "typeHelper": "首期仅标记展示，不影响运费 / 库存 / 结算",
+    "profilePerVariantHint": "多规格商品的运费/支付档案按每个规格单独保存：请到「规格变体」为每条规格分别设置"
   },
   "productVariantMatrixTab": {
     "noSpec": "无规格（单品）",
@@ -2365,6 +2366,9 @@
     "barcode": "条形码",
     "internalCode": "内部码",
     "costCents": "成本价(分)",
+    "shippingProfile": "运费模板",
+    "paymentProfile": "支付模板",
+    "profileUnset": "未设置",
     "noSpecData": "暂无规格数据",
     "batchPrice": "批量设价",
     "batchStock": "批量填库存",

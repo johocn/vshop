@@ -501,7 +501,7 @@ export interface BrandOption {
 export interface CreateVariantMatrixInput {
   productId: string;
   groups: { name: string; values: string[]; groupId?: string; valueIds?: string[] }[]; // 规格组（groupId 存在表示复用系统规格组，不新建组）
-  skus: { labels: string[]; /** 规格值（ProductOption）id，编辑时用于和既有变体对齐 */ optionValueIds?: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[] }[];
+  skus: { labels: string[]; /** 规格值（ProductOption）id，编辑时用于和既有变体对齐 */ optionValueIds?: string[]; sku?: string; priceCents: number; stock: number; listPriceCents?: number; costPrice?: number; barcode?: string; internalCode?: string; assetIds?: string[]; /** 逐变体运费模板；缺省回退到矩阵级 shippingProfileId */ shippingProfileId?: string; /** 逐变体支付模板；同上 */ paymentProfileId?: string }[];
   shippingProfileId?: string;
   paymentProfileId?: string;
 }
@@ -612,8 +612,8 @@ export async function createVariantMatrixForProduct(input: CreateVariantMatrixIn
       assetIds: sku.assetIds ?? [],
       featuredAssetId: (sku.assetIds ?? [])[0] ?? undefined,
       customFields: {
-        shippingProfileId: input.shippingProfileId ?? '',
-        paymentProfileId: input.paymentProfileId ?? '',
+        shippingProfileId: sku.shippingProfileId ?? input.shippingProfileId ?? '',
+        paymentProfileId: sku.paymentProfileId ?? input.paymentProfileId ?? '',
         listPrice: sku.listPriceCents != null ? Math.round(sku.listPriceCents) : null,
         costPrice: sku.costPrice != null ? Math.round(sku.costPrice) : null,
         barcode: sku.barcode ?? '',
@@ -890,11 +890,16 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
       internalCode?: string;
     },
     assetIds?: string[],
+    /** 逐变体运费/支付模板；不传则完全不碰这两个字段（避免把已有差异覆盖掉） */
+    profiles?: { shippingProfileId?: string; paymentProfileId?: string },
   ): Record<string, unknown> => {
     const stockLevels = stockLevelsForTarget(targetStock, prev?.stockOnHand ?? targetStock, prev?.stockLevels, locationId);
+    // 只提交「有值」的模板：空值视为未设置，不写回，避免把已有模板误清空
+    const profilePatch: { shippingProfileId?: string; paymentProfileId?: string } = {};
+    if (profiles?.shippingProfileId) profilePatch.shippingProfileId = profiles.shippingProfileId;
+    if (profiles?.paymentProfileId) profilePatch.paymentProfileId = profiles.paymentProfileId;
     const customFields = diffVariantCustomFields(prev?.customFields, {
-      shippingProfileId: input.shippingProfileId ?? '',
-      paymentProfileId: input.paymentProfileId ?? '',
+      ...profilePatch,
       ...nextCf,
     });
     return {
@@ -942,6 +947,9 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
             internalCode: sku.internalCode,
           },
           sku.assetIds,
+          // 逐变体提交：后端把运费/支付模板存在 ProductVariant.customFields，多规格必须按行写，
+          // 否则会把所有变体统一成同一个值（原 bug：统一写成首个变体的模板）
+          { shippingProfileId: sku.shippingProfileId, paymentProfileId: sku.paymentProfileId },
         ),
       );
     });
@@ -965,6 +973,8 @@ export async function updateProductFull(id: string, input: ProductSaveInput): Pr
           },
           // 编辑时商品图片以「商品级 assets」为准；空数组也要提交，保证删图能同步到变体
           input.assetIds ?? [],
+          // 单变体：商品页这两个选择框等价于该唯一变体的模板
+          { shippingProfileId: input.shippingProfileId, paymentProfileId: input.paymentProfileId },
         ),
       );
     }

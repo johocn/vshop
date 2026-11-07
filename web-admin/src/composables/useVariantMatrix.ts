@@ -23,6 +23,10 @@ export interface MatrixSku {
   barcode?: string; // 条形码
   internalCode?: string; // 内部编码
   assetIds?: string[]; // 变体图片（规格组合独立图）；首张作为变体主图 featuredAsset
+  /** 运费模板：后端按变体存（ProductVariant.customFields），多规格可逐条不同 */
+  shippingProfileId?: string;
+  /** 支付模板：同运费模板，逐变体存储 */
+  paymentProfileId?: string;
   _baseSynced?: boolean; // 内部标记：是否由基础信息同步，false 表示已手动修改不覆盖
 }
 
@@ -221,7 +225,7 @@ export function hydrateEditState(product: ProductFull): {
       priceWithTax?: number;
       stockOnHand: number;
       options?: Array<{ id: string; name: string }>;
-      customFields?: { listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null };
+      customFields?: { listPrice?: number | null; costPrice?: number | null; barcode?: string | null; internalCode?: string | null; shippingProfileId?: string | null; paymentProfileId?: string | null };
       assets?: Array<{ id: string; preview: string }>;
     }>;
   }).variants;
@@ -243,6 +247,8 @@ export function hydrateEditState(product: ProductFull): {
           costPrice: first.customFields?.costPrice ?? undefined,
           barcode: first.customFields?.barcode ?? undefined,
           internalCode: first.customFields?.internalCode ?? undefined,
+          shippingProfileId: first.customFields?.shippingProfileId ?? '',
+          paymentProfileId: first.customFields?.paymentProfileId ?? '',
           assetIds:
             (first as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
           _preview:
@@ -274,6 +280,8 @@ export function hydrateEditState(product: ProductFull): {
       costPrice: x.customFields?.costPrice ?? undefined,
       barcode: x.customFields?.barcode ?? undefined,
       internalCode: x.customFields?.internalCode ?? undefined,
+      shippingProfileId: x.customFields?.shippingProfileId ?? '',
+      paymentProfileId: x.customFields?.paymentProfileId ?? '',
       assetIds:
         (x as unknown as { assets?: Array<{ id: string }> })?.assets?.map((a) => a.id) ?? [],
       _preview:

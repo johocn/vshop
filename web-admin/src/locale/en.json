@@ -2333,7 +2333,8 @@
     "typePhysical": "Physical",
     "typeVirtual": "Virtual",
     "typeService": "Service",
-    "typeHelper": "Label only for now; no shipping/stock/checkout impact"
+    "typeHelper": "Label only for now; no shipping/stock/checkout impact",
+    "profilePerVariantHint": "Shipping/payment profiles are saved per variant for multi-spec products: set them one by one in the Variants tab"
   },
   "productVariantMatrixTab": {
     "noSpec": "No spec (single)",
@@ -2368,6 +2369,9 @@
     "barcode": "Barcode",
     "internalCode": "Internal code",
     "costCents": "Cost",
+    "shippingProfile": "Shipping profile",
+    "paymentProfile": "Payment profile",
+    "profileUnset": "Not set",
     "noSpecData": "No spec data",
     "batchPrice": "Batch price",
     "batchStock": "Batch stock",

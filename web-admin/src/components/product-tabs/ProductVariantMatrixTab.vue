@@ -136,6 +136,24 @@
               </view>
             </view>
           </view>
+          <view class="mrow sub">
+            <view class="field">
+              <text class="flabel">{{ locale.t('productVariantMatrixTab.shippingProfile') }}</text>
+              <picker mode="selector" :range="spNames" @change="onSkuProfileChange(si, 'shippingProfileId', $event)">
+                <view class="frow">
+                  <text class="c-b pick">{{ spLabel(s.shippingProfileId) }}</text>
+                </view>
+              </picker>
+            </view>
+            <view class="field">
+              <text class="flabel">{{ locale.t('productVariantMatrixTab.paymentProfile') }}</text>
+              <picker mode="selector" :range="ppNames" @change="onSkuProfileChange(si, 'paymentProfileId', $event)">
+                <view class="frow">
+                  <text class="c-b pick">{{ ppLabel(s.paymentProfileId) }}</text>
+                </view>
+              </picker>
+            </view>
+          </view>
         </view>
       </template>
       <view v-else class="tip">{{ locale.t('productVariantMatrixTab.noSpecData') }}</view>
@@ -179,7 +197,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useLocaleStore } from '../../stores/localeStore';
 import ImagePicker from '../../components/ImagePicker.vue';
 import RoomDayCalendar from '../../components/hotel/RoomDayCalendar.vue';
@@ -223,6 +241,10 @@ const props = defineProps<{
   base?: BaseFill;
   /** 商品首个变体 id（编辑态传入；创建态为空 → 酒店房型配置分组隐藏） */
   variantId?: string;
+  /** 运费模板选项（后端按变体存储，逐条选择） */
+  shippingProfiles?: Array<{ id: string; name: string }>;
+  /** 支付模板选项 */
+  paymentProfiles?: Array<{ id: string; name: string }>;
 }>();
 const emit = defineEmits<{ (e: 'update:value', v: VariantMatrixValue): void }>();
 
@@ -507,6 +529,23 @@ async function onPickerChange(ids: string[]) {
     (base as any)._preview = preview;
     return base;
   });
+  emit('update:value', { ...props.value, skus });
+}
+
+// ---- 逐变体运费/支付模板（后端存于 ProductVariant.customFields，多规格可各不同）----
+const spNames = computed(() => (props.shippingProfiles || []).map((i) => i.name));
+const ppNames = computed(() => (props.paymentProfiles || []).map((i) => i.name));
+function spLabel(id?: string): string {
+  return (props.shippingProfiles || []).find((i) => i.id === id)?.name || locale.t('productVariantMatrixTab.profileUnset');
+}
+function ppLabel(id?: string): string {
+  return (props.paymentProfiles || []).find((i) => i.id === id)?.name || locale.t('productVariantMatrixTab.profileUnset');
+}
+function onSkuProfileChange(si: number, field: 'shippingProfileId' | 'paymentProfileId', e: any) {
+  const list = field === 'shippingProfileId' ? props.shippingProfiles || [] : props.paymentProfiles || [];
+  const it = list[Number(e.detail.value)];
+  if (!it) return;
+  const skus = props.value.skus.map((s, i) => (i === si ? ({ ...s, [field]: it.id } as MatrixSku) : s));
   emit('update:value', { ...props.value, skus });
 }
 

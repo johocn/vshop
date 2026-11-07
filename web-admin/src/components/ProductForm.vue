@@ -68,12 +68,24 @@
       </view>
 
       <view class="card">
-        <picker mode="selector" :range="spNames" @change="onSpChange">
-          <view class="cell row-in">
-            <text class="lbl">{{ locale.t('productForm.shippingProfile') }}</text>
-            <text class="val">{{ spName }}</text>
-          </view>
-        </picker>
+        <!-- 多规格：运费/支付模板由后端按变体存储，这里不再给「商品级」假象，统一引导到规格变体逐条设置 -->
+        <view v-if="isMultiSpec" class="wa-cell">
+          <text class="wa-lbl">{{ $t('productForm.profilePerVariantHint') }}</text>
+        </view>
+        <template v-else>
+          <picker mode="selector" :range="spNames" @change="onSpChange">
+            <view class="cell row-in">
+              <text class="lbl">{{ locale.t('productForm.shippingProfile') }}</text>
+              <text class="val">{{ spName }}</text>
+            </view>
+          </picker>
+          <picker mode="selector" :range="ppNames" @change="onPpChange">
+            <view class="cell row-in">
+              <text class="lbl">{{ locale.t('productForm.paymentProfile') }}</text>
+              <text class="val">{{ ppName }}</text>
+            </view>
+          </picker>
+        </template>
         <view class="wa-cell">
           <text class="wa-lbl">{{ $t('productForm.deliveryDerived') }}</text>
           <text class="wa-readonly">{{ derivedText }}</text>
@@ -82,12 +94,6 @@
           <text class="wa-lbl">{{ $t('productForm.deliveryGotoProfile') }}</text>
           <text class="wa-arrow">›</text>
         </view>
-        <picker mode="selector" :range="ppNames" @change="onPpChange">
-          <view class="cell row-in">
-            <text class="lbl">{{ locale.t('productForm.paymentProfile') }}</text>
-            <text class="val">{{ ppName }}</text>
-          </view>
-        </picker>
         <picker mode="selector" :range="catNames" @change="onCatChange">
           <view class="cell row-in">
             <text class="lbl">{{ locale.t('productForm.category') }}</text>
@@ -132,6 +138,8 @@
       :value="variantMatrix"
       :base="baseFill"
       :variant-id="primaryVariantId"
+      :shipping-profiles="spList"
+      :payment-profiles="ppList"
       @update:value="(o:any)=>variantMatrix=o"
     />
   </view>
@@ -309,6 +317,11 @@ const catNames = computed(() => catList.value.map((i) => i.name));
 const spName = computed(() => spList.value.find((i) => i.id === d.shippingProfileId)?.name || locale.t('productForm.choose'));
 const ppName = computed(() => ppList.value.find((i) => i.id === d.paymentProfileId)?.name || locale.t('productForm.choose'));
 const catName = computed(() => catList.value.find((i) => i.id === d.collectionId)?.name || locale.t('productForm.choose'));
+
+// 是否多规格：运费/支付模板后端按变体存储，多规格时基本信息页只给引导，逐条设置放在「规格变体」
+const isMultiSpec = computed(() =>
+  (variantMatrix.value.groups || []).some((g) => (g?.values || []).some((v) => String(v ?? '').trim() !== '')),
+);
 
 // ---- 多语言：基准槽位 = 默认语言；其余已开启语言走 d.i18n ----
 const languageStore = useLanguageStore();
