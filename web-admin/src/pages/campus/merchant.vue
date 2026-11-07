@@ -1238,11 +1238,9 @@ function ensureAudioCtx(): any {
   return audioCtx;
 }
 
-/** 手势解锁：恢复 AudioContext、刷新播放许可、申请通知权限，并补播被拦队列 */
+/** 手势解锁：恢复 AudioContext、按需刷新播放许可、申请通知权限，并补播被拦队列 */
 function unlockAudio() {
-  markGesture();
-  requestNotifyPermission();
-  void refreshPlaybackPermission().then(() => void drainVoiceQueue());
+  onUserGesture();
 }
 
 /** ===== 播放链路：单例 <audio> + 串行优先级队列（解决安卓"时好时坏"） ===== */
@@ -1312,24 +1310,23 @@ function copyVoiceLog() {
   }
 }
 
-/** 手势内用同一元素静音播 0.1 秒：刷新播放许可；正在出声时跳过，避免打断当前播报 */
-async function refreshPlaybackPermission() {
-  if (playerBusy) return;
+/**
+ * 保活：用「独立的一次性元素」在用户手势里静音播 0.1 秒刷新文档播放许可。
+ * 绝不复用主播放器——否则会和同一手势里的真实播报争用元素、导致第一条被 pause/换源。
+ */
+let keepAliveEl: HTMLAudioElement | null = null;
+async function warmPlaybackPermission() {
   try {
-    const a = getPlayer();
-    a.muted = true;
-    a.volume = 0;
+    const a = keepAliveEl || (keepAliveEl = new Audio());
+    a.preload = 'auto';
     a.src = SILENT_WAV;
+    a.muted = false;
+    a.volume = 1;
     const p = a.play();
     if (p && typeof p.then === 'function') await p.catch(() => {});
-    if (keepAliveTimer) clearTimeout(keepAliveTimer);
-    keepAliveTimer = setTimeout(() => {
-      keepAliveTimer = null;
-      // 只收尾静音握手：此时若已在播真实语音，attemptPlay 会先清掉这个定时器
+    setTimeout(() => {
       try {
         a.pause();
-        a.muted = false;
-        a.volume = 1;
       } catch {
         // 元素已释放无需处理
       }
@@ -1339,11 +1336,21 @@ async function refreshPlaybackPermission() {
   }
 }
 
-/** 每次用户交互：恢复 AudioContext、刷新许可，并立刻补播被拦截的队列 */
+/** 保活只做两次：首次交互、以及上次播放被拦之后；其余交互只补播队列 */
+let permissionWarmed = false;
+
+/** 每次用户交互：恢复 AudioContext、必要时保活，并补播被拦截的队列 */
 function onUserGesture() {
+  // 必须在 markGesture 清标记之前读拦截状态，决定这一下是否要重新取得许可
+  const wasBlocked = playbackBlocked.value;
   markGesture();
   requestNotifyPermission();
-  void refreshPlaybackPermission().then(() => void drainVoiceQueue());
+  if (!permissionWarmed || wasBlocked) {
+    permissionWarmed = true;
+    void warmPlaybackPermission().then(() => void drainVoiceQueue());
+    return;
+  }
+  void drainVoiceQueue();
 }
 
 /** 唤醒锁：工作台可见时保持屏幕常亮，隐藏时释放；失败静默 */
@@ -1470,8 +1477,14 @@ let queueDraining = false;
 /** play() 被浏览器拒绝后置位：等下一次用户手势再继续，期间消息不丢 */
 let blockedAwaitGesture = false;
 const lastVoiceAt: Partial<Record<VoiceKey, number>> = {};
-/** 静音保活的收尾定时器：真实播报开始前必须取消，避免 100ms 后把真实语音 pause 掉 */
-let keepAliveTimer: ReturnType<typeof setTimeout> | null = null;
+/** 每次 attemptPlay 自增：被试听抢占的旧尝试不得再 pause / 抢回调 */
+let playToken = 0;
+/** 队列代次：试听抢占时自增，旧任务在 await 回来后据此放弃降级链 */
+let queueEpoch = 0;
+/** 试听/测试正在直接播放：期间队列暂停消费，播完再继续 */
+let directPlaying = false;
+/** 当前正在等待 ended 的收尾函数：被抢占时立即结束，队列才不会卡 8 秒 */
+let endCurrentPlayback: (() => void) | null = null;
 
 /** 手势信号：恢复 AudioContext、解除拦截标记；不 await 异步播放，保证后续 play() 仍在手势栈内 */
 function markGesture() {
@@ -1491,6 +1504,7 @@ function markGesture() {
  * play() resolve 只代表开始取数据，安卓随后可能静默，不能当成功。
  */
 function attemptPlay(url: string): Promise<'playing' | 'blocked' | 'timeout' | 'error'> {
+  const token = ++playToken;
   return new Promise((resolve) => {
     const a = getPlayer();
     let settled = false;
@@ -1499,6 +1513,11 @@ function attemptPlay(url: string): Promise<'playing' | 'blocked' | 'timeout' | '
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
+      // 已被试听抢占：旧尝试只解除自己的 Promise，绝不再 pause / 清回调（那会打断新播放）
+      if (token !== playToken) {
+        resolve('timeout');
+        return;
+      }
       a.onplaying = null;
       a.onerror = null;
       if (r !== 'playing') {
@@ -1511,11 +1530,6 @@ function attemptPlay(url: string): Promise<'playing' | 'blocked' | 'timeout' | '
       }
       resolve(r);
     };
-    // 真实播报优先：取消静音保活的收尾，避免把这一条语音 pause 掉
-    if (keepAliveTimer) {
-      clearTimeout(keepAliveTimer);
-      keepAliveTimer = null;
-    }
     try {
       a.muted = false;
       a.volume = 1;
@@ -1550,9 +1564,11 @@ function waitPlaybackEnd(): Promise<void> {
       if (timer) clearTimeout(timer);
       a.onended = null;
       a.onerror = null;
+      if (endCurrentPlayback === finish) endCurrentPlayback = null;
       playerBusy = false;
       resolve();
     };
+    endCurrentPlayback = finish;
     a.onended = finish;
     a.onerror = finish;
     timer = setTimeout(finish, 8000);
@@ -1564,23 +1580,27 @@ function waitPlaybackEnd(): Promise<void> {
  * 新订单类可互相顶替；催单/超时/到店缺失时只蜂鸣，绝不错播成「新订单」。
  */
 async function runVoiceJob(job: VoiceJob): Promise<VoiceOutcome> {
+  const epoch = queueEpoch;
   const base = assetBase();
   const candidates: VoiceKey[] = [job.key, ...(NEW_ORDER_FALLBACKS[job.key] || [])];
   for (const k of candidates) {
     const r = await attemptPlay(`${base}/${VOICE_FILES[k]}`);
+    if (epoch !== queueEpoch) return 'skipped'; // 被试听抢占：放弃这条降级链
     if (r === 'blocked') return 'blocked'; // 许可问题换文件无用：整条回队等手势
     if (r === 'playing') {
       await waitPlaybackEnd();
-      return 'playing';
+      return epoch === queueEpoch ? 'playing' : 'skipped';
     }
     // timeout / error：把失败原因留在播报记录里，方便定位是哪条文件/网络的问题
     logVoice(k, r, job.gesture);
   }
+  if (epoch !== queueEpoch) return 'skipped';
   // 合成只用于新订单文案；发音人可能后装，播报前再读一次
   if (NEW_ORDER_KEYS.includes(job.key)) {
     if (zhVoiceStatus.value !== 'ok' || !zhVoice) applyZhVoice();
-    if (zhVoice && await speakByTTS(job.count)) return 'synth';
+    if (zhVoice && await speakByTTS(job.count)) return epoch === queueEpoch ? 'synth' : 'skipped';
   }
+  if (epoch !== queueEpoch) return 'skipped';
   beep();
   return 'beep';
 }
@@ -1621,6 +1641,8 @@ async function drainVoiceQueue(): Promise<void> {
   queueDraining = true;
   try {
     while (voiceQueue.length) {
+      // 试听/测试正在直接播放：队列让位，播完后再继续
+      if (directPlaying) break;
       // 后台/锁屏：不丢弃，只记隐藏时间点，回前台按 TTL 处理
       if (document.visibilityState === 'hidden') {
         for (const j of voiceQueue) if (!j.hiddenAt) j.hiddenAt = Date.now();
@@ -1642,7 +1664,7 @@ async function drainVoiceQueue(): Promise<void> {
       if (blockedAwaitGesture) break;
       voiceQueue.shift();
       const result = await runVoiceJob(job);
-      logVoice(job.key, result, job.gesture);
+      if (result !== 'skipped') logVoice(job.key, result, job.gesture);
       if (result === 'blocked') {
         // 不丢消息：放回队首，等下一次手势立刻补播
         voiceQueue.unshift(job);
@@ -1651,11 +1673,60 @@ async function drainVoiceQueue(): Promise<void> {
         job.resolve('blocked');
         break;
       }
-      playbackBlocked.value = false;
+      if (result !== 'skipped') playbackBlocked.value = false;
       job.resolve(result);
     }
   } finally {
     queueDraining = false;
+  }
+}
+
+/** 丢弃队列里同 key 的待播任务：试听优先，避免同一条播两遍 */
+function dropQueuedKey(key: VoiceKey) {
+  for (let i = voiceQueue.length - 1; i >= 0; i--) {
+    const j = voiceQueue[i];
+    if (j.key === key) {
+      voiceQueue.splice(i, 1);
+      j.resolve('skipped');
+    }
+  }
+}
+
+/** 抢占：立即结束当前播放/在途尝试，让试听在同一手势栈里直接开播 */
+function preemptForDirectPlay() {
+  queueEpoch += 1;
+  try {
+    getPlayer().pause();
+  } catch {
+    // 未播放时 pause 无副作用
+  }
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    // 无合成环境无需处理
+  }
+  const end = endCurrentPlayback;
+  endCurrentPlayback = null;
+  playerBusy = false;
+  if (end) end();
+}
+
+/**
+ * 试听/测试：不排队，在点击手势内直接播放；播完后队列继续。
+ * 目标文件缺失时仍按既有降级链（新订单可互换，提示类只蜂鸣）。
+ */
+async function playDirect(key: VoiceKey, count = 1): Promise<VoiceOutcome> {
+  dropQueuedKey(key);
+  preemptForDirectPlay();
+  directPlaying = true;
+  try {
+    const r = await runVoiceJob({ key, count, gesture: true, priority: 0, hiddenAt: null, resolve: () => {} });
+    if (r !== 'skipped') logVoice(key, r, true);
+    if (r === 'blocked') playbackBlocked.value = true;
+    return r;
+  } finally {
+    directPlaying = false;
+    void drainVoiceQueue();
   }
 }
 
@@ -1704,11 +1775,12 @@ function enableVoiceByGesture() {
   }
 }
 
-/** 实际出声自检：在点击手势的同一调用栈里入队，安卓才不会丢手势 */
+/** 实际出声自检：点击手势内直接播放，不排队、不复用保活元素 */
 function testVoice() {
   enableVoiceByGesture();
   markGesture();
-  void enqueueVoice('new-order-1', 1, true).then((r) => {
+  // 直接播放，不排队：点击的同一调用栈里就 play()，安卓不会丢手势
+  void playDirect('new-order-1', 1).then((r) => {
     uni.showToast({ title: voiceResultText(r), icon: 'none', duration: 3500 });
   });
 }
@@ -1718,7 +1790,7 @@ function auditionVoice(key: VoiceKey) {
   enableVoiceByGesture();
   markGesture();
   const name = voiceLabel(key);
-  void enqueueVoice(key, 1, true).then((r) => {
+  void playDirect(key, 1).then((r) => {
     uni.showToast({ title: `${name}：${voiceResultText(r)}`, icon: 'none', duration: 3500 });
   });
 }
@@ -2217,8 +2289,12 @@ onUnmounted(() => {
     document.removeEventListener('visibilitychange', onPageVisible);
   }
   releaseWakeLock();
-  if (keepAliveTimer) clearTimeout(keepAliveTimer);
-  keepAliveTimer = null;
+  try {
+    keepAliveEl?.pause();
+  } catch {
+    // 忽略
+  }
+  keepAliveEl = null;
   if (zhVoiceListenTimer) clearTimeout(zhVoiceListenTimer);
   if (zhVoiceRetryTimer) clearTimeout(zhVoiceRetryTimer);
   zhVoiceListenTimer = null;
