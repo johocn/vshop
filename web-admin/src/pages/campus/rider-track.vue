@@ -126,6 +126,7 @@ import { usePermGuard } from '../../composables/usePermGuard';
 import { graphQlErrorMsg } from '../../apis/client';
 import { fetchRiderApplications } from '../../apis/rider-audit';
 import { fetchOrderRiderTrack, fetchRiderTrack, type RiderTrack, type RiderTrackPoint } from '../../apis/rider-ledger';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusViewDispatch');
 
@@ -353,10 +354,7 @@ const subjectText = computed(() => {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return fmtBeijing(t, 'mdhms') || '—';
 }
 
 const spanText = computed(() => {

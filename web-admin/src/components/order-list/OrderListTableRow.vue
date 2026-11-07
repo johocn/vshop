@@ -70,6 +70,7 @@ import { computed } from 'vue';
 import { OrderView, fmtMoney, shipColor, isShippable, isUnpaid } from '../../utils/orderFormat';
 import { ORDER_STATES, stateLabel } from '../../constants/orderState';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fmtBeijing } from '../../utils/datetime'
 
 // 桌面表格行（head=true 渲染表头）。variant='compact' 时为紧凑表格（列合并为 7 列、36px 行高、斑马纹）。
 const locale = useLocaleStore();
@@ -102,9 +103,7 @@ function stColor(s: string): string {
 }
 function fmtTime(t: string): string {
   if (!t) return '';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime');
 }
 function goodsBrief(o: OrderView): string {
   const first = o.goods[0];

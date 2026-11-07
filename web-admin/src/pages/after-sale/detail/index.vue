@@ -81,6 +81,7 @@
     <!-- 处理进度时间线（与 C 端同一套 5 节点划分） -->
     <view class="card" v-if="detail">
       <text class="sec-title">{{ $t('afterSale.detail.progressTitle') }}</text>
+      <text class="tz-tip">{{ BEIJING_TZ_LABEL }}</text>
       <view class="tl" v-for="(t, i) in timeline" :key="t.key + i" :class="{ on: t.reached, fail: t.failed, cur: t.current }">
         <view class="dot" />
         <view class="tmeta">
@@ -184,6 +185,7 @@ import {
 } from '../../../constants/afterSaleActions';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
+import { fmtBeijing, BEIJING_TZ_LABEL } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -289,10 +291,7 @@ const restockRows = computed(() => {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 async function refresh() {
@@ -541,6 +540,7 @@ onLoad(async (q) => {
       border-radius: $wa-radius; background: $wa-bg; color: $wa-ink;
       &.main { background: $wa-accent; color: #fff; } }
   }
+  .tz-tip { display: block; font-size: 22rpx; color: $wa-muted; margin-bottom: 12rpx; }
   .card {
     background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .sec-title { display: block; font-size: 26rpx; color: $wa-muted; margin-bottom: 16rpx; }

@@ -63,6 +63,7 @@ import {
 } from '../../../apis/coupon';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -94,9 +95,7 @@ function sourceLabel(o: CouponSaleOrderRow): string {
 
 function fmtDT(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'mdhm');
 }
 
 async function load() {

@@ -114,6 +114,7 @@ import CouponDetailModal from './CouponDetailModal.vue';
 import MarketingModal from './MarketingModal.vue';
 import WinBackModal from './WinBackModal.vue';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fmtBeijing } from '../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -159,9 +160,7 @@ const valueText = (c: CouponTemplateItem): string => {
 
 function fmtDT(t?: string | null): string {
   if (!t) return locale.t('couponList.unlimited');
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return fmtBeijing(t, 'md');
 }
 const validText = (c: CouponTemplateItem): string => {
   if (!c.startsAt && !c.endsAt) return locale.t('couponList.unlimited');

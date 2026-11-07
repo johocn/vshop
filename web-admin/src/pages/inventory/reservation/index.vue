@@ -49,6 +49,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useListPage } from '../../../composables/useListPage';
 import { fetchReservations, releaseReservationAdmin, type Reservation } from '../../../apis/reservation';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -102,7 +103,7 @@ function remainingLabel(r: Reservation): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 function fmt(v: string): string {
-  return v ? new Date(v).toLocaleString() : '—';
+  return fmtBeijing(v, 'datetime-s') || '—';
 }
 function stateClass(s: string): string {
   return s === 'PENDING_ALLOC' ? 'warn' : s === 'RELEASED' ? 'muted' : s === 'DONE' ? 'ok' : '';

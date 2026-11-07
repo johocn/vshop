@@ -70,6 +70,7 @@ import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import LedgerCard from './LedgerCard.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
+import { beijingStamp, beijingDayKey } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -94,9 +95,8 @@ const filteredRows = computed(() => {
   return base.filter((r) => inDateRange(rowTime(r)));
 });
 
-function pad2(n: number): string { return String(n).padStart(2, '0'); }
 function dateKey(d: Date | null): string {
-  return d ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
+  return d ? beijingDayKey(d) : '';
 }
 function fmtY(v: number): string { return fenToYuanFixed(v); }
 
@@ -164,8 +164,7 @@ function onExport() {
     out.push([locale.t('settleLedger.sumDate'), locale.t('settleLedger.sumCount'), locale.t('settleLedger.amount'), '', '', '', '']);
     sums.forEach((s) => out.push([s.date, String(s.count), s.amount, '', '', '', '']));
   }
-  const now = new Date();
-  const name = `收款台账_${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}.csv`;
+  const name = `收款台账_${beijingStamp()}.csv`;
   downloadCsv(name, headers, out);
   uni.showToast({ title: locale.t('settleLedger.exported').replace('{count}', list.length), icon: 'none' });
 }

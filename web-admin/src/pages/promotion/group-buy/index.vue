@@ -64,6 +64,7 @@ import {
   fetchGroupBuyActivities, deleteGroupBuyActivity, GroupBuyActivity, GroupBuyStatus, GroupBuyLeaderRewardType,
 } from '../../../apis/groupBuy';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -92,9 +93,7 @@ const fmtCNY = (cents: number) => ((cents || 0) / 100).toFixed(2).replace(/\.?0+
 
 function fmtDT(t?: string | null): string {
   if (!t) return '-';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'mdhm');
 }
 
 async function load() {

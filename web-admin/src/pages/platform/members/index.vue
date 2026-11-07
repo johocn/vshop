@@ -138,6 +138,7 @@ import { fetchShippingProfiles, type ShippingProfileItem } from '../../../apis/s
 import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
 import PasswordPopup from '../../../components/PasswordPopup.vue';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -197,10 +198,7 @@ function showInfo(m: TenantMemberItem) {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 onShow(load);

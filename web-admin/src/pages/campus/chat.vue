@@ -83,6 +83,7 @@ import { computed, ref } from 'vue';
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing, isSameBeijingDay } from '../../utils/datetime';
 import {
   campusChatConversations,
   campusChatUnread,
@@ -125,13 +126,8 @@ function toast(msg: string) {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  const today = new Date();
-  const sameDay = d.toDateString() === today.toDateString();
-  if (sameDay) return `${p(d.getHours())}:${p(d.getMinutes())}`;
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (isSameBeijingDay(t, new Date())) return fmtBeijing(t, 'hm');
+  return fmtBeijing(t, 'mdhm');
 }
 
 async function loadList(silent = false) {

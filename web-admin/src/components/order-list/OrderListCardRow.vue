@@ -74,6 +74,7 @@ import { computed } from 'vue';
 import { OrderView, fmtMoney, shipColor, isShippable, isUnpaid } from '../../utils/orderFormat';
 import { ORDER_STATES, stateLabel } from '../../constants/orderState';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fmtBeijing } from '../../utils/datetime'
 
 // 手机端单行渲染，按 variant 出三种结构（A 卡片信息流 / B 看板极简卡 / C 高密度两行清单）。
 // blocks 只负责列内细节显隐（showThumb/showAddress/showDeliveryName/stateColors），结构差异由 variant 决定。
@@ -105,9 +106,7 @@ function stColor(s: string): string {
 }
 function fmtTime(t: string): string {
   if (!t) return '';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime');
 }
 // 单行商品摘要：单件 → “名称 ×qty”；多件 → “首件名 ×总件数 等N件”
 function goodsBrief(o: OrderView): string {

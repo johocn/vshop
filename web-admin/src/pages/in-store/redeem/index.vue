@@ -190,8 +190,7 @@ function expLabel(c: PendingInStoreCoupon): string {
   if (d == null) return '—';
   if (isExpiring(c)) return locale.t('inStoreRedeem.expiresSoon').replace('{n}', String(d));
   const dt = new Date(c.expiredAt!);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return locale.t('inStoreRedeem.expiresOn').replace('{date}', `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`);
+  return locale.t('inStoreRedeem.expiresOn').replace('{date}', fmtBeijing(dt, 'date'));
 }
 
 /** 点卡片 → 券码带入输入框并试算（同扫码路径） */
@@ -209,9 +208,7 @@ function fen(v: number | null | undefined): string {
 }
 function fmtDate(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return fmtBeijing(t, 'date');
 }
 
 /** 拉取券信息（不传原价）；原价已在填时顺带试算 */
@@ -317,6 +314,7 @@ function reset() {
 
 // 原价输入变化触发防抖试算（用 watch 保持模板简洁）
 import { watch } from 'vue';
+import { fmtBeijing } from '../../../utils/datetime'
 watch(originalYuan, () => {
   if (quote.value?.couponCode) onAmountInput();
 });

@@ -441,6 +441,7 @@ import { maybeClosingReminder, transitionText } from '../../utils/closing-remind
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusMerchant');
 
@@ -769,14 +770,11 @@ function copyPhone(o: MerchantBoardOrder) {
 }
 
 function hhmm(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return fmtBeijing(iso, 'hm');
 }
 
 function fullTime(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'datetime');
 }
 
 function receiptLabels() {
@@ -1268,9 +1266,7 @@ const VOICE_LOG_MAX = 20;
 const voiceLog = ref<VoiceLogRow[]>([]);
 
 function fmtClock(ts: number): string {
-  const d = new Date(ts);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return fmtBeijing(ts, 'hms');
 }
 
 function voiceLogLine(r: VoiceLogRow): string {

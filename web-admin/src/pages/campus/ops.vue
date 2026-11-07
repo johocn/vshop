@@ -353,6 +353,7 @@ import { fetchRiderApplications } from '../../apis/rider-audit';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusDispatch');
 
@@ -393,9 +394,7 @@ function toast(title: string, ok = false): void {
 
 function fullTime(iso?: string | null): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'datetime');
 }
 
 function preview(urls: string[], index: number): void {

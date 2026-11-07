@@ -12,6 +12,8 @@
       </view>
     </view>
 
+    <text class="tz-tip">{{ BEIJING_TZ_LABEL }}</text>
+
     <!-- 收货 / 自提信息 -->
     <view class="card" v-if="isPickup">
       <text class="sec-title">{{ $t('orderAdmin.orderDetail.pickupInfo') }}</text>
@@ -216,6 +218,7 @@ import { ORDER_STATES, AFTER_SALE_TYPES, stateLabel } from '../../../constants/o
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { fenToYuanFixed } from '../../../utils/money';
+import { fmtBeijing, BEIJING_TZ_LABEL } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -306,10 +309,7 @@ function deliveryStatusLabel(s: string): string {
 
 function fmtTime(iso: string | null): string {
   if (!iso) return '-';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'mdhm') || '-';
 }
 
 function addrHistText(h: CampusAddressChangeRow): string {
@@ -500,6 +500,7 @@ async function onSubmitAdjust() {
       }
     }
   }
+  .tz-tip { display: block; font-size: 22rpx; color: $wa-muted; margin: 4rpx 4rpx 16rpx; }
   .card {
     background: $wa-card; border-radius: $wa-radius; padding: 28rpx 32rpx; margin-bottom: 20rpx;
     .sec-title { display: block; font-size: 26rpx; color: $wa-muted; margin-bottom: 16rpx; }

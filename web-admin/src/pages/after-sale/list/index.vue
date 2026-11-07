@@ -155,6 +155,7 @@ import { downloadCsv, fmtDateTime } from '../../../utils/csv';
 import { useListPage } from '../../../composables/useListPage';
 import { AFTER_SALE_TYPES } from '../../../constants/orderState';
 import { fenToYuanFixed } from '../../../utils/money';
+import { fmtBeijing } from '../../../utils/datetime';
 import {
   AFTER_SALE_TABS,
   afterSaleActions,
@@ -270,10 +271,7 @@ function waitingOver24h(a: AfterSaleRow): boolean {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 function toast(msg: string) {

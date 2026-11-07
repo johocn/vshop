@@ -183,6 +183,7 @@ import { downloadCsv } from '../../utils/csv';
 import { fenToYuanFixed } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { beijingStamp } from '../../utils/datetime'
 
 usePermGuard('CampusViewDispatch');
 const locale = useLocaleStore();
@@ -326,11 +327,9 @@ function quadLabel(q: string): string {
   return QUADRANT_LABEL[q] || QUADRANT_LABEL.slow;
 }
 
-/** 文件名日期戳 YYYYMMDD */
+/** 文件名日期戳 YYYYMMDD（北京时间） */
 function todayStamp(): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  const now = new Date();
-  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+  return beijingStamp().slice(0, 8);
 }
 
 type ExportRange = 'today' | '7d' | '30d';

@@ -184,6 +184,7 @@ import { useLocaleStore } from '../../../stores/localeStore';
 import { useTenantStore } from '../../../stores/tenantStore';
 import { fenToYuanFixed, yuanToFen } from '../../../utils/money';
 import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 const t = (k: string) => locale.t(k);
@@ -328,9 +329,7 @@ function discountLabel(d: { rule: string; label?: unknown }): string {
 
 function fmtDT(t2?: string | null): string {
   if (!t2) return '—';
-  const d = new Date(t2);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t2, 'datetime');
 }
 
 function toggle(id: string) {

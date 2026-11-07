@@ -1,3 +1,4 @@
+import { fmtBeijing } from './datetime';
 // 库存页面（Plan 2）纯函数：金额/时间格式化 + 枚举 → i18n key 映射
 // 约定：金额一律以「分」为单位存储（后端 `value`/`costPrice`/单据金额为 Int 分），仅展示层转元。
 // 全部为无副作用纯函数，便于 `npx tsx --test` 单测。
@@ -72,20 +73,14 @@ export function sortKey(sort: string | null | undefined): string {
   return 'sort.stockAsc';
 }
 
-/** ISO 时间 → 'MM-DD HH:mm'（本地时区）；空/非法 → '' */
+/** ISO 时间 → 'MM-DD HH:mm'（北京时间）；空/非法 → '' */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'mdhm') || '';
 }
 
-/** 日期分组键 'YYYY-MM-DD'（本地时区，流水页按日分组）；空/非法 → '' */
+/** 日期分组键 'YYYY-MM-DD'（北京时间，流水页按日分组）；空/非法 → '' */
 export function dayKey(iso: string | null | undefined): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return fmtBeijing(iso, 'date') || '';
 }

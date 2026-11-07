@@ -237,6 +237,7 @@ import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
 import { downloadCsv } from '../../../utils/csv';
+import { fmtBeijing, beijingStamp } from '../../../utils/datetime';
 import {
   fetchReviewPage, approveReview, rejectReview, replyReview,
   fetchReviewAppeals, approveReviewAppeal, rejectReviewAppeal, revokeReviewAppeal,
@@ -392,9 +393,7 @@ async function exportAlertStats() {
       toast(locale.t('review.alert.exportEmpty'));
       return;
     }
-    const p = (n: number) => String(n).padStart(2, '0');
-    const now = new Date();
-    const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+    const stamp = beijingStamp();
     const total = rows.length;
     const pct = (n: number) => String(Math.round((n / total) * 1000) / 10);
     const add = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
@@ -448,9 +447,7 @@ async function exportAlerts() {
       toast(locale.t('review.alert.exportEmpty'));
       return;
     }
-    const p = (n: number) => String(n).padStart(2, '0');
-    const now = new Date();
-    const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+    const stamp = beijingStamp();
     downloadCsv(
       `${locale.t('review.alert.exportFileName')}${range.tag}-${stamp}.csv`,
       [
@@ -636,10 +633,7 @@ function customerText(r: ReviewRow): string {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 function previewImages(images: string[], current: number) {

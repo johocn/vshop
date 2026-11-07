@@ -187,6 +187,7 @@ import { fetchStocktakeDiff, fetchStocktakeTask, postStocktake, stocktakeExport,
 import { toCsv, VARIANCE_CSV_COLUMNS } from '../../../utils/stocktake-grid';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
+import { fmtBeijing, beijingStamp } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -211,9 +212,7 @@ const printTask = ref<StocktakeTask | null>(null);
  */
 function currentStamp() {
   const frozen = (window as any).__STOCKTAKE_PRINT_AT__;
-  const d = frozen ? new Date(frozen) : new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(frozen ? new Date(frozen) : new Date(), 'datetime');
 }
 const printAt = ref(currentStamp());
 
@@ -258,9 +257,7 @@ function saveText(filename: string, mimeType: string, content: string) {
 }
 
 function stampName(kind: string) {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `stocktake-${taskCode.value || 'task'}-${kind}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}.csv`;
+  return `stocktake-${taskCode.value || 'task'}-${kind}-${beijingStamp()}.csv`;
 }
 
 /** 当前视图导出（规格 §3.4）：内存数据即时落盘，不等待网络 */

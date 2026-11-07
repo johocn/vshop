@@ -77,6 +77,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
 import { fetchFeedbackPage, updateFeedbackStatus, replyFeedback, parseFeedbackImgs, type FeedbackRow } from '../../../apis/feedback';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -122,10 +123,7 @@ function preview(urls: string[], current: number) {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 function toast(msg: string) {

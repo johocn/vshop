@@ -19,6 +19,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import type { PickBatch } from '../../apis/picking';
+import { fmtBeijing } from '../../utils/datetime'
 
 const props = defineProps<{ batch: PickBatch; warehouseName?: string }>();
 const emit = defineEmits<{ (e: 'open'): void }>();
@@ -37,7 +38,7 @@ const stateClass = computed(() => {
 });
 
 // 时间只取到分钟，避免卡片上出现秒级噪音
-const createdLabel = computed(() => String(props.batch.createdAt || '').replace('T', ' ').slice(0, 16));
+const createdLabel = computed(() => fmtBeijing(props.batch.createdAt, 'datetime'));
 </script>
 
 <style lang="scss" scoped>

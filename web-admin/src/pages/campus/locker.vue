@@ -185,6 +185,7 @@ import { graphQlErrorMsg } from '../../apis/client';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 type TabKey = 'stations' | 'channel';
 
@@ -215,9 +216,7 @@ function toast(title: string, ok = false): void {
 
 function fullTime(iso?: string | null): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'datetime');
 }
 
 // ===== 站点列表 =====

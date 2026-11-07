@@ -120,6 +120,7 @@ import {
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusMerchant');
 
@@ -181,9 +182,7 @@ function waitText(tk: CampusKitchenTicket): string {
 }
 
 function hhmm(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return fmtBeijing(iso, 'hm') || '';
 }
 
 function startTimer(): void {

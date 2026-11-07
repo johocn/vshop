@@ -87,6 +87,7 @@ import {
 } from '../../apis/telemetry';
 import { telemetryEnabled, track } from '../../utils/telemetry';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusViewDispatch');
 
@@ -121,10 +122,7 @@ function barHeight(n: number): string {
 
 function fmt(iso: string): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso).slice(5, 16);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return fmtBeijing(iso, 'mdhm');
 }
 
 async function loadStats() {

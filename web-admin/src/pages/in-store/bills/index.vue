@@ -72,6 +72,7 @@ import {
 } from '../../../apis/in-store-bill';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -96,9 +97,7 @@ function dayEnd(v: string): string { return `${v}T23:59:59.999Z`; }
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime');
 }
 
 async function loadPage(append: boolean) {

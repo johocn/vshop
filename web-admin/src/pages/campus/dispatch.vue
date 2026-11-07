@@ -196,6 +196,7 @@ import { yuanToFen, fenToYuanFixed } from '../../utils/money';
 import { useLocaleStore } from '../../stores/localeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusViewDispatch');
 
@@ -342,8 +343,7 @@ function handledDetail(h: HandedException): string {
 
 function hhmm(iso: string | null): string {
   if (!iso) return '-';
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return fmtBeijing(iso, 'hm');
 }
 
 function waitMin(hallEnteredAt: string | null): string | null {

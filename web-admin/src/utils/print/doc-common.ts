@@ -1,6 +1,7 @@
 // 打印单据共用渲染工具（计划外新增的共享模块，见偏差 26）
 // 目的：四个模板（拣货单/发货单/包裹标签/批次总览）共用的转义、时间格式化、文档外壳与文案默认值集中一处，
 // 全部为**纯函数**（不依赖 DOM / uni / 网络），可在 Node 下直接单测。
+import { fmtBeijing } from '../datetime';
 
 /** HTML 转义：所有动态文本（商品名、地址、客户名）都必须过这里，避免 < > 破坏单据结构 */
 export function esc(v: unknown): string {
@@ -15,10 +16,9 @@ const ESC_MAP: Record<string, string> = {
   "'": '&#39;',
 };
 
-/** 本地时间（单据上的打印时间用本地时区，不用 UTC），格式 YYYY-MM-DD HH:mm */
+/** 单据打印时间统一按北京时间（UTC+8），格式 YYYY-MM-DD HH:mm */
 export function fmtTime(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(d, 'datetime');
 }
 
 /** 单据文案默认值（中文）。调用方可传入本地化 labels 覆盖，模板内不读 i18n（保持纯函数） */

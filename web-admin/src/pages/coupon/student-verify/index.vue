@@ -59,6 +59,7 @@ import { ref, onMounted } from 'vue';
 import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { fetchStudentVerifications, reviewStudentVerification, type StudentVerificationItem } from '../../../apis/student-verification';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -75,7 +76,7 @@ const STATUS_LABELS: Record<string, string> = {
   none: '', pending: '待审核', approved: '已通过', rejected: '已驳回',
 };
 const statusLabel = (s: string) => locale.t(`studentVerify.status_${s}`) !== `studentVerify.status_${s}` ? locale.t(`studentVerify.status_${s}`) : (STATUS_LABELS[s] || s);
-const fmtDT = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+const fmtDT = (iso?: string | null) => fmtBeijing(iso, 'datetime-s') || '—';
 
 function previewImg(url: string) {
   uni.previewImage({ urls: [url] });

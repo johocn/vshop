@@ -57,6 +57,7 @@ import { ref } from 'vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
 import { fetchPointsOrdersAdmin, markPointsOrderPaid, markPointsOrderShipped, markPointsOrderCompleted, type PointsOrderRow, type PointsOrderPaymentRow } from '../../../apis/points-mall';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -90,10 +91,7 @@ function onTab(key: string) {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 /** cashTotal 分 → 元 */

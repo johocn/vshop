@@ -98,6 +98,7 @@ import { fenToYuanFixed } from '../../utils/money';
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusConfig');
 
@@ -198,10 +199,7 @@ function statusLabel(r: CampusAddressChangeRow): string {
 
 function fmtTime(iso: string | null): string {
   if (!iso) return '-';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(iso, 'mdhm') || '-';
 }
 
 async function settle(r: CampusAddressChangeRow, action: string): Promise<void> {

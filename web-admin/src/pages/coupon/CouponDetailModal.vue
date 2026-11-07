@@ -57,6 +57,7 @@ import {
   type CustomerCouponRow, type CouponTemplateItem,
 } from '../../apis/coupon';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fmtBeijing } from '../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -104,9 +105,7 @@ function customerText(r: CustomerCouponRow): string {
 
 function fmtDT(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'mdhm');
 }
 const statusLabel = (s: string) => COUPON_STATUS_LABELS[s] || s;
 const issuedByLabel = (s: string) => COUPON_ISSUED_BY_LABELS[s] || s;

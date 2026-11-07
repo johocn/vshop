@@ -170,6 +170,7 @@ import { getByPath, setByPath } from '../../../utils/config-path';
 import { cleanLocaleMap, localeMapBytes, type LocaleMap } from '../../../utils/i18n-map';
 import LocaleTabs from '../../../components/LocaleTabs.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -294,7 +295,7 @@ const agreementSaving = ref(false);
 const agreementErr = ref('');
 const agreementUpdatedAt = computed(() => {
   const t = (defs.value?.agreement as any)?.updatedAt;
-  return typeof t === 'string' ? t.slice(0, 10) : '';
+  return typeof t === 'string' ? fmtBeijing(t, 'date') : '';
 });
 
 async function saveAgreement() {

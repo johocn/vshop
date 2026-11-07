@@ -3,6 +3,7 @@
 // - 在线支付单结算即 PAID。
 // 门店管理按当前渠道隔离（backend 按 tenantChannelId 过滤）。
 import { getAdminClient, graphQlErrorMsg } from './client';
+import { isSameBeijingDay } from '../utils/datetime'
 
 export interface SettlementLedgerRow {
   id: string;
@@ -62,16 +63,11 @@ export function rowTime(r: SettlementLedgerRow): Date | null {
   return toDate(r.collectedAt) || toDate(r.occurredAt);
 }
 
-/** 是否今天 */
+/** 是否北京时间的今天 */
 export function isToday(value?: string | null): boolean {
   const d = toDate(value);
   if (!d) return false;
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
+  return isSameBeijingDay(d, new Date());
 }
 
 export async function fetchSettlementLedgers(orderId?: string): Promise<SettlementLedgerRow[]> {

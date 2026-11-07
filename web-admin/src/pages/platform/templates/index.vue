@@ -206,6 +206,7 @@ import { graphQlErrorMsg } from '../../../apis/client';
 // 跨端共用版式注册元数据（与 C 端 templates/shared 同源；若 vite 限制项目外读取，见 src/constants/layout-meta.ts fallback 方案）
 import { LAYOUT_META } from '../../../../../src/templates/shared/layout-meta';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -367,10 +368,7 @@ function appLabel(a: string): string {
 
 // UTC 串直接截取会差 8 小时
 function fmtTime(s: string): string {
-  const d = new Date(s);
-  if (!s || Number.isNaN(d.getTime())) return s ? String(s).replace('T', ' ').slice(0, 16) : '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(s, 'datetime');
 }
 
 function previewText(t: ShopTemplate): string {

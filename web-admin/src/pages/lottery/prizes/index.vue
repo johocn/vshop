@@ -100,6 +100,7 @@ import { useListPage } from '../../../composables/useListPage';
 import { fetchLotteryPrizes, createLotteryPrize, updateLotteryPrize, deleteLotteryPrize, fetchLotteryRecords, type LotteryPrizeRow, type LotteryRecordRow } from '../../../apis/lottery';
 import type { AssetItem } from '../../../apis/asset';
 import MediaLibraryModal from '../../../components/MediaLibraryModal.vue';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -148,10 +149,7 @@ function onTab(key: string) {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 const imgModalVisible = ref(false);

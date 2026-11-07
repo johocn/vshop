@@ -169,6 +169,7 @@ import { renderBatchOverview } from '../../../utils/print/templates/batch-overvi
 import { renderParcelLabel } from '../../../utils/print/templates/parcel-label';
 import { renderPickingList } from '../../../utils/print/templates/picking-list';
 import { renderShippingNote } from '../../../utils/print/templates/shipping-note';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 // 库位三档门控：本项目唯一判定入口，禁止在此另写 if
@@ -218,10 +219,7 @@ const stateClass = computed(() => {
 
 // UTC 串直接截取会差 8 小时：ISO → 本地「YYYY-MM-DD HH:mm」（createdLabel 与 fmtAt 共用，统一口径）
 function toLocalMinute(v?: string | null): string {
-  const d = new Date(v || '');
-  if (!v || Number.isNaN(d.getTime())) return v ? String(v).replace('T', ' ').slice(0, 16) : '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(v || '', 'datetime');
 }
 
 const createdLabel = computed(() => toLocalMinute(batch.value?.createdAt));

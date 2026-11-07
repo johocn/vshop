@@ -73,6 +73,7 @@ import {
 } from '../../../apis/paymentTimeout';
 import { graphQlErrorMsg } from '../../../apis/client';
 import { useLocaleStore } from '../../../stores/localeStore';
+import { fmtBeijing } from '../../../utils/datetime'
 
 const t = useLocaleStore().t;
 
@@ -102,7 +103,7 @@ const typeLabel = (v: string) => typeOptions.find((s) => s.value === v)?.label ?
 // PENDING 显示剩余分钟倒计时 / 已逾期；终态显示到期时间
 function dueText(r: PaymentTimeoutTaskRow): string {
   const due = new Date(r.dueAt);
-  if (r.status !== 'PENDING') return due.toLocaleString();
+  if (r.status !== 'PENDING') return fmtBeijing(due, 'datetime-s');
   const diff = due.getTime() - Date.now();
   return diff > 0 ? `${t('ptTable.leftIn')} ${Math.ceil(diff / 60000)} ${t('ptTable.min')}` : t('ptTable.overdue');
 }

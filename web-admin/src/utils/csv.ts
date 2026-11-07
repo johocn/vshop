@@ -1,4 +1,5 @@
 // utils/csv.ts —— H5 CSV 导出（Blob + BOM，Excel 中文兼容）
+import { fmtBeijing } from './datetime';
 export function downloadCsv(filename: string, headers: string[], rows: string[][]): void {
   const esc = (v: string): string => {
     const s = String(v ?? '');
@@ -17,6 +18,5 @@ export function downloadCsv(filename: string, headers: string[], rows: string[][
 }
 
 export function fmtDateTime(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(d, 'datetime');
 }

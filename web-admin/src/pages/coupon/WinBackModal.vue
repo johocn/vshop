@@ -56,6 +56,7 @@ import {
   type CouponTemplateItem, type CouponGrantBatchRow,
 } from '../../apis/coupon';
 import { useLocaleStore } from '../../stores/localeStore';
+import { fmtBeijing } from '../../utils/datetime'
 
 const locale = useLocaleStore();
 
@@ -80,9 +81,7 @@ function templateName(id: string | number): string {
 
 function fmtDT(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'mdhm');
 }
 
 /** 批次明细摘要（前 10 行）：客户 · 成功券码 / 失败原因 */

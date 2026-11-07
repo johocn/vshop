@@ -67,6 +67,7 @@ import { scanCode } from '../../../utils/scanner';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { fenToYuanFixed } from '../../../utils/money';
+import { fmtBeijing, isSameBeijingDay } from '../../../utils/datetime'
 
 const locale = useLocaleStore();
 const auth = useAuthStore();
@@ -94,25 +95,23 @@ function st(status?: string): { label: string; color: string } {
 
 function formatTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime');
 }
 
-/** 有效期人性化展示（状态判断优先） */
+/** 有效期人性化展示（状态判断优先，按北京时间） */
 function formatExpiry(t?: string | null, status?: string): string {
   if (!t) return '—';
   if (status === 'expired') return locale.t('pickupRedeem.statusExpired');
   const d = new Date(t);
   const now = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
-  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const hm = fmtBeijing(t, 'hm');
+  const sameDay = isSameBeijingDay(t, now);
   const ms = d.getTime() - now.getTime();
   if (ms <= 0) return locale.t('pickupRedeem.expired');
   if (sameDay) return locale.t('pickupRedeem.todayExpire').replace('{hm}', hm);
   if (ms < 24 * 3600_000) return locale.t('pickupRedeem.leftHours').replace('{hours}', String(Math.max(1, Math.ceil(ms / 3600_000)))).replace('{hm}', hm);
-  return locale.t('pickupRedeem.dateExpire').replace('{m}', p(d.getMonth() + 1)).replace('{d}', p(d.getDate())).replace('{hm}', hm);
+  const md = fmtBeijing(t, 'md');
+  return locale.t('pickupRedeem.dateExpire').replace('{m}', md.slice(0, 2)).replace('{d}', md.slice(3, 5)).replace('{hm}', hm);
 }
 
 /** 分（Vendure Money）→ 元 */

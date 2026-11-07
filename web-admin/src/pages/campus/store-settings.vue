@@ -278,6 +278,7 @@ import {
 import { graphQlErrorMsg } from '../../apis/client';
 import { useLocaleStore } from '../../stores/localeStore';
 import { usePermGuard } from '../../composables/usePermGuard';
+import { fmtBeijing } from '../../utils/datetime'
 
 usePermGuard('CampusMerchant');
 
@@ -293,13 +294,11 @@ const form = ref({ businessHours: '', storeNotice: '', storePhone: '' });
 /** 每日日报推送（§86）：开关 + HH:MM 时间，保存走 campusMerchantUpdateDailyPush */
 const dailyBusy = ref(false);
 const dailyForm = ref({ enabled: false, time: '21:30' });
-/** 失败原因可见（§119）：epoch ms → 「MM-DD HH:MM」，无可见失败时为空串 */
+/** 失败原因可见（§119）：epoch ms → 「MM-DD HH:MM」（北京时间），无可见失败时为空串 */
 const dailyFailText = computed(() => {
   const ms = Number((profile.value as any)?.dailyPushLastFailAt ?? 0);
   if (!ms) return '';
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const at = `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const at = fmtBeijing(ms, 'mdhm');
   const reason = String((profile.value as any)?.dailyPushLastFailReason || '') || locale.t('campusStoreSettings.dailyPushUnknownFail');
   return locale.t('campusStoreSettings.dailyPushLastFail').replace('{time}', at).replace('{reason}', reason);
 });

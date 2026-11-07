@@ -105,6 +105,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import BottomBar from '../../../components/BottomBar.vue';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
+import { fmtBeijing } from '../../../utils/datetime';
 import {
   fetchRiderApplications,
   campusSetRiderStatus,
@@ -214,10 +215,7 @@ const cd = reactive<RiderComplianceInput>({
 
 function dateText(v?: string | null): string {
   if (!v) return '';
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return fmtBeijing(v, 'date') || '';
 }
 
 type Level = 'ok' | 'expiring' | 'blocked' | 'pending';

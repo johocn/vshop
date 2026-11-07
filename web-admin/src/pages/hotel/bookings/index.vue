@@ -103,6 +103,7 @@ import { useLocaleStore } from '../../../stores/localeStore';
 import { useListPage } from '../../../composables/useListPage';
 import { fenToYuanFixed } from '../../../utils/money';
 import { scanCode } from '../../../utils/scanner';
+import { fmtBeijing } from '../../../utils/datetime';
 import {
   fetchHotelBookings,
   checkInBooking,
@@ -163,10 +164,7 @@ function fenToYuan(v?: number): string {
 
 function fmtTime(t?: string | null): string {
   if (!t) return '—';
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return fmtBeijing(t, 'datetime') || '—';
 }
 
 function pulseHighlight(): void {
