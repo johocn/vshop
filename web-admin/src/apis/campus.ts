@@ -248,6 +248,8 @@ export interface MerchantBoardOrder {
   provider: string | null; // 外部快递：dada | meituan
   thirdPartyNo: string | null; // 外部快递平台单号
   handoverCode: string | null; // 交接码（第一段送达交接点后生成，骑手取货核对）
+  /** 配送状态：assigned=已接单未取餐 / in_progress=已取餐在途 */
+  deliveryStatus: string | null;
   customerPhone: string | null; // 顾客手机号（脱敏，号码保护同口径）；工作台检索/联系用
   /** 顾客催单待处理（§78）：顾客催过且商家未「已知晓」 */
   urged: boolean;
@@ -396,7 +398,7 @@ export interface MerchantRevenue {
 }
 
 const ORDER_FIELDS =
-  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode customerPhone urged urgedAt lines { name quantity price }';
+  'id code createdAt total shipping building zone slotText route riderName printedAt provider thirdPartyNo handoverCode deliveryStatus customerPhone urged urgedAt lines { name quantity price }';
 
 export async function campusMerchantBoard(): Promise<CampusMerchantBoard> {
   const res = await getAdminClient().request<{ campusMerchantBoard: CampusMerchantBoard }>(
@@ -2811,6 +2813,15 @@ export async function campusMerchantAcceptOwned(orderId: string): Promise<boolea
     { orderId },
   );
   return res.campusMerchantAcceptOwned.ok;
+}
+
+/** 自营快递确认取餐（assigned → in_progress，写 pickedUpAt：此后不再被自动回收） */
+export async function campusMerchantPickupOwned(orderId: string): Promise<boolean> {
+  const res = await getAdminClient().request<{ campusMerchantPickupOwned: { ok: boolean } }>(
+    `mutation ($orderId: ID!) { campusMerchantPickupOwned(orderId: $orderId) { ok } }`,
+    { orderId },
+  );
+  return res.campusMerchantPickupOwned.ok;
 }
 
 /** R1：商户把餐送到校园交接点（之后传信者接力） */
