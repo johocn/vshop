@@ -393,7 +393,7 @@ async function exportAlertStats() {
       toast(locale.t('review.alert.exportEmpty'));
       return;
     }
-    const stamp = beijingStamp();
+    const stamp = beijingStamp().slice(0, 8);
     const total = rows.length;
     const pct = (n: number) => String(Math.round((n / total) * 1000) / 10);
     const add = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
@@ -447,7 +447,7 @@ async function exportAlerts() {
       toast(locale.t('review.alert.exportEmpty'));
       return;
     }
-    const stamp = beijingStamp();
+    const stamp = beijingStamp().slice(0, 8);
     downloadCsv(
       `${locale.t('review.alert.exportFileName')}${range.tag}-${stamp}.csv`,
       [

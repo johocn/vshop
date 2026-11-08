@@ -164,7 +164,8 @@ function onExport() {
     out.push([locale.t('settleLedger.sumDate'), locale.t('settleLedger.sumCount'), locale.t('settleLedger.amount'), '', '', '', '']);
     sums.forEach((s) => out.push([s.date, String(s.count), s.amount, '', '', '', '']));
   }
-  const name = `收款台账_${beijingStamp()}.csv`;
+  const stamp = beijingStamp();
+  const name = `收款台账_${stamp.slice(0, 8)}_${stamp.slice(8)}.csv`;
   downloadCsv(name, headers, out);
   uni.showToast({ title: locale.t('settleLedger.exported').replace('{count}', list.length), icon: 'none' });
 }

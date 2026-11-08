@@ -268,7 +268,7 @@ import { buildOrderFilter } from '../../../utils/orderFilter';
 import { downloadCsv } from '../../../utils/csv';
 import { useLocaleStore } from '../../../stores/localeStore';
 import { fenToYuanFixed } from '../../../utils/money';
-import { beijingStamp } from '../../../utils/datetime';
+import { fmtBeijing } from '../../../utils/datetime';
 import {
   buildOpsWindow,
   sumShippedItems,
@@ -432,7 +432,7 @@ function barWidth(r: TrendPointRow): string {
 
 function exportCsv(): void {
   downloadCsv(
-    `ops-report-${days.value}d-${beijingStamp()}.csv`,
+    `ops-report-${days.value}d-${fmtBeijing(new Date(), 'date')}.csv`,
     [locale.t('dataDashboard.ops.csvDay'), locale.t('dataDashboard.ops.csvExpected'), locale.t('dataDashboard.ops.csvDiff')],
     varRows.value.map((r) => [r.day, String(r.expected), String(r.diff)]),
   );
